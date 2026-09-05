@@ -24,7 +24,7 @@ jobs:
           SITE_ANALYTICS: ${{ vars.SITE_ANALYTICS }}
           SITE_ORIGIN: https://emersonjoe.github.io
         run: cd site && go run ../cmd/trilha export -o ../_site --base /trilha
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
   deploy:
