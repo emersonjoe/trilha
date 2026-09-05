@@ -34,7 +34,8 @@ usado por outra goroutine depois que o handler devolve.
 | `Status(code)` | status que a próxima renderização de página vai usar |
 | `Header(k, v)` | define um cabeçalho de resposta |
 | `SetCookie(*http.Cookie)` | adiciona `Set-Cookie` |
-| `Writer() http.ResponseWriter` | acesso direto (streaming, SSE) |
+| `Stream() *Stream` | resposta em Server-Sent Events: `Send(evento, dados)`, `JSON(evento, v)`, `Comment(s)`, `Done()`; desliga o *write timeout* ([IA e agentes](/aprender/ia-e-agentes)) |
+| `Writer() http.ResponseWriter` | acesso direto (downloads longos, WebSocket) |
 | `Written() bool` | se a resposta já começou |
 
 ## Entre página e layout

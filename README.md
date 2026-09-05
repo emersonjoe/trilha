@@ -150,6 +150,25 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 }
 ```
 
+## IA e agentes
+
+`ai` fala o protocolo de chat da OpenAI (funciona com OpenAI, Groq, Mistral, OpenRouter, Ollama,
+LM Studio, vLLM...), com ferramentas tipadas, agentes, handoffs e streaming; `ai/mcp` usa e
+expõe ferramentas pelo Model Context Protocol. Tudo sem dependências externas.
+
+```go
+clima := ai.NewTool("clima", "Temperatura em uma cidade.",
+    ai.Schema(`{"type":"object","properties":{"cidade":{"type":"string"}},"required":["cidade"]}`),
+    ai.Typed(func(ctx context.Context, in struct{ Cidade string }) (string, error) {
+        return buscarTemperatura(ctx, in.Cidade)
+    }))
+agente := &ai.Agent{Name: "Assistente", Instructions: "Responda em português.", Tools: []*ai.Tool{clima}}
+res, err := ai.Run(ctx, ai.NewFromEnv(), agente, "Está frio em Curitiba?")
+```
+
+Veja `examples/assistente` (chat em streaming com `c.Stream()`, handoff para um tradutor e
+servidor MCP em `/mcp`) e o capítulo [IA e agentes](https://emersonjoe.github.io/trilha/aprender/ia-e-agentes).
+
 ## Como funciona
 
 `trilha gen` varre `app/` com `go/ast` e escreve `trilha_gen.go` (commitado): um
@@ -169,7 +188,7 @@ traversal, logs `slog` sem corpo nem cookies.
 
 ## Fora do escopo (por enquanto)
 
-Componentes cliente/hidratação, streaming, geração estática, rotas paralelas. Interatividade no cliente fica em `public/*.js` (ou htmx).
+Componentes cliente/hidratação e rotas paralelas. Interatividade no cliente fica em `public/*.js` (ou htmx).
 
 ## Licença
 
@@ -191,7 +210,7 @@ make dev-example # trilha dev em examples/blog
 make reload      # mede o ciclo editar→ver
 ```
 
-Projeto guiado por spec-kit: veja `specs/` (001 núcleo, 002 grupos/templates/estáticos) e
+Projeto guiado por spec-kit: veja `specs/` (001 núcleo, 002 grupos/templates/estáticos, 003 export, 004 segurança, 005 IA) e
 `.specify/memory/constitution.md`.
 
 ---

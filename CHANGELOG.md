@@ -6,6 +6,10 @@ versionamento semântico.
 ## Não lançado
 
 ### Adicionado
+- IA (spec 005): pacote `ai` (cliente OpenAI-compatível com `Chat`/`Stream`, `Tool`/`Typed`,
+  `Agent` com `Run`/`RunStream`, handoffs, `AsTool`, `Parallel`, `Chain`) e `ai/mcp` (cliente
+  e servidor MCP por stdio e Streamable HTTP); `c.Stream()` para Server-Sent Events;
+  exemplo `examples/assistente`.
 - Segurança (spec 004): `Config.Security` (CSP com nonce por requisição, HSTS, Permissions-Policy,
   COOP), `Config.TrustedProxies` e `c.ClientIP()`, `Config.RateLimit` e `trilha.Limit`, cookies
   assinados (`c.SetSigned`/`c.Signed`, `TRILHA_SECRET`/`TRILHA_SECRET_PREVIOUS`), `Config.Timeouts`,

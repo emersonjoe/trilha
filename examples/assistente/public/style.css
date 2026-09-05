@@ -1,0 +1,23 @@
+:root { --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --muted:#5b6470; --line:#e3e6ea; --acc:#1f6feb; }
+* { box-sizing: border-box; }
+body { margin:0; font: 15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+header nav { display:flex; gap:1rem; padding:.75rem 1.25rem; background:var(--card); border-bottom:1px solid var(--line); }
+header a { color:var(--ink); text-decoration:none; font-weight:600; }
+main { display:grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap:1.25rem; padding:1.25rem; max-width:1100px; margin:0 auto; }
+@media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+.chat { background:var(--card); border:1px solid var(--line); border-radius:12px; display:flex; flex-direction:column; min-height:70vh; }
+#mensagens { flex:1; overflow:auto; padding:1rem; display:flex; flex-direction:column; gap:.5rem; }
+.msg { max-width:85%; padding:.6rem .8rem; border-radius:10px; white-space:pre-wrap; }
+.msg.usuario { align-self:flex-end; background:var(--acc); color:#fff; }
+.msg.assistente { align-self:flex-start; background:#eef1f5; }
+.msg.passo { align-self:flex-start; font-size:.85em; color:var(--muted); background:transparent; padding:.1rem .4rem; }
+.msg.erro { align-self:stretch; background:#fde8e8; color:#8a1c1c; }
+#form { display:flex; gap:.5rem; padding:.75rem; border-top:1px solid var(--line); }
+#form input { flex:1; padding:.6rem .8rem; border:1px solid var(--line); border-radius:8px; font:inherit; }
+#form button { padding:.6rem 1rem; border:0; border-radius:8px; background:var(--acc); color:#fff; font:inherit; cursor:pointer; }
+#form button:disabled { opacity:.6; }
+.estado { margin:0; padding:0 .75rem .5rem; color:var(--muted); font-size:.85em; min-height:1.5em; }
+.info { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1rem; color:var(--muted); }
+.info h2 { font-size:1rem; margin:.25rem 0 .5rem; color:var(--ink); }
+.info ul { padding-left:1.1rem; }
+code { background:#eef1f5; padding:.05em .3em; border-radius:4px; font-size:.9em; }

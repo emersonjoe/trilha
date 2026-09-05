@@ -8,6 +8,8 @@ description: Os pacotes do Trilha e o que cada um faz.
 | `trilha` | `github.com/emersonjoe/trilha` | runtime: `App`, `Ctx`, erros, CSRF, estáticos, export |
 | `h` | `github.com/emersonjoe/trilha/h` | DSL de HTML |
 | `tmpl` | `github.com/emersonjoe/trilha/tmpl` | adaptador para `html/template` |
+| `ai` | `github.com/emersonjoe/trilha/ai` | cliente OpenAI-compatível, ferramentas, agentes |
+| `ai/mcp` | `github.com/emersonjoe/trilha/ai/mcp` | cliente e servidor MCP |
 | CLI | `github.com/emersonjoe/trilha/cmd/trilha` | `new`, `gen`, `dev`, `build`, `routes`, `export` |
 
 Nenhum deles depende de nada fora da biblioteca padrão. Compatível com Go 1.22 ou mais novo.
