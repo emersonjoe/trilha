@@ -213,12 +213,31 @@ Segurança por padrão: escape de HTML, `nosniff`/`X-Frame-Options`/`Referrer-Po
 limite de corpo (1 MiB), CSRF por double-submit cookie em formulários, estáticos sem path
 traversal, logs `slog` sem corpo nem cookies.
 
+## Saúde e observabilidade
+
+Todo app já responde `/_trilha/health/live` (o processo atende) e `/_trilha/health/ready`
+(as dependências que você registrou com `a.Check` respondem, com prazo e cache). Para quem
+não está autorizado, a resposta é só `{"status":"fail"}`: nome de dependência e mensagem de
+erro ficam no log, não na rede.
+
+```go
+a.Check("banco", func(ctx context.Context) error { return db.PingContext(ctx) })
+```
+
+O endereço de métricas é opt-in (`TRILHA_METRICS` ou `Observability.Metrics`) e exige token
+ou rede confiável. Ele fala o formato de texto do Prometheus, com requisições, latência,
+requisições em voo, eventos de segurança, pânicos e runtime do Go — mais as suas
+(`a.Metrics().Counter(...)`). O rótulo de rota é sempre o padrão registrado, nunca o
+caminho concreto. Detalhes em
+[Saúde e observabilidade](https://emersonjoe.github.io/trilha/aprender/observabilidade).
+
 ## Desempenho
 
 `make bench` mede o custo do Trilha sobre `net/http` + `html/template` (módulo `bench/`,
 separado). Resumo na máquina de referência: `h` renderiza a página de exemplo ~34 % mais
 rápido que `html/template`; o custo fixo por requisição (id, nonce da CSP, cabeçalhos, log
-estruturado) é de ~3 µs. Metodologia, números e uma comparação de abordagem com outros
+estruturado) é de ~3 µs, e a instrumentação de métricas, quando ligada, não acrescenta
+nenhuma alocação. Metodologia, números e uma comparação de abordagem com outros
 frameworks em [Desempenho e comparação](https://emersonjoe.github.io/trilha/referencia/desempenho).
 
 ## Fora do escopo (por enquanto)

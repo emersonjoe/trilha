@@ -120,6 +120,29 @@ func BenchmarkMiddleware5_Trilha(b *testing.B) {
 }
 func BenchmarkMiddleware5_Stdlib(b *testing.B) { run(b, stdlibMux(0), "/mw") }
 
+// ---- observability: what the instrumentation costs (spec 014) -------------
+
+// metricsApp is the same app with the Prometheus endpoint configured, which
+// is what turns request instrumentation on.
+func metricsApp(on bool) *trilha.App {
+	cfg := trilha.Config{Logger: quiet(), Env: trilha.Prod}
+	if on {
+		cfg.Observability = trilha.Observability{Metrics: "/_trilha/metrics", Token: strings.Repeat("k", 32)}
+	}
+	a := trilha.New(cfg)
+	// A tiny handler, so what is being measured is the instrumentation and
+	// not the response body.
+	a.Register(trilha.Route{Pattern: "/ping", Methods: map[string]trilha.HandlerFunc{"GET": func(c *trilha.Ctx) error { return c.Text(200, "pong") }}})
+	return a
+}
+
+func BenchmarkPing_MetricsOff(b *testing.B) { run(b, metricsApp(false).Handler(), "/ping") }
+func BenchmarkPing_MetricsOn(b *testing.B)  { run(b, metricsApp(true).Handler(), "/ping") }
+
+// BenchmarkHealthLive is the liveness probe: no check runs, so it measures
+// the floor of the endpoint itself.
+func BenchmarkHealthLive(b *testing.B) { run(b, trilhaApp(0).Handler(), "/_trilha/health/live") }
+
 func TestBenchmarksRespond(t *testing.T) {
 	for _, p := range []string{"/blog", "/api/posts", "/app.css", "/r5/x", "/mw"} {
 		for name, hnd := range map[string]http.Handler{"trilha": trilhaApp(10).Handler(), "stdlib": stdlibMux(10)} {

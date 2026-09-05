@@ -40,6 +40,18 @@ consulta ao banco custa de 100 µs a alguns ms, e a rede, mais; a diferença des
 um dia isso importar para você, o caminho é reduzir alocações no `Ctx` e tornar o log
 opcional por rota — e o benchmark está aí para provar o ganho.
 
+### Observabilidade
+
+| Cenário | Sem métricas | Com métricas | Diferença |
+|---|---|---|---|
+| Rota trivial (`c.Text`) | 4,1 µs · 50 allocs | 4,1 µs · 50 allocs | dentro do ruído; **zero alocações** |
+| Sonda `/_trilha/health/live` | — | 0,9 µs · 18 allocs | não passa pelo roteador nem pela cadeia de middleware |
+
+A instrumentação só existe quando `Observability.Metrics` está configurado; desligada, é
+uma comparação de ponteiro. Ligada, a chave da série é montada num buffer de pilha e
+procurada como `map[string(bytes)]`, forma que o compilador resolve sem alocar — por isso
+a contagem de alocações não muda.
+
 O ciclo **editar → ver** do `trilha dev` fica em ~1,2 s no exemplo do blog (recompilação
 do Go) e ~30 ms para mudanças só em `public/` (`make reload` mede na sua máquina).
 

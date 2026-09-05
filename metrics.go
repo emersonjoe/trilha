@@ -190,14 +190,25 @@ func (m *metric) newSeries(values []string) *series {
 }
 
 // get finds or creates the series for these label values, honouring the cap.
+// The key is built in a stack buffer and looked up as map[string(bytes)],
+// which the compiler resolves without allocating: the read path of a metric
+// runs on every request and must not add garbage (spec 012).
 func (m *metric) get(values []string) *series {
-	key := strings.Join(values, "\x00")
+	var buf [192]byte
+	k := buf[:0]
+	for i, v := range values {
+		if i > 0 {
+			k = append(k, 0)
+		}
+		k = append(k, v...)
+	}
 	m.mu.RLock()
-	s, ok := m.series[key]
+	s, ok := m.series[string(k)]
 	m.mu.RUnlock()
 	if ok {
 		return s
 	}
+	key := string(k)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if s, ok := m.series[key]; ok {
@@ -243,6 +254,11 @@ func (m *metric) must(s *series) *series {
 // With binds label values, in the order they were declared.
 func (c *Counter) With(values ...string) *Counter { return &Counter{m: c.m, s: c.m.bind(values)} }
 
+// addTo is the lean path the framework uses on every request: it resolves the
+// series and adds, without building a bound Counter (spec 012: the fixed cost
+// per request is a budget, not a detail).
+func (c *Counter) addTo(v float64, values ...string) { c.m.bind(values).add(v) }
+
 // Inc adds one.
 func (c *Counter) Inc() { c.Add(1) }
 
@@ -272,9 +288,13 @@ func (g *Gauge) Dec() { g.Add(-1) }
 // With binds label values, in the order they were declared.
 func (h *Histogram) With(values ...string) *Histogram { return &Histogram{m: h.m, s: h.m.bind(values)} }
 
+// observeTo is Observe without building a bound Histogram; see Counter.addTo.
+func (h *Histogram) observeTo(v float64, values ...string) { h.record(h.m.bind(values), v) }
+
 // Observe records one value.
-func (h *Histogram) Observe(v float64) {
-	s := h.m.must(h.s)
+func (h *Histogram) Observe(v float64) { h.record(h.m.must(h.s), v) }
+
+func (h *Histogram) record(s *series, v float64) {
 	s.count.Add(1)
 	s.add(v)
 	for i, ub := range h.m.buckets {

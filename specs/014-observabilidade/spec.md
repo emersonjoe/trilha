@@ -1,6 +1,6 @@
 # Feature Specification: Health check, observabilidade e métricas por padrão
 
-**Feature Branch**: `014-observabilidade` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `014-observabilidade` | **Created**: 2026-09-05 | **Status**: Implementada (v0.6.0)
 **Input**: "implement modulo de health check e observabilidade e metricas default - usando
 nist e owasp"
 

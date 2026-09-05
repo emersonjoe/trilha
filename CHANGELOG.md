@@ -5,6 +5,24 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.6.0 — 2026-09-05
+
+### Adicionado
+- Observabilidade (spec 014): sondas `/_trilha/health/live` e `/_trilha/health/ready` com
+  `App.Check` (prazo, execução em paralelo, cache e resposta `application/health+json`),
+  `App.HealthReport`; registro de métricas `App.Metrics()` (`Counter`/`Gauge`/`Histogram`
+  com rótulos e teto de cardinalidade) exposto no formato de texto do Prometheus quando
+  `Observability.Metrics` está configurado; métricas do framework (requisições, latência,
+  em voo, eventos de segurança, pânicos, runtime e `trilha_build_info`); `Ctx.TraceID` e
+  `Ctx.Log` com propagação de `traceparent` (W3C Trace Context); `Config.Observability`
+  com porteiro por token (`TRILHA_OBS_TOKEN`, comparação em tempo constante) ou rede
+  confiável; três itens novos em `trilha audit`; capítulo e referência no site.
+
+### Alterado
+- O detalhe da saúde e as métricas ficam fechados por padrão fora de `dev`: sem token nem
+  rede confiável, o endereço de métricas responde 401 e a saúde devolve só `status`
+  (NIST SP 800-53 AU-9, OWASP API Security 2023 API8).
+
 ## 0.5.3 — 2026-09-05
 
 ### Corrigido

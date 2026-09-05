@@ -206,8 +206,8 @@ func (a *App) observe(method, route string, status int, start time.Time) {
 	if !a.instrument {
 		return
 	}
-	a.mReq.With(method, route, statusText(status)).Inc()
-	a.mDur.With(method, route).Observe(time.Since(start).Seconds())
+	a.mReq.addTo(1, method, route, statusText(status))
+	a.mDur.observeTo(time.Since(start).Seconds(), method, route)
 }
 
 // statusText avoids an allocation for the statuses that actually occur.

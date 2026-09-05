@@ -3,7 +3,7 @@ package trilha
 import "log/slog"
 
 // traceparent is the W3C Trace Context header: version-traceid-spanid-flags.
-const traceparentHeader = "traceparent"
+const traceparentHeader = "Traceparent"
 
 // TraceID returns the trace identifier the caller propagated in the
 // traceparent header, or "" when it is absent or malformed. Trilha only
