@@ -161,3 +161,7 @@ th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color:
 /* kit ui inside demos */
 .demo-saida .kit { padding: .25rem; border-radius: var(--radius-lg); }
 .demo-saida .kit ul { padding-left: 1.2rem; }
+
+/* saída simulada das demos de formulário */
+.demo-nota { display: block; margin-top: .7rem; font-size: .85rem; color: var(--fg-); line-height: 1.5; }
+.demo-nota-ok { font-family: var(--mono); font-size: .8rem; color: var(--fg); }

@@ -130,3 +130,30 @@ func TestAnalyticsOnlyWhenConfigured(t *testing.T) {
 		}
 	}
 }
+
+// T001: a CSP padrão do Trilha (script-src sem unsafe-inline) bloqueia
+// manipuladores inline, e o site que ensina isso não pode usá-los.
+func TestNoInlineEventHandlers(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	inline := regexp.MustCompile(`\son(click|change|submit|load|input|error|mouseover)\s*=`)
+	for _, p := range append([]string{"/"}, pagePaths()...) {
+		_, body := get(t, p)
+		if m := inline.FindString(body); m != "" {
+			t.Errorf("%s: manipulador inline %q (use um arquivo .js externo)", p, strings.TrimSpace(m))
+		}
+	}
+}
+
+// T002/T003: a demo de formulário responde ao envio, sem handler inline.
+func TestFormDemoIsInteractive(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	for _, p := range []string{"/", "/aprender/formularios"} {
+		_, body := get(t, p)
+		if !strings.Contains(body, `<form method="get" action="#" data-demo="form">`) {
+			t.Errorf("%s: demo de formulário sem data-demo", p)
+		}
+		if !strings.Contains(body, `data-demo-saida`) || !strings.Contains(body, "simulado no navegador") {
+			t.Errorf("%s: demo sem área de resposta ou legenda", p)
+		}
+	}
+}

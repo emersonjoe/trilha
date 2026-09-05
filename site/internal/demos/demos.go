@@ -117,11 +117,19 @@ func POST(c *trilha.Ctx) error {
 	return c.Redirect("/eventos/" + ev.Slug)
 }`,
 		Node: func() h.Node {
-			return h.Form(h.Method("post"), h.Action("#"), h.Onclick("return false"),
-				h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value("token-gerado-por-requisicao")),
-				h.Label(h.For("nome"), h.Text("Nome do evento")),
-				h.Input(h.ID("nome"), h.Name("nome"), h.Required()),
-				h.Button(h.Type("submit"), h.Text("Publicar")),
+			// O site é estático: tema.js intercepta o envio e mostra o fluxo que
+			// o servidor faria. Sem JavaScript o formulário apenas recarrega a
+			// página (method="get"), em vez de tentar um POST que o GitHub Pages
+			// recusaria. Nada de manipulador inline: a CSP padrão os bloqueia.
+			return h.Fragment(
+				h.Form(h.Method("get"), h.Action("#"), h.Data("demo", "form"),
+					h.Input(h.Type("hidden"), h.Name("_csrf"), h.Value("token-gerado-por-requisicao")),
+					h.Label(h.For("nome"), h.Text("Nome do evento")),
+					h.Input(h.ID("nome"), h.Name("nome"), h.Required()),
+					h.Button(h.Type("submit"), h.Text("Publicar")),
+				),
+				h.Output(h.Class("demo-nota"), h.Data("demo-saida", ""),
+					h.Text("Envie para ver o que o servidor faria (envio simulado no navegador; o POST real está no código ao lado).")),
 			)
 		},
 	},

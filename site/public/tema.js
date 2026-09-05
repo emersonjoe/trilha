@@ -25,4 +25,26 @@
     });
     bloco.appendChild(b);
   });
+
+  // Demos de formulário: o site é exportado estático, então o envio é simulado
+  // aqui e mostra o fluxo POST → 303 → GET que o Trilha faria no servidor.
+  function slug(s) {
+    return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "sem-nome";
+  }
+  document.querySelectorAll('form[data-demo="form"]').forEach(function (f) {
+    var saida = f.parentNode.querySelector("[data-demo-saida]");
+    f.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var campo = f.querySelector("#nome");
+      var nome = (campo && campo.value || "").trim();
+      if (!nome) {
+        saida.textContent = "O campo é obrigatório: o navegador barra antes do POST.";
+        return;
+      }
+      saida.textContent =
+        'POST /eventos/novo (_csrf conferido) → 303 See Other → GET /eventos/' + slug(nome);
+      saida.classList.add("demo-nota-ok");
+    });
+  });
 })();

@@ -5,6 +5,22 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.5.3 — 2026-09-05
+
+### Corrigido
+- Site: a demo "Formulário com CSRF em uma linha" não reagia ao envio — o `onclick="return
+  false"` no próprio `<form>` cancelava todo clique dentro dele (spec 013). Agora o envio é
+  interceptado por `tema.js` e mostra o fluxo `POST → 303 → GET /eventos/<slug>`; sem
+  JavaScript o formulário apenas recarrega a página.
+- Nenhum manipulador de evento inline no site nem nos exemplos (a CSP padrão do Trilha os
+  bloqueia): resíduo `onchange=""` removido do exemplo de orçamento e teste que varre todas
+  as páginas para impedir a volta.
+
+### Adicionado
+- Spec 012 (backlog documentado): reduzir o custo fixo por requisição medido na spec 011
+  (CSP remontada a cada requisição, nonce sorteado mesmo em rotas de API, mapa de valores
+  alocado sempre, log formatado mesmo quando descartado).
+
 ## 0.5.2 — 2026-09-05
 
 ### Adicionado

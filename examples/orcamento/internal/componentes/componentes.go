@@ -96,7 +96,7 @@ func SeletorMes(path, mes string) h.Node {
 	}
 	return h.Form(h.Method("get"), h.Action(path), h.Class("ui-row"),
 		ui.Label(h.For("mes"), h.Text("Mês")),
-		ui.Select(h.ID("mes"), h.Name("mes"), h.Attr("onchange", ""), h.Data("submit", ""), ui.SelectOptions(opts, mes)),
+		ui.Select(h.ID("mes"), h.Name("mes"), h.Data("submit", ""), ui.SelectOptions(opts, mes)),
 		ui.Submit(ui.Outline(), ui.Sm(), h.Text("Ver")),
 	)
 }
