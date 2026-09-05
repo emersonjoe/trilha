@@ -1,5 +1,9 @@
 # Trilha
 
+[![ci](https://github.com/emersonjoe/trilha/actions/workflows/ci.yml/badge.svg)](https://github.com/emersonjoe/trilha/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/emersonjoe/trilha.svg)](https://pkg.go.dev/github.com/emersonjoe/trilha)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Framework web para Go no estilo Next.js.** Roteamento por arquivos, layouts aninhados,
 rotas de API, middleware por pasta, dev server com recarga automática e um único binário
 de produção. Zero dependências fora da biblioteca padrão.
@@ -160,6 +164,11 @@ traversal, logs `slog` sem corpo nem cookies.
 ## Fora do escopo (por enquanto)
 
 Componentes cliente/hidratação, streaming, geração estática, rotas paralelas. Interatividade no cliente fica em `public/*.js` (ou htmx).
+
+## Licença
+
+MIT. Contribuições são bem-vindas: abra uma issue descrevendo a convenção ou o problema
+antes do PR, e siga o fluxo spec-kit em `specs/` para mudanças de comportamento.
 
 ## Desenvolvimento
 

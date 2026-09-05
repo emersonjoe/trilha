@@ -4,11 +4,11 @@ test: vet
 	go test ./...
 
 vet:
-	test -z "$$(gofmt -l *.go h internal cmd examples)"
+	test -z "$$(gofmt -l *.go h internal cmd examples tmpl)"
 	go vet ./...
 
 fmt:
-	gofmt -w *.go h internal cmd examples
+	gofmt -w *.go h internal cmd examples tmpl
 
 golden:
 	go test ./internal/gen/ -update
