@@ -12,6 +12,7 @@ type Config struct {
 	MaxBodyBytes int64        // 1 MiB
 	Logger       *slog.Logger // slog.Default()
 	Public       fs.FS        // arquivos estáticos; nil desliga
+	Mounts       map[string]fs.FS // árvores estáticas por prefixo de URL, antes de Public
 	CSRFForAPI   bool         // exigir CSRF também em route.go
 	BasePath     string       // prefixo de URL; TRILHA_BASE_PATH
 	Security     Security     // cabeçalhos (veja Segurança)
@@ -21,6 +22,7 @@ type Config struct {
 	Timeouts     Timeouts     // limites do http.Server (trilha.NoTimeout desliga um)
 	StaticCacheControl string // Cache-Control dos estáticos em prod ("public, max-age=3600")
 	StaticHeaders func(name string, hdr http.Header) // cabeçalhos por arquivo estático
+	LogRequest   func(c *Ctx, status int, dur time.Duration) bool // nil loga todas
 	OnSecurityEvent func(SecurityEvent)
 	DevReload    string       // trilha.Off desliga o script de recarga em dev; TRILHA_DEV_RELOAD=off
 }
@@ -33,7 +35,9 @@ entre a cópia embutida (prod) e a pasta no disco (dev).
 
 O arquivo gerado faz `cfg := trilha.ConfigFromEnv()`, chama `app.Config(&cfg)` se
 `app/setup.go` exportar `func Config(cfg *trilha.Config)`, e então `trilha.New(cfg)` e
-`app.Setup(a)`. Você pode mexer em qualquer campo em qualquer um dos dois; a diferença é
+`app.Setup(a)`. `Config` também pode ser escrita como `func Config(cfg *trilha.Config) error`,
+e aí o arquivo gerado interrompe a subida com a sua mensagem — ler a configuração do próprio
+app é a operação que mais falha ao subir, e ela precisa poder falhar onde acontece. Você pode mexer em qualquer campo em qualquer um dos dois; a diferença é
 só *quando* o valor é lido:
 
 | Campos | Lidos em | `Config` | `Setup` (via `a.Config()`) |
@@ -71,6 +75,40 @@ cfg.StaticHeaders = func(name string, h http.Header) {
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
 }
 ```
+
+### Árvores estáticas fora de `public/`
+
+`Public` serve uma árvore só, na raiz, o que exige que as pastas no disco tenham o formato
+das URLs. Quando não têm — um gerador de ícones que escreve em outro lugar, uma pasta
+compartilhada com outro build — `Mounts` liga prefixo a árvore:
+
+```go
+cfg.Mounts = map[string]fs.FS{
+	"/icones/": sub(embutidos, "static/publico/icons"),
+	"/js/":     sub(embutidos, "static/js"),
+}
+```
+
+As montagens são tentadas antes de `Public`, do prefixo mais longo para o mais curto; um
+prefixo que casa sem ter o arquivo cai na próxima e depois em `Public`, então nenhuma
+precisa ser exaustiva. `StaticCacheControl`, `StaticHeaders` e `Asset` tratam um arquivo
+montado como qualquer outro, e o `name` que chega ao `StaticHeaders` é o da URL
+(`icones/icon-192.png`), que é o que distingue uma montagem da outra.
+
+### O log de requisição
+
+Toda requisição casada por rota é logada. Num app que serve os próprios estáticos, a maior
+parte desse volume diz "um arquivo foi servido com 200" — e log que ninguém lê não protege
+ninguém. `LogRequest` decide, com a resposta já pronta:
+
+```go
+cfg.LogRequest = func(c *trilha.Ctx, status int, _ time.Duration) bool {
+	return status >= 400 || !strings.HasPrefix(c.Request().URL.Path, "/js/")
+}
+```
+
+Serve também para "não logar health check" e "amostrar 1% do tráfego". Arquivo servido por
+`Public` ou por `Mounts` nunca passou por esse log.
 
 ### Versão no endereço (`Asset`)
 

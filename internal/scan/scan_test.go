@@ -202,6 +202,22 @@ func TestCustomMainAndShutdown(t *testing.T) {
 	}
 }
 
+// #15 — Config may return an error: reading the app's own configuration is
+// what fails on boot, and it has to fail where it happens.
+func TestConfigMayReturnError(t *testing.T) {
+	res, errs := scanApp(t, "custom_main")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	if res.ConfigFunc == nil || !res.ConfigReturnsError {
+		t.Fatalf("func Config(cfg) error not detected: %+v", res.ConfigFunc)
+	}
+	full, _ := scanApp(t, "full")
+	if full.ConfigFunc == nil || full.ConfigReturnsError {
+		t.Fatalf("the form without a return must keep working: %+v", full.ConfigFunc)
+	}
+}
+
 func TestDotFolders(t *testing.T) {
 	res, errs := scanApp(t, "dotdir")
 	if errs != nil {

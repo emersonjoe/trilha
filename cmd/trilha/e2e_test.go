@@ -67,6 +67,22 @@ func TestE2E(t *testing.T) {
 		t.Fatal(out)
 	}
 	os.Unsetenv("TRILHA_SECRET")
+	// #18: gen --check is the one line a CI needs to catch a stale trilha_gen.go.
+	if out := run(t, proj, cli, "gen", "--check"); !strings.Contains(out, "up to date") {
+		t.Fatal(out)
+	}
+	os.MkdirAll(filepath.Join(proj, "app", "nova"), 0o755)
+	page := "package nova\n\nimport (\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n)\n\nfunc Page(c *trilha.Ctx) (h.Node, error) { return h.P(h.Text(\"nova\")), nil }\n"
+	os.WriteFile(filepath.Join(proj, "app", "nova", "page.go"), []byte(page), 0o644)
+	checkCmd := exec.Command(cli, "gen", "--check")
+	checkCmd.Dir = proj
+	if out, err := checkCmd.CombinedOutput(); err == nil {
+		t.Fatalf("a route missing from trilha_gen.go must fail: %s", out)
+	} else if !strings.Contains(string(out), "out of date") || !strings.Contains(string(out), "/nova") {
+		t.Fatalf("the diff must show what is missing: %s", out)
+	}
+	os.RemoveAll(filepath.Join(proj, "app", "nova"))
+	run(t, proj, cli, "gen", "--check")
 	run(t, proj, cli, "export", "-o", "out")
 	for _, f := range []string{"out/index.html", "out/404.html", "out/style.css", "out/.trilha-export"} {
 		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {

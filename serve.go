@@ -128,7 +128,11 @@ func (a *App) run(c *Ctx, mws []MiddlewareFunc, final func(*Ctx) error) error {
 // outcome and correlation). It never carries the query string, the body or a
 // header: those are where secrets travel.
 func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
-	dur := time.Since(start).Round(time.Microsecond).String()
+	elapsed := time.Since(start)
+	if a.cfg.LogRequest != nil && !a.cfg.LogRequest(c, rw.status, elapsed) {
+		return
+	}
+	dur := elapsed.Round(time.Microsecond).String()
 	if tid := c.TraceID(); tid != "" {
 		a.log.Info("request",
 			"method", c.r.Method,

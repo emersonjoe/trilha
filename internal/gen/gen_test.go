@@ -60,6 +60,14 @@ func TestCustomMainAndKind(t *testing.T) {
 	if !bytes.Contains(got, []byte("a.OnShutdown(app.Shutdown)")) {
 		t.Fatalf("Shutdown hook missing:\n%s", got)
 	}
+	// #15: Config returning an error is checked, not discarded.
+	if !bytes.Contains(got, []byte("if err := app.Config(&cfg); err != nil {")) {
+		t.Fatalf("Config error not checked:\n%s", got)
+	}
+	// #18: go generate ./... works without knowing the tool's name.
+	if !bytes.Contains(got, []byte("//go:generate trilha gen")) {
+		t.Fatalf("go:generate directive missing:\n%s", got)
+	}
 	res, err = scan.Scan(filepath.Join("..", "..", "testdata", "apps", "dotdir"), "example.com/dotdir")
 	if err != nil {
 		t.Fatal(err)

@@ -116,6 +116,12 @@ func (c *Ctx) SetSigned(name, value string, ttl time.Duration) error {
 	exp := time.Now().Add(ttl)
 	tok, err := c.app.signer.Sign(value, exp)
 	if err != nil {
+		if errors.Is(err, ErrNoSecret) {
+			// Actionable and once per cookie: it says which cookie, on which
+			// route, stopped being signed.
+			c.app.warnOnce("secret:"+name, "trilha: TRILHA_SECRET missing; cookie was not signed",
+				"cookie", name, "path", c.r.URL.Path)
+		}
 		return err
 	}
 	http.SetCookie(c.w, &http.Cookie{

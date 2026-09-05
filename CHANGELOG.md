@@ -5,6 +5,46 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.12.0 — 2026-09-05
+
+The five oldest open issues, all from the same place: an app already running on Trilha
+(Partiu, 76 routes) reporting what hurts *after* adoption.
+
+### Added
+- `func Config(cfg *trilha.Config) error` is now an accepted form in `app/setup.go`
+  ([#15](https://github.com/emersonjoe/trilha/issues/15)): reading the app's own
+  configuration is the operation that most often fails on boot, and it can finally fail
+  where it happens — the generated file stops the boot with your message. The form without a
+  return keeps working, like `Setup` (with error) and `Layout` (without) already did.
+- `Config.Mounts map[string]fs.FS` ([#17](https://github.com/emersonjoe/trilha/issues/17)):
+  static trees served at URL prefixes, tried before `Public`, longest prefix first, falling
+  through when the file is not there. An app that already exists almost never has its disk
+  tree shaped like its URL tree, and the two ways out were reorganizing the disk to please
+  the router or writing an overlay `fs.FS` by hand.
+- `Config.LogRequest func(c *Ctx, status int, dur time.Duration) bool`
+  ([#16](https://github.com/emersonjoe/trilha/issues/16)): decides per request, with the
+  response already written, what enters the access log. In the reported measurement, 74% of
+  the lines were static files answered with 200. It also covers "do not log the health
+  check" and "sample 1% of the traffic".
+- `trilha gen --check` ([#18](https://github.com/emersonjoe/trilha/issues/18)): generates in
+  memory, compares with the committed file and exits 1 showing the differing lines — one
+  line in the CI, and a folder added to `app/` without `trilha gen` stops being a 404 nobody
+  can explain. The generated file now also carries `//go:generate trilha gen`, and
+  `trilha audit` warns when the CLI version differs from the library's in `go.mod`.
+
+### Changed
+- The missing-`TRILHA_SECRET` warning moved from every boot to the moment a cookie is
+  actually signed ([#19](https://github.com/emersonjoe/trilha/issues/19)), once per cookie
+  and naming it and the route. An app with its own session never signs one, and a WARN that
+  appears always and never means anything is what teaches a team to stop reading WARN.
+- `Asset` fingerprints files in `Mounts` too, and the `name` given to `StaticHeaders` is now
+  the URL name, which is what tells one mount from another.
+
+### Fixed
+- `trilha audit` never checked calls to `auth.Cognito(...)`: 0.11.0 taught `secretArg` where
+  the secret sits but the scan still looked only for `OIDC`, `EntraID` and `Keycloak`, so a
+  literal Cognito secret went unreported.
+
 ## 0.11.0 — 2026-09-05
 
 ### Added

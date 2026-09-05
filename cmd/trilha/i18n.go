@@ -44,7 +44,7 @@ var msgs = map[string][2]string{
 
 Usage:
   trilha new <dir> [--module path] [--lang en|pt]   create a new project
-  trilha gen                                        generate trilha_gen.go from app/
+  trilha gen [--check]                              generate trilha_gen.go from app/ (--check: fail if stale)
   trilha dev [--addr :3000]                         dev server with live reload
   trilha build [-o bin/<name>]                      generate + compile a single binary
   trilha routes                                     list the discovered routes
@@ -58,7 +58,7 @@ Language: TRILHA_LANG=en|pt (falls back to LC_ALL, LC_MESSAGES, LANG).
 
 Uso:
   trilha new <dir> [--module caminho] [--lang en|pt]  cria um projeto novo
-  trilha gen                                          gera trilha_gen.go a partir de app/
+  trilha gen [--check]                                gera trilha_gen.go a partir de app/ (--check: falha se desatualizado)
   trilha dev [--addr :3000]                           dev server com recarga automática
   trilha build [-o bin/<nome>]                        gera + compila um binário único
   trilha routes                                       lista as rotas descobertas
@@ -75,6 +75,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"no go.mod":       {"go.mod not found above %s", "go.mod não encontrado acima de %s"},
 	"no module line":  {"%s: `module` line not found", "%s: linha `module` não encontrada"},
 	"gen done":        {"✓ %s (%d routes)\n", "✓ %s (%d rotas)\n"},
+	"gen diff":        {"differences (+ generated now, - file on disk):\n", "diferenças (+ gerado agora, - arquivo em disco):\n"},
 	"routes header":   {"%-22s %-32s %s\n", "%-22s %-32s %s\n"},
 	"METHODS":         {"METHODS", "MÉTODOS"},
 	"PATTERN":         {"PATTERN", "PADRÃO"},
@@ -125,6 +126,9 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"gen stale":           {"trilha_gen.go out of date", "trilha_gen.go desatualizado"},
 	"gen stale hint":      {"run: trilha gen", "rode: trilha gen"},
 	"gen fresh":           {"trilha_gen.go up to date", "trilha_gen.go atualizado"},
+	"cli skew":            {"trilha CLI %s, library %s in go.mod", "CLI do trilha %s, biblioteca %s no go.mod"},
+	"cli skew hint":       {"generated code may use what the library does not have yet: install the matching CLI or update go.mod", "o código gerado pode usar o que a biblioteca ainda não tem: instale a CLI da mesma versão ou atualize o go.mod"},
+	"cli match":           {"CLI and library at the same version", "CLI e biblioteca na mesma versão"},
 	"go unsupported":      {"Go %s unsupported", "Go %s sem suporte"},
 	"go unsupported hint": {"Trilha requires Go 1.22+", "o Trilha exige Go 1.22+"},
 	"gitignore missing":   {".gitignore without .trilha/ and bin/", ".gitignore sem .trilha/ e bin/"},

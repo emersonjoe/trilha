@@ -66,14 +66,18 @@ func (a *App) assetVersion(name string) string {
 	if cached && a.cfg.Env != Dev {
 		return e.v
 	}
-	st, err := fs.Stat(a.cfg.Public, name)
+	fsys, file, ok := a.staticFile("/" + name)
+	if !ok {
+		return ""
+	}
+	st, err := fs.Stat(fsys, file)
 	if err != nil || st.IsDir() {
 		return ""
 	}
 	if cached && e.size == st.Size() && e.mod.Equal(st.ModTime()) {
 		return e.v
 	}
-	f, err := a.cfg.Public.Open(name)
+	f, err := fsys.Open(file)
 	if err != nil {
 		return ""
 	}
@@ -97,6 +101,21 @@ func (a *App) assetVersion(name string) string {
 // versionMatches reports whether v is the current fingerprint of name.
 func (a *App) versionMatches(name, v string) bool {
 	return v != "" && v == a.assetVersion(name)
+}
+
+// warnOnce logs a warning the first time a key appears; a warning that
+// repeats per request is a warning nobody reads.
+func (a *App) warnOnce(key, msg string, args ...any) {
+	a.warnedMu.Lock()
+	if a.warned == nil {
+		a.warned = map[string]bool{}
+	}
+	seen := a.warned[key]
+	a.warned[key] = true
+	a.warnedMu.Unlock()
+	if !seen {
+		a.log.Warn(msg, args...)
+	}
 }
 
 // warnAsset complains once per path: a typo in a layout would otherwise write

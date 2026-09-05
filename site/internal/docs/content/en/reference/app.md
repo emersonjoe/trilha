@@ -12,6 +12,7 @@ type Config struct {
 	MaxBodyBytes int64        // 1 MiB
 	Logger       *slog.Logger // slog.Default()
 	Public       fs.FS        // static files; nil turns them off
+	Mounts       map[string]fs.FS // static trees by URL prefix, before Public
 	CSRFForAPI   bool         // require CSRF in route.go too
 	BasePath     string       // URL prefix; TRILHA_BASE_PATH
 	Security     Security     // headers (see Security)
@@ -21,6 +22,7 @@ type Config struct {
 	Timeouts     Timeouts     // http.Server limits (trilha.NoTimeout disables one)
 	StaticCacheControl string // Cache-Control of static files in prod ("public, max-age=3600")
 	StaticHeaders func(name string, hdr http.Header) // headers per static file
+	LogRequest   func(c *Ctx, status int, dur time.Duration) bool // nil logs every request
 	OnSecurityEvent func(SecurityEvent)
 	DevReload    string       // trilha.Off disables the reload script in dev; TRILHA_DEV_RELOAD=off
 }
@@ -33,7 +35,9 @@ between the embedded copy (prod) and the folder on disk (dev).
 
 The generated file does `cfg := trilha.ConfigFromEnv()`, calls `app.Config(&cfg)` if
 `app/setup.go` exports `func Config(cfg *trilha.Config)`, and then `trilha.New(cfg)` and
-`app.Setup(a)`. You may change any field in either one; the only difference is *when* the
+`app.Setup(a)`. `Config` may also be written as `func Config(cfg *trilha.Config) error`, and
+then the generated file stops the boot with your message — reading the app's own
+configuration is what fails on startup, and it should fail where it happens. You may change any field in either one; the only difference is *when* the
 value is read:
 
 | Fields | Read at | `Config` | `Setup` (via `a.Config()`) |
@@ -72,6 +76,40 @@ cfg.StaticHeaders = func(name string, h http.Header) {
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
 }
 ```
+
+### Static trees outside `public/`
+
+`Public` serves one tree at the root, which requires the folders on disk to be shaped like
+the URLs. When they are not — an icon generator that writes elsewhere, a folder shared with
+another build — `Mounts` maps prefix to tree:
+
+```go
+cfg.Mounts = map[string]fs.FS{
+	"/icons/": sub(embedded, "static/public/icons"),
+	"/js/":    sub(embedded, "static/js"),
+}
+```
+
+Mounts are tried before `Public`, longest prefix first; a prefix that matches without the
+file falls through to the next one and then to `Public`, so nothing has to be exhaustive.
+`StaticCacheControl`, `StaticHeaders` and `Asset` treat a mounted file like any other, and
+the `name` given to `StaticHeaders` is the one from the URL (`icons/icon-192.png`), which is
+what tells one mount from another.
+
+### The request log
+
+Every request matched by a route is logged. An app that serves its own static files sees
+most of that volume say "a file was served with 200" — and a log nobody reads protects
+nobody. `LogRequest` decides, with the response already written:
+
+```go
+cfg.LogRequest = func(c *trilha.Ctx, status int, _ time.Duration) bool {
+	return status >= 400 || !strings.HasPrefix(c.Request().URL.Path, "/js/")
+}
+```
+
+It also covers "do not log the health check" and "sample 1% of the traffic". Files served
+from `Public` or `Mounts` never went through this log.
 
 ### Version in the address (`Asset`)
 

@@ -16,7 +16,7 @@ description: Complete table of what each file and folder name in app/ means.
 | `not_found.go` (root only) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | the app's 404 |
 | `error.go` (root only) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | the app's 500 |
 | `setup.go` (root only) | `Setup` | `func(a *trilha.App) error` | before serving |
-| `setup.go` (optional) | `Config` | `func(cfg *trilha.Config)` | before `trilha.New` |
+| `setup.go` (optional) | `Config` | `func(cfg *trilha.Config)` or `func(cfg *trilha.Config) error` | before `trilha.New`; an error stops the boot |
 | `setup.go` (optional) | `Shutdown` | `func(a *trilha.App) error` | after the app stops accepting requests (close pool, queue, flush logs) |
 
 `page.go` and `route.go` in the same folder is an error. The function may live in any file of

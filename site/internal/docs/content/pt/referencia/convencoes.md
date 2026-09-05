@@ -16,7 +16,7 @@ description: Tabela completa do que cada arquivo e nome de pasta em app/ signifi
 | `not_found.go` (só na raiz) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | 404 do app |
 | `error.go` (só na raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | 500 do app |
 | `setup.go` (só na raiz) | `Setup` | `func(a *trilha.App) error` | antes de servir |
-| `setup.go` (opcional) | `Config` | `func(cfg *trilha.Config)` | antes de `trilha.New` |
+| `setup.go` (opcional) | `Config` | `func(cfg *trilha.Config)` ou `func(cfg *trilha.Config) error` | antes de `trilha.New`; o erro interrompe a subida |
 | `setup.go` (opcional) | `Shutdown` | `func(a *trilha.App) error` | depois de parar de aceitar requisições (fechar pool, fila, flush de log) |
 
 `page.go` e `route.go` na mesma pasta é erro. A função pode estar em qualquer arquivo do

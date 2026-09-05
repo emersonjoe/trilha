@@ -1,10 +1,16 @@
 package trilha
 
 import (
+	"bytes"
+	"errors"
+	"io/fs"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
+	"time"
 
 	"github.com/emersonjoe/trilha/h"
 )
@@ -139,5 +145,113 @@ func TestOnShutdown(t *testing.T) {
 	}
 	if or(Timeouts{}.Shutdown, 5) != 5 || or(Timeouts{Shutdown: 7}.Shutdown, 5) != 7 {
 		t.Fatal("shutdown timeout default")
+	}
+}
+
+// #16 — the request log can be filtered: static files served as routes drown
+// out everything else.
+func TestLogRequestFilter(t *testing.T) {
+	var buf bytes.Buffer
+	cfg := Config{
+		Env:    Prod,
+		Logger: slog.New(slog.NewTextHandler(&buf, nil)),
+		LogRequest: func(c *Ctx, status int, _ time.Duration) bool {
+			return status >= 400 || !strings.HasPrefix(c.Request().URL.Path, "/js/")
+		},
+	}
+	a := New(cfg)
+	page := func(c *Ctx) (h.Node, error) { return h.P(h.Text("x")), nil }
+	a.Register(Route{Pattern: "/", Page: page})
+	a.Register(Route{Pattern: "/js/{file}", Page: page})
+	a.Register(Route{Pattern: "/js/boom", Page: func(c *Ctx) (h.Node, error) { return nil, ErrNotFound }})
+	for _, p := range []string{"/", "/js/acao.js", "/js/boom"} {
+		a.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", p, nil))
+	}
+	log := buf.String()
+	if !strings.Contains(log, `path=/ `) {
+		t.Errorf("the page must be logged: %s", log)
+	}
+	if strings.Contains(log, "/js/acao.js") {
+		t.Errorf("the filtered file must not be logged: %s", log)
+	}
+	if !strings.Contains(log, "/js/boom") {
+		t.Errorf("the filter kept 404s and they must be logged: %s", log)
+	}
+}
+
+// #17 — Mounts serve static trees at URL prefixes: the disk tree of an app
+// that already exists is almost never shaped like its URL tree.
+func TestMountsServeByPrefix(t *testing.T) {
+	icons := fstest.MapFS{"icon-192.png": {Data: []byte("PNG")}}
+	js := fstest.MapFS{"acao.js": {Data: []byte("mount")}}
+	public := fstest.MapFS{
+		"app.css":    {Data: []byte("css")},
+		"js/acao.js": {Data: []byte("public")},
+		"js/only.js": {Data: []byte("fallback")},
+	}
+	var seen []string
+	a := New(Config{
+		Env:    Prod,
+		Logger: quiet(),
+		Public: public,
+		Mounts: map[string]fs.FS{"/icons/": icons, "/js": js},
+		StaticHeaders: func(name string, hdr http.Header) {
+			seen = append(seen, name)
+			hdr.Set("X-Name", name)
+		},
+	})
+	get := func(p string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", p, nil))
+		return rec
+	}
+	for _, tc := range []struct{ path, want string }{
+		{"/icons/icon-192.png", "PNG"}, // only in the mount
+		{"/js/acao.js", "mount"},       // in both: the mount wins
+		{"/js/only.js", "fallback"},    // only in Public: falls through
+		{"/app.css", "css"},            // Public, as before
+	} {
+		rec := get(tc.path)
+		if rec.Code != 200 || rec.Body.String() != tc.want {
+			t.Errorf("%s: %d %q, want %q", tc.path, rec.Code, rec.Body.String(), tc.want)
+		}
+	}
+	if rec := get("/icons/nope.png"); rec.Code != 404 {
+		t.Errorf("missing file in a mount: %d", rec.Code)
+	}
+	// StaticHeaders sees the URL name, so a policy can be per mount.
+	if rec := get("/icons/icon-192.png"); rec.Header().Get("X-Name") != "icons/icon-192.png" {
+		t.Errorf("StaticHeaders name = %q", rec.Header().Get("X-Name"))
+	}
+	if rec := get("/icons/icon-192.png"); rec.Header().Get("Cache-Control") == "" {
+		t.Error("a mounted file must get the same Cache-Control as Public")
+	}
+}
+
+// #19 — the missing-secret warning belongs where the secret is used, not in
+// every boot of an app that never signs a cookie.
+func TestSecretWarnsOnUseOnce(t *testing.T) {
+	var buf bytes.Buffer
+	a := New(Config{Env: Prod, Logger: slog.New(slog.NewTextHandler(&buf, nil))})
+	if strings.Contains(buf.String(), "TRILHA_SECRET") {
+		t.Errorf("boot must be quiet for an app that does not sign cookies: %s", buf.String())
+	}
+	var errs []error
+	a.Register(Route{Pattern: "/", Page: func(c *Ctx) (h.Node, error) {
+		errs = append(errs, c.SetSigned("sess", "v", time.Minute), c.SetSigned("sess", "v", time.Minute))
+		return h.P(h.Text("x")), nil
+	}})
+	a.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	for _, err := range errs {
+		if !errors.Is(err, ErrNoSecret) {
+			t.Fatalf("SetSigned = %v, want ErrNoSecret", err)
+		}
+	}
+	log := buf.String()
+	if n := strings.Count(log, "TRILHA_SECRET"); n != 1 {
+		t.Errorf("want one warning, got %d: %s", n, log)
+	}
+	if !strings.Contains(log, "sess") {
+		t.Errorf("the warning must name the cookie: %s", log)
 	}
 }

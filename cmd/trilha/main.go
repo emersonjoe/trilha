@@ -15,7 +15,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.11.0"
+const version = "0.12.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -105,13 +105,22 @@ func modulePath(gomod string) (string, error) {
 	return "", fmt.Errorf(t("no module line"), gomod)
 }
 
-// generate scans and writes trilha_gen.go. Returns the scan result.
-func generate(p *project) (*scan.Result, error) {
+// render scans and generates trilha_gen.go in memory.
+func render(p *project) (*scan.Result, []byte, error) {
 	res, err := scan.Scan(p.Root, p.Module)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	src, err := gen.Generate(res)
+	if err != nil {
+		return nil, nil, err
+	}
+	return res, src, nil
+}
+
+// generate scans and writes trilha_gen.go. Returns the scan result.
+func generate(p *project) (*scan.Result, error) {
+	res, src, err := render(p)
 	if err != nil {
 		return nil, err
 	}
@@ -127,12 +136,59 @@ func cmdGen(args []string) error {
 	if err != nil {
 		return err
 	}
+	if len(args) > 0 && args[0] == "--check" {
+		return checkGen(p)
+	}
 	res, err := generate(p)
 	if err != nil {
 		return err
 	}
 	fmt.Printf(t("gen done"), gen.FileName, len(res.Routes))
 	return nil
+}
+
+// checkGen compares trilha_gen.go with a fresh generation without writing
+// anything: one line in the CI, and a route added without `trilha gen` stops
+// being a 404 nobody explains.
+func checkGen(p *project) error {
+	_, src, err := render(p)
+	if err != nil {
+		return err
+	}
+	cur, err := os.ReadFile(filepath.Join(p.Root, gen.FileName))
+	if err != nil {
+		return fmt.Errorf("%s: %w", gen.FileName, err)
+	}
+	if string(cur) == string(src) {
+		fmt.Println("✓", t("gen fresh"))
+		return nil
+	}
+	fmt.Fprint(os.Stderr, t("gen diff"), genDiff(string(cur), string(src)))
+	return errors.New(t("gen stale") + "; " + t("gen stale hint"))
+}
+
+// genDiff lists the lines of one side missing on the other. It is not a full
+// diff: the generated file is sorted, so what is added or gone is the answer.
+func genDiff(old, new string) string {
+	count := map[string]int{}
+	for _, l := range strings.Split(old, "\n") {
+		count[l]++
+	}
+	var sb strings.Builder
+	for _, l := range strings.Split(new, "\n") {
+		if count[l] > 0 {
+			count[l]--
+			continue
+		}
+		fmt.Fprintf(&sb, "  + %s\n", strings.TrimSpace(l))
+	}
+	for _, l := range strings.Split(old, "\n") {
+		if count[l] > 0 && strings.TrimSpace(l) != "" {
+			count[l]--
+			fmt.Fprintf(&sb, "  - %s\n", strings.TrimSpace(l))
+		}
+	}
+	return sb.String()
 }
 
 func cmdRoutes(args []string) error {

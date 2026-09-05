@@ -94,6 +94,9 @@ type Result struct {
 	// ConfigFunc is the optional func Config(cfg *trilha.Config) in setup.go,
 	// called before trilha.New.
 	ConfigFunc *Ref
+	// ConfigReturnsError is true when Config returns an error, the form that
+	// lets the app fail where it reads its own configuration.
+	ConfigReturnsError bool
 	// ShutdownFunc is the optional func Shutdown(a *trilha.App) error in setup.go.
 	ShutdownFunc *Ref
 	// HasMain is true when a non-generated file of the root package already
@@ -263,6 +266,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 		s.rootFile(present, pkg, rel, alias, importPath, "setup.go", "Setup", ErrNoSetupFunc, "func Setup(a *trilha.App) error", &s.res.Setup)
 		if present["setup.go"] && pkg.funcs["Config"] {
 			s.res.ConfigFunc = &Ref{Alias: alias, ImportPath: importPath, Func: "Config"}
+			s.res.ConfigReturnsError = pkg.results["Config"] > 0
 			s.use(alias, importPath)
 		}
 		if present["setup.go"] && pkg.funcs["Shutdown"] {
@@ -404,15 +408,18 @@ func (s *scanner) alias(rel string) string {
 }
 
 type pkgInfo struct {
-	name   string
-	funcs  map[string]bool
-	vars   map[string]bool // exported package-level var/const names
-	broken bool            // a file failed to parse: skip "missing func" checks
+	name  string
+	funcs map[string]bool
+	// results counts the return values of each exported function: Config
+	// exists with and without an error, and both stay valid.
+	results map[string]int
+	vars    map[string]bool // exported package-level var/const names
+	broken  bool            // a file failed to parse: skip "missing func" checks
 }
 
 // parsePackage collects exported top-level functions across the dir's files.
 func (s *scanner) parsePackage(abs, rel string, files []string) pkgInfo {
-	info := pkgInfo{funcs: map[string]bool{}, vars: map[string]bool{}}
+	info := pkgInfo{funcs: map[string]bool{}, results: map[string]int{}, vars: map[string]bool{}}
 	fset := token.NewFileSet()
 	for _, f := range files {
 		file, err := parser.ParseFile(fset, filepath.Join(abs, f), nil, parser.SkipObjectResolution)
@@ -427,6 +434,9 @@ func (s *scanner) parsePackage(abs, rel string, files []string) pkgInfo {
 			case *ast.FuncDecl:
 				if d.Recv == nil && d.Name.IsExported() {
 					info.funcs[d.Name.Name] = true
+					if d.Type.Results != nil {
+						info.results[d.Name.Name] = len(d.Type.Results.List)
+					}
 				}
 			case *ast.GenDecl:
 				for _, sp := range d.Specs {

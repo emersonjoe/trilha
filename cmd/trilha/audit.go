@@ -135,6 +135,17 @@ func runAudit(p *project, vuln bool) []check {
 		}
 	}
 
+	// CLI and library: a newer CLI writes generated code that the library in
+	// go.mod may not have yet, and the error then shows up inside generated
+	// code — the worst place to look for it.
+	if lib, replaced := libVersion(p.Root); !replaced && lib != "" {
+		if lib != "v"+version {
+			add("warn", fmt.Sprintf(t("cli skew"), version, strings.TrimPrefix(lib, "v")), t("cli skew hint"))
+		} else {
+			add("ok", t("cli match"), "")
+		}
+	}
+
 	// Go version.
 	v := strings.TrimPrefix(runtime.Version(), "go")
 	if strings.HasPrefix(v, "1.2") && v < "1.22" {
@@ -212,7 +223,7 @@ func lastLines(s string, n int) string {
 	return strings.Join(lines, "\n    ")
 }
 
-// authCall is one call to auth.OIDC/EntraID/Keycloak found in the sources.
+// authCall is one call to auth.OIDC/EntraID/Keycloak/Cognito found in the sources.
 type authCall struct {
 	name string
 	args []string
@@ -222,7 +233,7 @@ type authCall struct {
 // top level, so that os.Getenv("X") stays one argument.
 func authCalls(src string) []authCall {
 	var out []authCall
-	for _, name := range []string{"OIDC", "EntraID", "Keycloak"} {
+	for _, name := range []string{"OIDC", "EntraID", "Keycloak", "Cognito"} {
 		needle := "auth." + name + "("
 		for i := 0; ; {
 			j := strings.Index(src[i:], needle)
@@ -275,4 +286,26 @@ func secretArg(name string) int {
 		return 3
 	}
 	return 2 // issuer|tenant, clientID, clientSecret, redirectURL
+}
+
+// libVersion reads the version of the trilha library required by go.mod.
+// replaced is true for a local replace directive, where comparing versions
+// says nothing.
+func libVersion(root string) (version string, replaced bool) {
+	b, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		return "", false
+	}
+	const mod = "github.com/emersonjoe/trilha"
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "replace ") && strings.Contains(line, mod) {
+			return "", true
+		}
+		f := strings.Fields(strings.TrimPrefix(line, "require "))
+		if len(f) >= 2 && f[0] == mod && strings.HasPrefix(f[1], "v") {
+			version = f[1]
+		}
+	}
+	return version, false
 }

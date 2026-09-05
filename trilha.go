@@ -41,6 +41,10 @@ type Config struct {
 	Logger *slog.Logger
 	// Public serves static files at the root. nil disables static files.
 	Public fs.FS
+	// Mounts serve static trees at URL prefixes, for the app whose disk tree
+	// is not shaped like its URL tree. They match before Public, longest
+	// prefix first, and fall through to it when the file is not there.
+	Mounts map[string]fs.FS
 	// CSRFForAPI also enforces CSRF tokens on route.go handlers.
 	CSRFForAPI bool
 	// BasePath is the URL prefix the app is served under (e.g. "/docs" on
@@ -62,6 +66,9 @@ type Config struct {
 	// StaticHeaders runs for every file served from Public, after the
 	// defaults, and may set any header (immutable for hashed assets, CORP...).
 	StaticHeaders func(name string, hdr http.Header)
+	// LogRequest decides, with the response already written, whether a
+	// request enters the access log. nil logs every one of them.
+	LogRequest func(c *Ctx, status int, dur time.Duration) bool
 	// OnSecurityEvent is called for blocked requests (CSRF, 401/403, 413, 429, panic).
 	OnSecurityEvent func(SecurityEvent)
 	// DevReload controls the live-reload script injected in Dev pages; Off
@@ -222,6 +229,10 @@ type App struct {
 	healthCache *HealthReport
 	healthAt    time.Time
 
+	mounts   []mount
+	warnedMu sync.Mutex
+	warned   map[string]bool
+
 	assetMu     sync.RWMutex
 	assets      map[string]assetVersion
 	assetWarned map[string]bool
@@ -266,6 +277,7 @@ func (a *App) applyConfig() {
 	a.log = cfg.Logger
 	a.metrics.log = cfg.Logger
 	a.parseProxies()
+	a.parseMounts()
 	a.applyObservability()
 	if cfg.RateLimit.RPS > 0 {
 		if a.limiter == nil || a.limiter.cfg != cfg.RateLimit {
@@ -285,8 +297,10 @@ func (a *App) applyConfig() {
 		}
 	default:
 		if a.signer == nil || a.signer.ephemeral || len(a.signer.keys) > 0 {
+			// No warning here: an app with its own session never signs a
+			// cookie, and a WARN in every boot that never means anything is
+			// what teaches a team to stop reading WARN. SetSigned warns.
 			a.signer = NewSigner()
-			a.log.Warn("trilha: TRILHA_SECRET missing; signed cookies unavailable in production")
 		}
 	}
 }

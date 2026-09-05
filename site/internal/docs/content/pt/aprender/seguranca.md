@@ -84,7 +84,9 @@ if !ok {
 
 A chave vem de `TRILHA_SECRET` (32 bytes ou mais; `openssl rand -base64 32`). Em
 desenvolvimento o `trilha dev` gera uma chave efêmera por sessão. Em produção sem a
-variável, o app sobe com um aviso e `SetSigned` devolve erro. Para trocar a chave sem
+variável, `SetSigned` devolve erro e registra um aviso dizendo qual cookie, em qual rota —
+uma vez por cookie, e só para quem de fato assina algum: um aviso em toda subida de um app
+que tem sessão própria é o que ensina a equipe a não ler aviso. Para trocar a chave sem
 derrubar sessões, coloque a antiga em `TRILHA_SECRET_PREVIOUS` até que expirem.
 
 :::atencao

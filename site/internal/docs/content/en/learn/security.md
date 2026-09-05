@@ -84,7 +84,9 @@ if !ok {
 
 The key comes from `TRILHA_SECRET` (32 bytes or more; `openssl rand -base64 32`). In
 development, `trilha dev` generates an ephemeral key per session. In production without the
-variable, the app starts with a warning and `SetSigned` returns an error. To rotate the key
+variable, `SetSigned` returns an error and logs a warning naming the cookie and the route —
+once per cookie, and only for an app that actually signs one: a warning in every boot of an
+app with its own session is what teaches a team to stop reading warnings. To rotate the key
 without dropping sessions, put the old one in `TRILHA_SECRET_PREVIOUS` until they expire.
 
 :::warning

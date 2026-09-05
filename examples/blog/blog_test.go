@@ -71,6 +71,23 @@ func wantContains(t *testing.T, rec *httptest.ResponseRecorder, code int, parts 
 	}
 }
 
+// #17 — o ícone mora em internal/icones e é servido em /icones/ por
+// Config.Mounts; public/ continua servindo a raiz.
+func TestMontagemServeArvoreForaDePublic(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.get("/icones/favicon.svg")
+	wantContains(t, rec, 200, "<svg")
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "image/svg") {
+		t.Errorf("content-type %q", ct)
+	}
+	if rec := c.get("/style.css"); rec.Code != 200 {
+		t.Errorf("public/ continua na raiz: %d", rec.Code)
+	}
+	if rec := c.get("/icones/nao-existe.svg"); rec.Code != 404 {
+		t.Errorf("arquivo ausente na montagem: %d", rec.Code)
+	}
+}
+
 // ---- US1: páginas por arquivo ---------------------------------------------
 
 func TestUS1_HomeInsideRootLayout(t *testing.T) {
