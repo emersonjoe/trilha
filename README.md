@@ -172,8 +172,10 @@ MIT (`LICENSE`). Os arquivos do spec-kit em `.specify/` e `.claude/skills` são 
 Inc.; veja `THIRD_PARTY_NOTICES.md`.
 
 \* Next.js é marca da Vercel, Inc. O Trilha é um projeto independente, sem afiliação, e não
-contém código do Next.js. Contribuições são bem-vindas: abra uma issue descrevendo a convenção ou o problema
-antes do PR, e siga o fluxo spec-kit em `specs/` para mudanças de comportamento.
+contém código do Next.js.
+
+Contribuições são bem-vindas: abra uma issue descrevendo a convenção ou o problema antes do
+PR, e siga o fluxo spec-kit em `specs/` para mudanças de comportamento.
 
 ## Desenvolvimento
 
