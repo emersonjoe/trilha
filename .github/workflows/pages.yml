@@ -22,6 +22,7 @@ jobs:
       - name: Exportar o site com o próprio Trilha
         env:
           SITE_ANALYTICS: ${{ vars.SITE_ANALYTICS }}
+          SITE_ORIGIN: https://emersonjoe.github.io
         run: cd site && go run ../cmd/trilha export -o ../_site --base /trilha
       - uses: actions/upload-pages-artifact@v3
         with:

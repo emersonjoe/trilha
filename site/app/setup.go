@@ -10,10 +10,15 @@ import (
 )
 
 // Setup lists every documentation page for `trilha export`: chapters live
-// under dynamic routes (/aprender/{slug}), so they are declared here.
+// under dynamic routes (/learn/{slug}, /pt/aprender/{slug}), so they are
+// declared here, plus the pre-i18n Portuguese paths, which export as
+// redirect stubs so old links keep working.
 func Setup(a *trilha.App) error {
 	for _, p := range docs.All() {
 		a.AddExportPath(p.Path())
+		if pt := docs.LocaleOf("pt"); p.Locale == pt.Code {
+			a.AddExportPath(strings.TrimPrefix(p.Path(), pt.Prefix))
+		}
 	}
 	// Fontes do Google no site (o export estático não envia cabeçalhos, mas o dev sim).
 	a.Security().CSPExtra = map[string][]string{

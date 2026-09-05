@@ -42,7 +42,7 @@ func Page() {}
 trilha dev <x>
 ` + "```" + `
 `
-	out, hs := Render(src, Options{Base: "/trilha"})
+	out, hs := Render(src, Options{Base: "/trilha", Locale: "pt"})
 	checks := []string{
 		`<h1 id="titulo-com-codigo">Título com <code>código</code><a class="ancora" href="#titulo-com-codigo"`,
 		`<strong>negrito</strong>`, `<em>itálico</em>`, `<code>x &lt; y</code>`,

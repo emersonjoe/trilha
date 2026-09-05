@@ -3,15 +3,8 @@ package slug
 import (
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
-	"github.com/emersonjoe/trilha/site/internal/docs"
 	"github.com/emersonjoe/trilha/site/internal/ui"
 )
 
-// Page renders /aprender/{slug}.
-func Page(c *trilha.Ctx) (h.Node, error) {
-	p, ok := docs.Get("aprender", c.Param("slug"))
-	if !ok {
-		return nil, trilha.ErrNotFound
-	}
-	return ui.DocPage(c, p)
-}
+// Page redirects the pre-i18n path /aprender/{slug} to /pt/aprender/{slug}.
+func Page(c *trilha.Ctx) (h.Node, error) { return ui.Legacy(c, "/aprender/"+c.Param("slug")) }

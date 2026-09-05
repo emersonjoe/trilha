@@ -18,14 +18,14 @@ Nenhum deles depende de nada fora da biblioteca padrão. Compatível com Go 1.22
 ## Modelo mental em uma página
 
 - **Convenções de arquivo** em `app/` definem rotas, layouts e middlewares
-  ([Convenções](/referencia/convencoes)).
-- Toda função de rota recebe `*trilha.Ctx` ([Ctx](/referencia/ctx)) e devolve `error` ou
+  ([Convenções](/pt/referencia/convencoes)).
+- Toda função de rota recebe `*trilha.Ctx` ([Ctx](/pt/referencia/ctx)) e devolve `error` ou
   `(h.Node, error)`.
-- Erros são valores com significado HTTP ([Erros](/referencia/erros)).
-- O HTML é um `h.Node` ([h](/referencia/h)), vindo do DSL ou de um template
-  ([tmpl](/referencia/tmpl)).
-- `trilha_gen.go` liga tudo e é gerado pela [CLI](/referencia/cli); `App`
-  ([App](/referencia/app)) é o que ele monta.
+- Erros são valores com significado HTTP ([Erros](/pt/referencia/erros)).
+- O HTML é um `h.Node` ([h](/pt/referencia/h)), vindo do DSL ou de um template
+  ([tmpl](/pt/referencia/tmpl)).
+- `trilha_gen.go` liga tudo e é gerado pela [CLI](/pt/referencia/cli); `App`
+  ([App](/pt/referencia/app)) é o que ele monta.
 
 ## Estabilidade
 

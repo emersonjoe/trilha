@@ -10,7 +10,7 @@ description: Tabela completa do que cada arquivo e nome de pasta em app/ signifi
 | `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` | rota GET da pasta |
 | `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (opcionais) | `func(c *trilha.Ctx) error` | formulários; CSRF exigido |
 | `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (ao menos um) | `func(c *trilha.Ctx) error` | API JSON da pasta |
-| `route.go` (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | como erros são renderizados e se há CSRF (veja [Erros](/referencia/erros)) |
+| `route.go` (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | como erros são renderizados e se há CSRF (veja [Erros](/pt/referencia/erros)) |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subárvore |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore |
 | `not_found.go` (só na raiz) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | 404 do app |

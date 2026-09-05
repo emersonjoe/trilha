@@ -4,24 +4,26 @@ package app
 import (
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/site/internal/docs"
 	"github.com/emersonjoe/trilha/site/internal/ui"
 )
 
 // Layout is the document shell shared by every page.
 func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
-	title := "Trilha — framework web para Go com roteamento por arquivos"
+	title := ui.T(c, "site.title")
 	if t := c.Title(); t != "" {
 		title = t + " · Trilha"
 	}
 	b := c.Base()
 	active, _ := c.Get("secao").(string)
-	return h.Html(h.Lang("pt-BR"),
+	return h.Html(h.Lang(docs.LocaleOf(ui.Locale(c)).Lang),
 		h.Head(
 			h.Meta(h.Charset("utf-8")),
 			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),
 			h.Meta(h.Name("color-scheme"), h.Content("light dark")),
-			h.Meta(h.Name("description"), h.Content("Trilha: páginas, layouts, rotas de API e middleware descobertos a partir da pasta app/. Go puro, zero dependências.")),
+			h.Meta(h.Name("description"), h.Content(ui.T(c, "site.description"))),
 			h.Title(h.Text(title)),
+			ui.Alternates(c),
 			h.Link(h.Rel("icon"), h.Href(b+"/favicon.svg"), h.Type("image/svg+xml")),
 			h.Link(h.Rel("preconnect"), h.Href("https://fonts.googleapis.com")),
 			h.Link(h.Rel("preconnect"), h.Href("https://fonts.gstatic.com"), h.Attr("crossorigin", "")),
@@ -35,7 +37,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Script(trilha.NonceAttr(c), h.Raw(`try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-tema",t);var d=t?t==="escuro":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d)}catch(e){}`)),
 		),
 		h.Body(
-			h.A(h.Class("pular"), h.Href("#principal"), h.Text("Ir para o conteúdo")),
+			h.A(h.Class("pular"), h.Href("#principal"), h.Text(ui.T(c, "skip"))),
 			ui.Header(c, active),
 			h.Main(h.ID("principal"), children),
 			ui.Footer(c),

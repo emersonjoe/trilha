@@ -28,13 +28,13 @@ func ParseAnalytics(s string) (*Analytics, error) {
 	switch provider {
 	case "goatcounter":
 		if !codeRe.MatchString(code) {
-			return nil, fmt.Errorf("SITE_ANALYTICS: código GoatCounter inválido %q", code)
+			return nil, fmt.Errorf("SITE_ANALYTICS: invalid GoatCounter code %q", code)
 		}
 		return &Analytics{Provider: provider, Code: code,
 			ScriptSrc: "https://gc.zgo.to/count.js", ScriptOrigin: "https://gc.zgo.to",
 			CountURL: "https://" + code + ".goatcounter.com/count", CountOrigin: "https://" + code + ".goatcounter.com"}, nil
 	default:
-		return nil, fmt.Errorf("SITE_ANALYTICS: provedor desconhecido %q (use goatcounter:<código>)", provider)
+		return nil, fmt.Errorf("SITE_ANALYTICS: unknown provider %q (use goatcounter:<code>)", provider)
 	}
 }
 
@@ -58,7 +58,7 @@ func AnalyticsNote(c *trilha.Ctx) h.Node {
 	if an == nil {
 		return h.Nil
 	}
-	return h.P(h.Small(h.Text("Visitas são contadas sem cookies e sem dados pessoais, com o "),
-		h.A(h.Href("https://www.goatcounter.com"), h.Rel("noopener"), h.Text("GoatCounter")), h.Text(" (software livre); os números são "),
-		h.A(h.Href(an.CountOrigin), h.Rel("noopener"), h.Text("públicos")), h.Text(".")))
+	return h.P(h.Small(h.Text(T(c, "analytics.1")),
+		h.A(h.Href("https://www.goatcounter.com"), h.Rel("noopener"), h.Text("GoatCounter")), h.Text(T(c, "analytics.2")),
+		h.A(h.Href(an.CountOrigin), h.Rel("noopener"), h.Text(T(c, "analytics.public"))), h.Text(".")))
 }

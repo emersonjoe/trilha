@@ -9,6 +9,15 @@ import (
 	app "github.com/emersonjoe/trilha/site/app"
 	app_aprender "github.com/emersonjoe/trilha/site/app/aprender"
 	app_aprender_slug_ "github.com/emersonjoe/trilha/site/app/aprender/slug_"
+	app_learn "github.com/emersonjoe/trilha/site/app/learn"
+	app_learn_slug_ "github.com/emersonjoe/trilha/site/app/learn/slug_"
+	app_pt "github.com/emersonjoe/trilha/site/app/pt"
+	app_pt_aprender "github.com/emersonjoe/trilha/site/app/pt/aprender"
+	app_pt_aprender_slug_ "github.com/emersonjoe/trilha/site/app/pt/aprender/slug_"
+	app_pt_referencia "github.com/emersonjoe/trilha/site/app/pt/referencia"
+	app_pt_referencia_slug_ "github.com/emersonjoe/trilha/site/app/pt/referencia/slug_"
+	app_reference "github.com/emersonjoe/trilha/site/app/reference"
+	app_reference_slug_ "github.com/emersonjoe/trilha/site/app/reference/slug_"
 	app_referencia "github.com/emersonjoe/trilha/site/app/referencia"
 	app_referencia_slug_ "github.com/emersonjoe/trilha/site/app/referencia/slug_"
 )
@@ -41,6 +50,60 @@ func newApp() *trilha.App {
 	a.Register(trilha.Route{
 		Pattern:     "/aprender/{slug}",
 		Page:        app_aprender_slug_.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/learn",
+		Page:        app_learn.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/learn/{slug}",
+		Page:        app_learn_slug_.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/pt",
+		Page:        app_pt.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/pt/aprender",
+		Page:        app_pt_aprender.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/pt/aprender/{slug}",
+		Page:        app_pt_aprender_slug_.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/pt/referencia",
+		Page:        app_pt_referencia.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/pt/referencia/{slug}",
+		Page:        app_pt_referencia_slug_.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/reference",
+		Page:        app_reference.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/reference/{slug}",
+		Page:        app_reference_slug_.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})

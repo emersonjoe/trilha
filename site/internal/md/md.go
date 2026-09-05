@@ -24,6 +24,18 @@ type Options struct {
 	Base string
 	// Demo renders a "@demo name" directive; nil ignores the directive.
 	Demo func(name string) string
+	// Locale picks the language of generated labels (callout titles). Empty
+	// means "en".
+	Locale string
+}
+
+// Callouts are written as :::name. The class names stay in Portuguese (they
+// are the CSS contract); English content may use the aliases below.
+var calloutAlias = map[string]string{"tip": "dica", "warning": "atencao", "note": "nota", "challenge": "desafio", "solution": "solucao"}
+
+var calloutTitles = map[string]map[string]string{
+	"en": {"dica": "Tip", "atencao": "Warning", "nota": "Note", "desafio": "Challenge", "solucao": "Show solution"},
+	"pt": {"dica": "Dica", "atencao": "Atenção", "nota": "Nota", "desafio": "Desafio", "solucao": "Mostrar solução"},
 }
 
 // Render converts Markdown to HTML and returns the headings found.
@@ -176,13 +188,20 @@ func (r *renderer) codeBlock(lang, code string) {
 }
 
 func (r *renderer) callout(name string, body []string) {
+	if canon, ok := calloutAlias[name]; ok {
+		name = canon
+	}
+	titles := calloutTitles[r.opt.Locale]
+	if titles == nil {
+		titles = calloutTitles["en"]
+	}
 	switch name {
 	case "solucao":
-		r.sb.WriteString("<details class=\"solucao\"><summary>Mostrar solução</summary>\n")
+		r.sb.WriteString("<details class=\"solucao\"><summary>" + html.EscapeString(titles[name]) + "</summary>\n")
 		r.render(body)
 		r.sb.WriteString("</details>\n")
 	default:
-		title := map[string]string{"dica": "Dica", "atencao": "Atenção", "nota": "Nota", "desafio": "Desafio"}[name]
+		title := titles[name]
 		if title == "" {
 			title = name
 		}

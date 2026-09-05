@@ -37,7 +37,7 @@ usado por outra goroutine depois que o handler devolve.
 | `Header(k, v)` | define um cabeçalho de resposta |
 | `SetCookie(*http.Cookie)` | adiciona `Set-Cookie` |
 | `Render(code, node) error` | escreve a página **com os layouts da rota** (como o GET): para um `POST` devolver o formulário com erros (422) |
-| `Stream() *Stream` | resposta em Server-Sent Events: `Send(evento, dados)`, `JSON(evento, v)`, `Comment(s)`, `Done()`; desliga o *write timeout* ([IA e agentes](/aprender/ia-e-agentes)) |
+| `Stream() *Stream` | resposta em Server-Sent Events: `Send(evento, dados)`, `JSON(evento, v)`, `Comment(s)`, `Done()`; desliga o *write timeout* ([IA e agentes](/pt/aprender/ia-e-agentes)) |
 | `Writer() http.ResponseWriter` | acesso direto (downloads longos, WebSocket) |
 | `Written() bool` | se a resposta já começou |
 
