@@ -5,6 +5,8 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.3.0 — 2026-09-05
+
 ### Adicionado
 - Issues #10–#14 (spec 008): `Config.DevReload` e `TRILHA_DEV_RELOAD=off` desligam o
   script de recarga em dev; `Route.Kind` (`KindAuto`/`KindPage`/`KindAPI`) e
