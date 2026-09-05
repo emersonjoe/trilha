@@ -389,3 +389,33 @@ func TestMetricsOnExample(t *testing.T) {
 		}
 	}
 }
+
+// Ilha (#22): a página manda o formulário pronto e o módulo da ilha ao lado.
+// O que prova a convenção é o que sobra sem script: o textarea, com nome e
+// tudo, servido pelo servidor.
+func TestIlhaDoEditorDegradaSemScript(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.get("/blog/novo")
+	body := rec.Body.String()
+	for _, want := range []string{
+		`data-trilha-island="/ilha-editor.js`,
+		`data-trilha-props="{&#34;palavrasPorMinuto&#34;:200}"`,
+		`<textarea class="ui-textarea" id="corpo" name="corpo" rows="6"></textarea>`,
+		`data-info=""`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("falta %s na página:\n%s", want, body)
+		}
+	}
+	// O carregador é inline e precisa do nonce da requisição, senão a CSP
+	// padrão o recusa.
+	nonce := rec.Header().Get("Content-Security-Policy")
+	i := strings.Index(nonce, "'nonce-")
+	if i < 0 {
+		t.Fatal("sem nonce na CSP")
+	}
+	n := nonce[i+7 : i+7+strings.Index(nonce[i+7:], "'")]
+	if !strings.Contains(body, `<script nonce="`+n+`">`) {
+		t.Fatal("o carregador da ilha não levou o nonce da requisição")
+	}
+}

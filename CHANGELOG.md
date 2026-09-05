@@ -5,6 +5,21 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.13.0 — 2026-09-05
+
+### Added
+- `Ctx.Island(src, props, children...)`
+  ([#22](https://github.com/emersonjoe/trilha/issues/22)): an interactive region inside a
+  page that stays static. The server renders the children as the fallback and the browser
+  loads one ES module from `public/`, whose default export is the mount function, called with
+  the element and the props. The props travel as an escaped attribute and come back through
+  `JSON.parse`, so a value from the database is data and never markup; props that do not
+  serialize warn once and leave the fallback alone. No bundler, no global hydration: the
+  module is addressed through `Asset` (content hash in the URL), only the islands on the page
+  are mounted, each once, and the loader is a single inline script carrying the request nonce
+  — which is what lets the default CSP accept it without `unsafe-inline`. An island that
+  arrives inside a fragment mounts too: the loader listens for `trilha:swap`.
+
 ## 0.12.0 — 2026-09-05
 
 The five oldest open issues, all from the same place: an app already running on Trilha

@@ -49,6 +49,21 @@ usado por outra goroutine depois que o handler devolve.
 | `SetTitle(s)` / `Title() string` | título da página, lido pelos layouts |
 | `Set(chave, v)` / `Get(chave) any` | valores por requisição (middleware → página → layout) |
 
+## Ilhas
+
+```go
+func (c *Ctx) Island(src string, props any, children ...h.Node) h.Node
+```
+
+Renderiza `<div data-trilha-island="…" data-trilha-props="…">` com os filhos como conteúdo
+de origem, vindo do servidor. `src` é um módulo em `public/` (endereçado pelo `Asset`, então
+leva o hash do conteúdo) cuja **exportação padrão** é a função de montagem, chamada uma vez
+com `(el, props)`. `props` é qualquer coisa que o `encoding/json` serialize, ou `nil`; viaja
+como atributo escapado e volta pelo `JSON.parse`, então é dado, nunca marcação. Props que
+não serializam avisam uma vez e deixam o conteúdo de origem em paz. O carregador é um único
+script inline com o nonce da requisição, emitido junto da primeira ilha da resposta
+([Interatividade](/pt/aprender/interatividade)).
+
 ## Segurança
 
 | Método | Descrição |

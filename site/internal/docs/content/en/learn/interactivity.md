@@ -112,12 +112,67 @@ document.addEventListener("trilha:swap", (e) => {
 `window.ui.swap(id, html, status)` and `window.ui.hydrate(el)` are exposed for whoever needs
 to do the swap by hand.
 
+## The island: what a fragment cannot do
+
+A fragment always comes from the server. An editor with a live preview, a canvas, a map that
+drags: the state is on the client and there is no round trip to make. That is an **island** —
+a piece of the page that brings its own module, with everything around it staying plain HTML.
+
+```go
+c.Island("/editor.js", map[string]any{"wpm": 200},
+	h.Class("editor"),
+	ui.Textarea(h.Name("corpo")),               // the fallback: still a form field
+	h.P(h.Data("info", ""), h.Hidden()),        // filled in by the module
+)
+```
+
+```html
+<div data-trilha-island="/editor.js?v=9c1f" data-trilha-props="{&quot;wpm&quot;:200}" class="editor">…</div>
+```
+
+The module is an ordinary ES module in `public/`, and its default export is the mount:
+
+```js
+export default function (el, props) {
+  const area = el.querySelector("textarea");
+  area.addEventListener("input", () => { /* … */ });
+}
+```
+
+Four things fall out of that shape:
+
+- **The children are the fallback, and the server renders them.** Script blocked, still on
+  the way, or 404: the page is what it always was. The island adds, it does not carry.
+- **The props are data.** They are escaped as an attribute and read back with `JSON.parse` —
+  a value from the database cannot become markup. Anything `encoding/json` serializes goes;
+  what does not serialize warns in the log and leaves the fallback alone.
+- **No bundler and no global hydration.** The module is a file in `public/`, addressed
+  through `Asset` (so the URL carries the content hash), and only the islands present on the
+  page are mounted, each one once. The loader is a single inline script with the request
+  nonce, which is why the default CSP accepts it without `unsafe-inline`.
+- **An island that arrives inside a fragment mounts too**: the loader listens for
+  `trilha:swap`. What it needs is to be on the page already — that is, the page rendered at
+  least one island of its own.
+
+### The escape hatch
+
+The island is the boundary where another library is allowed in, and where its cost stops.
+Web Components need nothing from here — `customElements.define` and the tag is the island.
+For Alpine, htmx or anything else, drop the file in `public/` and import it from the island's
+module; for React, an ESM build in `public/` and a `createRoot(el)` inside the mount. The
+page around it is not asked to become a component, and nothing else in the project learns
+about the choice.
+
+The default CSP is `script-src 'self'`, so a module from a CDN is refused until you widen
+it — a decision, not an accident.
+
 ## What this is not
 
 It is not a SPA. There is no client router, no shared state, no component hydration and no
 DOM diffing — the swap is `outerHTML`, and the source of truth is still the server. A screen
-that needs rich local state (an editor, a canvas) deserves its own JavaScript; the fragment
-solves the common case, which is most screens.
+that needs rich local state (an editor, a canvas) deserves its own JavaScript, and the island
+above is where that JavaScript goes; the fragment solves the common case, which is most
+screens.
 
 Worth remembering the security boundary: `Trilha-Fragment` is a custom header, so a
 third-party site cannot send it without a preflight — and Trilha answers no preflight. A

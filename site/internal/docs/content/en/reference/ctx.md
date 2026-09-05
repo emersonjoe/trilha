@@ -49,6 +49,21 @@ used by another goroutine after the handler returns.
 | `SetTitle(s)` / `Title() string` | page title, read by layouts |
 | `Set(key, v)` / `Get(key) any` | per-request values (middleware → page → layout) |
 
+## Islands
+
+```go
+func (c *Ctx) Island(src string, props any, children ...h.Node) h.Node
+```
+
+Renders `<div data-trilha-island="…" data-trilha-props="…">` with the children as the
+server-rendered fallback. `src` is a module in `public/` (addressed through `Asset`, so it
+carries the content hash) whose **default export** is the mount function, called once with
+`(el, props)`. `props` is anything `encoding/json` serializes, or `nil`; it travels as an
+escaped attribute and is read back with `JSON.parse`, so it is data and never markup. Props
+that do not serialize warn once and leave the fallback alone. The loader is a single inline
+script with the request nonce, emitted with the first island of the response
+([Interactivity](/learn/interactivity)).
+
 ## Security
 
 | Method | Description |

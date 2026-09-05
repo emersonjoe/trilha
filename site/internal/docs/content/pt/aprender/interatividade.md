@@ -113,12 +113,66 @@ document.addEventListener("trilha:swap", (e) => {
 `window.ui.swap(id, html, status)` e `window.ui.hydrate(el)` estão expostos para quem
 precisar fazer a troca à mão.
 
+## A ilha: o que o fragmento não faz
+
+Fragmento vem sempre do servidor. Um editor com prévia ao vivo, um canvas, um mapa que
+arrasta: o estado está no cliente e não há ida e volta a fazer. Isso é uma **ilha** — um
+pedaço da página que traz o próprio módulo, com tudo em volta continuando HTML comum.
+
+```go
+c.Island("/editor.js", map[string]any{"ppm": 200},
+	h.Class("editor"),
+	ui.Textarea(h.Name("corpo")),               // o conteúdo de origem: ainda é um campo
+	h.P(h.Data("info", ""), h.Hidden()),        // preenchido pelo módulo
+)
+```
+
+```html
+<div data-trilha-island="/editor.js?v=9c1f" data-trilha-props="{&quot;ppm&quot;:200}" class="editor">…</div>
+```
+
+O módulo é um ES module comum em `public/`, e a exportação padrão dele é a montagem:
+
+```js
+export default function (el, props) {
+  const area = el.querySelector("textarea");
+  area.addEventListener("input", () => { /* … */ });
+}
+```
+
+Quatro coisas saem desse formato:
+
+- **Os filhos são o conteúdo de origem, e quem os renderiza é o servidor.** Script bloqueado,
+  ainda a caminho ou 404: a página é o que sempre foi. A ilha acrescenta, não sustenta.
+- **As props são dado.** Vão escapadas num atributo e voltam pelo `JSON.parse` — um valor
+  vindo do banco não vira marcação. Vale o que o `encoding/json` serializa; o que não
+  serializa avisa no log e deixa o conteúdo de origem em paz.
+- **Sem bundler e sem hidratação global.** O módulo é um arquivo em `public/`, endereçado
+  pelo `Asset` (então a URL leva o hash do conteúdo), e só as ilhas presentes na página são
+  montadas, cada uma uma vez. O carregador é um único script inline com o nonce da
+  requisição, e é por isso que a CSP padrão o aceita sem `unsafe-inline`.
+- **Uma ilha que chega dentro de um fragmento também monta**: o carregador ouve o
+  `trilha:swap`. O que ele precisa é já estar na página — ou seja, a página renderizou ao
+  menos uma ilha própria.
+
+### A porta de saída
+
+A ilha é a fronteira onde outra biblioteca entra, e onde o custo dela para. Web Components
+não precisam de nada daqui — `customElements.define` e a tag é a ilha. Para Alpine, htmx ou
+o que for, ponha o arquivo em `public/` e importe do módulo da ilha; para React, uma build
+ESM em `public/` e um `createRoot(el)` dentro da montagem. A página em volta não é obrigada
+a virar componente, e o resto do projeto não fica sabendo da escolha.
+
+A CSP padrão é `script-src 'self'`, então módulo vindo de CDN é recusado até você abrir a
+mão — decisão, não acidente.
+
 ## O que isso não é
 
 Não é SPA. Não há roteador no cliente, estado compartilhado, hidratação de componente nem
 *diff* de DOM — a troca é `outerHTML`, e a fonte da verdade continua sendo o servidor. Uma
-tela que precise de estado local rico (um editor, um canvas) merece JavaScript próprio; o
-fragmento resolve o caso comum, que é a maioria das telas.
+tela que precise de estado local rico (um editor, um canvas) merece JavaScript próprio, e a
+ilha acima é onde esse JavaScript mora; o fragmento resolve o caso comum, que é a maioria
+das telas.
 
 Vale lembrar o limite de segurança: o cabeçalho `Trilha-Fragment` é personalizado, então um
 site de terceiros não consegue mandá-lo sem *preflight* — e o Trilha não responde

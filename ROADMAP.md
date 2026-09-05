@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.12.0)
+## Onde o Trilha está (setembro de 2026, v0.13.0)
 
 | Área da avaliação | Estado | Onde |
 |---|---|---|
@@ -19,7 +19,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Simplicidade | zero dependências no runtime e na CLI, garantido por teste | princípio II |
 | Coerência com Go | `http.ServeMux` 1.22, `context`, `log/slog`, `embed`, erros explícitos | princípio III |
 | DX | `new`, `gen` (com `--check`), `dev` (recarga ~1 s, erro de build na página), `build`, `routes`, `export`, `audit`, `ui` | specs 001, 003, 004, 006, 021 |
-| Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors` | specs 006, 009 |
+| Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors`, fragmentos e ilhas | specs 006, 009, 018, 022 |
 | Dados | funções Go comuns; sem loader mágico | por decisão |
 | Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak, Cognito) com PKCE, sessão, papéis e logout | specs 004, 016, 020 |
 | Segurança | CSP com nonce, HSTS, COOP, `Permissions-Policy`, proxies confiáveis, timeouts, limite de corpo, `trilha audit` | spec 004 |
@@ -32,7 +32,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Desempenho | módulo `bench/`, resultados publicados, metodologia | spec 011 |
 | Comunidade | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, GOVERNANCE, templates, CODEOWNERS | spec 004 |
 
-Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.12.0 — a
+Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.13.0 — a
 avaliação enxergou o projeto num ponto anterior. O que sobra, sobra de verdade.
 
 ## O que vamos fazer
@@ -51,7 +51,9 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 2. ~~[#21](https://github.com/emersonjoe/trilha/issues/21) Envio de formulário sem recarregar, com estado de carregamento e erro de campo vindos
    do mesmo handler que já responde HTML.~~ **Entregue na 0.10.0** (spec 018): mesmo
    mecanismo, com `aria-busy`, foco no campo inválido em 422 e recuo para o envio normal.
-3. [#22](https://github.com/emersonjoe/trilha/issues/22) Ilhas: um componente interativo isolado, com o resto da página estática.
+3. ~~[#22](https://github.com/emersonjoe/trilha/issues/22) Ilhas: um componente interativo isolado, com o resto da página estática.~~ **Entregue na
+   0.13.0** (spec 022): `Ctx.Island` com módulo em `public/`, props escapadas e conteúdo de
+   origem no servidor.
 4. [#23](https://github.com/emersonjoe/trilha/issues/23) Navegação no cliente, opcional e por atributo, preservando histórico e foco.
 5. [#24](https://github.com/emersonjoe/trilha/issues/24) Upload com progresso e a decisão sobre WebSocket.
 

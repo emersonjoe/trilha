@@ -24,7 +24,16 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		ui.CardContent(h.Form(h.Method("post"), h.Action("/blog/novo"), h.Class("ui-stack"),
 			trilha.CSRFInput(c),
 			ui.Field("titulo", "Título", ui.Input(append([]h.Node{h.ID("titulo"), h.Name("titulo"), h.Required(), h.Autofocus()}, titleAttrs...)...), titleOpts...),
-			ui.Field("corpo", "Texto", ui.Textarea(h.ID("corpo"), h.Name("corpo"), h.Rows("6")), ui.Help("Markdown não é interpretado neste exemplo.")),
+			// Ilha: o trecho interativo da página. O servidor manda o
+			// formulário pronto e os dados da ilha; o módulo em public/
+			// assume no cliente. Sem script, o campo continua sendo um
+			// campo — a contagem e a prévia é que não aparecem.
+			c.Island("/ilha-editor.js", map[string]any{"palavrasPorMinuto": 200},
+				h.Class("ui-stack"),
+				ui.Field("corpo", "Texto", ui.Textarea(h.ID("corpo"), h.Name("corpo"), h.Rows("6")), ui.Help("Markdown não é interpretado neste exemplo.")),
+				h.P(h.Data("info", ""), h.Class("ui-muted"), h.Hidden()),
+				h.Div(h.Data("previa", ""), h.Class("ui-prose"), h.Hidden()),
+			),
 			h.Div(ui.Submit(h.Text("Publicar")), h.Text(" "), ui.ButtonLink("/blog", ui.Ghost(), h.Text("Cancelar"))),
 		)),
 	), nil
