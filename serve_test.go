@@ -1,6 +1,7 @@
 package trilha
 
 import (
+	"crypto/tls"
 	"errors"
 	"io"
 	"io/fs"
@@ -343,3 +344,5 @@ func TestRoutesListing(t *testing.T) {
 }
 
 var _ = http.StatusOK
+
+var tlsState = tls.ConnectionState{}

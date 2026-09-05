@@ -57,23 +57,24 @@ func (a *App) Routes() map[string][]string {
 	return out
 }
 
-func setSecurityHeaders(h http.Header) {
-	h.Set("X-Content-Type-Options", "nosniff")
-	h.Set("X-Frame-Options", "DENY")
-	h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
-}
-
 // wrap builds the http.Handler for one (route, method): middleware chain,
 // CSRF for form methods, error mapping, recover and logging.
 func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
-		setSecurityHeaders(rw.Header())
 		req.Body = http.MaxBytesReader(rw, req.Body, a.cfg.MaxBodyBytes)
 		c := newCtx(a, rw, req, kind)
+		a.applySecurity(c)
 		rw.Header().Set("X-Request-ID", c.requestID)
 
+		if a.limiter != nil {
+			if err := a.limiter.check(c); err != nil {
+				a.handleError(c, err)
+				a.logRequest(c, rw, start)
+				return
+			}
+		}
 		err := a.run(c, r.Middlewares, func(c *Ctx) (err error) {
 			defer func() {
 				if v := recover(); v != nil {
@@ -130,7 +131,8 @@ func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
 // trailing-slash redirects, 405 for known paths and the 404 page.
 func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 	rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
-	setSecurityHeaders(rw.Header())
+	fc := newCtx(a, rw, req, kindPage)
+	a.applySecurity(fc)
 	if req.Method == http.MethodGet || req.Method == http.MethodHead {
 		if a.serveStatic(rw, req) {
 			return
@@ -145,8 +147,8 @@ func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 		if r, ok := a.routes[key]; ok {
 			allow := a.allowFor(r)
 			rw.Header().Set("Allow", allow)
-			c := newCtx(a, rw, req, kindOf(r))
-			a.handleError(c, &HTTPError{Code: http.StatusMethodNotAllowed})
+			fc.kind = kindOf(r)
+			a.handleError(fc, &HTTPError{Code: http.StatusMethodNotAllowed})
 			return
 		}
 	}
@@ -161,7 +163,7 @@ func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	c := newCtx(a, rw, req, kindPage)
+	c := fc
 	if strings.HasPrefix(req.URL.Path, "/api/") || strings.Contains(req.Header.Get("Accept"), "application/json") {
 		c.kind = kindAPI
 	}

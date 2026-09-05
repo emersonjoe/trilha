@@ -14,6 +14,12 @@ type Config struct {
 	Public       fs.FS        // arquivos estáticos; nil desliga
 	CSRFForAPI   bool         // exigir CSRF também em route.go
 	BasePath     string       // prefixo de URL; TRILHA_BASE_PATH
+	Security     Security     // cabeçalhos (veja Segurança)
+	TrustedProxies []string   // CIDRs; TRILHA_TRUSTED_PROXIES
+	RateLimit    RateLimit    // limite global por cliente
+	Secret, PreviousSecret []byte // TRILHA_SECRET, TRILHA_SECRET_PREVIOUS
+	Timeouts     Timeouts     // limites do http.Server
+	OnSecurityEvent func(SecurityEvent)
 }
 ```
 
@@ -37,6 +43,8 @@ entre a cópia embutida (prod) e a pasta no disco (dev).
 | `ExportPaths() []string` | o que `Export` vai renderizar |
 | `Export(dir) error` | escreve o site estático |
 | `BasePath() string` | prefixo de URL |
+| `Security() *Security` | cabeçalhos, ajustáveis em `Setup` |
+| `Config() *Config` | a configuração inteira, ajustável em `Setup` antes de servir |
 
 `trilha.Run(a)` é o que o `main` gerado chama: exporta se `TRILHA_EXPORT` estiver definido,
 senão serve. `trilha.Fatal(err)` registra e encerra, ignorando `http.ErrServerClosed`.

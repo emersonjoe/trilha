@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/emersonjoe/trilha/h"
 )
@@ -22,16 +23,18 @@ const (
 // Ctx wraps one request/response pair. It is created per request and is not
 // safe for use from other goroutines after the handler returns.
 type Ctx struct {
-	w         *responseWriter
-	r         *http.Request
-	app       *App
-	kind      routeKind
-	values    map[string]any
-	title     string
-	status    int
-	requestID string
-	formErr   error
-	parsed    bool
+	w          *responseWriter
+	r          *http.Request
+	app        *App
+	kind       routeKind
+	values     map[string]any
+	title      string
+	status     int
+	requestID  string
+	formErr    error
+	parsed     bool
+	nonce      string
+	secEmitted bool
 }
 
 func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
@@ -164,6 +167,12 @@ func (c *Ctx) Title() string { return c.title }
 
 // SetTitle sets the page title; layouts read it with Title.
 func (c *Ctx) SetTitle(t string) { c.title = t }
+
+// NoWriteDeadline disables the server write timeout for this response; call
+// it before streaming (SSE, long downloads).
+func (c *Ctx) NoWriteDeadline() error {
+	return http.NewResponseController(c.w).SetWriteDeadline(time.Time{})
+}
 
 // Written reports whether the response has already started.
 func (c *Ctx) Written() bool { return c.w.wrote }

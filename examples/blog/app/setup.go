@@ -9,5 +9,7 @@ import (
 func Setup(a *trilha.App) error {
 	posts.Seed()
 	a.Values()["site"] = "Trilha Blog"
+	// Limite global brando; /api tem o seu próprio em app/api/middleware.go.
+	a.Security().CSPExtra = map[string][]string{"img-src": {"https:"}}
 	return nil
 }

@@ -28,7 +28,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Link(h.Rel("stylesheet"), h.Href("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap")),
 			h.Link(h.Rel("stylesheet"), h.Href(b+"/site.css")),
 			// Applies the saved theme before first paint to avoid a flash.
-			h.Script(h.Raw(`try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-tema",t)}catch(e){}`)),
+			h.Script(trilha.NonceAttr(c), h.Raw(`try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-tema",t)}catch(e){}`)),
 		),
 		h.Body(
 			h.A(h.Class("pular"), h.Href("#principal"), h.Text("Ir para o conteúdo")),

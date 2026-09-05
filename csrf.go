@@ -44,10 +44,6 @@ func (c *Ctx) CSRFToken() string {
 	return tok
 }
 
-func (c *Ctx) isSecure() bool {
-	return c.r.TLS != nil || strings.EqualFold(c.r.Header.Get("X-Forwarded-Proto"), "https")
-}
-
 // CSRFInput renders the hidden input for forms: h.Form(..., trilha.CSRFInput(c), ...).
 func CSRFInput(c *Ctx) h.Node {
 	return h.Input(h.Type("hidden"), h.Name(CSRFField), h.Value(c.CSRFToken()))
@@ -57,6 +53,7 @@ func CSRFInput(c *Ctx) h.Node {
 func (a *App) checkCSRF(c *Ctx) error {
 	ck, err := c.r.Cookie(CSRFCookie)
 	if err != nil || ck.Value == "" {
+		a.securityEvent(c, "csrf", http.StatusForbidden)
 		return &HTTPError{Code: http.StatusForbidden, Message: "missing CSRF cookie"}
 	}
 	sent := c.r.Header.Get(CSRFHeader)
@@ -70,6 +67,7 @@ func (a *App) checkCSRF(c *Ctx) error {
 		}
 	}
 	if sent == "" || subtle.ConstantTimeCompare([]byte(sent), []byte(ck.Value)) != 1 {
+		a.securityEvent(c, "csrf", http.StatusForbidden)
 		return &HTTPError{Code: http.StatusForbidden, Message: "invalid CSRF token"}
 	}
 	return nil

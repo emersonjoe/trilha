@@ -21,6 +21,7 @@ type client struct {
 
 func newClient(t *testing.T, env string) *client {
 	t.Setenv("TRILHA_ENV", env)
+	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	posts.Seed()
 	return &client{t: t, h: newApp().Handler(), jar: map[string]string{}}
@@ -204,7 +205,7 @@ func TestUS3_AdminGuard(t *testing.T) {
 		t.Fatal(rec.Code)
 	}
 	rec = c.postForm("/login", "usuario=admin&senha=trilha&next=/admin")
-	if rec.Code != 303 || rec.Header().Get("Location") != "/admin" || c.jar["session"] != "ok" {
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin" || !strings.Contains(c.jar["sessao"], "|") {
 		t.Fatalf("%d %s %v", rec.Code, rec.Header().Get("Location"), c.jar)
 	}
 	wantContains(t, c.get("/admin"), 200, "<h1>Olá, admin</h1>", "2 posts publicados.")
@@ -281,4 +282,34 @@ func TestTemplatePageInsideLayouts(t *testing.T) {
 func TestTemplateErrorIs500(t *testing.T) {
 	c := newClient(t, "dev")
 	wantContains(t, c.get("/relatorio?t=nao-existe"), 500, "<h1>Algo deu errado</h1>", "nao-existe")
+}
+
+// ---- 004: segurança -------------------------------------------------------
+
+func TestSecurityHeadersOnExample(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.get("/")
+	csp := rec.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "img-src 'self' data: https:") || rec.Header().Get("Permissions-Policy") == "" {
+		t.Fatalf("csp=%q", csp)
+	}
+}
+
+func TestSignedSessionCannotBeForged(t *testing.T) {
+	c := newClient(t, "prod")
+	c.jar["sessao"] = "admin|9999999999|assinatura-falsa"
+	if rec := c.get("/admin"); rec.Code != 302 {
+		t.Fatalf("forged session accepted: %d", rec.Code)
+	}
+}
+
+func TestAPIRateLimit(t *testing.T) {
+	c := newClient(t, "prod")
+	var last int
+	for i := 0; i < 25; i++ {
+		last = c.get("/api/posts").Code
+	}
+	if last != 429 {
+		t.Fatalf("expected 429 after burst, got %d", last)
+	}
 }

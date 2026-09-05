@@ -25,6 +25,7 @@ Uso:
   trilha build [-o bin/<nome>]                     gera + compila um binário único
   trilha routes                                    lista as rotas descobertas
   trilha export [-o out] [--base /prefixo]         exporta as páginas estáticas em HTML
+  trilha audit [--no-vuln]                         verifica segurança e configuração do projeto
   trilha version
 `
 
@@ -47,6 +48,8 @@ func main() {
 		err = cmdRoutes(os.Args[2:])
 	case "export":
 		err = cmdExport(os.Args[2:])
+	case "audit":
+		err = cmdAudit(os.Args[2:])
 	case "version", "-v", "--version":
 		fmt.Println("trilha", version)
 	case "help", "-h", "--help":

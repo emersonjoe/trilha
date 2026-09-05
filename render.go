@@ -50,7 +50,7 @@ func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
 		}
 	}
 	if a.cfg.Env == Dev {
-		out = injectDevScript(out)
+		out = injectDevScript(out, c.Nonce())
 	}
 	c.w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	c.w.WriteHeader(code)
@@ -79,6 +79,11 @@ func (a *App) handleError(c *Ctx, err error) {
 		return
 	}
 	code := statusOf(err)
+	if _, isPanic := err.(*panicError); isPanic {
+		a.securityEvent(c, "panic", code)
+	} else if k := kindForStatus(code); k != "" {
+		a.securityEvent(c, k, code)
+	}
 	if c.w.wrote {
 		// Response already started: nothing sensible to send.
 		if code >= 500 {
@@ -174,19 +179,20 @@ func (p *panicError) Error() string { return fmt.Sprintf("panic: %v", p.value) }
 func (p *panicError) Stack() string { return p.stack }
 
 // devScript reconnects to the dev events endpoint and reloads on demand.
-const devScript = `<script>(function(){var d=false;function c(){var e=new EventSource('/_trilha/events');e.onmessage=function(m){if(m.data==='reload'){location.reload()}};e.onopen=function(){if(d){location.reload()}};e.onerror=function(){d=true;e.close();setTimeout(c,300)}}c()})();</script>`
+const devScript = `<script{nonce}>(function(){var d=false;function c(){var e=new EventSource('/_trilha/events');e.onmessage=function(m){if(m.data==='reload'){location.reload()}};e.onopen=function(){if(d){location.reload()}};e.onerror=function(){d=true;e.close();setTimeout(c,300)}}c()})();</script>`
 
-func injectDevScript(out []byte) []byte {
+func injectDevScript(out []byte, nonce string) []byte {
 	if bytes.Contains(out, []byte("/_trilha/events")) {
 		return out
 	}
+	script := strings.ReplaceAll(devScript, "{nonce}", ` nonce="`+nonce+`"`)
 	i := bytes.LastIndex(bytes.ToLower(out), []byte("</body>"))
 	if i < 0 {
-		return append(out, []byte(devScript)...)
+		return append(out, []byte(script)...)
 	}
-	res := make([]byte, 0, len(out)+len(devScript))
+	res := make([]byte, 0, len(out)+len(script))
 	res = append(res, out[:i]...)
-	res = append(res, []byte(devScript)...)
+	res = append(res, []byte(script)...)
 	res = append(res, out[i:]...)
 	return res
 }
@@ -196,5 +202,5 @@ func CompileErrorPage(output string) string {
 	return "<!doctype html><html><head><meta charset=\"utf-8\"><title>Erro de compilação</title>" +
 		"<style>body{font:15px/1.5 system-ui,sans-serif;max-width:60rem;margin:3rem auto;padding:0 1rem;color:#222}pre{background:#2b1d1d;color:#ffd9d9;padding:1rem;overflow:auto;white-space:pre-wrap;border-radius:6px}</style></head>" +
 		"<body><h1>Erro de compilação</h1><p>Corrija o código e salve: esta página recarrega sozinha.</p><pre>" +
-		html.EscapeString(strings.TrimSpace(output)) + "</pre>" + devScript + "</body></html>"
+		html.EscapeString(strings.TrimSpace(output)) + "</pre>" + strings.ReplaceAll(devScript, "{nonce}", "") + "</body></html>"
 }

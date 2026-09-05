@@ -69,6 +69,8 @@ func TestCSRFEnforcedOnPageForms(t *testing.T) {
 
 func TestSecureCookieBehindProxy(t *testing.T) {
 	a := csrfApp(false)
+	a.cfg.TrustedProxies = []string{"192.0.2.1"} // httptest's RemoteAddr
+	a.parseProxies()
 	req := httptest.NewRequest("GET", "/form", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	rec := httptest.NewRecorder()

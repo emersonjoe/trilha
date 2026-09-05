@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"strings"
@@ -44,6 +45,27 @@ type Config struct {
 	// BasePath is the URL prefix the app is served under (e.g. "/docs" on
 	// GitHub Pages). Read it with Ctx.Base when building links.
 	BasePath string
+	// Security tunes the hardening headers (zero value = defaults).
+	Security Security
+	// TrustedProxies lists CIDRs whose X-Forwarded-For/Proto are honoured.
+	TrustedProxies []string
+	// RateLimit enables a global per-client limit (zero = off).
+	RateLimit RateLimit
+	// Secret signs cookies (TRILHA_SECRET); PreviousSecret still verifies.
+	Secret, PreviousSecret []byte
+	// Timeouts protect the server from slow clients.
+	Timeouts Timeouts
+	// OnSecurityEvent is called for blocked requests (CSRF, 401/403, 413, 429, panic).
+	OnSecurityEvent func(SecurityEvent)
+}
+
+// Timeouts are the http.Server limits. Zero fields get defaults.
+type Timeouts struct {
+	ReadHeader     time.Duration // 10s
+	Read           time.Duration // 30s
+	Write          time.Duration // 60s (use Ctx.NoWriteDeadline for streams)
+	Idle           time.Duration // 120s
+	MaxHeaderBytes int           // 64 KiB
 }
 
 // ConfigFromEnv builds a Config from ADDR/PORT and TRILHA_ENV.
@@ -62,6 +84,10 @@ func ConfigFromEnv() Config {
 		cfg.BasePath = "/" + b
 	} else {
 		cfg.BasePath = b
+	}
+	cfg.Secret, cfg.PreviousSecret, _ = secretsFromEnv()
+	if p := os.Getenv("TRILHA_TRUSTED_PROXIES"); p != "" {
+		cfg.TrustedProxies = strings.Split(p, ",")
 	}
 	return cfg
 }
@@ -127,6 +153,9 @@ type App struct {
 	notFound    PageFunc
 	errorPage   ErrorPageFunc
 	exportExtra []string
+	proxies     []netip.Prefix
+	limiter     *limiter
+	signer      *Signer
 }
 
 // New creates an App. Zero values in cfg receive defaults.
@@ -150,6 +179,20 @@ func New(cfg Config) *App {
 		pathMux: http.NewServeMux(),
 		routes:  map[string]*Route{},
 		values:  map[string]any{},
+	}
+	a.parseProxies()
+	if cfg.RateLimit.RPS > 0 {
+		a.limiter = newLimiter(cfg.RateLimit)
+	}
+	switch {
+	case len(cfg.Secret) > 0:
+		a.signer = NewSigner(cfg.Secret, cfg.PreviousSecret)
+	case cfg.Env == Dev:
+		a.signer = NewSigner(randomSecret())
+		a.log.Info("trilha: TRILHA_SECRET ausente; usando chave efêmera (dev)")
+	default:
+		a.signer = NewSigner()
+		a.log.Warn("trilha: TRILHA_SECRET ausente; cookies assinados indisponíveis em produção")
 	}
 	a.mux.HandleFunc("/", a.fallback)
 	a.mux.HandleFunc("GET /_trilha/events", a.devEvents)
@@ -180,10 +223,15 @@ func (a *App) Handler() http.Handler { return a.mux }
 
 // ListenAndServe serves until SIGINT/SIGTERM, then shuts down gracefully.
 func (a *App) ListenAndServe() error {
+	t := a.cfg.Timeouts
 	srv := &http.Server{
 		Addr:              a.cfg.Addr,
 		Handler:           a.mux,
-		ReadHeaderTimeout: 10 * time.Second,
+		ReadHeaderTimeout: or(t.ReadHeader, 10*time.Second),
+		ReadTimeout:       or(t.Read, 30*time.Second),
+		WriteTimeout:      or(t.Write, 60*time.Second),
+		IdleTimeout:       or(t.Idle, 120*time.Second),
+		MaxHeaderBytes:    orInt(t.MaxHeaderBytes, 64<<10),
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -200,6 +248,20 @@ func (a *App) ListenAndServe() error {
 	}
 }
 
+func or(v, def time.Duration) time.Duration {
+	if v == 0 {
+		return def
+	}
+	return v
+}
+
+func orInt(v, def int) int {
+	if v == 0 {
+		return def
+	}
+	return v
+}
+
 // Fatal logs a fatal error and exits, ignoring the normal server-closed error.
 func Fatal(err error) {
 	if err == nil || errors.Is(err, http.ErrServerClosed) {
@@ -208,3 +270,7 @@ func Fatal(err error) {
 	slog.Error("trilha: fatal", "err", err)
 	os.Exit(1)
 }
+
+// Config returns the live configuration for adjustment in Setup (rate limit,
+// hooks, security). Changes after ListenAndServe are not guaranteed to apply.
+func (a *App) Config() *Config { return &a.cfg }

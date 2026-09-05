@@ -8,6 +8,7 @@ import (
 	trilha "github.com/emersonjoe/trilha"
 	app "github.com/emersonjoe/trilha/examples/blog/app"
 	app_admin "github.com/emersonjoe/trilha/examples/blog/app/admin"
+	app_api "github.com/emersonjoe/trilha/examples/blog/app/api"
 	app_api_posts "github.com/emersonjoe/trilha/examples/blog/app/api/posts"
 	app_api_posts_id_ "github.com/emersonjoe/trilha/examples/blog/app/api/posts/id_"
 	app_blog "github.com/emersonjoe/trilha/examples/blog/app/blog"
@@ -55,7 +56,7 @@ func newApp() *trilha.App {
 			"GET":  app_api_posts.GET,
 			"POST": app_api_posts.POST,
 		},
-		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_api.Middleware},
 	})
 	a.Register(trilha.Route{
 		Pattern: "/api/posts/{id}",
@@ -63,7 +64,7 @@ func newApp() *trilha.App {
 			"DELETE": app_api_posts_id_.DELETE,
 			"GET":    app_api_posts_id_.GET,
 		},
-		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_api.Middleware},
 	})
 	a.Register(trilha.Route{
 		Pattern:     "/blog",
@@ -133,5 +134,5 @@ func newApp() *trilha.App {
 }
 
 func main() {
-	trilha.Fatal(newApp().ListenAndServe())
+	trilha.Run(newApp())
 }

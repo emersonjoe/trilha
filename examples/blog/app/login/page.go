@@ -2,6 +2,7 @@ package login
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
@@ -25,13 +26,15 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 // POST authenticates (or signs out with sair=1) and redirects.
 func POST(c *trilha.Ctx) error {
 	if c.Form("sair") == "1" {
-		c.SetCookie(&http.Cookie{Name: "session", Value: "", Path: "/", MaxAge: -1})
+		c.ClearCookie("sessao")
 		return c.Redirect("/")
 	}
 	if c.Form("usuario") != "admin" || c.Form("senha") != "trilha" {
 		return trilha.Errorf(http.StatusUnauthorized, "usuário ou senha inválidos")
 	}
-	c.SetCookie(&http.Cookie{Name: "session", Value: "ok", Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	if err := c.SetSigned("sessao", "admin", 8*time.Hour); err != nil {
+		return err // sem TRILHA_SECRET em produção
+	}
 	next := c.Form("next")
 	if next == "" || next[0] != '/' {
 		next = "/admin"

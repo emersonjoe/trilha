@@ -23,10 +23,17 @@ documentação são bem-vindos, mas com prioridade menor.
 ## Garantias que o framework oferece por padrão
 
 - Escape de HTML em texto e atributos (`h`) e escape contextual (`tmpl`).
+- `Content-Security-Policy` com nonce por requisição; HSTS em HTTPS; `X-Frame-Options`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`.
 - Proteção CSRF por *double-submit cookie* em métodos de escrita de páginas.
-- Limite de corpo de requisição (1 MiB por padrão).
-- Cabeçalhos `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
+- Cookies assinados (HMAC-SHA256, com expiração e rotação de chave).
+- Limite de corpo de requisição (1 MiB por padrão), timeouts e limite de cabeçalhos.
+- Limite de taxa por cliente (opcional) e IP do cliente só via proxies confiáveis.
 - Arquivos estáticos restritos a `public/` (sem *path traversal*).
-- Erros em produção sem stack nem caminhos de arquivo; logs sem corpo nem cookies.
+- Erros em produção sem stack nem caminhos de arquivo; logs sem corpo nem cookies; eventos
+  de segurança (CSRF, 401/403, 413, 429, panic) registrados e expostos por hook.
+
+O mapeamento desses controles para o NIST CSF 2.0 e o OWASP ASVS 4.0 está na documentação:
+<https://emersonjoe.github.io/trilha/aprender/seguranca>.
 
 Um relato que mostre qualquer uma dessas garantias falhando é tratado como vulnerabilidade.

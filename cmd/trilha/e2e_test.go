@@ -39,6 +39,11 @@ func TestE2E(t *testing.T) {
 		t.Fatal(out)
 	}
 	run(t, proj, cli, "build", "-o", "bin/app")
+	os.Setenv("TRILHA_SECRET", strings.Repeat("s", 32))
+	if out := run(t, proj, cli, "audit", "--no-vuln"); !strings.Contains(out, "✓ TRILHA_SECRET definido") || !strings.Contains(out, "✓ trilha_gen.go atualizado") {
+		t.Fatal(out)
+	}
+	os.Unsetenv("TRILHA_SECRET")
 	run(t, proj, cli, "export", "-o", "out")
 	for _, f := range []string{"out/index.html", "out/404.html", "out/style.css", "out/.trilha-export"} {
 		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {

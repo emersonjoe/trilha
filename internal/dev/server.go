@@ -3,6 +3,8 @@ package dev
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +39,7 @@ type Server struct {
 	buildErr  string
 	clients   map[chan string]struct{}
 	binPath   string
+	secret    string
 }
 
 // Run generates, builds, starts the child and watches for changes until ctx
@@ -144,6 +147,10 @@ func (s *Server) startChild() (int, error) {
 	cmd := exec.Command(s.binPath)
 	cmd.Dir = s.Root
 	cmd.Env = append(os.Environ(), "TRILHA_ENV=dev", "ADDR=127.0.0.1:"+strconv.Itoa(port))
+	if os.Getenv("TRILHA_SECRET") == "" {
+		// One ephemeral secret per dev session, so signed cookies survive rebuilds.
+		cmd.Env = append(cmd.Env, "TRILHA_SECRET="+s.devSecret())
+	}
 	cmd.Stdout, cmd.Stderr = s.Out, s.Out
 	if err := cmd.Start(); err != nil {
 		return 0, err
@@ -168,6 +175,17 @@ func (s *Server) startChild() (int, error) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	return 0, errors.New("o app não respondeu em 10 s")
+}
+
+func (s *Server) devSecret() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.secret == "" {
+		b := make([]byte, 32)
+		_, _ = rand.Read(b)
+		s.secret = base64.StdEncoding.EncodeToString(b)
+	}
+	return s.secret
 }
 
 func (s *Server) stopChild() {
