@@ -105,10 +105,10 @@ func run(b *testing.B, hnd http.Handler, path string) {
 	}
 }
 
-func BenchmarkPage_Trilha(b *testing.B)  { run(b, trilhaApp(0).Handler(), "/blog") }
-func BenchmarkPage_Stdlib(b *testing.B)  { run(b, stdlibMux(0), "/blog") }
-func BenchmarkJSON_Trilha(b *testing.B)  { run(b, trilhaApp(0).Handler(), "/api/posts") }
-func BenchmarkJSON_Stdlib(b *testing.B)  { run(b, stdlibMux(0), "/api/posts") }
+func BenchmarkPage_Trilha(b *testing.B)   { run(b, trilhaApp(0).Handler(), "/blog") }
+func BenchmarkPage_Stdlib(b *testing.B)   { run(b, stdlibMux(0), "/blog") }
+func BenchmarkJSON_Trilha(b *testing.B)   { run(b, trilhaApp(0).Handler(), "/api/posts") }
+func BenchmarkJSON_Stdlib(b *testing.B)   { run(b, stdlibMux(0), "/api/posts") }
 func BenchmarkStatic_Trilha(b *testing.B) { run(b, trilhaApp(0).Handler(), "/app.css") }
 func BenchmarkStatic_Stdlib(b *testing.B) { run(b, stdlibMux(0), "/app.css") }
 func BenchmarkRoute200_Trilha(b *testing.B) {
