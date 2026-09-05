@@ -121,10 +121,10 @@
     m.style.left = Math.min(r.left, window.innerWidth - m.offsetWidth - 8) + "px";
   }, true);
 
-  // Fragmentos (spec 018): [data-trilha-target="id"] em <a> ou <form> pede só
-  // o pedaço da página e troca o elemento #id. Sem JavaScript, o mesmo link
-  // navega e o mesmo formulário envia — o servidor devolve a página inteira
-  // porque ninguém mandou o cabeçalho.
+  // Fragments (spec 018): [data-trilha-target="id"] on an <a> or <form> asks
+  // for just that piece of the page and swaps element #id. Without JavaScript
+  // the same link navigates and the same form submits — the server answers with
+  // the whole page, because nobody sent the header.
   const hydrate = (root) => { armFades(root); evalShowWhen(root); };
 
   const swap = (id, html, status) => {
@@ -135,7 +135,7 @@
     const sel = key && act.selectionStart != null ? [act.selectionStart, act.selectionEnd] : null;
     old.outerHTML = html;
     const el = document.getElementById(id);
-    if (!el) return false; // o fragmento veio sem o id: melhor navegar
+    if (!el) return false; // the fragment came back without the id: navigate instead
     const invalid = status === 422 ? el.querySelector("[aria-invalid='true']") : null;
     if (invalid) invalid.focus();
     else if (key) {
@@ -150,7 +150,7 @@
     return true;
   };
 
-  // ask devolve false quando o caminho certo é navegar de verdade.
+  // ask returns false when the right thing to do is a real navigation.
   const ask = async (url, opts, id) => {
     const target = document.getElementById(id);
     target?.setAttribute("aria-busy", "true");
@@ -162,7 +162,7 @@
       if (res.status >= 500) return false;
       return swap(id, await res.text(), res.status);
     } catch {
-      return false; // rede caiu: a navegação normal ainda pode funcionar
+      return false; // network is down: a normal navigation may still work
     } finally {
       target?.removeAttribute("aria-busy");
     }
@@ -199,7 +199,7 @@
       action.search = new URLSearchParams(data).toString();
       url = action.href;
     } else if (f.enctype === "multipart/form-data") {
-      opts.body = data; // arquivos: deixa o navegador montar o multipart
+      opts.body = data; // files: let the browser build the multipart body
     } else {
       opts.body = new URLSearchParams(data);
     }
@@ -211,7 +211,7 @@
     });
   });
 
-  // Voltar desfaz uma troca feita por link.
+  // Back undoes a swap made by a link.
   window.addEventListener("popstate", (e) => {
     const id = e.state?.trilhaFragment;
     if (!id) return;
