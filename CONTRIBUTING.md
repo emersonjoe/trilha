@@ -11,6 +11,8 @@ lands without back and forth.
 - **New convention or API change**: open a proposal issue. Behavior changes go through a
   spec in `specs/NNN-name/` ([spec-kit](https://github.com/github/spec-kit) flow:
   spec → plan → tasks → implement). The maintainer opens the spec with you from the issue.
+  A small change — one package, no new `app/` convention, no public API break — uses the
+  short form instead: a single `spec.md` from `.specify/templates/spec-curta-template.md`.
 - **Question**: use the [Discussions](https://github.com/emersonjoe/trilha/discussions).
 
 ## Principles that do not change without an amendment

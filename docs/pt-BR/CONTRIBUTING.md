@@ -11,6 +11,9 @@ contribuição seja aceita sem ida e volta.
 - **Convenção nova ou mudança de API**: abra uma issue de proposta. Mudanças de comportamento
   passam por uma spec em `specs/NNN-nome/` (fluxo [spec-kit](https://github.com/github/spec-kit):
   spec → plan → tasks → implement). O mantenedor abre a spec com você a partir da issue.
+  Mudança pequena — um pacote, sem convenção nova em `app/`, sem quebra de API pública —
+  usa a forma curta: um único `spec.md` a partir de
+  `.specify/templates/spec-curta-template.md`.
 - **Dúvida**: use as [Discussões](https://github.com/emersonjoe/trilha/discussions).
 
 ## Princípios que não mudam sem emenda

@@ -92,6 +92,25 @@ implement. O `Constitution Check` do plano deve listar cada princípio e como a 
 respeita; violações precisam de justificativa em "Complexity Tracking". Commits pequenos
 por tarefa; `gofmt` e `go vet` limpos; mensagens de commit sem trailer de coautoria.
 
+Mudança pequena — um pacote, sem convenção nova em `app/`, sem quebra de API pública, plano
+que cabe em uma tela — pode usar a **spec curta**: um único `spec.md` a partir de
+`.specify/templates/spec-curta-template.md`, com por quê, contrato, `Constitution Check` dos
+princípios tocados, tarefas e aceitação. Mesma numeração, mesmo branch, mesma release; o que
+muda é que plano e tarefas param de repetir a spec em três arquivos. Na dúvida, forma completa.
+
+A **issue é a fonte do escopo**: a spec aponta para ela em vez de recopiar a lista de
+implementação, e um fato verificado fora do repositório (o comportamento de um provedor, um
+detalhe de RFC) é registrado na issue na primeira vez que alguém o levanta, para que ninguém
+vá conferir de novo.
+
+**Um dono da `main` por vez.** Duas frentes simultâneas no mesmo repositório só com divisão de
+arquivos combinada antes e número de spec reservado; sem isso o custo do encontro — rebase,
+renumeração de versão, conflito de tradução — supera o ganho do paralelismo.
+
+Fechar uma spec é `scripts/release.sh X.Y.Z --issues "NN"` (ou `make release`): testar, fundir
+por fast-forward, marcar a tag anotada, publicar a release com as notas do `CHANGELOG.md` e
+fechar as issues. O ritual é sempre o mesmo, então é script, não passo a passo escrito à mão.
+
 ## Governance
 
 Esta constituição prevalece sobre qualquer outra prática do repositório. Emendas exigem:
@@ -99,4 +118,4 @@ registro da mudança neste arquivo com nova versão semântica, atualização do
 `.specify/templates/` que dependam do princípio alterado, e migração dos exemplos afetados.
 Revisões de código verificam aderência aos princípios I–VII antes de aprovar.
 
-**Version**: 1.2.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-05 (inglês por padrão, português como tradução)
+**Version**: 1.3.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-05 (spec curta, issue como fonte do escopo, um dono da `main`, release por script)
