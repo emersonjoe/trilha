@@ -71,7 +71,7 @@ na raiz do app, junto do `trilha_gen.go`. Uma flag do gerador decide o modo.
 ## R7. CSRF
 
 **Decisão**: double-submit cookie: cookie `trilha_csrf` (HttpOnly, SameSite=Lax) com token
-aleatório; formulários incluem `<input type=hidden name=_csrf>` via `h.CSRF(c)`; JSON pode
+aleatório; formulários incluem `<input type=hidden name=_csrf>` via `trilha.CSRFInput(c)`; JSON pode
 enviar `X-CSRF-Token`. Verificação com `subtle.ConstantTimeCompare` em `POST/PUT/PATCH/DELETE`
 de páginas. Rotas de API (`route.go`) não exigem CSRF por padrão (são chamadas por clientes
 com token/bearer); configurável em `App`.

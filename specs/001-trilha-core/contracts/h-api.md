@@ -29,7 +29,8 @@ func Attr(name, value string) Node
 func Bool(name string) Node                     // ex.: h.Bool("disabled")
 func Class(v ...string) Node                    // junta com espaço, ignora vazios
 func ID, Href, Src, Alt, Type, Name, Value, Placeholder, Action, Method, Rel, Lang,
-     Charset, Content, For, Role, Style, Title_ (string) Node
+     Charset, Content, For, Role, Target, Width, Height (string) Node
+func StyleAttr, TitleAttr, LabelAttr (string) Node   // Style, Title e Label são elementos
 func Data(key, value string) Node               // data-key
 func Aria(key, value string) Node               // aria-key
 ```

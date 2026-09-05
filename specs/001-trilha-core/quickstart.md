@@ -34,5 +34,5 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 ```
 
 Rota dinâmica: `app/blog/slug_/page.go` → `/blog/{slug}` com `c.Param("slug")`.
-Formulário: exporte `POST` no mesmo `page.go` e inclua `h.CSRF(c)` no `<form>`.
+Formulário: exporte `POST` no mesmo `page.go` e inclua `trilha.CSRFInput(c)` no `<form>`.
 Produção: `trilha build && ./bin/meu-app` (porta via `PORT`, `TRILHA_ENV=prod` padrão).
