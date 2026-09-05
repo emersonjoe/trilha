@@ -50,6 +50,10 @@ Use o template. Um PR resolve uma issue. Se descobrir outro problema no caminho,
 issue em vez de crescer o PR. Revisão em até uma semana; se passar disso, mencione
 `@emersonjoe` na PR.
 
+A `main` é protegida: o PR precisa dos checks de CI verdes, de uma aprovação e de todas as
+conversas resolvidas antes de ser integrado (veja [GOVERNANCE.md](GOVERNANCE.md)). Faça
+`git rebase main` em vez de merge para manter o histórico linear.
+
 ## Documentação
 
 O site em `site/` é um app Trilha; o conteúdo fica em

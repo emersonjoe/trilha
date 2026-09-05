@@ -27,6 +27,20 @@ Toda versão é uma tag anotada `vX.Y.Z` com uma release no GitHub. **Toda spec 
 (mergeada na `main`) gera uma versão**, para que `go get ...@latest` e a documentação do
 site descrevam sempre a mesma API (issue #5).
 
+## Proteção da `main`
+
+A `main` tem um *ruleset* no GitHub, no padrão dos projetos de comunidade:
+
+- proibido apagar a branch e fazer *force push*; histórico linear (fast-forward ou rebase);
+- toda mudança entra por pull request com **1 aprovação**, revisão dos donos em `CODEOWNERS`,
+  todas as conversas resolvidas e os checks de CI verdes (`test (1.22)`, `test (1.25)`, `vuln`);
+- aprovações anteriores caem quando novos commits chegam no PR.
+
+O mantenedor tem *bypass* para integrar as specs fechadas por fast-forward (o fluxo
+spec-kit local) e para correções urgentes; qualquer uso do bypass fica visível no histórico
+do ruleset. Os arquivos deste repositório não são a fonte da regra: ela vive em
+*Settings → Rules*, e mudanças nela são anunciadas em uma Discussão.
+
 ## Comunicação
 
 Issues e Discussões são os canais oficiais. Decisões tomadas em outro lugar são registradas
