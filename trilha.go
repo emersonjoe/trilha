@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -66,6 +67,9 @@ type Config struct {
 	// DevReload controls the live-reload script injected in Dev pages; Off
 	// disables it (snapshot tests, HTML diffs). TRILHA_DEV_RELOAD=off does the same.
 	DevReload string
+	// Observability configures the health probes, the metrics endpoint and
+	// what each of them reveals.
+	Observability Observability
 }
 
 // Timeouts are the http.Server limits. Zero fields get defaults; NoTimeout
@@ -109,6 +113,11 @@ func ConfigFromEnv() Config {
 	}
 	if p := os.Getenv("TRILHA_TRUSTED_PROXIES"); p != "" {
 		cfg.TrustedProxies = strings.Split(p, ",")
+	}
+	cfg.Observability.Token = os.Getenv("TRILHA_OBS_TOKEN")
+	cfg.Observability.Metrics = os.Getenv("TRILHA_METRICS")
+	if t := os.Getenv("TRILHA_OBS_TRUSTED"); t != "" {
+		cfg.Observability.Trusted = strings.Split(t, ",")
 	}
 	return cfg
 }
@@ -195,6 +204,23 @@ type App struct {
 	proxies     []netip.Prefix
 	limiter     *limiter
 	signer      *Signer
+
+	metrics    *Metrics
+	instrument bool
+	mReq       *Counter
+	mDur       *Histogram
+	mInFlight  *Gauge
+	mPanics    *Counter
+	mSec       *Counter
+
+	obsHealth   string
+	obsMetrics  string
+	obsTrusted  []netip.Prefix
+	obsWarned   bool
+	checks      []healthCheck
+	healthMu    sync.Mutex
+	healthCache *HealthReport
+	healthAt    time.Time
 }
 
 // New creates an App. Zero values in cfg receive defaults.
@@ -218,6 +244,8 @@ func New(cfg Config) *App {
 		routes:  map[string]*Route{},
 		values:  map[string]any{},
 	}
+	a.metrics = newMetrics(cfg.Logger)
+	a.registerDefaultMetrics()
 	a.applyConfig()
 	a.mux.HandleFunc("/", a.fallback)
 	a.mux.HandleFunc("GET /_trilha/events", a.devEvents)
@@ -232,7 +260,9 @@ func (a *App) applyConfig() {
 		cfg.Logger = slog.Default()
 	}
 	a.log = cfg.Logger
+	a.metrics.log = cfg.Logger
 	a.parseProxies()
+	a.applyObservability()
 	if cfg.RateLimit.RPS > 0 {
 		if a.limiter == nil || a.limiter.cfg != cfg.RateLimit {
 			a.limiter = newLimiter(cfg.RateLimit)
@@ -280,7 +310,33 @@ func (a *App) SetErrorPage(e ErrorPageFunc) { a.errorPage = e }
 // Like ListenAndServe, it reapplies Config changes made in Setup.
 func (a *App) Handler() http.Handler {
 	a.applyConfig()
-	return a.mux
+	return http.HandlerFunc(a.serveHTTP)
+}
+
+// serveHTTP answers the observability endpoints first, then routes.
+func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	if (a.obsHealth != "" || a.obsMetrics != "") && a.serveObservability(w, r) {
+		return
+	}
+	if a.instrument {
+		a.mInFlight.Inc()
+		defer a.mInFlight.Dec()
+	}
+	a.mux.ServeHTTP(w, r)
+}
+
+// Metrics returns the process metric registry. It always exists; set
+// Config.Observability.Metrics to expose it over HTTP.
+func (a *App) Metrics() *Metrics { return a.metrics }
+
+// registerDefaultMetrics declares the series the framework itself fills.
+func (a *App) registerDefaultMetrics() {
+	m := a.metrics
+	a.mReq = m.Counter("trilha_requests_total", "Requisições atendidas, por método, rota registrada e status.", "method", "route", "status")
+	a.mDur = m.Histogram("trilha_request_duration_seconds", "Duração das requisições, em segundos.", nil, "method", "route")
+	a.mInFlight = m.Gauge("trilha_requests_in_flight", "Requisições sendo atendidas neste instante.")
+	a.mPanics = m.Counter("trilha_panics_total", "Pânicos recuperados na borda do servidor.")
+	a.mSec = m.Counter("trilha_security_events_total", "Requisições bloqueadas, por tipo de evento.", "kind")
 }
 
 // ListenAndServe serves until SIGINT/SIGTERM, then shuts down gracefully.
@@ -289,7 +345,7 @@ func (a *App) ListenAndServe() error {
 	t := a.cfg.Timeouts
 	srv := &http.Server{
 		Addr:              a.cfg.Addr,
-		Handler:           a.mux,
+		Handler:           http.HandlerFunc(a.serveHTTP),
 		ReadHeaderTimeout: or(t.ReadHeader, 10*time.Second),
 		ReadTimeout:       or(t.Read, 30*time.Second),
 		WriteTimeout:      or(t.Write, 60*time.Second),

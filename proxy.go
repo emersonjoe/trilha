@@ -2,6 +2,7 @@ package trilha
 
 import (
 	"net"
+	"net/http"
 	"net/netip"
 	"strings"
 )
@@ -53,19 +54,21 @@ func (c *Ctx) fromTrustedProxy() bool {
 
 // ClientIP returns the client address: RemoteAddr, or the right-most
 // untrusted entry of X-Forwarded-For when the peer is a trusted proxy.
-func (c *Ctx) ClientIP() string {
-	peer := remoteAddr(c.r.RemoteAddr)
-	if !c.app.trusted(peer) {
+func (c *Ctx) ClientIP() string { return clientIPOf(c.app, c.r) }
+
+// clientIPOf is ClientIP for code that has no Ctx (probe endpoints).
+func clientIPOf(a *App, r *http.Request) string {
+	peer := remoteAddr(r.RemoteAddr)
+	if !a.trusted(peer) {
 		return peer.String()
 	}
-	xff := c.r.Header.Get("X-Forwarded-For")
-	parts := strings.Split(xff, ",")
+	parts := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
 	for i := len(parts) - 1; i >= 0; i-- {
 		ip, err := netip.ParseAddr(strings.TrimSpace(parts[i]))
 		if err != nil {
 			continue
 		}
-		if !c.app.trusted(ip) {
+		if !a.trusted(ip) {
 			return ip.Unmap().String()
 		}
 	}

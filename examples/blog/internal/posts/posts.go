@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/emersonjoe/trilha"
 )
 
 // Post is a blog post.
@@ -20,6 +22,10 @@ var (
 	mu    sync.RWMutex
 	store = map[string]Post{}
 )
+
+// Published counts posts created since the process started. Setup points it
+// at the app registry; nil (this package under its own test) counts nothing.
+var Published *trilha.Counter
 
 // Seed loads the initial posts.
 func Seed() {
@@ -61,7 +67,17 @@ func Create(title, body string) Post {
 	mu.Lock()
 	store[p.Slug] = p
 	mu.Unlock()
+	if Published != nil {
+		Published.Inc()
+	}
 	return p
+}
+
+// Count returns how many posts are loaded (used by the readiness check).
+func Count() int {
+	mu.RLock()
+	defer mu.RUnlock()
+	return len(store)
 }
 
 // Delete removes a post; reports whether it existed.

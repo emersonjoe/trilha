@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
@@ -314,5 +315,60 @@ func TestAPIRateLimit(t *testing.T) {
 	}
 	if last != 429 {
 		t.Fatalf("expected 429 after burst, got %d", last)
+	}
+}
+
+// Spec 014: as sondas e o endereço de métricas no app de exemplo.
+func TestHealthProbesOnExample(t *testing.T) {
+	c := newClient(t, "prod")
+	live := c.get("/_trilha/health/live")
+	if live.Code != 200 || live.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("%d %v", live.Code, live.Header())
+	}
+	ready := c.get("/_trilha/health/ready")
+	if ready.Code != 200 || !strings.Contains(ready.Body.String(), `"status":"pass"`) {
+		t.Fatalf("%d %s", ready.Code, ready.Body.String())
+	}
+	// Anônimo em produção não vê o nome da verificação.
+	if strings.Contains(ready.Body.String(), "posts") {
+		t.Fatal("detalhe vazou: " + ready.Body.String())
+	}
+	// Sem posts, a prontidão falha e o balanceador tira o processo da roda.
+	posts.Delete("ola-trilha")
+	posts.Delete("layouts")
+	time.Sleep(2100 * time.Millisecond) // o resultado fica em cache por 2s
+	if rec := c.get("/_trilha/health/ready"); rec.Code != 503 {
+		t.Fatalf("prontidão deveria falhar sem posts: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := c.get("/_trilha/health/live"); rec.Code != 200 {
+		t.Fatal("vivacidade não pode cair junto com uma dependência")
+	}
+}
+
+func TestMetricsOnExample(t *testing.T) {
+	t.Setenv("TRILHA_METRICS", "/_trilha/metrics")
+	t.Setenv("TRILHA_OBS_TOKEN", "0123456789abcdef0123456789abcdef")
+	c := newClient(t, "prod")
+	c.get("/")
+	c.get("/blog")
+	posts.Create("Métrica de domínio", "corpo")
+	if rec := c.get("/_trilha/metrics"); rec.Code != 401 {
+		t.Fatalf("raspagem anônima: %d", rec.Code)
+	}
+	rec := c.do("GET", "/_trilha/metrics", "", map[string]string{"Authorization": "Bearer 0123456789abcdef0123456789abcdef"})
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatal(rec.Code)
+	}
+	for _, want := range []string{
+		`trilha_requests_total{method="GET",route="/",status="200"}`,
+		`trilha_requests_total{method="GET",route="/blog",status="200"}`,
+		"blog_posts_total 1",
+		"trilha_request_duration_seconds_bucket",
+		"go_goroutines",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("falta %q", want)
+		}
 	}
 }

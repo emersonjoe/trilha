@@ -21,6 +21,9 @@ func (a *App) securityEvent(c *Ctx, kind string, status int) {
 	c.secEmitted = true
 	ev := SecurityEvent{Kind: kind, Status: status, Method: c.r.Method, Path: c.r.URL.Path, IP: c.ClientIP(), RequestID: c.requestID}
 	a.log.Warn("security", "event", "security", "kind", ev.Kind, "status", ev.Status, "method", ev.Method, "path", ev.Path, "ip", ev.IP, "request_id", ev.RequestID)
+	if a.instrument {
+		a.mSec.With(ev.Kind).Inc()
+	}
 	if a.cfg.OnSecurityEvent != nil {
 		a.cfg.OnSecurityEvent(ev)
 	}

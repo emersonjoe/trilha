@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,6 +67,31 @@ func runAudit(p *project, vuln bool) []check {
 		add("ok", "TRILHA_TRUSTED_PROXIES definido", "")
 	}
 
+	// Observability (NIST SP 800-53 AU-9: audit information is protected;
+	// OWASP API Security 2023 API8: no unprotected monitoring endpoint).
+	src := projectSource(p.Root)
+	metricsOn := os.Getenv("TRILHA_METRICS") != "" || strings.Contains(src, "Metrics:")
+	tok := os.Getenv("TRILHA_OBS_TOKEN")
+	trusted := os.Getenv("TRILHA_OBS_TRUSTED") != "" || strings.Contains(src, "Trusted:")
+	switch {
+	case tok != "" && len(tok) < 32:
+		add("critico", "TRILHA_OBS_TOKEN curto demais", "tokens com menos de 32 bytes nunca autorizam; gere com: openssl rand -hex 32")
+	case metricsOn && tok == "" && !trusted:
+		add("critico", "métricas expostas sem token nem rede confiável", "defina TRILHA_OBS_TOKEN (32+ bytes) ou Observability.Trusted; sem isso o endereço responde 401")
+	case metricsOn:
+		add("ok", "endereço de métricas protegido", "")
+	default:
+		add("ok", "métricas não expostas", "")
+	}
+	if strings.Contains(src, "0.0.0.0/0") || strings.Contains(os.Getenv("TRILHA_OBS_TRUSTED"), "0.0.0.0/0") {
+		add("aviso", "observabilidade aberta a qualquer origem", "0.0.0.0/0 em Trusted deixa métricas e detalhe do health públicos; restrinja ao CIDR do coletor")
+	}
+	if !strings.Contains(src, ".Check(") {
+		add("aviso", "nenhuma verificação de prontidão registrada", "/_trilha/health/ready sempre responde 200; registre a.Check(\"banco\", ...) em app/setup.go")
+	} else {
+		add("ok", "verificações de prontidão registradas", "")
+	}
+
 	// Generated file up to date.
 	res, err := scan.Scan(p.Root, p.Module)
 	if err != nil {
@@ -115,6 +141,31 @@ func runAudit(p *project, vuln bool) []check {
 		}
 	}
 	return out
+}
+
+// projectSource concatenates the Go sources of the project, so the checks can
+// look for configuration the environment does not reveal.
+func projectSource(root string) string {
+	var b strings.Builder
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", ".trilha", "node_modules", "vendor", "bin":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
+			if data, err := os.ReadFile(path); err == nil {
+				b.Write(data)
+			}
+		}
+		return nil
+	})
+	return b.String()
 }
 
 func runCmd(dir, name string, args ...string) ([]byte, error) {

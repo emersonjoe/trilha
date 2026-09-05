@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -23,19 +24,22 @@ const (
 // Ctx wraps one request/response pair. It is created per request and is not
 // safe for use from other goroutines after the handler returns.
 type Ctx struct {
-	w          *responseWriter
-	r          *http.Request
-	app        *App
-	route      *Route
-	kind       routeKind
-	values     map[string]any
-	title      string
-	status     int
-	requestID  string
-	formErr    error
-	parsed     bool
-	nonce      string
-	secEmitted bool
+	w           *responseWriter
+	r           *http.Request
+	app         *App
+	route       *Route
+	kind        routeKind
+	values      map[string]any
+	title       string
+	status      int
+	requestID   string
+	formErr     error
+	parsed      bool
+	nonce       string
+	secEmitted  bool
+	traceID     string
+	traceParsed bool
+	logger      *slog.Logger
 }
 
 func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {

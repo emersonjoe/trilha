@@ -75,6 +75,7 @@ func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
 			if err := a.limiter.check(c); err != nil {
 				a.handleError(c, err)
 				a.logRequest(c, rw, start)
+				a.observe(req.Method, r.Pattern, rw.status, start)
 				return
 			}
 		}
@@ -83,6 +84,9 @@ func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
 				if v := recover(); v != nil {
 					if v == http.ErrAbortHandler {
 						panic(v)
+					}
+					if a.instrument {
+						a.mPanics.Inc()
 					}
 					err = &panicError{value: v, stack: string(debug.Stack())}
 				}
@@ -100,6 +104,7 @@ func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
 			rw.WriteHeader(http.StatusNoContent)
 		}
 		a.logRequest(c, rw, start)
+		a.observe(req.Method, r.Pattern, rw.status, start)
 	})
 }
 
@@ -119,13 +124,29 @@ func (a *App) run(c *Ctx, mws []MiddlewareFunc, final func(*Ctx) error) error {
 	return next()
 }
 
+// logRequest writes the access record (NIST SP 800-53 AU-3: what, where,
+// outcome and correlation). It never carries the query string, the body or a
+// header: those are where secrets travel.
 func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
+	dur := time.Since(start).Round(time.Microsecond).String()
+	if tid := c.TraceID(); tid != "" {
+		a.log.Info("request",
+			"method", c.r.Method,
+			"path", c.r.URL.Path,
+			"status", rw.status,
+			"bytes", rw.bytes,
+			"dur", dur,
+			"request_id", c.requestID,
+			"trace_id", tid,
+		)
+		return
+	}
 	a.log.Info("request",
 		"method", c.r.Method,
 		"path", c.r.URL.Path,
 		"status", rw.status,
 		"bytes", rw.bytes,
-		"dur", time.Since(start).Round(time.Microsecond).String(),
+		"dur", dur,
 		"request_id", c.requestID,
 	)
 }
@@ -134,6 +155,12 @@ func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
 // trailing-slash redirects, 405 for known paths and the 404 page.
 func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 	rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+	if a.instrument {
+		// Static files and unmatched paths share one label: the concrete
+		// path is user input and would blow up the cardinality.
+		start := time.Now()
+		defer func() { a.observe(req.Method, "other", rw.status, start) }()
+	}
 	fc := newCtx(a, rw, req, kindPage)
 	a.applySecurity(fc)
 	if req.Method == http.MethodGet || req.Method == http.MethodHead {
