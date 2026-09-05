@@ -1,0 +1,3 @@
+package slug
+
+func helper() {}

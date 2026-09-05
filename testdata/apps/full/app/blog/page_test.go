@@ -1,0 +1,3 @@
+package blog
+
+func TestX() {}

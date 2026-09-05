@@ -1,0 +1,32 @@
+package trilha
+
+import (
+	"io/fs"
+	"net/http"
+	"path"
+	"strings"
+)
+
+// serveStatic serves a file from cfg.Public when it exists. Directories and
+// invalid paths are not served. Returns false when nothing was written.
+func (a *App) serveStatic(w http.ResponseWriter, req *http.Request) bool {
+	if a.cfg.Public == nil {
+		return false
+	}
+	p := path.Clean("/" + req.URL.Path)
+	name := strings.TrimPrefix(p, "/")
+	if name == "" || !fs.ValidPath(name) {
+		return false
+	}
+	st, err := fs.Stat(a.cfg.Public, name)
+	if err != nil || st.IsDir() {
+		return false
+	}
+	if a.cfg.Env == Dev {
+		w.Header().Set("Cache-Control", "no-cache")
+	} else {
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+	}
+	http.ServeFileFS(w, req, a.cfg.Public, name)
+	return true
+}

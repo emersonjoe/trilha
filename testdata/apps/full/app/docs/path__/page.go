@@ -1,0 +1,3 @@
+package path
+
+func Page() {}

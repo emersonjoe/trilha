@@ -1,0 +1,17 @@
+package app
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+)
+
+// Page renders GET /.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Início")
+	return h.Fragment(
+		h.H1(h.Text("Olá, {{.Name}}!")),
+		h.P(h.Text("Edite app/page.go e salve: esta página recarrega sozinha.")),
+		h.P(h.Text("Crie app/sobre/page.go para responder /sobre, ou app/api/x/route.go para uma API.")),
+		h.P(h.A(h.Href("/api/hello"), h.Text("Ver /api/hello"))),
+	), nil
+}

@@ -1,0 +1,188 @@
+package trilha
+
+import (
+	"net/http"
+	"runtime/debug"
+	"sort"
+	"strings"
+	"time"
+)
+
+var bodyMethods = map[string]bool{"POST": true, "PUT": true, "PATCH": true, "DELETE": true}
+
+// Register adds a route. It is normally called only by trilha_gen.go.
+func (a *App) Register(r Route) {
+	route := r
+	pattern := strings.TrimSuffix(r.Pattern, "/")
+	if pattern == "" {
+		pattern = "/"
+	}
+	route.Pattern = pattern
+	muxPat := pattern
+	if pattern == "/" {
+		muxPat = "/{$}"
+	}
+	a.routes[pattern] = &route
+	a.pathMux.HandleFunc(muxPat, func(http.ResponseWriter, *http.Request) {})
+	kind := kindAPI
+	if route.Page != nil {
+		kind = kindPage
+		a.mux.Handle("GET "+muxPat, a.wrap(&route, kind, func(c *Ctx) error { return a.renderPage(c, &route) }))
+	}
+	methods := make([]string, 0, len(route.Methods))
+	for m := range route.Methods {
+		methods = append(methods, m)
+	}
+	sort.Strings(methods)
+	for _, m := range methods {
+		fn := route.Methods[m]
+		a.mux.Handle(m+" "+muxPat, a.wrap(&route, kind, fn))
+	}
+}
+
+// Routes lists registered patterns (sorted) with their methods.
+func (a *App) Routes() map[string][]string {
+	out := map[string][]string{}
+	for p, r := range a.routes {
+		var ms []string
+		if r.Page != nil {
+			ms = append(ms, "GET")
+		}
+		for m := range r.Methods {
+			ms = append(ms, m)
+		}
+		sort.Strings(ms)
+		out[p] = ms
+	}
+	return out
+}
+
+func setSecurityHeaders(h http.Header) {
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("X-Frame-Options", "DENY")
+	h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+}
+
+// wrap builds the http.Handler for one (route, method): middleware chain,
+// CSRF for form methods, error mapping, recover and logging.
+func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		start := time.Now()
+		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+		setSecurityHeaders(rw.Header())
+		req.Body = http.MaxBytesReader(rw, req.Body, a.cfg.MaxBodyBytes)
+		c := newCtx(a, rw, req, kind)
+		rw.Header().Set("X-Request-ID", c.requestID)
+
+		err := a.run(c, r.Middlewares, func(c *Ctx) (err error) {
+			defer func() {
+				if v := recover(); v != nil {
+					if v == http.ErrAbortHandler {
+						panic(v)
+					}
+					err = &panicError{value: v, stack: string(debug.Stack())}
+				}
+			}()
+			if bodyMethods[req.Method] && (kind == kindPage || a.cfg.CSRFForAPI) {
+				if err := a.checkCSRF(c); err != nil {
+					return err
+				}
+			}
+			return final(c)
+		})
+		a.handleError(c, err)
+		if !rw.wrote {
+			// Handler returned nil without writing: treat as empty 204.
+			rw.WriteHeader(http.StatusNoContent)
+		}
+		a.logRequest(c, rw, start)
+	})
+}
+
+// run executes middlewares outermost-first, then final.
+func (a *App) run(c *Ctx, mws []MiddlewareFunc, final func(*Ctx) error) error {
+	i := 0
+	var next Next
+	next = func() error {
+		if i < len(mws) {
+			m := mws[i]
+			i++
+			return m(c, next)
+		}
+		i++
+		return final(c)
+	}
+	return next()
+}
+
+func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
+	a.log.Info("request",
+		"method", c.r.Method,
+		"path", c.r.URL.Path,
+		"status", rw.status,
+		"bytes", rw.bytes,
+		"dur", time.Since(start).Round(time.Microsecond).String(),
+		"request_id", c.requestID,
+	)
+}
+
+// fallback handles everything the typed routes did not: static files,
+// trailing-slash redirects, 405 for known paths and the 404 page.
+func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
+	rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+	setSecurityHeaders(rw.Header())
+	if req.Method == http.MethodGet || req.Method == http.MethodHead {
+		if a.serveStatic(rw, req) {
+			return
+		}
+	}
+	// Known path, wrong method → 405.
+	if _, pat := a.pathMux.Handler(req); pat != "" {
+		key := strings.TrimSuffix(pat, "{$}")
+		if key != "/" {
+			key = strings.TrimSuffix(key, "/")
+		}
+		if r, ok := a.routes[key]; ok {
+			allow := a.allowFor(r)
+			rw.Header().Set("Allow", allow)
+			c := newCtx(a, rw, req, kindOf(r))
+			a.handleError(c, &HTTPError{Code: http.StatusMethodNotAllowed})
+			return
+		}
+	}
+	// Trailing slash → canonical path.
+	if p := req.URL.Path; len(p) > 1 && strings.HasSuffix(p, "/") {
+		probe := req.Clone(req.Context())
+		probe.URL.Path = strings.TrimSuffix(p, "/")
+		if _, pat := a.pathMux.Handler(probe); pat != "" {
+			u := *req.URL
+			u.Path = probe.URL.Path
+			http.Redirect(rw, req, u.String(), http.StatusMovedPermanently)
+			return
+		}
+	}
+	c := newCtx(a, rw, req, kindPage)
+	if strings.HasPrefix(req.URL.Path, "/api/") || strings.Contains(req.Header.Get("Accept"), "application/json") {
+		c.kind = kindAPI
+	}
+	a.handleError(c, ErrNotFound)
+}
+
+func kindOf(r *Route) routeKind {
+	if r.Page != nil {
+		return kindPage
+	}
+	return kindAPI
+}
+
+func (a *App) allowFor(r *Route) string {
+	var ms []string
+	if r.Page != nil {
+		ms = append(ms, "GET", "HEAD")
+	}
+	for m := range r.Methods {
+		ms = append(ms, m)
+	}
+	sort.Strings(ms)
+	return strings.Join(ms, ", ")
+}
