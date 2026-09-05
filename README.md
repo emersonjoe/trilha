@@ -178,6 +178,7 @@ ui.Card(
 | Basic | `examples/blog` | conventions, layouts, API, middleware, session |
 | Medium | `examples/cadastro` | a form with rules: conditional fields, per-field validation (`c.Bind`, `trilha.FieldErrors`, `c.Render`), dependent select, disappearing toast |
 | Complex | `examples/orcamento` | tree-shaped chart of accounts, drill-down, recursive components, dialog, CSV |
+| SSO | `examples/sso` | OpenID Connect login (Entra ID/Keycloak), protected area, required role |
 | AI | `examples/assistente` | streaming chat, agent with tools, MCP |
 
 The example apps are written in Portuguese (identifiers and UI texts); the code is the same
@@ -220,13 +221,56 @@ Secure by default: HTML escaping, `nosniff`/`X-Frame-Options`/`Referrer-Policy`,
 (1 MiB), CSRF by double-submit cookie on forms, static files without path traversal, `slog`
 logs without body or cookies.
 
+## Health and observability
+
+Every app already answers `/_trilha/health/live` (the process is up) and
+`/_trilha/health/ready` (the dependencies you registered with `a.Check` answer, with a
+deadline and a cache). For anyone not authorized the response is only `{"status":"fail"}`:
+dependency names and error messages stay in the log, not on the wire.
+
+```go
+a.Check("db", func(ctx context.Context) error { return db.PingContext(ctx) })
+```
+
+The metrics endpoint is opt-in (`TRILHA_METRICS` or `Observability.Metrics`) and requires a
+token or a trusted network. It speaks the Prometheus text format, with requests, latency,
+in-flight requests, security events, panics and the Go runtime — plus your own
+(`a.Metrics().Counter(...)`). The route label is always the registered pattern, never the
+concrete path. Details in
+[Health and observability](https://emersonjoe.github.io/trilha/learn/observability).
+
+## Corporate login
+
+The `auth` package does OpenID Connect (Entra ID, Keycloak or any conforming provider) with
+the standard library: PKCE, `state`, `nonce`, `id_token` validation with JWKS and key
+rotation, session in a signed cookie and roles read from wherever each provider keeps them.
+
+```go
+// app/login/route.go — the whole flow is three two-line routes
+func GET(c *trilha.Ctx) error { return sso.Start(c) }
+
+// app/dashboard/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.Require(c, next) }
+```
+
+An anonymous browser goes to the login; an API call gets 401. Someone logged in without the
+required role gets 403. Runnable example in `examples/sso`, details in
+[Authentication](https://emersonjoe.github.io/trilha/learn/authentication).
+
 ## Performance
 
 `make bench` measures Trilha's cost over `net/http` + `html/template` (separate `bench/`
 module). Summary on the reference machine: `h` renders the example page ~34 % faster than
 `html/template`; the fixed cost per request (id, CSP nonce, headers, structured logging) is
-~3 µs. Methodology, numbers and a comparison of approach with other frameworks in
+~3 µs, and the metrics instrumentation, when on, adds no allocation. Methodology, numbers and a comparison of approach with other frameworks in
 [Performance and comparison](https://emersonjoe.github.io/trilha/reference/performance).
+
+## Where it is going
+
+[`ROADMAP.md`](ROADMAP.md) (in Portuguese) answers an external review item by item: what
+already exists, what is planned (issues labeled `roadmap`, grouped by phase) and what we
+decided **not** to do, with the reason. The biggest acknowledged gap is interactivity without
+turning into an SPA; OIDC authentication (spec 016) is already in.
 
 ## Out of scope (for now)
 

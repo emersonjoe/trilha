@@ -143,11 +143,11 @@ func (m *Metrics) Histogram(name, help string, buckets []float64, labels ...stri
 
 func (m *Metrics) metric(name, help string, kind metricKind, labels []string, buckets []float64) *metric {
 	if !validMetricName(name) {
-		panic("trilha: nome de métrica inválido: " + strconv.Quote(name))
+		panic("trilha: invalid metric name: " + strconv.Quote(name))
 	}
 	for _, l := range labels {
 		if !validMetricName(l) {
-			panic("trilha: nome de rótulo inválido: " + strconv.Quote(l))
+			panic("trilha: invalid label name: " + strconv.Quote(l))
 		}
 	}
 	m.mu.RLock()
@@ -225,7 +225,7 @@ func (m *metric) get(values []string) *series {
 		}
 		if !m.warned && m.log != nil {
 			m.warned = true
-			m.log.Warn("trilha: métrica atingiu o teto de séries; excedente agrupado",
+			m.log.Warn("trilha: metric reached the series cap; overflow grouped",
 				"metric", m.name, "max", m.max, "label", overflowLabel)
 		}
 		return m.overflow
@@ -238,15 +238,15 @@ func (m *metric) get(values []string) *series {
 
 func (m *metric) bind(values []string) *series {
 	if len(values) != len(m.labels) {
-		panic("trilha: métrica " + m.name + " espera " + strconv.Itoa(len(m.labels)) +
-			" valor(es) de rótulo, recebeu " + strconv.Itoa(len(values)))
+		panic("trilha: metric " + m.name + " expects " + strconv.Itoa(len(m.labels)) +
+			" label value(s), got " + strconv.Itoa(len(values)))
 	}
 	return m.get(values)
 }
 
 func (m *metric) must(s *series) *series {
 	if s == nil {
-		panic("trilha: métrica " + m.name + " tem rótulos; use With(...) antes de registrar")
+		panic("trilha: metric " + m.name + " has labels; use With(...) before recording")
 	}
 	return s
 }
@@ -265,7 +265,7 @@ func (c *Counter) Inc() { c.Add(1) }
 // Add increases the counter; negative values panic (a counter never falls).
 func (c *Counter) Add(v float64) {
 	if v < 0 {
-		panic("trilha: contador " + c.m.name + " não aceita valor negativo")
+		panic("trilha: counter " + c.m.name + " does not accept a negative value")
 	}
 	c.m.must(c.s).add(v)
 }
@@ -407,15 +407,15 @@ func (m *Metrics) writeRuntime(b *strings.Builder) {
 	gauge := func(name, help string, v float64) {
 		b.WriteString("# HELP " + name + " " + help + "\n# TYPE " + name + " gauge\n" + name + " " + num(v) + "\n")
 	}
-	gauge("go_goroutines", "Goroutines em execução.", float64(runtime.NumGoroutine()))
+	gauge("go_goroutines", "Goroutines currently running.", float64(runtime.NumGoroutine()))
 	gauge("go_memstats_alloc_bytes", "Bytes alocados e em uso.", float64(ms.Alloc))
 	gauge("go_memstats_sys_bytes", "Bytes obtidos do sistema operacional.", float64(ms.Sys))
-	b.WriteString("# HELP go_gc_cycles_total Ciclos de coleta de lixo concluídos.\n# TYPE go_gc_cycles_total counter\ngo_gc_cycles_total " + strconv.FormatUint(uint64(ms.NumGC), 10) + "\n")
-	gauge("trilha_uptime_seconds", "Segundos desde o início do processo.", time.Since(m.start).Seconds())
+	b.WriteString("# HELP go_gc_cycles_total Completed garbage collection cycles.\n# TYPE go_gc_cycles_total counter\ngo_gc_cycles_total " + strconv.FormatUint(uint64(ms.NumGC), 10) + "\n")
+	gauge("trilha_uptime_seconds", "Seconds since the process started.", time.Since(m.start).Seconds())
 	version := "desconhecida"
 	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" {
 		version = bi.Main.Version
 	}
-	b.WriteString("# HELP trilha_build_info Versão do binário e do Go (valor sempre 1).\n# TYPE trilha_build_info gauge\n")
+	b.WriteString("# HELP trilha_build_info Binary and Go version (value is always 1).\n# TYPE trilha_build_info gauge\n")
 	b.WriteString(`trilha_build_info{version="` + labelEscaper.Replace(version) + `",go_version="` + runtime.Version() + `"} 1` + "\n")
 }

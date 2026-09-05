@@ -57,29 +57,29 @@ type jwtHeader struct {
 func parseJWS(token string) (jwtHeader, []byte, []byte, []byte, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return jwtHeader{}, nil, nil, nil, errors.New("token não é um JWS compacto")
+		return jwtHeader{}, nil, nil, nil, errors.New("token is not a compact JWS")
 	}
 	headerRaw, err := b64(parts[0])
 	if err != nil {
-		return jwtHeader{}, nil, nil, nil, fmt.Errorf("cabeçalho ilegível: %w", err)
+		return jwtHeader{}, nil, nil, nil, fmt.Errorf("unreadable header: %w", err)
 	}
 	var hdr jwtHeader
 	if err := json.Unmarshal(headerRaw, &hdr); err != nil {
-		return jwtHeader{}, nil, nil, nil, fmt.Errorf("cabeçalho ilegível: %w", err)
+		return jwtHeader{}, nil, nil, nil, fmt.Errorf("unreadable header: %w", err)
 	}
 	if _, ok := allowedAlgs[hdr.Alg]; !ok {
-		return jwtHeader{}, nil, nil, nil, fmt.Errorf("algoritmo não aceito: %q", hdr.Alg)
+		return jwtHeader{}, nil, nil, nil, fmt.Errorf("algorithm not accepted: %q", hdr.Alg)
 	}
 	if hdr.Kid == "" {
-		return jwtHeader{}, nil, nil, nil, errors.New("token sem kid: não dá para escolher a chave")
+		return jwtHeader{}, nil, nil, nil, errors.New("token without kid: cannot pick a key")
 	}
 	payload, err := b64(parts[1])
 	if err != nil {
-		return jwtHeader{}, nil, nil, nil, fmt.Errorf("payload ilegível: %w", err)
+		return jwtHeader{}, nil, nil, nil, fmt.Errorf("unreadable payload: %w", err)
 	}
 	sig, err := b64(parts[2])
 	if err != nil {
-		return jwtHeader{}, nil, nil, nil, fmt.Errorf("assinatura ilegível: %w", err)
+		return jwtHeader{}, nil, nil, nil, fmt.Errorf("unreadable signature: %w", err)
 	}
 	signed := []byte(parts[0] + "." + parts[1])
 	return hdr, payload, sig, signed, nil
@@ -104,32 +104,32 @@ func verifySignature(alg string, key any, signed, sig []byte) error {
 	switch k := key.(type) {
 	case *rsa.PublicKey:
 		if !strings.HasPrefix(alg, "RS") {
-			return errors.New("chave RSA com algoritmo que não é RSA")
+			return errors.New("RSA key with a non-RSA algorithm")
 		}
 		return rsa.VerifyPKCS1v15(k, h, sum, sig)
 	case *ecdsa.PublicKey:
 		if !strings.HasPrefix(alg, "ES") {
-			return errors.New("chave EC com algoritmo que não é EC")
+			return errors.New("EC key with a non-EC algorithm")
 		}
 		n := (k.Curve.Params().BitSize + 7) / 8
 		if len(sig) != 2*n {
-			return errors.New("assinatura EC com tamanho errado")
+			return errors.New("EC signature with wrong size")
 		}
 		r := new(big.Int).SetBytes(sig[:n])
 		s := new(big.Int).SetBytes(sig[n:])
 		if !ecdsa.Verify(k, sum, r, s) {
-			return errors.New("assinatura EC inválida")
+			return errors.New("invalid EC signature")
 		}
 		return nil
 	}
-	return errors.New("tipo de chave não suportado")
+	return errors.New("unsupported key type")
 }
 
 // decodeClaims reads the payload into Claims.
 func decodeClaims(payload []byte) (*Claims, error) {
 	var raw map[string]any
 	if err := json.Unmarshal(payload, &raw); err != nil {
-		return nil, fmt.Errorf("payload ilegível: %w", err)
+		return nil, fmt.Errorf("unreadable payload: %w", err)
 	}
 	c := &Claims{All: raw}
 	c.Issuer, _ = raw["iss"].(string)
@@ -165,10 +165,10 @@ func unixClaim(v any) time.Time {
 // caller, which owns the key set.
 func (c *Claims) validate(issuer, clientID, nonce string, now time.Time) error {
 	if c.Issuer != issuer {
-		return fmt.Errorf("emissor inesperado: %q", c.Issuer)
+		return fmt.Errorf("unexpected issuer: %q", c.Issuer)
 	}
 	if c.Subject == "" {
-		return errors.New("token sem sub")
+		return errors.New("token without sub")
 	}
 	found := false
 	for _, a := range c.Audience {
@@ -178,19 +178,19 @@ func (c *Claims) validate(issuer, clientID, nonce string, now time.Time) error {
 		}
 	}
 	if !found {
-		return errors.New("token emitido para outro cliente")
+		return errors.New("token issued for another client")
 	}
 	if azp, ok := c.All["azp"].(string); ok && azp != "" && azp != clientID {
-		return errors.New("azp de outro cliente")
+		return errors.New("azp of another client")
 	}
 	if c.ExpiresAt.IsZero() || now.After(c.ExpiresAt.Add(clockSkew)) {
-		return errors.New("token expirado")
+		return errors.New("token expired")
 	}
 	if !c.NotBefore.IsZero() && now.Add(clockSkew).Before(c.NotBefore) {
-		return errors.New("token ainda não é válido")
+		return errors.New("token not yet valid")
 	}
 	if nonce != "" && c.Nonce != nonce {
-		return errors.New("nonce diferente do enviado")
+		return errors.New("nonce differs from the one sent")
 	}
 	return nil
 }

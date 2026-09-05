@@ -137,7 +137,7 @@ Com o endereço de métricas desligado, a instrumentação não roda: é uma com
 ponteiro. Ligada, ela custa **zero alocações** por requisição (duas buscas em mapa com
 chave montada na pilha e alguns incrementos atômicos); a diferença de tempo fica dentro
 do ruído da máquina de referência. Os números estão em
-[Desempenho](/referencia/desempenho).
+[Desempenho](/pt/referencia/desempenho).
 
 ## Desafio
 

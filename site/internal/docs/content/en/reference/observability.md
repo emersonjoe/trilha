@@ -1,40 +1,40 @@
 ---
-title: Observabilidade
-description: Config.Observability, endpoints de saúde, registro de métricas, variáveis de ambiente e o contrato de cada resposta.
+title: Observability
+description: Config.Observability, health endpoints, metrics registry, environment variables and the contract of each response.
 ---
 
 ## Config.Observability
 
-| Campo | Padrão | O que faz |
+| Field | Default | What it does |
 |---|---|---|
-| `Health string` | `/_trilha/health` | caminho base das sondas; `trilha.Off` remove |
-| `Metrics string` | `""` (desligado) | caminho da raspagem; vazio não registra endereço **nem instrumenta requisições** |
-| `Token string` | `TRILHA_OBS_TOKEN` | autoriza detalhe e métricas; **mínimo de 32 bytes**, comparado em tempo constante |
-| `Trusted []string` | — | CIDRs (ou IPs) que dispensam o token |
-| `Details string` | automático | `trilha.Off` nunca revela detalhe, nem para quem tem token; vazio = aberto em `dev`, autorizado em `prod` |
-| `Timeout time.Duration` | 2 s | prazo de cada verificação; `trilha.NoTimeout` desliga |
-| `CacheFor time.Duration` | 1 s | validade do resultado de prontidão; `trilha.NoTimeout` desliga o cache |
+| `Health string` | `/_trilha/health` | base path of the probes; `trilha.Off` removes them |
+| `Metrics string` | `""` (off) | scrape path; empty registers no endpoint **and does not instrument requests** |
+| `Token string` | `TRILHA_OBS_TOKEN` | authorizes details and metrics; **at least 32 bytes**, compared in constant time |
+| `Trusted []string` | — | CIDRs (or IPs) that do not need the token |
+| `Details string` | automatic | `trilha.Off` never reveals details, not even to a token holder; empty = open in `dev`, authorized in `prod` |
+| `Timeout time.Duration` | 2 s | deadline of each check; `trilha.NoTimeout` disables it |
+| `CacheFor time.Duration` | 1 s | validity of the readiness result; `trilha.NoTimeout` disables the cache |
 
-Variáveis lidas por `ConfigFromEnv`: `TRILHA_OBS_TOKEN`, `TRILHA_METRICS`,
-`TRILHA_OBS_TRUSTED` (lista separada por vírgula).
+Variables read by `ConfigFromEnv`: `TRILHA_OBS_TOKEN`, `TRILHA_METRICS`,
+`TRILHA_OBS_TRUSTED` (comma-separated list).
 
 ## Endpoints
 
-| Método e caminho | Resposta | Status |
+| Method and path | Response | Status |
 |---|---|---|
-| `GET /_trilha/health/live` | `application/health+json` | sempre 200 |
-| `GET /_trilha/health/ready` | idem, roda as verificações | 200 ou 503 + `Retry-After: 5` |
-| `GET /_trilha/health` | igual a `ready` | 200 ou 503 |
-| `GET <Metrics>` | `text/plain; version=0.0.4` | 200, ou 401 sem autorização |
+| `GET /_trilha/health/live` | `application/health+json` | always 200 |
+| `GET /_trilha/health/ready` | same, runs the checks | 200 or 503 + `Retry-After: 5` |
+| `GET /_trilha/health` | same as `ready` | 200 or 503 |
+| `GET <Metrics>` | `text/plain; version=0.0.4` | 200, or 401 without authorization |
 
-Todas saem com `Cache-Control: no-store`, `X-Robots-Tag: noindex` e
-`X-Content-Type-Options: nosniff`. Outro método devolve 405 com `Allow: GET, HEAD`.
+All of them carry `Cache-Control: no-store`, `X-Robots-Tag: noindex` and
+`X-Content-Type-Options: nosniff`. Any other method returns 405 with `Allow: GET, HEAD`.
 
-As sondas correm **fora** da cadeia de middleware: sem CSRF, sem layout, sem limite de
-taxa (uma sonda de vida que tomasse 429 mataria um processo saudável) e registradas em
-nível `Debug`, para não afogar o log de auditoria.
+The probes run **outside** the middleware chain: no CSRF, no layout, no rate limit (a
+liveness probe that got a 429 would kill a healthy process) and logged at `Debug` level, so
+they do not drown the audit log.
 
-## Verificações de prontidão
+## Readiness checks
 
 ```go
 func (a *App) Check(name string, fn func(context.Context) error)
@@ -56,10 +56,10 @@ type CheckResult struct {
 }
 ```
 
-`HealthReport` devolve tudo, sempre: é para o seu código (uma página de status interna, um
-portão de inicialização). Quem decide o que revelar é o endpoint.
+`HealthReport` always returns everything: it is for your code (an internal status page, a
+startup gate). The endpoint decides what to reveal.
 
-## Registro de métricas
+## Metrics registry
 
 ```go
 func (a *App) Metrics() *Metrics
@@ -69,52 +69,52 @@ func (m *Metrics) Gauge(name, help string, labels ...string) *Gauge
 func (m *Metrics) Histogram(name, help string, buckets []float64, labels ...string) *Histogram
 ```
 
-`MaxSeries` (mil por padrão) é o teto de combinações de rótulo por métrica; o excedente cai
-numa série com todos os rótulos em `other` e um aviso no log, uma única vez.
+`MaxSeries` (a thousand by default) caps the label combinations per metric; the overflow
+falls into one series with every label set to `other` and a single warning in the log.
 
-| Tipo | Métodos |
+| Type | Methods |
 |---|---|
-| `*Counter` | `Inc()`, `Add(v)`, `With(valores...)` |
-| `*Gauge` | `Set(v)`, `Add(v)`, `Inc()`, `Dec()`, `With(valores...)` |
-| `*Histogram` | `Observe(v)`, `With(valores...)` |
+| `*Counter` | `Inc()`, `Add(v)`, `With(values...)` |
+| `*Gauge` | `Set(v)`, `Add(v)`, `Inc()`, `Dec()`, `With(values...)` |
+| `*Histogram` | `Observe(v)`, `With(values...)` |
 
-Nome inválido (fora de `[a-zA-Z_:][a-zA-Z0-9_:]*`) ou número errado de valores de rótulo
-causam `panic`: é erro de programação, aparece na primeira execução e não corrompe a saída.
-Chamar `Counter` duas vezes com o mesmo nome devolve a mesma série.
+An invalid name (outside `[a-zA-Z_:][a-zA-Z0-9_:]*`) or the wrong number of label values
+causes a `panic`: it is a programming error, shows up on the first run and does not corrupt
+the output. Calling `Counter` twice with the same name returns the same series.
 
-`Histogram` com `buckets` nulo usa os padrões, em segundos: 0,001 0,005 0,01 0,025 0,05
-0,1 0,25 0,5 1 2,5 5 10.
+`Histogram` with nil `buckets` uses the defaults, in seconds: 0.001 0.005 0.01 0.025 0.05
+0.1 0.25 0.5 1 2.5 5 10.
 
-## Métricas do framework
+## Framework metrics
 
-| Métrica | Tipo | Rótulos |
+| Metric | Type | Labels |
 |---|---|---|
-| `trilha_requests_total` | contador | `method`, `route`, `status` |
-| `trilha_request_duration_seconds` | histograma | `method`, `route` |
-| `trilha_requests_in_flight` | medidor | — |
-| `trilha_security_events_total` | contador | `kind` (`csrf`, `auth`, `body`, `rate`, `panic`) |
-| `trilha_panics_total` | contador | — |
-| `go_goroutines`, `go_memstats_alloc_bytes`, `go_memstats_sys_bytes` | medidores | — |
-| `go_gc_cycles_total` | contador | — |
-| `trilha_uptime_seconds` | medidor | — |
-| `trilha_build_info` | medidor (sempre 1) | `version`, `go_version` |
+| `trilha_requests_total` | counter | `method`, `route`, `status` |
+| `trilha_request_duration_seconds` | histogram | `method`, `route` |
+| `trilha_requests_in_flight` | gauge | — |
+| `trilha_security_events_total` | counter | `kind` (`csrf`, `auth`, `body`, `rate`, `panic`) |
+| `trilha_panics_total` | counter | — |
+| `go_goroutines`, `go_memstats_alloc_bytes`, `go_memstats_sys_bytes` | gauges | — |
+| `go_gc_cycles_total` | counter | — |
+| `trilha_uptime_seconds` | gauge | — |
+| `trilha_build_info` | gauge (always 1) | `version`, `go_version` |
 
-`route` é o padrão registrado (`/blog/{slug}`). Estático, 404 e qualquer coisa fora do
-roteador entram como `other`.
+`route` is the registered pattern (`/blog/{slug}`). Static files, 404 and anything outside
+the router come in as `other`.
 
-## Correlação
+## Correlation
 
 ```go
-func (c *Ctx) RequestID() string  // X-Request-ID do cliente, ou gerado
-func (c *Ctx) TraceID() string    // W3C traceparent; "" quando ausente ou malformado
-func (c *Ctx) Log() *slog.Logger  // logger com request_id e trace_id
+func (c *Ctx) RequestID() string  // the client's X-Request-ID, or generated
+func (c *Ctx) TraceID() string    // W3C traceparent; "" when absent or malformed
+func (c *Ctx) Log() *slog.Logger  // logger with request_id and trace_id
 ```
 
-Um `traceparent` fora do formato é descartado em silêncio: valor escolhido por terceiro não
-entra no log como se fosse traço legítimo.
+A malformed `traceparent` is silently dropped: a value chosen by a third party does not enter
+the log as if it were a legitimate trace.
 
-## O que a auditoria verifica
+## What the audit checks
 
-`trilha audit` acrescenta três itens: token curto demais (crítico), métricas configuradas
-sem token nem rede confiável (crítico), `0.0.0.0/0` em `Trusted` (aviso) e ausência de
-qualquer `a.Check(` no projeto (aviso).
+`trilha audit` adds these items: token too short (critical), metrics configured without a
+token or a trusted network (critical), `0.0.0.0/0` in `Trusted` (warning) and no `a.Check(`
+anywhere in the project (warning).

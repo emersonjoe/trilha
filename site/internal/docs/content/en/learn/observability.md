@@ -1,92 +1,92 @@
 ---
-title: Saúde e observabilidade
-description: Sondas de vida e prontidão, métricas no formato Prometheus e correlação de log, com o cuidado de não transformar monitoração em vazamento.
+title: Health and observability
+description: Liveness and readiness probes, metrics in the Prometheus format and log correlation, taking care not to turn monitoring into a leak.
 ---
 
-Um app em produção precisa responder três perguntas para quem o opera: *está de pé?*,
-*pode receber tráfego?* e *o que está acontecendo?*. O Trilha responde às três sem
-dependência nenhuma, e responde de um jeito que não entrega o mapa da sua infraestrutura
-para quem passar na rua.
+An app in production has to answer three questions for whoever operates it: *is it up?*,
+*can it take traffic?* and *what is going on?*. Trilha answers all three with no dependency,
+and answers in a way that does not hand the map of your infrastructure to anyone passing
+by.
 
-A referência aqui é dupla, como no capítulo de segurança: o **NIST SP 800-53r5** (AU-2 e
-AU-3 para o conteúdo do registro, AU-9 para proteger essa informação, SI-4 para monitoração
-e SC-5 contra negação de serviço) e o **OWASP** (Top 10 2021 A09, API Security 2023 API8 e
-o capítulo V7 do ASVS).
+The reference here is twofold, as in the security chapter: **NIST SP 800-53r5** (AU-2 and
+AU-3 for the content of the record, AU-9 to protect that information, SI-4 for monitoring
+and SC-5 against denial of service) and **OWASP** (Top 10 2021 A09, API Security 2023 API8
+and chapter V7 of the ASVS).
 
-## As duas sondas
+## The two probes
 
-Sem configurar nada, todo app Trilha já responde:
+Without configuring anything, every Trilha app already answers:
 
-| Endereço | Pergunta | Executa verificações? |
+| Address | Question | Runs checks? |
 |---|---|---|
-| `/_trilha/health/live` | o processo consegue atender? | não |
-| `/_trilha/health/ready` | pode receber tráfego? | sim |
-| `/_trilha/health` | igual a `ready` | sim |
+| `/_trilha/health/live` | can the process serve? | no |
+| `/_trilha/health/ready` | can it take traffic? | yes |
+| `/_trilha/health` | same as `ready` | yes |
 
-A separação não é burocracia. No Kubernetes, uma *readiness* que falha tira o pod do
-balanceador; uma *liveness* que falha **mata o processo**. Se as duas rodassem a mesma
-verificação de banco, uma oscilação de rede reiniciaria a frota inteira em vez de esperar
-o banco voltar. Por isso `live` nunca toca em dependência alguma.
+The split is not bureaucracy. In Kubernetes, a failing *readiness* takes the pod out of the
+load balancer; a failing *liveness* **kills the process**. If both ran the same database
+check, a network blip would restart the whole fleet instead of waiting for the database to
+come back. That is why `live` never touches a dependency.
 
 ```go
 // app/setup.go
 func Setup(a *trilha.App) error {
-	a.Check("banco", func(ctx context.Context) error {
+	a.Check("db", func(ctx context.Context) error {
 		return db.PingContext(ctx)
 	})
-	a.Check("fila", func(ctx context.Context) error {
-		return fila.Ping(ctx)
+	a.Check("queue", func(ctx context.Context) error {
+		return queue.Ping(ctx)
 	})
 	return nil
 }
 ```
 
-Cada verificação roda com prazo (2 s por padrão) e em paralelo; um `panic` dentro dela
-vira falha, não derruba o processo. O resultado fica em cache por 1 s: uma sonda por
-segundo — ou dez mil por segundo, vindas de alguém mal-intencionado — não viram dez mil
-`SELECT 1` no seu banco.
+Each check runs with a deadline (2 s by default) and in parallel; a `panic` inside it
+becomes a failure and does not bring the process down. The result is cached for 1 s: one
+probe per second — or ten thousand per second, coming from someone with bad intentions —
+does not become ten thousand `SELECT 1` on your database.
 
-## O que o anônimo vê
+## What an anonymous caller sees
 
-Em produção, sem autorização, a resposta é exatamente esta:
+In production, without authorization, the response is exactly this:
 
 ```json
 {"status":"fail"}
 ```
 
-Nome da verificação, mensagem de erro, hostname e versão ficam de fora de propósito
-(ASVS V7.4.1). Saber que existe um Postgres chamado `financeiro` e que ele está fora do ar
-é meio caminho para quem está sondando o alvo. A causa vai para o log, onde já existe
-controle de acesso, e para quem se autentica:
+Check name, error message, hostname and version are left out on purpose (ASVS V7.4.1).
+Knowing there is a Postgres called `finance` and that it is down is half the way for someone
+probing the target. The cause goes to the log, where access control already exists, and to
+whoever authenticates:
 
 ```
 curl -H "Authorization: Bearer $TRILHA_OBS_TOKEN" https://app/_trilha/health
 ```
 
 ```json
-{"status":"fail","checks":[{"name":"banco","status":"fail","duration_ms":2001.4,
- "error":"prazo esgotado: context deadline exceeded"}],"uptime_seconds":8134.2}
+{"status":"fail","checks":[{"name":"db","status":"fail","duration_ms":2001.4,
+ "error":"deadline exceeded: context deadline exceeded"}],"uptime_seconds":8134.2}
 ```
 
-Em `dev` o detalhe é aberto — lá o alvo é você mesmo.
+In `dev` the details are open — there, the target is you.
 
-## Métricas
+## Metrics
 
-O endereço de métricas **não existe** até você pedir. Isso é deliberado: um `/metrics`
-público é a má configuração descrita no API8 do OWASP, e ele conta ao visitante quantas
-rotas você tem, quais têm erro e a que horas o tráfego cai.
+The metrics endpoint **does not exist** until you ask for it. That is deliberate: a public
+`/metrics` is the misconfiguration described in OWASP's API8, and it tells the visitor how
+many routes you have, which ones error and at what time your traffic drops.
 
 ```go
 func Config(cfg *trilha.Config) {
-	cfg.Observability.Metrics = "/_trilha/metrics"   // ou TRILHA_METRICS
-	// TRILHA_OBS_TOKEN (32+ bytes) autoriza a raspagem;
-	// alternativa: Trusted com o CIDR do coletor.
+	cfg.Observability.Metrics = "/_trilha/metrics"   // or TRILHA_METRICS
+	// TRILHA_OBS_TOKEN (32+ bytes) authorizes the scrape;
+	// alternative: Trusted with the collector's CIDR.
 	cfg.Observability.Trusted = []string{"10.42.0.0/16"}
 }
 ```
 
-A saída é o formato de texto do Prometheus, então Prometheus, VictoriaMetrics, Grafana
-Alloy e OpenTelemetry Collector leem sem tradutor:
+The output is the Prometheus text format, so Prometheus, VictoriaMetrics, Grafana Alloy and
+the OpenTelemetry Collector read it without a translator:
 
 ```
 trilha_requests_total{method="GET",route="/blog/{slug}",status="200"} 1841
@@ -97,55 +97,54 @@ trilha_panics_total 0
 go_goroutines 14
 ```
 
-Repare no rótulo `route`: é o **padrão registrado**, `/blog/{slug}`, nunca o caminho
-concreto `/blog/como-fiz-x`. Caminho concreto é entrada do usuário — traz identificador,
-às vezes traz token na query string, e faz o número de séries crescer sem limite até a
-memória acabar. O que não casa com rota registrada (estático, 404) cai num único rótulo
-`other`, e cada métrica tem teto de séries (mil por padrão).
+Look at the `route` label: it is the **registered pattern**, `/blog/{slug}`, never the
+concrete path `/blog/how-i-did-x`. A concrete path is user input — it carries identifiers,
+sometimes a token in the query string, and makes the number of series grow without bound
+until memory runs out. Whatever does not match a registered route (static files, 404) falls
+into a single `other` label, and every metric has a series cap (a thousand by default).
 
-Métrica sua entra no mesmo lugar:
+Your own metrics go in the same place:
 
 ```go
-posts.Publicados = a.Metrics().Counter("blog_posts_total", "Posts publicados.")
-lentidao := a.Metrics().Histogram("blog_render_seconds", "Tempo de render.", nil, "template")
-lentidao.With("post").Observe(dur.Seconds())
+posts.Published = a.Metrics().Counter("blog_posts_total", "Published posts.")
+slow := a.Metrics().Histogram("blog_render_seconds", "Render time.", nil, "template")
+slow.With("post").Observe(dur.Seconds())
 ```
 
-## Achar uma requisição no log
+## Finding a request in the log
 
-Todo log de requisição já sai com `request_id`, e o mesmo valor volta no cabeçalho
-`X-Request-ID`. Quando o cliente manda `traceparent` (W3C Trace Context — é o que um
-gateway, um Istio ou um SDK de OpenTelemetry mandam), o `trace_id` entra junto:
+Every request log already carries `request_id`, and the same value comes back in the
+`X-Request-ID` header. When the client sends `traceparent` (W3C Trace Context — what a
+gateway, an Istio or an OpenTelemetry SDK sends), `trace_id` comes along:
 
 ```go
 func GET(c *trilha.Ctx) error {
-	c.Log().Info("consultando fornecedor", "cnpj", cnpj)  // request_id + trace_id
+	c.Log().Info("querying supplier", "tax_id", taxID)  // request_id + trace_id
 	return c.JSON(200, resp)
 }
 ```
 
-O Trilha **propaga** o contexto e o coloca no log; ele não exporta spans nem amostra
-traços. Rastreamento distribuído completo é trabalho de um coletor, e prendê-lo ao core
-custaria dezenas de dependências.
+Trilha **propagates** the context and puts it in the log; it does not export spans or sample
+traces. Full distributed tracing is a collector's job, and bolting it onto the core would
+cost dozens of dependencies.
 
-O que nunca entra no log, por decisão de projeto: corpo da requisição, cookies, cabeçalho
-`Authorization` e query string (ASVS V7.1.1). É lá que segredo viaja.
+What never goes in the log, by design: request body, cookies, the `Authorization` header and
+the query string (ASVS V7.1.1). That is where secrets travel.
 
-## Custo
+## Cost
 
-Com o endereço de métricas desligado, a instrumentação não roda: é uma comparação de
-ponteiro. Ligada, ela custa **zero alocações** por requisição (duas buscas em mapa com
-chave montada na pilha e alguns incrementos atômicos); a diferença de tempo fica dentro
-do ruído da máquina de referência. Os números estão em
-[Desempenho](/referencia/desempenho).
+With the metrics endpoint off, the instrumentation does not run: it is a pointer comparison.
+On, it costs **zero allocations** per request (two map lookups with a key built on the stack
+and a few atomic increments); the time difference stays within the noise of the reference
+machine. The numbers are in [Performance](/reference/performance).
 
-## Desafio
+## Challenge
 
-Faça o `/_trilha/health/ready` do seu app verificar o banco **e** um serviço externo, com
-prazo de 500 ms para o externo; exponha as métricas só para a rede `10.0.0.0/8`; e conte,
-numa métrica sua, quantas vezes o serviço externo falhou.
+Make your app's `/_trilha/health/ready` check the database **and** an external service, with
+a 500 ms deadline for the external one; expose the metrics only to the `10.0.0.0/8` network;
+and count, in a metric of your own, how many times the external service failed.
 
-:::solucao
+:::solution
 ```go
 // app/setup.go
 func Config(cfg *trilha.Config) {
@@ -154,15 +153,15 @@ func Config(cfg *trilha.Config) {
 }
 
 func Setup(a *trilha.App) error {
-	falhas := a.Metrics().Counter("integracao_falhas_total", "Falhas na consulta ao parceiro.", "servico")
+	failures := a.Metrics().Counter("integration_failures_total", "Failed calls to the partner.", "service")
 
-	a.Check("banco", func(ctx context.Context) error { return db.PingContext(ctx) })
+	a.Check("db", func(ctx context.Context) error { return db.PingContext(ctx) })
 
-	a.Check("parceiro", func(ctx context.Context) error {
+	a.Check("partner", func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 		defer cancel()
-		if err := parceiro.Ping(ctx); err != nil {
-			falhas.With("parceiro").Inc()
+		if err := partner.Ping(ctx); err != nil {
+			failures.With("partner").Inc()
 			return err
 		}
 		return nil
@@ -171,8 +170,8 @@ func Setup(a *trilha.App) error {
 }
 ```
 
-O prazo curto do parceiro convive com o prazo geral (`Observability.Timeout`): vale o que
-vencer primeiro. E como o contador é criado no `Setup`, ele aparece na raspagem desde a
-primeira requisição, com valor zero — o que é melhor do que sumir do painel até a primeira
-falha.
+The partner's short deadline coexists with the general one (`Observability.Timeout`):
+whichever expires first wins. And because the counter is created in `Setup`, it shows up in
+the scrape from the first request, with value zero — which beats vanishing from the
+dashboard until the first failure.
 :::

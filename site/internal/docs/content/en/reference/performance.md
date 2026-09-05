@@ -40,6 +40,18 @@ costs 100 µs to a few ms, and the network more; the difference disappears. If t
 matters to you, the path is reducing allocations in `Ctx` and making logging optional per
 route — and the benchmark is there to prove the gain.
 
+### Observability
+
+| Scenario | Without metrics | With metrics | Difference |
+|---|---|---|---|
+| Trivial route (`c.Text`) | 4.1 µs · 50 allocs | 4.1 µs · 50 allocs | within noise; **zero allocations** |
+| `/_trilha/health/live` probe | — | 0.9 µs · 18 allocs | bypasses the router and the middleware chain |
+
+Instrumentation only exists when `Observability.Metrics` is configured; off, it is a pointer
+comparison. On, the series key is built in a stack buffer and looked up as
+`map[string(bytes)]`, a form the compiler resolves without allocating — which is why the
+allocation count does not change.
+
 The **edit → see** cycle of `trilha dev` is ~1.2 s in the blog example (Go recompilation)
 and ~30 ms for changes only in `public/` (`make reload` measures on your machine).
 

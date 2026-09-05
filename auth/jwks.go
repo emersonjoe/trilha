@@ -50,7 +50,7 @@ func (j *jwks) key(ctx context.Context, kid string) (any, error) {
 		return k, nil
 	}
 	if !ok && !canFetch {
-		return nil, fmt.Errorf("chave %q desconhecida", kid)
+		return nil, fmt.Errorf("unknown key %q", kid)
 	}
 	if err := j.fetch(ctx); err != nil {
 		if ok {
@@ -63,7 +63,7 @@ func (j *jwks) key(ctx context.Context, kid string) (any, error) {
 	if k, ok := j.keys[kid]; ok {
 		return k, nil
 	}
-	return nil, fmt.Errorf("chave %q desconhecida", kid)
+	return nil, fmt.Errorf("unknown key %q", kid)
 }
 
 type jwkDoc struct {
@@ -90,11 +90,11 @@ func (j *jwks) fetch(ctx context.Context) error {
 	}
 	resp, err := j.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("JWKS indisponível: %w", err)
+		return fmt.Errorf("JWKS unavailable: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("JWKS respondeu %d", resp.StatusCode)
+		return fmt.Errorf("JWKS answered %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
@@ -102,7 +102,7 @@ func (j *jwks) fetch(ctx context.Context) error {
 	}
 	var doc jwkDoc
 	if err := json.Unmarshal(body, &doc); err != nil {
-		return fmt.Errorf("JWKS ilegível: %w", err)
+		return fmt.Errorf("JWKS unreadable: %w", err)
 	}
 	keys := map[string]any{}
 	for _, k := range doc.Keys {
@@ -116,7 +116,7 @@ func (j *jwks) fetch(ctx context.Context) error {
 		keys[k.Kid] = pub
 	}
 	if len(keys) == 0 {
-		return errors.New("JWKS sem chave de assinatura utilizável")
+		return errors.New("JWKS has no usable signing key")
 	}
 	j.mu.Lock()
 	j.keys, j.fetched = keys, time.Now()
@@ -136,7 +136,7 @@ func parseJWK(kty, crv, n, e, x, y string) (any, error) {
 			return nil, err
 		}
 		if len(nb) < 256 {
-			return nil, errors.New("módulo RSA menor que 2048 bits")
+			return nil, errors.New("RSA modulus smaller than 2048 bits")
 		}
 		return &rsa.PublicKey{N: new(big.Int).SetBytes(nb), E: int(new(big.Int).SetBytes(eb).Int64())}, nil
 	case "EC":
@@ -147,7 +147,7 @@ func parseJWK(kty, crv, n, e, x, y string) (any, error) {
 		case "P-384":
 			curve = elliptic.P384()
 		default:
-			return nil, fmt.Errorf("curva não suportada: %q", crv)
+			return nil, fmt.Errorf("unsupported curve: %q", crv)
 		}
 		xb, err := base64.RawURLEncoding.DecodeString(x)
 		if err != nil {
@@ -159,5 +159,5 @@ func parseJWK(kty, crv, n, e, x, y string) (any, error) {
 		}
 		return &ecdsa.PublicKey{Curve: curve, X: new(big.Int).SetBytes(xb), Y: new(big.Int).SetBytes(yb)}, nil
 	}
-	return nil, fmt.Errorf("tipo de chave não suportado: %q", kty)
+	return nil, fmt.Errorf("unsupported key type: %q", kty)
 }

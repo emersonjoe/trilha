@@ -1,6 +1,6 @@
 ---
 title: Examples
-description: Four complete apps in examples/, from basic to complex, and what each one teaches.
+description: Complete apps in examples/, from basic to complex, and what each one teaches.
 ---
 
 The examples are real apps, with integration tests that run in the repository's `make test`.
@@ -18,6 +18,7 @@ The code is the same Trilha you read about in English here; only the words diffe
 | Basic | `examples/blog` | every file convention, nested layouts, route groups, JSON API, middleware, signed session, `tmpl` |
 | Medium | `examples/cadastro` | a form with rules: conditional fields, server-side validation with per-field errors, dependent select, disappearing toast, responsive layout |
 | Complex | `examples/orcamento` | tree-shaped domain (chart of accounts), aggregation, drill-down through a dynamic route, nested and recursive components, dialog with a form, period filter, CSV |
+| SSO | `examples/sso` | OpenID Connect login with Entra ID or Keycloak, protected area, required role, federated logout |
 | AI | `examples/assistente` | streaming chat, agent with tools, handoff, MCP server |
 
 ## Medium: sign-up (`cadastro`)
@@ -92,6 +93,35 @@ its own at `/lancamentos`; `POST` validates with `c.Bind` + `plano.Validar` and,
 `app.js` reopens the dialog because it found `.ui-field-error` inside it. `voltar` (a hidden
 field) says where to redirect on success. The export lives in
 `app/api/relatorio.csv/route.go`, a folder with a dot in its name.
+
+## SSO: Entra ID and Keycloak
+
+`examples/sso` is the whole login flow in three routes of two lines each. The `auth`
+package handles PKCE, `state`, `nonce`, the code exchange and `id_token` validation; the app
+only forwards:
+
+```go
+// app/entrar/route.go  ("entrar" = sign in)
+var Kind = trilha.KindPage
+func GET(c *trilha.Ctx) error { return sso.Start(c) }
+```
+
+Protecting a subtree is a `middleware.go`, like any other:
+
+```go
+// app/painel/middleware.go  ("painel" = dashboard)
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.Require(c, next) }
+
+// app/painel/relatorio/middleware.go — role, not just session
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.RequireAdmin(c, next) }
+```
+
+Below the middleware, the page reads `sso.User(c)` without checking anything. An anonymous
+browser is sent to `/entrar?next=…`; a call to `/api` gets 401 as JSON, because redirecting
+an HTTP client to a form only produces a confusing parsing error.
+
+No secret lives in the code: the provider comes from environment variables, and without
+them the app still starts and says what is missing.
 
 ## What became framework
 

@@ -132,7 +132,7 @@ Cada item aqui é um ataque conhecido, e todos têm teste na suíte:
   por requisição HTTP.
 
 Toda recusa vira `SecurityEvent` do tipo `auth` e entra em `trilha_security_events_total`,
-o contador do [capítulo de observabilidade](/aprender/observabilidade).
+o contador do [capítulo de observabilidade](/pt/aprender/observabilidade).
 
 ## Desafio
 

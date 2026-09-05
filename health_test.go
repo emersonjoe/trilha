@@ -162,7 +162,7 @@ func TestPanicInCheckBecomesFail(t *testing.T) {
 	a := obsApp(t, Prod, Observability{Token: obsTok})
 	a.Check("explode", func(context.Context) error { panic("boom") })
 	rec := get(t, a, "GET", "/_trilha/health/ready", "", authed())
-	if rec.Code != 503 || !strings.Contains(rec.Body.String(), "pânico") {
+	if rec.Code != 503 || !strings.Contains(rec.Body.String(), "panic in check") {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 }

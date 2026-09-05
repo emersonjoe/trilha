@@ -95,7 +95,7 @@ func runCheck(ctx context.Context, ck healthCheck, timeout time.Duration) (res C
 	defer func() {
 		if v := recover(); v != nil {
 			res.Status = StatusFail
-			res.Error = fmt.Sprintf("pânico na verificação: %v", v)
+			res.Error = fmt.Sprintf("panic in check: %v", v)
 		}
 		res.DurationMS = float64(time.Since(start).Microseconds()) / 1000
 	}()
@@ -108,7 +108,7 @@ func runCheck(ctx context.Context, ck healthCheck, timeout time.Duration) (res C
 	go func() {
 		defer func() {
 			if v := recover(); v != nil {
-				done <- fmt.Errorf("pânico na verificação: %v", v)
+				done <- fmt.Errorf("panic in check: %v", v)
 			}
 		}()
 		done <- ck.fn(ctx)

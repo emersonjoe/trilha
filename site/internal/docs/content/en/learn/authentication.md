@@ -1,156 +1,160 @@
 ---
-title: Autenticação com Entra ID e Keycloak
-description: Login OpenID Connect com PKCE, sessão assinada, papéis e logout federado, sem dependência externa e sem senha no seu banco.
+title: Authentication with Entra ID and Keycloak
+description: OpenID Connect login with PKCE, signed session, roles and federated logout, with no external dependency and no password in your database.
 ---
 
-Quase todo app interno chega no mesmo ponto: alguém pergunta "dá para entrar com a conta da
-empresa?". A resposta é OpenID Connect — o Entra ID (antigo Azure AD) e o Keycloak falam o
-mesmo protocolo, e o pacote `auth` implementa o lado do app com a biblioteca padrão.
+Almost every internal app reaches the same point: someone asks "can I sign in with my
+company account?". The answer is OpenID Connect — Entra ID (formerly Azure AD) and Keycloak
+speak the same protocol, and the `auth` package implements the app side with the standard
+library.
 
-A vantagem não é só comodidade. Senha que você não guarda é senha que você não vaza; MFA,
-bloqueio por tentativa e política de rotação passam a ser problema do provedor, que tem um
-time cuidando disso. O que sobra para o app é o pedaço que ninguém pode terceirizar:
-validar o token direito e manter a sessão em ordem.
+The advantage is not only convenience. A password you do not store is a password you do not
+leak; MFA, lockout after failed attempts and rotation policy become the provider's problem,
+and they have a team for that. What is left for the app is the part nobody can outsource:
+validating the token properly and keeping the session in order.
 
-## O fluxo, em três rotas
+## The flow, in three routes
 
-O código de autorização com PKCE tem quatro passos: o app manda o navegador ao provedor, a
-pessoa se autentica lá, o provedor devolve um código para uma rota sua, e o app troca esse
-código por um `id_token` — essa última troca acontece servidor a servidor, não passa pelo
-navegador. No `app/`, isso são três arquivos:
+The authorization code flow with PKCE has four steps: the app sends the browser to the
+provider, the person authenticates there, the provider returns a code to a route of yours,
+and the app exchanges that code for an `id_token` — this last exchange happens server to
+server, it never goes through the browser. In `app/`, that is three files:
 
 ```go
-// app/entrar/route.go
+// app/login/route.go
 var Kind = trilha.KindPage
 func GET(c *trilha.Ctx) error { return sso.Start(c) }
 
-// app/entrar/retorno/route.go
+// app/login/callback/route.go
 var Kind = trilha.KindPage
 func GET(c *trilha.Ctx) error { return sso.Callback(c) }
 
-// app/sair/route.go
+// app/logout/route.go
 var Kind = trilha.KindPage
 func POST(c *trilha.Ctx) error { return sso.Logout(c) }
 ```
 
-`sso` aqui é um pacote seu, de umas 30 linhas, que lê o ambiente e guarda o `*auth.Auth`
-(veja `examples/sso/internal/sso`). O `auth` não registra rota nenhuma: quem decide os
-endereços é o `app/`, como em todo o resto do framework.
+`sso` here is a package of yours, some 30 lines, that reads the environment and holds the
+`*auth.Auth` (see `examples/sso/internal/sso`). `auth` registers no route: `app/` decides
+the addresses, as everywhere else in the framework.
 
-## Configurar o provedor
+## Configuring the provider
 
 ```go
-p := auth.EntraID(os.Getenv("SSO_TENANT"), id, segredo, "https://app.exemplo/entrar/retorno")
-// ou
-p := auth.Keycloak("https://kc.exemplo", "producao", id, segredo, redirect)
-// ou qualquer provedor conforme, pelo emissor:
-p := auth.OIDC("https://accounts.exemplo/", id, segredo, redirect)
+p := auth.EntraID(os.Getenv("SSO_TENANT"), id, secret, "https://app.example/login/callback")
+// or
+p := auth.Keycloak("https://kc.example", "production", id, secret, redirect)
+// or any conforming provider, by issuer:
+p := auth.OIDC("https://accounts.example/", id, secret, redirect)
 
-flow := auth.New(p, auth.Options{LoginPath: "/entrar", AfterLogin: "/painel"})
+flow := auth.New(p, auth.Options{LoginPath: "/login", AfterLogin: "/dashboard"})
 ```
 
-Nada aí faz chamada de rede: a descoberta (`/.well-known/openid-configuration`) acontece no
-primeiro login e fica em cache por uma hora. Um provedor fora do ar não impede o app de
-subir — impede só de entrar, que é o comportamento honesto.
+Nothing there makes a network call: discovery (`/.well-known/openid-configuration`) happens
+on the first login and is cached for one hour. A provider that is down does not stop the app
+from starting — it only stops people from signing in, which is the honest behavior.
 
-O segredo do cliente **nunca** vai no código. `trilha audit` reclama se encontrar um
-literal na posição dele, e um segredo que foi para o git precisa ser rotacionado no
-provedor, não apenas removido do arquivo.
+The client secret **never** goes in the code. `trilha audit` complains if it finds a literal
+in that position, and a secret that made it into git must be rotated at the provider, not
+merely removed from the file.
 
-## Proteger uma parte do app
+## Protecting part of the app
 
-É um `middleware.go`, igual a qualquer outro:
+It is a `middleware.go`, like any other:
 
 ```go
-// app/painel/middleware.go
+// app/dashboard/middleware.go
 func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.Require(c, next) }
 
-// app/painel/relatorio/middleware.go — exige papel, não só sessão
+// app/dashboard/report/middleware.go — requires a role, not just a session
 func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.RequireAdmin(c, next) }
 ```
 
-Abaixo do middleware a página lê `flow.User(c)` e confia: o `*auth.User` está lá, com
-`Subject`, `Email`, `Name` e `Roles`.
+Below the middleware the page reads `flow.User(c)` and trusts it: the `*auth.User` is there,
+with `Subject`, `Email`, `Name` and `Roles`.
 
-Duas respostas diferentes para duas situações diferentes:
+Two different answers for two different situations:
 
-- **anônimo**: navegador vai para `/entrar?next=/painel`; qualquer outro cliente recebe
-  **401**. Redirecionar uma chamada de API para um formulário HTML só produz um erro de
-  parsing difícil de entender do outro lado.
-- **logado, mas sem o papel**: **403**. Mandar para o login quem já está logado cria um
-  laço — a pessoa entra de novo, volta, e leva 401 outra vez.
+- **anonymous**: a browser goes to `/login?next=/dashboard`; any other client gets **401**.
+  Redirecting an API call to an HTML form only produces a parsing error that is hard to
+  understand on the other side.
+- **signed in, but without the role**: **403**. Sending someone who is already signed in to
+  the login creates a loop — they sign in again, come back, and get 401 once more.
 
-## Onde moram os papéis
+## Where roles live
 
-Cada provedor guarda em um lugar, e o `auth` já sabe onde procurar:
+Each provider keeps them in one place, and `auth` already knows where to look:
 
-| Provedor | Lê de |
+| Provider | Reads from |
 |---|---|
 | Entra ID | `roles` (app roles), `groups`, `wids` |
-| Keycloak | `realm_access.roles` e `resource_access[seu-cliente].roles` |
-| Genérico | `roles`, `groups` |
+| Keycloak | `realm_access.roles` and `resource_access[your-client].roles` |
+| Generic | `roles`, `groups` |
 
-Papéis do Keycloak que pertencem a **outro** cliente não entram: quem é `admin` no cliente
-de contabilidade não vira `admin` no seu. Se a sua instalação usa outro nome de claim,
-acrescente-o em `Options.RoleClaims`.
+Keycloak roles that belong to **another** client do not count: whoever is `admin` in the
+accounting client does not become `admin` in yours. If your installation uses another claim
+name, add it to `Options.RoleClaims`.
 
-## A sessão
+## The session
 
-Depois do login, o `id_token` cumpriu o papel dele e é descartado. O que fica é um cookie
-assinado com `TRILHA_SECRET`, `HttpOnly`, `SameSite=Lax` e `Secure` sob HTTPS, contendo o
-essencial: identificador, nome, e-mail, papéis e prazos.
+After the login, the `id_token` has done its job and is discarded. What stays is a cookie
+signed with `TRILHA_SECRET`, `HttpOnly`, `SameSite=Lax` and `Secure` under HTTPS, holding
+the essentials: identifier, name, e-mail, roles and deadlines.
 
 ```go
 auth.Options{
-	Absolute: 8 * time.Hour,  // prazo máximo, contado do login
-	Idle:     30 * time.Minute, // some depois de parado
-	Store:    auth.NewMemoryStore(), // opcional: revogação imediata
+	Absolute: 8 * time.Hour,  // maximum lifetime, counted from the login
+	Idle:     30 * time.Minute, // gone after being idle
+	Store:    auth.NewMemoryStore(), // optional: immediate revocation
 }
 ```
 
-Sem `Store`, a sessão é apátrida: vale em qualquer réplica e não precisa de banco, mas só
-termina de verdade quando vence. Com um `Store`, o cookie carrega um identificador e o
-logout apaga o registro na hora — é o que você quer se precisa desligar alguém agora. O
-identificador muda a cada login, então um cookie plantado antes não vira sessão válida.
+Without a `Store`, the session is stateless: it is valid on any replica and needs no
+database, but only truly ends when it expires. With a `Store`, the cookie carries an
+identifier and the logout deletes the record right away — that is what you want when you
+need to cut someone off now. The identifier changes on every login, so a cookie planted
+earlier does not become a valid session.
 
-## O que o `auth` recusa
+## What `auth` refuses
 
-Cada item aqui é um ataque conhecido, e todos têm teste na suíte:
+Every item here is a known attack, and all of them have a test in the suite:
 
-- **`alg` do token**: a lista é fixa (RS256/384/512, ES256/384). Ler o algoritmo do token e
-  obedecer é como bibliotecas de JWT se quebram — `alg: none` passa, ou uma chave pública
-  RSA vira segredo de HMAC.
-- **`state`**: sem ele o retorno pode ser forjado por outro site (CSRF no login).
-- **`nonce`**: amarra o `id_token` a *este* pedido, contra replay.
-- **PKCE (S256)**: um código roubado no meio do caminho não serve sem o verificador.
-- **`iss`, `aud`, `exp`, `nbf`**: um token legítimo, mas emitido para outro app ou por outro
-  tenant, não vale aqui. A tolerância de relógio é de 60 segundos.
-- **`next`**: só caminho do próprio app. `//evil.exemplo` e `https://evil.exemplo` viram
-  `/` — redirecionamento aberto é o jeito clássico de dar credibilidade a um phishing.
-- **Chave desconhecida**: o JWKS é buscado de novo quando o provedor rotaciona a chave, mas
-  no máximo uma vez por minuto, para que um token forjado não vire uma requisição de rede
-  por requisição HTTP.
+- **the token's `alg`**: the list is fixed (RS256/384/512, ES256/384). Reading the algorithm
+  from the token and obeying it is how JWT libraries get broken — `alg: none` gets through,
+  or an RSA public key becomes an HMAC secret.
+- **`state`**: without it the callback can be forged by another site (CSRF on login).
+- **`nonce`**: ties the `id_token` to *this* request, against replay.
+- **PKCE (S256)**: a code stolen along the way is useless without the verifier.
+- **`iss`, `aud`, `exp`, `nbf`**: a legitimate token issued for another app or by another
+  tenant is not valid here. Clock tolerance is 60 seconds.
+- **`next`**: only a path inside the app. `//evil.example` and `https://evil.example`
+  become `/` — an open redirect is the classic way to lend credibility to phishing.
+- **unknown key**: the JWKS is fetched again when the provider rotates the key, but at most
+  once per minute, so a forged token does not turn into one network request per HTTP
+  request.
 
-Toda recusa vira `SecurityEvent` do tipo `auth` e entra em `trilha_security_events_total`,
-o contador do [capítulo de observabilidade](/aprender/observabilidade).
+Every refusal becomes a `SecurityEvent` of kind `auth` and lands in
+`trilha_security_events_total`, the counter from the
+[observability chapter](/learn/observability).
 
-## Desafio
+## Challenge
 
-Seu app precisa de uma rota que só funcione para quem entrou **nos últimos cinco minutos** —
-uma reautenticação recente antes de uma operação sensível, como trocar a chave de API.
+Your app needs a route that only works for people who signed in **within the last five
+minutes** — a recent re-authentication before a sensitive operation, such as rotating an API
+key.
 
-:::solucao
+:::solution
 ```go
-func recente(c *trilha.Ctx, next trilha.Next) error {
+func recent(c *trilha.Ctx, next trilha.Next) error {
 	u := flow.User(c)
 	if u == nil || time.Since(u.IssuedAt) > 5*time.Minute {
-		return trilha.RedirectCode("/entrar?next="+url.QueryEscape(c.Request().URL.Path), 302)
+		return trilha.RedirectCode("/login?next="+url.QueryEscape(c.Request().URL.Path), 302)
 	}
 	return next()
 }
 ```
-`IssuedAt` é o momento do login, e `Start` cria uma sessão nova a cada volta pelo provedor —
-então quem já estava logado só precisa passar de novo pela tela do provedor, que costuma
-aceitar sem pedir senha outra vez. Para forçar a digitação, acrescente `prompt=login` aos
-parâmetros de autorização.
+`IssuedAt` is the moment of the login, and `Start` creates a new session on every round
+trip through the provider — so someone already signed in only has to pass through the
+provider's screen again, which usually lets them through without asking for the password.
+To force typing it, add `prompt=login` to the authorization parameters.
 :::

@@ -37,8 +37,8 @@ func (a *Auth) guard(roles []string) trilha.MiddlewareFunc {
 			return a.challenge(c)
 		}
 		if len(roles) > 0 && !anyRole(u, roles) {
-			c.Log().Warn("auth: acesso negado", "sub", u.Subject, "need", strings.Join(roles, ","))
-			return &trilha.HTTPError{Code: http.StatusForbidden, Message: "acesso negado"}
+			c.Log().Warn("auth: access denied", "sub", u.Subject, "need", strings.Join(roles, ","))
+			return &trilha.HTTPError{Code: http.StatusForbidden, Message: "access denied"}
 		}
 		c.Set(ctxKey, u)
 		return next()
@@ -48,7 +48,7 @@ func (a *Auth) guard(roles []string) trilha.MiddlewareFunc {
 // challenge sends the browser to the login page and everything else a 401.
 func (a *Auth) challenge(c *trilha.Ctx) error {
 	if !wantsHTML(c.Request()) {
-		return &trilha.HTTPError{Code: http.StatusUnauthorized, Message: "não autenticado"}
+		return &trilha.HTTPError{Code: http.StatusUnauthorized, Message: "not authenticated"}
 	}
 	dest := a.opts.LoginPath
 	if next := safeNext(c.Request().URL.RequestURI()); next != "" {

@@ -177,6 +177,7 @@ ui.Card(
 | Básico | `examples/blog` | convenções, layouts, API, middleware, sessão |
 | Médio | `examples/cadastro` | formulário com regras: campos condicionais, validação por campo (`c.Bind`, `trilha.FieldErrors`, `c.Render`), seleção dependente, aviso que some |
 | Complexo | `examples/orcamento` | plano de contas em árvore, drill-down, componentes recursivos, diálogo, CSV |
+| SSO | `examples/sso` | login OpenID Connect (Entra ID/Keycloak), área protegida, papel exigido |
 | IA | `examples/assistente` | chat em streaming, agente com ferramentas, MCP |
 
 ## IA e agentes
@@ -215,13 +216,57 @@ Segurança por padrão: escape de HTML, `nosniff`/`X-Frame-Options`/`Referrer-Po
 limite de corpo (1 MiB), CSRF por double-submit cookie em formulários, estáticos sem path
 traversal, logs `slog` sem corpo nem cookies.
 
+## Saúde e observabilidade
+
+Todo app já responde `/_trilha/health/live` (o processo atende) e `/_trilha/health/ready`
+(as dependências que você registrou com `a.Check` respondem, com prazo e cache). Para quem
+não está autorizado, a resposta é só `{"status":"fail"}`: nome de dependência e mensagem de
+erro ficam no log, não na rede.
+
+```go
+a.Check("banco", func(ctx context.Context) error { return db.PingContext(ctx) })
+```
+
+O endereço de métricas é opt-in (`TRILHA_METRICS` ou `Observability.Metrics`) e exige token
+ou rede confiável. Ele fala o formato de texto do Prometheus, com requisições, latência,
+requisições em voo, eventos de segurança, pânicos e runtime do Go — mais as suas
+(`a.Metrics().Counter(...)`). O rótulo de rota é sempre o padrão registrado, nunca o
+caminho concreto. Detalhes em
+[Saúde e observabilidade](https://emersonjoe.github.io/trilha/pt/aprender/observabilidade).
+
+## Login corporativo
+
+O pacote `auth` faz OpenID Connect (Entra ID, Keycloak ou qualquer provedor conforme) com a
+biblioteca padrão: PKCE, `state`, `nonce`, validação do `id_token` com JWKS e rotação de
+chave, sessão em cookie assinado e papéis lidos de onde cada provedor os guarda.
+
+```go
+// app/entrar/route.go — o fluxo inteiro são três rotas de duas linhas
+func GET(c *trilha.Ctx) error { return sso.Start(c) }
+
+// app/painel/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.Require(c, next) }
+```
+
+Navegador anônimo vai para o login; chamada de API recebe 401. Quem está logado sem o papel
+exigido recebe 403. Exemplo executável em `examples/sso`, detalhes em
+[Autenticação](https://emersonjoe.github.io/trilha/pt/aprender/autenticacao).
+
 ## Desempenho
 
 `make bench` mede o custo do Trilha sobre `net/http` + `html/template` (módulo `bench/`,
 separado). Resumo na máquina de referência: `h` renderiza a página de exemplo ~34 % mais
 rápido que `html/template`; o custo fixo por requisição (id, nonce da CSP, cabeçalhos, log
-estruturado) é de ~3 µs. Metodologia, números e uma comparação de abordagem com outros
+estruturado) é de ~3 µs, e a instrumentação de métricas, quando ligada, não acrescenta
+nenhuma alocação. Metodologia, números e uma comparação de abordagem com outros
 frameworks em [Desempenho e comparação](https://emersonjoe.github.io/trilha/pt/referencia/desempenho).
+
+## Para onde vai
+
+[`ROADMAP.md`](ROADMAP.md) responde a uma avaliação externa item a item: o que já existe, o
+que está planejado (issues com o rótulo `roadmap`, agrupadas por fase) e o que decidimos
+**não** fazer, com o motivo. O maior buraco reconhecido é interatividade sem virar SPA;
+e autenticação com OIDC (spec 016) já entrou.
 
 ## Fora do escopo (por enquanto)
 

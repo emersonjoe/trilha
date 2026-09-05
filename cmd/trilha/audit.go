@@ -75,31 +75,31 @@ func runAudit(p *project, vuln bool) []check {
 	trusted := os.Getenv("TRILHA_OBS_TRUSTED") != "" || strings.Contains(src, "Trusted:")
 	switch {
 	case tok != "" && len(tok) < 32:
-		add("critico", "TRILHA_OBS_TOKEN curto demais", "tokens com menos de 32 bytes nunca autorizam; gere com: openssl rand -hex 32")
+		add("critical", t("obs token short"), t("obs token short hint"))
 	case metricsOn && tok == "" && !trusted:
-		add("critico", "métricas expostas sem token nem rede confiável", "defina TRILHA_OBS_TOKEN (32+ bytes) ou Observability.Trusted; sem isso o endereço responde 401")
+		add("critical", t("metrics exposed"), t("metrics exposed hint"))
 	case metricsOn:
-		add("ok", "endereço de métricas protegido", "")
+		add("ok", t("metrics protected"), "")
 	default:
-		add("ok", "métricas não expostas", "")
+		add("ok", t("metrics off"), "")
 	}
 	if strings.Contains(src, "0.0.0.0/0") || strings.Contains(os.Getenv("TRILHA_OBS_TRUSTED"), "0.0.0.0/0") {
-		add("aviso", "observabilidade aberta a qualquer origem", "0.0.0.0/0 em Trusted deixa métricas e detalhe do health públicos; restrinja ao CIDR do coletor")
+		add("warn", t("obs open"), t("obs open hint"))
 	}
 	if !strings.Contains(src, ".Check(") {
-		add("aviso", "nenhuma verificação de prontidão registrada", "/_trilha/health/ready sempre responde 200; registre a.Check(\"banco\", ...) em app/setup.go")
+		add("warn", t("no checks"), t("no checks hint"))
 	} else {
-		add("ok", "verificações de prontidão registradas", "")
+		add("ok", t("checks ok"), "")
 	}
 
-	// Cache de assets (spec 017): cache longo em endereço fixo é CSS velho
-	// por um ano.
+	// Asset cache (spec 017): a long cache on a fixed address is stale CSS
+	// for a year.
 	if strings.Contains(src, "immutable") && !strings.Contains(src, ".Asset(") {
-		add("aviso", "cache imutável em endereços sem versão", "StaticCacheControl com immutable congela o arquivo no navegador; use c.Asset(\"/style.css\") no layout para pôr o hash do conteúdo na URL")
+		add("warn", t("asset immutable"), t("asset immutable hint"))
 	}
 
-	// Login OIDC (spec 016): o segredo do cliente e o endereço de retorno são
-	// os dois erros que aparecem em toda revisão de OAuth.
+	// OIDC login (spec 016): the client secret and the redirect address are
+	// the two mistakes that show up in every OAuth review.
 	if strings.Contains(src, "trilha/auth") {
 		hard, cleartext := 0, 0
 		for _, call := range authCalls(src) {
@@ -113,12 +113,12 @@ func runAudit(p *project, vuln bool) []check {
 		}
 		switch {
 		case hard > 0:
-			add("critico", "segredo do cliente OIDC no código", "passe-o por variável de ambiente (os.Getenv); um segredo commitado precisa ser rotacionado no provedor")
+			add("critical", t("oidc secret hard"), t("oidc secret hard hint"))
 		default:
-			add("ok", "segredo do cliente OIDC fora do código", "")
+			add("ok", t("oidc secret ok"), "")
 		}
 		if cleartext > 0 {
-			add("critico", "redirect_uri em http:// fora de localhost", "o código de autorização viaja nessa URL; use https:// (Entra ID e Keycloak recusam cleartext em produção)")
+			add("critical", t("oidc cleartext"), t("oidc cleartext hint"))
 		}
 	}
 

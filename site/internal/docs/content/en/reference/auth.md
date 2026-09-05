@@ -1,12 +1,12 @@
 ---
 title: auth
-description: Provider, Options, Auth, User e Store — a API do pacote auth, com os padrões e o que cada campo muda.
+description: Provider, Options, Auth, User and Store — the API of the auth package, with the defaults and what each field changes.
 ---
 
-`import "github.com/emersonjoe/trilha/auth"` — login OpenID Connect com a biblioteca padrão.
-O pacote não registra rota: expõe manipuladores que o seu `app/` publica.
+`import "github.com/emersonjoe/trilha/auth"` — OpenID Connect login with the standard
+library. The package registers no route: it exposes handlers that your `app/` publishes.
 
-## Provedores
+## Providers
 
 ```go
 func OIDC(issuer, clientID, clientSecret, redirectURL string) *Provider
@@ -14,61 +14,61 @@ func EntraID(tenant, clientID, clientSecret, redirectURL string) *Provider
 func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provider
 ```
 
-| Construtor | Emissor resultante | Papéis lidos de |
+| Constructor | Resulting issuer | Roles read from |
 |---|---|---|
-| `OIDC` | o que você passar | `roles`, `groups` |
+| `OIDC` | whatever you pass | `roles`, `groups` |
 | `EntraID` | `https://login.microsoftonline.com/<tenant>/v2.0` | `roles`, `groups`, `wids` |
 | `Keycloak` | `<baseURL>/realms/<realm>` | `realm_access.roles`, `resource_access[clientID].roles` |
 
-`Provider.HTTPClient` troca o cliente HTTP (padrão: 10 s de prazo). A descoberta é feita no
-primeiro uso e vale por uma hora; um emissor divergente entre a configuração e o documento
-é erro, não aviso.
+`Provider.HTTPClient` swaps the HTTP client (default: 10 s timeout). Discovery happens on
+first use and is valid for one hour; an issuer that differs between the configuration and
+the document is an error, not a warning.
 
 ## Options
 
-| Campo | Padrão | O que faz |
+| Field | Default | What it does |
 |---|---|---|
-| `Scopes []string` | `openid profile email` | escopos pedidos ao provedor |
-| `Absolute time.Duration` | 8 h | prazo máximo da sessão, contado do login |
-| `Idle time.Duration` | 30 min | encerra sessão parada; `IdleOff: true` desliga |
-| `CookieName string` | `trilha_session` | nome do cookie de sessão |
-| `LoginPath string` | `/entrar` | para onde `Require` manda um navegador anônimo |
-| `AfterLogin string` | `/` | destino após o retorno, quando não há `next` |
-| `AfterLogout string` | `/` | destino após o logout |
-| `RoleClaims []string` | — | claims adicionais de onde ler papéis |
-| `Store Store` | `nil` | persiste a sessão; `nil` = cookie assinado, sem estado |
+| `Scopes []string` | `openid profile email` | scopes requested from the provider |
+| `Absolute time.Duration` | 8 h | maximum session lifetime, counted from the login |
+| `Idle time.Duration` | 30 min | ends an idle session; `IdleOff: true` disables it |
+| `CookieName string` | `trilha_session` | session cookie name |
+| `LoginPath string` | `/entrar` | where `Require` sends an anonymous browser |
+| `AfterLogin string` | `/` | destination after the callback, when there is no `next` |
+| `AfterLogout string` | `/` | destination after the logout |
+| `RoleClaims []string` | — | additional claims to read roles from |
+| `Store Store` | `nil` | persists the session; `nil` = signed cookie, stateless |
 
 ## Auth
 
 ```go
-func New(p *Provider, o Options) *Auth      // não faz rede
-func (a *Auth) Start(c *trilha.Ctx) error   // → provedor (PKCE, state, nonce)
-func (a *Auth) Callback(c *trilha.Ctx) error // valida o retorno e cria a sessão
-func (a *Auth) Logout(c *trilha.Ctx) error   // apaga a sessão; RP-Initiated Logout quando existe
+func New(p *Provider, o Options) *Auth      // no network
+func (a *Auth) Start(c *trilha.Ctx) error   // → provider (PKCE, state, nonce)
+func (a *Auth) Callback(c *trilha.Ctx) error // validates the callback and creates the session
+func (a *Auth) Logout(c *trilha.Ctx) error   // deletes the session; RP-Initiated Logout when available
 func (a *Auth) Require() trilha.MiddlewareFunc
 func (a *Auth) RequireRole(roles ...string) trilha.MiddlewareFunc
 func (a *Auth) Optional() trilha.MiddlewareFunc
-func (a *Auth) User(c *trilha.Ctx) *User     // nil quando anônimo
+func (a *Auth) User(c *trilha.Ctx) *User     // nil when anonymous
 func (a *Auth) Session(c *trilha.Ctx) (*User, error)
 ```
 
-`Require` responde **302** para o login quando a requisição é uma navegação (Accept com
-`text/html`, fora de `/api/`) e **401** caso contrário. `RequireRole` responde **403** para
-quem está autenticado sem o papel. Basta **um** dos papéis listados; a comparação ignora
-maiúsculas.
+`Require` answers **302** to the login when the request is a navigation (Accept with
+`text/html`, outside `/api/`) and **401** otherwise. `RequireRole` answers **403** to
+someone authenticated without the role. **One** of the listed roles is enough; the
+comparison ignores case.
 
 ## User
 
 ```go
 type User struct {
-	Subject   string    // sub: o identificador estável
-	Email     string    // email, ou preferred_username quando não há
+	Subject   string    // sub: the stable identifier
+	Email     string    // email, or preferred_username when there is none
 	Name      string
 	Roles     []string
-	IssuedAt  time.Time // momento do login
+	IssuedAt  time.Time // moment of the login
 	ExpiresAt time.Time
-	Seen      time.Time // última atividade (janela de ociosidade)
-	SessionID string    // muda a cada login
+	Seen      time.Time // last activity (idle window)
+	SessionID string    // changes on every login
 }
 
 func (u *User) HasRole(role string) bool
@@ -86,31 +86,31 @@ type Store interface {
 func NewMemoryStore() *MemoryStore
 ```
 
-Com um `Store` o cookie carrega apenas o identificador e o logout tem efeito imediato para
-todo mundo. `MemoryStore` vale para um processo só: réplicas não compartilham, e um
-reinício derruba todas as sessões. Para várias réplicas, implemente a interface sobre o seu
-banco ou cache.
+With a `Store` the cookie carries only the identifier and the logout takes effect
+immediately for everyone. `MemoryStore` is for a single process: replicas do not share it,
+and a restart drops every session. For several replicas, implement the interface over your
+database or cache.
 
 ## Cookies
 
-| Cookie | Validade | Conteúdo |
+| Cookie | Lifetime | Content |
 |---|---|---|
-| `trilha_oidc_state` | 10 min | `state` do pedido em curso |
-| `trilha_oidc_nonce` | 10 min | `nonce` do pedido em curso |
-| `trilha_oidc_verifier` | 10 min | verificador PKCE |
-| `trilha_oidc_next` | 10 min | destino após o login (só caminho relativo) |
-| `trilha_session` | `Absolute` | a sessão (ou o id dela, com `Store`) |
+| `trilha_oidc_state` | 10 min | `state` of the request in progress |
+| `trilha_oidc_nonce` | 10 min | `nonce` of the request in progress |
+| `trilha_oidc_verifier` | 10 min | PKCE verifier |
+| `trilha_oidc_next` | 10 min | destination after the login (relative path only) |
+| `trilha_session` | `Absolute` | the session (or its id, with a `Store`) |
 
-Todos são assinados (exigem `TRILHA_SECRET`), `HttpOnly`, `SameSite=Lax` e `Secure` sob
-HTTPS. Os quatro do fluxo são apagados no retorno, dê certo ou não.
+All are signed (they require `TRILHA_SECRET`), `HttpOnly`, `SameSite=Lax` and `Secure`
+under HTTPS. The four flow cookies are deleted on the callback, whether it succeeds or not.
 
-## Algoritmos aceitos
+## Accepted algorithms
 
-`RS256`, `RS384`, `RS512`, `ES256`, `ES384`. A lista é fixa: o `alg` do token não escolhe
-nada. Chaves RSA com módulo menor que 2048 bits são ignoradas no JWKS, o `kid` é
-obrigatório, e a tolerância de relógio é de 60 segundos.
+`RS256`, `RS384`, `RS512`, `ES256`, `ES384`. The list is fixed: the token's `alg` chooses
+nothing. RSA keys with a modulus smaller than 2048 bits are ignored in the JWKS, `kid` is
+required, and clock tolerance is 60 seconds.
 
-## Auditoria
+## Audit
 
-`trilha audit` verifica, quando o projeto importa `trilha/auth`: segredo do cliente escrito
-no código (crítico) e `redirect_uri` em `http://` fora de `localhost` (crítico).
+`trilha audit` checks, when the project imports `trilha/auth`: client secret written in the
+code (critical) and `redirect_uri` over `http://` outside `localhost` (critical).

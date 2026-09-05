@@ -71,7 +71,7 @@ func (a *App) applyObservability() {
 	}
 	if a.obsMetrics != "" && !a.obsWarned && a.cfg.Env != Dev && len(a.obsTrusted) == 0 && len(o.Token) < minTokenLen {
 		a.obsWarned = true
-		a.log.Warn("trilha: métricas configuradas sem token nem rede confiável; o endereço responde 401",
+		a.log.Warn("trilha: metrics configured without token or trusted network; the endpoint answers 401",
 			"path", a.obsMetrics, "hint", "defina TRILHA_OBS_TOKEN (32+ bytes) ou Observability.Trusted")
 	}
 }

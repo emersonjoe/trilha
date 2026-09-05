@@ -45,7 +45,7 @@ type Store interface {
 }
 
 // ErrNoSession is returned by Session when nobody is logged in.
-var ErrNoSession = errors.New("auth: sem sessão")
+var ErrNoSession = errors.New("auth: no session")
 
 // Session reads and validates the session cookie. It renews the idle window
 // when more than a minute has passed, so a busy session does not rewrite the
@@ -92,7 +92,7 @@ func (a *Auth) login(c *trilha.Ctx, u *User) error {
 func (a *Auth) write(c *trilha.Ctx, u *User) error {
 	ttl := time.Until(u.ExpiresAt)
 	if ttl <= 0 {
-		return errors.New("auth: sessão já expirada")
+		return errors.New("auth: session already expired")
 	}
 	if a.opts.Store != nil {
 		if err := a.opts.Store.Save(u.SessionID, u, ttl); err != nil {

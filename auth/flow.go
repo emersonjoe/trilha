@@ -100,7 +100,7 @@ func (a *Auth) Start(c *trilha.Ctx) error {
 		"trilha_oidc_state": state, "trilha_oidc_nonce": nonce, "trilha_oidc_verifier": verifier,
 	} {
 		if err := c.SetSigned(name, value, flowTTL); err != nil {
-			return fmt.Errorf("auth: sem TRILHA_SECRET, o login não pode guardar o estado: %w", err)
+			return fmt.Errorf("auth: without TRILHA_SECRET the login cannot keep its state: %w", err)
 		}
 	}
 	if next := safeNext(c.Query("next")); next != "" {
@@ -135,22 +135,22 @@ func (a *Auth) Callback(c *trilha.Ctx) error {
 	}()
 	if e := c.Query("error"); e != "" {
 		// The description comes from the provider: log it, never render it.
-		return a.fail(c, fmt.Errorf("provedor recusou o login: %s", e))
+		return a.fail(c, fmt.Errorf("provider refused the login: %s", e))
 	}
 	want, ok := c.Signed("trilha_oidc_state")
 	if !ok {
-		return a.fail(c, errors.New("estado do login ausente ou expirado"))
+		return a.fail(c, errors.New("login state missing or expired"))
 	}
 	if got := c.Query("state"); got == "" || got != want {
-		return a.fail(c, errors.New("estado do login não confere"))
+		return a.fail(c, errors.New("login state mismatch"))
 	}
 	verifier, ok := c.Signed("trilha_oidc_verifier")
 	if !ok {
-		return a.fail(c, errors.New("verificador PKCE ausente"))
+		return a.fail(c, errors.New("PKCE verifier missing"))
 	}
 	code := c.Query("code")
 	if code == "" {
-		return a.fail(c, errors.New("retorno sem code"))
+		return a.fail(c, errors.New("callback without code"))
 	}
 	tok, err := a.exchange(c.Context(), code, verifier)
 	if err != nil {
@@ -227,7 +227,7 @@ func (a *Auth) exchange(ctx context.Context, code, verifier string) (*tokenRespo
 	req.Header.Set("Accept", "application/json")
 	resp, err := a.p.client().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("troca do código falhou: %w", err)
+		return nil, fmt.Errorf("code exchange failed: %w", err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -236,21 +236,21 @@ func (a *Auth) exchange(ctx context.Context, code, verifier string) (*tokenRespo
 	}
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil {
-		return nil, fmt.Errorf("resposta do token ilegível (HTTP %d)", resp.StatusCode)
+		return nil, fmt.Errorf("unreadable token response (HTTP %d)", resp.StatusCode)
 	}
 	if resp.StatusCode != http.StatusOK || tok.Error != "" {
-		return nil, fmt.Errorf("provedor recusou a troca do código (HTTP %d, %s)", resp.StatusCode, tok.Error)
+		return nil, fmt.Errorf("provider refused the code exchange (HTTP %d, %s)", resp.StatusCode, tok.Error)
 	}
 	if tok.IDToken == "" {
-		return nil, errors.New("resposta sem id_token")
+		return nil, errors.New("response without id_token")
 	}
 	return &tok, nil
 }
 
 // fail records the security event and answers without detail.
 func (a *Auth) fail(c *trilha.Ctx, err error) error {
-	c.Log().Warn("auth: login recusado", "err", err.Error())
-	return &trilha.HTTPError{Code: http.StatusUnauthorized, Message: "não foi possível autenticar"}
+	c.Log().Warn("auth: login refused", "err", err.Error())
+	return &trilha.HTTPError{Code: http.StatusUnauthorized, Message: "could not authenticate"}
 }
 
 // safeNext accepts only a path inside this app: "//evil.com" and
@@ -288,7 +288,7 @@ func sep(u string) string {
 func randomID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		panic("auth: fonte de aleatoriedade indisponível: " + err.Error())
+		panic("auth: randomness source unavailable: " + err.Error())
 	}
 	return base64.RawURLEncoding.EncodeToString(b[:])
 }
