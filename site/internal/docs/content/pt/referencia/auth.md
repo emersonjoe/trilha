@@ -20,6 +20,10 @@ func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provi
 | `EntraID` | `https://login.microsoftonline.com/<tenant>/v2.0` | `roles`, `groups`, `wids` |
 | `Keycloak` | `<baseURL>/realms/<realm>` | `realm_access.roles`, `resource_access[clientID].roles` |
 
+AWS Cognito (`https://cognito-idp.<região>.amazonaws.com/<id-do-user-pool>`) e Clerk (a
+Frontend API URL) ainda não têm atalho ([#41](https://github.com/emersonjoe/trilha/issues/41)):
+use `OIDC` e nomeie a claim de papéis em `Options.RoleClaims` (`cognito:groups` no Cognito).
+
 `Provider.HTTPClient` troca o cliente HTTP (padrão: 10 s de prazo). A descoberta é feita no
 primeiro uso e vale por uma hora; um emissor divergente entre a configuração e o documento
 é erro, não aviso.

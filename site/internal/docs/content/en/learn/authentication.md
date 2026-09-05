@@ -58,6 +58,28 @@ The client secret **never** goes in the code. `trilha audit` complains if it fin
 in that position, and a secret that made it into git must be rotated at the provider, not
 merely removed from the file.
 
+## Other providers
+
+Anything that speaks OIDC works through `auth.OIDC` today; the shortcuts only save you from
+getting the issuer wrong and tell `auth` where that provider keeps its roles. Two common
+ones, with the issuer they expect and the claim their roles live in:
+
+| Provider | Issuer | Roles |
+|---|---|---|
+| AWS Cognito | `https://cognito-idp.<region>.amazonaws.com/<user-pool-id>` | `cognito:groups` |
+| Clerk | the Frontend API URL: `https://<slug>.clerk.accounts.dev` or `https://clerk.<your-domain>` | organization claims (`org_id`, `org_slug`, …) |
+
+```go
+p := auth.OIDC("https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123", id, secret, redirect)
+flow := auth.New(p, auth.Options{RoleClaims: []string{"cognito:groups"}})
+```
+
+`RoleClaims` reads top-level claims, which is where both of those put theirs. One caveat on
+Cognito: it does not publish `end_session_endpoint`, so `Logout` clears the local session and
+stops there — signing out of Cognito itself means sending the person to its own `/logout`
+URL, on the managed login domain. Shortcuts for both are
+[issue #41](https://github.com/emersonjoe/trilha/issues/41).
+
 ## Protecting part of the app
 
 It is a `middleware.go`, like any other:

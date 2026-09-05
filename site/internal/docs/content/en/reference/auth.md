@@ -20,6 +20,10 @@ func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provi
 | `EntraID` | `https://login.microsoftonline.com/<tenant>/v2.0` | `roles`, `groups`, `wids` |
 | `Keycloak` | `<baseURL>/realms/<realm>` | `realm_access.roles`, `resource_access[clientID].roles` |
 
+AWS Cognito (`https://cognito-idp.<region>.amazonaws.com/<user-pool-id>`) and Clerk (the
+Frontend API URL) have no shortcut yet ([#41](https://github.com/emersonjoe/trilha/issues/41)):
+use `OIDC` and name their role claim in `Options.RoleClaims` (`cognito:groups` for Cognito).
+
 `Provider.HTTPClient` swaps the HTTP client (default: 10 s timeout). Discovery happens on
 first use and is valid for one hour; an issuer that differs between the configuration and
 the document is an error, not a warning.

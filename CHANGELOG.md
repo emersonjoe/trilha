@@ -5,6 +5,12 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+### Documentation
+- Authentication chapter and `auth` reference now say how AWS Cognito and Clerk work today
+  through the generic `auth.OIDC` (issuer format, role claim, and Cognito's non-standard
+  logout). Shortcuts for both are tracked in
+  [#41](https://github.com/emersonjoe/trilha/issues/41).
+
 ## 0.10.0 — 2026-09-05
 
 ### Added

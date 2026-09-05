@@ -85,6 +85,11 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 19. [#37](https://github.com/emersonjoe/trilha/issues/37) Inspetor de rotas no `trilha dev`.
 20. [#38](https://github.com/emersonjoe/trilha/issues/38) Cookbook, checklist de produção e guia de migração.
 21. [#39](https://github.com/emersonjoe/trilha/issues/39) `Pagination` e `Tooltip` no kit `ui` (o resto da lista da avaliação já existe).
+22. [#41](https://github.com/emersonjoe/trilha/issues/41) Atalhos de provedor no `auth` para **AWS Cognito** e **Clerk**, na mesma linha do Entra ID e
+    do Keycloak da 0.7.0. Os dois já funcionam pelo `auth.OIDC` genérico; o atalho monta o
+    emissor, lê os papéis do lugar certo (`cognito:groups`, organização do Clerk) e resolve o
+    logout do Cognito, que não é o `end_session_endpoint` do padrão. Acabamento, por isso no
+    fim da lista.
 
 ## O que não vamos fazer, e por quê
 
@@ -100,7 +105,7 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 
 ## Como acompanhar
 
-- **Issues**: [#20 a #40](https://github.com/emersonjoe/trilha/issues?q=is%3Aissue+label%3Aroadmap), com o rótulo `roadmap`, agrupadas por
+- **Issues**: [#20 a #41](https://github.com/emersonjoe/trilha/issues?q=is%3Aissue+label%3Aroadmap), com o rótulo `roadmap`, agrupadas por
   marco (`Fase 1 — Interatividade`, `Fase 2 — Dados e identidade`, `Fase 3 — Produção`,
   `Fase 4 — DX`).
 - **Specs**: quando um item entra em execução, ganha `specs/NNN-nome/` (spec → plan →

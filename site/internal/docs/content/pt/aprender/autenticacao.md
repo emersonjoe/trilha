@@ -57,6 +57,28 @@ O segredo do cliente **nunca** vai no código. `trilha audit` reclama se encontr
 literal na posição dele, e um segredo que foi para o git precisa ser rotacionado no
 provedor, não apenas removido do arquivo.
 
+## Outros provedores
+
+Qualquer coisa que fale OIDC já funciona hoje pelo `auth.OIDC`; os atalhos só evitam que
+você erre o emissor e dizem ao `auth` onde aquele provedor guarda os papéis. Dois comuns,
+com o emissor que esperam e a claim em que os papéis moram:
+
+| Provedor | Emissor | Papéis |
+|---|---|---|
+| AWS Cognito | `https://cognito-idp.<região>.amazonaws.com/<id-do-user-pool>` | `cognito:groups` |
+| Clerk | a Frontend API URL: `https://<slug>.clerk.accounts.dev` ou `https://clerk.<seu-domínio>` | claims de organização (`org_id`, `org_slug`, …) |
+
+```go
+p := auth.OIDC("https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123", id, segredo, redirect)
+flow := auth.New(p, auth.Options{RoleClaims: []string{"cognito:groups"}})
+```
+
+`RoleClaims` lê claims de primeiro nível, que é onde os dois põem as suas. Uma ressalva no
+Cognito: ele não publica `end_session_endpoint`, então o `Logout` apaga a sessão local e para
+por aí — sair do Cognito de verdade é mandar a pessoa para a `/logout` dele, no domínio de
+managed login. Atalhos para os dois são a
+[issue #41](https://github.com/emersonjoe/trilha/issues/41).
+
 ## Proteger uma parte do app
 
 É um `middleware.go`, igual a qualquer outro:
