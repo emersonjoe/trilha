@@ -41,8 +41,20 @@ Com Entra ID, troque as três primeiras variáveis:
 export SSO_PROVIDER=entra SSO_TENANT=<id-do-diretório>
 ```
 
-Variáveis aceitas: `SSO_PROVIDER` (`entra` | `keycloak` | vazio para `SSO_ISSUER`),
-`SSO_TENANT`, `SSO_URL`, `SSO_REALM`, `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`,
+Com o Amazon Cognito:
+
+```bash
+export SSO_PROVIDER=cognito SSO_REGION=us-east-1 SSO_USER_POOL_ID=us-east-1_ABC123
+export SSO_LOGOUT_DOMAIN=exemplo.auth.us-east-1.amazoncognito.com
+```
+
+`SSO_LOGOUT_DOMAIN` é opcional e é o domínio de managed login: o Cognito não publica
+`end_session_endpoint`, então sem ele o `/sair` apaga só a sessão local. A URL de retorno
+do logout precisa estar nas *Allowed sign-out URLs* do app client.
+
+Variáveis aceitas: `SSO_PROVIDER` (`entra` | `keycloak` | `cognito` | vazio para
+`SSO_ISSUER`), `SSO_TENANT`, `SSO_URL`, `SSO_REALM`, `SSO_REGION`, `SSO_USER_POOL_ID`,
+`SSO_LOGOUT_DOMAIN`, `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`,
 `SSO_REDIRECT_URL`, `SSO_ADMIN_ROLE` (padrão `admin`), `SSO_ROLE_CLAIMS`.
 
 Teste: `go test ./examples/sso/`.

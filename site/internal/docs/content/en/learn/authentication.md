@@ -1,5 +1,5 @@
 ---
-title: Authentication with Entra ID and Keycloak
+title: Authentication with Entra ID, Keycloak and Cognito
 description: OpenID Connect login with PKCE, signed session, roles and federated logout, with no external dependency and no password in your database.
 ---
 
@@ -44,6 +44,8 @@ the addresses, as everywhere else in the framework.
 p := auth.EntraID(os.Getenv("SSO_TENANT"), id, secret, "https://app.example/login/callback")
 // or
 p := auth.Keycloak("https://kc.example", "production", id, secret, redirect)
+// or
+p := auth.Cognito("us-east-1", "us-east-1_ABC123", id, secret, redirect)
 // or any conforming provider, by issuer:
 p := auth.OIDC("https://accounts.example/", id, secret, redirect)
 
@@ -58,26 +60,38 @@ The client secret **never** goes in the code. `trilha audit` complains if it fin
 in that position, and a secret that made it into git must be rotated at the provider, not
 merely removed from the file.
 
-## Other providers
+## Cognito and the logout that is not standard
 
-Anything that speaks OIDC works through `auth.OIDC` today; the shortcuts only save you from
-getting the issuer wrong and tell `auth` where that provider keeps its roles. Two common
-ones, with the issuer they expect and the claim their roles live in:
+`auth.Cognito("us-east-1", "us-east-1_ABC123", …)` builds the issuer
+`https://cognito-idp.<region>.amazonaws.com/<user-pool-id>` and reads roles from
+`cognito:groups`, where a user pool keeps its groups.
 
-| Provider | Issuer | Roles |
-|---|---|---|
-| AWS Cognito | `https://cognito-idp.<region>.amazonaws.com/<user-pool-id>` | `cognito:groups` |
-| Clerk | the Frontend API URL: `https://<slug>.clerk.accounts.dev` or `https://clerk.<your-domain>` | organization claims (`org_id`, `org_slug`, …) |
+One piece is missing, and it is a piece the standard does not cover: **Cognito publishes no
+`end_session_endpoint`**. Ending the session there is a `GET /logout` on the managed login
+domain, with a different parameter name (`logout_uri`, not `post_logout_redirect_uri`):
 
 ```go
-p := auth.OIDC("https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123", id, secret, redirect)
-flow := auth.New(p, auth.Options{RoleClaims: []string{"cognito:groups"}})
+p := auth.Cognito("us-east-1", "us-east-1_ABC123", id, secret, redirect)
+p.LogoutDomain = "example.auth.us-east-1.amazoncognito.com" // or your own domain
 ```
 
-`RoleClaims` reads top-level claims, which is where both of those put theirs. One caveat on
-Cognito: it does not publish `end_session_endpoint`, so `Logout` clears the local session and
-stops there — signing out of Cognito itself means sending the person to its own `/logout`
-URL, on the managed login domain. Shortcuts for both are
+Without `LogoutDomain`, `Logout` clears the cookie, writes in the log that a local logout was
+all it could do, and returns to `AfterLogout` — it does not invent a federation that is not
+there. The return URL has to be in the app client's *Allowed sign-out URLs*, or Cognito
+refuses it.
+
+## Other providers
+
+Anything that speaks OIDC works through `auth.OIDC`, pointed at the issuer: roles come from
+`roles`/`groups`, and a different claim name goes in `Options.RoleClaims`. Google enters that
+way. A shortcut only saves you from getting the issuer wrong and knows where that provider
+keeps its roles — it is convenience, not capability.
+
+Clerk is the case we did not close. Its documentation describes `/.well-known/jwks.json` and
+an `id_token` carrying `org_id`, but neither a `/.well-known/openid-configuration` — which is
+where `auth` gets every endpoint — nor a claim with the person's role in the organization.
+Until that is confirmed against a real instance there is no honest shortcut to write, and
+the same doubt applies to plain `auth.OIDC`: see
 [issue #41](https://github.com/emersonjoe/trilha/issues/41).
 
 ## Protecting part of the app

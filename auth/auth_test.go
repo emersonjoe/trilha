@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -240,6 +241,11 @@ func TestRolesPerProvider(t *testing.T) {
 	if strings.Join(got, ",") != "user,admin" {
 		t.Fatalf("keycloak: %v (papéis de outro cliente não valem aqui)", got)
 	}
+	cog := Cognito("us-east-1", "us-east-1_ABC123", "app", "s", "https://app/cb")
+	got = cog.roles(&Claims{All: map[string]any{"cognito:groups": []any{"admin", "user"}}}, nil)
+	if strings.Join(got, ",") != "admin,user" {
+		t.Fatalf("cognito: %v", got)
+	}
 	gen := OIDC("https://i", "app", "s", "https://app/cb")
 	got = gen.roles(&Claims{All: map[string]any{"grupos": "editor"}}, []string{"grupos"})
 	if strings.Join(got, ",") != "editor" {
@@ -425,4 +431,61 @@ func mustQuery(t *testing.T, raw string) url.Values {
 		t.Fatal(err)
 	}
 	return u.Query()
+}
+
+// O Cognito não publica end_session_endpoint: o encerramento é /logout no
+// domínio de managed login. Sem esse domínio o logout é local, e o log diz isso
+// em vez de fingir que federou.
+func TestCognitoLogout(t *testing.T) {
+	p := Cognito("us-east-1", "us-east-1_ABC123", "app", "s3cret", "https://app.exemplo/entrar/retorno")
+	if p.Issuer != "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123" {
+		t.Fatalf("emissor %q", p.Issuer)
+	}
+
+	// Mesmo que um documento anuncie end_session_endpoint, o Cognito não o tem:
+	// o atalho não cai nesse caminho.
+	doc := &discovery{EndSession: "https://naodeveria.exemplo/logout"}
+	u, why := p.endSession(doc, "https://app.exemplo/")
+	if u != "" {
+		t.Fatalf("sem LogoutDomain o logout é local, veio %q", u)
+	}
+	if !strings.Contains(why, "LogoutDomain") {
+		t.Fatalf("motivo não ensina a resolver: %q", why)
+	}
+
+	p.LogoutDomain = "acme.auth.us-east-1.amazoncognito.com"
+	u, why = p.endSession(doc, "https://app.exemplo/")
+	want := "https://acme.auth.us-east-1.amazoncognito.com/logout?client_id=app&logout_uri=https%3A%2F%2Fapp.exemplo%2F"
+	if u != want {
+		t.Fatalf("logout do Cognito:\n got %q\nwant %q", u, want)
+	}
+	if why != "" {
+		t.Fatalf("federou, não deveria haver motivo: %q", why)
+	}
+
+	// Provedor conforme continua usando o end_session_endpoint da descoberta.
+	gen := OIDC("https://i", "app", "s", "https://app/cb")
+	if u, _ := gen.endSession(doc, "https://app/"); !strings.HasPrefix(u, doc.EndSession+"?client_id=app&post_logout_redirect_uri=") {
+		t.Fatalf("genérico: %q", u)
+	}
+}
+
+// Ponta a ponta: um Cognito sem domínio de logout volta para o app e avisa.
+func TestCognitoLogoutIsLocalWithoutDomain(t *testing.T) {
+	idp := newIDP(t)
+	p := idp.provider()
+	p.kind = cognitoProvider
+	var log bytes.Buffer
+	a := New(p, Options{AfterLogout: "/tchau"})
+	b := newBrowser(t, authAppLog(t, a, &log))
+	b.login(idp, "")
+	if got := b.get("/sair", nil).Header().Get("Location"); got != "/tchau" {
+		t.Fatalf("destino %q", got)
+	}
+	if !strings.Contains(log.String(), "LogoutDomain") {
+		t.Fatalf("log não explica o logout local: %s", log.String())
+	}
+	if _, ok := b.cookies["trilha_session"]; ok {
+		t.Fatal("cookie de sessão sobreviveu ao logout")
+	}
 }

@@ -188,11 +188,17 @@ func (a *Auth) Callback(c *trilha.Ctx) error {
 func (a *Auth) Logout(c *trilha.Ctx) error {
 	a.clear(c)
 	doc, err := a.p.discover(c.Context())
-	if err != nil || doc.EndSession == "" {
+	if err != nil {
 		return c.Redirect(a.opts.AfterLogout)
 	}
-	q := url.Values{"client_id": {a.p.ClientID}, "post_logout_redirect_uri": {a.absolute(c, a.opts.AfterLogout)}}
-	return c.Redirect(doc.EndSession + sep(doc.EndSession) + q.Encode())
+	dest, why := a.p.endSession(doc, a.absolute(c, a.opts.AfterLogout))
+	if why != "" {
+		c.Log().Warn("auth: local logout only", "reason", why)
+	}
+	if dest == "" {
+		return c.Redirect(a.opts.AfterLogout)
+	}
+	return c.Redirect(dest)
 }
 
 type tokenResponse struct {

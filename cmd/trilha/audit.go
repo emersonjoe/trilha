@@ -269,8 +269,10 @@ func splitArgs(s string) ([]string, int) {
 
 // secretArg is the position of the client secret in each constructor.
 func secretArg(name string) int {
-	if name == "Keycloak" {
-		return 3 // baseURL, realm, clientID, clientSecret, redirectURL
+	if name == "Keycloak" || name == "Cognito" {
+		// Keycloak: baseURL, realm, clientID, clientSecret, redirectURL
+		// Cognito: region, userPoolID, clientID, clientSecret, redirectURL
+		return 3
 	}
 	return 2 // issuer|tenant, clientID, clientSecret, redirectURL
 }

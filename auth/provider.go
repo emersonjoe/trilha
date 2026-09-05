@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,11 @@ type Provider struct {
 	RedirectURL string
 	// HTTPClient talks to the provider (default: 10s timeout).
 	HTTPClient *http.Client
+	// LogoutDomain is the Cognito managed login domain
+	// ("<prefix>.auth.<region>.amazoncognito.com" or your own), the only place
+	// Cognito ends a session. Empty means local logout only. Ignored by every
+	// other provider, which announces end_session_endpoint in discovery.
+	LogoutDomain string
 	// kind selects where roles live (see roles.go).
 	kind providerKind
 	// keycloakClient is the client id whose resource_access roles are read.
@@ -40,6 +46,7 @@ const (
 	genericProvider providerKind = iota
 	entraProvider
 	keycloakProvider
+	cognitoProvider
 )
 
 // discovery is the subset of the provider metadata we use.
@@ -75,6 +82,42 @@ func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provi
 	p.kind = keycloakProvider
 	p.keycloakClient = clientID
 	return p
+}
+
+// Cognito configures an Amazon Cognito user pool: region is the AWS region
+// ("us-east-1") and userPoolID the pool id ("us-east-1_ABC123"). Roles come
+// from cognito:groups. Cognito publishes no end_session_endpoint, so federated
+// logout needs LogoutDomain; without it Logout clears the local session only.
+func Cognito(region, userPoolID, clientID, clientSecret, redirectURL string) *Provider {
+	p := OIDC("https://cognito-idp."+region+".amazonaws.com/"+userPoolID, clientID, clientSecret, redirectURL)
+	p.kind = cognitoProvider
+	return p
+}
+
+// endSession builds the URL that ends the session at the provider, plus the
+// reason to log when there is none but there should be. Both empty is the
+// ordinary case: the provider has no logout endpoint and clearing the local
+// session is the whole story.
+func (p *Provider) endSession(doc *discovery, postLogout string) (string, string) {
+	if p.kind == cognitoProvider {
+		// Not RP-Initiated Logout: Cognito ends the session with GET /logout on
+		// the managed login domain, and logout_uri must be listed in the app
+		// client's allowed sign-out URLs.
+		if p.LogoutDomain == "" {
+			return "", "Cognito publishes no end_session_endpoint; set Provider.LogoutDomain to end the session at the provider too"
+		}
+		host := strings.TrimSuffix(p.LogoutDomain, "/")
+		if !strings.HasPrefix(host, "https://") && !strings.HasPrefix(host, "http://") {
+			host = "https://" + host
+		}
+		q := url.Values{"client_id": {p.ClientID}, "logout_uri": {postLogout}}
+		return host + "/logout?" + q.Encode(), ""
+	}
+	if doc.EndSession == "" {
+		return "", ""
+	}
+	q := url.Values{"client_id": {p.ClientID}, "post_logout_redirect_uri": {postLogout}}
+	return doc.EndSession + sep(doc.EndSession) + q.Encode(), ""
 }
 
 func (p *Provider) client() *http.Client {

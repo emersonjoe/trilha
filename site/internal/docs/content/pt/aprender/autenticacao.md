@@ -1,5 +1,5 @@
 ---
-title: Autenticação com Entra ID e Keycloak
+title: Autenticação com Entra ID, Keycloak e Cognito
 description: Login OpenID Connect com PKCE, sessão assinada, papéis e logout federado, sem dependência externa e sem senha no seu banco.
 ---
 
@@ -43,6 +43,8 @@ endereços é o `app/`, como em todo o resto do framework.
 p := auth.EntraID(os.Getenv("SSO_TENANT"), id, segredo, "https://app.exemplo/entrar/retorno")
 // ou
 p := auth.Keycloak("https://kc.exemplo", "producao", id, segredo, redirect)
+// ou
+p := auth.Cognito("us-east-1", "us-east-1_ABC123", id, segredo, redirect)
 // ou qualquer provedor conforme, pelo emissor:
 p := auth.OIDC("https://accounts.exemplo/", id, segredo, redirect)
 
@@ -57,26 +59,37 @@ O segredo do cliente **nunca** vai no código. `trilha audit` reclama se encontr
 literal na posição dele, e um segredo que foi para o git precisa ser rotacionado no
 provedor, não apenas removido do arquivo.
 
-## Outros provedores
+## O Cognito e o logout que não é padrão
 
-Qualquer coisa que fale OIDC já funciona hoje pelo `auth.OIDC`; os atalhos só evitam que
-você erre o emissor e dizem ao `auth` onde aquele provedor guarda os papéis. Dois comuns,
-com o emissor que esperam e a claim em que os papéis moram:
+O `auth.Cognito("us-east-1", "us-east-1_ABC123", …)` monta o emissor
+`https://cognito-idp.<região>.amazonaws.com/<id-do-user-pool>` e lê os papéis de
+`cognito:groups`, onde um user pool guarda os seus grupos.
 
-| Provedor | Emissor | Papéis |
-|---|---|---|
-| AWS Cognito | `https://cognito-idp.<região>.amazonaws.com/<id-do-user-pool>` | `cognito:groups` |
-| Clerk | a Frontend API URL: `https://<slug>.clerk.accounts.dev` ou `https://clerk.<seu-domínio>` | claims de organização (`org_id`, `org_slug`, …) |
+Falta uma peça, e é uma peça que o padrão não cobre: **o Cognito não publica
+`end_session_endpoint`**. Encerrar a sessão lá é um `GET /logout` no domínio de managed
+login, com outro nome de parâmetro (`logout_uri`, não `post_logout_redirect_uri`):
 
 ```go
-p := auth.OIDC("https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123", id, segredo, redirect)
-flow := auth.New(p, auth.Options{RoleClaims: []string{"cognito:groups"}})
+p := auth.Cognito("us-east-1", "us-east-1_ABC123", id, segredo, redirect)
+p.LogoutDomain = "exemplo.auth.us-east-1.amazoncognito.com" // ou o seu domínio
 ```
 
-`RoleClaims` lê claims de primeiro nível, que é onde os dois põem as suas. Uma ressalva no
-Cognito: ele não publica `end_session_endpoint`, então o `Logout` apaga a sessão local e para
-por aí — sair do Cognito de verdade é mandar a pessoa para a `/logout` dele, no domínio de
-managed login. Atalhos para os dois são a
+Sem `LogoutDomain`, o `Logout` apaga o cookie, escreve no log que só deu para fazer o logout
+local e volta para `AfterLogout` — não inventa uma federação que não existe. A URL de retorno
+precisa estar nas *Allowed sign-out URLs* do app client, senão o Cognito recusa.
+
+## Outros provedores
+
+Qualquer coisa que fale OIDC funciona pelo `auth.OIDC`, apontando o emissor: os papéis saem
+de `roles`/`groups`, e um nome diferente de claim entra em `Options.RoleClaims`. É assim que
+o Google entra. O atalho só evita que você erre o emissor e sabe onde aquele provedor guarda
+os papéis — é comodidade, não capacidade.
+
+O Clerk é o caso que não fechamos. A documentação dele descreve o `/.well-known/jwks.json` e
+um `id_token` com `org_id`, mas não um `/.well-known/openid-configuration` — que é de onde o
+`auth` tira todos os endereços — nem uma claim com o papel da pessoa na organização. Enquanto
+isso não for confirmado contra uma instância real não há atalho honesto a escrever, e a mesma
+dúvida vale para o `auth.OIDC` puro: veja a
 [issue #41](https://github.com/emersonjoe/trilha/issues/41).
 
 ## Proteger uma parte do app

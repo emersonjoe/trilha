@@ -12,6 +12,7 @@ library. The package registers no route: it exposes handlers that your `app/` pu
 func OIDC(issuer, clientID, clientSecret, redirectURL string) *Provider
 func EntraID(tenant, clientID, clientSecret, redirectURL string) *Provider
 func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provider
+func Cognito(region, userPoolID, clientID, clientSecret, redirectURL string) *Provider
 ```
 
 | Constructor | Resulting issuer | Roles read from |
@@ -19,10 +20,14 @@ func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provi
 | `OIDC` | whatever you pass | `roles`, `groups` |
 | `EntraID` | `https://login.microsoftonline.com/<tenant>/v2.0` | `roles`, `groups`, `wids` |
 | `Keycloak` | `<baseURL>/realms/<realm>` | `realm_access.roles`, `resource_access[clientID].roles` |
+| `Cognito` | `https://cognito-idp.<region>.amazonaws.com/<userPoolID>` | `cognito:groups` |
 
-AWS Cognito (`https://cognito-idp.<region>.amazonaws.com/<user-pool-id>`) and Clerk (the
-Frontend API URL) have no shortcut yet ([#41](https://github.com/emersonjoe/trilha/issues/41)):
-use `OIDC` and name their role claim in `Options.RoleClaims` (`cognito:groups` for Cognito).
+`Provider.LogoutDomain` exists for Cognito, the one provider here that publishes no
+`end_session_endpoint`: set it to the managed login domain
+(`<prefix>.auth.<region>.amazoncognito.com`, or your own) and `Logout` redirects to
+`/logout?client_id=…&logout_uri=…` there; the return URL must be in the app client's
+*Allowed sign-out URLs*. Left empty, `Logout` clears the local session, says so in the log
+and does not pretend it federated. Other providers ignore the field.
 
 `Provider.HTTPClient` swaps the HTTP client (default: 10 s timeout). Discovery happens on
 first use and is valid for one hour; an issuer that differs between the configuration and

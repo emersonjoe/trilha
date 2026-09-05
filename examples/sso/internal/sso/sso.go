@@ -48,10 +48,20 @@ func Configure() {
 			return
 		}
 		p = auth.Keycloak(base, realm, id, secret, redirect)
+	case "cognito":
+		region, pool := os.Getenv("SSO_REGION"), os.Getenv("SSO_USER_POOL_ID")
+		if region == "" || pool == "" {
+			motivo = "SSO_PROVIDER=cognito exige SSO_REGION e SSO_USER_POOL_ID"
+			return
+		}
+		p = auth.Cognito(region, pool, id, secret, redirect)
+		// O Cognito não publica end_session_endpoint: sem o domínio de managed
+		// login o /sair apaga a sessão local e para por aí.
+		p.LogoutDomain = os.Getenv("SSO_LOGOUT_DOMAIN")
 	default:
 		issuer := os.Getenv("SSO_ISSUER")
 		if issuer == "" {
-			motivo = "defina SSO_PROVIDER (entra|keycloak) ou SSO_ISSUER"
+			motivo = "defina SSO_PROVIDER (entra|keycloak|cognito) ou SSO_ISSUER"
 			return
 		}
 		p = auth.OIDC(issuer, id, secret, redirect)

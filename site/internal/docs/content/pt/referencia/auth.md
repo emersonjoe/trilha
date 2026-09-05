@@ -12,6 +12,7 @@ O pacote não registra rota: expõe manipuladores que o seu `app/` publica.
 func OIDC(issuer, clientID, clientSecret, redirectURL string) *Provider
 func EntraID(tenant, clientID, clientSecret, redirectURL string) *Provider
 func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provider
+func Cognito(region, userPoolID, clientID, clientSecret, redirectURL string) *Provider
 ```
 
 | Construtor | Emissor resultante | Papéis lidos de |
@@ -19,10 +20,14 @@ func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provi
 | `OIDC` | o que você passar | `roles`, `groups` |
 | `EntraID` | `https://login.microsoftonline.com/<tenant>/v2.0` | `roles`, `groups`, `wids` |
 | `Keycloak` | `<baseURL>/realms/<realm>` | `realm_access.roles`, `resource_access[clientID].roles` |
+| `Cognito` | `https://cognito-idp.<region>.amazonaws.com/<userPoolID>` | `cognito:groups` |
 
-AWS Cognito (`https://cognito-idp.<região>.amazonaws.com/<id-do-user-pool>`) e Clerk (a
-Frontend API URL) ainda não têm atalho ([#41](https://github.com/emersonjoe/trilha/issues/41)):
-use `OIDC` e nomeie a claim de papéis em `Options.RoleClaims` (`cognito:groups` no Cognito).
+`Provider.LogoutDomain` existe por causa do Cognito, o único provedor daqui que não publica
+`end_session_endpoint`: aponte-o para o domínio de managed login
+(`<prefixo>.auth.<região>.amazoncognito.com`, ou o seu próprio) e o `Logout` redireciona
+para `/logout?client_id=…&logout_uri=…` lá; a URL de retorno precisa estar nas *Allowed
+sign-out URLs* do app client. Vazio, o `Logout` apaga a sessão local, diz isso no log e não
+finge que federou. Os outros provedores ignoram o campo.
 
 `Provider.HTTPClient` troca o cliente HTTP (padrão: 10 s de prazo). A descoberta é feita no
 primeiro uso e vale por uma hora; um emissor divergente entre a configuração e o documento

@@ -5,11 +5,28 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
-### Documentation
-- Authentication chapter and `auth` reference now say how AWS Cognito and Clerk work today
-  through the generic `auth.OIDC` (issuer format, role claim, and Cognito's non-standard
-  logout). Shortcuts for both are tracked in
-  [#41](https://github.com/emersonjoe/trilha/issues/41).
+## 0.11.0 — 2026-09-05
+
+### Added
+- `auth.Cognito(region, userPoolID, clientID, clientSecret, redirectURL)` (spec 020, part of
+  [#41](https://github.com/emersonjoe/trilha/issues/41)): builds the issuer
+  `https://cognito-idp.<region>.amazonaws.com/<userPoolID>` and reads roles from
+  `cognito:groups`, with no configuration.
+- `Provider.LogoutDomain`, for the one thing Amazon Cognito does outside the standard: it
+  publishes no `end_session_endpoint`, so ending the session there is `GET /logout` on the
+  managed login domain, with `logout_uri` instead of `post_logout_redirect_uri`. Set the
+  domain and `Logout` federates; leave it empty and `Logout` clears the local session, logs
+  that this is all it did, and does not pretend otherwise. Other providers ignore the field.
+- `trilha audit` knows where the client secret sits in `Cognito(...)`, so a literal secret in
+  that call is caught like any other.
+
+### Changed
+- The authentication chapter and the `auth` reference document the Cognito shortcut in both
+  locales, and record why **Clerk** has none: its public documentation describes
+  `/.well-known/jwks.json` and an `id_token` with `org_id`, but neither a
+  `/.well-known/openid-configuration` — where `auth` reads every endpoint — nor a claim
+  carrying the role in the organization. A shortcut built on a guess would be worse than
+  none; [#41](https://github.com/emersonjoe/trilha/issues/41) stays open for it.
 
 ## 0.10.0 — 2026-09-05
 

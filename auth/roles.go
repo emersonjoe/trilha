@@ -2,7 +2,7 @@ package auth
 
 // roles extracts the role names from the claims, in the place each provider
 // puts them. Nothing here is guessed at runtime: the provider was chosen by
-// the app when it called EntraID, Keycloak or OIDC.
+// the app when it called EntraID, Keycloak, Cognito or OIDC.
 func (p *Provider) roles(c *Claims, extra []string) []string {
 	var out []string
 	add := func(v any) {
@@ -33,6 +33,9 @@ func (p *Provider) roles(c *Claims, extra []string) []string {
 				add(cl["roles"])
 			}
 		}
+	case cognitoProvider:
+		// Cognito puts the user pool groups here; there is no separate roles claim.
+		add(c.All["cognito:groups"])
 	default:
 		add(c.All["roles"])
 		add(c.All["groups"])
