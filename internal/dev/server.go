@@ -72,8 +72,13 @@ func (s *Server) Run(ctx context.Context) error {
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			return srv.Shutdown(shutdownCtx)
-		case changed := <-changes:
-			fmt.Fprintf(s.Out, "↻ %s\n", summarize(changed))
+		case change := <-changes:
+			if change.StaticOnly {
+				fmt.Fprintf(s.Out, "↻ %s (estático)\n", summarize(change.Paths))
+				s.broadcast("reload")
+				continue
+			}
+			fmt.Fprintf(s.Out, "↻ %s\n", summarize(change.Paths))
 			s.rebuild()
 		}
 	}

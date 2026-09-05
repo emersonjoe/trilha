@@ -11,7 +11,8 @@
 | `error.go` (raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | app |
 | `setup.go` (raiz) | `Setup` | `func(a *trilha.App) error` | boot |
 
-Pastas: literal → segmento literal; `nome_` → `{nome}`; `nome__` → `{nome...}` (folha).
+Pastas: literal → segmento literal; `nome_` → `{nome}`; `nome__` → `{nome...}` (folha);
+`nome-` → grupo de rota (sem segmento na URL; layout/middleware valem para a subárvore) — spec 002.
 `public/` (na raiz do projeto, fora de `app/`) → servido em `/`.
 Ignorados: pastas iniciadas por `_` ou `.`, `testdata`, arquivos `_test.go`.
 

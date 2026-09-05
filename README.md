@@ -18,6 +18,10 @@ app/
 │   ├── novo/page.go     → GET /blog/novo  (+ POST do formulário)
 │   └── slug_/page.go    → GET /blog/{slug}
 ├── docs/path__/page.go  → GET /docs/{path...}
+├── marketing-/          → grupo: não aparece na URL
+│   ├── layout.go        → envolve /precos e /sobre
+│   ├── precos/page.go   → GET /precos
+│   └── sobre/page.go    → GET /sobre
 ├── admin/
 │   ├── middleware.go    → só para /admin/**
 │   └── page.go
@@ -50,8 +54,11 @@ Ainda não publicado? Use a cópia local: `trilha new meu-app --trilha-dir ../tr
 | `setup.go` (raiz) | `Setup` | `func(a *trilha.App) error` |
 
 Pastas viram segmentos: `blog` → `/blog`; `slug_` → `/{slug}`; `path__` → `/{path...}`
-(catch-all, precisa ser folha). O `[slug]` do Next.js não é válido em import path do Go,
-por isso o sufixo `_`. Pastas iniciadas por `_` ou `.` são ignoradas.
+(catch-all, precisa ser folha); `marketing-` → **grupo de rota**: não entra na URL, mas
+seu `layout.go`/`middleware.go` valem para tudo abaixo (o `(marketing)` do Next.js).
+`[slug]` e `(grupo)` não são válidos em import path do Go, por isso os sufixos `_` e `-`.
+Pastas iniciadas por `_` ou `.` são ignoradas. Duas pastas que gerem a mesma URL são erro
+de geração (`E_DUPLICATE_ROUTE`).
 
 Ordem de execução para `GET /admin`:
 `middleware(app) → middleware(app/admin) → Page → layout(app/admin)? → layout(app)`.
@@ -78,6 +85,19 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 `h` é um DSL de HTML tipado: elementos e atributos são funções, texto é escapado por
 padrão e `h.Raw` é a única porta sem escape. `h.If`, `h.Map` e `h.Fragment` cobrem o
 fluxo de controle.
+
+Prefere `html/template`? O pacote `tmpl` encaixa templates no mesmo pipeline (layouts,
+título, escape contextual do próprio `html/template`):
+
+```go
+//go:embed relatorio.html
+var files embed.FS
+var t = tmpl.Must(files, "*.html") // falha na subida, nunca no request
+
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return tmpl.Node(t, "relatorio", dados), nil
+}
+```
 
 ## Formulários e APIs
 
@@ -129,7 +149,8 @@ funciona sem a CLI. O roteador é o `http.ServeMux` do Go 1.22+.
 
 `trilha dev` escuta em `:3000`, compila o app numa porta interna, faz proxy e injeta um
 script de live-reload (SSE). Ao salvar: regenera, recompila, troca o processo e avisa o
-navegador — cerca de 1 s no exemplo. Erro de compilação vira uma página com a saída do
+navegador — cerca de 1 s no exemplo. Mudanças só em `public/` não recompilam: o navegador
+recarrega em dezenas de milissegundos. Erro de compilação vira uma página com a saída do
 `go build` que some sozinha quando você corrige.
 
 Segurança por padrão: escape de HTML, `nosniff`/`X-Frame-Options`/`Referrer-Policy`,
@@ -138,8 +159,7 @@ traversal, logs `slog` sem corpo nem cookies.
 
 ## Fora do escopo (por enquanto)
 
-Componentes cliente/hidratação, streaming, geração estática, grupos de rota `(grupo)`,
-rotas paralelas. Interatividade no cliente fica em `public/*.js` (ou htmx).
+Componentes cliente/hidratação, streaming, geração estática, rotas paralelas. Interatividade no cliente fica em `public/*.js` (ou htmx).
 
 ## Desenvolvimento
 
@@ -149,7 +169,8 @@ make dev-example # trilha dev em examples/blog
 make reload      # mede o ciclo editar→ver
 ```
 
-Projeto guiado por spec-kit: veja `specs/001-trilha-core/` e `.specify/memory/constitution.md`.
+Projeto guiado por spec-kit: veja `specs/` (001 núcleo, 002 grupos/templates/estáticos) e
+`.specify/memory/constitution.md`.
 
 ---
 
@@ -159,5 +180,6 @@ Trilha is a Next.js-style web framework for Go: file-based routing under `app/`
 (`page.go`, `route.go`, `layout.go`, `middleware.go`), nested layouts, typed HTML DSL,
 CSRF-protected forms, a dev server with live reload and a single production binary with
 `public/` embedded. Dynamic segments use `name_` (`/{name}`) and `name__` (`/{name...}`)
-because `[name]` is not a valid Go import path. Standard library only. Run
+because `[name]` is not a valid Go import path; `name-` is a route group (Next's `(name)`).
+Prefer templates? `tmpl.Node(t, "name", data)` plugs `html/template` into the same pipeline. Standard library only. Run
 `trilha new app && cd app && trilha dev`.

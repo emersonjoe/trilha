@@ -1,0 +1,10 @@
+{{define "relatorio"}}
+<h1>{{.Titulo}}</h1>
+<table>
+  <thead><tr><th>Post</th><th>Criado</th></tr></thead>
+  <tbody>
+  {{range .Posts}}<tr><td><a href="/blog/{{.Slug}}">{{.Title}}</a></td><td>{{.Created.Format "02/01/2006"}}</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{end}}

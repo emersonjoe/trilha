@@ -15,6 +15,12 @@ import (
 	app_blog_slug_ "github.com/emersonjoe/trilha/examples/blog/app/blog/slug_"
 	app_docs_path__ "github.com/emersonjoe/trilha/examples/blog/app/docs/path__"
 	app_login "github.com/emersonjoe/trilha/examples/blog/app/login"
+	app_marketing_ "github.com/emersonjoe/trilha/examples/blog/app/marketing-"
+	app_marketing__precos "github.com/emersonjoe/trilha/examples/blog/app/marketing-/precos"
+	app_marketing__sobre "github.com/emersonjoe/trilha/examples/blog/app/marketing-/sobre"
+	app_painel_ "github.com/emersonjoe/trilha/examples/blog/app/painel-"
+	app_painel__painel "github.com/emersonjoe/trilha/examples/blog/app/painel-/painel"
+	app_painel__relatorio "github.com/emersonjoe/trilha/examples/blog/app/painel-/relatorio"
 )
 
 //go:embed public
@@ -97,6 +103,30 @@ func newApp() *trilha.App {
 			"POST": app_login.POST,
 		},
 		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/painel",
+		Page:        app_painel__painel.Page,
+		Layouts:     []trilha.LayoutFunc{app_painel_.Layout, app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_painel_.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/precos",
+		Page:        app_marketing__precos.Page,
+		Layouts:     []trilha.LayoutFunc{app_marketing_.Layout, app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/relatorio",
+		Page:        app_painel__relatorio.Page,
+		Layouts:     []trilha.LayoutFunc{app_painel_.Layout, app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_painel_.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/sobre",
+		Page:        app_marketing__sobre.Page,
+		Layouts:     []trilha.LayoutFunc{app_marketing_.Layout, app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	return a

@@ -67,8 +67,48 @@ func TestWatchEmitsDebounced(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(root, "b.go"), []byte("3"), 0o644)
 	select {
 	case changed := <-ch:
-		if len(changed) < 1 {
-			t.Fatal("expected changes")
+		if len(changed.Paths) < 1 || changed.StaticOnly {
+			t.Fatalf("expected go changes: %+v", changed)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no event")
+	}
+}
+
+func TestClassify(t *testing.T) {
+	cases := []struct {
+		paths      []string
+		had, has   bool
+		staticOnly bool
+	}{
+		{[]string{"public/style.css"}, true, true, true},
+		{[]string{"public/a.css", "public/img/x.png"}, true, true, true},
+		{[]string{"public/style.css", "app/page.go"}, true, true, false},
+		{[]string{"public/style.css"}, false, true, false}, // public/ appeared → embed
+		{[]string{"public/style.css"}, true, false, false}, // public/ emptied
+		{[]string{"go.mod"}, true, true, false},
+	}
+	for _, c := range cases {
+		if got := Classify(c.paths, c.had, c.has).StaticOnly; got != c.staticOnly {
+			t.Errorf("Classify(%v,%v,%v)=%v want %v", c.paths, c.had, c.has, got, c.staticOnly)
+		}
+	}
+}
+
+func TestWatchStaticOnly(t *testing.T) {
+	root := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(root, "public"), 0o755)
+	_ = os.WriteFile(filepath.Join(root, "public", "a.css"), []byte("1"), 0o644)
+	_ = os.WriteFile(filepath.Join(root, "main.go"), []byte("package main"), 0o644)
+	stop := make(chan struct{})
+	defer close(stop)
+	ch := Watch(root, 20*time.Millisecond, 50*time.Millisecond, stop)
+	time.Sleep(30 * time.Millisecond)
+	_ = os.WriteFile(filepath.Join(root, "public", "a.css"), []byte("22"), 0o644)
+	select {
+	case c := <-ch:
+		if !c.StaticOnly || len(c.Paths) != 1 || c.Paths[0] != "public/a.css" {
+			t.Fatalf("%+v", c)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("no event")

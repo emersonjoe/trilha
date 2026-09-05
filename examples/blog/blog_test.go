@@ -246,3 +246,39 @@ func TestTrailingSlash(t *testing.T) {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
 	}
 }
+
+// ---- 002: grupos de rota ---------------------------------------------------
+
+func TestGroups_LayoutWithoutURLSegment(t *testing.T) {
+	c := newClient(t, "prod")
+	wantContains(t, c.get("/precos"), 200, `<main id="conteudo"><section class="marketing"><nav class="sub">`, "<h1>Preços</h1>", "<title>Preços · Trilha Blog</title>")
+	wantContains(t, c.get("/sobre"), 200, `<section class="marketing">`, "<h1>Sobre</h1>")
+	if rec := c.get("/marketing-/precos"); rec.Code != 404 {
+		t.Fatalf("group name must not be a URL segment: %d", rec.Code)
+	}
+}
+
+func TestGroups_MiddlewareOrder(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.get("/painel")
+	wantContains(t, rec, 200, `<section class="app" data-area="painel">`, "<h1>Painel</h1>")
+	if rec.Header().Get("X-Area") != "painel" || rec.Header().Get("Server-Timing") == "" {
+		t.Fatalf("root and group middlewares must both run: %v", rec.Header())
+	}
+	if rec := c.get("/precos"); rec.Header().Get("X-Area") != "" {
+		t.Fatal("painel middleware leaked into marketing group")
+	}
+}
+
+// ---- 002: html/template ---------------------------------------------------
+
+func TestTemplatePageInsideLayouts(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.get("/relatorio")
+	wantContains(t, rec, 200, `<section class="app" data-area="painel">`, "<h1>Relatório &lt;de posts&gt;</h1>", `<a href="/blog/layouts">Layouts aninhados</a>`, "<title>Relatório · Trilha Blog</title>")
+}
+
+func TestTemplateErrorIs500(t *testing.T) {
+	c := newClient(t, "dev")
+	wantContains(t, c.get("/relatorio?t=nao-existe"), 500, "<h1>Algo deu errado</h1>", "nao-existe")
+}

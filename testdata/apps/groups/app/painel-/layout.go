@@ -1,0 +1,3 @@
+package painel
+
+func Layout() {}

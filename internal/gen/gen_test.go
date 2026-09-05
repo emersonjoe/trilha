@@ -13,7 +13,7 @@ import (
 var update = flag.Bool("update", false, "rewrite golden files")
 
 func TestGolden(t *testing.T) {
-	for _, app := range []string{"full", "minimal"} {
+	for _, app := range []string{"full", "minimal", "groups"} {
 		t.Run(app, func(t *testing.T) {
 			res, err := scan.Scan(filepath.Join("..", "..", "testdata", "apps", app), "example.com/"+app)
 			if err != nil {

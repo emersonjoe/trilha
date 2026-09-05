@@ -76,15 +76,47 @@ func Diff(a, b Snapshot) []string {
 	return out
 }
 
-// Watch polls root every interval and sends the changed paths on the
+// Change is one debounced batch of file changes.
+type Change struct {
+	Paths []string
+	// StaticOnly is true when only files under public/ changed and public/
+	// neither appeared nor disappeared: the app can reload without a rebuild.
+	StaticOnly bool
+}
+
+// HasPublic reports whether the snapshot contains files under public/.
+func (s Snapshot) HasPublic() bool {
+	for k := range s {
+		if strings.HasPrefix(k, "public/") {
+			return true
+		}
+	}
+	return false
+}
+
+// Classify decides whether a batch needs a rebuild. hadPublic/hasPublic are
+// the public/ presence before and after the batch.
+func Classify(paths []string, hadPublic, hasPublic bool) Change {
+	c := Change{Paths: paths, StaticOnly: hadPublic && hasPublic}
+	for _, p := range paths {
+		if !strings.HasPrefix(p, "public/") {
+			c.StaticOnly = false
+			break
+		}
+	}
+	return c
+}
+
+// Watch polls root every interval and sends batches of changes on the
 // returned channel, debounced so bursts of saves become one event.
-func Watch(root string, interval, debounce time.Duration, stop <-chan struct{}) <-chan []string {
-	ch := make(chan []string, 1)
+func Watch(root string, interval, debounce time.Duration, stop <-chan struct{}) <-chan Change {
+	ch := make(chan Change, 1)
 	go func() {
 		defer close(ch)
 		last := Take(root)
 		var pending []string
 		var since time.Time
+		hadPublic := last.HasPublic()
 		t := time.NewTicker(interval)
 		defer t.Stop()
 		for {
@@ -94,12 +126,15 @@ func Watch(root string, interval, debounce time.Duration, stop <-chan struct{}) 
 			case <-t.C:
 				cur := Take(root)
 				if d := Diff(last, cur); len(d) > 0 {
+					if len(pending) == 0 {
+						hadPublic = last.HasPublic()
+					}
 					pending = append(pending, d...)
 					since = time.Now()
 					last = cur
 				}
 				if len(pending) > 0 && time.Since(since) >= debounce {
-					ch <- pending
+					ch <- Classify(pending, hadPublic, last.HasPublic())
 					pending = nil
 				}
 			}

@@ -17,6 +17,8 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 			h.Li(h.A(h.Href("/docs/guia/rotas"), h.Text("/docs/guia/rotas")), h.Text(" — catch-all path__")),
 			h.Li(h.A(h.Href("/api/posts"), h.Text("/api/posts")), h.Text(" — rota de API (route.go)")),
 			h.Li(h.A(h.Href("/admin"), h.Text("/admin")), h.Text(" — protegido por middleware.go")),
+			h.Li(h.A(h.Href("/precos"), h.Text("/precos")), h.Text(" — grupo de rota marketing- (layout sem segmento na URL)")),
+			h.Li(h.A(h.Href("/relatorio"), h.Text("/relatorio")), h.Text(" — página com html/template via tmpl")),
 		),
 	), nil
 }

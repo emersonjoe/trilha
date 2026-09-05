@@ -139,3 +139,48 @@ func TestErrorFormat(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestGroups(t *testing.T) {
+	res, errs := scanApp(t, "groups")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	var got []string
+	for _, r := range res.Routes {
+		got = append(got, r.Pattern+" <- "+r.Dir+" ["+refs(r.Layouts)+"] {"+refs(r.Middlewares)+"}")
+	}
+	want := []string{
+		"/ <- app [app.Layout] {}",
+		"/api/stats <- app/painel-/api/stats [] {app_painel_.Middleware}",
+		"/painel <- app/painel-/painel [app_painel_.Layout app.Layout] {app_painel_.Middleware}",
+		"/precos <- app/marketing-/precos [app_marketing_.Layout app.Layout] {}",
+		"/sobre <- app/marketing-/sobre [app_marketing_.Layout app.Layout] {}",
+		"/x <- app/a-/b-/x [app_a__b_.Layout app_a_.Layout app.Layout] {}",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestGroupErrors(t *testing.T) {
+	_, errs := scanApp(t, "err_group_dup")
+	var dups []string
+	for _, e := range errs {
+		if e.Code == ErrDuplicateRoute {
+			dups = append(dups, e.Error())
+		}
+	}
+	if len(dups) != 2 {
+		t.Fatalf("want 2 duplicate errors (/x and /), got %v", errs)
+	}
+	all := strings.Join(dups, "\n")
+	for _, want := range []string{"app/c-: E_DUPLICATE_ROUTE: padrão / já é respondido por app", "app/b-/x: E_DUPLICATE_ROUTE: padrão /x já é respondido por app/a-/x"} {
+		if !strings.Contains(all, want) {
+			t.Fatalf("missing %q in:\n%s", want, all)
+		}
+	}
+	_, errs = scanApp(t, "err_group_dynamic")
+	if len(errs) != 1 || errs[0].Code != ErrBadSegment || errs[0].File != "app/slug_-" {
+		t.Fatal(errs)
+	}
+}

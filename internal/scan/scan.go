@@ -30,6 +30,7 @@ const (
 	ErrAmbiguousSegment = "E_AMBIGUOUS_SEGMENT"
 	ErrCatchAllNotLeaf  = "E_CATCHALL_NOT_LEAF"
 	ErrBadSegment       = "E_BAD_SEGMENT"
+	ErrDuplicateRoute   = "E_DUPLICATE_ROUTE"
 	ErrParse            = "E_PARSE"
 	ErrNoApp            = "E_NO_APP"
 )
@@ -112,7 +113,13 @@ func Scan(root, module string) (*Result, error) {
 	if st, err := os.Stat(filepath.Join(root, "public")); err == nil && st.IsDir() {
 		s.res.HasPublic = dirHasFiles(filepath.Join(root, "public"))
 	}
-	sort.Slice(s.res.Routes, func(i, j int) bool { return s.res.Routes[i].Pattern < s.res.Routes[j].Pattern })
+	sort.SliceStable(s.res.Routes, func(i, j int) bool { return s.res.Routes[i].Pattern < s.res.Routes[j].Pattern })
+	for i := 1; i < len(s.res.Routes); i++ {
+		a, b := s.res.Routes[i-1], s.res.Routes[i]
+		if a.Pattern == b.Pattern {
+			s.errf(b.Dir, ErrDuplicateRoute, "padrão %s já é respondido por %s (grupos de rota não podem repetir a mesma URL)", b.Pattern, a.Dir)
+		}
+	}
 	for alias, p := range s.imports {
 		s.res.Imports = append(s.res.Imports, Import{Alias: alias, Path: p})
 	}
@@ -140,11 +147,22 @@ func (s *scanner) errf(file, code, format string, a ...any) {
 type segment struct {
 	literal string
 	name    string
-	kind    int // 0 literal, 1 param, 2 catch-all
+	kind    int // 0 literal, 1 param, 2 catch-all, 3 group (no URL segment)
 }
+
+const kindGroup = 3
 
 func parseSegment(dir string) (segment, error) {
 	switch {
+	case strings.HasSuffix(dir, "-"):
+		n := strings.TrimSuffix(dir, "-")
+		if strings.HasSuffix(n, "_") {
+			return segment{}, fmt.Errorf("grupo de rota (%q) não pode ser dinâmico", dir)
+		}
+		if n == "" {
+			return segment{}, fmt.Errorf("grupo de rota precisa de nome antes do \"-\"")
+		}
+		return segment{name: n, kind: kindGroup}, nil
 	case strings.HasSuffix(dir, "__"):
 		n := strings.TrimSuffix(dir, "__")
 		if !token.IsIdentifier(n) {
@@ -277,7 +295,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 			s.errf(rel+"/"+d, ErrBadSegment, "%v", err)
 			continue
 		}
-		if seg.kind != 0 {
+		if seg.kind == 1 || seg.kind == 2 {
 			dynamic++
 		}
 		childSegs := append(append([]segment{}, segs...), seg)
@@ -324,9 +342,15 @@ func patternOf(segs []segment) string {
 	if len(segs) == 0 {
 		return "/"
 	}
-	parts := make([]string, len(segs))
-	for i, seg := range segs {
-		parts[i] = seg.pattern()
+	parts := make([]string, 0, len(segs))
+	for _, seg := range segs {
+		if seg.kind == kindGroup {
+			continue
+		}
+		parts = append(parts, seg.pattern())
+	}
+	if len(parts) == 0 {
+		return "/"
 	}
 	return "/" + strings.Join(parts, "/")
 }

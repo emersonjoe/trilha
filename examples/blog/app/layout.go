@@ -25,6 +25,8 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 				h.A(h.Href("/"), h.Text("Início")),
 				h.A(h.Href("/blog"), h.Text("Blog")),
 				h.A(h.Href("/docs/guia/rotas"), h.Text("Docs")),
+				h.A(h.Href("/precos"), h.Text("Preços")),
+				h.A(h.Href("/painel"), h.Text("Painel")),
 				h.A(h.Href("/admin"), h.Text("Admin")),
 			)),
 			h.Main(h.ID("conteudo"), children),
