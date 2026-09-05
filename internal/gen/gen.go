@@ -47,6 +47,9 @@ func newApp() *trilha.App {
 {{- else}}
 	cfg.Public = trilha.PublicFS(nil, "public")
 {{- end}}
+{{- if .ConfigFunc}}
+	{{.ConfigFunc.Alias}}.{{.ConfigFunc.Func}}(&cfg)
+{{- end}}
 	a := trilha.New(cfg)
 {{- if .Setup}}
 	if err := {{.Setup.Alias}}.{{.Setup.Func}}(a); err != nil {

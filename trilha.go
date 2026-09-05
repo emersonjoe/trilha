@@ -55,11 +55,20 @@ type Config struct {
 	Secret, PreviousSecret []byte
 	// Timeouts protect the server from slow clients.
 	Timeouts Timeouts
+	// StaticCacheControl replaces the production Cache-Control of files in
+	// Public (default "public, max-age=3600"; dev always sends no-cache).
+	StaticCacheControl string
+	// StaticHeaders runs for every file served from Public, after the
+	// defaults, and may set any header (immutable for hashed assets, CORP...).
+	StaticHeaders func(name string, hdr http.Header)
 	// OnSecurityEvent is called for blocked requests (CSRF, 401/403, 413, 429, panic).
 	OnSecurityEvent func(SecurityEvent)
 }
 
-// Timeouts are the http.Server limits. Zero fields get defaults.
+// Timeouts are the http.Server limits. Zero fields get defaults; NoTimeout
+// disables one (large uploads, long polls). Write applies to the whole
+// response: streams should call Ctx.Stream or Ctx.NoWriteDeadline instead of
+// disabling it globally.
 type Timeouts struct {
 	ReadHeader     time.Duration // 10s
 	Read           time.Duration // 30s
@@ -67,6 +76,9 @@ type Timeouts struct {
 	Idle           time.Duration // 120s
 	MaxHeaderBytes int           // 64 KiB
 }
+
+// NoTimeout disables a Timeouts field (becomes 0 in http.Server).
+const NoTimeout time.Duration = -1
 
 // ConfigFromEnv builds a Config from ADDR/PORT and TRILHA_ENV.
 func ConfigFromEnv() Config {
@@ -174,29 +186,48 @@ func New(cfg Config) *App {
 	}
 	a := &App{
 		cfg:     cfg,
-		log:     cfg.Logger,
 		mux:     http.NewServeMux(),
 		pathMux: http.NewServeMux(),
 		routes:  map[string]*Route{},
 		values:  map[string]any{},
 	}
+	a.applyConfig()
+	a.mux.HandleFunc("/", a.fallback)
+	a.mux.HandleFunc("GET /_trilha/events", a.devEvents)
+	return a
+}
+
+// applyConfig derives logger, proxies, limiter and signer from cfg. It runs
+// in New and again when serving starts, so fields changed in Setup apply.
+func (a *App) applyConfig() {
+	cfg := &a.cfg
+	if cfg.Logger == nil {
+		cfg.Logger = slog.Default()
+	}
+	a.log = cfg.Logger
 	a.parseProxies()
 	if cfg.RateLimit.RPS > 0 {
-		a.limiter = newLimiter(cfg.RateLimit)
+		if a.limiter == nil || a.limiter.cfg != cfg.RateLimit {
+			a.limiter = newLimiter(cfg.RateLimit)
+		}
+	} else {
+		a.limiter = nil
 	}
 	switch {
 	case len(cfg.Secret) > 0:
 		a.signer = NewSigner(cfg.Secret, cfg.PreviousSecret)
 	case cfg.Env == Dev:
-		a.signer = NewSigner(randomSecret())
-		a.log.Info("trilha: TRILHA_SECRET ausente; usando chave efêmera (dev)")
+		if a.signer == nil || !a.signer.ephemeral {
+			a.signer = NewSigner(randomSecret())
+			a.signer.ephemeral = true
+			a.log.Info("trilha: TRILHA_SECRET ausente; usando chave efêmera (dev)")
+		}
 	default:
-		a.signer = NewSigner()
-		a.log.Warn("trilha: TRILHA_SECRET ausente; cookies assinados indisponíveis em produção")
+		if a.signer == nil || a.signer.ephemeral || len(a.signer.keys) > 0 {
+			a.signer = NewSigner()
+			a.log.Warn("trilha: TRILHA_SECRET ausente; cookies assinados indisponíveis em produção")
+		}
 	}
-	a.mux.HandleFunc("/", a.fallback)
-	a.mux.HandleFunc("GET /_trilha/events", a.devEvents)
-	return a
 }
 
 // Env returns the runtime environment.
@@ -219,10 +250,15 @@ func (a *App) SetNotFound(p PageFunc) { a.notFound = p }
 func (a *App) SetErrorPage(e ErrorPageFunc) { a.errorPage = e }
 
 // Handler returns the root http.Handler (useful for tests and embedding).
-func (a *App) Handler() http.Handler { return a.mux }
+// Like ListenAndServe, it reapplies Config changes made in Setup.
+func (a *App) Handler() http.Handler {
+	a.applyConfig()
+	return a.mux
+}
 
 // ListenAndServe serves until SIGINT/SIGTERM, then shuts down gracefully.
 func (a *App) ListenAndServe() error {
+	a.applyConfig()
 	t := a.cfg.Timeouts
 	srv := &http.Server{
 		Addr:              a.cfg.Addr,
@@ -249,7 +285,10 @@ func (a *App) ListenAndServe() error {
 }
 
 func or(v, def time.Duration) time.Duration {
-	if v == 0 {
+	switch {
+	case v == NoTimeout:
+		return 0
+	case v == 0:
 		return def
 	}
 	return v
@@ -271,6 +310,11 @@ func Fatal(err error) {
 	os.Exit(1)
 }
 
-// Config returns the live configuration for adjustment in Setup (rate limit,
-// hooks, security). Changes after ListenAndServe are not guaranteed to apply.
+// Config returns the live configuration for adjustment in Setup. Every field
+// may be changed there: per-request fields (Security, Public, MaxBodyBytes,
+// CSRFForAPI, BasePath, OnSecurityEvent, Static*) are read on each request;
+// derived fields (Logger, Secret/PreviousSecret, RateLimit, TrustedProxies)
+// are reapplied when serving starts (ListenAndServe, Handler, Export); Addr
+// and Timeouts are read by ListenAndServe. To build the Config before New,
+// export func Config(cfg *trilha.Config) in app/setup.go.
 func (a *App) Config() *Config { return &a.cfg }

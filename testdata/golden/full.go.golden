@@ -23,6 +23,7 @@ var publicFS embed.FS
 func newApp() *trilha.App {
 	cfg := trilha.ConfigFromEnv()
 	cfg.Public = trilha.PublicFS(publicFS, "public")
+	app.Config(&cfg)
 	a := trilha.New(cfg)
 	if err := app.Setup(a); err != nil {
 		trilha.Fatal(err)

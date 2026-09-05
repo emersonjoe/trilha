@@ -20,7 +20,8 @@ const MinSecretLen = 32
 // Signer signs and verifies values with HMAC-SHA256. The first key signs;
 // every key verifies, so a previous key can be kept during rotation.
 type Signer struct {
-	keys [][]byte
+	keys      [][]byte
+	ephemeral bool // dev key generated at startup
 }
 
 // NewSigner creates a signer; the first key signs, the rest only verify.

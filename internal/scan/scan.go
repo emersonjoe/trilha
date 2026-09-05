@@ -89,6 +89,9 @@ type Result struct {
 	NotFound   *Ref
 	ErrorPage  *Ref
 	Setup      *Ref
+	// ConfigFunc is the optional func Config(cfg *trilha.Config) in setup.go,
+	// called before trilha.New.
+	ConfigFunc *Ref
 	HasPublic  bool
 	Imports    []Import // sorted by Alias
 }
@@ -250,6 +253,10 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 		s.rootFile(present, pkg, rel, alias, importPath, "not_found.go", "NotFound", ErrNoNotFoundFunc, "func NotFound(c *trilha.Ctx) (h.Node, error)", &s.res.NotFound)
 		s.rootFile(present, pkg, rel, alias, importPath, "error.go", "Error", ErrNoErrorFunc, "func Error(c *trilha.Ctx, err error) (h.Node, error)", &s.res.ErrorPage)
 		s.rootFile(present, pkg, rel, alias, importPath, "setup.go", "Setup", ErrNoSetupFunc, "func Setup(a *trilha.App) error", &s.res.Setup)
+		if present["setup.go"] && pkg.funcs["Config"] {
+			s.res.ConfigFunc = &Ref{Alias: alias, ImportPath: importPath, Func: "Config"}
+			s.use(alias, importPath)
+		}
 	}
 
 	// Route for this directory.

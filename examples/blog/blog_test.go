@@ -232,6 +232,9 @@ func TestPublicAndTraversal(t *testing.T) {
 	if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/css") {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=31536000, immutable" {
+		t.Fatal("Config() in setup.go not applied:", cc)
+	}
 	req := httptest.NewRequest("GET", "/x", nil)
 	req.URL.Path = "/../go.mod"
 	rec = httptest.NewRecorder()

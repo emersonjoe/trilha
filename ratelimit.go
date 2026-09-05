@@ -21,6 +21,7 @@ type bucket struct {
 }
 
 type limiter struct {
+	cfg     RateLimit
 	mu      sync.Mutex
 	rps     float64
 	burst   float64
@@ -33,7 +34,7 @@ func newLimiter(rl RateLimit) *limiter {
 	if rl.Burst <= 0 {
 		rl.Burst = 1
 	}
-	return &limiter{rps: rl.RPS, burst: float64(rl.Burst), buckets: map[string]*bucket{}, now: time.Now}
+	return &limiter{cfg: rl, rps: rl.RPS, burst: float64(rl.Burst), buckets: map[string]*bucket{}, now: time.Now}
 }
 
 // allow takes one token for key. It returns false and the seconds to wait

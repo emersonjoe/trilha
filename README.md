@@ -62,6 +62,7 @@ Ainda não publicado? Use a cópia local: `trilha new meu-app --trilha-dir ../tr
 | `not_found.go` (raiz) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` |
 | `error.go` (raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` |
 | `setup.go` (raiz) | `Setup` | `func(a *trilha.App) error` |
+| `setup.go` (opcional) | `Config` | `func(cfg *trilha.Config)`, antes de `trilha.New` |
 
 Pastas viram segmentos: `blog` → `/blog`; `slug_` → `/{slug}`; `path__` → `/{path...}`
 (catch-all, precisa ser folha); `marketing-` → **grupo de rota**: não entra na URL, mas

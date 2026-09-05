@@ -5,7 +5,14 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.2.0 — 2026-09-05
+
 ### Adicionado
+- Adoção (spec 007, issues #6–#9): `func Config(cfg *trilha.Config)` opcional em `setup.go`,
+  chamada antes de `trilha.New`; campos derivados (`Logger`, `Secret`, `RateLimit`,
+  `TrustedProxies`) reaplicados ao começar a servir, então mudanças em `Setup` valem;
+  `trilha.NoTimeout`; `Config.StaticCacheControl` e `Config.StaticHeaders`;
+  `Ctx.SetContext` e `Ctx.SetRequest`.
 - IA (spec 005): pacote `ai` (cliente OpenAI-compatível com `Chat`/`Stream`, `Tool`/`Typed`,
   `Agent` com `Run`/`RunStream`, handoffs, `AsTool`, `Parallel`, `Chain`) e `ai/mcp` (cliente
   e servidor MCP por stdio e Streamable HTTP); `c.Stream()` para Server-Sent Events;

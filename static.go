@@ -22,10 +22,16 @@ func (a *App) serveStatic(w http.ResponseWriter, req *http.Request) bool {
 	if err != nil || st.IsDir() {
 		return false
 	}
-	if a.cfg.Env == Dev {
+	switch {
+	case a.cfg.Env == Dev:
 		w.Header().Set("Cache-Control", "no-cache")
-	} else {
+	case a.cfg.StaticCacheControl != "":
+		w.Header().Set("Cache-Control", a.cfg.StaticCacheControl)
+	default:
 		w.Header().Set("Cache-Control", "public, max-age=3600")
+	}
+	if a.cfg.StaticHeaders != nil {
+		a.cfg.StaticHeaders(name, w.Header())
 	}
 	http.ServeFileFS(w, req, a.cfg.Public, name)
 	return true

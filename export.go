@@ -64,6 +64,7 @@ func (a *App) ExportPaths() []string {
 // path, 404.html from the not-found page, and a copy of public/. The
 // directory is emptied first, but only if Export created it before.
 func (a *App) Export(dir string) error {
+	a.applyConfig()
 	if err := prepareExportDir(dir); err != nil {
 		return err
 	}

@@ -11,6 +11,8 @@ usado por outra goroutine depois que o handler devolve.
 | Método | Descrição |
 |---|---|
 | `Request() *http.Request` | a requisição original |
+| `SetContext(ctx)` | troca o contexto da requisição: um middleware passa valores a código que só recebe `*http.Request` |
+| `SetRequest(*http.Request)` | troca a requisição (URL reescrita, corpo embrulhado) |
 | `Context() context.Context` | contexto da requisição (cancelamento) |
 | `Param(nome) string` | parâmetro de rota (`slug_` → `"slug"`) |
 | `Query(nome) string` | primeiro valor do parâmetro de query |

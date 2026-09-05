@@ -56,6 +56,14 @@ func (c *Ctx) Writer() http.ResponseWriter { return c.w }
 // Context returns the request context.
 func (c *Ctx) Context() context.Context { return c.r.Context() }
 
+// SetContext replaces the request context, so a middleware can pass values
+// to code that only receives *http.Request (templates, stdlib helpers).
+func (c *Ctx) SetContext(ctx context.Context) { c.r = c.r.WithContext(ctx) }
+
+// SetRequest replaces the request (rewritten URL, wrapped body...). Values
+// already read from the old request (form, request id) are kept.
+func (c *Ctx) SetRequest(r *http.Request) { c.r = r }
+
 // App returns the application.
 func (c *Ctx) App() *App { return c.app }
 
