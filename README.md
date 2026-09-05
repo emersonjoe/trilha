@@ -240,6 +240,13 @@ estruturado) é de ~3 µs, e a instrumentação de métricas, quando ligada, nã
 nenhuma alocação. Metodologia, números e uma comparação de abordagem com outros
 frameworks em [Desempenho e comparação](https://emersonjoe.github.io/trilha/referencia/desempenho).
 
+## Para onde vai
+
+[`ROADMAP.md`](ROADMAP.md) responde a uma avaliação externa item a item: o que já existe, o
+que está planejado (issues com o rótulo `roadmap`, agrupadas por fase) e o que decidimos
+**não** fazer, com o motivo. O maior buraco reconhecido é interatividade sem virar SPA;
+o próximo em execução é autenticação com OIDC.
+
 ## Fora do escopo (por enquanto)
 
 Componentes cliente/hidratação e rotas paralelas. Interatividade no cliente fica em `public/*.js` (ou htmx).
