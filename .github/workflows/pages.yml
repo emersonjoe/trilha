@@ -2,7 +2,7 @@ name: pages
 on:
   push:
     branches: [main]
-    paths: ["site/**", "h/**", "tmpl/**", "*.go", "internal/**", "cmd/**", ".github/workflows/pages.yml"]
+    paths: ["site/**", "h/**", "ui/**", "tmpl/**", "*.go", "internal/**", "cmd/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +20,8 @@ jobs:
         with:
           go-version: "1.25"
       - name: Exportar o site com o próprio Trilha
+        env:
+          SITE_ANALYTICS: ${{ vars.SITE_ANALYTICS }}
         run: cd site && go run ../cmd/trilha export -o ../_site --base /trilha
       - uses: actions/upload-pages-artifact@v3
         with:

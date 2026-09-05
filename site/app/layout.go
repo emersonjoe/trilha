@@ -27,6 +27,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Link(h.Rel("preconnect"), h.Href("https://fonts.gstatic.com"), h.Attr("crossorigin", "")),
 			h.Link(h.Rel("stylesheet"), h.Href("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap")),
 			h.Link(h.Rel("stylesheet"), h.Href(b+"/site.css")),
+			ui.AnalyticsScript(c),
 			// Kit ui, used by the live demos (classes are prefixed, so the site is untouched).
 			h.Link(h.Rel("stylesheet"), h.Href(b+"/ui.theme.css")),
 			h.Link(h.Rel("stylesheet"), h.Href(b+"/ui.css")),

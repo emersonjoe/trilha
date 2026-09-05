@@ -42,6 +42,7 @@ func Footer(c *trilha.Ctx) h.Node {
 	return h.Footer(h.Class("rodape"),
 		h.P(h.Text("Trilha é software livre sob licença MIT. "), h.A(h.Href(Repo), h.Rel("noopener"), h.Text("Código, issues e discussões no GitHub")), h.Text(".")),
 		h.P(h.Small(h.Text("Este site foi construído com o próprio Trilha e exportado com "), h.Code(h.Text("trilha export")), h.Text("."))),
+		AnalyticsNote(c),
 	)
 }
 

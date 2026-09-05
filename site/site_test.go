@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/emersonjoe/trilha/site/internal/ui"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -102,5 +103,30 @@ func TestNoDevScriptInProd(t *testing.T) {
 	t.Setenv("TRILHA_ENV", "prod")
 	if _, body := get(t, "/"); strings.Contains(body, "_trilha/events") {
 		t.Fatal("dev script leaked")
+	}
+}
+
+func TestAnalyticsOnlyWhenConfigured(t *testing.T) {
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("SITE_ANALYTICS", "")
+	rec := httptest.NewRecorder()
+	newApp().Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if strings.Contains(rec.Body.String(), "goatcounter") {
+		t.Fatal("analytics must be off by default")
+	}
+	t.Setenv("SITE_ANALYTICS", "goatcounter:trilha")
+	rec = httptest.NewRecorder()
+	newApp().Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	body := rec.Body.String()
+	if !strings.Contains(body, `<script data-goatcounter="https://trilha.goatcounter.com/count" async src="https://gc.zgo.to/count.js">`) || !strings.Contains(body, "sem cookies") {
+		t.Fatal(body)
+	}
+	if csp := rec.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "script-src 'self' 'nonce-") || !strings.Contains(csp, "https://gc.zgo.to") || !strings.Contains(csp, "connect-src 'self' https://trilha.goatcounter.com") {
+		t.Fatal(csp)
+	}
+	for _, bad := range []string{"google:UA-1", "goatcounter:", "goatcounter:Bad Code", "x"} {
+		if _, err := ui.ParseAnalytics(bad); err == nil {
+			t.Fatal("must reject", bad)
+		}
 	}
 }

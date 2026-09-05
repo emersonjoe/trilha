@@ -5,6 +5,13 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.5.1 — 2026-09-05
+
+### Adicionado
+- Estatísticas (spec 010): site com contagem sem cookies via GoatCounter, ligada pela
+  variável `SITE_ANALYTICS`; `scripts/traffic.sh` e workflow `traffic` (snapshot diário do
+  tráfego do repositório na branch `stats`, opcional por `TRAFFIC_TOKEN`).
+
 ## 0.5.0 — 2026-09-05
 
 ### Adicionado

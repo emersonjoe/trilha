@@ -41,6 +41,22 @@ spec-kit local) e para correções urgentes; qualquer uso do bypass fica visíve
 do ruleset. Os arquivos deste repositório não são a fonte da regra: ela vive em
 *Settings → Rules*, e mudanças nela são anunciadas em uma Discussão.
 
+## Métricas de uso
+
+Coletamos o mínimo, sem cookies e sem dado pessoal, e nada disso vive no código:
+
+- **Site** (emersonjoe.github.io/trilha): contagem de páginas com o
+  [GoatCounter](https://www.goatcounter.com) (software livre, sem cookies), ligada só quando
+  a variável de repositório `SITE_ANALYTICS` existe (`Settings → Secrets and variables →
+  Actions → Variables`, valor `goatcounter:<código>`). O rodapé passa a mostrar a nota de
+  privacidade e o link público dos números. Para desligar, apague a variável e republique.
+- **Repositório**: visitas, clones, caminhos e referenciadores dos últimos 14 dias
+  (`scripts/traffic.sh`, com o `gh` do mantenedor). O workflow `traffic` grava um snapshot
+  diário em `traffic.jsonl` na branch `stats` quando existe o segredo `TRAFFIC_TOKEN` (token
+  fino com `Administration: read` só neste repositório). Sem o segredo ele não faz nada.
+
+Estrelas, forks e watchers são públicos na página do repositório.
+
 ## Comunicação
 
 Issues e Discussões são os canais oficiais. Decisões tomadas em outro lugar são registradas

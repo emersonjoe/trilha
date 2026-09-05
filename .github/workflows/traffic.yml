@@ -1,0 +1,56 @@
+name: traffic
+# Guarda um snapshot diário do tráfego do repositório (o GitHub só mantém 14 dias)
+# na branch `stats`, em traffic.jsonl. Precisa do segredo TRAFFIC_TOKEN: um token
+# fino (fine-grained) com permissão de leitura em "Administration" deste repositório.
+# Sem o segredo, o workflow termina sem fazer nada.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+    steps:
+      - name: Verificar segredo
+        id: gate
+        run: |
+          if [ -z "$TRAFFIC_TOKEN" ]; then
+            echo "TRAFFIC_TOKEN ausente: crie um token fino com Administration:read e salve em Settings → Secrets."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          fetch-depth: 0
+      - name: Coletar tráfego
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ env.TRAFFIC_TOKEN }}
+        run: |
+          set -euo pipefail
+          scripts/traffic.sh "${{ github.repository }}" --json > /tmp/today.json
+          jq -c . /tmp/today.json | sed 's/./&/' >/dev/null  # valida JSON
+      - name: Guardar na branch stats
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin stats >/dev/null; then
+            git fetch origin stats
+            git checkout stats
+          else
+            git checkout --orphan stats
+            git rm -rfq . || true
+            printf '# Estatísticas\n\nSnapshots diários do tráfego do repositório (traffic.jsonl), gerados por .github/workflows/traffic.yml.\n' > README.md
+          fi
+          cat /tmp/today.json >> traffic.jsonl
+          git add README.md traffic.jsonl
+          git commit -qm "stats: $(date -u +%F)" || exit 0
+          git push origin stats
