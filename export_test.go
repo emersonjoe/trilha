@@ -66,7 +66,7 @@ func TestExport(t *testing.T) {
 func TestExportRefusesForeignDir(t *testing.T) {
 	dir := t.TempDir()
 	_ = os.WriteFile(filepath.Join(dir, "importante.txt"), []byte("x"), 0o644)
-	if err := testApp(Prod, nil).Export(dir); err == nil || !strings.Contains(err.Error(), "não foi criado pelo trilha") {
+	if err := testApp(Prod, nil).Export(dir); err == nil || !strings.Contains(err.Error(), "was not created by trilha") {
 		t.Fatal(err)
 	}
 }
@@ -79,7 +79,7 @@ func TestExportFailsOnErrorRoute(t *testing.T) {
 	}
 	a = testApp(Prod, nil)
 	a.AddExportPath("/blog/novo/")
-	if err := a.Export(filepath.Join(t.TempDir(), "o")); err == nil || !strings.Contains(err.Error(), "redireciona") {
+	if err := a.Export(filepath.Join(t.TempDir(), "o")); err == nil || !strings.Contains(err.Error(), "redirects to") {
 		t.Fatal(err)
 	}
 }
@@ -94,5 +94,39 @@ func TestBasePath(t *testing.T) {
 	a.Register(Route{Pattern: "/", Page: func(c *Ctx) (h.Node, error) { return h.A(h.Href(c.Base() + "/x")), nil }})
 	if rec := get(t, a, "GET", "/", "", nil); !strings.Contains(rec.Body.String(), `href="/docs/x"`) {
 		t.Fatal(rec.Body.String())
+	}
+}
+
+// Spec 015: an exported path that redirects inside the site becomes a small
+// HTML stub (meta refresh + canonical); redirects to another origin still fail.
+func TestExportRedirectStub(t *testing.T) {
+	a := testApp(Prod, nil)
+	a.Register(Route{Pattern: "/antigo", Page: func(c *Ctx) (h.Node, error) {
+		return nil, RedirectCode("/blog/novo", 301)
+	}})
+	dir := filepath.Join(t.TempDir(), "o")
+	if err := a.Export(dir); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "antigo", "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(b)
+	for _, want := range []string{`<meta http-equiv="refresh" content="0; url=/blog/novo">`, `<link rel="canonical" href="/blog/novo">`, `<a href="/blog/novo">`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("stub misses %s:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "<script") {
+		t.Fatal("stub must not use JavaScript")
+	}
+
+	a = testApp(Prod, nil)
+	a.Register(Route{Pattern: "/fora", Page: func(c *Ctx) (h.Node, error) {
+		return nil, RedirectCode("https://example.com/", 301)
+	}})
+	if err := a.Export(filepath.Join(t.TempDir(), "o")); err == nil || !strings.Contains(err.Error(), "/fora") {
+		t.Fatalf("external redirect must fail the export: %v", err)
 	}
 }

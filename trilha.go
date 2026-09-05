@@ -281,12 +281,12 @@ func (a *App) applyConfig() {
 		if a.signer == nil || !a.signer.ephemeral {
 			a.signer = NewSigner(randomSecret())
 			a.signer.ephemeral = true
-			a.log.Info("trilha: TRILHA_SECRET ausente; usando chave efêmera (dev)")
+			a.log.Info("trilha: TRILHA_SECRET missing; using an ephemeral key (dev)")
 		}
 	default:
 		if a.signer == nil || a.signer.ephemeral || len(a.signer.keys) > 0 {
 			a.signer = NewSigner()
-			a.log.Warn("trilha: TRILHA_SECRET ausente; cookies assinados indisponíveis em produção")
+			a.log.Warn("trilha: TRILHA_SECRET missing; signed cookies unavailable in production")
 		}
 	}
 }

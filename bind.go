@@ -10,7 +10,7 @@ import (
 
 // BindInvalid is the FieldErrors message Bind records when a value cannot be
 // converted to the field's type. Change it to localise.
-var BindInvalid = "valor inválido"
+var BindInvalid = "invalid value"
 
 // Bind fills a struct from the request: JSON when the Content-Type is
 // application/json (see BindJSON), otherwise form fields and query string.

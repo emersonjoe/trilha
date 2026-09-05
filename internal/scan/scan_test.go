@@ -136,7 +136,7 @@ func TestErrors(t *testing.T) {
 
 func TestErrorFormat(t *testing.T) {
 	_, errs := scanApp(t, "err_no_page_func")
-	if got := errs.Error(); got != "app/page.go: E_NO_PAGE_FUNC: page.go precisa exportar func Page(c *trilha.Ctx) (h.Node, error)" {
+	if got := errs.Error(); got != "app/page.go: E_NO_PAGE_FUNC: page.go must export func Page(c *trilha.Ctx) (h.Node, error)" {
 		t.Fatal(got)
 	}
 }
@@ -175,7 +175,7 @@ func TestGroupErrors(t *testing.T) {
 		t.Fatalf("want 2 duplicate errors (/x and /), got %v", errs)
 	}
 	all := strings.Join(dups, "\n")
-	for _, want := range []string{"app/c-: E_DUPLICATE_ROUTE: padrão / já é respondido por app", "app/b-/x: E_DUPLICATE_ROUTE: padrão /x já é respondido por app/a-/x"} {
+	for _, want := range []string{"app/c-: E_DUPLICATE_ROUTE: pattern / is already served by app", "app/b-/x: E_DUPLICATE_ROUTE: pattern /x is already served by app/a-/x"} {
 		if !strings.Contains(all, want) {
 			t.Fatalf("missing %q in:\n%s", want, all)
 		}

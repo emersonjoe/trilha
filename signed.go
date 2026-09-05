@@ -36,7 +36,7 @@ func NewSigner(keys ...[]byte) *Signer {
 }
 
 // ErrNoSecret is returned by SetSigned when no secret is configured.
-var ErrNoSecret = errors.New("trilha: TRILHA_SECRET não definido; cookies assinados indisponíveis")
+var ErrNoSecret = errors.New("trilha: TRILHA_SECRET not set; signed cookies unavailable")
 
 // decodeSecret accepts base64 (std or URL) or raw text, at least 32 bytes.
 func decodeSecret(s string) []byte {

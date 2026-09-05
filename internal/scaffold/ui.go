@@ -18,7 +18,7 @@ type UIResult struct {
 }
 
 // ErrUIModified is returned when ui.css/ui.js were edited locally and force is false.
-var ErrUIModified = errors.New("arquivos do kit ui modificados localmente; use --force para sobrescrever")
+var ErrUIModified = errors.New("ui kit files were modified locally; use --force to overwrite")
 
 const stampPrefix = "/* trilha ui "
 

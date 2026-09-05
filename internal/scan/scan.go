@@ -114,7 +114,7 @@ type Import struct {
 func Scan(root, module string) (*Result, error) {
 	appDir := filepath.Join(root, "app")
 	if st, err := os.Stat(appDir); err != nil || !st.IsDir() {
-		return nil, Errors{{File: "app", Code: ErrNoApp, Msg: "pasta app/ não encontrada"}}
+		return nil, Errors{{File: "app", Code: ErrNoApp, Msg: "app/ directory not found"}}
 	}
 	s := &scanner{root: root, module: module, aliases: map[string]bool{}, imports: map[string]string{}}
 	s.walk(appDir, "app", nil, nil, nil)
@@ -128,7 +128,7 @@ func Scan(root, module string) (*Result, error) {
 	for i := 1; i < len(s.res.Routes); i++ {
 		a, b := s.res.Routes[i-1], s.res.Routes[i]
 		if a.Pattern == b.Pattern {
-			s.errf(b.Dir, ErrDuplicateRoute, "padrão %s já é respondido por %s (grupos de rota não podem repetir a mesma URL)", b.Pattern, a.Dir)
+			s.errf(b.Dir, ErrDuplicateRoute, "pattern %s is already served by %s (route groups cannot repeat the same URL)", b.Pattern, a.Dir)
 		}
 	}
 	for alias, p := range s.imports {
@@ -168,22 +168,22 @@ func parseSegment(dir string) (segment, error) {
 	case strings.HasSuffix(dir, "-"):
 		n := strings.TrimSuffix(dir, "-")
 		if strings.HasSuffix(n, "_") {
-			return segment{}, fmt.Errorf("grupo de rota (%q) não pode ser dinâmico", dir)
+			return segment{}, fmt.Errorf("route group (%q) cannot be dynamic", dir)
 		}
 		if n == "" {
-			return segment{}, fmt.Errorf("grupo de rota precisa de nome antes do \"-\"")
+			return segment{}, fmt.Errorf("route group needs a name before the \"-\"")
 		}
 		return segment{name: n, kind: kindGroup}, nil
 	case strings.HasSuffix(dir, "__"):
 		n := strings.TrimSuffix(dir, "__")
 		if !token.IsIdentifier(n) {
-			return segment{}, fmt.Errorf("%q não é um identificador válido", n)
+			return segment{}, fmt.Errorf("%q is not a valid identifier", n)
 		}
 		return segment{name: n, kind: 2}, nil
 	case strings.HasSuffix(dir, "_"):
 		n := strings.TrimSuffix(dir, "_")
 		if !token.IsIdentifier(n) {
-			return segment{}, fmt.Errorf("%q não é um identificador válido", n)
+			return segment{}, fmt.Errorf("%q is not a valid identifier", n)
 		}
 		return segment{name: n, kind: 1}, nil
 	default:
@@ -246,7 +246,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 			}
 			s.use(alias, importPath)
 		} else {
-			s.errf(rel+"/layout.go", ErrNoLayoutFunc, "layout.go precisa exportar func Layout(c *trilha.Ctx, children h.Node) (h.Node, error)")
+			s.errf(rel+"/layout.go", ErrNoLayoutFunc, "layout.go must export func Layout(c *trilha.Ctx, children h.Node) (h.Node, error)")
 		}
 	}
 	if present["middleware.go"] {
@@ -254,7 +254,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 			mws = append(append([]Ref{}, mws...), Ref{Alias: alias, ImportPath: importPath, Func: "Middleware"})
 			s.use(alias, importPath)
 		} else {
-			s.errf(rel+"/middleware.go", ErrNoMiddlewareFunc, "middleware.go precisa exportar func Middleware(c *trilha.Ctx, next trilha.Next) error")
+			s.errf(rel+"/middleware.go", ErrNoMiddlewareFunc, "middleware.go must export func Middleware(c *trilha.Ctx, next trilha.Next) error")
 		}
 	}
 	if isRoot {
@@ -273,13 +273,13 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 
 	// Route for this directory.
 	if present["page.go"] && present["route.go"] {
-		s.errf(rel, ErrPageAndRoute, "uma pasta responde página (page.go) ou API (route.go), nunca os dois")
+		s.errf(rel, ErrPageAndRoute, "a directory serves either a page (page.go) or an API (route.go), never both")
 	} else if present["page.go"] || present["route.go"] {
 		r := Route{Dir: rel, ImportPath: importPath, Alias: alias, Layouts: layouts, Middlewares: mws, Pattern: patternOf(segs)}
 		if present["page.go"] {
 			r.Kind = "page"
 			if !pkg.funcs["Page"] {
-				s.errf(rel+"/page.go", ErrNoPageFunc, "page.go precisa exportar func Page(c *trilha.Ctx) (h.Node, error)")
+				s.errf(rel+"/page.go", ErrNoPageFunc, "page.go must export func Page(c *trilha.Ctx) (h.Node, error)")
 			}
 			r.HasPage = pkg.funcs["Page"]
 			for _, m := range methods[1:] {
@@ -297,7 +297,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 				}
 			}
 			if len(r.Methods) == 0 {
-				s.errf(rel+"/route.go", ErrNoMethod, "route.go precisa exportar ao menos um de GET, POST, PUT, PATCH, DELETE com assinatura func(c *trilha.Ctx) error")
+				s.errf(rel+"/route.go", ErrNoMethod, "route.go must export at least one of GET, POST, PUT, PATCH, DELETE with signature func(c *trilha.Ctx) error")
 			}
 		}
 		sort.Strings(r.Methods)
@@ -321,14 +321,14 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 		childSegs := append(append([]segment{}, segs...), seg)
 		if len(segs) > 0 && segs[len(segs)-1].kind == 2 {
 			if s.hasRoutes(filepath.Join(abs, d)) {
-				s.errf(rel+"/"+d, ErrCatchAllNotLeaf, "catch-all (%s) precisa ser folha; não pode ter rotas abaixo", segs[len(segs)-1].name+"__")
+				s.errf(rel+"/"+d, ErrCatchAllNotLeaf, "catch-all (%s) must be a leaf; it cannot have routes below it", segs[len(segs)-1].name+"__")
 				continue
 			}
 		}
 		s.walk(filepath.Join(abs, d), rel+"/"+d, childSegs, layouts, mws)
 	}
 	if dynamic > 1 {
-		s.errf(rel, ErrAmbiguousSegment, "mais de uma pasta dinâmica (nome_ ou nome__) no mesmo nível é ambíguo")
+		s.errf(rel, ErrAmbiguousSegment, "more than one dynamic directory (name_ or name__) at the same level is ambiguous")
 	}
 }
 
@@ -337,7 +337,7 @@ func (s *scanner) rootFile(present map[string]bool, pkg pkgInfo, rel, alias, imp
 		return
 	}
 	if !pkg.funcs[fn] {
-		s.errf(rel+"/"+file, code, "%s precisa exportar %s", file, sig)
+		s.errf(rel+"/"+file, code, "%s must export %s", file, sig)
 		return
 	}
 	*dst = &Ref{Alias: alias, ImportPath: importPath, Func: fn}

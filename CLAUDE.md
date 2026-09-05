@@ -24,5 +24,5 @@ shell commands, and other important information, read the current plan
 - Zero dependências externas no runtime e na CLI (`TestNoExternalDeps`).
 - Toda convenção nova precisa de: teste no scanner, rota no `examples/blog` e teste de integração.
 - Gerador determinístico; arquivo gerado é commitado.
-- Código/identificadores em inglês; docs, specs e mensagens da CLI em pt-BR.
+- Código, identificadores e mensagens de erro em inglês. Público (site, README, comunidade, CLI, scaffold) em inglês por padrão com tradução pt-BR no mesmo commit (site em `/` e `/pt`, `README.pt-BR.md`, `docs/pt-BR/`, `TRILHA_LANG`). Specs e constituição em pt-BR.
 - Commits sem trailer de coautoria.

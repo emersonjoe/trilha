@@ -171,7 +171,7 @@ func (a *App) renderNotFound(c *Ctx) {
 		}
 		a.log.Error("not_found page failed", "err", err)
 	}
-	_ = a.writeHTML(c, http.StatusNotFound, simplePage("404 Not Found", "Página não encontrada.", c.r.URL.Path))
+	_ = a.writeHTML(c, http.StatusNotFound, simplePage("404 Not Found", "Page not found.", c.r.URL.Path))
 }
 
 func (a *App) renderErrorPage(c *Ctx, cause error) {
@@ -201,7 +201,7 @@ func (a *App) renderErrorPage(c *Ctx, cause error) {
 			detail += "\n\n" + st.Stack()
 		}
 	}
-	_ = a.writeHTML(c, http.StatusInternalServerError, simplePage("500 Internal Server Error", "Algo deu errado.", detail))
+	_ = a.writeHTML(c, http.StatusInternalServerError, simplePage("500 Internal Server Error", "Something went wrong.", detail))
 }
 
 // simplePage is the framework's fallback page for 404/500.
@@ -244,8 +244,8 @@ func injectDevScript(out []byte, nonce string) []byte {
 
 // compileErrorPage is used by the CLI dev server; exported for reuse.
 func CompileErrorPage(output string) string {
-	return "<!doctype html><html><head><meta charset=\"utf-8\"><title>Erro de compilação</title>" +
+	return "<!doctype html><html><head><meta charset=\"utf-8\"><title>Build error</title>" +
 		"<style>body{font:15px/1.5 system-ui,sans-serif;max-width:60rem;margin:3rem auto;padding:0 1rem;color:#222}pre{background:#2b1d1d;color:#ffd9d9;padding:1rem;overflow:auto;white-space:pre-wrap;border-radius:6px}</style></head>" +
-		"<body><h1>Erro de compilação</h1><p>Corrija o código e salve: esta página recarrega sozinha.</p><pre>" +
+		"<body><h1>Build error</h1><p>Fix the code and save: this page reloads on its own.</p><pre>" +
 		html.EscapeString(strings.TrimSpace(output)) + "</pre>" + strings.ReplaceAll(devScript, "{nonce}", "") + "</body></html>"
 }

@@ -57,7 +57,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	ln, err := net.Listen("tcp", s.Addr)
 	if err != nil {
-		return fmt.Errorf("não consegui escutar em %s: %w", s.Addr, err)
+		return fmt.Errorf("cannot listen on %s: %w", s.Addr, err)
 	}
 	srv := &http.Server{Handler: http.HandlerFunc(s.serveHTTP)}
 	go func() { _ = srv.Serve(ln) }()
@@ -77,7 +77,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return srv.Shutdown(shutdownCtx)
 		case change := <-changes:
 			if change.StaticOnly {
-				fmt.Fprintf(s.Out, "↻ %s (estático)\n", summarize(change.Paths))
+				fmt.Fprintf(s.Out, "↻ %s (static)\n", summarize(change.Paths))
 				s.broadcast("reload")
 				continue
 			}
@@ -121,7 +121,7 @@ func (s *Server) rebuild() {
 	s.proxy = httputil.NewSingleHostReverseProxy(target)
 	s.proxy.FlushInterval = -1
 	s.proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		http.Error(w, "app indisponível: "+err.Error(), http.StatusBadGateway)
+		http.Error(w, "app unavailable: "+err.Error(), http.StatusBadGateway)
 	}
 	s.mu.Unlock()
 	fmt.Fprintf(s.Out, "✓ pronto (%s)\n", time.Since(start).Round(time.Millisecond))
@@ -174,7 +174,7 @@ func (s *Server) startChild() (int, error) {
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	return 0, errors.New("o app não respondeu em 10 s")
+	return 0, errors.New("the app did not answer within 10 s")
 }
 
 func (s *Server) devSecret() string {

@@ -69,9 +69,20 @@ projeto e customizáveis, com contrato de tema compatível com o shadcn/ui (MIT,
 página deve continuar utilizável sem `ui.js`.
 
 
-Código, identificadores e comentários do framework em inglês (é uma biblioteca pública);
-documentação, specs e mensagens da CLI em português do Brasil, com README bilíngue quando
-houver. API pública pequena: cada símbolo exportado precisa de doc comment e de um uso em
+Código, identificadores, comentários e mensagens de erro e de log do framework (runtime,
+scanner, gerador, scaffold) em inglês: é uma biblioteca pública e o ecossistema Go é em
+inglês. **Tudo que é voltado ao público é em inglês por padrão, com tradução em português
+do Brasil publicada no mesmo commit**: o site de documentação (inglês em `/`, português em
+`/pt`, com `hreflang` e link para a tradução de cada página), `README.md` + `README.pt-BR.md`,
+os arquivos de comunidade (`CONTRIBUTING`, `GOVERNANCE`, `SECURITY`, `SUPPORT`,
+`CODE_OF_CONDUCT`, traduzidos em `docs/pt-BR/`), as mensagens da CLI (idioma por
+`TRILHA_LANG`/`LANG`, inglês quando indefinido) e o projeto gerado por `trilha new`
+(`--lang`). `CHANGELOG.md` e templates de issue/PR só em inglês. Uma página, string ou
+arquivo público sem a tradução correspondente é bug: o teste do site confere que as duas
+locales têm as mesmas páginas e as mesmas demos. As specs em `specs/` e esta constituição
+ficam em português do Brasil, idioma de trabalho do mantenedor. Os apps em `examples/` são
+em português (domínio próprio) e a documentação avisa isso ao citá-los.
+API pública pequena: cada símbolo exportado precisa de doc comment e de um uso em
 `examples/`. Compatível com as duas últimas versões estáveis do Go.
 
 ## Fluxo de trabalho
@@ -88,4 +99,4 @@ registro da mudança neste arquivo com nova versão semântica, atualização do
 `.specify/templates/` que dependam do princípio alterado, e migração dos exemplos afetados.
 Revisões de código verificam aderência aos princípios I–VII antes de aprovar.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-05 (kit `ui` como interface padrão)
+**Version**: 1.2.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-05 (inglês por padrão, português como tradução)
