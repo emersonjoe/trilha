@@ -16,7 +16,7 @@ import (
 
 const version = "0.1.0"
 
-const usage = `trilha — framework web para Go estilo Next.js
+const usage = `trilha — framework web para Go com roteamento por arquivos
 
 Uso:
   trilha new <dir> [--module caminho/do/modulo]   cria um projeto novo

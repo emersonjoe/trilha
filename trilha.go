@@ -1,7 +1,7 @@
-// Package trilha is a file-based web framework for Go in the spirit of
-// Next.js: pages, layouts, API routes and middleware are discovered from the
-// app/ directory tree by the trilha CLI, which generates a typed registration
-// file; this package is the runtime those generated files call into.
+// Package trilha is a file-based web framework for Go: pages, layouts, API
+// routes and middleware are discovered from the app/ directory tree by the
+// trilha CLI, which generates a typed registration file; this package is the
+// runtime those generated files call into.
 package trilha
 
 import (

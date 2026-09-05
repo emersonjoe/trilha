@@ -4,9 +4,10 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/emersonjoe/trilha.svg)](https://pkg.go.dev/github.com/emersonjoe/trilha)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Framework web para Go no estilo Next.js.** Roteamento por arquivos, layouts aninhados,
-rotas de API, middleware por pasta, dev server com recarga automática e um único binário
-de produção. Zero dependências fora da biblioteca padrão.
+**Framework web para Go com roteamento por arquivos.** Layouts aninhados, rotas de API,
+middleware por pasta, dev server com recarga automática e um único binário de produção.
+Zero dependências fora da biblioteca padrão. A organização por pastas segue o modelo
+popularizado pelo Next.js\*, traduzido para as convenções do Go.
 
 ```
 app/
@@ -59,7 +60,7 @@ Ainda não publicado? Use a cópia local: `trilha new meu-app --trilha-dir ../tr
 
 Pastas viram segmentos: `blog` → `/blog`; `slug_` → `/{slug}`; `path__` → `/{path...}`
 (catch-all, precisa ser folha); `marketing-` → **grupo de rota**: não entra na URL, mas
-seu `layout.go`/`middleware.go` valem para tudo abaixo (o `(marketing)` do Next.js).
+seu `layout.go`/`middleware.go` valem para tudo abaixo (o equivalente ao `(marketing)` do Next.js).
 `[slug]` e `(grupo)` não são válidos em import path do Go, por isso os sufixos `_` e `-`.
 Pastas iniciadas por `_` ou `.` são ignoradas. Duas pastas que gerem a mesma URL são erro
 de geração (`E_DUPLICATE_ROUTE`).
@@ -167,7 +168,11 @@ Componentes cliente/hidratação, streaming, geração estática, rotas paralela
 
 ## Licença
 
-MIT. Contribuições são bem-vindas: abra uma issue descrevendo a convenção ou o problema
+MIT (`LICENSE`). Os arquivos do spec-kit em `.specify/` e `.claude/skills` são MIT da GitHub,
+Inc.; veja `THIRD_PARTY_NOTICES.md`.
+
+\* Next.js é marca da Vercel, Inc. O Trilha é um projeto independente, sem afiliação, e não
+contém código do Next.js. Contribuições são bem-vindas: abra uma issue descrevendo a convenção ou o problema
 antes do PR, e siga o fluxo spec-kit em `specs/` para mudanças de comportamento.
 
 ## Desenvolvimento
@@ -185,7 +190,8 @@ Projeto guiado por spec-kit: veja `specs/` (001 núcleo, 002 grupos/templates/es
 
 ## English
 
-Trilha is a Next.js-style web framework for Go: file-based routing under `app/`
+Trilha is a file-based web framework for Go (routing conventions inspired by Next.js, no
+affiliation): routes live under `app/`
 (`page.go`, `route.go`, `layout.go`, `middleware.go`), nested layouts, typed HTML DSL,
 CSRF-protected forms, a dev server with live reload and a single production binary with
 `public/` embedded. Dynamic segments use `name_` (`/{name}`) and `name__` (`/{name...}`)

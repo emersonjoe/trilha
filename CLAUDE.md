@@ -1,4 +1,4 @@
-# Trilha — framework web para Go estilo Next.js
+# Trilha — framework web para Go com roteamento por arquivos
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
