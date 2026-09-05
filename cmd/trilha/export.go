@@ -11,8 +11,8 @@ import (
 
 func cmdExport(args []string) error {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
-	out := fs.String("o", "out", "pasta de saída")
-	base := fs.String("base", "", "prefixo de URL do site (ex.: /trilha no GitHub Pages)")
+	out := fs.String("o", "out", t("flag out"))
+	base := fs.String("base", "", t("flag base"))
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func cmdExport(args []string) error {
 	build.Dir = p.Root
 	build.Stdout, build.Stderr = os.Stdout, os.Stderr
 	if err := build.Run(); err != nil {
-		return fmt.Errorf("go build falhou: %w", err)
+		return fmt.Errorf(t("build failed"), err)
 	}
 	abs, err := filepath.Abs(*out)
 	if err != nil {
@@ -43,7 +43,7 @@ func cmdExport(args []string) error {
 	run.Env = append(os.Environ(), "TRILHA_ENV=prod", "TRILHA_EXPORT="+abs, "TRILHA_BASE_PATH="+*base)
 	run.Stdout, run.Stderr = os.Stdout, os.Stderr
 	if err := run.Run(); err != nil {
-		return fmt.Errorf("exportação falhou: %w", err)
+		return fmt.Errorf(t("export failed"), err)
 	}
 	fmt.Printf("✓ %s (%s)\n", *out, time.Since(start).Round(time.Millisecond))
 	return nil

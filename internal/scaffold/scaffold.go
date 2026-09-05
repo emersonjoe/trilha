@@ -19,10 +19,20 @@ var templates embed.FS
 type Data struct {
 	Module string
 	Name   string
+	Lang   string // "en" (default) or "pt": language of the generated texts
+
+	T map[string]string // filled by Write from Lang
 }
 
 // Write creates the project at dir. Existing files are never overwritten.
 func Write(dir string, d Data) ([]string, error) {
+	if d.Lang == "" {
+		d.Lang = "en"
+	}
+	d.T = texts[d.Lang]
+	if d.T == nil {
+		return nil, errors.New("scaffold: unknown language " + d.Lang)
+	}
 	var written []string
 	err := fs.WalkDir(templates, "templates", func(p string, e fs.DirEntry, err error) error {
 		if err != nil || e.IsDir() {
@@ -63,7 +73,7 @@ func Write(dir string, d Data) ([]string, error) {
 	}
 	res, err := WriteUI(dir, false, false, false)
 	for _, r := range res {
-		if r.Action == "criado" {
+		if r.Action == UICreated {
 			written = append(written, "public/"+r.File)
 		}
 	}

@@ -22,12 +22,13 @@ func TestE2E(t *testing.T) {
 	}
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en") // messages asserted below are English; pt is checked at the end
 	cli := filepath.Join(tmp, "trilha-cli")
 	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
 
 	proj := filepath.Join(tmp, "meu-app")
 	out := run(t, tmp, cli, "new", proj, "--module", "example.com/meu-app", "--trilha-dir", repo)
-	if !strings.Contains(out, "projeto criado") {
+	if !strings.Contains(out, "project created") {
 		t.Fatal(out)
 	}
 	for _, f := range []string{"go.mod", "trilha_gen.go", "app/page.go", "app/layout.go", "app/api/hello/route.go", "public/style.css", "public/ui.css", "public/ui.theme.css", "public/ui.js", ".gitignore"} {
@@ -40,7 +41,7 @@ func TestE2E(t *testing.T) {
 		t.Fatal(out)
 	}
 	// trilha ui: no-op on a fresh project; keeps the theme; refuses edited kit files without --force.
-	if out := run(t, proj, cli, "ui"); !regexp.MustCompile(`ui\.css\s+mantido`).MatchString(out) {
+	if out := run(t, proj, cli, "ui"); !regexp.MustCompile(`ui\.css\s+kept`).MatchString(out) {
 		t.Fatal(out)
 	}
 	theme := filepath.Join(proj, "public", "ui.theme.css")
@@ -49,12 +50,12 @@ func TestE2E(t *testing.T) {
 	os.WriteFile(css, []byte("/* edited */"), 0o644)
 	uiCmd := exec.Command(cli, "ui")
 	uiCmd.Dir = proj
-	if out, err := uiCmd.CombinedOutput(); err == nil || !strings.Contains(string(out), "modificado") {
+	if out, err := uiCmd.CombinedOutput(); err == nil || !strings.Contains(string(out), "modified locally") {
 		t.Fatal(string(out), err)
 	} else if b, _ := os.ReadFile(css); string(b) != "/* edited */" {
 		t.Fatal("must not overwrite without --force")
 	}
-	if out := run(t, proj, cli, "ui", "--force"); !regexp.MustCompile(`ui\.css\s+atualizado`).MatchString(out) || !strings.Contains(out, "seu tema") {
+	if out := run(t, proj, cli, "ui", "--force"); !regexp.MustCompile(`ui\.css\s+updated`).MatchString(out) || !strings.Contains(out, "your theme") {
 		t.Fatal(out)
 	}
 	if b, _ := os.ReadFile(theme); string(b) != ":root{--primary:red}" {
@@ -62,7 +63,7 @@ func TestE2E(t *testing.T) {
 	}
 	run(t, proj, cli, "build", "-o", "bin/app")
 	os.Setenv("TRILHA_SECRET", strings.Repeat("s", 32))
-	if out := run(t, proj, cli, "audit", "--no-vuln"); !strings.Contains(out, "✓ TRILHA_SECRET definido") || !strings.Contains(out, "✓ trilha_gen.go atualizado") {
+	if out := run(t, proj, cli, "audit", "--no-vuln"); !strings.Contains(out, "✓ TRILHA_SECRET set") || !strings.Contains(out, "✓ trilha_gen.go up to date") {
 		t.Fatal(out)
 	}
 	os.Unsetenv("TRILHA_SECRET")
@@ -89,7 +90,7 @@ func TestE2E(t *testing.T) {
 	}
 	base := "http://127.0.0.1:" + strconv.Itoa(port)
 	body := waitGet(t, base+"/")
-	if !strings.Contains(body, "Olá, meu-app!") || strings.Contains(body, "_trilha/events") {
+	if !strings.Contains(body, "Hello, meu-app!") || !strings.Contains(body, `<html lang="en">`) || strings.Contains(body, "_trilha/events") {
 		t.Fatal(body)
 	}
 	if !strings.Contains(body, `href="/ui.css?v=`) || !strings.Contains(body, "ui-card") {
@@ -103,6 +104,34 @@ func TestE2E(t *testing.T) {
 	}
 	if b := waitGet(t, base+"/nada"); !strings.Contains(b, "404") {
 		t.Fatal(b)
+	}
+
+	// Portuguese: CLI messages follow TRILHA_LANG; --lang picks the scaffold texts.
+	t.Setenv("TRILHA_LANG", "pt_BR")
+	if out := run(t, proj, cli, "routes"); !strings.Contains(out, "MÉTODOS") {
+		t.Fatal(out)
+	}
+	projPT := filepath.Join(tmp, "app-pt")
+	out = run(t, tmp, cli, "new", projPT, "--module", "example.com/app-pt", "--trilha-dir", repo, "--no-tidy")
+	if !strings.Contains(out, "projeto criado") {
+		t.Fatal(out)
+	}
+	if b, _ := os.ReadFile(filepath.Join(projPT, "app", "page.go")); !strings.Contains(string(b), "Olá, app-pt!") {
+		t.Fatal("--lang default must follow the CLI language:", string(b))
+	}
+	if b, _ := os.ReadFile(filepath.Join(projPT, "app", "layout.go")); !strings.Contains(string(b), `h.Lang("pt-BR")`) {
+		t.Fatal(string(b))
+	}
+	// Explicit --lang en wins over TRILHA_LANG.
+	projEN := filepath.Join(tmp, "app-en")
+	run(t, tmp, cli, "new", projEN, "--module", "example.com/app-en", "--trilha-dir", repo, "--no-tidy", "--lang", "en")
+	if b, _ := os.ReadFile(filepath.Join(projEN, "app", "page.go")); !strings.Contains(string(b), "Hello, app-en!") {
+		t.Fatal(string(b))
+	}
+	bad := exec.Command(cli, "new", filepath.Join(tmp, "x"), "--lang", "fr", "--no-tidy")
+	bad.Dir = tmp
+	if out, err := bad.CombinedOutput(); err == nil || !strings.Contains(string(out), "--lang deve ser en ou pt") {
+		t.Fatal(string(out), err)
 	}
 }
 

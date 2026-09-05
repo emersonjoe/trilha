@@ -15,19 +15,23 @@ import (
 
 func cmdNew(args []string) error {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
-	module := fs.String("module", "", "caminho do módulo Go (padrão: nome da pasta)")
-	trilhaDir := fs.String("trilha-dir", "", "usar uma cópia local do trilha (adiciona replace no go.mod)")
-	noTidy := fs.Bool("no-tidy", false, "não rodar go mod tidy")
+	module := fs.String("module", "", t("flag module"))
+	langFlag := fs.String("lang", lang, t("flag lang"))
+	trilhaDir := fs.String("trilha-dir", "", t("flag trilha-dir"))
+	noTidy := fs.Bool("no-tidy", false, t("flag no-tidy"))
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return errors.New("uso: trilha new <dir> [--module caminho]")
+		return errors.New(t("new usage"))
 	}
 	dir := fs.Arg(0)
 	// Allow flags after the positional argument: trilha new dir --module x.
 	if err := fs.Parse(fs.Args()[1:]); err != nil {
 		return err
+	}
+	if *langFlag != "en" && *langFlag != "pt" {
+		return errors.New(t("bad lang"))
 	}
 	name := filepath.Base(dir)
 	if *module == "" {
@@ -36,7 +40,7 @@ func cmdNew(args []string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	written, err := scaffold.Write(dir, scaffold.Data{Module: *module, Name: name})
+	written, err := scaffold.Write(dir, scaffold.Data{Module: *module, Name: name, Lang: *langFlag})
 	if err != nil {
 		return err
 	}
@@ -54,7 +58,7 @@ func cmdNew(args []string) error {
 	}
 	if !*noTidy {
 		if err := runIn(dir, "go", "mod", "tidy"); err != nil {
-			fmt.Fprintln(os.Stderr, "aviso: go mod tidy falhou (sem rede?); rode manualmente:", err)
+			fmt.Fprintln(os.Stderr, t("tidy failed"), err)
 		}
 	}
 	// Generate trilha_gen.go so the project builds right away.
@@ -62,7 +66,7 @@ func cmdNew(args []string) error {
 	if _, err := generate(&project{Root: abs, Module: *module}); err != nil {
 		return err
 	}
-	fmt.Printf("\n✓ projeto criado em %s\n\n  cd %s\n  trilha dev\n", dir, dir)
+	fmt.Printf(t("project created"), dir, dir)
 	return nil
 }
 

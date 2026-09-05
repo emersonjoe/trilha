@@ -12,7 +12,7 @@ import (
 
 func cmdDev(args []string) error {
 	fs := flag.NewFlagSet("dev", flag.ContinueOnError)
-	addr := fs.String("addr", ":3000", "endereço público do dev server")
+	addr := fs.String("addr", ":3000", t("flag addr"))
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

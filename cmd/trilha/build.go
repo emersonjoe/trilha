@@ -11,7 +11,7 @@ import (
 
 func cmdBuild(args []string) error {
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
-	out := fs.String("o", "", "arquivo de saída (padrão bin/<nome-da-pasta>)")
+	out := fs.String("o", "", t("flag build -o"))
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func cmdBuild(args []string) error {
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("go build falhou: %w", err)
+		return fmt.Errorf(t("build failed"), err)
 	}
 	fmt.Printf("✓ %s (%s)\n", *out, time.Since(start).Round(time.Millisecond))
 	return nil

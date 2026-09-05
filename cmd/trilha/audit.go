@@ -15,14 +15,14 @@ import (
 )
 
 type check struct {
-	level string // ok | aviso | critico
+	level string // ok | warn | critical
 	title string
 	hint  string
 }
 
 func cmdAudit(args []string) error {
 	fs := flag.NewFlagSet("audit", flag.ContinueOnError)
-	noVuln := fs.Bool("no-vuln", false, "não rodar govulncheck (sem rede)")
+	noVuln := fs.Bool("no-vuln", false, t("flag no-vuln"))
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -33,19 +33,19 @@ func cmdAudit(args []string) error {
 	checks := runAudit(p, !*noVuln)
 	critical := 0
 	for _, c := range checks {
-		mark := map[string]string{"ok": "✓", "aviso": "!", "critico": "✗"}[c.level]
+		mark := map[string]string{"ok": "✓", "warn": "!", "critical": "✗"}[c.level]
 		fmt.Printf("%s %s\n", mark, c.title)
 		if c.hint != "" {
 			fmt.Printf("    %s\n", c.hint)
 		}
-		if c.level == "critico" {
+		if c.level == "critical" {
 			critical++
 		}
 	}
 	if critical > 0 {
-		return fmt.Errorf("%d item(ns) crítico(s)", critical)
+		return fmt.Errorf(t("critical items"), critical)
 	}
-	fmt.Println("\nNenhum item crítico. Revise os avisos antes de publicar.")
+	fmt.Println(t("no critical"))
 	return nil
 }
 
@@ -55,16 +55,16 @@ func runAudit(p *project, vuln bool) []check {
 
 	// Secret.
 	if s := os.Getenv("TRILHA_SECRET"); s == "" {
-		add("critico", "TRILHA_SECRET não definido neste ambiente", "cookies assinados (sessão) não funcionam em produção; gere com: openssl rand -base64 32")
+		add("critical", t("secret unset"), t("secret unset hint"))
 	} else if len(s) < 32 {
-		add("critico", "TRILHA_SECRET curto demais", "use ao menos 32 bytes")
+		add("critical", t("secret short"), t("secret short hint"))
 	} else {
-		add("ok", "TRILHA_SECRET definido", "")
+		add("ok", t("secret ok"), "")
 	}
 	if os.Getenv("TRILHA_TRUSTED_PROXIES") == "" {
-		add("aviso", "TRILHA_TRUSTED_PROXIES não definido", "atrás de um proxy (nginx, load balancer) defina os CIDRs para HSTS, IP do cliente e rate limit corretos")
+		add("warn", t("proxies unset"), t("proxies unset hint"))
 	} else {
-		add("ok", "TRILHA_TRUSTED_PROXIES definido", "")
+		add("ok", t("proxies ok"), "")
 	}
 
 	// Observability (NIST SP 800-53 AU-9: audit information is protected;
@@ -125,36 +125,36 @@ func runAudit(p *project, vuln bool) []check {
 	// Generated file up to date.
 	res, err := scan.Scan(p.Root, p.Module)
 	if err != nil {
-		add("critico", "app/ com convenções inválidas", err.Error())
+		add("critical", t("app invalid"), err.Error())
 	} else if src, err := gen.Generate(res); err == nil {
 		cur, _ := os.ReadFile(filepath.Join(p.Root, gen.FileName))
 		if string(cur) != string(src) {
-			add("aviso", "trilha_gen.go desatualizado", "rode: trilha gen")
+			add("warn", t("gen stale"), t("gen stale hint"))
 		} else {
-			add("ok", "trilha_gen.go atualizado", "")
+			add("ok", t("gen fresh"), "")
 		}
 	}
 
 	// Go version.
 	v := strings.TrimPrefix(runtime.Version(), "go")
 	if strings.HasPrefix(v, "1.2") && v < "1.22" {
-		add("critico", "Go "+v+" sem suporte", "o Trilha exige Go 1.22+")
+		add("critical", fmt.Sprintf(t("go unsupported"), v), t("go unsupported hint"))
 	} else {
 		add("ok", "Go "+v, "")
 	}
 
 	// .gitignore.
 	if gi, err := os.ReadFile(filepath.Join(p.Root, ".gitignore")); err != nil || !strings.Contains(string(gi), ".trilha") {
-		add("aviso", ".gitignore sem .trilha/ e bin/", "binários temporários podem ir para o git")
+		add("warn", t("gitignore missing"), t("gitignore hint"))
 	} else {
-		add("ok", ".gitignore cobre .trilha/ e bin/", "")
+		add("ok", t("gitignore ok"), "")
 	}
 
 	// go vet.
 	if outb, err := runCmd(p.Root, "go", "vet", "./..."); err != nil {
-		add("aviso", "go vet encontrou problemas", strings.TrimSpace(string(outb)))
+		add("warn", t("vet problems"), strings.TrimSpace(string(outb)))
 	} else {
-		add("ok", "go vet limpo", "")
+		add("ok", t("vet clean"), "")
 	}
 
 	// govulncheck (optional, needs network).
@@ -162,12 +162,12 @@ func runAudit(p *project, vuln bool) []check {
 		if outb, err := runCmd(p.Root, "go", "run", "golang.org/x/vuln/cmd/govulncheck@latest", "./..."); err != nil {
 			txt := strings.TrimSpace(string(outb))
 			if strings.Contains(txt, "Vulnerability") || strings.Contains(txt, "vulnerabilit") {
-				add("critico", "govulncheck encontrou vulnerabilidades", lastLines(txt, 8))
+				add("critical", t("vuln found"), lastLines(txt, 8))
 			} else {
-				add("aviso", "govulncheck não pôde rodar", "sem rede? use --no-vuln; "+lastLines(txt, 2))
+				add("warn", t("vuln failed"), t("vuln failed hint")+lastLines(txt, 2))
 			}
 		} else {
-			add("ok", "govulncheck sem vulnerabilidades conhecidas", "")
+			add("ok", t("vuln clean"), "")
 		}
 	}
 	return out

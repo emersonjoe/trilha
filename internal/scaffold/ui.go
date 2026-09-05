@@ -14,8 +14,17 @@ import (
 // UIResult reports what WriteUI did with one file.
 type UIResult struct {
 	File   string
-	Action string // criado | atualizado | mantido | mantido (seu tema) | modificado localmente
+	Action string // one of the UI* constants
 }
+
+// Actions reported by WriteUI.
+const (
+	UICreated   = "created"
+	UIUpdated   = "updated"
+	UIKept      = "kept"
+	UIKeptTheme = "kept (your theme)"
+	UIModified  = "modified locally"
+)
 
 // ErrUIModified is returned when ui.css/ui.js were edited locally and force is false.
 var ErrUIModified = errors.New("ui kit files were modified locally; use --force to overwrite")
@@ -74,19 +83,19 @@ func WriteUI(dir string, force, cssOnly, jsOnly bool) ([]UIResult, error) {
 			if err := os.WriteFile(dst, want, 0o644); err != nil {
 				return out, err
 			}
-			out = append(out, UIResult{name, "criado"})
+			out = append(out, UIResult{name, UICreated})
 		case bytes.Equal(cur, want):
-			out = append(out, UIResult{name, "mantido"})
+			out = append(out, UIResult{name, UIKept})
 		case name == "ui.theme.css":
-			out = append(out, UIResult{name, "mantido (seu tema)"})
+			out = append(out, UIResult{name, UIKeptTheme})
 		case force || untouched(cur):
 			if err := os.WriteFile(dst, want, 0o644); err != nil {
 				return out, err
 			}
-			out = append(out, UIResult{name, "atualizado"})
+			out = append(out, UIResult{name, UIUpdated})
 		default:
 			modified = true
-			out = append(out, UIResult{name, "modificado localmente"})
+			out = append(out, UIResult{name, UIModified})
 		}
 	}
 	if modified {

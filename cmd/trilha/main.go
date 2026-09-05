@@ -1,4 +1,5 @@
-// Command trilha is the CLI: new, gen, dev, build, routes.
+// Command trilha is the CLI: new, gen, dev, build, routes, export, audit, ui.
+// Messages follow TRILHA_LANG / LANG (see i18n.go).
 package main
 
 import (
@@ -16,23 +17,9 @@ import (
 
 const version = "0.8.0"
 
-const usage = `trilha — framework web para Go com roteamento por arquivos
-
-Uso:
-  trilha new <dir> [--module caminho/do/modulo]   cria um projeto novo
-  trilha gen                                       gera trilha_gen.go a partir de app/
-  trilha dev [--addr :3000]                        dev server com recarga automática
-  trilha build [-o bin/<nome>]                     gera + compila um binário único
-  trilha routes                                    lista as rotas descobertas
-  trilha export [-o out] [--base /prefixo]         exporta as páginas estáticas em HTML
-  trilha audit [--no-vuln]                         verifica segurança e configuração do projeto
-  trilha ui [--force] [--css-only|--js-only]       grava/atualiza o kit ui em public/
-  trilha version
-`
-
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprint(os.Stderr, usage)
+		fmt.Fprint(os.Stderr, t("usage"))
 		os.Exit(2)
 	}
 	var err error
@@ -56,13 +43,13 @@ func main() {
 	case "version", "-v", "--version":
 		fmt.Println("trilha", version)
 	case "help", "-h", "--help":
-		fmt.Print(usage)
+		fmt.Print(t("usage"))
 	default:
-		fmt.Fprintf(os.Stderr, "comando desconhecido: %s\n\n%s", os.Args[1], usage)
+		fmt.Fprintf(os.Stderr, t("unknown command"), os.Args[1], t("usage"))
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "erro:", err)
+		fmt.Fprintln(os.Stderr, t("error:"), err)
 		os.Exit(1)
 	}
 }
@@ -79,7 +66,7 @@ func findProject() (*project, error) {
 		return nil, err
 	}
 	if st, err := os.Stat(filepath.Join(cwd, "app")); err != nil || !st.IsDir() {
-		return nil, errors.New("pasta app/ não encontrada: rode na raiz do projeto (ou use `trilha new`)")
+		return nil, errors.New(t("no app dir"))
 	}
 	dir := cwd
 	for {
@@ -96,7 +83,7 @@ func findProject() (*project, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return nil, errors.New("go.mod não encontrado acima de " + cwd)
+			return nil, fmt.Errorf(t("no go.mod"), cwd)
 		}
 		dir = parent
 	}
@@ -115,7 +102,7 @@ func modulePath(gomod string) (string, error) {
 			return strings.Trim(strings.TrimSpace(strings.TrimPrefix(line, "module ")), `"`), nil
 		}
 	}
-	return "", fmt.Errorf("%s: linha `module` não encontrada", gomod)
+	return "", fmt.Errorf(t("no module line"), gomod)
 }
 
 // generate scans and writes trilha_gen.go. Returns the scan result.
@@ -144,7 +131,7 @@ func cmdGen(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("✓ %s (%d rotas)\n", gen.FileName, len(res.Routes))
+	fmt.Printf(t("gen done"), gen.FileName, len(res.Routes))
 	return nil
 }
 
@@ -163,7 +150,7 @@ func cmdRoutes(args []string) error {
 
 func routesTable(res *scan.Result) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "%-22s %-32s %s\n", "MÉTODOS", "PADRÃO", "ORIGEM")
+	fmt.Fprintf(&sb, "%-22s %-32s %s\n", t("METHODS"), t("PATTERN"), t("SOURCE"))
 	for _, r := range res.Routes {
 		ms := r.Methods
 		if r.HasPage {

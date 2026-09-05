@@ -1,0 +1,43 @@
+package scaffold
+
+// texts holds the user-visible strings of the generated project, per language.
+var texts = map[string]map[string]string{
+	"en": {
+		"html_lang":   "en",
+		"home":        "Home",
+		"hello":       "Hello, ",
+		"edit":        "Edit app/page.go and save: this page reloads on its own.",
+		"routes":      "Routes",
+		"routes_desc": "Folders in app/ become URLs.",
+		"routes_body": "Create app/about/page.go to answer /about, or app/api/x/route.go for an API.",
+		"see_hello":   "See /api/hello",
+		"ui":          "UI",
+		"ui_desc":     "ui kit: edit public/ui.theme.css to change the colors.",
+		"your_name":   "Your name",
+		"ui_help":     "Typed components in Go, no JavaScript required.",
+		"primary":     "Primary",
+		"secondary":   "Secondary",
+		"new":         "new",
+		"not_found":   "Not found",
+		"nf_lead":     "Page not found.",
+	},
+	"pt": {
+		"html_lang":   "pt-BR",
+		"home":        "Início",
+		"hello":       "Olá, ",
+		"edit":        "Edite app/page.go e salve: esta página recarrega sozinha.",
+		"routes":      "Rotas",
+		"routes_desc": "Pastas em app/ viram URLs.",
+		"routes_body": "Crie app/sobre/page.go para responder /sobre, ou app/api/x/route.go para uma API.",
+		"see_hello":   "Ver /api/hello",
+		"ui":          "Interface",
+		"ui_desc":     "Kit ui: edite public/ui.theme.css para trocar as cores.",
+		"your_name":   "Seu nome",
+		"ui_help":     "Componentes tipados em Go, sem JavaScript obrigatório.",
+		"primary":     "Primário",
+		"secondary":   "Secundário",
+		"new":         "novo",
+		"not_found":   "Não encontrado",
+		"nf_lead":     "Página não encontrada.",
+	},
+}

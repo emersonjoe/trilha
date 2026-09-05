@@ -8,20 +8,20 @@ import (
 
 // Page renders GET /.
 func Page(c *trilha.Ctx) (h.Node, error) {
-	c.SetTitle("Início")
+	c.SetTitle("{{.T.home}}")
 	return ui.Stack(
-		ui.H1(h.Text("Olá, {{.Name}}!")),
-		ui.Lead(h.Text("Edite app/page.go e salve: esta página recarrega sozinha.")),
+		ui.H1(h.Text("{{.T.hello}}{{.Name}}!")),
+		ui.Lead(h.Text("{{.T.edit}}")),
 		ui.Grid(
 			ui.Card(
-				ui.CardHeader(ui.CardTitle("Rotas"), ui.CardDescription("Pastas em app/ viram URLs.")),
-				ui.CardContent(h.P(h.Text("Crie app/sobre/page.go para responder /sobre, ou app/api/x/route.go para uma API."))),
-				ui.CardFooter(ui.ButtonLink("/api/hello", ui.Outline(), h.Text("Ver /api/hello"), ui.Icon("arrow-right"))),
+				ui.CardHeader(ui.CardTitle("{{.T.routes}}"), ui.CardDescription("{{.T.routes_desc}}")),
+				ui.CardContent(h.P(h.Text("{{.T.routes_body}}"))),
+				ui.CardFooter(ui.ButtonLink("/api/hello", ui.Outline(), h.Text("{{.T.see_hello}}"), ui.Icon("arrow-right"))),
 			),
 			ui.Card(
-				ui.CardHeader(ui.CardTitle("Interface"), ui.CardDescription("Kit ui: edite public/ui.theme.css para trocar as cores.")),
-				ui.CardContent(ui.Field("nome", "Seu nome", ui.Input(h.ID("nome"), h.Name("nome"), h.Placeholder("Ada")), ui.Help("Componentes tipados em Go, sem JavaScript obrigatório."))),
-				ui.CardFooter(ui.Button(h.Text("Primário")), ui.Button(ui.Secondary(), h.Text("Secundário")), ui.Badge(h.Text("novo"))),
+				ui.CardHeader(ui.CardTitle("{{.T.ui}}"), ui.CardDescription("{{.T.ui_desc}}")),
+				ui.CardContent(ui.Field("name", "{{.T.your_name}}", ui.Input(h.ID("name"), h.Name("name"), h.Placeholder("Ada")), ui.Help("{{.T.ui_help}}"))),
+				ui.CardFooter(ui.Button(h.Text("{{.T.primary}}")), ui.Button(ui.Secondary(), h.Text("{{.T.secondary}}")), ui.Badge(h.Text("{{.T.new}}"))),
 			),
 		),
 	), nil

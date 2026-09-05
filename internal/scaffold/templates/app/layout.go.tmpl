@@ -12,18 +12,18 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	if title == "" {
 		title = "{{.Name}}"
 	}
-	return h.Html(h.Lang("pt-BR"),
+	return h.Html(h.Lang("{{.T.html_lang}}"),
 		h.Head(
 			h.Meta(h.Charset("utf-8")),
 			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),
 			h.Title(h.Text(title)),
-			ui.Head(c), // public/ui.theme.css (seu tema), ui.css e ui.js
-			h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))), // ?v= do conteúdo: cache longo sem CSS velho
+			ui.Head(c), // public/ui.theme.css (your theme), ui.css and ui.js
+			h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))), // content ?v=: long cache without stale CSS
 		),
 		h.Body(ui.Body(),
 			ui.Header(
 				ui.Brand("/", "{{.Name}}"),
-				ui.Nav(ui.NavLink("/", "Início", c.Request().URL.Path == "/")),
+				ui.Nav(ui.NavLink("/", "{{.T.home}}", c.Request().URL.Path == "/")),
 				ui.Spacer(),
 				ui.ThemeToggle(),
 			),
