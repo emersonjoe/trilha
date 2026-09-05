@@ -1,64 +1,65 @@
 ---
-title: Erros
-description: Os valores de erro que o Trilha entende e como cada um vira resposta.
+title: Errors
+description: The error values Trilha understands and how each one becomes a response.
 ---
 
-Handlers devolvem `error`. O Trilha traduz:
+Handlers return `error`. Trilha translates:
 
-| Valor | Página (`page.go`) | API (`route.go`) |
+| Value | Page (`page.go`) | API (`route.go`) |
 |---|---|---|
-| `nil` | resposta escrita pelo handler; 204 se nada foi escrito | idem |
-| `trilha.ErrNotFound` (ou erro que o embrulha) | 404 com `not_found.go` | `{"error":"Not Found","status":404}` |
-| `*trilha.RedirectError` via `trilha.Redirect(url)` (303) ou `trilha.RedirectCode(url, code)` | redirecionamento | redirecionamento |
-| `*trilha.HTTPError` via `trilha.Errorf(code, fmt, a...)` | página simples com o status e a mensagem (4xx) | `{"error":"mensagem","status":code}` |
-| qualquer outro `error` | 500 com `error.go`; detalhe só em dev | `{"error":"Internal Server Error","status":500}` |
-| `panic` no handler | recuperado e tratado como 500; stack só em dev | idem |
+| `nil` | response written by the handler; 204 if nothing was written | same |
+| `trilha.ErrNotFound` (or an error wrapping it) | 404 with `not_found.go` | `{"error":"Not Found","status":404}` |
+| `*trilha.RedirectError` via `trilha.Redirect(url)` (303) or `trilha.RedirectCode(url, code)` | redirect | redirect |
+| `*trilha.HTTPError` via `trilha.Errorf(code, fmt, a...)` | simple page with the status and the message (4xx) | `{"error":"message","status":code}` |
+| any other `error` | 500 with `error.go`; details only in dev | `{"error":"Internal Server Error","status":500}` |
+| `panic` in the handler | recovered and handled as 500; stack only in dev | same |
 
-### Página ou JSON?
+### Page or JSON?
 
-A coluna é decidida por rota, com um desempate por requisição:
+The column is decided per route, with a per-request tie-breaker:
 
-- `page.go` → sempre página.
-- `route.go` → JSON, **exceto** numa navegação de navegador: `Accept` com `text/html` e sem
-  `application/json`, fora de `/api/`. Assim um `route.go` que serve HTML mostra a página
-  de erro em vez de `{"error":...}`; `fetch` sem `Accept` (`*/*`), `curl` e clientes JSON
-  continuam recebendo JSON.
-- `route.go` pode fixar o comportamento exportando `var Kind = trilha.KindPage` (página
-  sempre, e CSRF exigido em `POST`/`PUT`/`PATCH`/`DELETE`) ou `trilha.KindAPI` (JSON sempre).
+- `page.go` → always a page.
+- `route.go` → JSON, **except** on a browser navigation: `Accept` with `text/html` and
+  without `application/json`, outside `/api/`. So a `route.go` that serves HTML shows the
+  error page instead of `{"error":...}`; `fetch` without `Accept` (`*/*`), `curl` and JSON
+  clients keep receiving JSON.
+- `route.go` can pin the behavior by exporting `var Kind = trilha.KindPage` (always a page,
+  and CSRF required on `POST`/`PUT`/`PATCH`/`DELETE`) or `trilha.KindAPI` (always JSON).
 
-### Responder por conta própria
+### Answering on your own
 
-`not_found.go`, `error.go` e `page.go` podem escrever a resposta inteira e devolver
-`(nil, nil)`: o Trilha não põe nada em cima. Serve para um 404 em texto puro
-(`http.NotFound(c.Writer(), c.Request())`), outro `Content-Type` ou outro status. Se a
-função devolve `nil` **sem** escrever, vale a página simples do framework (404/500); em
-`page.go`, 204.
+`not_found.go`, `error.go` and `page.go` may write the whole response and return
+`(nil, nil)`: Trilha adds nothing on top. It serves a plain-text 404
+(`http.NotFound(c.Writer(), c.Request())`), another `Content-Type` or another status. If the
+function returns `nil` **without** writing, the framework's simple page applies (404/500);
+in `page.go`, 204.
 
-Mensagens de `HTTPError` com código 5xx nunca são mostradas ao cliente. Todo erro 5xx vai
-para o log com o `request_id`.
+`HTTPError` messages with a 5xx code are never shown to the client. Every 5xx error goes to
+the log with the `request_id`.
 
 ```go
-if ev, ok := eventos.Buscar(slug); !ok {
+if ev, ok := events.Find(slug); !ok {
 	return trilha.ErrNotFound
 }
-if vagas < 0 {
-	return trilha.Errorf(422, "vagas não pode ser negativo")
+if seats < 0 {
+	return trilha.Errorf(422, "seats cannot be negative")
 }
-return c.Redirect("/eventos/" + ev.Slug)
+return c.Redirect("/events/" + ev.Slug)
 ```
 
-Erros de `c.BindJSON` e `c.FormErr` já são `HTTPError` (400 ou 413): basta devolvê-los.
+Errors from `c.BindJSON` and `c.FormErr` are already `HTTPError` (400 or 413): just return
+them.
 
 ## FieldErrors
 
-`trilha.FieldErrors` é `map[string]string` (campo → mensagem) que implementa `error`.
-Devolvido de um handler responde **422**: JSON com `"fields"` em rotas de API, página de
-erro em páginas. Um formulário normalmente não o devolve: valida, e no erro chama
-`c.Render(422, …)` mostrando cada mensagem no campo (`ui.Errors`, `ui.InvalidIf`).
+`trilha.FieldErrors` is a `map[string]string` (field → message) that implements `error`.
+Returned from a handler it answers **422**: JSON with `"fields"` in API routes, an error page
+in pages. A form usually does not return it: it validates and, on error, calls
+`c.Render(422, …)` showing each message in its field (`ui.Errors`, `ui.InvalidIf`).
 
-| Método | Papel |
+| Method | Role |
 |---|---|
-| `Add(campo, msg)` | registra (a primeira mensagem do campo vence) |
-| `Has(campo) bool`, `Get(campo) string` | consulta |
-| `Any() bool` | há erros? |
-| `OrNil() error` | `nil` quando vazio, para `return errs.OrNil()` |
+| `Add(field, msg)` | records (the first message for a field wins) |
+| `Has(field) bool`, `Get(field) string` | lookup |
+| `Any() bool` | are there errors? |
+| `OrNil() error` | `nil` when empty, for `return errs.OrNil()` |

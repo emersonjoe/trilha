@@ -1,31 +1,31 @@
 ---
-title: Pacote tmpl
-description: Usar html/template dentro do pipeline de páginas e layouts.
+title: Package tmpl
+description: Use html/template inside the pages and layouts pipeline.
 ---
 
 ```go
 import "github.com/emersonjoe/trilha/tmpl"
 ```
 
-| Função | Descrição |
+| Function | Description |
 |---|---|
-| `Node(t *template.Template, nome string, dados any) h.Node` | nó que executa o template nomeado; erro de execução vira erro de render (500), sem saída parcial |
-| `Must(fsys fs.FS, padrões ...string) *template.Template` | `template.ParseFS` com pânico em erro; chame em nível de pacote para falhar na subida |
+| `Node(t *template.Template, name string, data any) h.Node` | node that executes the named template; an execution error becomes a render error (500), with no partial output |
+| `Must(fsys fs.FS, patterns ...string) *template.Template` | `template.ParseFS` that panics on error; call it at package level to fail at startup |
 
-## Uso
+## Usage
 
 ```go
 //go:embed *.html
-var arquivos embed.FS
+var files embed.FS
 
-var t = tmpl.Must(arquivos, "*.html")
+var t = tmpl.Must(files, "*.html")
 
 func Page(c *trilha.Ctx) (h.Node, error) {
-	c.SetTitle("Relatório")
-	return tmpl.Node(t, "relatorio", dados), nil
+	c.SetTitle("Report")
+	return tmpl.Node(t, "report", data), nil
 }
 ```
 
-O template usa `{{define "relatorio"}}...{{end}}` e recebe `dados` como `.`. O escape é o
-contextual do `html/template`. O nó pode ser combinado com o DSL:
-`h.Section(h.Class("x"), tmpl.Node(t, "parte", d))`.
+The template uses `{{define "report"}}...{{end}}` and receives `data` as `.`. Escaping is
+the contextual escaping of `html/template`. The node can be combined with the DSL:
+`h.Section(h.Class("x"), tmpl.Node(t, "part", d))`.

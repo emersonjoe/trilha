@@ -1,67 +1,73 @@
 ---
-title: Problemas comuns
-description: Erros que aparecem nos primeiros minutos e o que cada um significa.
+title: Troubleshooting
+description: Errors that show up in the first minutes and what each one means.
 ---
 
 ## `zsh: command not found: trilha`
 
-O `go install` colocou o binário em `~/go/bin` (ou no que `go env GOPATH` mostrar mais
-`/bin`), e essa pasta não está no seu `PATH`. Adicione ao `~/.zshrc` ou `~/.bashrc` e abra
-um terminal novo:
+`go install` placed the binary in `~/go/bin` (or whatever `go env GOPATH` shows plus
+`/bin`), and that folder is not in your `PATH`. Add it to `~/.zshrc` or `~/.bashrc` and open
+a new terminal:
 
 ```bash
 export PATH="$HOME/go/bin:$PATH"
 ```
 
-## `verifying module ... 404 Not Found` no `go install`
+## `verifying module ... 404 Not Found` on `go install`
 
-O módulo está em um repositório privado, ou acabou de ficar público e o proxy ainda não o
-conhece. O banco de checksums `sum.golang.org` só consegue verificar módulos públicos. Para
-um módulo privado, diga ao Go para não verificar:
+The module lives in a private repository, or it just became public and the proxy does not
+know it yet. The `sum.golang.org` checksum database can only verify public modules. For a
+private module, tell Go not to verify:
 
 ```bash
-go env -w GOPRIVATE=github.com/sua-org/*
+go env -w GOPRIVATE=github.com/your-org/*
 ```
 
-Para um módulo recém-publicado, prefira instalar por tag (`@v0.1.0`) em vez de `@latest`.
+For a freshly published module, prefer installing by tag (`@v0.1.0`) instead of `@latest`.
 
-## `pasta app/ não encontrada`
+## `app/ directory not found`
 
-Os comandos da CLI rodam na raiz do projeto, a pasta que contém `app/`. Se o app fica dentro
-de um módulo maior (como `examples/blog` no repositório do Trilha), rode a CLI dentro dessa
-subpasta: o caminho de import é calculado a partir do `go.mod` mais próximo.
+CLI commands run at the project root, the folder containing `app/`. If the app lives inside
+a larger module (like `examples/blog` in Trilha's repository), run the CLI inside that
+subfolder: the import path is computed from the nearest `go.mod`.
 
-## `E_NO_PAGE_FUNC` ou `E_NO_METHOD`
+## `E_NO_PAGE_FUNC` or `E_NO_METHOD`
 
-O arquivo existe, mas a função esperada não está exportada com o nome certo. `page.go`
-precisa de `Page`; `route.go` precisa de pelo menos um de `GET`, `POST`, `PUT`, `PATCH`,
-`DELETE`; `layout.go` de `Layout`; `middleware.go` de `Middleware`. Assinatura errada é
-erro de compilação no `trilha_gen.go`, apontando o pacote.
+The file exists, but the expected function is not exported with the right name. `page.go`
+needs `Page`; `route.go` needs at least one of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`;
+`layout.go` needs `Layout`; `middleware.go` needs `Middleware`. A wrong signature is a
+compile error in `trilha_gen.go`, pointing at the package.
 
 ## `E_DUPLICATE_ROUTE`
 
-Duas pastas geram a mesma URL, quase sempre por causa de um grupo de rota. `app/eventos/`
-e `app/organizador-/eventos/` respondem os dois em `/eventos`. Renomeie uma.
+Two folders produce the same URL, almost always because of a route group. `app/events/` and
+`app/organizer-/events/` both answer at `/events`. Rename one of them.
 
-## Formulário responde 403
+## The form answers 403
 
-Faltou `trilha.CSRFInput(c)` dentro do `<form>`, ou a página do formulário foi aberta antes
-de o cookie existir (por exemplo, um `curl` direto no `POST`). Abra a página com `GET`
-primeiro, como um navegador faria, ou mande o token em `X-CSRF-Token`.
+`trilha.CSRFInput(c)` is missing inside the `<form>`, or the form page was opened before the
+cookie existed (for instance, a `curl` straight to the `POST`). Open the page with `GET`
+first, as a browser would, or send the token in `X-CSRF-Token`.
 
-## A porta 3000 está ocupada
+## Port 3000 is busy
 
 ```bash
 trilha dev --addr :3001
 ```
 
-## O navegador não recarrega
+## The browser does not reload
 
-O script de recarga só é injetado quando a resposta é HTML e passa pelo layout. Uma página
-que devolve `c.Text(...)` ou `c.JSON(...)` não recebe o script. Verifique também se algum
-proxy (nginx, extensão) está bloqueando `/_trilha/events`, que é uma conexão SSE.
+The reload script is only injected when the response is HTML and goes through the layout. A
+page returning `c.Text(...)` or `c.JSON(...)` does not get the script. Also check whether a
+proxy (nginx, an extension) is blocking `/_trilha/events`, which is an SSE connection.
 
-## Mudei `public/` e nada aconteceu em produção
+## I changed `public/` and nothing happened in production
 
-Em produção `public/` está embutido no binário. Rode `trilha build` de novo. Em
-desenvolvimento a pasta é lida do disco e a mudança aparece na hora.
+In production `public/` is embedded in the binary. Run `trilha build` again. In development
+the folder is read from disk and the change shows up immediately.
+
+## The CLI speaks Portuguese (or English) and I want the other one
+
+The CLI follows `TRILHA_LANG`, then `LC_ALL`, `LC_MESSAGES` and `LANG`. Set
+`TRILHA_LANG=en` or `TRILHA_LANG=pt` to force a language; anything that does not start with
+`pt` means English.

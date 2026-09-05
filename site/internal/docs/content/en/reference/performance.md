@@ -1,71 +1,70 @@
 ---
-title: Desempenho e comparação
-description: Quanto o Trilha custa sobre a biblioteca padrão, como medir você mesmo, e como ele se posiciona frente a outras abordagens.
+title: Performance and comparison
+description: How much Trilha costs over the standard library, how to measure it yourself, and how it compares with other approaches.
 ---
 
-## Metodologia
+## Methodology
 
-O único número que faz sentido publicar é o **custo do framework sobre a biblioteca
-padrão**, que é a alternativa real em Go. Os benchmarks ficam em `bench/` (módulo separado,
-para o Trilha continuar sem dependências) e medem, em processo (`httptest`, sem rede), o
-mesmo trabalho feito de dois jeitos: com o Trilha e com `net/http` + `html/template` puros.
+The only number worth publishing is the **cost of the framework over the standard library**,
+which is the real alternative in Go. The benchmarks live in `bench/` (a separate module, so
+Trilha stays dependency-free) and measure, in process (`httptest`, no network), the same
+work done two ways: with Trilha and with plain `net/http` + `html/template`.
 
 ```bash
 git clone https://github.com/emersonjoe/trilha && cd trilha
-make bench            # roda; make bench-results regrava bench/RESULTS.md
+make bench            # runs; make bench-results rewrites bench/RESULTS.md
 ```
 
-Cenários: página com layout e 20 itens (`h` × `html/template`), resposta JSON, arquivo
-estático (`Public` × `http.FileServer`), 200 rotas com parâmetro (`ServeMux` nos dois lados)
-e cadeia de 5 middlewares.
+Scenarios: page with layout and 20 items (`h` × `html/template`), JSON response, static
+file (`Public` × `http.FileServer`), 200 routes with a parameter (`ServeMux` on both sides)
+and a chain of 5 middlewares.
 
-## Resultados de referência
+## Reference results
 
-Apple M2, Go 1.25, 2026-09-05 (mediana de 3 execuções; `bench/RESULTS.md` tem a saída
-completa). Valores por requisição.
+Apple M2, Go 1.25, 2026-09-05 (median of 3 runs; `bench/RESULTS.md` has the full output).
+Values per request.
 
-| Cenário | Stdlib | Trilha | Diferença |
+| Scenario | Stdlib | Trilha | Difference |
 |---|---|---|---|
-| Página (20 itens, layout) | 29,4 µs · 270 allocs | 19,4 µs · 482 allocs | `h` é ~34 % mais rápido que `html/template` aqui, com mais alocações |
-| JSON (20 itens) | 4,2 µs | 7,6 µs | +3,4 µs |
-| Estático (1,4 KB) | 1,4 µs | 4,3 µs | +2,9 µs |
-| 200 rotas + parâmetro | 0,72 µs | 4,0 µs | +3,3 µs |
-| 5 middlewares | 0,64 µs | 4,1 µs | +3,4 µs |
+| Page (20 items, layout) | 29.4 µs · 270 allocs | 19.4 µs · 482 allocs | `h` is ~34 % faster than `html/template` here, with more allocations |
+| JSON (20 items) | 4.2 µs | 7.6 µs | +3.4 µs |
+| Static (1.4 KB) | 1.4 µs | 4.3 µs | +2.9 µs |
+| 200 routes + parameter | 0.72 µs | 4.0 µs | +3.3 µs |
+| 5 middlewares | 0.64 µs | 4.1 µs | +3.4 µs |
 
-Leitura honesta: o Trilha tem um **custo fixo de ~3 µs e ~40 alocações por requisição**,
-independente da rota. Ele paga por: id de requisição (aleatório), nonce da CSP, cabeçalhos
-de segurança, `Ctx` com mapa de valores, limite de corpo, medição e **log estruturado** de
-cada requisição (`slog`, que formata a linha mesmo descartada). Em um servidor real uma
-consulta ao banco custa de 100 µs a alguns ms, e a rede, mais; a diferença desaparece. Se
-um dia isso importar para você, o caminho é reduzir alocações no `Ctx` e tornar o log
-opcional por rota — e o benchmark está aí para provar o ganho.
+Honest reading: Trilha has a **fixed cost of ~3 µs and ~40 allocations per request**,
+regardless of the route. It pays for: request id (random), CSP nonce, security headers,
+`Ctx` with a value map, body limit, timing and **structured logging** of every request
+(`slog`, which formats the line even when discarded). In a real server a database query
+costs 100 µs to a few ms, and the network more; the difference disappears. If that ever
+matters to you, the path is reducing allocations in `Ctx` and making logging optional per
+route — and the benchmark is there to prove the gain.
 
-O ciclo **editar → ver** do `trilha dev` fica em ~1,2 s no exemplo do blog (recompilação
-do Go) e ~30 ms para mudanças só em `public/` (`make reload` mede na sua máquina).
+The **edit → see** cycle of `trilha dev` is ~1.2 s in the blog example (Go recompilation)
+and ~30 ms for changes only in `public/` (`make reload` measures on your machine).
 
-## Comparação de abordagem
+## Comparison of approach
 
-Sem números de terceiros: versões mudam, configurações diferem e cada projeto otimiza para
-coisas diferentes. O que dá para comparar com segurança é a **abordagem**. Confira sempre
-a documentação de cada um; nomes citados são marcas dos respectivos donos e não há
-afiliação.
+No third-party numbers: versions change, configurations differ and each project optimizes
+for different things. What can be compared safely is the **approach**. Always check each
+project's documentation; names cited are trademarks of their respective owners and there is
+no affiliation.
 
-| | Trilha | `net/http` puro | Roteadores Go (chi, echo, gin, fiber) | templ + htmx | Next.js |
+| | Trilha | plain `net/http` | Go routers (chi, echo, gin, fiber) | templ + htmx | Next.js |
 |---|---|---|---|---|---|
-| Rotas | por pastas em `app/` (`page.go`, `route.go`) | registradas à mão | registradas à mão | registradas à mão (com o roteador que você escolher) | por pastas em `app/` |
-| Layouts aninhados | `layout.go` por pasta | manual | manual | componentes | `layout.tsx` |
-| HTML | DSL tipado `h` (escape por padrão) ou `html/template` | `html/template` | `html/template` ou libs | `templ` (compilado) | JSX/React |
-| Interatividade no cliente | HTML + `ui.js` (200 linhas) ou htmx; sem hidratação | você escolhe | você escolhe | htmx | React (hidratação, RSC) |
-| Dependências no runtime | nenhuma | nenhuma | o roteador (+ deps) | `templ` (+ gerador) | Node, React, Next |
-| Dev | `trilha dev`: recarga ~1 s, erro de compilação na página | `go run` manual | `air`/manual | `templ generate --watch` + reload | `next dev` (HMR) |
-| Produção | um binário estático com `public/` embutido | binário | binário | binário | Node ou edge; build |
-| Export estático | `trilha export` | manual | manual | manual | `output: 'export'` |
-| Segurança padrão | CSP com nonce, HSTS, CSRF, rate limit, cookies assinados, timeouts | nada (você configura) | varia | nada (você configura) | cabeçalhos básicos; CSRF em Server Actions |
-| IA | `ai` (OpenAI-compatível), `ai/mcp` | — | — | — | Vercel AI SDK (pacote) |
+| Routes | by folders in `app/` (`page.go`, `route.go`) | registered by hand | registered by hand | registered by hand (with the router you choose) | by folders in `app/` |
+| Nested layouts | `layout.go` per folder | manual | manual | components | `layout.tsx` |
+| HTML | typed `h` DSL (escaped by default) or `html/template` | `html/template` | `html/template` or libs | `templ` (compiled) | JSX/React |
+| Client interactivity | HTML + `ui.js` (200 lines) or htmx; no hydration | your choice | your choice | htmx | React (hydration, RSC) |
+| Runtime dependencies | none | none | the router (+ deps) | `templ` (+ generator) | Node, React, Next |
+| Dev | `trilha dev`: ~1 s reload, compile error on the page | manual `go run` | `air`/manual | `templ generate --watch` + reload | `next dev` (HMR) |
+| Production | one static binary with `public/` embedded | binary | binary | binary | Node or edge; build |
+| Static export | `trilha export` | manual | manual | manual | `output: 'export'` |
+| Default security | CSP with nonce, HSTS, CSRF, rate limit, signed cookies, timeouts | nothing (you configure) | varies | nothing (you configure) | basic headers; CSRF in Server Actions |
+| AI | `ai` (OpenAI-compatible), `ai/mcp` | — | — | — | Vercel AI SDK (package) |
 
-Quando **não** usar o Trilha: apps que precisam de interface altamente interativa no cliente
-(editores, dashboards em tempo real com estado complexo) são melhor servidos por React/Next
-ou por um SPA; e projetos que já têm um roteador Go e templates maduros ganham pouco ao
-trocar. O Trilha brilha em apps de negócio renderizados no servidor, sites de conteúdo e
-APIs com painel, onde um binário sem dependências e convenções fortes pesam mais que
-interatividade fina.
+When **not** to use Trilha: apps that need a highly interactive client UI (editors,
+real-time dashboards with complex state) are better served by React/Next or by an SPA; and
+projects that already have a Go router and mature templates gain little by switching. Trilha
+shines in server-rendered business apps, content sites and APIs with a dashboard, where a
+dependency-free binary and strong conventions weigh more than fine-grained interactivity.

@@ -1,48 +1,48 @@
 ---
 title: mcp
-description: Cliente e servidor do Model Context Protocol (stdio e Streamable HTTP).
+description: Model Context Protocol client and server (stdio and Streamable HTTP).
 ---
 
-`import "github.com/emersonjoe/trilha/ai/mcp"` — JSON-RPC 2.0, revisão `2025-03-26`, sem
-dependências externas. Cobre o recurso *tools* (listar e chamar).
+`import "github.com/emersonjoe/trilha/ai/mcp"` — JSON-RPC 2.0, revision `2025-03-26`, no
+external dependencies. Covers the *tools* capability (list and call).
 
-## Cliente
+## Client
 
 ```go
-func Dial(ctx, dial Dialer) (*Client, error)     // abre o transporte e faz initialize
-func Stdio(name string, args ...string) Dialer    // processo filho, JSON por linha
-func HTTP(url string, headers map[string]string) Dialer  // Streamable HTTP (POST por mensagem)
+func Dial(ctx, dial Dialer) (*Client, error)     // opens the transport and runs initialize
+func Stdio(name string, args ...string) Dialer    // child process, JSON per line
+func HTTP(url string, headers map[string]string) Dialer  // Streamable HTTP (POST per message)
 ```
 
-| Método | Papel |
+| Method | Role |
 |---|---|
-| `ListTools(ctx) ([]ToolInfo, error)` | segue a paginação (`nextCursor`) |
-| `CallTool(ctx, name, args) (CallResult, error)` | `CallResult.Text()` junta os itens de texto |
-| `Tools(ctx) ([]*ai.Tool, error)` | ferramentas prontas para um `ai.Agent`; `isError` vira erro |
-| `Server.Name/Version/ProtocolVersion` | preenchidos pelo `initialize` |
-| `Close()` | fecha o transporte e encerra o processo filho |
+| `ListTools(ctx) ([]ToolInfo, error)` | follows pagination (`nextCursor`) |
+| `CallTool(ctx, name, args) (CallResult, error)` | `CallResult.Text()` joins the text items |
+| `Tools(ctx) ([]*ai.Tool, error)` | tools ready for an `ai.Agent`; `isError` becomes an error |
+| `Server.Name/Version/ProtocolVersion` | filled by `initialize` |
+| `Close()` | closes the transport and ends the child process |
 
-O cliente HTTP guarda o `Mcp-Session-Id` recebido no `initialize` e o envia nas mensagens
-seguintes; aceita respostas JSON ou `text/event-stream`.
+The HTTP client keeps the `Mcp-Session-Id` received on `initialize` and sends it on the
+following messages; it accepts JSON or `text/event-stream` responses.
 
-## Servidor
+## Server
 
 ```go
 func NewServer(name, version string, tools ...*ai.Tool) *Server
-func (s *Server) ServeHTTP(c *trilha.Ctx) error         // em app/.../route.go: POST
-func (s *Server) Handler() http.Handler                  // fora do Trilha
+func (s *Server) ServeHTTP(c *trilha.Ctx) error         // in app/.../route.go: POST
+func (s *Server) Handler() http.Handler                  // outside Trilha
 func (s *Server) ServeStdio(ctx, r io.Reader, w io.Writer) error
 ```
 
-Métodos atendidos: `initialize`, `ping`, `tools/list`, `tools/call`; notificações são
-aceitas sem resposta (`202`). Em HTTP, `initialize` emite `Mcp-Session-Id`; mensagens sem
-sessão válida recebem `404`; sessões expiram após `SessionTTL` (1 h) sem uso. Só `POST` é
-aceito (`405` com `Allow: POST` para o resto). Corpo limitado a 4 MiB.
+Methods served: `initialize`, `ping`, `tools/list`, `tools/call`; notifications are accepted
+without a response (`202`). Over HTTP, `initialize` emits `Mcp-Session-Id`; messages
+without a valid session get `404`; sessions expire after `SessionTTL` (1 h) without use.
+Only `POST` is accepted (`405` with `Allow: POST` for the rest). Body limited to 4 MiB.
 
-Erros e pânicos de ferramentas viram resultado com `isError: true`, como manda o protocolo;
-ferramenta desconhecida é erro JSON-RPC `-32602`.
+Tool errors and panics become a result with `isError: true`, as the protocol requires; an
+unknown tool is JSON-RPC error `-32602`.
 
-## Transporte próprio
+## Your own transport
 
-`Transport` é uma interface (`Send`, `Recv`, `Close`). `Pipe(r, w, closer)` monta o
-transporte de linha sobre qualquer par leitor/escritor, o que os testes usam com `io.Pipe`.
+`Transport` is an interface (`Send`, `Recv`, `Close`). `Pipe(r, w, closer)` builds the line
+transport over any reader/writer pair, which the tests use with `io.Pipe`.

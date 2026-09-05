@@ -84,7 +84,8 @@ trilha export -o out --base /agenda
 ```
 
 Páginas com parâmetro entram quando `Setup` as declara com `a.AddExportPath("/eventos/x")`.
-O site que você está lendo foi gerado assim.
+Páginas que respondem um redirecionamento para o próprio site viram um pequeno HTML
+apontando para o destino. O site que você está lendo foi gerado assim.
 
 ## Assets e cache
 

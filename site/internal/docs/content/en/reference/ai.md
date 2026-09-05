@@ -1,77 +1,77 @@
 ---
 title: ai
-description: Cliente OpenAI-compatível, ferramentas, agentes, handoffs e composição.
+description: OpenAI-compatible client, tools, agents, handoffs and composition.
 ---
 
-`import "github.com/emersonjoe/trilha/ai"` — sem dependências externas.
+`import "github.com/emersonjoe/trilha/ai"` — no external dependencies.
 
 ## Client
 
-| Campo / função | Papel |
+| Field / function | Role |
 |---|---|
-| `NewFromEnv() *Client` | lê `OPENAI_API_KEY`, `OPENAI_BASE_URL` (padrão `https://api.openai.com/v1`) e `TRILHA_AI_MODEL` (ou `OPENAI_MODEL`; padrão `gpt-4o-mini`) |
-| `BaseURL, APIKey, Model string` | configuração direta |
-| `Headers map[string]string` | cabeçalhos extras (OpenRouter, Azure...) |
-| `HTTPClient *http.Client` | cliente HTTP (padrão com timeout de 2 min) |
-| `Chat(ctx, Request) (*Response, error)` | uma chamada; `Response.Text()` e `Response.ToolCalls()` |
-| `Stream(ctx, Request, func(Delta) error) error` | resposta em pedaços; `Delta.Content`, `Delta.ToolCalls`, `Delta.Usage` no fim |
+| `NewFromEnv() *Client` | reads `OPENAI_API_KEY`, `OPENAI_BASE_URL` (default `https://api.openai.com/v1`) and `TRILHA_AI_MODEL` (or `OPENAI_MODEL`; default `gpt-4o-mini`) |
+| `BaseURL, APIKey, Model string` | direct configuration |
+| `Headers map[string]string` | extra headers (OpenRouter, Azure...) |
+| `HTTPClient *http.Client` | HTTP client (default with a 2 min timeout) |
+| `Chat(ctx, Request) (*Response, error)` | one call; `Response.Text()` and `Response.ToolCalls()` |
+| `Stream(ctx, Request, func(Delta) error) error` | chunked response; `Delta.Content`, `Delta.ToolCalls`, `Delta.Usage` at the end |
 
-Respostas não-2xx viram `*ai.Error{Status, Code, Message}`.
+Non-2xx responses become `*ai.Error{Status, Code, Message}`.
 
-## Request e mensagens
+## Request and messages
 
 `Request{Model, Messages, Tools, ToolChoice, Temperature, MaxTokens, ResponseFormat, Extra}`.
-`Extra map[string]any` é mesclado no JSON enviado, para parâmetros específicos do provedor.
-`ResponseFormat{Type: "json_schema", JSONSchema: ...}` pede saída estruturada.
+`Extra map[string]any` is merged into the JSON sent, for provider-specific parameters.
+`ResponseFormat{Type: "json_schema", JSONSchema: ...}` asks for structured output.
 
-Construtores: `ai.System(s)`, `ai.User(s)`, `ai.Assistant(s)`, `ai.ToolResult(callID, s)`.
+Constructors: `ai.System(s)`, `ai.User(s)`, `ai.Assistant(s)`, `ai.ToolResult(callID, s)`.
 
 ## Tool
 
 ```go
 func NewTool(name, description string, schema json.RawMessage, fn ToolFunc) *Tool
 type ToolFunc func(ctx context.Context, args json.RawMessage) (string, error)
-func Schema(s string) json.RawMessage           // valida o JSON; pânico no início se inválido
+func Schema(s string) json.RawMessage           // validates the JSON; panics at startup if invalid
 func Typed[T any](fn func(ctx, in T) (string, error)) ToolFunc
 ```
 
-`schema == nil` significa "sem argumentos". Erros e pânicos da função viram texto para o
-modelo (`error: ...`) e aparecem em `Step.Err`.
+`schema == nil` means "no arguments". Errors and panics from the function become text for
+the model (`error: ...`) and show up in `Step.Err`.
 
 ## Agent
 
-| Campo | Papel |
+| Field | Role |
 |---|---|
-| `Name` | identifica o agente em `Step.Agent` e nos handoffs (`transfer_to_<slug>`) |
-| `Instructions` | mensagem `system` |
-| `Model` | substitui o modelo do cliente |
-| `Tools []*Tool` | ferramentas |
-| `Handoffs []*Agent` | agentes para os quais este pode transferir a conversa |
-| `MaxTurns` | limite de chamadas ao modelo por `Run` (padrão 10; excedido → `ErrMaxTurns`) |
-| `Temperature *float64`, `ResponseFormat` | passados em cada requisição |
+| `Name` | identifies the agent in `Step.Agent` and in handoffs (`transfer_to_<slug>`) |
+| `Instructions` | `system` message |
+| `Model` | overrides the client's model |
+| `Tools []*Tool` | tools |
+| `Handoffs []*Agent` | agents this one may transfer the conversation to |
+| `MaxTurns` | limit of model calls per `Run` (default 10; exceeded → `ErrMaxTurns`) |
+| `Temperature *float64`, `ResponseFormat` | passed on every request |
 
 ```go
 func Run(ctx, cli *Client, agent *Agent, input string, history ...Message) (*Result, error)
 func RunStream(ctx, cli *Client, agent *Agent, input string, fn func(Event), history ...Message) (*Result, error)
 ```
 
-`Result{Output, Agent, Messages, Steps, Usage, Turns}`. `Messages` serve de histórico para a
-próxima chamada (mensagens `system` do histórico são ignoradas; valem as do agente atual).
+`Result{Output, Agent, Messages, Steps, Usage, Turns}`. `Messages` serves as history for the
+next call (`system` messages from the history are ignored; the current agent's apply).
 
-`Event.Type`: `text` (`Text`), `tool_call` e `tool_result` (`Step`), `handoff` (`Step.HandoffTo`,
-`Agent` = novo agente), `done` (`Result`), `error` (`Err`).
+`Event.Type`: `text` (`Text`), `tool_call` and `tool_result` (`Step`), `handoff`
+(`Step.HandoffTo`, `Agent` = new agent), `done` (`Result`), `error` (`Err`).
 
-Ferramentas de uma mesma rodada rodam em paralelo; a ordem dos resultados no histórico é a
-ordem em que o modelo as pediu. Um handoff troca a mensagem `system`, mantém o histórico e
-continua o laço com o agente alvo.
+Tools of the same round run in parallel; the order of results in the history is the order
+the model asked for them. A handoff swaps the `system` message, keeps the history and
+continues the loop with the target agent.
 
-## Composição
+## Composition
 
 ```go
-func (a *Agent) AsTool(cli *Client, description string) *Tool   // {"input": "..."} → texto
+func (a *Agent) AsTool(cli *Client, description string) *Tool   // {"input": "..."} → text
 func Parallel(ctx, cli, input string, agents ...*Agent) ([]*Result, error)
 func Chain(ctx, cli, input string, agents ...*Agent) (*Result, error)
 ```
 
-`Parallel` devolve na ordem dos agentes e propaga o primeiro erro; `Chain` passa `Output` de um
-como `input` do próximo.
+`Parallel` returns in the agents' order and propagates the first error; `Chain` passes one's
+`Output` as the next one's `input`.

@@ -1,21 +1,21 @@
 ---
 title: Middleware
-description: Interceptar uma subárvore de rotas, passar valores para as páginas e proteger áreas.
+description: Intercept a subtree of routes, pass values to pages and protect areas.
 ---
 
-Um `middleware.go` roda antes de qualquer rota da sua pasta e das pastas abaixo. O da raiz
-roda em toda requisição; o de um grupo, só nas rotas do grupo.
+A `middleware.go` runs before any route in its folder and in the folders below. The one at
+the root runs on every request; the one in a group, only on the group's routes.
 
-## A assinatura
+## The signature
 
 ```go
 func Middleware(c *trilha.Ctx, next trilha.Next) error
 ```
 
-Chame `next()` para seguir. Não chame para interromper. Devolva um erro para que o
-tratamento padrão responda (redirecionamento, 404, 500).
+Call `next()` to continue. Do not call it to stop. Return an error so the default handling
+answers (redirect, 404, 500).
 
-## Medir tempo em todas as rotas
+## Timing every route
 
 `app/middleware.go`:
 
@@ -29,72 +29,72 @@ import (
 )
 
 func Middleware(c *trilha.Ctx, next trilha.Next) error {
-	inicio := time.Now()
+	start := time.Now()
 	err := next()
-	c.Header("Server-Timing", "app;dur="+time.Since(inicio).String())
+	c.Header("Server-Timing", "app;dur="+time.Since(start).String())
 	return err
 }
 ```
 
-O cabeçalho é escrito depois de `next()` mas antes de a resposta ser enviada, porque
-páginas são renderizadas em memória e escritas de uma vez.
+The header is written after `next()` but before the response is sent, because pages are
+rendered in memory and written at once.
 
-## Proteger a área do organizador
+## Protecting the organizer's area
 
-Um grupo de rota é o lugar natural para exigir login sem poluir a URL:
+A route group is the natural place to require login without polluting the URL:
 
 ```text
-app/organizador-/middleware.go
-app/organizador-/painel/page.go     → /painel
-app/organizador-/relatorio/page.go  → /relatorio
+app/organizer-/middleware.go
+app/organizer-/dashboard/page.go  → /dashboard
+app/organizer-/report/page.go     → /report
 ```
 
 ```go
-package organizador
+package organizer
 
 import "github.com/emersonjoe/trilha"
 
 func Middleware(c *trilha.Ctx, next trilha.Next) error {
-	ck, err := c.Cookie("sessao")
-	if err != nil || !sessao.Valida(ck.Value) {
-		return trilha.RedirectCode("/entrar?next="+c.Request().URL.Path, 302)
+	ck, err := c.Cookie("session")
+	if err != nil || !session.Valid(ck.Value) {
+		return trilha.RedirectCode("/login?next="+c.Request().URL.Path, 302)
 	}
-	c.Set("usuario", sessao.Usuario(ck.Value))
+	c.Set("user", session.User(ck.Value))
 	return next()
 }
 ```
 
-Na página, `c.Get("usuario")` devolve o valor. Valores vivem só durante a requisição.
+In the page, `c.Get("user")` returns the value. Values live only during the request.
 
-## Ordem
+## Order
 
-Para `GET /painel`:
+For `GET /dashboard`:
 
 ```text
-middleware(app) → middleware(app/organizador-) → Page → layouts
+middleware(app) → middleware(app/organizer-) → Page → layouts
 ```
 
-De fora para dentro. Se um middleware não chamar `next()`, os de dentro e a página não rodam,
-mas os de fora terminam normalmente (o de medição acima ainda escreve o cabeçalho).
+Outside in. If a middleware does not call `next()`, the inner ones and the page do not run,
+but the outer ones finish normally (the timing one above still writes its header).
 
-## Curto-circuito com resposta própria
+## Short-circuit with your own response
 
-Um middleware pode responder diretamente e devolver `nil`:
+A middleware may answer directly and return `nil`:
 
 ```go
-if c.Request().Header.Get("X-Manutencao") == "1" {
-	return c.Text(503, "em manutenção")
+if c.Request().Header.Get("X-Maintenance") == "1" {
+	return c.Text(503, "under maintenance")
 }
 ```
 
-Como a resposta já começou, o Trilha não tenta escrever outra.
+Since the response has already started, Trilha does not try to write another one.
 
-## Desafio
+## Challenge
 
-Crie `app/api/middleware.go` que exija o cabeçalho `Authorization: Bearer <chave>` em toda a
-API e responda 401 em JSON quando faltar, sem afetar as páginas HTML.
+Create `app/api/middleware.go` requiring the `Authorization: Bearer <key>` header across the
+whole API and answering 401 as JSON when it is missing, without affecting the HTML pages.
 
-:::solucao
+:::solution
 ```go
 package api
 
@@ -107,13 +107,13 @@ import (
 
 func Middleware(c *trilha.Ctx, next trilha.Next) error {
 	auth := c.Request().Header.Get("Authorization")
-	if !strings.HasPrefix(auth, "Bearer ") || !chaves.Valida(strings.TrimPrefix(auth, "Bearer ")) {
-		return trilha.Errorf(http.StatusUnauthorized, "chave inválida")
+	if !strings.HasPrefix(auth, "Bearer ") || !keys.Valid(strings.TrimPrefix(auth, "Bearer ")) {
+		return trilha.Errorf(http.StatusUnauthorized, "invalid key")
 	}
 	return next()
 }
 ```
 
-Como a pasta é `app/api/`, só as rotas de API passam por ele, e o erro sai em JSON porque a
-rota é `route.go`.
+Because the folder is `app/api/`, only API routes go through it, and the error comes out as
+JSON because the route is a `route.go`.
 :::

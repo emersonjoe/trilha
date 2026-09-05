@@ -1,106 +1,107 @@
 ---
-title: Formulários
-description: POST no mesmo page.go, proteção CSRF automática e o padrão redirecionar-depois-de-gravar.
+title: Forms
+description: POST in the same page.go, automatic CSRF protection and the redirect-after-write pattern.
 ---
 
-Uma página pode receber formulários exportando `POST` (ou `PUT`, `PATCH`, `DELETE`) ao lado
-de `Page`. O Trilha verifica o token CSRF antes de chamar a sua função.
+A page can receive forms by exporting `POST` (or `PUT`, `PATCH`, `DELETE`) next to `Page`.
+Trilha verifies the CSRF token before calling your function.
 
-## A página com o formulário
+## The page with the form
 
-`app/eventos/novo/page.go`:
+`app/events/new/page.go`:
 
 ```go
-package novo
+package new
 
 import (
 	"strings"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
-	"agenda/internal/eventos"
+	"agenda/internal/events"
 )
 
 func Page(c *trilha.Ctx) (h.Node, error) {
-	c.SetTitle("Novo evento")
-	erro := c.Query("erro")
+	c.SetTitle("New event")
+	msg := c.Query("error")
 	return h.Fragment(
-		h.H1(h.Text("Novo evento")),
-		h.If(erro != "", h.P(h.Class("erro"), h.Text(erro))),
-		h.Form(h.Method("post"), h.Action("/eventos/novo"),
+		h.H1(h.Text("New event")),
+		h.If(msg != "", h.P(h.Class("error"), h.Text(msg))),
+		h.Form(h.Method("post"), h.Action("/events/new"),
 			trilha.CSRFInput(c),
-			h.Label(h.For("nome"), h.Text("Nome")),
-			h.Input(h.ID("nome"), h.Name("nome"), h.Required(), h.Autofocus()),
-			h.Label(h.For("cidade"), h.Text("Cidade")),
-			h.Input(h.ID("cidade"), h.Name("cidade")),
-			h.Button(h.Type("submit"), h.Text("Publicar")),
+			h.Label(h.For("name"), h.Text("Name")),
+			h.Input(h.ID("name"), h.Name("name"), h.Required(), h.Autofocus()),
+			h.Label(h.For("city"), h.Text("City")),
+			h.Input(h.ID("city"), h.Name("city")),
+			h.Button(h.Type("submit"), h.Text("Publish")),
 		),
 	), nil
 }
 
 func POST(c *trilha.Ctx) error {
 	if err := c.FormErr(); err != nil {
-		return err // 400 em formulário inválido, 413 se passou do limite
+		return err // 400 on an invalid form, 413 if it exceeded the limit
 	}
-	nome := strings.TrimSpace(c.Form("nome"))
-	if nome == "" {
-		return c.Redirect("/eventos/novo?erro=Informe+o+nome")
+	name := strings.TrimSpace(c.Form("name"))
+	if name == "" {
+		return c.Redirect("/events/new?error=Enter+a+name")
 	}
-	ev := eventos.Criar(nome, c.Form("cidade"))
-	return c.Redirect("/eventos/" + ev.Slug)
+	ev := events.Create(name, c.Form("city"))
+	return c.Redirect("/events/" + ev.Slug)
 }
 ```
 
 @demo form
 
-## O que acontece no envio
+## What happens on submit
 
-1. O navegador manda `POST /eventos/novo` com os campos e o `_csrf`.
-2. O Trilha compara o `_csrf` com o cookie `trilha_csrf` (tempo constante). Diferente ou
-   ausente: **403**, e `POST` nem roda.
-3. `POST` roda e devolve `c.Redirect(...)`: resposta **303 See Other**. O navegador faz um
-   `GET` na URL nova. Recarregar a página não reenvia o formulário.
+1. The browser sends `POST /events/new` with the fields and the `_csrf`.
+2. Trilha compares `_csrf` with the `trilha_csrf` cookie (constant time). Different or
+   missing: **403**, and `POST` does not even run.
+3. `POST` runs and returns `c.Redirect(...)`: a **303 See Other** response. The browser does
+   a `GET` on the new URL. Reloading the page does not resubmit the form.
 
-`trilha.CSRFInput(c)` cria o cookie na primeira renderização e o campo oculto. Clientes
-JavaScript podem mandar o mesmo valor no cabeçalho `X-CSRF-Token`.
+`trilha.CSRFInput(c)` creates the cookie on the first render and the hidden field.
+JavaScript clients may send the same value in the `X-CSRF-Token` header.
 
-## Validação e mensagens
+## Validation and messages
 
-O exemplo acima devolve o erro pela query string, o que mantém o padrão POST → redirect →
-GET e funciona sem JavaScript. Para formulários maiores, guarde os valores digitados em um
-cookie curto ou renderize a página de novo com `return c.HTML(422, Page...)`, sem redirecionar.
+The example above returns the error through the query string, which keeps the POST →
+redirect → GET pattern and works without JavaScript. For larger forms, keep the typed values
+in a short-lived cookie or render the page again with `return c.HTML(422, Page...)`, without
+redirecting.
 
-## Métodos que o navegador não manda
+## Methods the browser does not send
 
-Formulários HTML só enviam GET e POST. Para "apagar", exporte `DELETE` para clientes de API
-e faça o `POST` da página chamar a mesma lógica:
+HTML forms only send GET and POST. For "delete", export `DELETE` for API clients and make the
+page's `POST` call the same logic:
 
 ```go
 func DELETE(c *trilha.Ctx) error {
-	if !eventos.Apagar(c.Param("slug")) {
+	if !events.Delete(c.Param("slug")) {
 		return trilha.ErrNotFound
 	}
-	return c.Redirect("/eventos")
+	return c.Redirect("/events")
 }
 
 func POST(c *trilha.Ctx) error { return DELETE(c) }
 ```
 
-## Limites
+## Limits
 
-O corpo da requisição tem limite de 1 MiB por padrão (`Config.MaxBodyBytes`). Acima disso a
-resposta é 413 antes de o seu código rodar.
+The request body is limited to 1 MiB by default (`Config.MaxBodyBytes`). Above that the
+response is 413 before your code runs.
 
-## Desafio
+## Challenge
 
-Adicione ao formulário um campo `vagas` numérico e rejeite valores negativos com uma
-mensagem, sem perder o padrão de redirecionamento.
+Add a numeric `seats` field to the form and reject negative values with a message, without
+losing the redirect pattern.
 
-:::solucao
+:::solution
 ```go
-vagas, err := strconv.Atoi(c.Form("vagas"))
-if err != nil || vagas < 0 {
-	return c.Redirect("/eventos/novo?erro=Vagas+precisa+ser+um+n%C3%BAmero+positivo")
+seats, err := strconv.Atoi(c.Form("seats"))
+if err != nil || seats < 0 {
+	return c.Redirect("/events/new?error=Seats+must+be+a+positive+number")
 }
 ```
 :::

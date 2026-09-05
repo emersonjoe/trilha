@@ -1,112 +1,112 @@
 ---
-title: Interface com ui
-description: O kit de componentes padrão do Trilha, compatível com temas do shadcn/ui, e como ele fica seu para customizar.
+title: UI kit
+description: Trilha's default component kit, compatible with shadcn/ui themes, and how it becomes yours to customize.
 ---
 
-Todo projeto criado com `trilha new` já vem com o kit `ui`: componentes tipados em Go
-(`ui.Button`, `ui.Card`, `ui.Field`...) que renderizam classes de um CSS pequeno e
-prefixado (`ui-*`), mais um JavaScript de 200 linhas para o que o HTML não faz sozinho
-(abas, avisos que somem, campos condicionais, tema claro/escuro). Nenhuma dependência: os
-três arquivos ficam em `public/` e são seus.
+Every project created with `trilha new` ships with the `ui` kit: typed components in Go
+(`ui.Button`, `ui.Card`, `ui.Field`...) that render classes from a small, prefixed CSS
+(`ui-*`), plus 200 lines of JavaScript for what HTML does not do on its own (tabs,
+disappearing toasts, conditional fields, light/dark theme). No dependencies: the three files
+live in `public/` and are yours.
 
 ```text
-public/ui.theme.css   ← as cores e o raio: edite ou cole um tema pronto
-public/ui.css         ← os componentes; `trilha ui` atualiza
-public/ui.js          ← comportamentos; `trilha ui` atualiza
+public/ui.theme.css   ← colors and radius: edit it or paste a ready-made theme
+public/ui.css         ← the components; `trilha ui` updates it
+public/ui.js          ← behaviors; `trilha ui` updates it
 ```
 
-O contrato de tema é o do [shadcn/ui](https://ui.shadcn.com) (MIT): as mesmas variáveis,
-`--background`, `--primary`, `--radius`, em `oklch`. Gere um tema em ui.shadcn.com/themes
-ou tweakcn.com, cole o bloco `:root { … } .dark { … }` em `ui.theme.css` e pronto: nada em Go
-muda. O Trilha não usa React nem Tailwind; a compatibilidade é só do tema.
+The theme contract is the one from [shadcn/ui](https://ui.shadcn.com) (MIT): the same
+variables, `--background`, `--primary`, `--radius`, in `oklch`. Generate a theme at
+ui.shadcn.com/themes or tweakcn.com, paste the `:root { … } .dark { … }` block into
+`ui.theme.css` and you are done: nothing in Go changes. Trilha uses neither React nor
+Tailwind; only the theme is compatible.
 
-## Ligando o kit
+## Wiring the kit
 
-O layout gerado já faz isso; num projeto existente, rode `trilha ui` e adicione:
+The generated layout already does this; in an existing project, run `trilha ui` and add:
 
 ```go
-h.Head(…, ui.Head(c)),          // ui.theme.css, ui.css, tema salvo, ui.js
-h.Body(ui.Body(),               // fonte e cores do tema
-	ui.Header(ui.Brand("/", "Meu app"), ui.Nav(ui.NavLink("/", "Início", true)), ui.Spacer(), ui.ThemeToggle()),
+h.Head(…, ui.Head(c)),          // ui.theme.css, ui.css, saved theme, ui.js
+h.Body(ui.Body(),               // theme font and colors
+	ui.Header(ui.Brand("/", "My app"), ui.Nav(ui.NavLink("/", "Home", true)), ui.Spacer(), ui.ThemeToggle()),
 	h.Main(ui.Container(children)),
-	ui.Toaster(),               // onde os avisos aparecem
+	ui.Toaster(),               // where toasts show up
 )
 ```
 
-## Variantes são atributos
+## Variants are attributes
 
-Um componente é uma função que devolve `h.Node`; variantes e tamanhos são atributos de
-classe que você mistura com qualquer atributo do `h`, na ordem que quiser. O `h` funde os
-`class` repetidos em um só.
+A component is a function returning `h.Node`; variants and sizes are class attributes you
+mix with any `h` attribute, in any order. `h` merges repeated `class` attributes into one.
 
 @demo ui-botoes
 
-## Formulários
+## Forms
 
-`ui.Field` junta rótulo, controle, ajuda e erro com os `id`/`for` e o `aria-*` certos.
-`ui.ShowWhen("campo", "valor")` mostra o grupo só enquanto o campo tem aquele valor e
-**desabilita os controles escondidos**, para eles não irem no `POST`. Sem JavaScript, os
-campos simplesmente aparecem todos.
+`ui.Field` joins label, control, help and error with the right `id`/`for` and `aria-*`.
+`ui.ShowWhen("field", "value")` shows the group only while the field has that value and
+**disables the hidden controls**, so they do not travel in the `POST`. Without JavaScript,
+all fields simply appear.
 
 @demo ui-formulario
 
-Depois de um `POST`, renderize o erro no próprio campo (`ui.Error("Título obrigatório")` +
-`ui.Invalid()` no controle) e um aviso que some sozinho: `ui.Toast("success", "Salvo!",
-4000)` dentro do `ui.Toaster()` do layout. O exemplo `examples/blog` faz as duas coisas em
+After a `POST`, render the error in the field itself (`ui.Error("Title is required")` +
+`ui.Invalid()` on the control) and a toast that disappears on its own: `ui.Toast("success",
+"Saved!", 4000)` inside the layout's `ui.Toaster()`. The `examples/blog` app does both in
 `app/blog/novo/page.go`.
 
-## Cards, abas, progresso
+## Cards, tabs, progress
 
 @demo ui-card
 
-## Diálogo e avisos
+## Dialog and toasts
 
-`ui.Dialog` é um `<dialog>` nativo: fecha com Esc, clique fora ou `ui.DialogClose`; o
-formulário dentro dele faz `POST` normalmente.
+`ui.Dialog` is a native `<dialog>`: it closes with Esc, a click outside or `ui.DialogClose`;
+the form inside it does a normal `POST`.
 
 @demo ui-dialogo
 
-## Tabelas com hierarquia
+## Tables with hierarchy
 
-`ui.Depth(n)` indenta a primeira célula: serve para plano de contas, árvore de categorias e
-qualquer *drill-down* renderizado no servidor. `ui.Num()` alinha números à direita.
+`ui.Depth(n)` indents the first cell: it serves charts of accounts, category trees and any
+server-rendered *drill-down*. `ui.Num()` aligns numbers to the right.
 
 @demo ui-tabela
 
-## Atualizar e customizar
+## Updating and customizing
 
-- `trilha ui` regrava `ui.css` e `ui.js` quando você atualiza o Trilha; nunca toca em
-  `ui.theme.css`. Se você editou `ui.css`, ele avisa e só sobrescreve com `--force`.
-- Para mudar um componente, edite `ui.css` (ele é seu) ou sobreponha em `style.css`. Para
-  um componente novo, escreva a função no seu pacote: `func Preco(v int) h.Node { return
-  h.Span(h.Class("ui-badge preco"), …) }`.
-- Ícones: `ui.Icon("check")`, um conjunto pequeno do [Lucide](https://lucide.dev) (ISC).
-  `ui.Icons()` lista os nomes. Para outros, cole o SVG num `h.Raw` seu.
+- `trilha ui` rewrites `ui.css` and `ui.js` when you update Trilha; it never touches
+  `ui.theme.css`. If you edited `ui.css`, it warns and only overwrites with `--force`.
+- To change a component, edit `ui.css` (it is yours) or override it in `style.css`. For a new
+  component, write the function in your own package: `func Price(v int) h.Node { return
+  h.Span(h.Class("ui-badge price"), …) }`.
+- Icons: `ui.Icon("check")`, a small set from [Lucide](https://lucide.dev) (ISC).
+  `ui.Icons()` lists the names. For others, paste the SVG into your own `h.Raw`.
 
-## Desafio
+## Challenge
 
-Faça um formulário de cadastro em que o campo "Empresa" só aparece quando "Tipo" é
-"Jurídica" e, ao enviar sem preencher, o erro apareça no campo e um aviso some após 3 s.
+Build a sign-up form where the "Company" field only appears when "Type" is "Company" and,
+when submitted empty, the error shows in the field and a toast disappears after 3 s.
 
-:::solucao
+:::solution
 ```go
 func Page(c *trilha.Ctx) (h.Node, error) {
-	erro := c.Query("erro")
+	msg := c.Query("error")
 	return h.Form(h.Method("post"), h.Class("ui-stack"), trilha.CSRFInput(c),
-		ui.Field("tipo", "Tipo", ui.Select(h.ID("tipo"), h.Name("tipo"),
-			h.Option(h.Value("pf"), h.Text("Física")), h.Option(h.Value("pj"), h.Text("Jurídica")))),
-		ui.Field("empresa", "Empresa", ui.Input(h.ID("empresa"), h.Name("empresa"), h.If(erro != "", ui.Invalid())),
-			ui.Error(erro), ui.With(ui.ShowWhen("tipo", "pj"))),
-		ui.Submit(h.Text("Cadastrar")),
-		h.If(erro != "", ui.Toaster(ui.Toast("error", erro, 3000))),
+		ui.Field("type", "Type", ui.Select(h.ID("type"), h.Name("type"),
+			h.Option(h.Value("individual"), h.Text("Individual")), h.Option(h.Value("company"), h.Text("Company")))),
+		ui.Field("company", "Company", ui.Input(h.ID("company"), h.Name("company"), h.If(msg != "", ui.Invalid())),
+			ui.Error(msg), ui.With(ui.ShowWhen("type", "company"))),
+		ui.Submit(h.Text("Sign up")),
+		h.If(msg != "", ui.Toaster(ui.Toast("error", msg, 3000))),
 	), nil
 }
 
 func POST(c *trilha.Ctx) error {
-	if c.Form("tipo") == "pj" && strings.TrimSpace(c.Form("empresa")) == "" {
-		return c.Redirect("/cadastro?erro=Empresa+obrigat%C3%B3ria")
+	if c.Form("type") == "company" && strings.TrimSpace(c.Form("company")) == "" {
+		return c.Redirect("/signup?error=Company+is+required")
 	}
-	return c.Redirect("/cadastro/ok")
+	return c.Redirect("/signup/done")
 }
 ```
 :::

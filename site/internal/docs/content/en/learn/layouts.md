@@ -1,26 +1,26 @@
 ---
-title: Layouts aninhados
-description: Um layout por pasta, do mais interno ao mais externo, e como o título viaja entre eles.
+title: Nested layouts
+description: One layout per folder, from the innermost to the outermost, and how the title travels between them.
 ---
 
-Um `layout.go` envolve todas as páginas da sua pasta e das pastas abaixo. O layout de
-`app/` é o raiz e normalmente é o único que escreve `<html>`.
+A `layout.go` wraps every page in its folder and in the folders below. The layout in
+`app/` is the root and is usually the only one that writes `<html>`.
 
-## A assinatura
+## The signature
 
 ```go
 func Layout(c *trilha.Ctx, children h.Node) (h.Node, error)
 ```
 
-`children` é a página já renderizada como nó, ou o layout mais interno já aplicado. Você
-decide onde colocá-la.
+`children` is the page already rendered as a node, or the innermost layout already applied.
+You decide where to place it.
 
-## Um layout para a agenda
+## A layout for the agenda
 
-Crie `app/eventos/layout.go`:
+Create `app/events/layout.go`:
 
 ```go
-package eventos
+package events
 
 import (
 	"github.com/emersonjoe/trilha"
@@ -30,69 +30,69 @@ import (
 func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	return h.Section(h.Class("agenda"),
 		h.Nav(
-			h.A(h.Href("/eventos"), h.Text("Todos")),
-			h.A(h.Href("/eventos/novo"), h.Text("Novo evento")),
+			h.A(h.Href("/events"), h.Text("All")),
+			h.A(h.Href("/events/new"), h.Text("New event")),
 		),
 		children,
 	), nil
 }
 ```
 
-Agora `/eventos`, `/eventos/novo` e `/eventos/qualquer` aparecem dentro dessa `<section>`,
-que por sua vez aparece dentro do `<main>` do layout raiz.
+Now `/events`, `/events/new` and `/events/anything` appear inside that `<section>`, which in
+turn appears inside the `<main>` of the root layout.
 
 @demo layout
 
-## A ordem de execução
+## Execution order
 
-Para `GET /eventos/encontro-go`:
+For `GET /events/go-meetup`:
 
-1. `app/eventos/slug_/page.go` → `Page` produz o nó da página.
-2. `app/eventos/layout.go` → recebe esse nó como `children`.
-3. `app/layout.go` → recebe o resultado do passo 2.
+1. `app/events/slug_/page.go` → `Page` produces the page node.
+2. `app/events/layout.go` → receives that node as `children`.
+3. `app/layout.go` → receives the result of step 2.
 
-De dentro para fora. Uma pasta sem `layout.go` simplesmente não participa.
+Inside out. A folder without `layout.go` simply does not take part.
 
-## Título e outros dados da página para o layout
+## Title and other page data for the layout
 
-A página roda **antes** dos layouts. Por isso `c.SetTitle("Eventos")` na página funciona no
-layout raiz, que lê `c.Title()` para montar o `<title>`. O mesmo vale para qualquer valor
-que você guardar com `c.Set(chave, valor)` e ler com `c.Get(chave)`.
+The page runs **before** the layouts. That is why `c.SetTitle("Events")` in the page works
+in the root layout, which reads `c.Title()` to build the `<title>`. The same goes for any
+value you store with `c.Set(key, value)` and read with `c.Get(key)`.
 
 ```go
-// na página
-c.SetTitle("Encontro Go")
-c.Set("descricao", "Uma noite de palestras em Campinas")
+// in the page
+c.SetTitle("Go Meetup")
+c.Set("description", "An evening of talks in Campinas")
 
-// no layout raiz
+// in the root layout
 h.Title(h.Text(c.Title())),
-h.Meta(h.Name("description"), h.Content(str(c.Get("descricao")))),
+h.Meta(h.Name("description"), h.Content(str(c.Get("description")))),
 ```
 
-:::dica
-Se não existir `app/layout.go`, o Trilha embrulha a página em um `<html>` mínimo. Útil nos
-primeiros minutos; crie o seu assim que quiser CSS.
+:::tip
+If there is no `app/layout.go`, Trilha wraps the page in a minimal `<html>`. Handy in the
+first minutes; create your own as soon as you want CSS.
 :::
 
-## Layouts em grupos de rota
+## Layouts in route groups
 
-Um grupo (`organizador-/`) pode ter layout. Ele vale para as páginas do grupo e conta como
-um nível na ordem: `página → layout do grupo → layout raiz`.
+A group (`organizer-/`) may have a layout. It applies to the pages of the group and counts as
+one level in the order: `page → group layout → root layout`.
 
-## Desafio
+## Challenge
 
-Faça o layout de `app/eventos/` mostrar, abaixo da navegação, um `<p>` com o título da
-página atual, para confirmar que o título definido em `Page` já está disponível ali.
+Make the layout of `app/events/` show, below the navigation, a `<p>` with the title of the
+current page, to confirm that the title set in `Page` is already available there.
 
-:::solucao
+:::solution
 ```go
 func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	return h.Section(h.Class("agenda"),
 		h.Nav(
-			h.A(h.Href("/eventos"), h.Text("Todos")),
-			h.A(h.Href("/eventos/novo"), h.Text("Novo evento")),
+			h.A(h.Href("/events"), h.Text("All")),
+			h.A(h.Href("/events/new"), h.Text("New event")),
 		),
-		h.P(h.Class("migalha"), h.Text(c.Title())),
+		h.P(h.Class("crumb"), h.Text(c.Title())),
 		children,
 	), nil
 }

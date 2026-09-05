@@ -25,7 +25,7 @@ go env -w GOPRIVATE=github.com/sua-org/*
 
 Para um módulo recém-publicado, prefira instalar por tag (`@v0.1.0`) em vez de `@latest`.
 
-## `pasta app/ não encontrada`
+## `app/ directory not found`
 
 Os comandos da CLI rodam na raiz do projeto, a pasta que contém `app/`. Se o app fica dentro
 de um módulo maior (como `examples/blog` no repositório do Trilha), rode a CLI dentro dessa
@@ -65,3 +65,9 @@ proxy (nginx, extensão) está bloqueando `/_trilha/events`, que é uma conexão
 
 Em produção `public/` está embutido no binário. Rode `trilha build` de novo. Em
 desenvolvimento a pasta é lida do disco e a mudança aparece na hora.
+
+## A CLI fala inglês (ou português) e eu quero o outro idioma
+
+A CLI segue `TRILHA_LANG`, depois `LC_ALL`, `LC_MESSAGES` e `LANG`. Defina
+`TRILHA_LANG=pt` ou `TRILHA_LANG=en` para forçar um idioma; qualquer valor que não comece
+com `pt` significa inglês.

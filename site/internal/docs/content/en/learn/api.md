@@ -1,60 +1,60 @@
 ---
-title: Rotas de API
-description: route.go com uma função por método HTTP, JSON de entrada e saída e erros com status.
+title: API routes
+description: route.go with one function per HTTP method, JSON in and out, and errors with status codes.
 ---
 
-Uma pasta com `route.go` responde JSON em vez de HTML. Cada método HTTP é uma função
-exportada com o mesmo formato de sempre: `func(c *trilha.Ctx) error`.
+A folder with `route.go` answers JSON instead of HTML. Each HTTP method is an exported
+function with the usual shape: `func(c *trilha.Ctx) error`.
 
-## Listar e criar
+## List and create
 
-`app/api/eventos/route.go`:
+`app/api/events/route.go`:
 
 ```go
-package eventos
+package events
 
 import (
 	"net/http"
 	"strings"
 
 	"github.com/emersonjoe/trilha"
-	"agenda/internal/eventos"
+	"agenda/internal/events"
 )
 
 func GET(c *trilha.Ctx) error {
-	return c.JSON(http.StatusOK, eventos.Todos())
+	return c.JSON(http.StatusOK, events.All())
 }
 
 func POST(c *trilha.Ctx) error {
 	var in struct {
-		Nome   string `json:"nome"`
-		Cidade string `json:"cidade"`
+		Name string `json:"name"`
+		City string `json:"city"`
 	}
 	if err := c.BindJSON(&in); err != nil {
-		return err // 400 em JSON inválido, 413 acima do limite
+		return err // 400 on invalid JSON, 413 above the limit
 	}
-	if strings.TrimSpace(in.Nome) == "" {
-		return trilha.Errorf(http.StatusUnprocessableEntity, "nome é obrigatório")
+	if strings.TrimSpace(in.Name) == "" {
+		return trilha.Errorf(http.StatusUnprocessableEntity, "name is required")
 	}
-	ev := eventos.Criar(in.Nome, in.Cidade)
-	c.Header("Location", "/api/eventos/"+ev.Slug)
+	ev := events.Create(in.Name, in.City)
+	c.Header("Location", "/api/events/"+ev.Slug)
 	return c.JSON(http.StatusCreated, ev)
 }
 ```
 
 ```bash
-curl -s localhost:3000/api/eventos
-curl -s -X POST localhost:3000/api/eventos -d '{"nome":"Oficina de HTTP","cidade":"Recife"}'
-curl -s -X PUT localhost:3000/api/eventos     # 405 com Allow: GET, POST
+curl -s localhost:3000/api/events
+curl -s -X POST localhost:3000/api/events -d '{"name":"HTTP Workshop","city":"Recife"}'
+curl -s -X PUT localhost:3000/api/events     # 405 with Allow: GET, POST
 ```
 
-## Um recurso por slug
+## One resource per slug
 
-`app/api/eventos/slug_/route.go` responde `/api/eventos/{slug}`:
+`app/api/events/slug_/route.go` answers `/api/events/{slug}`:
 
 ```go
 func GET(c *trilha.Ctx) error {
-	ev, ok := eventos.Buscar(c.Param("slug"))
+	ev, ok := events.Find(c.Param("slug"))
 	if !ok {
 		return trilha.ErrNotFound // {"error":"Not Found","status":404}
 	}
@@ -62,7 +62,7 @@ func GET(c *trilha.Ctx) error {
 }
 
 func DELETE(c *trilha.Ctx) error {
-	if !eventos.Apagar(c.Param("slug")) {
+	if !events.Delete(c.Param("slug")) {
 		return trilha.ErrNotFound
 	}
 	c.Writer().WriteHeader(http.StatusNoContent)
@@ -70,54 +70,54 @@ func DELETE(c *trilha.Ctx) error {
 }
 ```
 
-## Erros viram status
+## Errors become status codes
 
-| Você devolve | Resposta |
+| You return | Response |
 |---|---|
-| `nil` | o que você escreveu; 204 se não escreveu nada |
-| `trilha.ErrNotFound` | 404 em JSON |
-| `trilha.Errorf(422, "msg")` | 422 com `{"error":"msg"}` |
+| `nil` | whatever you wrote; 204 if you wrote nothing |
+| `trilha.ErrNotFound` | 404 as JSON |
+| `trilha.Errorf(422, "msg")` | 422 with `{"error":"msg"}` |
 | `c.Redirect(url)` | 303 |
-| qualquer outro `error` | 500 com `{"error":"Internal Server Error"}`; a mensagem real vai para o log |
+| any other `error` | 500 with `{"error":"Internal Server Error"}`; the real message goes to the log |
 
-Em rotas de API os erros saem em JSON; em páginas, em HTML. O formato segue o tipo de rota,
-não o cabeçalho `Accept`.
+In API routes errors come out as JSON; in pages, as HTML. The format follows the kind of
+route, not the `Accept` header.
 
-## CSRF em APIs
+## CSRF in APIs
 
-Por padrão, `route.go` **não** exige token CSRF: APIs costumam ser chamadas com token de
-sessão ou bearer, e o cookie `SameSite=Lax` já protege contra envio automático pelo
-navegador. Se a sua API for chamada pelo próprio site com cookies, ligue
-`Config.CSRFForAPI` e mande `X-CSRF-Token`.
+By default `route.go` does **not** require a CSRF token: APIs are usually called with a
+session token or a bearer token, and the `SameSite=Lax` cookie already blocks automatic
+submission by the browser. If your API is called by the site itself with cookies, turn on
+`Config.CSRFForAPI` and send `X-CSRF-Token`.
 
-## Desafio
+## Challenge
 
-Adicione `PATCH` em `/api/eventos/{slug}` que atualize só os campos presentes no JSON e
-responda 200 com o evento novo. JSON com campos desconhecidos deve dar 400.
+Add `PATCH` to `/api/events/{slug}` that updates only the fields present in the JSON and
+answers 200 with the new event. JSON with unknown fields must return 400.
 
-:::solucao
-`c.BindJSON` já rejeita campos desconhecidos. Para "só os campos presentes", use ponteiros:
+:::solution
+`c.BindJSON` already rejects unknown fields. For "only the fields present", use pointers:
 
 ```go
 func PATCH(c *trilha.Ctx) error {
 	var in struct {
-		Nome   *string `json:"nome"`
-		Cidade *string `json:"cidade"`
+		Name *string `json:"name"`
+		City *string `json:"city"`
 	}
 	if err := c.BindJSON(&in); err != nil {
 		return err
 	}
-	ev, ok := eventos.Buscar(c.Param("slug"))
+	ev, ok := events.Find(c.Param("slug"))
 	if !ok {
 		return trilha.ErrNotFound
 	}
-	if in.Nome != nil {
-		ev.Nome = *in.Nome
+	if in.Name != nil {
+		ev.Name = *in.Name
 	}
-	if in.Cidade != nil {
-		ev.Cidade = *in.Cidade
+	if in.City != nil {
+		ev.City = *in.City
 	}
-	eventos.Salvar(ev)
+	events.Save(ev)
 	return c.JSON(200, ev)
 }
 ```

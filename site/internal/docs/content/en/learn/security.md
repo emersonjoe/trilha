@@ -1,43 +1,43 @@
 ---
-title: Segurança
-description: O que o Trilha protege por padrão, como ajustar, e o que continua sendo responsabilidade sua.
+title: Security
+description: What Trilha protects by default, how to adjust it, and what remains your responsibility.
 ---
 
-O Trilha segue duas referências: o **NIST Cybersecurity Framework 2.0** (as funções
-Identificar, Proteger, Detectar, Responder, Recuperar e Governar) e o **OWASP ASVS 4.0**
-nível 2. Um framework web só consegue *proteger* e *detectar*; o restante é trabalho de quem
-opera o app, e este capítulo diz exatamente onde termina um e começa o outro.
+Trilha follows two references: the **NIST Cybersecurity Framework 2.0** (the Identify,
+Protect, Detect, Respond, Recover and Govern functions) and **OWASP ASVS 4.0** level 2. A web
+framework can only *protect* and *detect*; the rest is the work of whoever operates the app,
+and this chapter says exactly where one ends and the other begins.
 
-## O que já vem ligado
+## What comes turned on
 
-| Controle | Padrão | NIST CSF 2.0 | OWASP ASVS |
+| Control | Default | NIST CSF 2.0 | OWASP ASVS |
 |---|---|---|---|
-| Escape de HTML (`h`) e escape contextual (`tmpl`) | sempre | PR.DS | V5.3 |
-| `Content-Security-Policy` com nonce por requisição | ligado | PR.PS | V14.4 |
-| `Strict-Transport-Security` | ligado em HTTPS | PR.DS | V9.1 |
-| `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` | ligados | PR.PS | V14.4 |
-| CSRF por *double-submit cookie* em formulários | ligado | PR.AA | V4.2 |
-| Limite do corpo da requisição (1 MiB) | ligado | PR.IR | V13.1 |
-| Timeouts de leitura, escrita e ociosidade; limite de cabeçalhos | ligados | PR.IR | V13.1 |
-| Estáticos restritos a `public/` | sempre | PR.DS | V12.3 |
-| Erros opacos em produção; sem stack, sem caminho | ligado | PR.DS | V7.4 |
-| Logs estruturados sem corpo nem cookies, com `request_id` | sempre | DE.CM | V7.1 |
-| Eventos de segurança (CSRF, 401/403, 413, 429, panic) no log | sempre | DE.AE | V7.2 |
-| Cookies assinados (`SetSigned`/`Signed`) | com `TRILHA_SECRET` | PR.AA | V3.4 |
-| Limite de taxa por cliente | opcional | PR.IR | V11.1 |
-| Proxies confiáveis (`X-Forwarded-*`) | opcional | PR.AA | V14.1 |
+| HTML escaping (`h`) and contextual escaping (`tmpl`) | always | PR.DS | V5.3 |
+| `Content-Security-Policy` with a per-request nonce | on | PR.PS | V14.4 |
+| `Strict-Transport-Security` | on over HTTPS | PR.DS | V9.1 |
+| `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` | on | PR.PS | V14.4 |
+| CSRF by *double-submit cookie* on forms | on | PR.AA | V4.2 |
+| Request body limit (1 MiB) | on | PR.IR | V13.1 |
+| Read, write and idle timeouts; header limit | on | PR.IR | V13.1 |
+| Static files restricted to `public/` | always | PR.DS | V12.3 |
+| Opaque errors in production; no stack, no paths | on | PR.DS | V7.4 |
+| Structured logs without body or cookies, with `request_id` | always | DE.CM | V7.1 |
+| Security events (CSRF, 401/403, 413, 429, panic) in the log | always | DE.AE | V7.2 |
+| Signed cookies (`SetSigned`/`Signed`) | with `TRILHA_SECRET` | PR.AA | V3.4 |
+| Per-client rate limit | optional | PR.IR | V11.1 |
+| Trusted proxies (`X-Forwarded-*`) | optional | PR.AA | V14.1 |
 
-## CSP e scripts inline
+## CSP and inline scripts
 
-A política padrão só permite scripts do próprio site ou com o **nonce** da requisição. Um
-`<script>` inline precisa dele:
+The default policy only allows scripts from the site itself or carrying the request's
+**nonce**. An inline `<script>` needs it:
 
 ```go
-h.Script(trilha.NonceAttr(c), h.Raw(`document.body.dataset.pronto = "1"`))
+h.Script(trilha.NonceAttr(c), h.Raw(`document.body.dataset.ready = "1"`))
 ```
 
-O script de recarga do `trilha dev` já usa o nonce. Para liberar uma origem externa (fontes,
-CDN de imagens) sem reescrever a política, acrescente em `app/setup.go`:
+The reload script of `trilha dev` already uses the nonce. To allow an external origin
+(fonts, an image CDN) without rewriting the policy, add to `app/setup.go`:
 
 ```go
 func Setup(a *trilha.App) error {
@@ -49,115 +49,115 @@ func Setup(a *trilha.App) error {
 }
 ```
 
-Para uma política totalmente sua, defina `a.Security().CSP` (a string pode conter
-`{nonce}`); para desligar um cabeçalho, atribua `trilha.Off`.
+For a policy entirely your own, set `a.Security().CSP` (the string may contain `{nonce}`);
+to turn a header off, assign `trilha.Off`.
 
-## Atrás de um proxy
+## Behind a proxy
 
-Se o app roda atrás de nginx, Caddy ou um balanceador, o `RemoteAddr` é o proxy. Diga ao
-Trilha em quem confiar para que `X-Forwarded-For` e `X-Forwarded-Proto` valham:
+If the app runs behind nginx, Caddy or a load balancer, `RemoteAddr` is the proxy. Tell
+Trilha whom to trust so that `X-Forwarded-For` and `X-Forwarded-Proto` count:
 
 ```bash
 TRILHA_TRUSTED_PROXIES=10.0.0.0/8,127.0.0.1
 ```
 
-Só então `c.ClientIP()` devolve o cliente real, o HSTS é enviado e o limite de taxa conta por
-cliente e não por proxy. Sem essa variável, cabeçalhos `X-Forwarded-*` são ignorados, o que
-é o comportamento seguro.
+Only then does `c.ClientIP()` return the real client, HSTS is sent and the rate limit counts
+per client instead of per proxy. Without that variable, `X-Forwarded-*` headers are
+ignored, which is the safe behavior.
 
-## Sessão com cookie assinado
+## Session with a signed cookie
 
-Um cookie assinado não pode ser forjado nem alterado, e vence sozinho:
+A signed cookie cannot be forged or altered, and it expires on its own:
 
 ```go
-// no POST do login
-if err := c.SetSigned("sessao", usuario.ID, 8*time.Hour); err != nil {
+// in the login POST
+if err := c.SetSigned("session", user.ID, 8*time.Hour); err != nil {
 	return err
 }
 
-// no middleware da área restrita
-id, ok := c.Signed("sessao")
+// in the middleware of the restricted area
+id, ok := c.Signed("session")
 if !ok {
-	return trilha.RedirectCode("/entrar", 302)
+	return trilha.RedirectCode("/login", 302)
 }
 ```
 
-A chave vem de `TRILHA_SECRET` (32 bytes ou mais; `openssl rand -base64 32`). Em
-desenvolvimento o `trilha dev` gera uma chave efêmera por sessão. Em produção sem a
-variável, o app sobe com um aviso e `SetSigned` devolve erro. Para trocar a chave sem
-derrubar sessões, coloque a antiga em `TRILHA_SECRET_PREVIOUS` até que expirem.
+The key comes from `TRILHA_SECRET` (32 bytes or more; `openssl rand -base64 32`). In
+development, `trilha dev` generates an ephemeral key per session. In production without the
+variable, the app starts with a warning and `SetSigned` returns an error. To rotate the key
+without dropping sessions, put the old one in `TRILHA_SECRET_PREVIOUS` until they expire.
 
-:::atencao
-O cookie assinado garante integridade, não sigilo: o valor é legível por quem tem o cookie.
-Guarde nele um identificador, nunca dados sensíveis.
+:::warning
+A signed cookie guarantees integrity, not secrecy: the value is readable by whoever holds
+the cookie. Store an identifier in it, never sensitive data.
 :::
 
-## Limite de taxa
+## Rate limiting
 
-Global, em `app/setup.go`, ou por subárvore, em um `middleware.go`:
+Globally, in `app/setup.go`, or per subtree, in a `middleware.go`:
 
 ```go
 // app/api/middleware.go
-var limit = trilha.Limit(5, 20) // 5 req/s por cliente, rajada de 20
+var limit = trilha.Limit(5, 20) // 5 req/s per client, burst of 20
 
 func Middleware(c *trilha.Ctx, next trilha.Next) error {
 	return limit(c, next)
 }
 ```
 
-A resposta é 429 com `Retry-After`. O contador vive na memória do processo: com várias
-réplicas, cada uma conta a sua parte.
+The response is 429 with `Retry-After`. The counter lives in the process memory: with
+several replicas, each one counts its own share.
 
-## Detectar e responder
+## Detect and respond
 
-Cada bloqueio gera uma linha `security` no log, com `kind`, `ip`, `path` e `request_id`, e
-chama `Config.OnSecurityEvent` se você definir um. É o gancho para contar tentativas,
-alertar ou bloquear um IP no firewall.
+Every block produces a `security` line in the log, with `kind`, `ip`, `path` and
+`request_id`, and calls `Config.OnSecurityEvent` if you set one. That is the hook to count
+attempts, alert or block an IP at the firewall.
 
-Antes de publicar, rode:
+Before publishing, run:
 
 ```bash
 trilha audit
 ```
 
-Ele confere `TRILHA_SECRET`, proxies, `trilha_gen.go`, versão do Go, `go vet` e
-`govulncheck`, e sai com erro se houver item crítico.
+It checks `TRILHA_SECRET`, proxies, `trilha_gen.go`, the Go version, `go vet` and
+`govulncheck`, and exits with an error when there is a critical item.
 
-## O que continua sendo seu
+## What remains yours
 
-- **Autenticação e autorização**: quem é o usuário e o que pode fazer. O Trilha dá o
-  cookie assinado e o middleware; a regra de negócio é sua.
-- **Dados em repouso**: criptografia do banco, backups, retenção.
-- **TLS**: termine no proxy ou use um certificado no próprio `http.Server` via
+- **Authentication and authorization**: who the user is and what they may do. Trilha gives
+  you the signed cookie and the middleware; the business rule is yours.
+- **Data at rest**: database encryption, backups, retention.
+- **TLS**: terminate at the proxy or use a certificate in your own `http.Server` through
   `a.Handler()`.
-- **Segredos**: só em variáveis de ambiente ou em um cofre; nunca no repositório.
-- **Governar, Identificar, Recuperar**: inventário, classificação de dados, plano de
-  resposta e restauração são processos da organização. O `SECURITY.md` do projeto descreve
-  como relatar vulnerabilidades do framework.
+- **Secrets**: only in environment variables or a vault; never in the repository.
+- **Govern, Identify, Recover**: inventory, data classification, response plan and
+  restoration are processes of the organization. The project's `SECURITY.md` describes how
+  to report vulnerabilities in the framework.
 
-## Desafio
+## Challenge
 
-Faça a área `/painel` do seu app exigir sessão assinada, com um limite de 10 tentativas por
-minuto no formulário de login, e registre em `OnSecurityEvent` quantos bloqueios ocorreram.
+Make the `/dashboard` area of your app require a signed session, with a limit of 10 attempts
+per minute on the login form, and count in `OnSecurityEvent` how many blocks happened.
 
-:::solucao
+:::solution
 ```go
-// app/entrar/middleware.go
+// app/login/middleware.go
 var limit = trilha.Limit(10.0/60, 10)
 
 func Middleware(c *trilha.Ctx, next trilha.Next) error { return limit(c, next) }
 
 // app/setup.go
-var bloqueios atomic.Int64
+var blocks atomic.Int64
 
 func Setup(a *trilha.App) error {
 	a.Config().OnSecurityEvent = func(e trilha.SecurityEvent) {
-		if e.Kind == "rate" { bloqueios.Add(1) }
+		if e.Kind == "rate" { blocks.Add(1) }
 	}
 	return nil
 }
 ```
 
-`a.Config()` dá acesso à configuração dentro de `Setup`; o limitador do login usa
-`trilha.Limit` com 10 fichas por minuto.
+`a.Config()` gives access to the configuration inside `Setup`; the login limiter uses
+`trilha.Limit` with 10 tokens per minute.
 :::

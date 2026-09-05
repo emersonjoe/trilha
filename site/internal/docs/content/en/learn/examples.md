@@ -1,52 +1,58 @@
 ---
-title: Exemplos
-description: Três apps completos em examples/, do básico ao complexo, e o que cada um ensina.
+title: Examples
+description: Four complete apps in examples/, from basic to complex, and what each one teaches.
 ---
 
-Os exemplos são apps de verdade, com testes de integração que rodam no `make test` do
-repositório. Cada um tem um `README.md` curto. Rode qualquer um com `trilha dev` dentro da
-pasta (ou `go run ../../cmd/trilha dev` a partir do clone).
+The examples are real apps, with integration tests that run in the repository's `make test`.
+Each has a short `README.md`. Run any of them with `trilha dev` inside the folder (or
+`go run ../../cmd/trilha dev` from the clone).
 
-| Nível | Pasta | O que ensina |
+:::note
+The example apps are written in Portuguese: folder names, identifiers and UI texts (for
+instance `app/blog/novo` is "new post", `cadastro` is "sign-up", `orcamento` is "budget").
+The code is the same Trilha you read about in English here; only the words differ.
+:::
+
+| Level | Folder | What it teaches |
 |---|---|---|
-| Básico | `examples/blog` | todas as convenções de arquivo, layouts aninhados, grupos de rota, API JSON, middleware, sessão assinada, `tmpl` |
-| Médio | `examples/cadastro` | formulário com regras: campos condicionais, validação no servidor com erros por campo, seleção dependente, aviso que some, layout responsivo |
-| Complexo | `examples/orcamento` | domínio em árvore (plano de contas), agregação, drill-down por rota dinâmica, componentes aninhados e recursivos, diálogo com formulário, filtro por período, CSV |
-| IA | `examples/assistente` | chat em streaming, agente com ferramentas, handoff, servidor MCP |
+| Basic | `examples/blog` | every file convention, nested layouts, route groups, JSON API, middleware, signed session, `tmpl` |
+| Medium | `examples/cadastro` | a form with rules: conditional fields, server-side validation with per-field errors, dependent select, disappearing toast, responsive layout |
+| Complex | `examples/orcamento` | tree-shaped domain (chart of accounts), aggregation, drill-down through a dynamic route, nested and recursive components, dialog with a form, period filter, CSV |
+| AI | `examples/assistente` | streaming chat, agent with tools, handoff, MCP server |
 
-## Médio: cadastro
+## Medium: sign-up (`cadastro`)
 
-O modelo do formulário é uma struct com tags `form`; `c.Bind(&in)` a preenche (structs
-aninhadas são achatadas, com prefixo opcional):
+The form model is a struct with `form` tags; `c.Bind(&in)` fills it (nested structs are
+flattened, with an optional prefix):
 
 ```go
 type Cliente struct {
-	Tipo     string   `form:"tipo"`
-	Nome     string   `form:"nome"`
-	Endereco Endereco            // cep, rua, uf, cidade
-	Cobranca Endereco `form:"cob_"` // cob_cep, cob_rua...
-	Novidades bool    `form:"novidades"`
+	Tipo     string   `form:"tipo"`      // type
+	Nome     string   `form:"nome"`      // name
+	Endereco Endereco            // cep, rua, uf, cidade (address)
+	Cobranca Endereco `form:"cob_"` // cob_cep, cob_rua... (billing address)
+	Novidades bool    `form:"novidades"` // newsletter
 }
 ```
 
-A validação é uma função pura que devolve `trilha.FieldErrors`, e o `POST` decide:
+Validation is a pure function returning `trilha.FieldErrors`, and `POST` decides:
 
 ```go
 func POST(c *trilha.Ctx) error {
 	var in clientes.Cliente
 	if err := c.Bind(&in); err != nil {
-		return err                       // conversão inválida → 422
+		return err                       // invalid conversion → 422
 	}
-	clientes.Normalizar(&in)             // ignora o que o tipo não usa
+	clientes.Normalizar(&in)             // drops what the type does not use
 	if errs := clientes.Validar(in); errs.Any() {
-		return c.Render(422, tela(c, in, errs)) // mesma página, com layouts
+		return c.Render(422, tela(c, in, errs)) // same page, with layouts
 	}
 	clientes.Salvar(in)
-	return c.Redirect("/?ok=1")          // PRG + aviso que some
+	return c.Redirect("/?ok=1")          // PRG + disappearing toast
 }
 ```
 
-Na tela, cada campo lê o valor e o erro do mesmo lugar:
+On screen, each field reads its value and its error from the same place:
 
 ```go
 ui.Field("cnpj", "CNPJ",
@@ -54,18 +60,18 @@ ui.Field("cnpj", "CNPJ",
 	ui.Errors(errs, "cnpj"))
 ```
 
-Os grupos condicionais usam `ui.ShowWhen("tipo", "pj")`: escondidos ficam desabilitados e
-não vão no `POST`; e como alguém pode montar o `POST` à mão, `Normalizar` zera o que o tipo
-não usa antes de validar. O `<select>` de cidade é preenchido por `GET /api/cidades?uf=` com
-20 linhas de `app.js`; no 422 o servidor já devolve as cidades da UF escolhida, então a
-página volta completa sem JavaScript.
+Conditional groups use `ui.ShowWhen("tipo", "pj")`: hidden ones are disabled and do not
+travel in the `POST`; and since anyone can craft the `POST` by hand, `Normalizar` clears what
+the type does not use before validating. The city `<select>` is filled by
+`GET /api/cidades?uf=` with 20 lines of `app.js`; on a 422 the server already returns the
+cities of the chosen state, so the page comes back complete without JavaScript.
 
-## Complexo: orçamento
+## Complex: budget (`orcamento`)
 
-O plano de contas é uma árvore (`Conta{Codigo, Nome, Filhos}`); orçado e realizado de uma
-conta sintética são a soma das filhas, calculados na leitura. Os componentes espelham a
-árvore: `Linha` renderiza a conta e chama a si mesma para as filhas, `ui.Depth(n)`
-indenta:
+The chart of accounts is a tree (`Conta{Codigo, Nome, Filhos}`); budgeted and actual values
+of a summary account are the sum of its children, computed on read. The components mirror
+the tree: `Linha` renders the account and calls itself for the children, `ui.Depth(n)`
+indents:
 
 ```go
 func Linha(c *plano.Conta, mes string, nivel, max int) h.Node {
@@ -79,26 +85,27 @@ func Linha(c *plano.Conta, mes string, nivel, max int) h.Node {
 }
 ```
 
-O drill-down é a rota `app/contas/codigo_/page.go`: breadcrumb com `Caminho()`, filhas
-(mesma `Tabela`) ou lançamentos (conta analítica). O formulário de lançamento é **um só**
-(`FormLancamento`), usado dentro de `ui.Dialog` na visão geral e no drill-down, e sozinho em
-`/lancamentos`; o `POST` valida com `c.Bind` + `plano.Validar` e, no 422, `app.js` reabre o
-diálogo porque encontrou `.ui-field-error` dentro dele. `voltar` (campo oculto) diz para onde
-redirecionar no sucesso. A exportação fica em `app/api/relatorio.csv/route.go`, uma pasta com
-ponto no nome.
+The drill-down is the route `app/contas/codigo_/page.go`: breadcrumb with `Caminho()`,
+children (same `Tabela`) or entries (leaf account). The entry form is **a single one**
+(`FormLancamento`), used inside `ui.Dialog` in the overview and in the drill-down, and on
+its own at `/lancamentos`; `POST` validates with `c.Bind` + `plano.Validar` and, on a 422,
+`app.js` reopens the dialog because it found `.ui-field-error` inside it. `voltar` (a hidden
+field) says where to redirect on success. The export lives in
+`app/api/relatorio.csv/route.go`, a folder with a dot in its name.
 
-## O que virou framework
+## What became framework
 
-Escrever os dois exemplos mostrou repetição que agora é API: `c.Bind`, `trilha.FieldErrors`,
-`c.Render` (página com layouts a partir de um `POST`), `ui.Errors`, `ui.InvalidIf`,
-`ui.SelectOptions`, `ui.Checked`. É o critério da constituição: um exemplo que precisa de
-código repetitivo indica uma lacuna no Trilha, não no exemplo.
+Writing the two examples exposed repetition that is now API: `c.Bind`, `trilha.FieldErrors`,
+`c.Render` (a page with layouts from a `POST`), `ui.Errors`, `ui.InvalidIf`,
+`ui.SelectOptions`, `ui.Checked`. That is the constitution's criterion: an example that needs
+repetitive code points to a gap in Trilha, not in the example.
 
-## Desafio
+## Challenge
 
-No orçamento, adicione uma coluna "Ano" ao drill-down que some os doze meses da conta.
+In the budget app, add a "Year" column to the drill-down that sums the account's twelve
+months.
 
-:::solucao
+:::solution
 ```go
 func Ano(c *plano.Conta, ano string) (orcado, real int64) {
 	for m := 1; m <= 12; m++ {
@@ -109,6 +116,6 @@ func Ano(c *plano.Conta, ano string) (orcado, real int64) {
 	return
 }
 ```
-Chame-o em `Linha` e acrescente as duas células; como a agregação é recursiva, a coluna
-já funciona para contas sintéticas.
+Call it from `Linha` and add the two cells; since aggregation is recursive, the column
+already works for summary accounts.
 :::

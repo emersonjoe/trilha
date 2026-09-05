@@ -7,6 +7,12 @@ Os exemplos são apps de verdade, com testes de integração que rodam no `make 
 repositório. Cada um tem um `README.md` curto. Rode qualquer um com `trilha dev` dentro da
 pasta (ou `go run ../../cmd/trilha dev` a partir do clone).
 
+:::nota
+Os apps de exemplo são escritos em português: nomes de pasta, identificadores e textos de
+interface. O código é o mesmo Trilha que você lê aqui; a documentação em inglês avisa a
+mesma coisa para quem chega por lá.
+:::
+
 | Nível | Pasta | O que ensina |
 |---|---|---|
 | Básico | `examples/blog` | todas as convenções de arquivo, layouts aninhados, grupos de rota, API JSON, middleware, sessão assinada, `tmpl` |

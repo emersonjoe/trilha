@@ -1,21 +1,21 @@
 ---
-title: Desenvolvimento e produção
-description: O que trilha dev faz por baixo, como publicar um binário e como configurar por variáveis de ambiente.
+title: Development and production
+description: What trilha dev does under the hood, how to publish a binary and how to configure through environment variables.
 ---
 
 ## `trilha dev`
 
-O comando escuta em `:3000` e roda o seu app em uma porta interna, encaminhando as
-requisições. A cada arquivo salvo:
+The command listens on `:3000` and runs your app on an internal port, forwarding the
+requests. On every saved file:
 
-1. regenera `trilha_gen.go` se a árvore de `app/` mudou;
-2. recompila com `go build`;
-3. sobe o processo novo, espera ele responder e só então derruba o antigo;
-4. avisa o navegador por um evento (SSE), que recarrega.
+1. it regenerates `trilha_gen.go` if the `app/` tree changed;
+2. it recompiles with `go build`;
+3. it starts the new process, waits for it to answer and only then stops the old one;
+4. it notifies the browser through an event (SSE), which reloads.
 
-Mudanças só em `public/` pulam os passos 1 a 3. Um erro de compilação vira uma página com a
-saída do `go build`; corrija e ela some. O processo do app roda com `TRILHA_ENV=dev`, o que
-liga stack traces nas páginas de erro e desliga o cache de estáticos.
+Changes only in `public/` skip steps 1 to 3. A compile error becomes a page with the output
+of `go build`; fix it and the page goes away. The app process runs with `TRILHA_ENV=dev`,
+which turns on stack traces in error pages and turns off the static file cache.
 
 ## `trilha build`
 
@@ -24,8 +24,8 @@ trilha build            # → bin/agenda
 TRILHA_ENV=prod PORT=8080 ./bin/agenda
 ```
 
-O binário é estático (`CGO_ENABLED=0`), tem `public/` embutido e não precisa da CLI nem de
-nenhum arquivo ao lado. Um `Dockerfile` cabe em quatro linhas:
+The binary is static (`CGO_ENABLED=0`), embeds `public/` and needs neither the CLI nor any
+file next to it. A `Dockerfile` fits in four lines:
 
 ```text
 FROM golang:1.25 AS build
@@ -39,22 +39,23 @@ ENV PORT=8080
 CMD ["/app"]
 ```
 
-## Variáveis de ambiente
+## Environment variables
 
-| Variável | Efeito |
+| Variable | Effect |
 |---|---|
-| `PORT` ou `ADDR` | porta ou endereço de escuta (padrão `:3000`) |
-| `TRILHA_ENV` | `dev` ou `prod` (padrão `prod`) |
-| `TRILHA_BASE_PATH` | prefixo de URL quando o app vive em um subcaminho; use `c.Base()` nos links |
-| `TRILHA_EXPORT` | pasta de saída: em vez de servir, exporta o site estático e sai |
-| `TRILHA_DEV_RELOAD` | `off` desliga a injeção do script de recarga em dev (testes de snapshot, comparação de HTML); stack traces e `no-cache` continuam |
+| `PORT` or `ADDR` | listening port or address (default `:3000`) |
+| `TRILHA_ENV` | `dev` or `prod` (default `prod`) |
+| `TRILHA_BASE_PATH` | URL prefix when the app lives under a subpath; use `c.Base()` in links |
+| `TRILHA_EXPORT` | output folder: instead of serving, export the static site and exit |
+| `TRILHA_DEV_RELOAD` | `off` disables the reload script injection in dev (snapshot tests, HTML comparison); stack traces and `no-cache` stay |
 
-Outras configurações (limite de corpo, logger, CSRF em APIs) ficam em `trilha.Config`, que o
-arquivo gerado monta com `trilha.ConfigFromEnv()`.
+Other settings (body limit, logger, CSRF in APIs) live in `trilha.Config`, which the
+generated file builds with `trilha.ConfigFromEnv()`.
 
-## Inicialização com `setup.go`
+## Startup with `setup.go`
 
-Abrir um banco, carregar um cache, validar variáveis: tudo isso vai em `app/setup.go`:
+Opening a database, loading a cache, validating variables: all of that goes in
+`app/setup.go`:
 
 ```go
 package app
@@ -64,41 +65,42 @@ import "github.com/emersonjoe/trilha"
 func Setup(a *trilha.App) error {
 	db, err := sql.Open("pgx", os.Getenv("DATABASE_URL"))
 	if err != nil {
-		return err // aborta a subida com a mensagem no terminal
+		return err // aborts startup with the message in the terminal
 	}
 	a.Values()["db"] = db
 	return nil
 }
 ```
 
-O idiomático em Go é guardar o pool em uma variável do seu próprio pacote
-(`internal/banco`), importado pelas páginas. `a.Values()` existe para colagem rápida.
+The idiomatic Go way is to keep the pool in a variable of your own package
+(`internal/db`), imported by the pages. `a.Values()` exists for quick glue.
 
 ## `trilha export`
 
-Se todas as páginas são estáticas (um blog, uma documentação), exporte HTML e publique em
-qualquer hospedagem:
+If every page is static (a blog, documentation), export HTML and publish on any host:
 
 ```bash
 trilha export -o out --base /agenda
 ```
 
-Páginas com parâmetro entram quando `Setup` as declara com `a.AddExportPath("/eventos/x")`.
-O site que você está lendo foi gerado assim.
+Pages with parameters are included when `Setup` declares them with
+`a.AddExportPath("/events/x")`. Pages that answer a same-site redirect become a small HTML
+stub pointing to the destination. The site you are reading was generated this way.
 
-## Segurança por padrão
+## Secure by default
 
-Cabeçalhos `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` e `Referrer-Policy`
-em toda resposta; corpo limitado; CSRF em formulários; estáticos sem *path traversal*;
-logs com método, caminho, status e duração, nunca com corpo ou cookies. Erros em produção
-mostram uma página opaca e vão para o log com o `request_id` que aparece no cabeçalho
-`X-Request-ID`.
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy` headers on
+every response; limited body; CSRF on forms; static files without *path traversal*; logs
+with method, path, status and duration, never with body or cookies. Errors in production
+show an opaque page and go to the log with the `request_id` that appears in the
+`X-Request-ID` header.
 
-## Desafio
+## Challenge
 
-Publique a agenda em um servidor com `systemd` e faça o serviço reiniciar sozinho se cair.
+Publish the agenda on a server with `systemd` and make the service restart on its own if it
+crashes.
 
-:::solucao
+:::solution
 ```text
 [Unit]
 Description=agenda

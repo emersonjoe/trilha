@@ -4,12 +4,14 @@ description: Os comandos de trilha e suas opções.
 ---
 
 ```text
-trilha new <dir> [--module caminho] [--trilha-dir ../trilha] [--no-tidy]
+trilha new <dir> [--module caminho] [--lang en|pt] [--trilha-dir ../trilha] [--no-tidy]
 trilha gen
 trilha dev [--addr :3000]
 trilha build [-o bin/<nome>]
 trilha export [-o out] [--base /prefixo]
 trilha routes
+trilha audit [--no-vuln]
+trilha ui [--force] [--css-only|--js-only]
 trilha version
 ```
 
@@ -21,9 +23,20 @@ trilha version
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` com `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + executa com `TRILHA_EXPORT` para gerar HTML estático |
 | `routes` | imprime `MÉTODOS PADRÃO ORIGEM` para cada rota |
+| `audit` | checklist de segurança antes de publicar (veja [Segurança](/pt/referencia/seguranca)) |
 
 Os comandos rodam na pasta que contém `app/`. O caminho de import do projeto vem do
 `go.mod` mais próximo, mais a subpasta, então um app pode viver dentro de um módulo maior.
+
+## Idioma
+
+As mensagens da CLI seguem `TRILHA_LANG`, depois `LC_ALL`, `LC_MESSAGES` e `LANG`: um
+valor começando com `pt` (em qualquer caixa) seleciona português; qualquer outro, inclusive
+variável indefinida, seleciona inglês. As mensagens do runtime, do scanner e do gerador (as
+que acabam no seu código e nos seus logs) são sempre em inglês.
+
+`trilha new --lang en|pt` escolhe o idioma dos textos gerados (página inicial, 404,
+`<html lang>`); o padrão é o idioma da CLI.
 
 ## trilha ui
 

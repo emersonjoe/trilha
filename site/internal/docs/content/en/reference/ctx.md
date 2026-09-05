@@ -1,70 +1,70 @@
 ---
 title: Ctx
-description: Tudo que uma função de rota pode fazer com o contexto da requisição.
+description: Everything a route function can do with the request context.
 ---
 
-`*trilha.Ctx` embrulha a requisição e a resposta. É criado por requisição e não deve ser
-usado por outra goroutine depois que o handler devolve.
+`*trilha.Ctx` wraps the request and the response. It is created per request and must not be
+used by another goroutine after the handler returns.
 
-## Requisição
+## Request
 
-| Método | Descrição |
+| Method | Description |
 |---|---|
-| `Request() *http.Request` | a requisição original |
-| `SetContext(ctx)` | troca o contexto da requisição: um middleware passa valores a código que só recebe `*http.Request` |
-| `SetRequest(*http.Request)` | troca a requisição (URL reescrita, corpo embrulhado) |
-| `Context() context.Context` | contexto da requisição (cancelamento) |
-| `Param(nome) string` | parâmetro de rota (`slug_` → `"slug"`) |
-| `Query(nome) string` | primeiro valor do parâmetro de query |
-| `Form(nome) string` | campo do formulário (faz o parse sob demanda, com limite de tamanho) |
-| `FormErr() error` | erro do parse do formulário: 400 inválido, 413 grande demais |
-| `BindJSON(&v) error` | decodifica o corpo JSON; campos desconhecidos são erro (400); 413 acima do limite |
-| `Cookie(nome) (*http.Cookie, error)` | cookie da requisição |
-| `RequestID() string` | `X-Request-ID` recebido ou um id gerado |
-| `Env() trilha.Env` | `trilha.Dev` ou `trilha.Prod` |
-| `Base() string` | prefixo de URL (`TRILHA_BASE_PATH`), sem barra final |
-| `App() *trilha.App` | a aplicação |
+| `Request() *http.Request` | the original request |
+| `SetContext(ctx)` | replaces the request context: a middleware passes values to code that only receives `*http.Request` |
+| `SetRequest(*http.Request)` | replaces the request (rewritten URL, wrapped body) |
+| `Context() context.Context` | request context (cancellation) |
+| `Param(name) string` | route parameter (`slug_` → `"slug"`) |
+| `Query(name) string` | first value of the query parameter |
+| `Form(name) string` | form field (parses on demand, with a size limit) |
+| `FormErr() error` | form parse error: 400 invalid, 413 too large |
+| `BindJSON(&v) error` | decodes the JSON body; unknown fields are an error (400); 413 above the limit |
+| `Cookie(name) (*http.Cookie, error)` | request cookie |
+| `RequestID() string` | received `X-Request-ID` or a generated id |
+| `Env() trilha.Env` | `trilha.Dev` or `trilha.Prod` |
+| `Base() string` | URL prefix (`TRILHA_BASE_PATH`), without trailing slash |
+| `App() *trilha.App` | the application |
 
-## Resposta
+## Response
 
-| Método | Descrição |
+| Method | Description |
 |---|---|
-| `JSON(code, v) error` | escreve JSON com `Content-Type` correto |
-| `Text(code, s) error` | escreve texto simples |
-| `HTML(code, node) error` | escreve um nó como documento inteiro, sem layouts |
-| `Redirect(url) error` | devolve o erro de redirecionamento 303 (use com `return`) |
-| `Status(code)` | status que a próxima renderização de página vai usar |
-| `Header(k, v)` | define um cabeçalho de resposta |
-| `SetCookie(*http.Cookie)` | adiciona `Set-Cookie` |
-| `Render(code, node) error` | escreve a página **com os layouts da rota** (como o GET): para um `POST` devolver o formulário com erros (422) |
-| `Stream() *Stream` | resposta em Server-Sent Events: `Send(evento, dados)`, `JSON(evento, v)`, `Comment(s)`, `Done()`; desliga o *write timeout* ([IA e agentes](/pt/aprender/ia-e-agentes)) |
-| `Writer() http.ResponseWriter` | acesso direto (downloads longos, WebSocket) |
-| `Written() bool` | se a resposta já começou |
+| `JSON(code, v) error` | writes JSON with the right `Content-Type` |
+| `Text(code, s) error` | writes plain text |
+| `HTML(code, node) error` | writes a node as a whole document, without layouts |
+| `Redirect(url) error` | returns the 303 redirect error (use with `return`) |
+| `Status(code)` | status the next page render will use |
+| `Header(k, v)` | sets a response header |
+| `SetCookie(*http.Cookie)` | adds `Set-Cookie` |
+| `Render(code, node) error` | writes the page **with the route's layouts** (like GET): for a `POST` to return the form with errors (422) |
+| `Stream() *Stream` | Server-Sent Events response: `Send(event, data)`, `JSON(event, v)`, `Comment(s)`, `Done()`; disables the *write timeout* ([AI and agents](/learn/ai-and-agents)) |
+| `Writer() http.ResponseWriter` | direct access (long downloads, WebSocket) |
+| `Written() bool` | whether the response has started |
 
-## Entre página e layout
+## Between page and layout
 
-| Método | Descrição |
+| Method | Description |
 |---|---|
-| `SetTitle(s)` / `Title() string` | título da página, lido pelos layouts |
-| `Set(chave, v)` / `Get(chave) any` | valores por requisição (middleware → página → layout) |
+| `SetTitle(s)` / `Title() string` | page title, read by layouts |
+| `Set(key, v)` / `Get(key) any` | per-request values (middleware → page → layout) |
 
-## Segurança
+## Security
 
-| Método | Descrição |
+| Method | Description |
 |---|---|
-| `CSRFToken() string` | token da requisição; cria o cookie na primeira chamada |
-| `trilha.CSRFInput(c) h.Node` | `<input type="hidden" name="_csrf">` para formulários |
+| `CSRFToken() string` | the request's token; creates the cookie on the first call |
+| `trilha.CSRFInput(c) h.Node` | `<input type="hidden" name="_csrf">` for forms |
 
-O token é verificado automaticamente em `POST`, `PUT`, `PATCH` e `DELETE` de `page.go`
-(e de `route.go` se `Config.CSRFForAPI` estiver ligado), pelo campo `_csrf` ou pelo
-cabeçalho `X-CSRF-Token`.
+The token is verified automatically on `POST`, `PUT`, `PATCH` and `DELETE` of `page.go` (and
+of `route.go` if `Config.CSRFForAPI` is on), through the `_csrf` field or the
+`X-CSRF-Token` header.
 
 ## Bind
 
-`Bind(v any) error` preenche uma struct a partir do formulário (ou do JSON, quando o
-`Content-Type` é `application/json`). Campos casam pela tag `form:"nome"` (ou pelo nome do
-campo); tipos: `string`, `[]string`, `bool` (`on`/`true`/`1`), `int`, `int64`, `float64`
-(vírgula ou ponto), `time.Time` (`2006-01-02` ou `2006-01-02T15:04`) e ponteiros (nil quando
-ausente). Struct aninhada é achatada, com a tag como prefixo (`Cobranca Endereco
-`+"`form:\"cob_\"`"+` lê `cob_cep`…). Valores que não convertem viram `FieldErrors`
-(mensagem `trilha.BindInvalid`, ajustável) depois de todos os campos serem tentados.
+`Bind(v any) error` fills a struct from the form (or from JSON, when the `Content-Type` is
+`application/json`). Fields match by the `form:"name"` tag (or by the field name); types:
+`string`, `[]string`, `bool` (`on`/`true`/`1`), `int`, `int64`, `float64` (comma or dot),
+`time.Time` (`2006-01-02` or `2006-01-02T15:04`) and pointers (nil when absent). A nested
+struct is flattened, with the tag as prefix (`Billing Address `+"`form:\"bill_\"`"+` reads
+`bill_zip`…). Values that do not convert become `FieldErrors` (message `trilha.BindInvalid`,
+adjustable) after every field has been tried.

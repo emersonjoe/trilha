@@ -1,22 +1,22 @@
 ---
-title: Páginas e rotas
-description: Como pastas viram URLs, incluindo segmentos dinâmicos, catch-all e grupos.
+title: Pages and routes
+description: How folders become URLs, including dynamic segments, catch-all and groups.
 ---
 
-Você já viu que `app/eventos/page.go` responde `/eventos`. Este capítulo cobre o resto do
-mapeamento: parâmetros na URL, caminhos de tamanho variável e pastas que agrupam sem
-aparecer na URL.
+You have seen that `app/events/page.go` answers `/events`. This chapter covers the rest of
+the mapping: URL parameters, paths of variable length and folders that group pages without
+showing up in the URL.
 
-## Segmento dinâmico: `nome_`
+## Dynamic segment: `name_`
 
-Cada evento terá uma página própria em `/eventos/encontro-go`. Em vez de uma pasta por
-evento, crie uma pasta cujo nome termina com `_`:
+Each event gets its own page at `/events/go-meetup`. Instead of one folder per event, create
+a folder whose name ends with `_`:
 
 ```text
-app/eventos/slug_/page.go   →   GET /eventos/{slug}
+app/events/slug_/page.go   →   GET /events/{slug}
 ```
 
-Dentro da página, o valor vem de `c.Param`:
+Inside the page, the value comes from `c.Param`:
 
 ```go
 package slug
@@ -28,81 +28,81 @@ import (
 
 func Page(c *trilha.Ctx) (h.Node, error) {
 	slug := c.Param("slug")
-	c.SetTitle("Evento " + slug)
-	return h.H1(h.Textf("Evento: %s", slug)), nil
+	c.SetTitle("Event " + slug)
+	return h.H1(h.Textf("Event: %s", slug)), nil
 }
 ```
 
-O nome do parâmetro é o nome da pasta sem o `_`. Uma pasta `id_` dá `c.Param("id")`.
+The parameter name is the folder name without the `_`. A folder `id_` gives `c.Param("id")`.
 
-:::nota
-Por que não `[slug]` como em outros frameworks? Porque a pasta vira um **pacote Go**, e o
-caminho de import de um pacote não aceita colchetes, chaves nem cifrão. O sufixo `_` é
-legal, aparece em `go list ./...` e não confunde o shell.
+:::note
+Why not `[slug]` like other frameworks? Because the folder becomes a **Go package**, and a
+package import path accepts neither brackets, braces nor dollar signs. The `_` suffix is
+legal, shows up in `go list ./...` and does not confuse the shell.
 :::
 
-## Catch-all: `nome__`
+## Catch-all: `name__`
 
-Duas barras no final capturam tudo o que vier depois, com as barras internas:
+Two underscores at the end capture everything that follows, inner slashes included:
 
 ```text
-app/docs/caminho__/page.go   →   GET /docs/{caminho...}
+app/docs/path__/page.go   →   GET /docs/{path...}
 ```
 
-`GET /docs/guia/instalacao` chega com `c.Param("caminho") == "guia/instalacao"`. Uma
-pasta catch-all precisa ser folha: nada pode existir abaixo dela.
+`GET /docs/guide/install` arrives with `c.Param("path") == "guide/install"`. A catch-all
+folder must be a leaf: nothing can exist below it.
 
-## Quem vence quando há empate
+## Who wins on a tie
 
-Rotas literais vencem as dinâmicas. Com `app/eventos/novo/page.go` e
-`app/eventos/slug_/page.go`, `/eventos/novo` vai para a primeira e `/eventos/qualquer-outra`
-para a segunda. Duas pastas dinâmicas irmãs (`a_` e `b_` no mesmo nível) são um erro de
-geração, porque não haveria como escolher.
+Literal routes beat dynamic ones. With `app/events/new/page.go` and
+`app/events/slug_/page.go`, `/events/new` goes to the first and `/events/anything-else` to
+the second. Two sibling dynamic folders (`a_` and `b_` at the same level) are a generation
+error, because there would be no way to choose.
 
-## Grupos de rota: `nome-`
+## Route groups: `name-`
 
-Às vezes você quer que várias páginas compartilhem um layout ou um middleware sem que isso
-apareça na URL. Uma pasta terminada em `-` é um **grupo**:
+Sometimes you want several pages to share a layout or a middleware without that showing in
+the URL. A folder ending in `-` is a **group**:
 
 ```text
-app/organizador-/middleware.go    ← vale para tudo abaixo
-app/organizador-/painel/page.go   → GET /painel   (sem "organizador" na URL)
-app/organizador-/eventos/page.go  → GET /eventos  ✗ conflita com app/eventos/page.go
+app/organizer-/middleware.go     ← applies to everything below
+app/organizer-/dashboard/page.go → GET /dashboard   (no "organizer" in the URL)
+app/organizer-/events/page.go    → GET /events  ✗ conflicts with app/events/page.go
 ```
 
-O gerador recusa duas pastas que produzam a mesma URL (`E_DUPLICATE_ROUTE`), então o
-segundo exemplo acima não compila.
+The generator refuses two folders that produce the same URL (`E_DUPLICATE_ROUTE`), so the
+second example above does not compile.
 
-## O que o gerador faz com isso
+## What the generator does with this
 
-Rode `trilha routes` a qualquer momento para ver a tabela:
+Run `trilha routes` at any time to see the table:
 
 ```text
-MÉTODOS   PADRÃO             ORIGEM
+METHODS   PATTERN            SOURCE
 GET       /                  app/page.go
-GET       /eventos           app/eventos/page.go
-GET       /eventos/{slug}    app/eventos/slug_/page.go
-GET       /painel            app/organizador-/painel/page.go
+GET       /events            app/events/page.go
+GET       /events/{slug}     app/events/slug_/page.go
+GET       /dashboard         app/organizer-/dashboard/page.go
 ```
 
-Essa tabela vira código Go em `trilha_gen.go`: um `a.Register(trilha.Route{...})` por
-linha, importando cada pacote. Se você renomear `Page`, é o compilador quem reclama, não o
-servidor em produção.
+That table becomes Go code in `trilha_gen.go`: one `a.Register(trilha.Route{...})` per
+line, importing each package. If you rename `Page`, the compiler complains, not the server
+in production.
 
-## Desafio
+## Challenge
 
-Crie a página de detalhe `app/eventos/slug_/page.go` que mostre o slug, e uma página
-`app/eventos/hoje/page.go`. Confirme com `trilha routes` que `/eventos/hoje` aponta para a
-pasta literal e não para a dinâmica.
+Create the detail page `app/events/slug_/page.go` showing the slug, and a page
+`app/events/today/page.go`. Confirm with `trilha routes` that `/events/today` points to the
+literal folder and not to the dynamic one.
 
-:::solucao
-As duas páginas seguem o formato de `Page`. A saída de `trilha routes` deve conter:
+:::solution
+Both pages follow the `Page` shape. The output of `trilha routes` must contain:
 
 ```text
-GET  /eventos/hoje      app/eventos/hoje/page.go
-GET  /eventos/{slug}    app/eventos/slug_/page.go
+GET  /events/today      app/events/today/page.go
+GET  /events/{slug}     app/events/slug_/page.go
 ```
 
-A ordem alfabética coloca `/eventos/hoje` antes, mas o que decide a precedência é o
-roteador: literal antes de dinâmico, sempre.
+Alphabetical order puts `/events/today` first, but what decides precedence is the router:
+literal before dynamic, always.
 :::

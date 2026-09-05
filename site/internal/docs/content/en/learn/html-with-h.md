@@ -1,71 +1,74 @@
 ---
-title: HTML com o pacote h
-description: Elementos como funções, escape por padrão, condicionais, listas e quando usar templates.
+title: HTML with the h package
+description: Elements as functions, escaping by default, conditionals, lists and when to use templates.
 ---
 
-O pacote `h` gera HTML sem arquivos de template: cada elemento é uma função Go que aceita
-atributos e filhos em qualquer ordem. Tudo é verificado pelo compilador e escapado na saída.
+The `h` package produces HTML without template files: each element is a Go function that
+accepts attributes and children in any order. Everything is checked by the compiler and
+escaped on output.
 
-## Elementos, atributos e texto
+## Elements, attributes and text
 
 ```go
-h.Article(h.Class("evento", "destaque"),
-	h.H2(h.Text(ev.Nome)),
-	h.P(h.Textf("%s, %d vagas", ev.Cidade, ev.Vagas)),
-	h.A(h.Href("/eventos/"+ev.Slug), h.Text("Detalhes")),
+h.Article(h.Class("event", "featured"),
+	h.H2(h.Text(ev.Name)),
+	h.P(h.Textf("%s, %d seats", ev.City, ev.Seats)),
+	h.A(h.Href("/events/"+ev.Slug), h.Text("Details")),
 )
 ```
 
-- `h.Text` e `h.Textf` escapam. `h.Raw` não escapa e é a única porta para HTML pronto.
-- Atributos (`h.Class`, `h.Href`, `h.ID`, `h.Data("x", v)`, `h.Attr("nome", v)`) podem vir
-  depois dos filhos; eles sempre acabam na tag de abertura.
-- Elementos vazios (`h.Br`, `h.Img`, `h.Input`, `h.Meta`) não fecham.
-- Atributos booleanos são funções sem argumento: `h.Required()`, `h.Disabled()`.
-- Quando o nome colide com um elemento, o atributo ganha o sufixo `Attr`: `h.StyleAttr`,
+- `h.Text` and `h.Textf` escape. `h.Raw` does not, and it is the only door for ready-made
+  HTML.
+- Attributes (`h.Class`, `h.Href`, `h.ID`, `h.Data("x", v)`, `h.Attr("name", v)`) may come
+  after the children; they always end up in the opening tag.
+- Void elements (`h.Br`, `h.Img`, `h.Input`, `h.Meta`) do not close.
+- Boolean attributes are functions without arguments: `h.Required()`, `h.Disabled()`.
+- When a name collides with an element, the attribute gets the `Attr` suffix: `h.StyleAttr`,
   `h.TitleAttr`, `h.LabelAttr`.
 
 @demo escape
 
-## Condicionais e listas
+## Conditionals and lists
 
 ```go
 h.Ul(
-	h.If(len(eventos) == 0, h.Li(h.Em(h.Text("nenhum evento")))),
-	h.Map(eventos, func(ev Evento) h.Node {
-		return h.Li(h.Text(ev.Nome))
+	h.If(len(events) == 0, h.Li(h.Em(h.Text("no events")))),
+	h.Map(events, func(ev Event) h.Node {
+		return h.Li(h.Text(ev.Name))
 	}),
 )
 ```
 
-`h.If` devolve um nó vazio quando a condição é falsa; `h.IfElse` escolhe entre dois;
-`h.Map` aplica uma função a cada item; `h.Fragment` agrupa vários nós sem elemento em volta.
-`nil` como filho é ignorado, então um `func() h.Node` que devolve `nil` também é seguro.
+`h.If` returns an empty node when the condition is false; `h.IfElse` picks one of two;
+`h.Map` applies a function to each item; `h.Fragment` groups several nodes without a
+wrapping element. `nil` as a child is ignored, so a `func() h.Node` returning `nil` is safe
+too.
 
 @demo lista
 
-## Componentes são funções
+## Components are functions
 
-Não existe um tipo "componente". Uma função que devolve `h.Node` já é um:
+There is no "component" type. A function returning `h.Node` already is one:
 
 ```go
-func CartaoEvento(ev Evento) h.Node {
-	return h.Article(h.Class("cartao"),
-		h.H3(h.Text(ev.Nome)),
-		h.P(h.Text(ev.Cidade)),
+func EventCard(ev Event) h.Node {
+	return h.Article(h.Class("card"),
+		h.H3(h.Text(ev.Name)),
+		h.P(h.Text(ev.City)),
 	)
 }
 
-// na página
-h.Div(h.Class("grade"), h.Map(eventos, CartaoEvento))
+// in the page
+h.Div(h.Class("grid"), h.Map(events, EventCard))
 ```
 
-## Prefere templates?
+## Prefer templates?
 
-O pacote `tmpl` encaixa `html/template` no mesmo pipeline. Os arquivos ficam ao lado da
-página e são embutidos no binário:
+The `tmpl` package plugs `html/template` into the same pipeline. The files sit next to the
+page and are embedded in the binary:
 
 ```go
-package relatorio
+package report
 
 import (
 	"embed"
@@ -75,34 +78,35 @@ import (
 	"github.com/emersonjoe/trilha/tmpl"
 )
 
-//go:embed relatorio.html
-var arquivos embed.FS
+//go:embed report.html
+var files embed.FS
 
-var t = tmpl.Must(arquivos, "*.html") // falha na subida, nunca no request
+var t = tmpl.Must(files, "*.html") // fails at startup, never during a request
 
 func Page(c *trilha.Ctx) (h.Node, error) {
-	c.SetTitle("Relatório")
-	return tmpl.Node(t, "relatorio", dados), nil
+	c.SetTitle("Report")
+	return tmpl.Node(t, "report", data), nil
 }
 ```
 
-Layouts, título e erros funcionam igual. O escape é o contextual do próprio `html/template`.
+Layouts, title and errors work the same. Escaping is the contextual escaping of
+`html/template` itself.
 
-## Desafio
+## Challenge
 
-Escreva um componente `Vagas(n int) h.Node` que mostre "lotado" em itálico quando `n == 0`,
-"1 vaga" no singular e "N vagas" no plural, e use-o na lista de eventos.
+Write a component `Seats(n int) h.Node` that shows "sold out" in italics when `n == 0`,
+"1 seat" in the singular and "N seats" in the plural, and use it in the events list.
 
-:::solucao
+:::solution
 ```go
-func Vagas(n int) h.Node {
+func Seats(n int) h.Node {
 	switch {
 	case n == 0:
-		return h.Em(h.Text("lotado"))
+		return h.Em(h.Text("sold out"))
 	case n == 1:
-		return h.Text("1 vaga")
+		return h.Text("1 seat")
 	default:
-		return h.Textf("%d vagas", n)
+		return h.Textf("%d seats", n)
 	}
 }
 ```

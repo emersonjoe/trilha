@@ -1,73 +1,73 @@
 ---
-title: Convenções de arquivo
-description: Tabela completa do que cada arquivo e nome de pasta em app/ significa.
+title: File conventions
+description: Complete table of what each file and folder name in app/ means.
 ---
 
-## Arquivos
+## Files
 
-| Arquivo | Função exportada | Assinatura | Alcance |
+| File | Exported function | Signature | Scope |
 |---|---|---|---|
-| `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` | rota GET da pasta |
-| `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (opcionais) | `func(c *trilha.Ctx) error` | formulários; CSRF exigido |
-| `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (ao menos um) | `func(c *trilha.Ctx) error` | API JSON da pasta |
-| `route.go` (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | como erros são renderizados e se há CSRF (veja [Erros](/pt/referencia/erros)) |
-| `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subárvore |
-| `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore |
-| `not_found.go` (só na raiz) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | 404 do app |
-| `error.go` (só na raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | 500 do app |
-| `setup.go` (só na raiz) | `Setup` | `func(a *trilha.App) error` | antes de servir |
-| `setup.go` (opcional) | `Config` | `func(cfg *trilha.Config)` | antes de `trilha.New` |
-| `setup.go` (opcional) | `Shutdown` | `func(a *trilha.App) error` | depois de parar de aceitar requisições (fechar pool, fila, flush de log) |
+| `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` | the folder's GET route |
+| `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (optional) | `func(c *trilha.Ctx) error` | forms; CSRF required |
+| `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (at least one) | `func(c *trilha.Ctx) error` | the folder's JSON API |
+| `route.go` (optional) | `Kind` | `var Kind = trilha.KindPage` or `KindAPI` | how errors are rendered and whether CSRF applies (see [Errors](/reference/errors)) |
+| `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subtree |
+| `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree |
+| `not_found.go` (root only) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | the app's 404 |
+| `error.go` (root only) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | the app's 500 |
+| `setup.go` (root only) | `Setup` | `func(a *trilha.App) error` | before serving |
+| `setup.go` (optional) | `Config` | `func(cfg *trilha.Config)` | before `trilha.New` |
+| `setup.go` (optional) | `Shutdown` | `func(a *trilha.App) error` | after the app stops accepting requests (close pool, queue, flush logs) |
 
-`page.go` e `route.go` na mesma pasta é erro. A função pode estar em qualquer arquivo do
-pacote; o nome do arquivo é o que liga a convenção.
+`page.go` and `route.go` in the same folder is an error. The function may live in any file of
+the package; the file name is what binds the convention.
 
-## Pastas
+## Folders
 
-| Nome | Vira | Exemplo |
+| Name | Becomes | Example |
 |---|---|---|
-| `eventos` | segmento literal | `/eventos` |
-| `slug_` | parâmetro `{slug}` | `/eventos/{slug}` → `c.Param("slug")` |
-| `caminho__` | catch-all `{caminho...}`; precisa ser folha | `/docs/{caminho...}` |
-| `organizador-` | grupo de rota; não entra na URL | layout/middleware para a subárvore |
-| `app.css`, `robots.txt` | caminho fixo com extensão (ponto no meio do nome) | `/app.css`, `/manifest.webmanifest`, `/sw.js` |
-| `_x`, `.x`, `testdata` | ignoradas | — |
+| `events` | literal segment | `/events` |
+| `slug_` | parameter `{slug}` | `/events/{slug}` → `c.Param("slug")` |
+| `path__` | catch-all `{path...}`; must be a leaf | `/docs/{path...}` |
+| `organizer-` | route group; not part of the URL | layout/middleware for the subtree |
+| `app.css`, `robots.txt` | fixed path with an extension (dot in the middle of the name) | `/app.css`, `/manifest.webmanifest`, `/sw.js` |
+| `_x`, `.x`, `testdata` | ignored | — |
 
-Uma pasta com ponto no nome serve um caminho fixo com extensão. Como `app.css` não é um
-identificador Go, declare outro nome de pacote no arquivo (`package appcss`); o gerador
-importa tudo com alias, então o nome do pacote não importa. Pastas que **começam** com
-ponto continuam ignoradas.
+A folder with a dot in its name serves a fixed path with an extension. Since `app.css` is
+not a Go identifier, declare another package name in the file (`package appcss`); the
+generator imports everything with an alias, so the package name does not matter. Folders
+that **start** with a dot stay ignored.
 
-Precedência: literal vence parâmetro, que vence catch-all. Duas pastas dinâmicas irmãs são
-erro. Duas pastas que gerem a mesma URL (via grupos) são erro.
+Precedence: literal beats parameter, which beats catch-all. Two sibling dynamic folders are
+an error. Two folders producing the same URL (through groups) are an error.
 
-## Outras pastas do projeto
+## Other project folders
 
-| Pasta | Papel |
+| Folder | Role |
 |---|---|
-| `public/` | arquivos estáticos servidos na raiz; embutidos no binário em produção |
-| `trilha_gen.go` | gerado; commitado; nunca editado à mão |
-| `.trilha/` | binários temporários do `dev` e do `export`; ignorada pelo git |
+| `public/` | static files served at the root; embedded in the binary in production |
+| `trilha_gen.go` | generated; committed; never edited by hand |
+| `.trilha/` | temporary binaries of `dev` and `export`; ignored by git |
 
-## Ordem de execução de `GET /a/b`
+## Execution order for `GET /a/b`
 
 ```text
 middleware(app) → middleware(app/a) → middleware(app/a/b)
-  → Page (ou método)
+  → Page (or method)
   → layout(app/a/b) → layout(app/a) → layout(app)
 ```
 
-## Erros de geração
+## Generation errors
 
-| Código | Causa |
+| Code | Cause |
 |---|---|
-| `E_PAGE_AND_ROUTE` | `page.go` e `route.go` na mesma pasta |
-| `E_NO_PAGE_FUNC` | `page.go` sem `Page` |
-| `E_NO_METHOD` | `route.go` sem método exportado |
-| `E_NO_LAYOUT_FUNC`, `E_NO_MIDDLEWARE_FUNC`, `E_NO_NOT_FOUND_FUNC`, `E_NO_ERROR_FUNC`, `E_NO_SETUP_FUNC` | arquivo sem a função esperada |
-| `E_AMBIGUOUS_SEGMENT` | duas pastas dinâmicas no mesmo nível |
-| `E_CATCHALL_NOT_LEAF` | rotas abaixo de uma pasta `x__` |
-| `E_BAD_SEGMENT` | nome de parâmetro inválido ou grupo dinâmico (`x_-`) |
-| `E_DUPLICATE_ROUTE` | duas pastas produzindo a mesma URL |
-| `E_PARSE` | arquivo Go que não compila |
-| `E_NO_APP` | não há pasta `app/` |
+| `E_PAGE_AND_ROUTE` | `page.go` and `route.go` in the same folder |
+| `E_NO_PAGE_FUNC` | `page.go` without `Page` |
+| `E_NO_METHOD` | `route.go` without an exported method |
+| `E_NO_LAYOUT_FUNC`, `E_NO_MIDDLEWARE_FUNC`, `E_NO_NOT_FOUND_FUNC`, `E_NO_ERROR_FUNC`, `E_NO_SETUP_FUNC` | file without the expected function |
+| `E_AMBIGUOUS_SEGMENT` | two dynamic folders at the same level |
+| `E_CATCHALL_NOT_LEAF` | routes below an `x__` folder |
+| `E_BAD_SEGMENT` | invalid parameter name or dynamic group (`x_-`) |
+| `E_DUPLICATE_ROUTE` | two folders producing the same URL |
+| `E_PARSE` | Go file that does not compile |
+| `E_NO_APP` | there is no `app/` folder |

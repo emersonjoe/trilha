@@ -1,71 +1,72 @@
 ---
-title: App e Config
-description: O que o arquivo gerado monta e o que você pode ajustar em setup.go.
+title: App and Config
+description: What the generated file builds and what you can adjust in setup.go.
 ---
 
 ## Config
 
 ```go
 type Config struct {
-	Addr         string       // ":3000"; PORT/ADDR no ambiente
+	Addr         string       // ":3000"; PORT/ADDR in the environment
 	Env          Env          // Dev | Prod; TRILHA_ENV
 	MaxBodyBytes int64        // 1 MiB
 	Logger       *slog.Logger // slog.Default()
-	Public       fs.FS        // arquivos estáticos; nil desliga
-	CSRFForAPI   bool         // exigir CSRF também em route.go
-	BasePath     string       // prefixo de URL; TRILHA_BASE_PATH
-	Security     Security     // cabeçalhos (veja Segurança)
+	Public       fs.FS        // static files; nil turns them off
+	CSRFForAPI   bool         // require CSRF in route.go too
+	BasePath     string       // URL prefix; TRILHA_BASE_PATH
+	Security     Security     // headers (see Security)
 	TrustedProxies []string   // CIDRs; TRILHA_TRUSTED_PROXIES
-	RateLimit    RateLimit    // limite global por cliente
+	RateLimit    RateLimit    // global per-client limit
 	Secret, PreviousSecret []byte // TRILHA_SECRET, TRILHA_SECRET_PREVIOUS
-	Timeouts     Timeouts     // limites do http.Server (trilha.NoTimeout desliga um)
-	StaticCacheControl string // Cache-Control dos estáticos em prod ("public, max-age=3600")
-	StaticHeaders func(name string, hdr http.Header) // cabeçalhos por arquivo estático
+	Timeouts     Timeouts     // http.Server limits (trilha.NoTimeout disables one)
+	StaticCacheControl string // Cache-Control of static files in prod ("public, max-age=3600")
+	StaticHeaders func(name string, hdr http.Header) // headers per static file
 	OnSecurityEvent func(SecurityEvent)
-	DevReload    string       // trilha.Off desliga o script de recarga em dev; TRILHA_DEV_RELOAD=off
+	DevReload    string       // trilha.Off disables the reload script in dev; TRILHA_DEV_RELOAD=off
 }
 ```
 
-`trilha.ConfigFromEnv()` lê as variáveis; `trilha.PublicFS(embutido, "public")` escolhe
-entre a cópia embutida (prod) e a pasta no disco (dev).
+`trilha.ConfigFromEnv()` reads the variables; `trilha.PublicFS(embedded, "public")` picks
+between the embedded copy (prod) and the folder on disk (dev).
 
-### Onde configurar
+### Where to configure
 
-O arquivo gerado faz `cfg := trilha.ConfigFromEnv()`, chama `app.Config(&cfg)` se
-`app/setup.go` exportar `func Config(cfg *trilha.Config)`, e então `trilha.New(cfg)` e
-`app.Setup(a)`. Você pode mexer em qualquer campo em qualquer um dos dois; a diferença é
-só *quando* o valor é lido:
+The generated file does `cfg := trilha.ConfigFromEnv()`, calls `app.Config(&cfg)` if
+`app/setup.go` exports `func Config(cfg *trilha.Config)`, and then `trilha.New(cfg)` and
+`app.Setup(a)`. You may change any field in either one; the only difference is *when* the
+value is read:
 
-| Campos | Lidos em | `Config` | `Setup` (via `a.Config()`) |
+| Fields | Read at | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
-| `Security`, `Public`, `MaxBodyBytes`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | a cada requisição | ✓ | ✓ |
-| `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies` | derivados em `New` e **reaplicados** ao começar a servir (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
+| `Security`, `Public`, `MaxBodyBytes`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | every request | ✓ | ✓ |
+| `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies` | derived in `New` and **reapplied** when serving starts (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
-| `Env` | `New` (chave efêmera em dev) e por requisição | ✓ | parcial |
+| `Env` | `New` (ephemeral key in dev) and per request | ✓ | partial |
 
-Use `Config` quando quiser montar a configuração a partir do seu próprio pacote (arquivo,
-Vault, flags) em vez do ambiente.
+Use `Config` when you want to build the configuration from your own package (file, Vault,
+flags) instead of the environment.
 
 ### Timeouts
 
-`Timeouts.Shutdown` (5 s) é quanto `ListenAndServe` espera as requisições em andamento após
-`SIGINT`/`SIGTERM`. Zero significa "padrão"; `trilha.NoTimeout` desliga o limite (uploads grandes em rede
-lenta, long polling). `Write` vale para a resposta inteira: em vez de desligá-lo
-globalmente, uma rota que transmite deve usar `c.Stream()` (SSE) ou `c.NoWriteDeadline()`.
+`Timeouts.Shutdown` (5 s) is how long `ListenAndServe` waits for in-flight requests after
+`SIGINT`/`SIGTERM`. Zero means "default"; `trilha.NoTimeout` disables the limit (large
+uploads on a slow network, long polling). `Write` applies to the whole response: instead of
+disabling it globally, a streaming route should use `c.Stream()` (SSE) or
+`c.NoWriteDeadline()`.
 
 ```go
 func Config(cfg *trilha.Config) {
-	cfg.Timeouts.Read = trilha.NoTimeout // uploads de 32 MB do celular
+	cfg.Timeouts.Read = trilha.NoTimeout // 32 MB uploads from a phone
 }
 ```
 
-### Estáticos
+### Static files
 
-`StaticCacheControl` troca o `Cache-Control` de produção (dev sempre manda `no-cache`).
-`StaticHeaders(nome, cabeçalhos)` roda depois, por arquivo, e pode mudar qualquer cabeçalho:
+`StaticCacheControl` replaces the production `Cache-Control` (dev always sends `no-cache`).
+`StaticHeaders(name, headers)` runs afterwards, per file, and may change any header:
 
 ```go
-cfg.StaticCacheControl = "public, max-age=31536000, immutable" // assets com ?v= ou hash
+cfg.StaticCacheControl = "public, max-age=31536000, immutable" // assets with ?v= or a hash
 cfg.StaticHeaders = func(name string, h http.Header) {
 	if name == "robots.txt" { h.Set("Cache-Control", "no-store") }
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
@@ -74,48 +75,48 @@ cfg.StaticHeaders = func(name string, h http.Header) {
 
 ## App
 
-| Método | Descrição |
+| Method | Description |
 |---|---|
-| `New(cfg) *App` | cria a aplicação |
-| `Register(Route)` | registra uma rota (chamado pelo arquivo gerado) |
-| `SetRootLayout`, `SetNotFound`, `SetErrorPage` | ligam os arquivos da raiz |
-| `Values() map[string]any` | valores globais definidos em `Setup` |
-| `Logger() *slog.Logger` | o logger |
-| `Env() Env` | ambiente |
-| `Handler() http.Handler` | o mux raiz, para testes e para embutir em outro servidor |
-| `ListenAndServe() error` | serve com desligamento gracioso em SIGINT/SIGTERM; depois roda os ganchos de `OnShutdown` |
-| `OnShutdown(func(*App) error)` | registra o que fechar ao encerrar (pool, fila, flush); `setup.go` pode exportar `Shutdown`, que o arquivo gerado registra |
-| `Routes() map[string][]string` | padrões registrados e seus métodos |
-| `AddExportPath(paths...)` | caminhos extras para `Export` |
-| `ExportPaths() []string` | o que `Export` vai renderizar |
-| `Export(dir) error` | escreve o site estático |
-| `BasePath() string` | prefixo de URL |
-| `Security() *Security` | cabeçalhos, ajustáveis em `Setup` |
-| `Config() *Config` | a configuração inteira, ajustável em `Setup` (veja "Onde configurar") |
+| `New(cfg) *App` | creates the application |
+| `Register(Route)` | registers a route (called by the generated file) |
+| `SetRootLayout`, `SetNotFound`, `SetErrorPage` | wire the root files |
+| `Values() map[string]any` | global values set in `Setup` |
+| `Logger() *slog.Logger` | the logger |
+| `Env() Env` | environment |
+| `Handler() http.Handler` | the root mux, for tests and for embedding in another server |
+| `ListenAndServe() error` | serves with graceful shutdown on SIGINT/SIGTERM; then runs the `OnShutdown` hooks |
+| `OnShutdown(func(*App) error)` | registers what to close on exit (pool, queue, flush); `setup.go` may export `Shutdown`, which the generated file registers |
+| `Routes() map[string][]string` | registered patterns and their methods |
+| `AddExportPath(paths...)` | extra paths for `Export` |
+| `ExportPaths() []string` | what `Export` will render |
+| `Export(dir) error` | writes the static site |
+| `BasePath() string` | URL prefix |
+| `Security() *Security` | headers, adjustable in `Setup` |
+| `Config() *Config` | the whole configuration, adjustable in `Setup` (see "Where to configure") |
 
-`trilha.Run(a)` é o que o `main` gerado chama: exporta se `TRILHA_EXPORT` estiver definido,
-senão serve. `trilha.Fatal(err)` registra e encerra, ignorando `http.ErrServerClosed`.
+`trilha.Run(a)` is what the generated `main` calls: it exports if `TRILHA_EXPORT` is set,
+otherwise it serves. `trilha.Fatal(err)` logs and exits, ignoring `http.ErrServerClosed`.
 
-### `main` próprio
+### Your own `main`
 
-Se algum arquivo do pacote `main` do projeto já declara `func main()`, o gerador omite o
-dele e escreve só `newApp()`. Você fica com o controle do ciclo de vida:
+If any file in the project's `main` package already declares `func main()`, the generator
+omits its own and writes only `newApp()`. You keep control of the lifecycle:
 
 ```go
 func main() {
 	a := newApp()
-	if err := migrar(a); err != nil { // entre o Setup e o servidor
+	if err := migrate(a); err != nil { // between Setup and the server
 		trilha.Fatal(err)
 	}
 	trilha.Run(a)
 }
 ```
 
-`public/` é opcional: o `//go:embed` só é gerado quando a pasta tem arquivos.
+`public/` is optional: the `//go:embed` is only generated when the folder has files.
 
-## Testar um app
+## Testing an app
 
-O arquivo gerado define `newApp()`. Um teste no pacote `main` do projeto pode usá-lo:
+The generated file defines `newApp()`. A test in the project's `main` package can use it:
 
 ```go
 func TestHome(t *testing.T) {
