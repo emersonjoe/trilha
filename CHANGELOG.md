@@ -5,7 +5,7 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
-## 0.8.0 — 2026-09-05
+## 0.9.0 — 2026-09-05
 
 ### Added
 - Internationalization (spec 015). Everything public is English by default with a Brazilian
@@ -36,18 +36,19 @@ versioning. This file is written in English only.
 
 ## 0.8.0 — 2026-09-05
 
-### Adicionado
-- `Ctx.Asset` e `App.Asset` (spec 017): o endereço de um arquivo de `Config.Public` sai com
-  o hash do conteúdo (`/site.css?v=8f3a1c92`), aplicando `BasePath`. Um pedido cuja versão
-  confere recebe `public, max-age=31536000, immutable`; versão errada ou ausente mantém o
-  comportamento de antes, e em `dev` nada é imutável. O arquivo é lido uma vez em produção;
-  em `dev` um `Stat` decide se relê. Caminho inexistente volta sem versão, com aviso.
-- `trilha audit`: aviso quando `immutable` aparece num projeto que não usa `Asset`.
+### Added
+- `Ctx.Asset` and `App.Asset` (spec 017): the address of a file in `Config.Public` carries
+  the content hash (`/site.css?v=8f3a1c92`), with `BasePath` applied. A request whose
+  version matches gets `public, max-age=31536000, immutable`; a wrong or missing version
+  keeps the previous behavior, and in `dev` nothing is immutable. The file is read once in
+  production; in `dev` a `Stat` decides whether to re-read it. A path that does not exist
+  comes back unversioned, with a warning.
+- `trilha audit`: warning when `immutable` shows up in a project that does not use `Asset`.
 
-### Alterado
-- `ui.Head`, o layout do site, os exemplos e o `trilha new` passam a linkar assets por
-  `c.Asset`. É a correção do problema que originou a spec: publicar o site deixava, por até
-  dez minutos, HTML novo com CSS e JS antigos.
+### Changed
+- `ui.Head`, the site layout, the examples and `trilha new` now link assets through
+  `c.Asset`. This fixes the problem that started the spec: publishing the site left, for up
+  to ten minutes, new HTML with old CSS and JS.
 
 ## 0.7.0 — 2026-09-05
 

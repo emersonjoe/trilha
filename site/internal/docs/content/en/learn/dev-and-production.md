@@ -87,6 +87,33 @@ Pages with parameters are included when `Setup` declares them with
 `a.AddExportPath("/events/x")`. Pages that answer a same-site redirect become a small HTML
 stub pointing to the destination. The site you are reading was generated this way.
 
+## Assets and cache
+
+Publishing new HTML with old CSS is the bug nobody can reproduce ten minutes later. The
+cause is always the same: the file's address did not change when its content did, and some
+cache layer — the browser, a CDN, GitHub Pages — still holds the old version.
+
+`Asset` puts the content hash in the URL:
+
+```go
+h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))) // /style.css?v=8f3a1c92
+```
+
+With that, a long cache becomes safe:
+
+```go
+cfg.StaticCacheControl = "public, max-age=31536000, immutable"
+```
+
+Whoever asks for the right versioned URL gets the one-year cache; whoever asks for
+`/style.css` without a version falls under the normal rule. In `dev` nothing is immutable and
+the hash follows the file, so saving the CSS and refreshing the page is enough.
+`trilha export` needs no option: the exported HTML comes out with the same URLs, because the
+same layout generates it.
+
+`trilha audit` warns when it finds `immutable` in a project that does not use `Asset` — the
+combination that freezes a file for a year at the wrong address.
+
 ## Secure by default
 
 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and `Referrer-Policy` headers on

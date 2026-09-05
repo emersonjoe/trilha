@@ -66,12 +66,33 @@ func Config(cfg *trilha.Config) {
 `StaticHeaders(name, headers)` runs afterwards, per file, and may change any header:
 
 ```go
-cfg.StaticCacheControl = "public, max-age=31536000, immutable" // assets with ?v= or a hash
+cfg.StaticCacheControl = "public, max-age=31536000, immutable" // safe with c.Asset
 cfg.StaticHeaders = func(name string, h http.Header) {
 	if name == "robots.txt" { h.Set("Cache-Control", "no-store") }
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
 }
 ```
+
+### Version in the address (`Asset`)
+
+```go
+func (a *App) Asset(path string) string
+func (c *Ctx) Asset(path string) string // same thing; it is what the layout uses
+```
+
+`c.Asset("/site.css")` returns `/site.css?v=8f3a1c92`, where `v` is the FNV-1a hash of the
+file's content in `Config.Public` (prefixed with `BasePath`, like `c.Base()`). Since the
+address changes when the file changes, a deploy never leaves anyone with new HTML and old
+CSS — the browser asks for a URL it has never seen.
+
+A request whose `v` matches gets `public, max-age=31536000, immutable`, whatever the
+`StaticCacheControl`; a wrong or missing `v` falls under the normal rule, and in `dev`
+nothing is immutable. The file is read once in production; in `dev` a `Stat` decides whether
+to re-read it, so editing the CSS and refreshing the page is enough.
+
+A path that does not exist in `Public` comes back unversioned, with a warning in the log: a
+typo in the layout does not take the page down. `ui.Head` and the examples already use
+`Asset`.
 
 ## App
 
