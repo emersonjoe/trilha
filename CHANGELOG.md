@@ -5,6 +5,13 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.5.2 — 2026-09-05
+
+### Adicionado
+- Benchmarks (spec 011): módulo `bench/` comparando com a biblioteca padrão (página, JSON,
+  estático, 200 rotas, middlewares), `make bench`/`make bench-results`, `bench/RESULTS.md`,
+  página "Desempenho e comparação" no site e job de CI.
+
 ## 0.5.1 — 2026-09-05
 
 ### Adicionado

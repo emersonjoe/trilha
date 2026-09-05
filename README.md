@@ -213,6 +213,14 @@ Segurança por padrão: escape de HTML, `nosniff`/`X-Frame-Options`/`Referrer-Po
 limite de corpo (1 MiB), CSRF por double-submit cookie em formulários, estáticos sem path
 traversal, logs `slog` sem corpo nem cookies.
 
+## Desempenho
+
+`make bench` mede o custo do Trilha sobre `net/http` + `html/template` (módulo `bench/`,
+separado). Resumo na máquina de referência: `h` renderiza a página de exemplo ~34 % mais
+rápido que `html/template`; o custo fixo por requisição (id, nonce da CSP, cabeçalhos, log
+estruturado) é de ~3 µs. Metodologia, números e uma comparação de abordagem com outros
+frameworks em [Desempenho e comparação](https://emersonjoe.github.io/trilha/referencia/desempenho).
+
 ## Fora do escopo (por enquanto)
 
 Componentes cliente/hidratação e rotas paralelas. Interatividade no cliente fica em `public/*.js` (ou htmx).

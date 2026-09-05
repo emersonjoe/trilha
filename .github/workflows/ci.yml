@@ -14,7 +14,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
-      - run: test -z "$(gofmt -l *.go h internal cmd examples tmpl)"
+      - run: test -z "$(gofmt -l *.go h internal cmd examples tmpl ui)"
+      - run: cd bench && go test ./... && go test -run XXX -bench . -benchtime=50ms
       - run: go vet ./...
       - run: go test ./...
   vuln:

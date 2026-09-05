@@ -1,4 +1,4 @@
-.PHONY: test vet fmt example dev-example golden reload
+.PHONY: test vet fmt example dev-example golden reload bench bench-results
 
 test: vet
 	go test ./...
@@ -21,3 +21,10 @@ dev-example:
 
 reload:
 	./scripts/measure-reload.sh
+
+bench:
+	cd bench && go test -run XXX -bench . -benchmem
+
+# Regrava bench/RESULTS.md com a máquina atual.
+bench-results:
+	cd bench && sh results.sh > RESULTS.md && cat RESULTS.md
