@@ -1,63 +1,70 @@
-# Governança
+# Governance
 
-## Papéis
+> 🇺🇸 English · [🇧🇷 Português](docs/pt-BR/GOVERNANCE.md)
 
-- **Mantenedor**: revisa e integra PRs, publica versões, decide sobre propostas. Hoje:
+## Roles
+
+- **Maintainer**: reviews and merges PRs, publishes releases, decides on proposals. Today:
   Emerson Oliveira dos Santos ([@emersonjoe](https://github.com/emersonjoe)).
-- **Contribuidor**: qualquer pessoa com um PR aceito. Contribuidores recorrentes, com
-  histórico de revisões de qualidade, podem ser convidados a mantenedores.
+- **Contributor**: anyone with an accepted PR. Recurring contributors with a history of
+  quality reviews may be invited to become maintainers.
 
-## Como decisões são tomadas
+## How decisions are made
 
-1. Propostas de convenção ou de API começam em uma issue de proposta e, se aceitas, viram
-   uma spec em `specs/` (spec → plan → tasks → implement).
-2. A [constituição](.specify/memory/constitution.md) prevalece. Mudar um princípio exige uma
-   emenda explícita (nova versão do arquivo, com justificativa), nunca uma exceção pontual.
-3. Discordâncias são resolvidas por consenso na issue; sem consenso, o mantenedor decide e
-   registra o porquê.
+1. Convention or API proposals start in a proposal issue and, if accepted, become a spec in
+   `specs/` (spec → plan → tasks → implement).
+2. The [constitution](.specify/memory/constitution.md) prevails. Changing a principle
+   requires an explicit amendment (new version of the file, with a rationale), never a
+   one-off exception.
+3. Disagreements are resolved by consensus in the issue; without consensus, the maintainer
+   decides and records why.
 
-## Versões
+## Releases
 
-Versionamento semântico. Enquanto o projeto está em 0.x, mudanças incompatíveis podem ocorrer
-em versões menores (0.2, 0.3), sempre listadas no `CHANGELOG.md` com o caminho de migração.
-A 1.0 será publicada quando as convenções de arquivo e a API de `Ctx`/`h` ficarem estáveis
-por pelo menos três versões menores sem mudança incompatível.
+Semantic versioning. While the project is at 0.x, breaking changes may happen in minor
+versions (0.2, 0.3), always listed in `CHANGELOG.md` with the migration path. 1.0 will be
+published when the file conventions and the `Ctx`/`h` API stay stable for at least three
+minor versions without a breaking change.
 
-Toda versão é uma tag anotada `vX.Y.Z` com uma release no GitHub. **Toda spec fechada
-(mergeada na `main`) gera uma versão**, para que `go get ...@latest` e a documentação do
-site descrevam sempre a mesma API (issue #5).
+Every release is an annotated `vX.Y.Z` tag with a GitHub release. **Every closed spec
+(merged into `main`) produces a release**, so that `go get ...@latest` and the site's
+documentation always describe the same API (issue #5).
 
-## Proteção da `main`
+## Protection of `main`
 
-A `main` tem um *ruleset* no GitHub, no padrão dos projetos de comunidade:
+`main` has a GitHub *ruleset*, in the pattern of community projects:
 
-- proibido apagar a branch e fazer *force push*; histórico linear (fast-forward ou rebase);
-- toda mudança entra por pull request com **1 aprovação**, revisão dos donos em `CODEOWNERS`,
-  todas as conversas resolvidas e os checks de CI verdes (`test (1.22)`, `test (1.25)`, `vuln`);
-- aprovações anteriores caem quando novos commits chegam no PR.
+- deleting the branch and force pushing are forbidden; linear history (fast-forward or
+  rebase);
+- every change lands through a pull request with **1 approval**, review by the owners in
+  `CODEOWNERS`, every conversation resolved and green CI checks (`test (1.22)`,
+  `test (1.25)`, `vuln`);
+- earlier approvals are dismissed when new commits arrive on the PR.
 
-O mantenedor tem *bypass* para integrar as specs fechadas por fast-forward (o fluxo
-spec-kit local) e para correções urgentes; qualquer uso do bypass fica visível no histórico
-do ruleset. Os arquivos deste repositório não são a fonte da regra: ela vive em
-*Settings → Rules*, e mudanças nela são anunciadas em uma Discussão.
+The maintainer has *bypass* to merge closed specs by fast-forward (the local spec-kit flow)
+and for urgent fixes; any use of the bypass is visible in the ruleset history. The files in
+this repository are not the source of the rule: it lives in *Settings → Rules*, and changes
+to it are announced in a Discussion.
 
-## Métricas de uso
+## Usage metrics
 
-Coletamos o mínimo, sem cookies e sem dado pessoal, e nada disso vive no código:
+We collect the minimum, without cookies and without personal data, and none of it lives in
+the code:
 
-- **Site** (emersonjoe.github.io/trilha): contagem de páginas com o
-  [GoatCounter](https://www.goatcounter.com) (software livre, sem cookies), ligada só quando
-  a variável de repositório `SITE_ANALYTICS` existe (`Settings → Secrets and variables →
-  Actions → Variables`, valor `goatcounter:<código>`). O rodapé passa a mostrar a nota de
-  privacidade e o link público dos números. Para desligar, apague a variável e republique.
-- **Repositório**: visitas, clones, caminhos e referenciadores dos últimos 14 dias
-  (`scripts/traffic.sh`, com o `gh` do mantenedor). O workflow `traffic` grava um snapshot
-  diário em `traffic.jsonl` na branch `stats` quando existe o segredo `TRAFFIC_TOKEN` (token
-  fino com `Administration: read` só neste repositório). Sem o segredo ele não faz nada.
+- **Site** (emersonjoe.github.io/trilha): page counts with
+  [GoatCounter](https://www.goatcounter.com) (free software, no cookies), enabled only when
+  the repository variable `SITE_ANALYTICS` exists (`Settings → Secrets and variables →
+  Actions → Variables`, value `goatcounter:<code>`). The footer then shows the privacy note
+  and the public link to the numbers. To turn it off, delete the variable and republish.
+- **Repository**: visits, clones, paths and referrers of the last 14 days
+  (`scripts/traffic.sh`, with the maintainer's `gh`). The `traffic` workflow writes a daily
+  snapshot to `traffic.jsonl` on the `stats` branch when the `TRAFFIC_TOKEN` secret exists
+  (fine-grained token with `Administration: read` on this repository only). Without the
+  secret it does nothing.
 
-Estrelas, forks e watchers são públicos na página do repositório.
+Stars, forks and watchers are public on the repository page.
 
-## Comunicação
+## Communication
 
-Issues e Discussões são os canais oficiais. Decisões tomadas em outro lugar são registradas
-lá antes de valer.
+Issues and Discussions are the official channels. Decisions taken elsewhere are recorded
+there before they count.

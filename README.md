@@ -1,83 +1,88 @@
 # Trilha
 
+> 🇺🇸 English · [🇧🇷 Português](README.pt-BR.md)
+
 [![ci](https://github.com/emersonjoe/trilha/actions/workflows/ci.yml/badge.svg)](https://github.com/emersonjoe/trilha/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/emersonjoe/trilha.svg)](https://pkg.go.dev/github.com/emersonjoe/trilha)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Framework web para Go com roteamento por arquivos.** Layouts aninhados, rotas de API,
-middleware por pasta, dev server com recarga automática e um único binário de produção.
-Zero dependências fora da biblioteca padrão. A organização por pastas segue o modelo
-popularizado pelo Next.js\*, traduzido para as convenções do Go.
+**Web framework for Go with file-based routing.** Nested layouts, API routes, per-folder
+middleware, a dev server with live reload and a single production binary. Zero dependencies
+outside the standard library. The folder layout follows the model popularized by Next.js\*,
+translated into Go conventions.
 
 ```
 app/
-├── layout.go            → <html> raiz (envolve tudo)
+├── layout.go            → root <html> (wraps everything)
 ├── page.go              → GET /
-├── middleware.go        → roda em toda requisição
-├── not_found.go         → página 404
-├── error.go             → página 500
-├── setup.go             → inicialização (banco, cache...)
+├── middleware.go        → runs on every request
+├── not_found.go         → 404 page
+├── error.go             → 500 page
+├── setup.go             → startup (database, cache...)
 ├── blog/
-│   ├── layout.go        → envolve /blog/**
+│   ├── layout.go        → wraps /blog/**
 │   ├── page.go          → GET /blog
-│   ├── novo/page.go     → GET /blog/novo  (+ POST do formulário)
+│   ├── new/page.go      → GET /blog/new  (+ the form's POST)
 │   └── slug_/page.go    → GET /blog/{slug}
 ├── docs/path__/page.go  → GET /docs/{path...}
-├── marketing-/          → grupo: não aparece na URL
-│   ├── layout.go        → envolve /precos e /sobre
-│   ├── precos/page.go   → GET /precos
-│   └── sobre/page.go    → GET /sobre
+├── marketing-/          → group: not part of the URL
+│   ├── layout.go        → wraps /pricing and /about
+│   ├── pricing/page.go  → GET /pricing
+│   └── about/page.go    → GET /about
 ├── admin/
-│   ├── middleware.go    → só para /admin/**
+│   ├── middleware.go    → only for /admin/**
 │   └── page.go
 └── api/posts/route.go   → GET/POST /api/posts
-public/style.css         → servido em /style.css
+public/style.css         → served at /style.css
 ```
 
-## Documentação
+## Documentation
 
-**<https://emersonjoe.github.io/trilha>** — trilha "Aprender" (do `trilha new` ao deploy, com
-desafios) e "Referência" por pacote. O site é um app Trilha, exportado com `trilha export`.
+**<https://emersonjoe.github.io/trilha>** — the "Learn" track (from `trilha new` to deploy,
+with challenges) and a per-package "Reference". The site is a Trilha app, exported with
+`trilha export`, in English (`/`) and Portuguese (`/pt`).
 
-## Começando
+## Getting started
 
 ```bash
 go install github.com/emersonjoe/trilha/cmd/trilha@latest
-trilha new meu-app && cd meu-app
-trilha dev              # → http://localhost:3000, recarrega ao salvar
-trilha build            # → bin/meu-app, com public/ embutido
+trilha new my-app && cd my-app
+trilha dev              # → http://localhost:3000, reloads on save
+trilha build            # → bin/my-app, with public/ embedded
 ```
 
-Ainda não publicado? Use a cópia local: `trilha new meu-app --trilha-dir ../trilha`.
+Not published yet? Use a local copy: `trilha new my-app --trilha-dir ../trilha`. The CLI
+speaks English by default and Portuguese with `TRILHA_LANG=pt` (or a `pt_*` `LANG`);
+`trilha new --lang pt` generates the project texts in Portuguese.
 
-## Convenções
+## Conventions
 
-| Arquivo | Exporta | Assinatura |
-|---------|---------|------------|
+| File | Exports | Signature |
+|------|---------|-----------|
 | `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` |
-| `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (opcionais) | `func(c *trilha.Ctx) error` — formulários, com CSRF |
+| `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (optional) | `func(c *trilha.Ctx) error` — forms, with CSRF |
 | `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` | `func(c *trilha.Ctx) error` — API |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` |
-| `not_found.go` (raiz) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` |
-| `error.go` (raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` |
-| `setup.go` (raiz) | `Setup` | `func(a *trilha.App) error` |
-| `setup.go` (opcional) | `Config` | `func(cfg *trilha.Config)`, antes de `trilha.New` |
+| `not_found.go` (root) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` |
+| `error.go` (root) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` |
+| `setup.go` (root) | `Setup` | `func(a *trilha.App) error` |
+| `setup.go` (optional) | `Config` | `func(cfg *trilha.Config)`, before `trilha.New` |
 
-Pastas viram segmentos: `blog` → `/blog`; `slug_` → `/{slug}`; `path__` → `/{path...}`
-(catch-all, precisa ser folha); `marketing-` → **grupo de rota**: não entra na URL, mas
-seu `layout.go`/`middleware.go` valem para tudo abaixo (o equivalente ao `(marketing)` do Next.js).
-`[slug]` e `(grupo)` não são válidos em import path do Go, por isso os sufixos `_` e `-`.
-Pastas iniciadas por `_` ou `.` são ignoradas. Duas pastas que gerem a mesma URL são erro
-de geração (`E_DUPLICATE_ROUTE`).
+Folders become segments: `blog` → `/blog`; `slug_` → `/{slug}`; `path__` → `/{path...}`
+(catch-all, must be a leaf); `marketing-` → **route group**: not part of the URL, but its
+`layout.go`/`middleware.go` apply to everything below (the equivalent of Next.js's
+`(marketing)`). `[slug]` and `(group)` are not valid in a Go import path, hence the `_` and
+`-` suffixes. Folders starting with `_` or `.` are ignored. Two folders producing the same
+URL are a generation error (`E_DUPLICATE_ROUTE`).
 
-Ordem de execução para `GET /admin`:
+Execution order for `GET /admin`:
 `middleware(app) → middleware(app/admin) → Page → layout(app/admin)? → layout(app)`.
 
-## Uma página
+## A page
 
 ```go
-package sobre
+package about
 
 import (
 	"github.com/emersonjoe/trilha"
@@ -85,42 +90,41 @@ import (
 )
 
 func Page(c *trilha.Ctx) (h.Node, error) {
-	c.SetTitle("Sobre")
+	c.SetTitle("About")
 	return h.Main(
-		h.H1(h.Text("Sobre")),
-		h.P(h.Textf("Você é a requisição %s.", c.RequestID())),
+		h.H1(h.Text("About")),
+		h.P(h.Textf("You are request %s.", c.RequestID())),
 	), nil
 }
 ```
 
-`h` é um DSL de HTML tipado: elementos e atributos são funções, texto é escapado por
-padrão e `h.Raw` é a única porta sem escape. `h.If`, `h.Map` e `h.Fragment` cobrem o
-fluxo de controle.
+`h` is a typed HTML DSL: elements and attributes are functions, text is escaped by default
+and `h.Raw` is the only unescaped door. `h.If`, `h.Map` and `h.Fragment` cover control flow.
 
-Prefere `html/template`? O pacote `tmpl` encaixa templates no mesmo pipeline (layouts,
-título, escape contextual do próprio `html/template`):
+Prefer `html/template`? The `tmpl` package plugs templates into the same pipeline (layouts,
+title, the contextual escaping of `html/template` itself):
 
 ```go
-//go:embed relatorio.html
+//go:embed report.html
 var files embed.FS
-var t = tmpl.Must(files, "*.html") // falha na subida, nunca no request
+var t = tmpl.Must(files, "*.html") // fails at startup, never during a request
 
 func Page(c *trilha.Ctx) (h.Node, error) {
-	return tmpl.Node(t, "relatorio", dados), nil
+	return tmpl.Node(t, "report", data), nil
 }
 ```
 
-## Formulários e APIs
+## Forms and APIs
 
 ```go
-// app/blog/novo/page.go
+// app/blog/new/page.go
 func Page(c *trilha.Ctx) (h.Node, error) {
 	return h.Form(h.Method("post"), trilha.CSRFInput(c),
-		h.Input(h.Name("titulo")), h.Button(h.Text("Publicar"))), nil
+		h.Input(h.Name("title")), h.Button(h.Text("Publish"))), nil
 }
 
 func POST(c *trilha.Ctx) error {
-	p := posts.Create(c.Form("titulo"), c.Form("corpo"))
+	p := posts.Create(c.Form("title"), c.Form("body"))
 	return c.Redirect("/blog/" + p.Slug) // 303: POST → redirect → GET
 }
 
@@ -133,10 +137,9 @@ func POST(c *trilha.Ctx) error {
 }
 ```
 
-Erros são valores: `trilha.ErrNotFound` → 404 (HTML ou JSON conforme a rota),
-`trilha.Redirect(url)` → 303, `trilha.Errorf(422, "...")` → status com mensagem,
-qualquer outro `error` → 500 com stack só em dev. Métodos não exportados respondem 405
-com `Allow`.
+Errors are values: `trilha.ErrNotFound` → 404 (HTML or JSON depending on the route),
+`trilha.Redirect(url)` → 303, `trilha.Errorf(422, "...")` → status with a message, any other
+`error` → 500 with a stack only in dev. Methods you do not export answer 405 with `Allow`.
 
 ## Middleware
 
@@ -146,161 +149,112 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 	if ck, err := c.Cookie("session"); err != nil || ck.Value != "ok" {
 		return trilha.RedirectCode("/login", 302)
 	}
-	c.Set("user", "admin") // páginas leem com c.Get("user")
+	c.Set("user", "admin") // pages read it with c.Get("user")
 	return next()
 }
 ```
 
-## Interface
+## UI
 
-Projetos novos vêm com o kit `ui`: componentes tipados (`ui.Button`, `ui.Card`, `ui.Field`,
-`ui.Tabs`, `ui.Dialog`...) sobre um CSS prefixado e um JS de 200 linhas, ambos copiados
-para `public/` e seus para editar. O tema usa as mesmas variáveis do
-[shadcn/ui](https://ui.shadcn.com) (MIT): cole um tema pronto em `public/ui.theme.css` e
-nada em Go muda. `trilha ui` atualiza o kit sem tocar no seu tema.
+New projects ship with the `ui` kit: typed components (`ui.Button`, `ui.Card`, `ui.Field`,
+`ui.Tabs`, `ui.Dialog`...) over a prefixed CSS and 200 lines of JS, both copied to `public/`
+and yours to edit. The theme uses the same variables as [shadcn/ui](https://ui.shadcn.com)
+(MIT): paste a ready-made theme into `public/ui.theme.css` and nothing in Go changes.
+`trilha ui` updates the kit without touching your theme.
 
 ```go
 ui.Card(
-	ui.CardHeader(ui.CardTitle("Novo post")),
+	ui.CardHeader(ui.CardTitle("New post")),
 	ui.CardContent(h.Form(h.Method("post"), trilha.CSRFInput(c),
-		ui.Field("titulo", "Título", ui.Input(h.ID("titulo"), h.Name("titulo"), h.Required())),
-		ui.Submit(h.Text("Publicar")))),
+		ui.Field("title", "Title", ui.Input(h.ID("title"), h.Name("title"), h.Required())),
+		ui.Submit(h.Text("Publish")))),
 )
 ```
 
-## Exemplos
+## Examples
 
-| Nível | Pasta | Ensina |
+| Level | Folder | Teaches |
 |---|---|---|
-| Básico | `examples/blog` | convenções, layouts, API, middleware, sessão |
-| Médio | `examples/cadastro` | formulário com regras: campos condicionais, validação por campo (`c.Bind`, `trilha.FieldErrors`, `c.Render`), seleção dependente, aviso que some |
-| Complexo | `examples/orcamento` | plano de contas em árvore, drill-down, componentes recursivos, diálogo, CSV |
-| IA | `examples/assistente` | chat em streaming, agente com ferramentas, MCP |
+| Basic | `examples/blog` | conventions, layouts, API, middleware, session |
+| Medium | `examples/cadastro` | a form with rules: conditional fields, per-field validation (`c.Bind`, `trilha.FieldErrors`, `c.Render`), dependent select, disappearing toast |
+| Complex | `examples/orcamento` | tree-shaped chart of accounts, drill-down, recursive components, dialog, CSV |
+| AI | `examples/assistente` | streaming chat, agent with tools, MCP |
 
-## IA e agentes
+The example apps are written in Portuguese (identifiers and UI texts); the code is the same
+Trilha documented here in English.
 
-`ai` fala o protocolo de chat da OpenAI (funciona com OpenAI, Groq, Mistral, OpenRouter, Ollama,
-LM Studio, vLLM...), com ferramentas tipadas, agentes, handoffs e streaming; `ai/mcp` usa e
-expõe ferramentas pelo Model Context Protocol. Tudo sem dependências externas.
+## AI and agents
+
+`ai` speaks OpenAI's chat protocol (works with OpenAI, Groq, Mistral, OpenRouter, Ollama,
+LM Studio, vLLM...), with typed tools, agents, handoffs and streaming; `ai/mcp` uses and
+exposes tools through the Model Context Protocol. All without external dependencies.
 
 ```go
-clima := ai.NewTool("clima", "Temperatura em uma cidade.",
-    ai.Schema(`{"type":"object","properties":{"cidade":{"type":"string"}},"required":["cidade"]}`),
-    ai.Typed(func(ctx context.Context, in struct{ Cidade string }) (string, error) {
-        return buscarTemperatura(ctx, in.Cidade)
+weather := ai.NewTool("weather", "Temperature in a city.",
+    ai.Schema(`{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}`),
+    ai.Typed(func(ctx context.Context, in struct{ City string }) (string, error) {
+        return fetchTemperature(ctx, in.City)
     }))
-agente := &ai.Agent{Name: "Assistente", Instructions: "Responda em português.", Tools: []*ai.Tool{clima}}
-res, err := ai.Run(ctx, ai.NewFromEnv(), agente, "Está frio em Curitiba?")
+agent := &ai.Agent{Name: "Assistant", Instructions: "Answer briefly.", Tools: []*ai.Tool{weather}}
+res, err := ai.Run(ctx, ai.NewFromEnv(), agent, "Is it cold in Curitiba?")
 ```
 
-Veja `examples/assistente` (chat em streaming com `c.Stream()`, handoff para um tradutor e
-servidor MCP em `/mcp`) e o capítulo [IA e agentes](https://emersonjoe.github.io/trilha/aprender/ia-e-agentes).
+See `examples/assistente` (streaming chat with `c.Stream()`, handoff to a translator and an
+MCP server at `/mcp`) and the chapter
+[AI and agents](https://emersonjoe.github.io/trilha/learn/ai-and-agents).
 
-## Como funciona
+## How it works
 
-`trilha gen` varre `app/` com `go/ast` e escreve `trilha_gen.go` (commitado): um
-`package main` que importa cada pacote de rota e chama `a.Register(...)` com tipos
-verificados pelo compilador. Nada de `reflect`, nada de mágica em runtime; `go build .`
-funciona sem a CLI. O roteador é o `http.ServeMux` do Go 1.22+.
+`trilha gen` scans `app/` with `go/ast` and writes `trilha_gen.go` (committed): a
+`package main` that imports each route package and calls `a.Register(...)` with types
+checked by the compiler. No `reflect`, no runtime magic; `go build .` works without the CLI.
+The router is Go 1.22+'s `http.ServeMux`.
 
-`trilha dev` escuta em `:3000`, compila o app numa porta interna, faz proxy e injeta um
-script de live-reload (SSE). Ao salvar: regenera, recompila, troca o processo e avisa o
-navegador — cerca de 1 s no exemplo. Mudanças só em `public/` não recompilam: o navegador
-recarrega em dezenas de milissegundos. Erro de compilação vira uma página com a saída do
-`go build` que some sozinha quando você corrige.
+`trilha dev` listens on `:3000`, compiles the app on an internal port, proxies to it and
+injects a live-reload script (SSE). On save: regenerate, recompile, swap the process and
+notify the browser — about 1 s in the example. Changes only in `public/` do not recompile:
+the browser reloads in tens of milliseconds. A compile error becomes a page with the output
+of `go build` that goes away on its own when you fix it.
 
-Segurança por padrão: escape de HTML, `nosniff`/`X-Frame-Options`/`Referrer-Policy`,
-limite de corpo (1 MiB), CSRF por double-submit cookie em formulários, estáticos sem path
-traversal, logs `slog` sem corpo nem cookies.
+Secure by default: HTML escaping, `nosniff`/`X-Frame-Options`/`Referrer-Policy`, body limit
+(1 MiB), CSRF by double-submit cookie on forms, static files without path traversal, `slog`
+logs without body or cookies.
 
-## Saúde e observabilidade
+## Performance
 
-Todo app já responde `/_trilha/health/live` (o processo atende) e `/_trilha/health/ready`
-(as dependências que você registrou com `a.Check` respondem, com prazo e cache). Para quem
-não está autorizado, a resposta é só `{"status":"fail"}`: nome de dependência e mensagem de
-erro ficam no log, não na rede.
+`make bench` measures Trilha's cost over `net/http` + `html/template` (separate `bench/`
+module). Summary on the reference machine: `h` renders the example page ~34 % faster than
+`html/template`; the fixed cost per request (id, CSP nonce, headers, structured logging) is
+~3 µs. Methodology, numbers and a comparison of approach with other frameworks in
+[Performance and comparison](https://emersonjoe.github.io/trilha/reference/performance).
 
-```go
-a.Check("banco", func(ctx context.Context) error { return db.PingContext(ctx) })
-```
+## Out of scope (for now)
 
-O endereço de métricas é opt-in (`TRILHA_METRICS` ou `Observability.Metrics`) e exige token
-ou rede confiável. Ele fala o formato de texto do Prometheus, com requisições, latência,
-requisições em voo, eventos de segurança, pânicos e runtime do Go — mais as suas
-(`a.Metrics().Counter(...)`). O rótulo de rota é sempre o padrão registrado, nunca o
-caminho concreto. Detalhes em
-[Saúde e observabilidade](https://emersonjoe.github.io/trilha/aprender/observabilidade).
+Client components/hydration and parallel routes. Client-side interactivity lives in
+`public/*.js` (or htmx).
 
-## Login corporativo
+## License
 
-O pacote `auth` faz OpenID Connect (Entra ID, Keycloak ou qualquer provedor conforme) com a
-biblioteca padrão: PKCE, `state`, `nonce`, validação do `id_token` com JWKS e rotação de
-chave, sessão em cookie assinado e papéis lidos de onde cada provedor os guarda.
+MIT (`LICENSE`). The spec-kit files in `.specify/` and `.claude/skills` are MIT by GitHub,
+Inc.; see `THIRD_PARTY_NOTICES.md`.
 
-```go
-// app/entrar/route.go — o fluxo inteiro são três rotas de duas linhas
-func GET(c *trilha.Ctx) error { return sso.Start(c) }
+\* Next.js is a trademark of Vercel, Inc. Trilha is an independent project, not affiliated,
+and contains no Next.js code.
 
-// app/painel/middleware.go
-func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.Require(c, next) }
-```
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md), the
+[code of conduct](CODE_OF_CONDUCT.md), the [security policy](SECURITY.md) and the
+[governance](GOVERNANCE.md) (Portuguese translations in `docs/pt-BR/`). Behavior changes
+follow the spec-kit flow in `specs/`.
 
-Navegador anônimo vai para o login; chamada de API recebe 401. Quem está logado sem o papel
-exigido recebe 403. Exemplo executável em `examples/sso`, detalhes em
-[Autenticação](https://emersonjoe.github.io/trilha/aprender/autenticacao).
-
-## Desempenho
-
-`make bench` mede o custo do Trilha sobre `net/http` + `html/template` (módulo `bench/`,
-separado). Resumo na máquina de referência: `h` renderiza a página de exemplo ~34 % mais
-rápido que `html/template`; o custo fixo por requisição (id, nonce da CSP, cabeçalhos, log
-estruturado) é de ~3 µs, e a instrumentação de métricas, quando ligada, não acrescenta
-nenhuma alocação. Metodologia, números e uma comparação de abordagem com outros
-frameworks em [Desempenho e comparação](https://emersonjoe.github.io/trilha/referencia/desempenho).
-
-## Para onde vai
-
-[`ROADMAP.md`](ROADMAP.md) responde a uma avaliação externa item a item: o que já existe, o
-que está planejado (issues com o rótulo `roadmap`, agrupadas por fase) e o que decidimos
-**não** fazer, com o motivo. O maior buraco reconhecido é interatividade sem virar SPA;
-e autenticação com OIDC (spec 016) já entrou.
-
-## Fora do escopo (por enquanto)
-
-Componentes cliente/hidratação e rotas paralelas. Interatividade no cliente fica em `public/*.js` (ou htmx).
-
-## Licença
-
-MIT (`LICENSE`). Os arquivos do spec-kit em `.specify/` e `.claude/skills` são MIT da GitHub,
-Inc.; veja `THIRD_PARTY_NOTICES.md`.
-
-\* Next.js é marca da Vercel, Inc. O Trilha é um projeto independente, sem afiliação, e não
-contém código do Next.js.
-
-Contribuições são bem-vindas: veja [CONTRIBUTING.md](CONTRIBUTING.md), o
-[código de conduta](CODE_OF_CONDUCT.md), a [política de segurança](SECURITY.md) e a
-[governança](GOVERNANCE.md). Mudanças de comportamento seguem o fluxo spec-kit em `specs/`.
-
-## Desenvolvimento
+## Development
 
 ```bash
-make test        # gofmt + vet + go test ./... (inclui e2e da CLI e o exemplo)
-make dev-example # trilha dev em examples/blog
-make reload      # mede o ciclo editar→ver
+make test        # gofmt + vet + go test ./... (includes the CLI e2e and the examples)
+make dev-example # trilha dev in examples/blog
+make reload      # measures the edit→see cycle
 ```
 
-Projeto guiado por spec-kit: veja `specs/` (001 núcleo, 002 grupos/templates/estáticos, 003 export, 004 segurança, 005 IA) e
-`.specify/memory/constitution.md`.
-
----
-
-## English
-
-Trilha is a file-based web framework for Go (routing conventions inspired by Next.js, no
-affiliation): routes live under `app/`
-(`page.go`, `route.go`, `layout.go`, `middleware.go`), nested layouts, typed HTML DSL,
-CSRF-protected forms, a dev server with live reload and a single production binary with
-`public/` embedded. Dynamic segments use `name_` (`/{name}`) and `name__` (`/{name...}`)
-because `[name]` is not a valid Go import path; `name-` is a route group (Next's `(name)`).
-Prefer templates? `tmpl.Node(t, "name", data)` plugs `html/template` into the same pipeline. Standard library only. Run
-`trilha new app && cd app && trilha dev`.
+Spec-kit driven project: see `specs/` (one folder per spec, from 001 core to 015 i18n) and
+`.specify/memory/constitution.md`. Specs and the constitution are written in Brazilian
+Portuguese; everything public (site, README, CLI) is English by default with a Portuguese
+translation.

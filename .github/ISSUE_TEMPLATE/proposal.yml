@@ -1,0 +1,32 @@
+name: Convention or feature proposal
+description: A new file convention, an API change or a feature
+labels: ["proposal"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does it solve?
+      description: Describe the scenario from the point of view of someone using the framework, before the solution
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What the app/ tree or the API would look like. Concrete examples help more than descriptions
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: constitution
+    attributes:
+      label: Compatibility with the project constitution
+      options:
+        - label: Adds no dependency outside the standard library to the runtime or the CLI
+        - label: Requires no runtime reflection to discover handlers
+        - label: Has an example in `examples/` and a test exercising it (or the PR will bring them)
+        - label: Public texts come in English with a Portuguese translation (site `/pt`, `README.pt-BR.md`, `docs/pt-BR/`)

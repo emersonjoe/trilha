@@ -1,35 +1,35 @@
 name: Bug
-description: Algo não funciona como a documentação diz
-labels: ["bug", "triagem"]
+description: Something does not work the way the documentation says
+labels: ["bug", "triage"]
 body:
   - type: markdown
     attributes:
-      value: Obrigado por reportar. Quanto mais reproduzível, mais rápido corrigimos.
+      value: Thanks for reporting. The more reproducible, the faster we fix it. Reports in English or Portuguese are both welcome.
   - type: input
-    id: versao
+    id: version
     attributes:
-      label: Versão
-      description: Saída de `trilha version` e `go version`
-      placeholder: trilha 0.1.0 · go1.25.1 darwin/arm64
+      label: Version
+      description: Output of `trilha version` and `go version`
+      placeholder: trilha 0.6.0 · go1.25.1 darwin/arm64
     validations:
       required: true
   - type: textarea
-    id: arvore
+    id: tree
     attributes:
-      label: Árvore de app/ que reproduz
-      description: A saída de `find app -type f` (ou `trilha routes`) de um projeto mínimo que mostra o problema
+      label: app/ tree that reproduces it
+      description: The output of `find app -type f` (or `trilha routes`) from a minimal project showing the problem
       render: text
     validations:
       required: true
   - type: textarea
-    id: esperado
+    id: expected
     attributes:
-      label: O que você esperava e o que aconteceu
-      description: Inclua a saída da CLI ou a resposta HTTP (status e corpo)
+      label: What you expected and what happened
+      description: Include the CLI output or the HTTP response (status and body)
     validations:
       required: true
   - type: dropdown
     id: area
     attributes:
-      label: Área
-      options: [scanner/gerador, runtime (Ctx, erros, render), h (DSL), tmpl, CLI dev, CLI build/export, documentação, outra]
+      label: Area
+      options: [scanner/generator, runtime (Ctx, errors, render), h (DSL), tmpl, CLI dev, CLI build/export, documentation, other]

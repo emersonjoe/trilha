@@ -1,15 +1,15 @@
-## O que muda
+## What changes
 
-<!-- Uma frase. Link para a issue ou spec: "Fecha #12" / "specs/004-.../spec.md" -->
+<!-- One sentence. Link to the issue or spec: "Closes #12" / "specs/004-.../spec.md" -->
 
-## Como foi testado
+## How it was tested
 
-- [ ] `make test` verde localmente
-- [ ] Convenção nova tem teste no scanner, rota em `examples/blog` e teste de integração
-- [ ] Goldens regravados se o gerador mudou (`make golden`)
-- [ ] Documentação atualizada (`site/internal/docs/content/`) quando o comportamento visível mudou
-- [ ] `CHANGELOG.md` atualizado em "Não lançado"
+- [ ] `make test` green locally
+- [ ] A new convention has a scanner test, a route in `examples/blog` and an integration test
+- [ ] Goldens rewritten if the generator changed (`make golden`)
+- [ ] Documentation updated in both languages (`site/internal/docs/content/en` and `pt`) when visible behavior changed
+- [ ] `CHANGELOG.md` updated under "Unreleased"
 
-## Constituição
+## Constitution
 
-<!-- Se algum princípio de .specify/memory/constitution.md é afetado, diga qual e por quê. -->
+<!-- If any principle of .specify/memory/constitution.md is affected, say which one and why. -->

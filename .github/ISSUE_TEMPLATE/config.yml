@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Dúvida ou ideia
+  - name: Question or idea
     url: https://github.com/emersonjoe/trilha/discussions
-    about: Perguntas, ideias e "como faço para" ficam nas Discussões
-  - name: Vulnerabilidade de segurança
+    about: Questions, ideas and "how do I" go to the Discussions
+  - name: Security vulnerability
     url: https://github.com/emersonjoe/trilha/security/advisories/new
-    about: Não abra issue pública; use o relato privado
+    about: Do not open a public issue; use the private report

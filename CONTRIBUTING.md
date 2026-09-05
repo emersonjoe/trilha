@@ -1,65 +1,72 @@
-# Contribuindo com o Trilha
+# Contributing to Trilha
 
-Obrigado pelo interesse. Este guia explica como o projeto trabalha para que a sua
-contribuição seja aceita sem ida e volta.
+> 🇺🇸 English · [🇧🇷 Português](docs/pt-BR/CONTRIBUTING.md)
 
-## Antes de codar
+Thanks for your interest. This guide explains how the project works so your contribution
+lands without back and forth.
 
-- **Bug**: abra uma issue com a árvore de `app/` que reproduz.
-- **Convenção nova ou mudança de API**: abra uma issue de proposta. Mudanças de comportamento
-  passam por uma spec em `specs/NNN-nome/` (fluxo [spec-kit](https://github.com/github/spec-kit):
-  spec → plan → tasks → implement). O mantenedor abre a spec com você a partir da issue.
-- **Dúvida**: use as [Discussões](https://github.com/emersonjoe/trilha/discussions).
+## Before coding
 
-## Princípios que não mudam sem emenda
+- **Bug**: open an issue with the `app/` tree that reproduces it.
+- **New convention or API change**: open a proposal issue. Behavior changes go through a
+  spec in `specs/NNN-name/` ([spec-kit](https://github.com/github/spec-kit) flow:
+  spec → plan → tasks → implement). The maintainer opens the spec with you from the issue.
+- **Question**: use the [Discussions](https://github.com/emersonjoe/trilha/discussions).
 
-Estão em [`.specify/memory/constitution.md`](.specify/memory/constitution.md). Os que mais
-afetam contribuições:
+## Principles that do not change without an amendment
 
-1. Runtime e CLI usam **só a biblioteca padrão**. Um PR que adiciona `require` ao `go.mod`
-   é fechado, por melhor que seja a biblioteca.
-2. Rotas vêm de **convenções de arquivo** e viram **código gerado**, verificado pelo
-   compilador. Nada de `reflect` para descobrir handlers.
-3. Toda convenção nova precisa de **três coisas**: teste de tabela no scanner
-   (`internal/scan`), rota em `examples/blog` e teste de integração em
+They live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md) (in
+Portuguese). The ones that affect contributions the most:
+
+1. Runtime and CLI use **only the standard library**. A PR that adds a `require` to `go.mod`
+   is closed, however good the library is.
+2. Routes come from **file conventions** and become **generated code**, checked by the
+   compiler. No `reflect` to discover handlers.
+3. Every new convention needs **three things**: a table test in the scanner
+   (`internal/scan`), a route in `examples/blog` and an integration test in
    `examples/blog/blog_test.go`.
-4. Testes primeiro no núcleo. `go vet ./...` e `go test ./...` verdes.
+4. Tests first in the core. `go vet ./...` and `go test ./...` green.
 
-## Ambiente
+## Environment
 
 ```bash
 git clone https://github.com/emersonjoe/trilha && cd trilha
-make test          # gofmt + vet + testes (inclui e2e da CLI)
-make dev-example   # examples/blog com recarga
-make golden        # regrava goldens do gerador (confira o diff!)
+make test          # gofmt + vet + tests (includes the CLI e2e)
+make dev-example   # examples/blog with reload
+make golden        # rewrites the generator goldens (check the diff!)
 ```
 
-Go 1.22 ou mais novo. Nenhuma outra ferramenta.
+Go 1.22 or newer. No other tool.
 
-## Estilo
+## Style
 
-- Código, identificadores e comentários em **inglês**; documentação, specs, mensagens da CLI
-  e do site em **português do Brasil**.
-- `gofmt`. Doc comment em todo símbolo exportado.
-- Commits pequenos, mensagem no imperativo com prefixo (`feat:`, `fix:`, `docs:`, `chore:`),
-  sem trailers de coautoria.
+- Code, identifiers, comments and error messages in **English**. Everything public (site,
+  README, community files, CLI, scaffold) in **English by default, with a Brazilian
+  Portuguese translation in the same commit** (`/pt` on the site, `README.pt-BR.md`,
+  `docs/pt-BR/`, the table in `cmd/trilha/i18n.go`). Specs and the constitution are in
+  Portuguese.
+- `gofmt`. Doc comment on every exported symbol.
+- Small commits, imperative message with a prefix (`feat:`, `fix:`, `docs:`, `chore:`), no
+  co-authorship trailers.
 
 ## Pull request
 
-Use o template. Um PR resolve uma issue. Se descobrir outro problema no caminho, abra outra
-issue em vez de crescer o PR. Revisão em até uma semana; se passar disso, mencione
-`@emersonjoe` na PR.
+Use the template. One PR solves one issue. If you find another problem on the way, open
+another issue instead of growing the PR. Review within a week; past that, mention
+`@emersonjoe` on the PR.
 
-A `main` é protegida: o PR precisa dos checks de CI verdes, de uma aprovação e de todas as
-conversas resolvidas antes de ser integrado (veja [GOVERNANCE.md](GOVERNANCE.md)). Faça
-`git rebase main` em vez de merge para manter o histórico linear.
+`main` is protected: the PR needs green CI checks, one approval and every conversation
+resolved before it is merged (see [GOVERNANCE.md](GOVERNANCE.md)). Use `git rebase main`
+instead of merge to keep the history linear.
 
-## Documentação
+## Documentation
 
-O site em `site/` é um app Trilha; o conteúdo fica em
-`site/internal/docs/content/**.md`. Rode `cd site && go run ../cmd/trilha dev --addr :3010`
-para ver as mudanças. Toda mudança visível de comportamento precisa de documentação no mesmo PR.
+The site in `site/` is a Trilha app; the content lives in
+`site/internal/docs/content/<en|pt>/**.md` (both trees have the same pages, matched by
+position). Run `cd site && go run ../cmd/trilha dev --addr :3010` to see your changes. Every
+visible behavior change needs documentation in the same PR, in both languages.
 
-## Licença
+## License
 
-Ao contribuir, você concorda que a sua contribuição é licenciada sob a MIT do projeto.
+By contributing you agree that your contribution is licensed under the project's MIT
+license.

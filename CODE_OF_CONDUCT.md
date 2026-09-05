@@ -1,24 +1,26 @@
-# Código de Conduta
+# Code of Conduct
 
-Este projeto adota o [Contributor Covenant](https://www.contributor-covenant.org), versão 2.1,
-como código de conduta. O texto completo, em português, está em
-<https://www.contributor-covenant.org/pt-br/version/2/1/code_of_conduct/>.
+> 🇺🇸 English · [🇧🇷 Português](docs/pt-BR/CODE_OF_CONDUCT.md)
 
-## Resumo
+This project adopts the [Contributor Covenant](https://www.contributor-covenant.org),
+version 2.1, as its code of conduct. The full text is at
+<https://www.contributor-covenant.org/version/2/1/code_of_conduct/>.
 
-Esperamos de todas as pessoas que participam do projeto (issues, discussões, PRs, revisões):
-respeito, empatia, foco no que é melhor para a comunidade e aceitação de críticas
-construtivas. Não toleramos assédio, ataques pessoais, comentários discriminatórios nem
-divulgação de informação privada de terceiros.
+## Summary
 
-## Aplicação
+We expect from everyone taking part in the project (issues, discussions, PRs, reviews):
+respect, empathy, focus on what is best for the community and acceptance of constructive
+criticism. We do not tolerate harassment, personal attacks, discriminatory remarks or
+disclosure of other people's private information.
 
-Relatos vão para o mantenedor pelo e-mail publicado no perfil
-[@emersonjoe](https://github.com/emersonjoe) ou, se preferir um canal dentro do GitHub, pelo
-[formulário de relato privado](https://github.com/emersonjoe/trilha/security/advisories/new)
-do repositório com o título iniciado por "Conduta:". Todo relato é analisado com
-confidencialidade. Consequências seguem as
-diretrizes do Contributor Covenant 2.1: correção, advertência, banimento temporário ou
-permanente, conforme a gravidade.
+## Enforcement
 
-O Contributor Covenant é licenciado sob CC BY 4.0.
+Reports go to the maintainer through the e-mail published on the
+[@emersonjoe](https://github.com/emersonjoe) profile or, if you prefer a channel inside
+GitHub, through the repository's
+[private report form](https://github.com/emersonjoe/trilha/security/advisories/new) with a
+title starting with "Conduct:". Every report is handled confidentially. Consequences follow
+the Contributor Covenant 2.1 guidelines: correction, warning, temporary or permanent ban,
+according to severity.
+
+The Contributor Covenant is licensed under CC BY 4.0.
