@@ -18,6 +18,10 @@ func (a *App) renderPage(c *Ctx, r *Route) error {
 	if err != nil {
 		return err
 	}
+	if node == nil {
+		// The page wrote the response itself (or nothing: wrap answers 204).
+		return nil
+	}
 	for _, l := range r.Layouts {
 		if node, err = l(c, node); err != nil {
 			return err
@@ -33,6 +37,11 @@ func (a *App) renderPage(c *Ctx, r *Route) error {
 // writeHTML renders a node to a buffer (so a render error still yields a
 // clean 500), prepends the doctype when missing and injects the dev script.
 func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
+	if c.w.wrote {
+		// The handler already answered (http.NotFound, c.Text...): never
+		// append a second document on top of it.
+		return nil
+	}
 	var buf bytes.Buffer
 	if node != nil {
 		if err := node.Render(&buf); err != nil {
@@ -49,7 +58,7 @@ func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
 			out = append([]byte("<!doctype html>"), out...)
 		}
 	}
-	if a.cfg.Env == Dev {
+	if a.cfg.Env == Dev && a.cfg.DevReload != Off {
 		out = injectDevScript(out, c.Nonce())
 	}
 	c.w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -122,6 +131,12 @@ func (a *App) renderNotFound(c *Ctx) {
 	c.status = http.StatusNotFound
 	if a.notFound != nil {
 		node, err := a.notFound(c)
+		if err == nil && node == nil {
+			if c.w.wrote {
+				return // the page answered by itself (any status/content type)
+			}
+			err = errors.New("not_found.go returned nil without writing a response")
+		}
 		if err == nil {
 			node, err = a.wrapRoot(c, node)
 		}
@@ -139,6 +154,12 @@ func (a *App) renderErrorPage(c *Ctx, cause error) {
 	c.status = http.StatusInternalServerError
 	if a.errorPage != nil {
 		node, err := a.errorPage(c, cause)
+		if err == nil && node == nil {
+			if c.w.wrote {
+				return
+			}
+			err = errors.New("error.go returned nil without writing a response")
+		}
 		if err == nil {
 			node, err = a.wrapRoot(c, node)
 		}

@@ -63,6 +63,9 @@ type Config struct {
 	StaticHeaders func(name string, hdr http.Header)
 	// OnSecurityEvent is called for blocked requests (CSRF, 401/403, 413, 429, panic).
 	OnSecurityEvent func(SecurityEvent)
+	// DevReload controls the live-reload script injected in Dev pages; Off
+	// disables it (snapshot tests, HTML diffs). TRILHA_DEV_RELOAD=off does the same.
+	DevReload string
 }
 
 // Timeouts are the http.Server limits. Zero fields get defaults; NoTimeout
@@ -75,6 +78,9 @@ type Timeouts struct {
 	Write          time.Duration // 60s (use Ctx.NoWriteDeadline for streams)
 	Idle           time.Duration // 120s
 	MaxHeaderBytes int           // 64 KiB
+	// Shutdown is how long ListenAndServe waits for in-flight requests after
+	// SIGINT/SIGTERM before closing (5s).
+	Shutdown time.Duration
 }
 
 // NoTimeout disables a Timeouts field (becomes 0 in http.Server).
@@ -98,6 +104,9 @@ func ConfigFromEnv() Config {
 		cfg.BasePath = b
 	}
 	cfg.Secret, cfg.PreviousSecret, _ = secretsFromEnv()
+	if strings.EqualFold(os.Getenv("TRILHA_DEV_RELOAD"), Off) {
+		cfg.DevReload = Off
+	}
 	if p := os.Getenv("TRILHA_TRUSTED_PROXIES"); p != "" {
 		cfg.TrustedProxies = strings.Split(p, ",")
 	}
@@ -151,10 +160,28 @@ type Route struct {
 	Layouts []LayoutFunc
 	// Middlewares run before the handler, outermost first.
 	Middlewares []MiddlewareFunc
+	// Kind decides how errors are rendered (HTML page or JSON) and whether
+	// CSRF applies. KindAuto: page.go routes are pages; route.go routes are
+	// APIs, except that a browser navigation (Accept: text/html, outside
+	// /api/) gets HTML error pages. route.go may export `var Kind = trilha.KindPage`.
+	Kind RouteKind
 }
+
+// RouteKind is the error/CSRF behaviour of a Route; see Route.Kind.
+type RouteKind int
+
+const (
+	// KindAuto derives the kind from the files (page.go → page, route.go → API).
+	KindAuto RouteKind = iota
+	// KindPage renders errors as HTML pages and enforces CSRF on body methods.
+	KindPage
+	// KindAPI renders errors as JSON, whatever the Accept header says.
+	KindAPI
+)
 
 // App is a configured Trilha application.
 type App struct {
+	shutdown    []func(*App) error
 	cfg         Config
 	log         *slog.Logger
 	mux         *http.ServeMux
@@ -278,10 +305,27 @@ func (a *App) ListenAndServe() error {
 	case err := <-errc:
 		return err
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), or(t.Shutdown, 5*time.Second))
 		defer cancel()
-		return srv.Shutdown(shutdownCtx)
+		err := srv.Shutdown(shutdownCtx)
+		return errors.Join(err, a.runShutdown())
 	}
+}
+
+// OnShutdown registers fn to run after the server stopped accepting requests
+// (close pools, flush logs). Hooks run in reverse registration order; setup.go
+// may export func Shutdown(a *trilha.App) error, which the generated main
+// registers for you.
+func (a *App) OnShutdown(fn func(*App) error) { a.shutdown = append(a.shutdown, fn) }
+
+func (a *App) runShutdown() error {
+	var errs []error
+	for i := len(a.shutdown) - 1; i >= 0; i-- {
+		if err := a.shutdown[i](a); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func or(v, def time.Duration) time.Duration {

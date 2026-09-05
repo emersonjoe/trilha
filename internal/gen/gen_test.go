@@ -44,3 +44,30 @@ func TestGolden(t *testing.T) {
 		})
 	}
 }
+
+func TestCustomMainAndKind(t *testing.T) {
+	res, err := scan.Scan(filepath.Join("..", "..", "testdata", "apps", "custom_main"), "example.com/custom_main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := Generate(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(got, []byte("func main()")) {
+		t.Fatalf("generated main with a hand-written main present:\n%s", got)
+	}
+	if !bytes.Contains(got, []byte("a.OnShutdown(app.Shutdown)")) {
+		t.Fatalf("Shutdown hook missing:\n%s", got)
+	}
+	res, err = scan.Scan(filepath.Join("..", "..", "testdata", "apps", "dotdir"), "example.com/dotdir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ = Generate(res)
+	for _, want := range []string{`app_app_css "example.com/dotdir/app/app.css"`, `Pattern: "/app.css"`, `Kind:    app_app_css.Kind,`, `Pattern: "/manifest.webmanifest"`, "func main()"} {
+		if !bytes.Contains(got, []byte(want)) {
+			t.Fatalf("missing %q in:\n%s", want, got)
+		}
+	}
+}

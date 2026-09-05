@@ -69,13 +69,15 @@ type Ref struct {
 
 // Route is one page or API route.
 type Route struct {
-	Pattern     string
-	Kind        string // "page" | "api"
-	Dir         string // relative to the project root, slash-separated (app/blog/slug_)
-	ImportPath  string
-	Alias       string
-	Methods     []string // sorted
-	HasPage     bool
+	Pattern    string
+	Kind       string // "page" | "api"
+	Dir        string // relative to the project root, slash-separated (app/blog/slug_)
+	ImportPath string
+	Alias      string
+	Methods    []string // sorted
+	HasPage    bool
+	// HasKind is true when route.go exports `var Kind = trilha.KindPage|KindAPI`.
+	HasKind     bool
 	Layouts     []Ref // innermost first
 	Middlewares []Ref // outermost first
 }
@@ -92,8 +94,13 @@ type Result struct {
 	// ConfigFunc is the optional func Config(cfg *trilha.Config) in setup.go,
 	// called before trilha.New.
 	ConfigFunc *Ref
-	HasPublic  bool
-	Imports    []Import // sorted by Alias
+	// ShutdownFunc is the optional func Shutdown(a *trilha.App) error in setup.go.
+	ShutdownFunc *Ref
+	// HasMain is true when a non-generated file of the root package already
+	// declares func main(); the generator then omits its own.
+	HasMain   bool
+	HasPublic bool
+	Imports   []Import // sorted by Alias
 }
 
 // Import is one package the generated file must import.
@@ -116,6 +123,7 @@ func Scan(root, module string) (*Result, error) {
 	if st, err := os.Stat(filepath.Join(root, "public")); err == nil && st.IsDir() {
 		s.res.HasPublic = dirHasFiles(filepath.Join(root, "public"))
 	}
+	s.res.HasMain = rootHasMain(root)
 	sort.SliceStable(s.res.Routes, func(i, j int) bool { return s.res.Routes[i].Pattern < s.res.Routes[j].Pattern })
 	for i := 1; i < len(s.res.Routes); i++ {
 		a, b := s.res.Routes[i-1], s.res.Routes[i]
@@ -257,6 +265,10 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 			s.res.ConfigFunc = &Ref{Alias: alias, ImportPath: importPath, Func: "Config"}
 			s.use(alias, importPath)
 		}
+		if present["setup.go"] && pkg.funcs["Shutdown"] {
+			s.res.ShutdownFunc = &Ref{Alias: alias, ImportPath: importPath, Func: "Shutdown"}
+			s.use(alias, importPath)
+		}
 	}
 
 	// Route for this directory.
@@ -277,6 +289,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 			}
 		} else {
 			r.Kind = "api"
+			r.HasKind = pkg.vars["Kind"]
 			r.Layouts = nil
 			for _, m := range methods {
 				if pkg.funcs[m] {
@@ -393,12 +406,13 @@ func (s *scanner) alias(rel string) string {
 type pkgInfo struct {
 	name   string
 	funcs  map[string]bool
-	broken bool // a file failed to parse: skip "missing func" checks
+	vars   map[string]bool // exported package-level var/const names
+	broken bool            // a file failed to parse: skip "missing func" checks
 }
 
 // parsePackage collects exported top-level functions across the dir's files.
 func (s *scanner) parsePackage(abs, rel string, files []string) pkgInfo {
-	info := pkgInfo{funcs: map[string]bool{}}
+	info := pkgInfo{funcs: map[string]bool{}, vars: map[string]bool{}}
 	fset := token.NewFileSet()
 	for _, f := range files {
 		file, err := parser.ParseFile(fset, filepath.Join(abs, f), nil, parser.SkipObjectResolution)
@@ -409,14 +423,51 @@ func (s *scanner) parsePackage(abs, rel string, files []string) pkgInfo {
 		}
 		info.name = file.Name.Name
 		for _, d := range file.Decls {
-			fn, ok := d.(*ast.FuncDecl)
-			if !ok || fn.Recv != nil || !fn.Name.IsExported() {
-				continue
+			switch d := d.(type) {
+			case *ast.FuncDecl:
+				if d.Recv == nil && d.Name.IsExported() {
+					info.funcs[d.Name.Name] = true
+				}
+			case *ast.GenDecl:
+				for _, sp := range d.Specs {
+					if vs, ok := sp.(*ast.ValueSpec); ok {
+						for _, n := range vs.Names {
+							if n.IsExported() {
+								info.vars[n.Name] = true
+							}
+						}
+					}
+				}
 			}
-			info.funcs[fn.Name.Name] = true
 		}
 	}
 	return info
+}
+
+// rootHasMain reports whether a hand-written .go file in the project root
+// (package main, not trilha_gen.go, not a test) declares func main().
+func rootHasMain(root string) bool {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return false
+	}
+	fset := token.NewFileSet()
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") || name == "trilha_gen.go" {
+			continue
+		}
+		file, err := parser.ParseFile(fset, filepath.Join(root, name), nil, parser.SkipObjectResolution)
+		if err != nil || file.Name.Name != "main" {
+			continue
+		}
+		for _, d := range file.Decls {
+			if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv == nil && fn.Name.Name == "main" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func stripPath(err error, abs string) error {

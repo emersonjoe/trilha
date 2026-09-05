@@ -24,9 +24,8 @@ func (a *App) Register(r Route) {
 	}
 	a.routes[pattern] = &route
 	a.pathMux.HandleFunc(muxPat, func(http.ResponseWriter, *http.Request) {})
-	kind := kindAPI
+	kind := kindOf(&route)
 	if route.Page != nil {
-		kind = kindPage
 		a.mux.Handle("GET "+muxPat, a.wrap(&route, kind, func(c *Ctx) error { return a.renderPage(c, &route) }))
 	}
 	methods := make([]string, 0, len(route.Methods))
@@ -65,6 +64,9 @@ func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
 		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		req.Body = http.MaxBytesReader(rw, req.Body, a.cfg.MaxBodyBytes)
 		c := newCtx(a, rw, req, kind)
+		if kind == kindAPI && r.Kind == KindAuto && wantsHTML(req) {
+			c.kind = kindPage // browser navigation to a route.go: HTML error pages
+		}
 		a.applySecurity(c)
 		rw.Header().Set("X-Request-ID", c.requestID)
 
@@ -148,6 +150,9 @@ func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 			allow := a.allowFor(r)
 			rw.Header().Set("Allow", allow)
 			fc.kind = kindOf(r)
+			if fc.kind == kindAPI && r.Kind == KindAuto && wantsHTML(req) {
+				fc.kind = kindPage
+			}
 			a.handleError(fc, &HTTPError{Code: http.StatusMethodNotAllowed})
 			return
 		}
@@ -171,10 +176,23 @@ func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 }
 
 func kindOf(r *Route) routeKind {
+	switch r.Kind {
+	case KindPage:
+		return kindPage
+	case KindAPI:
+		return kindAPI
+	}
 	if r.Page != nil {
 		return kindPage
 	}
 	return kindAPI
+}
+
+// wantsHTML reports a browser navigation: Accept lists text/html and not
+// application/json, and the path is outside /api/.
+func wantsHTML(req *http.Request) bool {
+	accept := req.Header.Get("Accept")
+	return strings.Contains(accept, "text/html") && !strings.Contains(accept, "application/json") && !strings.HasPrefix(req.URL.Path, "/api/")
 }
 
 func (a *App) allowFor(r *Route) string {

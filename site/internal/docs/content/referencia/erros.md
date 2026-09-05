@@ -14,6 +14,26 @@ Handlers devolvem `error`. O Trilha traduz:
 | qualquer outro `error` | 500 com `error.go`; detalhe só em dev | `{"error":"Internal Server Error","status":500}` |
 | `panic` no handler | recuperado e tratado como 500; stack só em dev | idem |
 
+### Página ou JSON?
+
+A coluna é decidida por rota, com um desempate por requisição:
+
+- `page.go` → sempre página.
+- `route.go` → JSON, **exceto** numa navegação de navegador: `Accept` com `text/html` e sem
+  `application/json`, fora de `/api/`. Assim um `route.go` que serve HTML mostra a página
+  de erro em vez de `{"error":...}`; `fetch` sem `Accept` (`*/*`), `curl` e clientes JSON
+  continuam recebendo JSON.
+- `route.go` pode fixar o comportamento exportando `var Kind = trilha.KindPage` (página
+  sempre, e CSRF exigido em `POST`/`PUT`/`PATCH`/`DELETE`) ou `trilha.KindAPI` (JSON sempre).
+
+### Responder por conta própria
+
+`not_found.go`, `error.go` e `page.go` podem escrever a resposta inteira e devolver
+`(nil, nil)`: o Trilha não põe nada em cima. Serve para um 404 em texto puro
+(`http.NotFound(c.Writer(), c.Request())`), outro `Content-Type` ou outro status. Se a
+função devolve `nil` **sem** escrever, vale a página simples do framework (404/500); em
+`page.go`, 204.
+
 Mensagens de `HTTPError` com código 5xx nunca são mostradas ao cliente. Todo erro 5xx vai
 para o log com o `request_id`.
 

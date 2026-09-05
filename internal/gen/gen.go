@@ -56,6 +56,9 @@ func newApp() *trilha.App {
 		trilha.Fatal(err)
 	}
 {{- end}}
+{{- if .ShutdownFunc}}
+	a.OnShutdown({{.ShutdownFunc.Alias}}.{{.ShutdownFunc.Func}})
+{{- end}}
 {{- if .RootLayout}}
 	a.SetRootLayout({{.RootLayout.Alias}}.{{.RootLayout.Func}})
 {{- end}}
@@ -71,6 +74,9 @@ func newApp() *trilha.App {
 		Pattern: {{quote .Pattern}},
 {{- if .HasPage}}
 		Page: {{.Alias}}.Page,
+{{- end}}
+{{- if .HasKind}}
+		Kind: {{.Alias}}.Kind,
 {{- end}}
 {{- if .Methods}}
 		Methods: map[string]trilha.HandlerFunc{
@@ -89,10 +95,12 @@ func newApp() *trilha.App {
 {{- end}}
 	return a
 }
+{{- if not .HasMain}}
 
 func main() {
 	trilha.Run(newApp())
 }
+{{- end}}
 `))
 
 func refList(rs []scan.Ref) string {

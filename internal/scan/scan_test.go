@@ -3,6 +3,7 @@ package scan
 import (
 	"errors"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -182,5 +183,40 @@ func TestGroupErrors(t *testing.T) {
 	_, errs = scanApp(t, "err_group_dynamic")
 	if len(errs) != 1 || errs[0].Code != ErrBadSegment || errs[0].File != "app/slug_-" {
 		t.Fatal(errs)
+	}
+}
+
+func TestCustomMainAndShutdown(t *testing.T) {
+	res, errs := scanApp(t, "custom_main")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	if !res.HasMain {
+		t.Fatal("main.go with func main must set HasMain")
+	}
+	if res.ShutdownFunc == nil || res.ShutdownFunc.Func != "Shutdown" {
+		t.Fatalf("Shutdown not detected: %+v", res.ShutdownFunc)
+	}
+	if full, _ := scanApp(t, "full"); full.HasMain {
+		t.Fatal("full has no hand-written main")
+	}
+}
+
+func TestDotFolders(t *testing.T) {
+	res, errs := scanApp(t, "dotdir")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	var got []string
+	for _, r := range res.Routes {
+		got = append(got, r.Pattern+" "+r.Alias+" "+r.ImportPath+" kind="+strconv.FormatBool(r.HasKind))
+	}
+	want := []string{
+		"/ app example.com/dotdir/app kind=false",
+		"/app.css app_app_css example.com/dotdir/app/app.css kind=true",
+		"/manifest.webmanifest app_manifest_webmanifest example.com/dotdir/app/manifest.webmanifest kind=false",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

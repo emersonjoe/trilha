@@ -5,6 +5,20 @@ versionamento semântico.
 
 ## Não lançado
 
+### Adicionado
+- Issues #10–#14 (spec 008): `Config.DevReload` e `TRILHA_DEV_RELOAD=off` desligam o
+  script de recarga em dev; `Route.Kind` (`KindAuto`/`KindPage`/`KindAPI`) e
+  `var Kind = trilha.KindPage` em `route.go`; `App.OnShutdown`, `Timeouts.Shutdown` e
+  `func Shutdown(a *trilha.App) error` opcional em `setup.go`; o gerador omite `main()`
+  quando o pacote já tem um; pastas com ponto no nome (`app.css/` → `/app.css`) documentadas
+  e testadas.
+
+### Corrigido
+- `not_found.go`/`error.go`/`page.go` que escrevem a resposta e devolvem `(nil, nil)` não
+  recebem um segundo documento em cima (#11).
+- Rota de `route.go` acessada por navegador (`Accept: text/html`, fora de `/api/`) recebe a
+  página de erro em HTML em vez de JSON (#12).
+
 ## 0.2.0 — 2026-09-05
 
 ### Adicionado

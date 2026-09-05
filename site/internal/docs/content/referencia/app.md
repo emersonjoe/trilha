@@ -22,6 +22,7 @@ type Config struct {
 	StaticCacheControl string // Cache-Control dos estáticos em prod ("public, max-age=3600")
 	StaticHeaders func(name string, hdr http.Header) // cabeçalhos por arquivo estático
 	OnSecurityEvent func(SecurityEvent)
+	DevReload    string       // trilha.Off desliga o script de recarga em dev; TRILHA_DEV_RELOAD=off
 }
 ```
 
@@ -47,7 +48,8 @@ Vault, flags) em vez do ambiente.
 
 ### Timeouts
 
-Zero significa "padrão"; `trilha.NoTimeout` desliga o limite (uploads grandes em rede
+`Timeouts.Shutdown` (5 s) é quanto `ListenAndServe` espera as requisições em andamento após
+`SIGINT`/`SIGTERM`. Zero significa "padrão"; `trilha.NoTimeout` desliga o limite (uploads grandes em rede
 lenta, long polling). `Write` vale para a resposta inteira: em vez de desligá-lo
 globalmente, uma rota que transmite deve usar `c.Stream()` (SSE) ou `c.NoWriteDeadline()`.
 
@@ -81,7 +83,8 @@ cfg.StaticHeaders = func(name string, h http.Header) {
 | `Logger() *slog.Logger` | o logger |
 | `Env() Env` | ambiente |
 | `Handler() http.Handler` | o mux raiz, para testes e para embutir em outro servidor |
-| `ListenAndServe() error` | serve com desligamento gracioso em SIGINT/SIGTERM |
+| `ListenAndServe() error` | serve com desligamento gracioso em SIGINT/SIGTERM; depois roda os ganchos de `OnShutdown` |
+| `OnShutdown(func(*App) error)` | registra o que fechar ao encerrar (pool, fila, flush); `setup.go` pode exportar `Shutdown`, que o arquivo gerado registra |
 | `Routes() map[string][]string` | padrões registrados e seus métodos |
 | `AddExportPath(paths...)` | caminhos extras para `Export` |
 | `ExportPaths() []string` | o que `Export` vai renderizar |
@@ -92,6 +95,23 @@ cfg.StaticHeaders = func(name string, h http.Header) {
 
 `trilha.Run(a)` é o que o `main` gerado chama: exporta se `TRILHA_EXPORT` estiver definido,
 senão serve. `trilha.Fatal(err)` registra e encerra, ignorando `http.ErrServerClosed`.
+
+### `main` próprio
+
+Se algum arquivo do pacote `main` do projeto já declara `func main()`, o gerador omite o
+dele e escreve só `newApp()`. Você fica com o controle do ciclo de vida:
+
+```go
+func main() {
+	a := newApp()
+	if err := migrar(a); err != nil { // entre o Setup e o servidor
+		trilha.Fatal(err)
+	}
+	trilha.Run(a)
+}
+```
+
+`public/` é opcional: o `//go:embed` só é gerado quando a pasta tem arquivos.
 
 ## Testar um app
 

@@ -47,6 +47,7 @@ CMD ["/app"]
 | `TRILHA_ENV` | `dev` ou `prod` (padrão `prod`) |
 | `TRILHA_BASE_PATH` | prefixo de URL quando o app vive em um subcaminho; use `c.Base()` nos links |
 | `TRILHA_EXPORT` | pasta de saída: em vez de servir, exporta o site estático e sai |
+| `TRILHA_DEV_RELOAD` | `off` desliga a injeção do script de recarga em dev (testes de snapshot, comparação de HTML); stack traces e `no-cache` continuam |
 
 Outras configurações (limite de corpo, logger, CSRF em APIs) ficam em `trilha.Config`, que o
 arquivo gerado monta com `trilha.ConfigFromEnv()`.

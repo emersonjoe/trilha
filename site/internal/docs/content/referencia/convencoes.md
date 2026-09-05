@@ -10,12 +10,14 @@ description: Tabela completa do que cada arquivo e nome de pasta em app/ signifi
 | `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` | rota GET da pasta |
 | `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (opcionais) | `func(c *trilha.Ctx) error` | formulários; CSRF exigido |
 | `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (ao menos um) | `func(c *trilha.Ctx) error` | API JSON da pasta |
+| `route.go` (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | como erros são renderizados e se há CSRF (veja [Erros](/referencia/erros)) |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subárvore |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore |
 | `not_found.go` (só na raiz) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | 404 do app |
 | `error.go` (só na raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | 500 do app |
 | `setup.go` (só na raiz) | `Setup` | `func(a *trilha.App) error` | antes de servir |
 | `setup.go` (opcional) | `Config` | `func(cfg *trilha.Config)` | antes de `trilha.New` |
+| `setup.go` (opcional) | `Shutdown` | `func(a *trilha.App) error` | depois de parar de aceitar requisições (fechar pool, fila, flush de log) |
 
 `page.go` e `route.go` na mesma pasta é erro. A função pode estar em qualquer arquivo do
 pacote; o nome do arquivo é o que liga a convenção.
@@ -28,7 +30,13 @@ pacote; o nome do arquivo é o que liga a convenção.
 | `slug_` | parâmetro `{slug}` | `/eventos/{slug}` → `c.Param("slug")` |
 | `caminho__` | catch-all `{caminho...}`; precisa ser folha | `/docs/{caminho...}` |
 | `organizador-` | grupo de rota; não entra na URL | layout/middleware para a subárvore |
+| `app.css`, `robots.txt` | caminho fixo com extensão (ponto no meio do nome) | `/app.css`, `/manifest.webmanifest`, `/sw.js` |
 | `_x`, `.x`, `testdata` | ignoradas | — |
+
+Uma pasta com ponto no nome serve um caminho fixo com extensão. Como `app.css` não é um
+identificador Go, declare outro nome de pacote no arquivo (`package appcss`); o gerador
+importa tudo com alias, então o nome do pacote não importa. Pastas que **começam** com
+ponto continuam ignoradas.
 
 Precedência: literal vence parâmetro, que vence catch-all. Duas pastas dinâmicas irmãs são
 erro. Duas pastas que gerem a mesma URL (via grupos) são erro.
