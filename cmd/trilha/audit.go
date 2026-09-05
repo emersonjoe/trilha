@@ -92,6 +92,30 @@ func runAudit(p *project, vuln bool) []check {
 		add("ok", "verificações de prontidão registradas", "")
 	}
 
+	// Login OIDC (spec 016): o segredo do cliente e o endereço de retorno são
+	// os dois erros que aparecem em toda revisão de OAuth.
+	if strings.Contains(src, "trilha/auth") {
+		hard, cleartext := 0, 0
+		for _, call := range authCalls(src) {
+			if i := secretArg(call.name); i < len(call.args) && strings.HasPrefix(call.args[i], `"`) {
+				hard++
+			}
+			if last := call.args[len(call.args)-1]; strings.HasPrefix(last, `"http://`) &&
+				!strings.Contains(last, "localhost") && !strings.Contains(last, "127.0.0.1") {
+				cleartext++
+			}
+		}
+		switch {
+		case hard > 0:
+			add("critico", "segredo do cliente OIDC no código", "passe-o por variável de ambiente (os.Getenv); um segredo commitado precisa ser rotacionado no provedor")
+		default:
+			add("ok", "segredo do cliente OIDC fora do código", "")
+		}
+		if cleartext > 0 {
+			add("critico", "redirect_uri em http:// fora de localhost", "o código de autorização viaja nessa URL; use https:// (Entra ID e Keycloak recusam cleartext em produção)")
+		}
+	}
+
 	// Generated file up to date.
 	res, err := scan.Scan(p.Root, p.Module)
 	if err != nil {
@@ -180,4 +204,67 @@ func lastLines(s string, n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n    ")
+}
+
+// authCall is one call to auth.OIDC/EntraID/Keycloak found in the sources.
+type authCall struct {
+	name string
+	args []string
+}
+
+// authCalls finds the provider constructors and splits their arguments at the
+// top level, so that os.Getenv("X") stays one argument.
+func authCalls(src string) []authCall {
+	var out []authCall
+	for _, name := range []string{"OIDC", "EntraID", "Keycloak"} {
+		needle := "auth." + name + "("
+		for i := 0; ; {
+			j := strings.Index(src[i:], needle)
+			if j < 0 {
+				break
+			}
+			start := i + j + len(needle)
+			args, end := splitArgs(src[start:])
+			if len(args) > 0 {
+				out = append(out, authCall{name: name, args: args})
+			}
+			i = start + end
+		}
+	}
+	return out
+}
+
+// splitArgs reads until the closing parenthesis, splitting on commas that are
+// not inside nested parentheses or a string.
+func splitArgs(s string) ([]string, int) {
+	var args []string
+	depth, quoted, start := 0, false, 0
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case quoted && c == '\\':
+			i++
+		case c == '"':
+			quoted = !quoted
+		case quoted:
+		case c == '(':
+			depth++
+		case c == ')' && depth > 0:
+			depth--
+		case c == ')':
+			args = append(args, strings.TrimSpace(s[start:i]))
+			return args, i + 1
+		case c == ',' && depth == 0:
+			args = append(args, strings.TrimSpace(s[start:i]))
+			start = i + 1
+		}
+	}
+	return nil, len(s)
+}
+
+// secretArg is the position of the client secret in each constructor.
+func secretArg(name string) int {
+	if name == "Keycloak" {
+		return 3 // baseURL, realm, clientID, clientSecret, redirectURL
+	}
+	return 2 // issuer|tenant, clientID, clientSecret, redirectURL
 }

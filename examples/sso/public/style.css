@@ -1,0 +1,19 @@
+:root { color-scheme: light dark; --fg: #16181d; --bg: #fbfbfd; --linha: #d9dbe3; --acento: #2f5bd7; }
+@media (prefers-color-scheme: dark) { :root { --fg: #e7e9ef; --bg: #14161b; --linha: #2b2f39; --acento: #7ea2ff; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg); background: var(--bg); }
+.topo { display: flex; align-items: center; gap: 1rem; padding: .9rem 1.2rem; border-bottom: 1px solid var(--linha); }
+.topo nav { margin-left: auto; display: flex; align-items: center; gap: .8rem; }
+.topo form { margin: 0; }
+.marca { font-weight: 600; text-decoration: none; color: inherit; }
+.quem { opacity: .75; }
+main { max-width: 46rem; margin: 2rem auto; padding: 0 1.2rem; }
+.cartao { border: 1px solid var(--linha); border-radius: 10px; padding: 1.4rem 1.6rem; background: color-mix(in srgb, var(--bg) 92%, var(--fg)); }
+h1 { margin-top: 0; font-size: 1.4rem; }
+a { color: var(--acento); }
+.botao { display: inline-block; padding: .35rem .8rem; border: 1px solid var(--linha); border-radius: 7px; background: transparent; color: inherit; font: inherit; cursor: pointer; text-decoration: none; }
+.aviso { margin: 1rem 0; padding: .8rem 1rem; border-left: 3px solid #d08700; background: color-mix(in srgb, #d08700 12%, transparent); border-radius: 4px; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1.2rem; margin: 1.2rem 0 0; }
+dt { opacity: .7; }
+dd { margin: 0; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }

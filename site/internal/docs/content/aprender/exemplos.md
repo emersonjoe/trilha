@@ -1,6 +1,6 @@
 ---
 title: Exemplos
-description: Três apps completos em examples/, do básico ao complexo, e o que cada um ensina.
+description: Apps completos em examples/, do básico ao complexo, e o que cada um ensina.
 ---
 
 Os exemplos são apps de verdade, com testes de integração que rodam no `make test` do
@@ -12,6 +12,7 @@ pasta (ou `go run ../../cmd/trilha dev` a partir do clone).
 | Básico | `examples/blog` | todas as convenções de arquivo, layouts aninhados, grupos de rota, API JSON, middleware, sessão assinada, `tmpl` |
 | Médio | `examples/cadastro` | formulário com regras: campos condicionais, validação no servidor com erros por campo, seleção dependente, aviso que some, layout responsivo |
 | Complexo | `examples/orcamento` | domínio em árvore (plano de contas), agregação, drill-down por rota dinâmica, componentes aninhados e recursivos, diálogo com formulário, filtro por período, CSV |
+| SSO | `examples/sso` | login OpenID Connect com Entra ID ou Keycloak, área protegida, papel exigido, logout federado |
 | IA | `examples/assistente` | chat em streaming, agente com ferramentas, handoff, servidor MCP |
 
 ## Médio: cadastro
@@ -86,6 +87,35 @@ O drill-down é a rota `app/contas/codigo_/page.go`: breadcrumb com `Caminho()`,
 diálogo porque encontrou `.ui-field-error` dentro dele. `voltar` (campo oculto) diz para onde
 redirecionar no sucesso. A exportação fica em `app/api/relatorio.csv/route.go`, uma pasta com
 ponto no nome.
+
+## SSO: Entra ID e Keycloak
+
+O `examples/sso` é o fluxo de login inteiro em três rotas de duas linhas cada. O pacote
+`auth` cuida de PKCE, `state`, `nonce`, troca do código e validação do `id_token`; o app só
+encaminha:
+
+```go
+// app/entrar/route.go
+var Kind = trilha.KindPage
+func GET(c *trilha.Ctx) error { return sso.Start(c) }
+```
+
+Proteger uma subárvore é um `middleware.go`, como qualquer outro:
+
+```go
+// app/painel/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.Require(c, next) }
+
+// app/painel/relatorio/middleware.go — papel, não só sessão
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.RequireAdmin(c, next) }
+```
+
+Abaixo do middleware, a página lê `sso.User(c)` sem checar nada. Um navegador anônimo é
+mandado para `/entrar?next=…`; uma chamada de `/api` recebe 401 em JSON, porque redirecionar
+um cliente HTTP para um formulário só produz um erro de parsing confuso.
+
+Nenhum segredo mora no código: o provedor vem de variáveis de ambiente, e sem elas o app
+sobe assim mesmo e diz o que falta.
 
 ## O que virou framework
 

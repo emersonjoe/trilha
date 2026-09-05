@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.6.0)
+## Onde o Trilha está (setembro de 2026, v0.7.0)
 
 | Área da avaliação | Estado | Onde |
 |---|---|---|
@@ -21,7 +21,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | DX | `new`, `gen`, `dev` (recarga ~1 s, erro de build na página), `build`, `routes`, `export`, `audit`, `ui` | specs 001, 003, 004, 006 |
 | Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors` | specs 006, 009 |
 | Dados | funções Go comuns; sem loader mágico | por decisão |
-| Auth | cookies assinados, CSRF, limite de taxa | spec 004 |
+| Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak) com PKCE, sessão, papéis e logout | specs 004, 016 |
 | Segurança | CSP com nonce, HSTS, COOP, `Permissions-Policy`, proxies confiáveis, timeouts, limite de corpo, `trilha audit` | spec 004 |
 | Observabilidade | sondas de vida e prontidão, métricas Prometheus, `traceparent`, eventos de segurança | spec 014 |
 | API | JSON, erros de API, SSE, `route.go` com `Kind` | specs 001, 005, 008 |
@@ -32,7 +32,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Desempenho | módulo `bench/`, resultados publicados, metodologia | spec 011 |
 | Comunidade | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, GOVERNANCE, templates, CODEOWNERS | spec 004 |
 
-Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.6.0 — a
+Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.7.0 — a
 avaliação enxergou o projeto num ponto anterior. O que sobra, sobra de verdade.
 
 ## O que vamos fazer
@@ -60,9 +60,11 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 7. [#26](https://github.com/emersonjoe/trilha/issues/26) Cache HTTP: `ETag`, `Last-Modified`, `304`.
 8. [#27](https://github.com/emersonjoe/trilha/issues/27) Validação declarativa no `Bind` (tags), com validadores próprios, mantendo
    `FieldErrors` como resposta.
-9. [#40](https://github.com/emersonjoe/trilha/issues/40) Autenticação de verdade: sessão, rotação, logout, middleware de autorização, RBAC e
-    **OIDC** com atalhos para Microsoft Entra ID, Keycloak, Google e GitHub — sem acoplar
-    o framework a nenhum provedor. (spec 016, em andamento)
+9. ~~[#40](https://github.com/emersonjoe/trilha/issues/40) Autenticação de verdade: sessão, rotação, logout, middleware de autorização, RBAC e
+    **OIDC** com atalhos para Microsoft Entra ID e Keycloak, sem acoplar o framework a
+    nenhum provedor.~~ **Entregue na 0.7.0** (spec 016). Google e GitHub ficam de fora por
+    ora: o primeiro já funciona pelo `auth.OIDC` genérico, e o GitHub fala OAuth2 puro,
+    sem `id_token` — é outro fluxo, não um atalho.
 10. [#28](https://github.com/emersonjoe/trilha/issues/28) Upload de arquivo com limites de tamanho e tipo.
 
 ### Fase 3 — Produção e API

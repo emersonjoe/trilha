@@ -1,6 +1,6 @@
 # Feature Specification: Autenticação — sessão, RBAC e OIDC (Entra ID e Keycloak)
 
-**Feature Branch**: `016-auth-oidc` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `016-auth-oidc` | **Created**: 2026-09-05 | **Status**: Implementada (v0.7.0)
 **Input**: "adicione integração com entra ids - com keycloak" (issue #40, roadmap §9)
 
 ## O problema

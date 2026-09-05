@@ -14,7 +14,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.6.0"
+const version = "0.7.0"
 
 const usage = `trilha — framework web para Go com roteamento por arquivos
 

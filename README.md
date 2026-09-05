@@ -231,6 +231,24 @@ requisições em voo, eventos de segurança, pânicos e runtime do Go — mais a
 caminho concreto. Detalhes em
 [Saúde e observabilidade](https://emersonjoe.github.io/trilha/aprender/observabilidade).
 
+## Login corporativo
+
+O pacote `auth` faz OpenID Connect (Entra ID, Keycloak ou qualquer provedor conforme) com a
+biblioteca padrão: PKCE, `state`, `nonce`, validação do `id_token` com JWKS e rotação de
+chave, sessão em cookie assinado e papéis lidos de onde cada provedor os guarda.
+
+```go
+// app/entrar/route.go — o fluxo inteiro são três rotas de duas linhas
+func GET(c *trilha.Ctx) error { return sso.Start(c) }
+
+// app/painel/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return sso.Require(c, next) }
+```
+
+Navegador anônimo vai para o login; chamada de API recebe 401. Quem está logado sem o papel
+exigido recebe 403. Exemplo executável em `examples/sso`, detalhes em
+[Autenticação](https://emersonjoe.github.io/trilha/aprender/autenticacao).
+
 ## Desempenho
 
 `make bench` mede o custo do Trilha sobre `net/http` + `html/template` (módulo `bench/`,
@@ -245,7 +263,7 @@ frameworks em [Desempenho e comparação](https://emersonjoe.github.io/trilha/re
 [`ROADMAP.md`](ROADMAP.md) responde a uma avaliação externa item a item: o que já existe, o
 que está planejado (issues com o rótulo `roadmap`, agrupadas por fase) e o que decidimos
 **não** fazer, com o motivo. O maior buraco reconhecido é interatividade sem virar SPA;
-o próximo em execução é autenticação com OIDC.
+e autenticação com OIDC (spec 016) já entrou.
 
 ## Fora do escopo (por enquanto)
 

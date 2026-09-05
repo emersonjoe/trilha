@@ -5,6 +5,24 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.7.0 — 2026-09-05
+
+### Adicionado
+- Autenticação OpenID Connect (spec 016) no pacote `auth`, sem dependência externa:
+  `auth.OIDC`, `auth.EntraID` e `auth.Keycloak`; `Start`/`Callback`/`Logout` com PKCE
+  (S256), `state` e `nonce` em cookies assinados de 10 minutos; validação do `id_token`
+  contra o JWKS do provedor (RS256/384/512 e ES256/384, `kid` obrigatório, cache de uma
+  hora com rotação de chave estrangulada a uma busca por minuto); sessão em cookie assinado
+  com prazo absoluto, janela de ociosidade e identificador novo a cada login; `Store`
+  opcional (`auth.NewMemoryStore`) para revogação imediata; `Require`, `RequireRole`,
+  `Optional` e `User`; papéis lidos do lugar de cada provedor (`roles`/`groups`/`wids` no
+  Entra ID, `realm_access` e `resource_access[cliente]` no Keycloak) e de
+  `Options.RoleClaims`; logout federado quando o provedor publica `end_session_endpoint`.
+- `examples/sso`: área protegida, papel exigido, API que responde 401 em JSON e logout, com
+  testes de integração. Capítulo e referência no site.
+- `trilha audit`: segredo do cliente escrito no código e `redirect_uri` em `http://` fora de
+  `localhost` (ambos críticos).
+
 ## 0.6.0 — 2026-09-05
 
 ### Adicionado
