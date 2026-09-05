@@ -121,7 +121,104 @@
     m.style.left = Math.min(r.left, window.innerWidth - m.offsetWidth - 8) + "px";
   }, true);
 
+  // Fragmentos (spec 018): [data-trilha-target="id"] em <a> ou <form> pede só
+  // o pedaço da página e troca o elemento #id. Sem JavaScript, o mesmo link
+  // navega e o mesmo formulário envia — o servidor devolve a página inteira
+  // porque ninguém mandou o cabeçalho.
+  const hydrate = (root) => { armFades(root); evalShowWhen(root); };
+
+  const swap = (id, html, status) => {
+    const old = document.getElementById(id);
+    if (!old) return false;
+    const act = document.activeElement;
+    const key = act && old.contains(act) ? (act.id || act.name || "") : "";
+    const sel = key && act.selectionStart != null ? [act.selectionStart, act.selectionEnd] : null;
+    old.outerHTML = html;
+    const el = document.getElementById(id);
+    if (!el) return false; // o fragmento veio sem o id: melhor navegar
+    const invalid = status === 422 ? el.querySelector("[aria-invalid='true']") : null;
+    if (invalid) invalid.focus();
+    else if (key) {
+      const back = el.querySelector(`#${CSS.escape(key)}, [name="${CSS.escape(key)}"]`);
+      if (back) {
+        back.focus();
+        if (sel && back.setSelectionRange) { try { back.setSelectionRange(sel[0], sel[1]); } catch {} }
+      }
+    }
+    hydrate(el);
+    document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: el, status } }));
+    return true;
+  };
+
+  // ask devolve false quando o caminho certo é navegar de verdade.
+  const ask = async (url, opts, id) => {
+    const target = document.getElementById(id);
+    target?.setAttribute("aria-busy", "true");
+    try {
+      const res = await fetch(url, { ...opts, headers: { "Trilha-Fragment": id }, credentials: "same-origin" });
+      const loc = res.headers.get("Trilha-Location");
+      if (loc) { location.assign(loc); return true; }
+      if (res.redirected) { location.assign(res.url); return true; }
+      if (res.status >= 500) return false;
+      return swap(id, await res.text(), res.status);
+    } catch {
+      return false; // rede caiu: a navegação normal ainda pode funcionar
+    } finally {
+      target?.removeAttribute("aria-busy");
+    }
+  };
+
+  const pushable = (el) => el.getAttribute("data-trilha-push") !== "false";
+
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("a[data-trilha-target]");
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (a.target && a.target !== "_self") return;
+    const url = new URL(a.href, location.href);
+    if (url.origin !== location.origin) return;
+    const id = a.getAttribute("data-trilha-target");
+    e.preventDefault();
+    ask(url.href, { method: "GET" }, id).then((ok) => {
+      if (!ok) { location.assign(url.href); return; }
+      if (pushable(a)) history.pushState({ trilhaFragment: id }, "", url.href);
+    });
+  });
+
+  document.addEventListener("submit", (e) => {
+    const f = e.target.closest("form[data-trilha-target]");
+    if (!f || e.defaultPrevented) return;
+    const action = new URL(f.getAttribute("action") || location.href, location.href);
+    if (action.origin !== location.origin) return;
+    const id = f.getAttribute("data-trilha-target");
+    const method = (f.getAttribute("method") || "get").toUpperCase();
+    const data = new FormData(f, e.submitter);
+    const btn = e.submitter;
+    e.preventDefault();
+    let url = action.href, opts = { method };
+    if (method === "GET") {
+      action.search = new URLSearchParams(data).toString();
+      url = action.href;
+    } else if (f.enctype === "multipart/form-data") {
+      opts.body = data; // arquivos: deixa o navegador montar o multipart
+    } else {
+      opts.body = new URLSearchParams(data);
+    }
+    if (btn) btn.disabled = true;
+    ask(url, opts, id).then((ok) => {
+      if (btn) btn.disabled = false;
+      if (!ok) { f.submit(); return; }
+      if (method === "GET" && pushable(f)) history.replaceState({ trilhaFragment: id }, "", url);
+    });
+  });
+
+  // Voltar desfaz uma troca feita por link.
+  window.addEventListener("popstate", (e) => {
+    const id = e.state?.trilhaFragment;
+    if (!id) return;
+    ask(location.href, { method: "GET" }, id).then((ok) => { if (!ok) location.reload(); });
+  });
+
   const init = () => { armFades(document); evalShowWhen(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, evalShowWhen, applyTheme });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, evalShowWhen, applyTheme, swap, hydrate });
 })();

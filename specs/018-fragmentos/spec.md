@@ -1,6 +1,6 @@
 # Feature Specification: Fragmentos — atualização parcial e envio sem recarga
 
-**Feature Branch**: `018-fragmentos` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `018-fragmentos` | **Created**: 2026-09-05 | **Status**: Implementada (v0.10.0)
 **Input**: issues [#20](https://github.com/emersonjoe/trilha/issues/20) e
 [#21](https://github.com/emersonjoe/trilha/issues/21) (ROADMAP, Fase 1). A #21 depende da
 #20 e usa o mesmo mecanismo, então as duas viram uma spec só: separá-las produziria duas

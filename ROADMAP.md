@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.7.0)
+## Onde o Trilha está (setembro de 2026, v0.10.0)
 
 | Área da avaliação | Estado | Onde |
 |---|---|---|
@@ -32,7 +32,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Desempenho | módulo `bench/`, resultados publicados, metodologia | spec 011 |
 | Comunidade | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, GOVERNANCE, templates, CODEOWNERS | spec 004 |
 
-Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.7.0 — a
+Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.10.0 — a
 avaliação enxergou o projeto num ponto anterior. O que sobra, sobra de verdade.
 
 ## O que vamos fazer
@@ -45,10 +45,12 @@ O Trilha entrega HTML e recarrega a página. Isso é honesto e rápido, mas hoje
 um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão. A saída
 **não** é adotar React: é fechar o degrau entre "formulário que recarrega" e "SPA".
 
-1. [#20](https://github.com/emersonjoe/trilha/issues/20) Atualização parcial de página: uma rota devolve um fragmento e o cliente troca um pedaço
-   do documento, sem framework.
-2. [#21](https://github.com/emersonjoe/trilha/issues/21) Envio de formulário sem recarregar, com estado de carregamento e erro de campo vindos
-   do mesmo handler que já responde HTML.
+1. ~~[#20](https://github.com/emersonjoe/trilha/issues/20) Atualização parcial de página: uma rota devolve um fragmento e o cliente troca um pedaço
+   do documento, sem framework.~~ **Entregue na 0.10.0** (spec 018): `Ctx.Fragment()` e
+   `ui.Swap`.
+2. ~~[#21](https://github.com/emersonjoe/trilha/issues/21) Envio de formulário sem recarregar, com estado de carregamento e erro de campo vindos
+   do mesmo handler que já responde HTML.~~ **Entregue na 0.10.0** (spec 018): mesmo
+   mecanismo, com `aria-busy`, foco no campo inválido em 422 e recuo para o envio normal.
 3. [#22](https://github.com/emersonjoe/trilha/issues/22) Ilhas: um componente interativo isolado, com o resto da página estática.
 4. [#23](https://github.com/emersonjoe/trilha/issues/23) Navegação no cliente, opcional e por atributo, preservando histórico e foco.
 5. [#24](https://github.com/emersonjoe/trilha/issues/24) Upload com progresso e a decisão sobre WebSocket.

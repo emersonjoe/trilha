@@ -5,6 +5,25 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.10.0 — 2026-09-05
+
+### Added
+- Fragments (spec 018, issues #20 and #21): `Ctx.Fragment()` returns the id the client wants
+  to swap (the `Trilha-Fragment` header). On a fragment request the same route answers with
+  no layouts, no document envelope and no dev server script; every HTML response now carries
+  `Vary: Trilha-Fragment`, and a redirect becomes **204 with `Trilha-Location`** so the
+  client navigates for real. Middleware, CSRF and status behave as before.
+- `ui.Swap(id)` and `ui.NoPush()`: a marked `<a>` or `<form>` swaps element `#id` only, with
+  `aria-busy` while it waits, focus on the first `[aria-invalid=true]` on 422, focus and
+  caret handed back to the field in use otherwise, hydration of what came in and a
+  `trilha:swap` event. On 5xx, a network error or a fragment without the id, the kit gives up
+  and navigates or submits normally — with JavaScript off, link and form work as they always
+  did. `window.ui.swap` and `window.ui.hydrate` do the swap by hand.
+- `examples/cadastro`: a search that filters the list and a form that saves without
+  reloading, with tests covering both paths (with and without the header).
+- "Interactivity" chapter on the site (`/learn/interactivity`, `/pt/aprender/interatividade`)
+  and reference entries for `Ctx.Fragment`, `ui.Swap` and `ui.NoPush`.
+
 ## 0.9.0 — 2026-09-05
 
 ### Added

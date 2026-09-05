@@ -233,6 +233,24 @@ func Salvar(c Cliente) Cliente {
 	return c
 }
 
+// Buscar filters by name, e-mail, document or city, ignoring case and
+// accents-free punctuation. An empty query returns everyone.
+func Buscar(q string) []Cliente {
+	q = strings.ToLower(strings.TrimSpace(q))
+	todos := Todos()
+	if q == "" {
+		return todos
+	}
+	out := todos[:0]
+	for _, c := range todos {
+		campos := strings.ToLower(strings.Join([]string{c.Nome, c.Email, c.Documento(), c.Endereco.Cidade, c.Endereco.UF}, " "))
+		if strings.Contains(campos, q) || strings.Contains(digits(campos), digits(q)) && digits(q) != "" {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // Todos returns the clients, newest first.
 func Todos() []Cliente {
 	mu.Lock()

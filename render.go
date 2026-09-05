@@ -11,6 +11,15 @@ import (
 	"github.com/emersonjoe/trilha/h"
 )
 
+const (
+	// fragmentHeader is the request header naming the wanted part of the page.
+	fragmentHeader = "Trilha-Fragment"
+	// locationHeader tells the client to navigate for real; a fragment
+	// response cannot redirect, or the destination page would be pasted
+	// inside a <div>.
+	locationHeader = "Trilha-Location"
+)
+
 // renderPage runs Page, wraps the result with the route's layouts (innermost
 // first) and writes the document.
 func (a *App) renderPage(c *Ctx, r *Route) error {
@@ -22,9 +31,11 @@ func (a *App) renderPage(c *Ctx, r *Route) error {
 		// The page wrote the response itself (or nothing: wrap answers 204).
 		return nil
 	}
-	for _, l := range r.Layouts {
-		if node, err = l(c, node); err != nil {
-			return err
+	if c.Fragment() == "" {
+		for _, l := range r.Layouts {
+			if node, err = l(c, node); err != nil {
+				return err
+			}
 		}
 	}
 	code := c.status
@@ -42,7 +53,7 @@ func (a *App) renderPage(c *Ctx, r *Route) error {
 //		return c.Render(422, formulario(c, in, errs))
 //	}
 func (c *Ctx) Render(code int, node h.Node) error {
-	if c.route != nil {
+	if c.route != nil && c.Fragment() == "" {
 		for _, l := range c.route.Layouts {
 			var err error
 			if node, err = l(c, node); err != nil {
@@ -68,6 +79,15 @@ func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
 		}
 	}
 	out := buf.Bytes()
+	c.w.Header().Set("Vary", fragmentHeader)
+	if c.Fragment() != "" {
+		// A piece of a page: no envelope, no dev script (it would be added
+		// again on every swap).
+		c.w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		c.w.WriteHeader(code)
+		_, err := c.w.Write(out)
+		return err
+	}
 	trimmed := bytes.TrimLeft(out, " \t\r\n")
 	if !bytes.HasPrefix(bytes.ToLower(trimmed[:min(len(trimmed), 9)]), []byte("<!doctype")) {
 		if !bytes.HasPrefix(bytes.ToLower(trimmed[:min(len(trimmed), 5)]), []byte("<html")) {
@@ -101,7 +121,14 @@ func (a *App) handleError(c *Ctx, err error) {
 	}
 	var re *RedirectError
 	if errors.As(err, &re) {
-		if !c.w.wrote {
+		switch {
+		case c.w.wrote:
+		case c.Fragment() != "":
+			// The browser must navigate: following the redirect inside the
+			// fetch would render the destination page as a fragment.
+			c.w.Header().Set(locationHeader, re.URL)
+			c.w.WriteHeader(http.StatusNoContent)
+		default:
 			http.Redirect(c.w, c.r, re.URL, re.Code)
 		}
 		return

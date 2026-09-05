@@ -40,6 +40,8 @@ type Ctx struct {
 	traceID     string
 	traceParsed bool
 	logger      *slog.Logger
+	fragment    string
+	fragParsed  bool
 }
 
 func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
@@ -74,6 +76,33 @@ func (c *Ctx) App() *App { return c.app }
 
 // Env returns the runtime environment.
 func (c *Ctx) Env() Env { return c.app.cfg.Env }
+
+// Fragment returns the part of the page this request asked for, or "" on a
+// normal navigation. It is the whole protocol: the same route serves the page
+// and the piece, and decides what to return.
+//
+//	func Page(c *trilha.Ctx) (h.Node, error) {
+//		lista := listaDe(c)
+//		if c.Fragment() == "lista" {
+//			return lista, nil // sem layouts
+//		}
+//		return h.Div(busca(), lista), nil
+//	}
+//
+// A fragment response carries no layout, no document envelope and no dev
+// script; every HTML response gets Vary: Trilha-Fragment so a cache never
+// serves one in place of the other.
+func (c *Ctx) Fragment() string {
+	if !c.fragParsed {
+		c.fragParsed = true
+		// Canonical spelling: Header.Get would allocate otherwise.
+		c.fragment = c.r.Header.Get(fragmentHeader)
+		if len(c.fragment) > 128 {
+			c.fragment = "" // um alvo desse tamanho é abuso, não um id
+		}
+	}
+	return c.fragment
+}
 
 // RequestID returns the X-Request-ID header or a generated id.
 func (c *Ctx) RequestID() string { return c.requestID }

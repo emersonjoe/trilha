@@ -39,11 +39,11 @@ type Locale struct {
 // lives at the root.
 var Locales = []Locale{
 	{Code: "en", Prefix: "", Lang: "en", Name: "English", Sections: []Section{
-		{"learn", "Learn", []string{"", "pages-and-routes", "layouts", "html-with-h", "forms", "api", "middleware", "security", "observability", "authentication", "ui-kit", "ai-and-agents", "examples", "dev-and-production", "troubleshooting"}},
+		{"learn", "Learn", []string{"", "pages-and-routes", "layouts", "html-with-h", "forms", "api", "middleware", "security", "observability", "authentication", "ui-kit", "interactivity", "ai-and-agents", "examples", "dev-and-production", "troubleshooting"}},
 		{"reference", "Reference", []string{"", "conventions", "ctx", "h", "tmpl", "errors", "app", "security", "observability", "auth", "ui", "ai", "mcp", "cli", "performance"}},
 	}},
 	{Code: "pt", Prefix: "/pt", Lang: "pt-BR", Name: "Português", Sections: []Section{
-		{"aprender", "Aprender", []string{"", "paginas-e-rotas", "layouts", "html-com-h", "formularios", "api", "middleware", "seguranca", "observabilidade", "autenticacao", "interface-com-ui", "ia-e-agentes", "exemplos", "dev-e-producao", "problemas-comuns"}},
+		{"aprender", "Aprender", []string{"", "paginas-e-rotas", "layouts", "html-com-h", "formularios", "api", "middleware", "seguranca", "observabilidade", "autenticacao", "interface-com-ui", "interatividade", "ia-e-agentes", "exemplos", "dev-e-producao", "problemas-comuns"}},
 		{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "app", "seguranca", "observabilidade", "auth", "ui", "ai", "mcp", "cli", "desempenho"}},
 	}},
 }

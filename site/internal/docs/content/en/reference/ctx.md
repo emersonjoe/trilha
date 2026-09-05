@@ -24,6 +24,7 @@ used by another goroutine after the handler returns.
 | `Env() trilha.Env` | `trilha.Dev` or `trilha.Prod` |
 | `Base() string` | URL prefix (`TRILHA_BASE_PATH`), without trailing slash |
 | `App() *trilha.App` | the application |
+| `Fragment() string` | id the client wants to swap (`Trilha-Fragment` header), or `""` on a normal navigation ([Interactivity](/learn/interactivity)) |
 
 ## Response
 
@@ -36,7 +37,7 @@ used by another goroutine after the handler returns.
 | `Status(code)` | status the next page render will use |
 | `Header(k, v)` | sets a response header |
 | `SetCookie(*http.Cookie)` | adds `Set-Cookie` |
-| `Render(code, node) error` | writes the page **with the route's layouts** (like GET): for a `POST` to return the form with errors (422) |
+| `Render(code, node) error` | writes the page **with the route's layouts** (like GET): for a `POST` to return the form with errors (422); on a fragment, without the layouts |
 | `Stream() *Stream` | Server-Sent Events response: `Send(event, data)`, `JSON(event, v)`, `Comment(s)`, `Done()`; disables the *write timeout* ([AI and agents](/learn/ai-and-agents)) |
 | `Writer() http.ResponseWriter` | direct access (long downloads, WebSocket) |
 | `Written() bool` | whether the response has started |

@@ -9,9 +9,10 @@ import (
 	"github.com/emersonjoe/trilha/ui"
 )
 
-// Page renders the form (empty) and the list.
+// Page renders the form (empty) and the list. Uma requisição de fragmento
+// (spec 018) recebe só a tela, sem os layouts: é o mesmo código, com um if.
 func Page(c *trilha.Ctx) (h.Node, error) {
-	return tela(c, clientes.Cliente{Tipo: "pf"}, nil), nil
+	return tela(c, clientes.Cliente{Tipo: "pf"}, nil, ""), nil
 }
 
 // POST validates; on errors the same page is rendered with 422, messages next
@@ -23,17 +24,25 @@ func POST(c *trilha.Ctx) error {
 	}
 	clientes.Normalizar(&in)
 	if errs := clientes.Validar(in); errs.Any() {
-		return c.Render(http.StatusUnprocessableEntity, tela(c, in, errs))
+		return c.Render(http.StatusUnprocessableEntity, tela(c, in, errs, ""))
 	}
 	clientes.Salvar(in)
+	if c.Fragment() != "" {
+		// Sem recarga: devolve a tela nova (formulário limpo, lista com o
+		// cadastro novo). A navegação normal segue no PRG de sempre.
+		return c.Render(http.StatusOK, tela(c, clientes.Cliente{Tipo: "pf"}, nil, "Cadastro salvo!"))
+	}
 	return c.Redirect("/?ok=1")
 }
 
-func tela(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors) h.Node {
+// tela é o alvo das trocas: o formulário e a lista trocam juntos, então
+// salvar um cliente já atualiza a tabela.
+func tela(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors, aviso string) h.Node {
 	c.SetTitle("Cadastro de cliente")
-	return h.Div(h.Class("tela"),
+	return h.Div(h.ID("tela"), h.Class("tela"),
+		h.If(aviso != "", ui.Alert(aviso, h.Data("ui-fade", "4000"), ui.Icon("circle-check"))),
 		formulario(c, in, errs),
-		lista(),
+		lista(c.Query("q")),
 	)
 }
 
@@ -64,7 +73,9 @@ func endereco(prefix string, a clientes.Endereco, errs trilha.FieldErrors) h.Nod
 func formulario(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors) h.Node {
 	return ui.Card(
 		ui.CardHeader(h.H1(h.Class("ui-card-title"), h.Text("Novo cliente")), ui.CardDescription("Os campos mudam conforme o tipo; a validação acontece no servidor e volta para o campo certo.")),
-		ui.CardContent(h.Form(h.Method("post"), h.Action("/"), h.Class("ui-stack"), h.Attr("novalidate", ""), trilha.CSRFInput(c),
+		// ui.Swap("tela"): com JavaScript o envio troca só a tela; sem ele, o
+		// mesmo formulário recarrega a página, pelo mesmo endereço.
+		ui.CardContent(h.Form(h.Method("post"), h.Action("/"), h.Class("ui-stack"), h.Attr("novalidate", ""), ui.Swap("tela"), trilha.CSRFInput(c),
 			h.If(errs.Any(), ui.Alert("Corrija os campos destacados", ui.Destructive(), ui.Icon("triangle-alert"))),
 			h.Fieldset(h.Class("ui-stack"),
 				h.Legend(h.Class("ui-label"), h.Text("Tipo")),
@@ -107,12 +118,18 @@ func formulario(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors) h.N
 	)
 }
 
-func lista() h.Node {
-	todos := clientes.Todos()
+func lista(q string) h.Node {
+	todos := clientes.Buscar(q)
 	return ui.Card(
-		ui.CardHeader(ui.CardTitle("Cadastrados"), ui.CardDescription("Os últimos primeiro.")),
+		ui.CardHeader(ui.CardTitle("Cadastrados"), ui.CardDescription("Os últimos primeiro."),
+			// Busca por fragmento: só a tela pisca. Sem JavaScript é um GET
+			// comum, e a URL fica igual nos dois caminhos.
+			h.Form(h.Method("get"), h.Action("/"), h.Class("busca"), ui.Swap("tela"),
+				ui.Input(h.ID("q"), h.Name("q"), h.Type("search"), h.Value(q), h.Placeholder("Buscar por nome, documento ou cidade")),
+				ui.Submit(ui.Sm(), h.Text("Buscar")),
+			)),
 		ui.CardContent(h.IfElse(len(todos) == 0,
-			ui.Muted(h.Text("Ninguém ainda.")),
+			ui.Muted(h.Text(vazio(q))),
 			ui.Table(
 				h.Thead(h.Tr(h.Th(h.Text("Nome")), h.Th(h.Text("Documento")), h.Th(h.Text("Cidade")), h.Th(h.Text("Novidades")))),
 				h.Tbody(h.Map(todos, func(c clientes.Cliente) h.Node {
@@ -126,4 +143,11 @@ func lista() h.Node {
 			),
 		)),
 	)
+}
+
+func vazio(q string) string {
+	if q != "" {
+		return "Nada encontrado para " + q + "."
+	}
+	return "Ninguém ainda."
 }

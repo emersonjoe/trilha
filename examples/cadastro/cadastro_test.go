@@ -27,6 +27,11 @@ func newClient(t *testing.T) *client {
 }
 
 func (c *client) do(method, path string, form url.Values) *httptest.ResponseRecorder {
+	return c.req(method, path, form, "")
+}
+
+// req is do with an optional fragment target (spec 018).
+func (c *client) req(method, path string, form url.Values, fragment string) *httptest.ResponseRecorder {
 	c.t.Helper()
 	var body io.Reader
 	if form != nil {
@@ -35,6 +40,9 @@ func (c *client) do(method, path string, form url.Values) *httptest.ResponseReco
 	req := httptest.NewRequest(method, path, body)
 	if form != nil {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if fragment != "" {
+		req.Header.Set("Trilha-Fragment", fragment)
 	}
 	for k, v := range c.jar {
 		req.AddCookie(&http.Cookie{Name: k, Value: v})
@@ -148,5 +156,70 @@ func TestDocumentos(t *testing.T) {
 	}
 	if !clientes.CNPJValido("04.252.011/0001-10") || clientes.CNPJValido("04252011000111") || clientes.CNPJValido("00000000000000") {
 		t.Fatal("cnpj")
+	}
+}
+
+// Spec 018: a busca funciona nos dois caminhos, pelo mesmo endereço.
+func TestBuscaComESemFragmento(t *testing.T) {
+	c := newClient(t)
+	// Sem o cabeçalho: página inteira, filtrada.
+	rec := c.do("GET", "/?q=ada", nil)
+	body := rec.Body.String()
+	if !strings.Contains(body, "Ada Lovelace") || !strings.Contains(body, "<!doctype") {
+		t.Fatal("navegação normal deveria trazer a página inteira filtrada")
+	}
+	if rec := c.do("GET", "/?q=zzz", nil); !strings.Contains(rec.Body.String(), "Nada encontrado para zzz") {
+		t.Fatal("filtro não aplicado")
+	}
+	// Com o cabeçalho: só a tela, sem documento nem layout.
+	rec = c.req("GET", "/?q=ada", nil, "tela")
+	body = rec.Body.String()
+	if strings.Contains(body, "<!doctype") || strings.Contains(body, "<html") {
+		t.Fatalf("fragmento com envelope: %s", body[:200])
+	}
+	if !strings.HasPrefix(body, `<div id="tela"`) || !strings.Contains(body, "Ada Lovelace") {
+		t.Fatalf("fragmento inesperado: %s", body[:200])
+	}
+	if !strings.Contains(rec.Header().Get("Vary"), "Trilha-Fragment") {
+		t.Fatal("sem Vary, um cache serviria o pedaço no lugar da página")
+	}
+}
+
+// Spec 018: o envio sem recarga devolve a tela nova; sem o cabeçalho, PRG.
+func TestEnvioSemRecarga(t *testing.T) {
+	c := newClient(t)
+	f := c.csrf()
+	f.Set("tipo", "pf")
+	f.Set("nome", "Alan Turing")
+	f.Set("email", "alan@example.com")
+	f.Set("cpf", "529.982.247-25")
+	f.Set("nascimento", "1912-06-23")
+	f.Set("cep", "13010-000")
+	f.Set("rua", "Rua Treze de Maio")
+	f.Set("numero", "2")
+	f.Set("uf", "SP")
+	f.Set("cidade", "Campinas")
+	rec := c.req("POST", "/", f, "tela")
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "<!doctype") || !strings.HasPrefix(body, `<div id="tela"`) {
+		t.Fatalf("resposta não é um fragmento: %s", body[:200])
+	}
+	if !strings.Contains(body, "Cadastro salvo!") || !strings.Contains(body, "Alan Turing") {
+		t.Fatal("a tela devolvida precisa trazer o aviso e a lista atualizada")
+	}
+	if rec.Header().Get("Location") != "" || rec.Header().Get("Trilha-Location") != "" {
+		t.Fatal("o caminho sem recarga não redireciona")
+	}
+	// O erro de validação volta como fragmento, com 422 e o campo marcado.
+	f.Set("email", "nao-e-email")
+	rec = c.req("POST", "/", f, "tela")
+	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "E-mail inválido") {
+		t.Fatalf("%d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `aria-invalid="true"`) {
+		t.Fatal("o cliente foca o primeiro aria-invalid: ele precisa estar lá")
 	}
 }

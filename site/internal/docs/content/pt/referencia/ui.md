@@ -48,6 +48,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu com o atributo `popover` nativo |
 | `Separator, Skeleton, Progress(valor, máx), Breadcrumb(Crumb{Label, Href}...), Avatar(iniciais, src), Collapsible(resumo, ...)` | diversos |
 | `ThemeToggle()` | botão que alterna claro/escuro (`localStorage["ui-theme"]`) |
+| `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
+| `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação) |
 
 ## ui.js
@@ -58,6 +60,17 @@ Tudo por atributo, sem inicialização: `[data-ui-tabs]`, `[data-ui-dialog-open=
 `window.ui.toast(texto, {kind, ms})`, `ui.fade(el)`, `ui.evalShowWhen(root)` e
 `ui.applyTheme("dark"|"light")`. Elementos inseridos depois (HTMX, fetch) precisam de
 `ui.evalShowWhen(el)`/`ui.fade(el)` se usarem esses atributos.
+
+## Fragmentos
+
+`[data-trilha-target=id]` em `<a>` ou `<form>` (veja `ui.Swap`) faz o kit pedir a mesma URL
+com o cabeçalho `Trilha-Fragment` e trocar o elemento `#id` pelo HTML que voltou. Detalhes:
+o alvo ganha `aria-busy` durante a espera; **204 com `Trilha-Location`** vira navegação de
+verdade; **422** põe o foco no primeiro `[aria-invalid=true]`, senão o foco (e o cursor)
+voltam para o campo em uso; o que entrou é hidratado (`fade`, `show-when`) e dispara
+`trilha:swap` (`detail.target`, `detail.status`). Em 5xx, erro de rede ou fragmento sem o
+id, o kit desiste e navega/envia normalmente. `ui.swap(id, html, status)` e
+`ui.hydrate(el)` fazem a troca à mão. Veja [Interatividade](/pt/aprender/interatividade).
 
 ## Tema
 

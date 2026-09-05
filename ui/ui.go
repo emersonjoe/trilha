@@ -247,6 +247,21 @@ func With(nodes ...h.Node) FieldOpt { return func(f *fieldCfg) { f.extra = appen
 // there is an error for the field.
 func Invalid() h.Node { return h.Aria("invalid", "true") }
 
+// Swap marks a link or form as a fragment request: clicking or submitting it
+// asks the same route for the part of the page with the given id and replaces
+// that element, without reloading.
+//
+//	h.Form(h.Method("get"), ui.Swap("lista"), busca())
+//	h.Div(h.ID("lista"), ...)
+//
+// With JavaScript off nothing here applies: the link navigates and the form
+// submits as usual, and the route answers with the whole page. On the server,
+// Ctx.Fragment reports the requested id.
+func Swap(id string) h.Node { return h.Data("trilha-target", id) }
+
+// NoPush turns off the history entry a fragment link would create.
+func NoPush() h.Node { return h.Data("trilha-push", "false") }
+
 // ShowWhen shows the element only while the named form field has one of the
 // given values ("a|b"); with no values, while the field is non-empty. Hidden
 // groups have their controls disabled, so they are not submitted.

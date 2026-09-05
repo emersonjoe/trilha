@@ -48,6 +48,8 @@ description: The kit's components, variants, assets and the theme contract.
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu with the native `popover` attribute |
 | `Separator, Skeleton, Progress(value, max), Breadcrumb(Crumb{Label, Href}...), Avatar(initials, src), Collapsible(summary, ...)` | miscellaneous |
 | `ThemeToggle()` | button that switches light/dark (`localStorage["ui-theme"]`) |
+| `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
+| `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error) |
 
 ## ui.js
@@ -58,6 +60,18 @@ Everything by attribute, no initialization: `[data-ui-tabs]`, `[data-ui-dialog-o
 `window.ui.toast(text, {kind, ms})`, `ui.fade(el)`, `ui.evalShowWhen(root)` and
 `ui.applyTheme("dark"|"light")`. Elements inserted later (HTMX, fetch) need
 `ui.evalShowWhen(el)`/`ui.fade(el)` if they use those attributes.
+
+## Fragments
+
+`[data-trilha-target=id]` on an `<a>` or `<form>` (see `ui.Swap`) makes the kit request the
+same URL with the `Trilha-Fragment` header and swap element `#id` for the HTML that comes
+back. Details: the target gets `aria-busy` while it waits; **204 with `Trilha-Location`**
+becomes a real navigation; **422** focuses the first `[aria-invalid=true]`, otherwise focus
+(and the caret) return to the field in use; what came in is hydrated (`fade`, `show-when`)
+and fires `trilha:swap` (`detail.target`, `detail.status`). On 5xx, a network error or a
+fragment without the id, the kit gives up and navigates/submits normally.
+`ui.swap(id, html, status)` and `ui.hydrate(el)` do the swap by hand. See
+[Interactivity](/learn/interactivity).
 
 ## Theme
 
