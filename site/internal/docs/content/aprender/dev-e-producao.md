@@ -86,6 +86,32 @@ trilha export -o out --base /agenda
 Páginas com parâmetro entram quando `Setup` as declara com `a.AddExportPath("/eventos/x")`.
 O site que você está lendo foi gerado assim.
 
+## Assets e cache
+
+Publicar HTML novo com CSS velho é o bug que ninguém consegue reproduzir dez minutos
+depois. A causa é sempre a mesma: o endereço do arquivo não mudou quando o conteúdo mudou,
+e alguma camada de cache — o navegador, um CDN, o GitHub Pages — ainda tem a versão antiga.
+
+O `Asset` põe o hash do conteúdo na URL:
+
+```go
+h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))) // /style.css?v=8f3a1c92
+```
+
+Com isso, um cache longo passa a ser seguro:
+
+```go
+cfg.StaticCacheControl = "public, max-age=31536000, immutable"
+```
+
+Quem pede a URL versionada certa recebe o cache de um ano; quem pede `/style.css` sem
+versão cai na regra normal. Em `dev` nada é imutável e o hash acompanha o arquivo, então
+salvar o CSS e atualizar a página basta. O `trilha export` não precisa de nenhuma opção: o
+HTML exportado sai com as mesmas URLs, porque é o mesmo layout que o gera.
+
+`trilha audit` avisa quando encontra `immutable` num projeto que não usa `Asset` — é a
+combinação que congela um arquivo por um ano no endereço errado.
+
 ## Segurança por padrão
 
 Cabeçalhos `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` e `Referrer-Policy`

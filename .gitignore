@@ -2,3 +2,4 @@ bin/
 .trilha/
 *.test
 coverage.out
+/trilha

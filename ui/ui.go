@@ -32,12 +32,11 @@ var Files = []string{"ui.theme.css", "ui.css", "ui.js"}
 // before first paint (inline script with the request nonce, so the default
 // CSP accepts it). Put it inside <head>.
 func Head(c *trilha.Ctx) h.Node {
-	b := c.Base()
 	return h.Fragment(
-		h.Link(h.Rel("stylesheet"), h.Href(b+"/ui.theme.css")),
-		h.Link(h.Rel("stylesheet"), h.Href(b+"/ui.css")),
+		h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/ui.theme.css"))),
+		h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/ui.css"))),
 		h.Script(trilha.NonceAttr(c), h.Raw(themeInit)),
-		h.Script(h.Src(b+"/ui.js"), h.Defer()),
+		h.Script(h.Src(c.Asset("/ui.js")), h.Defer()),
 	)
 }
 

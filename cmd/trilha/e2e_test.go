@@ -92,7 +92,7 @@ func TestE2E(t *testing.T) {
 	if !strings.Contains(body, "Olá, meu-app!") || strings.Contains(body, "_trilha/events") {
 		t.Fatal(body)
 	}
-	if !strings.Contains(body, `href="/ui.css"`) || !strings.Contains(body, "ui-card") {
+	if !strings.Contains(body, `href="/ui.css?v=`) || !strings.Contains(body, "ui-card") {
 		t.Fatal("ui kit missing in page:", body)
 	}
 	if b := waitGet(t, base+"/ui.css"); !strings.Contains(b, ".ui-btn") {

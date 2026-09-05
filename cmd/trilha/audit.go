@@ -92,6 +92,12 @@ func runAudit(p *project, vuln bool) []check {
 		add("ok", "verificações de prontidão registradas", "")
 	}
 
+	// Cache de assets (spec 017): cache longo em endereço fixo é CSS velho
+	// por um ano.
+	if strings.Contains(src, "immutable") && !strings.Contains(src, ".Asset(") {
+		add("aviso", "cache imutável em endereços sem versão", "StaticCacheControl com immutable congela o arquivo no navegador; use c.Asset(\"/style.css\") no layout para pôr o hash do conteúdo na URL")
+	}
+
 	// Login OIDC (spec 016): o segredo do cliente e o endereço de retorno são
 	// os dois erros que aparecem em toda revisão de OAuth.
 	if strings.Contains(src, "trilha/auth") {

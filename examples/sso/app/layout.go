@@ -17,7 +17,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Meta(h.Charset("utf-8")),
 			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),
 			h.Title(h.Text(title)),
-			h.Link(h.Rel("stylesheet"), h.Href("/style.css")),
+			h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))),
 		),
 		h.Body(
 			h.Header(h.Class("topo"),

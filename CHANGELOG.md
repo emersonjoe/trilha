@@ -5,6 +5,21 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.8.0 — 2026-09-05
+
+### Adicionado
+- `Ctx.Asset` e `App.Asset` (spec 017): o endereço de um arquivo de `Config.Public` sai com
+  o hash do conteúdo (`/site.css?v=8f3a1c92`), aplicando `BasePath`. Um pedido cuja versão
+  confere recebe `public, max-age=31536000, immutable`; versão errada ou ausente mantém o
+  comportamento de antes, e em `dev` nada é imutável. O arquivo é lido uma vez em produção;
+  em `dev` um `Stat` decide se relê. Caminho inexistente volta sem versão, com aviso.
+- `trilha audit`: aviso quando `immutable` aparece num projeto que não usa `Asset`.
+
+### Alterado
+- `ui.Head`, o layout do site, os exemplos e o `trilha new` passam a linkar assets por
+  `c.Asset`. É a correção do problema que originou a spec: publicar o site deixava, por até
+  dez minutos, HTML novo com CSS e JS antigos.
+
 ## 0.7.0 — 2026-09-05
 
 ### Adicionado

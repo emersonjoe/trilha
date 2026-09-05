@@ -12,8 +12,9 @@ import (
 // Config runs before trilha.New: the place to change fields New derives
 // from (Logger, Secret, RateLimit, TrustedProxies) or to read your own config.
 func Config(cfg *trilha.Config) {
-	// Static files are versioned by the cache-busting query in the layout, so
-	// they can be cached for a year.
+	// The layout links assets through c.Asset, which puts the content hash in
+	// the URL: an address that changes with the file can be cached forever,
+	// and a deploy never leaves anyone with new HTML and old CSS.
 	cfg.StaticCacheControl = "public, max-age=31536000, immutable"
 	// As sondas /_trilha/health/live e /ready já existem sem configuração. O
 	// endereço de métricas é opt-in: aqui ele só aparece quando o ambiente

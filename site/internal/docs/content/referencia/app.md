@@ -65,12 +65,32 @@ func Config(cfg *trilha.Config) {
 `StaticHeaders(nome, cabeçalhos)` roda depois, por arquivo, e pode mudar qualquer cabeçalho:
 
 ```go
-cfg.StaticCacheControl = "public, max-age=31536000, immutable" // assets com ?v= ou hash
+cfg.StaticCacheControl = "public, max-age=31536000, immutable" // seguro com c.Asset
 cfg.StaticHeaders = func(name string, h http.Header) {
 	if name == "robots.txt" { h.Set("Cache-Control", "no-store") }
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
 }
 ```
+
+### Versão no endereço (`Asset`)
+
+```go
+func (a *App) Asset(path string) string
+func (c *Ctx) Asset(path string) string // idem, é o que o layout usa
+```
+
+`c.Asset("/site.css")` devolve `/site.css?v=8f3a1c92`, onde `v` é o hash FNV-1a do conteúdo
+do arquivo em `Config.Public` (com o prefixo de `BasePath`, como `c.Base()`). Como o
+endereço muda quando o arquivo muda, um deploy nunca deixa alguém com HTML novo e CSS
+antigo — o navegador pede uma URL que ele nunca viu.
+
+Um pedido cujo `v` confere recebe `public, max-age=31536000, immutable`, seja qual for o
+`StaticCacheControl`; um `v` errado ou ausente cai na regra normal, e em `dev` nada é
+imutável. O arquivo é lido uma vez em produção; em `dev` um `Stat` decide se relê, então
+editar o CSS e atualizar a página basta.
+
+Caminho que não existe em `Public` volta sem versão, com um aviso no log: um erro de
+digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `Asset`.
 
 ## App
 

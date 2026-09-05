@@ -25,6 +25,10 @@ func (a *App) serveStatic(w http.ResponseWriter, req *http.Request) bool {
 	switch {
 	case a.cfg.Env == Dev:
 		w.Header().Set("Cache-Control", "no-cache")
+	case req.URL.RawQuery != "" && a.versionMatches(name, req.URL.Query().Get("v")):
+		// Só a versão certa ganha o cache de um ano: um "?v=" adivinhado
+		// congelaria o arquivo errado no navegador de quem clicou.
+		w.Header().Set("Cache-Control", immutableCache)
 	case a.cfg.StaticCacheControl != "":
 		w.Header().Set("Cache-Control", a.cfg.StaticCacheControl)
 	default:

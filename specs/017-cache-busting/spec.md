@@ -1,6 +1,6 @@
 # Feature Specification: Versionar assets estáticos (cache busting)
 
-**Feature Branch**: `017-cache-busting` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `017-cache-busting` | **Created**: 2026-09-05 | **Status**: Implementada (v0.8.0)
 **Input**: "os assets do site não têm versão na URL, então nos dez minutos seguintes a cada
 publicação um visitante pode pegar HTML novo com JS antigo. Se quiser, viro isso numa spec
 pequena de cache busting no `trilha export`." — "sim faça isso"

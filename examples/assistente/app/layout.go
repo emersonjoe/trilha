@@ -18,7 +18,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),
 			h.Title(h.Text(title)),
 			ui.Head(c),
-			h.Link(h.Rel("stylesheet"), h.Href("/style.css")),
+			h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))),
 			h.Script(h.Src("/chat.js"), h.Defer()),
 		),
 		h.Body(ui.Body(),

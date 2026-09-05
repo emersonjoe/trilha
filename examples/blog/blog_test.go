@@ -76,7 +76,7 @@ func wantContains(t *testing.T, rec *httptest.ResponseRecorder, code int, parts 
 func TestUS1_HomeInsideRootLayout(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.get("/")
-	wantContains(t, rec, 200, "<!doctype html><html lang=\"pt-BR\">", "<title>Início · Trilha Blog</title>", `<h1 class="ui-h1">Trilha</h1>`, `href="/ui.css"`, `href="/style.css"`)
+	wantContains(t, rec, 200, "<!doctype html><html lang=\"pt-BR\">", "<title>Início · Trilha Blog</title>", `<h1 class="ui-h1">Trilha</h1>`, `href="/ui.css?v=`, `href="/style.css?v=`)
 	if rec.Header().Get("Content-Type") != "text/html; charset=utf-8" || rec.Header().Get("Server-Timing") == "" {
 		t.Fatal(rec.Header())
 	}

@@ -221,6 +221,10 @@ type App struct {
 	healthMu    sync.Mutex
 	healthCache *HealthReport
 	healthAt    time.Time
+
+	assetMu     sync.RWMutex
+	assets      map[string]assetVersion
+	assetWarned map[string]bool
 }
 
 // New creates an App. Zero values in cfg receive defaults.

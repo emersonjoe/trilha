@@ -28,7 +28,7 @@ func TestEveryPageResponds(t *testing.T) {
 		if code != 200 {
 			t.Errorf("%s → %d", p, code)
 		}
-		if !strings.Contains(body, "<title>") || !strings.Contains(body, `href="/site.css"`) {
+		if !strings.Contains(body, "<title>") || !strings.Contains(body, `href="/site.css?v=`) {
 			t.Errorf("%s: missing shell", p)
 		}
 	}
@@ -62,7 +62,7 @@ func TestInternalLinksResolve(t *testing.T) {
 	for _, p := range pagePaths() {
 		known[p] = true
 	}
-	re := regexp.MustCompile(`href="(/[^"#]*)`)
+	re := regexp.MustCompile(`href="(/[^"#?]*)`)
 	for _, p := range append([]string{"/"}, pagePaths()...) {
 		_, body := get(t, p)
 		for _, m := range re.FindAllStringSubmatch(body, -1) {
@@ -80,7 +80,7 @@ func TestInternalLinksResolve(t *testing.T) {
 func TestBasePathPrefixesLinks(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "/trilha")
 	_, body := get(t, "/aprender")
-	if !strings.Contains(body, `href="/trilha/aprender/paginas-e-rotas"`) || !strings.Contains(body, `href="/trilha/site.css"`) {
+	if !strings.Contains(body, `href="/trilha/aprender/paginas-e-rotas"`) || !strings.Contains(body, `href="/trilha/site.css?v=`) {
 		t.Fatal("links must carry the base path")
 	}
 	if strings.Contains(body, `href="/aprender/`) {
