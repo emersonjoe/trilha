@@ -41,6 +41,9 @@ type Config struct {
 	Public fs.FS
 	// CSRFForAPI also enforces CSRF tokens on route.go handlers.
 	CSRFForAPI bool
+	// BasePath is the URL prefix the app is served under (e.g. "/docs" on
+	// GitHub Pages). Read it with Ctx.Base when building links.
+	BasePath string
 }
 
 // ConfigFromEnv builds a Config from ADDR/PORT and TRILHA_ENV.
@@ -54,6 +57,11 @@ func ConfigFromEnv() Config {
 	}
 	if strings.EqualFold(os.Getenv("TRILHA_ENV"), "dev") {
 		cfg.Env = Dev
+	}
+	if b := strings.TrimSuffix(os.Getenv("TRILHA_BASE_PATH"), "/"); b != "" && !strings.HasPrefix(b, "/") {
+		cfg.BasePath = "/" + b
+	} else {
+		cfg.BasePath = b
 	}
 	return cfg
 }
@@ -109,15 +117,16 @@ type Route struct {
 
 // App is a configured Trilha application.
 type App struct {
-	cfg        Config
-	log        *slog.Logger
-	mux        *http.ServeMux
-	pathMux    *http.ServeMux
-	routes     map[string]*Route
-	values     map[string]any
-	rootLayout LayoutFunc
-	notFound   PageFunc
-	errorPage  ErrorPageFunc
+	cfg         Config
+	log         *slog.Logger
+	mux         *http.ServeMux
+	pathMux     *http.ServeMux
+	routes      map[string]*Route
+	values      map[string]any
+	rootLayout  LayoutFunc
+	notFound    PageFunc
+	errorPage   ErrorPageFunc
+	exportExtra []string
 }
 
 // New creates an App. Zero values in cfg receive defaults.

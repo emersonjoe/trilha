@@ -24,6 +24,7 @@ Uso:
   trilha dev [--addr :3000]                        dev server com recarga automática
   trilha build [-o bin/<nome>]                     gera + compila um binário único
   trilha routes                                    lista as rotas descobertas
+  trilha export [-o out] [--base /prefixo]         exporta as páginas estáticas em HTML
   trilha version
 `
 
@@ -44,6 +45,8 @@ func main() {
 		err = cmdBuild(os.Args[2:])
 	case "routes":
 		err = cmdRoutes(os.Args[2:])
+	case "export":
+		err = cmdExport(os.Args[2:])
 	case "version", "-v", "--version":
 		fmt.Println("trilha", version)
 	case "help", "-h", "--help":

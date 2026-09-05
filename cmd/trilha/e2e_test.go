@@ -39,6 +39,15 @@ func TestE2E(t *testing.T) {
 		t.Fatal(out)
 	}
 	run(t, proj, cli, "build", "-o", "bin/app")
+	run(t, proj, cli, "export", "-o", "out")
+	for _, f := range []string{"out/index.html", "out/404.html", "out/style.css", "out/.trilha-export"} {
+		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {
+			t.Fatalf("export missing %s", f)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(proj, "out", "api")); err == nil {
+		t.Fatal("api must not be exported")
+	}
 
 	// Boot the binary from a different directory: public/ must be embedded.
 	port := freePort(t)
