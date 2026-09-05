@@ -5,6 +5,14 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.4.0 — 2026-09-05
+
+### Adicionado
+- Kit de interface (spec 006): pacote `ui` (componentes, variantes, ícones Lucide), assets
+  `public/ui.theme.css`/`ui.css`/`ui.js` copiados por `trilha new` e `trilha ui`, contrato de
+  tema compatível com shadcn/ui v4; exemplos `blog` e `assistente` reestilizados; demos vivas
+  no site. `h`: atributos `class` repetidos são fundidos em um só.
+
 ## 0.3.0 — 2026-09-05
 
 ### Adicionado

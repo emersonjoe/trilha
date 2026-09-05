@@ -1,10 +1,11 @@
-:root { color-scheme: light dark; font: 16px/1.55 system-ui, sans-serif; }
-body { max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
-nav a { margin-right: 1rem; }
-main { margin: 2rem 0; }
-.blog aside { float: right; }
-form { display: grid; gap: .5rem; max-width: 28rem; }
-input, textarea { font: inherit; padding: .4rem; }
-button { font: inherit; padding: .5rem 1rem; cursor: pointer; }
-.erro { color: #b00020; }
-footer { color: #888; }
+/* Estilos do exemplo; o kit fica em ui.css e o tema em ui.theme.css. */
+main { padding: 2rem 0; }
+footer { padding: 1rem 0 2rem; font-size: .8125rem; }
+.blog aside { float: right; margin-left: 1rem; }
+.posts { list-style: none; padding: 0; display: grid; gap: .75rem; }
+.posts a { text-decoration: none; }
+.login { max-width: 24rem; margin: 2rem auto; }
+.app { display: grid; grid-template-columns: 12rem 1fr; gap: 1.5rem; }
+.app .ui-sidebar { border-radius: var(--radius-lg); border: 1px solid var(--sidebar-border); }
+@media (max-width: 640px) { .app { grid-template-columns: 1fr; } }
+.marketing .sub { margin-bottom: 1rem; }

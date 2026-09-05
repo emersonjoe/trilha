@@ -4,6 +4,7 @@ package scaffold
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -57,5 +58,17 @@ func Write(dir string, d Data) ([]string, error) {
 		written = append(written, rel)
 		return nil
 	})
+	if err != nil {
+		return written, err
+	}
+	res, err := WriteUI(dir, false, false, false)
+	for _, r := range res {
+		if r.Action == "criado" {
+			written = append(written, "public/"+r.File)
+		}
+	}
+	if errors.Is(err, ErrUIModified) {
+		err = nil
+	}
 	return written, err
 }

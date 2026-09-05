@@ -75,7 +75,7 @@ func wantContains(t *testing.T, rec *httptest.ResponseRecorder, code int, parts 
 func TestUS1_HomeInsideRootLayout(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.get("/")
-	wantContains(t, rec, 200, "<!doctype html><html lang=\"pt-BR\">", "<title>Início · Trilha Blog</title>", `<main id="conteudo"><h1>Trilha</h1>`, `href="/style.css"`)
+	wantContains(t, rec, 200, "<!doctype html><html lang=\"pt-BR\">", "<title>Início · Trilha Blog</title>", `<h1 class="ui-h1">Trilha</h1>`, `href="/ui.css"`, `href="/style.css"`)
 	if rec.Header().Get("Content-Type") != "text/html; charset=utf-8" || rec.Header().Get("Server-Timing") == "" {
 		t.Fatal(rec.Header())
 	}
@@ -87,7 +87,7 @@ func TestUS1_HomeInsideRootLayout(t *testing.T) {
 func TestUS1_DynamicSegmentWithNestedLayouts(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.get("/blog/ola-trilha")
-	wantContains(t, rec, 200, "<title>Olá, Trilha · Trilha Blog</title>", `<main id="conteudo"><section class="blog"><aside>`, `<article><h1>Olá, Trilha</h1>`)
+	wantContains(t, rec, 200, "<title>Olá, Trilha · Trilha Blog</title>", `<main id="conteudo"><div class="ui-container"><section class="blog"><aside>`, `<h1 class="ui-h1">Olá, Trilha</h1>`)
 	wantContains(t, c.get("/blog"), 200, `<ul class="posts">`, `href="/blog/layouts"`)
 }
 
@@ -117,7 +117,7 @@ func TestUS1_ErrorPageStackOnlyInDev(t *testing.T) {
 
 func TestUS1_StaticRouteBeatsDynamic(t *testing.T) {
 	c := newClient(t, "prod")
-	wantContains(t, c.get("/blog/novo"), 200, "<h1>Novo post</h1>")
+	wantContains(t, c.get("/blog/novo"), 200, `<h1 class="ui-card-title">Novo post</h1>`)
 }
 
 // ---- US2: API e formulários -----------------------------------------------
@@ -165,7 +165,7 @@ func TestUS2_FormPostRedirectGetWithCSRF(t *testing.T) {
 	if rec.Code != 303 || rec.Header().Get("Location") != "/blog/meu-post" {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	wantContains(t, c.get("/blog/meu-post"), 200, "<h1>Meu Post</h1>", "<p>Texto</p>")
+	wantContains(t, c.get("/blog/meu-post"), 200, `<h1 class="ui-h1">Meu Post</h1>`, "<p>Texto</p>")
 	rec = c.do("POST", "/blog/novo", "titulo=x&_csrf=errado", map[string]string{"Content-Type": "application/x-www-form-urlencoded"})
 	if rec.Code != 403 {
 		t.Fatal(rec.Code)
@@ -208,7 +208,7 @@ func TestUS3_AdminGuard(t *testing.T) {
 	if rec.Code != 303 || rec.Header().Get("Location") != "/admin" || !strings.Contains(c.jar["sessao"], "|") {
 		t.Fatalf("%d %s %v", rec.Code, rec.Header().Get("Location"), c.jar)
 	}
-	wantContains(t, c.get("/admin"), 200, "<h1>Olá, admin</h1>", "2 posts publicados.")
+	wantContains(t, c.get("/admin"), 200, `<h1 class="ui-h1">Olá, admin</h1>`, "2 posts publicados.")
 	if rec := c.postForm("/login", "sair=1"); rec.Code != 303 {
 		t.Fatal(rec.Code)
 	}
@@ -255,8 +255,8 @@ func TestTrailingSlash(t *testing.T) {
 
 func TestGroups_LayoutWithoutURLSegment(t *testing.T) {
 	c := newClient(t, "prod")
-	wantContains(t, c.get("/precos"), 200, `<main id="conteudo"><section class="marketing"><nav class="sub">`, "<h1>Preços</h1>", "<title>Preços · Trilha Blog</title>")
-	wantContains(t, c.get("/sobre"), 200, `<section class="marketing">`, "<h1>Sobre</h1>")
+	wantContains(t, c.get("/precos"), 200, `<main id="conteudo"><div class="ui-container"><section class="marketing"><nav class="sub ui-nav">`, `<h1 class="ui-h1">Preços</h1>`, "<title>Preços · Trilha Blog</title>")
+	wantContains(t, c.get("/sobre"), 200, `<section class="marketing">`, `<h1 class="ui-h1">Sobre</h1>`)
 	if rec := c.get("/marketing-/precos"); rec.Code != 404 {
 		t.Fatalf("group name must not be a URL segment: %d", rec.Code)
 	}
@@ -265,7 +265,7 @@ func TestGroups_LayoutWithoutURLSegment(t *testing.T) {
 func TestGroups_MiddlewareOrder(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.get("/painel")
-	wantContains(t, rec, 200, `<section class="app" data-area="painel">`, "<h1>Painel</h1>")
+	wantContains(t, rec, 200, `<section class="app" data-area="painel">`, `<h1 class="ui-h1">Painel</h1>`)
 	if rec.Header().Get("X-Area") != "painel" || rec.Header().Get("Server-Timing") == "" {
 		t.Fatalf("root and group middlewares must both run: %v", rec.Header())
 	}

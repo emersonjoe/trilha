@@ -64,3 +64,10 @@ func TestRenderNil(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestClassMerge(t *testing.T) {
+	got, _ := Render(Div(Class("a"), ID("x"), Class("b", "c"), Class(""), Text("t")))
+	if got != `<div class="a b c" id="x">t</div>` {
+		t.Fatal(got)
+	}
+}

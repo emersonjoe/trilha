@@ -3,15 +3,26 @@ package app
 import (
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
 )
 
 // Page renders GET /.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Início")
-	return h.Fragment(
-		h.H1(h.Text("Olá, {{.Name}}!")),
-		h.P(h.Text("Edite app/page.go e salve: esta página recarrega sozinha.")),
-		h.P(h.Text("Crie app/sobre/page.go para responder /sobre, ou app/api/x/route.go para uma API.")),
-		h.P(h.A(h.Href("/api/hello"), h.Text("Ver /api/hello"))),
+	return ui.Stack(
+		ui.H1(h.Text("Olá, {{.Name}}!")),
+		ui.Lead(h.Text("Edite app/page.go e salve: esta página recarrega sozinha.")),
+		ui.Grid(
+			ui.Card(
+				ui.CardHeader(ui.CardTitle("Rotas"), ui.CardDescription("Pastas em app/ viram URLs.")),
+				ui.CardContent(h.P(h.Text("Crie app/sobre/page.go para responder /sobre, ou app/api/x/route.go para uma API."))),
+				ui.CardFooter(ui.ButtonLink("/api/hello", ui.Outline(), h.Text("Ver /api/hello"), ui.Icon("arrow-right"))),
+			),
+			ui.Card(
+				ui.CardHeader(ui.CardTitle("Interface"), ui.CardDescription("Kit ui: edite public/ui.theme.css para trocar as cores.")),
+				ui.CardContent(ui.Field("nome", "Seu nome", ui.Input(h.ID("nome"), h.Name("nome"), h.Placeholder("Ada")), ui.Help("Componentes tipados em Go, sem JavaScript obrigatório."))),
+				ui.CardFooter(ui.Button(h.Text("Primário")), ui.Button(ui.Secondary(), h.Text("Secundário")), ui.Badge(h.Text("novo"))),
+			),
+		),
 	), nil
 }

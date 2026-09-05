@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
 )
 
 // Layout is the root layout: the <html> document around every page.
@@ -16,11 +17,18 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Meta(h.Charset("utf-8")),
 			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),
 			h.Title(h.Text(title)),
+			ui.Head(c), // public/ui.theme.css (seu tema), ui.css e ui.js
 			h.Link(h.Rel("stylesheet"), h.Href("/style.css")),
 		),
-		h.Body(
-			h.Header(h.Nav(h.A(h.Href("/"), h.Text("{{.Name}}")))),
-			h.Main(children),
+		h.Body(ui.Body(),
+			ui.Header(
+				ui.Brand("/", "{{.Name}}"),
+				ui.Nav(ui.NavLink("/", "Início", c.Request().URL.Path == "/")),
+				ui.Spacer(),
+				ui.ThemeToggle(),
+			),
+			h.Main(ui.Container(children)),
+			ui.Toaster(),
 		),
 	), nil
 }

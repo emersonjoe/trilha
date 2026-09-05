@@ -57,11 +57,36 @@ func (e *element) Render(w io.Writer) error {
 	if _, err := io.WriteString(w, "<"+e.tag); err != nil {
 		return err
 	}
-	for _, c := range e.children {
-		if a, ok := c.(attrNode); ok {
-			if err := a.Render(w); err != nil {
+	// Several class attributes (a component's base class plus variants passed
+	// by the caller) are merged into one, in order.
+	var classes []string
+	classAt := -1
+	for i, c := range e.children {
+		if a, ok := c.(attr); ok && a.name == "class" && !a.boolean {
+			if classAt < 0 {
+				classAt = i
+			}
+			if a.value != "" {
+				classes = append(classes, a.value)
+			}
+		}
+	}
+	for i, c := range e.children {
+		a, ok := c.(attrNode)
+		if !ok {
+			continue
+		}
+		if i == classAt {
+			if err := (attr{name: "class", value: strings.Join(classes, " ")}).Render(w); err != nil {
 				return err
 			}
+			continue
+		}
+		if at, ok := c.(attr); ok && at.name == "class" && !at.boolean {
+			continue
+		}
+		if err := a.Render(w); err != nil {
+			return err
 		}
 	}
 	if _, err := io.WriteString(w, ">"); err != nil {

@@ -89,9 +89,9 @@ h3 { font-size: 1.15rem; margin: 1.8em 0 .5em; }
 .demo-resultado { background: var(--bg-2); min-width: 0; }
 .demo-saida { padding: 1rem 1.1rem; font-size: .95rem; }
 .demo-saida ul { padding-left: 1.2rem; margin: 0; }
-.demo-saida form { display: grid; gap: .4rem; max-width: 20rem; }
-.demo-saida input, .demo-saida button { font: inherit; padding: .4rem .6rem; border-radius: 6px; border: 1px solid var(--linha); background: var(--bg); color: var(--fg); }
-.demo-saida button { background: var(--marca); color: #fff; border-color: var(--marca); cursor: pointer; }
+.demo-saida form:not(.kit *) { display: grid; gap: .4rem; max-width: 20rem; }
+.demo-saida input:not(.kit *), .demo-saida button:not(.kit *) { font: inherit; padding: .4rem .6rem; border-radius: 6px; border: 1px solid var(--linha); background: var(--bg); color: var(--fg); }
+.demo-saida button:not(.kit *) { background: var(--marca); color: #fff; border-color: var(--marca); cursor: pointer; }
 .demo-saida .agenda { border: 1px dashed var(--linha); padding: .8rem; border-radius: 8px; }
 .demo-saida .agenda nav { display: flex; gap: 1rem; margin-bottom: .5rem; font-size: .9rem; }
 .demo-saida h2 { margin: 0; font-size: 1.1rem; }
@@ -157,3 +157,7 @@ th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color:
 /* Rodapé */
 .rodape { border-top: 1px solid var(--linha); padding: 2rem 1.25rem 3rem; text-align: center; color: var(--fg-2); font-size: .9rem; }
 .rodape p { margin: .3rem 0; }
+
+/* kit ui inside demos */
+.demo-saida .kit { padding: .25rem; border-radius: var(--radius-lg); }
+.demo-saida .kit ul { padding-left: 1.2rem; }

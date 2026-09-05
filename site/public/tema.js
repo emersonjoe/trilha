@@ -11,6 +11,7 @@
   if (btn) btn.addEventListener("click", function () {
     var novo = atual() === "escuro" ? "claro" : "escuro";
     root.setAttribute("data-tema", novo);
+    root.classList.toggle("dark", novo === "escuro");
     try { localStorage.setItem("tema", novo); } catch (e) {}
   });
   document.querySelectorAll(".codigo").forEach(function (bloco) {

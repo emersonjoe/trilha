@@ -25,6 +25,13 @@ trilha version
 Os comandos rodam na pasta que contém `app/`. O caminho de import do projeto vem do
 `go.mod` mais próximo, mais a subpasta, então um app pode viver dentro de um módulo maior.
 
+## trilha ui
+
+Grava ou atualiza o kit de interface em `public/`: `ui.theme.css` (só criado; é o seu
+tema), `ui.css` e `ui.js` (atualizados; se editados localmente, só com `--force`).
+`--css-only` e `--js-only` limitam o que é tocado. `trilha new` roda o mesmo passo. Veja
+[Interface com ui](/aprender/interface-com-ui).
+
 ## Arquivo gerado
 
 `trilha_gen.go` é determinístico (mesma árvore, mesmos bytes), tem o cabeçalho

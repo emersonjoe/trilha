@@ -151,6 +151,23 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 }
 ```
 
+## Interface
+
+Projetos novos vêm com o kit `ui`: componentes tipados (`ui.Button`, `ui.Card`, `ui.Field`,
+`ui.Tabs`, `ui.Dialog`...) sobre um CSS prefixado e um JS de 200 linhas, ambos copiados
+para `public/` e seus para editar. O tema usa as mesmas variáveis do
+[shadcn/ui](https://ui.shadcn.com) (MIT): cole um tema pronto em `public/ui.theme.css` e
+nada em Go muda. `trilha ui` atualiza o kit sem tocar no seu tema.
+
+```go
+ui.Card(
+	ui.CardHeader(ui.CardTitle("Novo post")),
+	ui.CardContent(h.Form(h.Method("post"), trilha.CSRFInput(c),
+		ui.Field("titulo", "Título", ui.Input(h.ID("titulo"), h.Name("titulo"), h.Required())),
+		ui.Submit(h.Text("Publicar")))),
+)
+```
+
 ## IA e agentes
 
 `ai` fala o protocolo de chat da OpenAI (funciona com OpenAI, Groq, Mistral, OpenRouter, Ollama,

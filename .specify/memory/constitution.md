@@ -60,7 +60,14 @@ padrão); formulários têm proteção CSRF por token com cookie `SameSite=Lax`;
 produção não vazam caminho de arquivo nem stack. Logs são estruturados (`log/slog`) e nunca
 registram corpo de requisição nem cookies.
 
-## Estilo e idioma
+## Estilo, idioma e interface
+
+O kit `ui` (pacote `ui` + `public/ui.theme.css`, `ui.css`, `ui.js`) é a interface padrão dos
+projetos gerados e dos exemplos: componentes tipados sobre CSS prefixado, copiados para o
+projeto e customizáveis, com contrato de tema compatível com o shadcn/ui (MIT, com aviso em
+`THIRD_PARTY_NOTICES.md`). O kit não adiciona dependências nem obriga JavaScript; toda
+página deve continuar utilizável sem `ui.js`.
+
 
 Código, identificadores e comentários do framework em inglês (é uma biblioteca pública);
 documentação, specs e mensagens da CLI em português do Brasil, com README bilíngue quando
@@ -81,4 +88,4 @@ registro da mudança neste arquivo com nova versão semântica, atualização do
 `.specify/templates/` que dependam do princípio alterado, e migração dos exemplos afetados.
 Revisões de código verificam aderência aos princípios I–VII antes de aprovar.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-04
+**Version**: 1.1.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-05 (kit `ui` como interface padrão)

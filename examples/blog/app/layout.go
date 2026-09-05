@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
 )
 
 // Layout is the root layout: the <html> document around every page.
@@ -13,24 +14,31 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	} else {
 		title += " · Trilha Blog"
 	}
+	cur := c.Request().URL.Path
 	return h.Html(h.Lang("pt-BR"),
 		h.Head(
 			h.Meta(h.Charset("utf-8")),
 			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),
 			h.Title(h.Text(title)),
+			ui.Head(c),
 			h.Link(h.Rel("stylesheet"), h.Href("/style.css")),
 		),
-		h.Body(
-			h.Header(h.Nav(
-				h.A(h.Href("/"), h.Text("Início")),
-				h.A(h.Href("/blog"), h.Text("Blog")),
-				h.A(h.Href("/docs/guia/rotas"), h.Text("Docs")),
-				h.A(h.Href("/precos"), h.Text("Preços")),
-				h.A(h.Href("/painel"), h.Text("Painel")),
-				h.A(h.Href("/admin"), h.Text("Admin")),
-			)),
-			h.Main(h.ID("conteudo"), children),
-			h.Footer(h.Small(h.Textf("request %s", c.RequestID()))),
+		h.Body(ui.Body(),
+			ui.Header(
+				ui.Brand("/", "Trilha Blog"),
+				ui.Nav(
+					ui.NavLink("/blog", "Blog", cur == "/blog"),
+					ui.NavLink("/docs/guia/rotas", "Docs", cur == "/docs/guia/rotas"),
+					ui.NavLink("/precos", "Preços", cur == "/precos"),
+					ui.NavLink("/painel", "Painel", cur == "/painel"),
+					ui.NavLink("/admin", "Admin", cur == "/admin"),
+				),
+				ui.Spacer(),
+				ui.ThemeToggle(),
+			),
+			h.Main(h.ID("conteudo"), ui.Container(children)),
+			h.Footer(ui.Container(ui.Muted(h.Textf("request %s", c.RequestID())))),
+			ui.Toaster(),
 		),
 	), nil
 }

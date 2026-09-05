@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -29,7 +30,7 @@ func TestE2E(t *testing.T) {
 	if !strings.Contains(out, "projeto criado") {
 		t.Fatal(out)
 	}
-	for _, f := range []string{"go.mod", "trilha_gen.go", "app/page.go", "app/layout.go", "app/api/hello/route.go", "public/style.css", ".gitignore"} {
+	for _, f := range []string{"go.mod", "trilha_gen.go", "app/page.go", "app/layout.go", "app/api/hello/route.go", "public/style.css", "public/ui.css", "public/ui.theme.css", "public/ui.js", ".gitignore"} {
 		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {
 			t.Fatalf("missing %s", f)
 		}
@@ -37,6 +38,27 @@ func TestE2E(t *testing.T) {
 	out = run(t, proj, cli, "routes")
 	if !strings.Contains(out, "/api/hello") || !strings.Contains(out, "app/page.go") {
 		t.Fatal(out)
+	}
+	// trilha ui: no-op on a fresh project; keeps the theme; refuses edited kit files without --force.
+	if out := run(t, proj, cli, "ui"); !regexp.MustCompile(`ui\.css\s+mantido`).MatchString(out) {
+		t.Fatal(out)
+	}
+	theme := filepath.Join(proj, "public", "ui.theme.css")
+	css := filepath.Join(proj, "public", "ui.css")
+	os.WriteFile(theme, []byte(":root{--primary:red}"), 0o644)
+	os.WriteFile(css, []byte("/* edited */"), 0o644)
+	uiCmd := exec.Command(cli, "ui")
+	uiCmd.Dir = proj
+	if out, err := uiCmd.CombinedOutput(); err == nil || !strings.Contains(string(out), "modificado") {
+		t.Fatal(string(out), err)
+	} else if b, _ := os.ReadFile(css); string(b) != "/* edited */" {
+		t.Fatal("must not overwrite without --force")
+	}
+	if out := run(t, proj, cli, "ui", "--force"); !regexp.MustCompile(`ui\.css\s+atualizado`).MatchString(out) || !strings.Contains(out, "seu tema") {
+		t.Fatal(out)
+	}
+	if b, _ := os.ReadFile(theme); string(b) != ":root{--primary:red}" {
+		t.Fatal("theme must be preserved")
 	}
 	run(t, proj, cli, "build", "-o", "bin/app")
 	os.Setenv("TRILHA_SECRET", strings.Repeat("s", 32))
@@ -70,7 +92,10 @@ func TestE2E(t *testing.T) {
 	if !strings.Contains(body, "Olá, meu-app!") || strings.Contains(body, "_trilha/events") {
 		t.Fatal(body)
 	}
-	if b := waitGet(t, base+"/style.css"); !strings.Contains(b, "color-scheme") {
+	if !strings.Contains(body, `href="/ui.css"`) || !strings.Contains(body, "ui-card") {
+		t.Fatal("ui kit missing in page:", body)
+	}
+	if b := waitGet(t, base+"/ui.css"); !strings.Contains(b, ".ui-btn") {
 		t.Fatal("public not embedded:", b)
 	}
 	if b := waitGet(t, base+"/api/hello"); !strings.Contains(b, `"hello":"meu-app"`) {

@@ -14,7 +14,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.3.0"
+const version = "0.4.0"
 
 const usage = `trilha — framework web para Go com roteamento por arquivos
 
@@ -26,6 +26,7 @@ Uso:
   trilha routes                                    lista as rotas descobertas
   trilha export [-o out] [--base /prefixo]         exporta as páginas estáticas em HTML
   trilha audit [--no-vuln]                         verifica segurança e configuração do projeto
+  trilha ui [--force] [--css-only|--js-only]       grava/atualiza o kit ui em public/
   trilha version
 `
 
@@ -48,6 +49,8 @@ func main() {
 		err = cmdRoutes(os.Args[2:])
 	case "export":
 		err = cmdExport(os.Args[2:])
+	case "ui":
+		err = cmdUI(os.Args[2:])
 	case "audit":
 		err = cmdAudit(os.Args[2:])
 	case "version", "-v", "--version":

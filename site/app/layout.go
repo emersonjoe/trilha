@@ -27,8 +27,11 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Link(h.Rel("preconnect"), h.Href("https://fonts.gstatic.com"), h.Attr("crossorigin", "")),
 			h.Link(h.Rel("stylesheet"), h.Href("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap")),
 			h.Link(h.Rel("stylesheet"), h.Href(b+"/site.css")),
-			// Applies the saved theme before first paint to avoid a flash.
-			h.Script(trilha.NonceAttr(c), h.Raw(`try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-tema",t)}catch(e){}`)),
+			// Kit ui, used by the live demos (classes are prefixed, so the site is untouched).
+			h.Link(h.Rel("stylesheet"), h.Href(b+"/ui.theme.css")),
+			h.Link(h.Rel("stylesheet"), h.Href(b+"/ui.css")),
+			// Applies the saved theme before first paint to avoid a flash (and mirrors it to the kit's .dark).
+			h.Script(trilha.NonceAttr(c), h.Raw(`try{var t=localStorage.getItem("tema");if(t)document.documentElement.setAttribute("data-tema",t);var d=t?t==="escuro":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d)}catch(e){}`)),
 		),
 		h.Body(
 			h.A(h.Class("pular"), h.Href("#principal"), h.Text("Ir para o conteúdo")),
@@ -36,6 +39,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Main(h.ID("principal"), children),
 			ui.Footer(c),
 			h.Script(h.Src(b+"/tema.js"), h.Defer()),
+			h.Script(h.Src(b+"/ui.js"), h.Defer()),
 		),
 	), nil
 }

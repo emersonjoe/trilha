@@ -38,8 +38,8 @@ var Sections = []struct {
 	Key, Title string
 	Slugs      []string
 }{
-	{"aprender", "Aprender", []string{"", "paginas-e-rotas", "layouts", "html-com-h", "formularios", "api", "middleware", "seguranca", "ia-e-agentes", "dev-e-producao", "problemas-comuns"}},
-	{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "app", "seguranca", "ai", "mcp", "cli"}},
+	{"aprender", "Aprender", []string{"", "paginas-e-rotas", "layouts", "html-com-h", "formularios", "api", "middleware", "seguranca", "interface-com-ui", "ia-e-agentes", "dev-e-producao", "problemas-comuns"}},
+	{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "app", "seguranca", "ui", "ai", "mcp", "cli"}},
 }
 
 var (
