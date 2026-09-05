@@ -34,6 +34,25 @@ func (a *App) renderPage(c *Ctx, r *Route) error {
 	return a.writeHTML(c, code, node)
 }
 
+// Render writes node as a page with the route's layouts applied (innermost
+// first), like GET does. Use it in POST handlers to answer a form with
+// validation errors inside the same layouts:
+//
+//	if errs := validate(in); errs.Any() {
+//		return c.Render(422, formulario(c, in, errs))
+//	}
+func (c *Ctx) Render(code int, node h.Node) error {
+	if c.route != nil {
+		for _, l := range c.route.Layouts {
+			var err error
+			if node, err = l(c, node); err != nil {
+				return err
+			}
+		}
+	}
+	return c.app.writeHTML(c, code, node)
+}
+
 // writeHTML renders a node to a buffer (so a render error still yields a
 // clean 500), prepends the doctype when missing and injects the dev script.
 func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
@@ -109,7 +128,12 @@ func (a *App) handleError(c *Ctx, err error) {
 		if errors.As(err, &he) && he.Message != "" && code < 500 {
 			msg = he.Message
 		}
-		_ = c.JSON(code, map[string]any{"error": msg, "status": code})
+		body := map[string]any{"error": msg, "status": code}
+		var fe FieldErrors
+		if errors.As(err, &fe) {
+			body["fields"] = fe
+		}
+		_ = c.JSON(code, body)
 		return
 	}
 	switch {

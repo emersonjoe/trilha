@@ -64,6 +64,7 @@ func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
 		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		req.Body = http.MaxBytesReader(rw, req.Body, a.cfg.MaxBodyBytes)
 		c := newCtx(a, rw, req, kind)
+		c.route = r
 		if kind == kindAPI && r.Kind == KindAuto && wantsHTML(req) {
 			c.kind = kindPage // browser navigation to a route.go: HTML error pages
 		}

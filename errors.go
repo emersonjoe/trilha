@@ -47,11 +47,14 @@ func Errorf(code int, format string, a ...any) error {
 // statusOf classifies an error into an HTTP status code.
 func statusOf(err error) int {
 	var he *HTTPError
+	var fe FieldErrors
 	switch {
 	case err == nil:
 		return http.StatusOK
 	case errors.Is(err, ErrNotFound):
 		return http.StatusNotFound
+	case errors.As(err, &fe):
+		return http.StatusUnprocessableEntity
 	case errors.As(err, &he):
 		return he.Code
 	default:

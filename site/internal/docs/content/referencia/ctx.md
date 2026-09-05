@@ -36,6 +36,7 @@ usado por outra goroutine depois que o handler devolve.
 | `Status(code)` | status que a próxima renderização de página vai usar |
 | `Header(k, v)` | define um cabeçalho de resposta |
 | `SetCookie(*http.Cookie)` | adiciona `Set-Cookie` |
+| `Render(code, node) error` | escreve a página **com os layouts da rota** (como o GET): para um `POST` devolver o formulário com erros (422) |
 | `Stream() *Stream` | resposta em Server-Sent Events: `Send(evento, dados)`, `JSON(evento, v)`, `Comment(s)`, `Done()`; desliga o *write timeout* ([IA e agentes](/aprender/ia-e-agentes)) |
 | `Writer() http.ResponseWriter` | acesso direto (downloads longos, WebSocket) |
 | `Written() bool` | se a resposta já começou |
@@ -57,3 +58,13 @@ usado por outra goroutine depois que o handler devolve.
 O token é verificado automaticamente em `POST`, `PUT`, `PATCH` e `DELETE` de `page.go`
 (e de `route.go` se `Config.CSRFForAPI` estiver ligado), pelo campo `_csrf` ou pelo
 cabeçalho `X-CSRF-Token`.
+
+## Bind
+
+`Bind(v any) error` preenche uma struct a partir do formulário (ou do JSON, quando o
+`Content-Type` é `application/json`). Campos casam pela tag `form:"nome"` (ou pelo nome do
+campo); tipos: `string`, `[]string`, `bool` (`on`/`true`/`1`), `int`, `int64`, `float64`
+(vírgula ou ponto), `time.Time` (`2006-01-02` ou `2006-01-02T15:04`) e ponteiros (nil quando
+ausente). Struct aninhada é achatada, com a tag como prefixo (`Cobranca Endereco
+`+"`form:\"cob_\"`"+` lê `cob_cep`…). Valores que não convertem viram `FieldErrors`
+(mensagem `trilha.BindInvalid`, ajustável) depois de todos os campos serem tentados.

@@ -168,6 +168,15 @@ ui.Card(
 )
 ```
 
+## Exemplos
+
+| Nível | Pasta | Ensina |
+|---|---|---|
+| Básico | `examples/blog` | convenções, layouts, API, middleware, sessão |
+| Médio | `examples/cadastro` | formulário com regras: campos condicionais, validação por campo (`c.Bind`, `trilha.FieldErrors`, `c.Render`), seleção dependente, aviso que some |
+| Complexo | `examples/orcamento` | plano de contas em árvore, drill-down, componentes recursivos, diálogo, CSV |
+| IA | `examples/assistente` | chat em streaming, agente com ferramentas, MCP |
+
 ## IA e agentes
 
 `ai` fala o protocolo de chat da OpenAI (funciona com OpenAI, Groq, Mistral, OpenRouter, Ollama,

@@ -48,3 +48,17 @@ return c.Redirect("/eventos/" + ev.Slug)
 ```
 
 Erros de `c.BindJSON` e `c.FormErr` já são `HTTPError` (400 ou 413): basta devolvê-los.
+
+## FieldErrors
+
+`trilha.FieldErrors` é `map[string]string` (campo → mensagem) que implementa `error`.
+Devolvido de um handler responde **422**: JSON com `"fields"` em rotas de API, página de
+erro em páginas. Um formulário normalmente não o devolve: valida, e no erro chama
+`c.Render(422, …)` mostrando cada mensagem no campo (`ui.Errors`, `ui.InvalidIf`).
+
+| Método | Papel |
+|---|---|
+| `Add(campo, msg)` | registra (a primeira mensagem do campo vence) |
+| `Has(campo) bool`, `Get(campo) string` | consulta |
+| `Any() bool` | há erros? |
+| `OrNil() error` | `nil` quando vazio, para `return errs.OrNil()` |

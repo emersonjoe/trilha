@@ -1,0 +1,5 @@
+/* Estilos do exemplo; o kit fica em ui.css e o tema em ui.theme.css. */
+main { padding: 2rem 0; }
+.ui-h1 .ui-muted { font-weight: 400; }
+td.barra { width: 9rem; }
+.ui-table tbody tr[data-depth="0"] { background: color-mix(in oklch, var(--muted) 40%, transparent); }

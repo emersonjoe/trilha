@@ -123,3 +123,25 @@ func TestHeadAndAssets(t *testing.T) {
 		t.Fatal(Icons())
 	}
 }
+
+func TestValidationHelpers(t *testing.T) {
+	errs := map[string]string{"cnpj": "inválido"}
+	got := render(t, Field("cnpj", "CNPJ", Input(h.ID("cnpj"), h.Value("1"), InvalidIf(errs, "cnpj")), Errors(errs, "cnpj")))
+	if !strings.Contains(got, `aria-invalid="true"`) || !strings.Contains(got, `role="alert">inválido<`) {
+		t.Fatal(got)
+	}
+	ok := render(t, Field("cpf", "CPF", Input(h.ID("cpf"), InvalidIf(errs, "cpf")), Errors(errs, "cpf")))
+	if strings.Contains(ok, "aria-invalid") || strings.Contains(ok, "ui-field-error") {
+		t.Fatal(ok)
+	}
+	sel := render(t, Select(h.Name("uf"), SelectOptions([]Option{{"", "Escolha…"}, {"SP", "São Paulo"}, {"RJ", "Rio"}}, "RJ")))
+	if !strings.Contains(sel, `<option value="" disabled="">Escolha…</option>`) || !strings.Contains(sel, `<option value="RJ" selected>Rio</option>`) {
+		t.Fatal(sel)
+	}
+	if fb := render(t, Select(SelectOptions([]Option{{"", "Escolha…"}, {"SP", "SP"}}, "XX"))); !strings.Contains(fb, `<option value="" selected disabled="">`) || strings.Contains(fb, `value="SP" selected`) {
+		t.Fatal("placeholder must be selected when nothing matches:", fb)
+	}
+	if render(t, Checked(true)) != " checked" || render(t, Checked(false)) != "" {
+		t.Fatal("Checked")
+	}
+}

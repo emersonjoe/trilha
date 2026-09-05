@@ -35,6 +35,10 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Field(id, rótulo, controle, opts...)` | rótulo + controle + `Help(s)` + `Error(s)`; `With(nós...)` põe atributos no grupo |
 | `CheckRow(controle, rótulo, id)` | checkbox/switch ao lado do rótulo |
 | `Invalid()` | `aria-invalid="true"` (anel vermelho) |
+| `Errors(errs, campo)` | opção de `Field`: mostra a mensagem de `errs[campo]` (um `trilha.FieldErrors`) se houver |
+| `InvalidIf(errs, campo)` | `Invalid()` só quando há erro para o campo |
+| `SelectOptions([]Option{{Value, Label}}, selecionado)` | `<option>`s marcando o selecionado; `Value: ""` é placeholder (desabilitado) e fica selecionado quando nada casa |
+| `Checked(bool)` | `checked` condicional (ida e volta de checkbox/switch/radio) |
 | `ShowWhen(campo, valores...)` | `data-ui-show-when`: mostra o elemento só com o valor (ou qualquer valor não vazio); controles escondidos são desabilitados |
 | `Badge`, `Alert(título, ...)`, `AlertDescription(...)` | selo e aviso (`role=alert`) |
 | `Toaster(...)`, `Toast(tipo, texto, fadeMs)` | pilha de avisos; `tipo` = `""`, `success`, `error`; `fadeMs > 0` some sozinho |

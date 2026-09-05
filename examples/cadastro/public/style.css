@@ -1,0 +1,6 @@
+/* Estilos do exemplo; o kit fica em ui.css e o tema em ui.theme.css. */
+main { padding: 2rem 0; }
+.tela { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+@media (max-width: 900px) { .tela { grid-template-columns: 1fr; } }
+.endereco { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+fieldset { border: 0; padding: 0; margin: 0; }

@@ -26,6 +26,7 @@ type Ctx struct {
 	w          *responseWriter
 	r          *http.Request
 	app        *App
+	route      *Route
 	kind       routeKind
 	values     map[string]any
 	title      string

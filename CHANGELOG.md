@@ -5,6 +5,15 @@ versionamento semântico.
 
 ## Não lançado
 
+## 0.5.0 — 2026-09-05
+
+### Adicionado
+- Exemplos (spec 009): `examples/cadastro` (médio) e `examples/orcamento` (complexo), com
+  READMEs e testes; capítulo "Exemplos" no site.
+- `c.Bind(&struct)` (formulário ou JSON, structs aninhadas com prefixo), `trilha.FieldErrors`
+  (422 com `fields` em APIs), `c.Render(code, node)` (página com layouts a partir de um POST);
+  no kit: `ui.Errors`, `ui.InvalidIf`, `ui.SelectOptions`, `ui.Checked`.
+
 ## 0.4.0 — 2026-09-05
 
 ### Adicionado

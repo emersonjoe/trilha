@@ -477,3 +477,59 @@ func sortStrings(s []string) {
 		}
 	}
 }
+
+// ---- form helpers for validation round-trips ------------------------------
+
+// Errors is a Field option that shows the message for field from errs (a
+// trilha.FieldErrors or any map); no-op when the field has no error.
+func Errors(errs map[string]string, field string) FieldOpt {
+	return func(f *fieldCfg) {
+		if msg, ok := errs[field]; ok && msg != "" {
+			f.err = msg
+		}
+	}
+}
+
+// InvalidIf marks a control invalid when errs has a message for field.
+func InvalidIf(errs map[string]string, field string) h.Node {
+	if msg, ok := errs[field]; ok && msg != "" {
+		return Invalid()
+	}
+	return h.Nil
+}
+
+// Option is one <option> of SelectOptions.
+type Option struct {
+	Value, Label string
+}
+
+// SelectOptions renders <option>s, marking the one equal to selected. A
+// leading placeholder can be given as Option{"", "Escolha…"}.
+func SelectOptions(opts []Option, selected string) h.Node {
+	found := false
+	for _, o := range opts {
+		if o.Value == selected && o.Value != "" {
+			found = true
+		}
+	}
+	return h.Map(opts, func(o Option) h.Node {
+		n := []h.Node{h.Value(o.Value), h.Text(o.Label)}
+		// The placeholder is selected when nothing else matches, so the
+		// browser does not silently pick the first real option.
+		if o.Value == selected || (!found && o.Value == "") {
+			n = append(n, h.Selected())
+		}
+		if o.Value == "" {
+			n = append(n, h.Attr("disabled", ""))
+		}
+		return h.Option(n...)
+	})
+}
+
+// Checked returns h.Checked() when v is true (checkbox/switch round-trips).
+func Checked(v bool) h.Node {
+	if v {
+		return h.Checked()
+	}
+	return h.Nil
+}
