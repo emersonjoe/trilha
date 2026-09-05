@@ -34,6 +34,11 @@ app/
 public/style.css         → servido em /style.css
 ```
 
+## Documentação
+
+**<https://emersonjoe.github.io/trilha>** — trilha "Aprender" (do `trilha new` ao deploy, com
+desafios) e "Referência" por pacote. O site é um app Trilha, exportado com `trilha export`.
+
 ## Começando
 
 ```bash
@@ -174,8 +179,9 @@ Inc.; veja `THIRD_PARTY_NOTICES.md`.
 \* Next.js é marca da Vercel, Inc. O Trilha é um projeto independente, sem afiliação, e não
 contém código do Next.js.
 
-Contribuições são bem-vindas: abra uma issue descrevendo a convenção ou o problema antes do
-PR, e siga o fluxo spec-kit em `specs/` para mudanças de comportamento.
+Contribuições são bem-vindas: veja [CONTRIBUTING.md](CONTRIBUTING.md), o
+[código de conduta](CODE_OF_CONDUCT.md), a [política de segurança](SECURITY.md) e a
+[governança](GOVERNANCE.md). Mudanças de comportamento seguem o fluxo spec-kit em `specs/`.
 
 ## Desenvolvimento
 

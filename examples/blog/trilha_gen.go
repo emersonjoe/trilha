@@ -133,5 +133,5 @@ func newApp() *trilha.App {
 }
 
 func main() {
-	trilha.Run(newApp())
+	trilha.Fatal(newApp().ListenAndServe())
 }

@@ -1,0 +1,35 @@
+name: Bug
+description: Algo não funciona como a documentação diz
+labels: ["bug", "triagem"]
+body:
+  - type: markdown
+    attributes:
+      value: Obrigado por reportar. Quanto mais reproduzível, mais rápido corrigimos.
+  - type: input
+    id: versao
+    attributes:
+      label: Versão
+      description: Saída de `trilha version` e `go version`
+      placeholder: trilha 0.1.0 · go1.25.1 darwin/arm64
+    validations:
+      required: true
+  - type: textarea
+    id: arvore
+    attributes:
+      label: Árvore de app/ que reproduz
+      description: A saída de `find app -type f` (ou `trilha routes`) de um projeto mínimo que mostra o problema
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava e o que aconteceu
+      description: Inclua a saída da CLI ou a resposta HTTP (status e corpo)
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options: [scanner/gerador, runtime (Ctx, erros, render), h (DSL), tmpl, CLI dev, CLI build/export, documentação, outra]
