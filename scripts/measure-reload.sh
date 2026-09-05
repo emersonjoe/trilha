@@ -9,7 +9,7 @@ cd "$ROOT/$APP"
 MARK="marcador-$(date +%s)"
 PAGE=app/page.go
 cp "$PAGE" "$PAGE.bak"
-trap 'mv "$PAGE.bak" "$PAGE"; kill $DEV 2>/dev/null || true' EXIT
+trap 'mv "$PAGE.bak" "$PAGE"; kill -INT $DEV 2>/dev/null || true; sleep 0.5' EXIT
 
 go run "$ROOT/cmd/trilha" dev --addr "127.0.0.1:$PORT" >"$ROOT/.trilha-dev.log" 2>&1 &
 DEV=$!
