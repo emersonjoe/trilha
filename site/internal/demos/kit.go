@@ -1,6 +1,8 @@
 package demos
 
 import (
+	"strconv"
+
 	"github.com/emersonjoe/trilha/h"
 	kit "github.com/emersonjoe/trilha/ui"
 )
@@ -140,6 +142,31 @@ func init() {
 		},
 	})
 
+	add("pt", Demo{
+		Name:  "ui-paginacao",
+		Title: "Paginação em links de verdade, dica sem JavaScript",
+		Source: `ui.Row(
+	ui.Tooltip("Só quem escreveu vê os rascunhos",
+		ui.Button(ui.Outline(), h.Text("Rascunhos"))),
+	ui.Pagination(ui.Pages{
+		Page: 4, Total: 12,
+		Href: func(n int) string { return "?pagina=" + strconv.Itoa(n) },
+		Prev: "Anterior", Next: "Próxima", Label: "Paginação",
+	}),
+)`,
+		Node: func() h.Node {
+			return wrap(kit.Row(
+				kit.Tooltip("Só quem escreveu vê os rascunhos",
+					kit.Button(kit.Outline(), h.Text("Rascunhos"))),
+				kit.Pagination(kit.Pages{
+					Page: 4, Total: 12,
+					Href: func(n int) string { return "?pagina=" + strconv.Itoa(n) },
+					Prev: "Anterior", Next: "Próxima", Label: "Paginação",
+				}),
+			))
+		},
+	})
+
 	// ---- en ----
 	add("en", Demo{
 		Name:  "ui-botoes",
@@ -266,6 +293,29 @@ func init() {
 					h.Tr(kit.Depth(1), h.Td(h.Text("Staff")), h.Td(kit.Num(), h.Text("8,000")), h.Td(kit.Num(), h.Text("8,000"))),
 					h.Tr(kit.Depth(1), h.Td(h.Text("Marketing")), h.Td(kit.Num(), h.Text("4,000")), h.Td(kit.Num(), kit.Badge(kit.Destructive(), h.Text("3,240")))),
 				),
+			))
+		},
+	})
+
+	add("en", Demo{
+		Name:  "ui-paginacao",
+		Title: "Pagination as real links, a hint without JavaScript",
+		Source: `ui.Row(
+	ui.Tooltip("Only the author sees the drafts",
+		ui.Button(ui.Outline(), h.Text("Drafts"))),
+	ui.Pagination(ui.Pages{
+		Page: 4, Total: 12,
+		Href: func(n int) string { return "?page=" + strconv.Itoa(n) },
+	}),
+)`,
+		Node: func() h.Node {
+			return wrap(kit.Row(
+				kit.Tooltip("Only the author sees the drafts",
+					kit.Button(kit.Outline(), h.Text("Drafts"))),
+				kit.Pagination(kit.Pages{
+					Page: 4, Total: 12,
+					Href: func(n int) string { return "?page=" + strconv.Itoa(n) },
+				}),
 			))
 		},
 	})

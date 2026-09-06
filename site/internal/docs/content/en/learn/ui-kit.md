@@ -73,6 +73,26 @@ server-rendered *drill-down*. `ui.Num()` aligns numbers to the right.
 
 @demo ui-tabela
 
+## Pagination and hints
+
+`ui.Pagination` renders page navigation as real links, so a page can be shared, reloaded and
+indexed. The current page is a `<span>` with `aria-current` — a link to where you already are
+is a link to nowhere — and the first page has no *previous*, so nothing is rendered for it.
+The window keeps the first page, the last one and the ones around the current, with an
+ellipsis over each gap, so the footer does not grow with the table.
+
+`ui.Tooltip` writes the hint into `title`, which is the browser's own tooltip and works with
+`ui.js` off. With the script on the page the `title` is removed — two tooltips is worse than
+none — a bubble with `role="tooltip"` takes its place, the target gets `aria-describedby`,
+and the hint answers to hover, keyboard focus and touch, closing with Escape.
+
+@demo ui-paginacao
+
+:::note
+The hint is a string on purpose. A hint with a link inside is a popover, and that is what
+`ui.Menu` is for.
+:::
+
 ## Updating and customizing
 
 - `trilha ui` rewrites `ui.css` and `ui.js` when you update Trilha; it never touches

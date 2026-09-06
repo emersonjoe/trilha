@@ -64,6 +64,13 @@ ui.Tooltip("Only you can see this", ui.Button(ui.Ghost(), ui.Icon("eye")))
 - **Tooltip em conteúdo rico.** O texto é `string` de propósito: uma dica com link dentro é um
   popover, e o kit já tem `Menu`.
 
+## Orçamento do `ui.js`
+
+A FR-007 da spec 006 fixou `ui.js` em 10 KB sem minificar, e o arquivo já estava em 9,9 KB. O
+tooltip é o primeiro componente desde o lançamento do kit que precisa de script próprio — uma
+dica que não fecha não é acessível (WCAG 1.4.13) —, então o teto do `ui.js` passa a 12 KB e o
+teste do tamanho vai junto. O `ui.css` continua dentro dos 25 KB dele.
+
 ## Constitution Check
 
 | Princípio | Como respeita |
@@ -74,20 +81,20 @@ ui.Tooltip("Only you can see this", ui.Button(ui.Ghost(), ui.Icon("eye")))
 
 ## Tarefas
 
-- [ ] T001 Teste que falha em `ui/ui_test.go`: `Pagination` com 1, 3 e 20 páginas (janela,
+- [x] T001 Teste que falha em `ui/ui_test.go`: `Pagination` com 1, 3 e 20 páginas (janela,
       reticências, `rel=prev/next`, `aria-current`, nada de link para a página atual, sem
       anterior na primeira e sem seguinte na última); `Tooltip` com `title`, `data-ui-tooltip`
       e o texto escapado.
-- [ ] T002 `ui/ui.go`: `Pages`, `Pagination`, `Tooltip`.
-- [ ] T003 `ui/assets/ui.css` e `ui/assets/ui.js`: estilo da paginação e da bolha; upgrade
+- [x] T002 `ui/ui.go`: `Pages`, `Pagination`, `Tooltip`.
+- [x] T003 `ui/assets/ui.css` e `ui/assets/ui.js`: estilo da paginação e da bolha; upgrade
       progressivo do tooltip (remove `title`, cria a bolha, `aria-describedby`, foco, toque e
       `Escape`).
-- [ ] T004 Demo `ui-paginacao` nas duas locales (`site/internal/demos/kit.go`) e chamada no
+- [x] T004 Demo `ui-paginacao` nas duas locales (`site/internal/demos/kit.go`) e chamada no
       capítulo do kit (`learn/ui-kit`, `aprender/interface-com-ui`).
-- [ ] T005 Referência nas duas locales (`reference/ui`, `referencia/ui`): as duas linhas da
+- [x] T005 Referência nas duas locales (`reference/ui`, `referencia/ui`): as duas linhas da
       tabela e o atributo novo na seção do `ui.js`.
-- [ ] T006 `CHANGELOG.md` (0.30.0), `version` em `cmd/trilha/main.go`, item 21 do `ROADMAP.md`.
-- [ ] T007 `make test` verde e `make release VERSION=0.30.0 ISSUES="39"`.
+- [x] T006 `CHANGELOG.md` (0.30.0), `version` em `cmd/trilha/main.go`, item 21 do `ROADMAP.md`.
+- [x] T007 `make test` verde e `make release VERSION=0.30.0 ISSUES="39"`.
 
 ## Aceitação
 

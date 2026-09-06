@@ -783,6 +783,7 @@ pkg ui, func NoNavigate() h.Node
 pkg ui, func NoPush() h.Node
 pkg ui, func Num() h.Node
 pkg ui, func Outline() h.Node
+pkg ui, func Pagination(Pages) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func Radio(...h.Node) h.Node
 pkg ui, func Row(...h.Node) h.Node
@@ -805,6 +806,7 @@ pkg ui, func Textarea(...h.Node) h.Node
 pkg ui, func ThemeToggle() h.Node
 pkg ui, func Toast(string, string, int) h.Node
 pkg ui, func Toaster(...h.Node) h.Node
+pkg ui, func Tooltip(string, ...h.Node) h.Node
 pkg ui, func UploadBar(...h.Node) h.Node
 pkg ui, func UploadScript(*trilha.Ctx) h.Node
 pkg ui, func UploadTo(string) h.Node
@@ -816,6 +818,13 @@ pkg ui, type FieldOpt func(*fieldCfg)
 pkg ui, type Option struct
 pkg ui, type Option struct, Label string
 pkg ui, type Option struct, Value string
+pkg ui, type Pages struct
+pkg ui, type Pages struct, Href func(int) string
+pkg ui, type Pages struct, Label string
+pkg ui, type Pages struct, Next string
+pkg ui, type Pages struct, Page int
+pkg ui, type Pages struct, Prev string
+pkg ui, type Pages struct, Total int
 pkg ui, type Tab struct
 pkg ui, type Tab struct, Content h.Node
 pkg ui, type Tab struct, Label string

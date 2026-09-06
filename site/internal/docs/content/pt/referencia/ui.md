@@ -46,6 +46,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Tabs(id, Tab{Label, Content}...)` | abas acessíveis (setas, Home/End); a primeira começa aberta |
 | `Dialog(id, título, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | `<dialog>` nativo com `showModal` |
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu com o atributo `popover` nativo |
+| `Pagination(Pages{Page, Total, Href, Prev, Next, Label})` | navegação de páginas em links; a página atual é um `<span>` com `aria-current`, as pontas somem em vez de virarem link desabilitado, e uma janela de sete casas guarda a primeira e a última página com `…` sobre cada buraco; uma página só não desenha nada |
+| `Tooltip(texto, ...)` | dica no que ele embrulha: `title` mais `data-ui-tooltip`, promovido pelo `ui.js` a uma bolha com `role=tooltip` e `aria-describedby` |
 | `Separator, Skeleton, Progress(valor, máx), Breadcrumb(Crumb{Label, Href}...), Avatar(iniciais, src), Collapsible(resumo, ...)` | diversos |
 | `ThemeToggle()` | botão que alterna claro/escuro (`localStorage["ui-theme"]`) |
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
@@ -56,10 +58,11 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 
 Tudo por atributo, sem inicialização: `[data-ui-tabs]`, `[data-ui-dialog-open=id]`,
 `[data-ui-dialog-close]`, `[data-ui-fade=ms]`, `[data-ui-show-when]`, `[data-ui-toast=texto]`
-(`data-ui-toast-kind`), `[data-ui-theme-toggle]`, `[popover].ui-menu`. Também expõe
+(`data-ui-toast-kind`), `[data-ui-theme-toggle]`, `[data-ui-tooltip=texto]`, `[popover].ui-menu`. Também expõe
 `window.ui.toast(texto, {kind, ms})`, `ui.fade(el)`, `ui.evalShowWhen(root)` e
 `ui.applyTheme("dark"|"light")`. Elementos inseridos depois (HTMX, fetch) precisam de
-`ui.evalShowWhen(el)`/`ui.fade(el)` se usarem esses atributos.
+`ui.evalShowWhen(el)`/`ui.fade(el)`/`ui.initTooltips(el)` se usarem esses atributos —
+`ui.hydrate(el)` faz os três de uma vez.
 
 ## Fragmentos
 

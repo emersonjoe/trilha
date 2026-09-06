@@ -5,6 +5,32 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.30.0 — 2026-09-06
+
+### Added
+- **`Pagination` and `Tooltip` in the `ui` kit**
+  ([#39](https://github.com/emersonjoe/trilha/issues/39)). `ui.Pagination(ui.Pages{...})`
+  renders page navigation as real links, so a page can be shared, reloaded and indexed: the
+  current page is a `<span>` with `aria-current` instead of a link to where the visitor
+  already is, the first page has no *previous* (nothing is rendered rather than a disabled
+  link), and a window of seven slots always keeps the first and the last page with an
+  ellipsis over each gap, so the footer does not grow with the table. A list with one page
+  renders nothing. The `Prev`, `Next` and `Label` fields carry the user-visible text, so the
+  kit does not have to pick a language.
+- `ui.Tooltip(text, ...)` attaches a hint to what it wraps. The text goes into `title`, which
+  is the browser's own tooltip and works with `ui.js` off; with the script on the page the
+  `title` is removed — two tooltips is worse than none — a bubble with `role="tooltip"` takes
+  its place, the target gets `aria-describedby`, and the hint answers to hover, keyboard
+  focus and touch, closing with Escape (WCAG 1.4.13). The bubble is clamped to the viewport,
+  and its text is written with `textContent`, never `innerHTML`.
+- The kit chapter and the `ui` reference cover both in the two languages, with a live demo
+  (`ui-paginacao`); `ui.hydrate(el)` now also arms the tooltips of what was inserted later.
+
+### Changed
+- The unminified budget for `ui.js` goes from 10 KB to 12 KB. The tooltip is the first
+  component since the kit shipped to need script of its own — a hint that cannot be
+  dismissed is not accessible — and `ui.css` stays inside its 25 KB.
+
 ## 0.29.0 — 2026-09-06
 
 ### Added

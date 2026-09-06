@@ -492,6 +492,93 @@ func Breadcrumb(items ...Crumb) h.Node {
 	return h.Nav(h.Aria("label", "breadcrumb"), h.Ol(n...))
 }
 
+// Pages describes the page navigation Pagination renders.
+type Pages struct {
+	Page, Total int              // current page (1-based) and how many there are
+	Href        func(int) string // address of a page
+	Prev, Next  string           // labels; "Previous" and "Next" when empty
+	Label       string           // aria-label of the <nav>; "Pagination" when empty
+}
+
+// Pagination renders page navigation as real links, so a page can be shared,
+// reloaded and indexed. The current page is a <span> with aria-current: it is
+// where the visitor already is, and a link to here is a link to nowhere. The
+// edges are not disabled links either — the first page has no previous, so
+// nothing is rendered for it. A list with one page renders nothing at all.
+//
+// The window keeps the first and last page and the ones around the current
+// one, with an ellipsis over each gap, so the footer does not grow with the
+// table.
+func Pagination(p Pages) h.Node {
+	if p.Href == nil || p.Total < 2 {
+		return h.Group()
+	}
+	page := p.Page
+	if page < 1 {
+		page = 1
+	}
+	if page > p.Total {
+		page = p.Total
+	}
+	var items []h.Node
+	if page > 1 {
+		items = append(items, h.Li(h.A(h.Rel("prev"), h.Href(p.Href(page-1)), h.Text(label(p.Prev, "Previous")))))
+	}
+	for _, n := range pageWindow(page, p.Total) {
+		switch {
+		case n == 0:
+			items = append(items, h.Li(h.Aria("hidden", "true"), h.Text("…")))
+		case n == page:
+			items = append(items, h.Li(h.Span(h.Aria("current", "page"), h.Text(strconv.Itoa(n)))))
+		default:
+			items = append(items, h.Li(h.A(h.Href(p.Href(n)), h.Text(strconv.Itoa(n)))))
+		}
+	}
+	if page < p.Total {
+		items = append(items, h.Li(h.A(h.Rel("next"), h.Href(p.Href(page+1)), h.Text(label(p.Next, "Next")))))
+	}
+	return h.Nav(h.Class("ui-pagination"), h.Aria("label", label(p.Label, "Pagination")), h.Ul(items...))
+}
+
+// pageWindow returns the page numbers to show, with 0 standing for a gap.
+// Seven slots either way, so the footer is the same width on every page.
+func pageWindow(page, total int) []int {
+	if total <= 7 {
+		all := make([]int, 0, total)
+		for n := 1; n <= total; n++ {
+			all = append(all, n)
+		}
+		return all
+	}
+	switch {
+	case page <= 4:
+		return []int{1, 2, 3, 4, 5, 0, total}
+	case page >= total-3:
+		return []int{1, 0, total - 4, total - 3, total - 2, total - 1, total}
+	default:
+		return []int{1, 0, page - 1, page, page + 1, 0, total}
+	}
+}
+
+func label(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
+
+// Tooltip attaches a hint to what it wraps. The text is in title, so the hint
+// works with ui.js off — that is the browser's own tooltip. With the script on
+// the page, title is removed (two tooltips is worse than none), a bubble with
+// role=tooltip takes its place and the target gets aria-describedby, so the
+// hint is reachable by keyboard focus and by touch, and closes with Escape.
+//
+// The text is a string on purpose: a hint with a link inside is a popover, and
+// that is what Menu is for.
+func Tooltip(text string, children ...h.Node) h.Node {
+	return h.Span(append([]h.Node{h.Class("ui-tooltip"), h.Data("ui-tooltip", text), h.Attr("title", text)}, children...)...)
+}
+
 // Avatar shows an image or the initials as fallback.
 func Avatar(initials, src string) h.Node {
 	if src != "" {

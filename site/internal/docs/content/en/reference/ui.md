@@ -46,6 +46,8 @@ description: The kit's components, variants, assets and the theme contract.
 | `Tabs(id, Tab{Label, Content}...)` | accessible tabs (arrows, Home/End); the first starts open |
 | `Dialog(id, title, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | native `<dialog>` with `showModal` |
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu with the native `popover` attribute |
+| `Pagination(Pages{Page, Total, Href, Prev, Next, Label})` | page navigation as links; the current page is a `<span>` with `aria-current`, the edges are absent instead of disabled, and a window of seven slots keeps the first and last page with `…` over each gap; one page renders nothing |
+| `Tooltip(text, ...)` | hint on what it wraps: `title` plus `data-ui-tooltip`, upgraded by `ui.js` into a bubble with `role=tooltip` and `aria-describedby` |
 | `Separator, Skeleton, Progress(value, max), Breadcrumb(Crumb{Label, Href}...), Avatar(initials, src), Collapsible(summary, ...)` | miscellaneous |
 | `ThemeToggle()` | button that switches light/dark (`localStorage["ui-theme"]`) |
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
@@ -56,10 +58,11 @@ description: The kit's components, variants, assets and the theme contract.
 
 Everything by attribute, no initialization: `[data-ui-tabs]`, `[data-ui-dialog-open=id]`,
 `[data-ui-dialog-close]`, `[data-ui-fade=ms]`, `[data-ui-show-when]`, `[data-ui-toast=text]`
-(`data-ui-toast-kind`), `[data-ui-theme-toggle]`, `[popover].ui-menu`. It also exposes
+(`data-ui-toast-kind`), `[data-ui-theme-toggle]`, `[data-ui-tooltip=text]`, `[popover].ui-menu`. It also exposes
 `window.ui.toast(text, {kind, ms})`, `ui.fade(el)`, `ui.evalShowWhen(root)` and
 `ui.applyTheme("dark"|"light")`. Elements inserted later (HTMX, fetch) need
-`ui.evalShowWhen(el)`/`ui.fade(el)` if they use those attributes.
+`ui.evalShowWhen(el)`/`ui.fade(el)`/`ui.initTooltips(el)` if they use those attributes —
+`ui.hydrate(el)` does the three at once.
 
 ## Fragments
 

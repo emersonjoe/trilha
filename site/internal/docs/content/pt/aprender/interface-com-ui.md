@@ -73,6 +73,26 @@ qualquer *drill-down* renderizado no servidor. `ui.Num()` alinha números à dir
 
 @demo ui-tabela
 
+## Paginação e dicas
+
+`ui.Pagination` desenha a navegação de páginas com links de verdade, então uma página pode ser
+compartilhada, recarregada e indexada. A página atual é um `<span>` com `aria-current` — link
+para onde você já está é link para lugar nenhum — e a primeira página não tem *anterior*, então
+nada é desenhado no lugar. A janela guarda a primeira página, a última e as vizinhas da atual,
+com reticências sobre cada buraco, para o rodapé não crescer junto com a tabela.
+
+`ui.Tooltip` escreve a dica no `title`, que é o tooltip do próprio navegador e funciona com o
+`ui.js` desligado. Com o script na página o `title` some — dois tooltips é pior que nenhum —,
+uma bolha com `role="tooltip"` toma o lugar dele, o alvo ganha `aria-describedby` e a dica
+responde ao mouse, ao foco do teclado e ao toque, fechando com Escape.
+
+@demo ui-paginacao
+
+:::nota
+A dica é uma string de propósito. Dica com link dentro é *popover*, e para isso existe o
+`ui.Menu`.
+:::
+
 ## Atualizar e customizar
 
 - `trilha ui` regrava `ui.css` e `ui.js` quando você atualiza o Trilha; nunca toca em

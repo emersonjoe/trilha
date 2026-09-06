@@ -125,7 +125,7 @@
   // for just that piece of the page and swaps element #id. Without JavaScript
   // the same link navigates and the same form submits — the server answers with
   // the whole page, because nobody sent the header.
-  const hydrate = (root) => { armFades(root); evalShowWhen(root); };
+  const hydrate = (root) => { armFades(root); evalShowWhen(root); initTooltips(root); };
 
   const swap = (id, html, status) => {
     const old = document.getElementById(id);
@@ -218,7 +218,44 @@
     ask(location.href, { method: "GET" }, id).then((ok) => { if (!ok) location.reload(); });
   });
 
-  const init = () => { armFades(document); evalShowWhen(document); };
+  // Tooltips: [data-ui-tooltip] also carries a title, so the hint exists with
+  // this script off. Here the title goes away — two tooltips is worse than none
+  // — and a bubble takes its place, reachable by focus and by touch and closed
+  // by Escape (WCAG 1.4.13).
+  let tipN = 0;
+  const tipOf = (el) => {
+    let tip = el.lastElementChild;
+    if (tip && tip.className === "ui-tooltip-bubble") return tip;
+    tip = document.createElement("span");
+    tip.className = "ui-tooltip-bubble";
+    tip.setAttribute("role", "tooltip");
+    tip.id = "ui-tip-" + ++tipN;
+    tip.textContent = el.dataset.uiTooltip; // never innerHTML: it is app text
+    tip.hidden = true;
+    el.removeAttribute("title");
+    const target = el.querySelector("a,button,input,select,textarea,[tabindex]") || el;
+    if (target === el) el.tabIndex = 0;
+    target.setAttribute("aria-describedby", tip.id);
+    el.appendChild(tip);
+    return tip;
+  };
+  const initTooltips = (root) => $("[data-ui-tooltip]", root).forEach(tipOf);
+  const hideTips = () => $(".ui-tooltip-bubble").forEach((t) => (t.hidden = true));
+  // A touch has no hover, so the tap that reaches the control shows the hint.
+  const showTip = (e) => {
+    const el = e.target.closest?.("[data-ui-tooltip]");
+    $(".ui-tooltip-bubble").forEach((t) => (t.hidden = t.parentElement !== el));
+    if (!el) return;
+    const tip = tipOf(el);
+    tip.style.transform = "translateX(-50%)";
+    const r = tip.getBoundingClientRect(); // and keep it inside the window
+    const dx = r.left < 8 ? 8 - r.left : Math.min(0, innerWidth - 8 - r.right);
+    if (dx) tip.style.transform = `translateX(calc(-50% + ${Math.round(dx)}px))`;
+  };
+  ["pointerover", "focusin", "click"].forEach((ev) => document.addEventListener(ev, showTip));
+  document.addEventListener("keydown", (e) => e.key === "Escape" && hideTips());
+
+  const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, evalShowWhen, applyTheme, swap, hydrate });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, evalShowWhen, applyTheme, swap, hydrate, initTooltips });
 })();

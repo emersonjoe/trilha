@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -116,7 +117,10 @@ func TestHeadAndAssets(t *testing.T) {
 			t.Fatalf("%s defined %d times", v, n)
 		}
 	}
-	if len(Asset("ui.css")) > 25<<10 || len(Asset("ui.js")) > 10<<10 {
+	// FR-007 of spec 006, with the ui.js budget raised to 12 KB in 0.30.0: the
+	// tooltip is the first component since the kit shipped to need script of
+	// its own, and a hint that cannot be dismissed is not accessible.
+	if len(Asset("ui.css")) > 25<<10 || len(Asset("ui.js")) > 12<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {
@@ -232,5 +236,91 @@ func TestUploadScript(t *testing.T) {
 	a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
 	if want := `<script src="/app/ui.upload.js" defer></script>`; out != want {
 		t.Fatalf("UploadScript = %s, want %s", out, want)
+	}
+}
+
+func TestPagination(t *testing.T) {
+	href := func(n int) string { return "/blog?page=" + strconv.Itoa(n) }
+
+	// One page is no navigation at all: nothing is rendered.
+	if s := render(t, Pagination(Pages{Page: 1, Total: 1, Href: href})); s != "" {
+		t.Fatalf("one page should render nothing, got %q", s)
+	}
+
+	first := render(t, Pagination(Pages{Page: 1, Total: 3, Href: href}))
+	for _, want := range []string{
+		`<nav class="ui-pagination" aria-label="Pagination">`,
+		`<span aria-current="page">1</span>`,
+		`<a href="/blog?page=2">2</a>`,
+		`<a rel="next" href="/blog?page=2">Next</a>`,
+	} {
+		if !strings.Contains(first, want) {
+			t.Fatalf("missing %q in %s", want, first)
+		}
+	}
+	if strings.Contains(first, `rel="prev"`) {
+		t.Fatalf("no previous page on the first one: %s", first)
+	}
+	if strings.Contains(first, `<a href="/blog?page=1">`) {
+		t.Fatalf("the current page is not a link: %s", first)
+	}
+
+	last := render(t, Pagination(Pages{Page: 3, Total: 3, Href: href, Prev: "Anterior", Next: "Próxima", Label: "Paginação"}))
+	for _, want := range []string{
+		`aria-label="Paginação"`,
+		`<a rel="prev" href="/blog?page=2">Anterior</a>`,
+		`<span aria-current="page">3</span>`,
+	} {
+		if !strings.Contains(last, want) {
+			t.Fatalf("missing %q in %s", want, last)
+		}
+	}
+	if strings.Contains(last, `rel="next"`) {
+		t.Fatalf("no next page on the last one: %s", last)
+	}
+
+	// A long list keeps the ends and a window around the current page, so the
+	// footer does not grow with the table.
+	mid := render(t, Pagination(Pages{Page: 10, Total: 20, Href: href}))
+	if n := strings.Count(mid, "<li"); n != 9 { // 7 slots + prev + next
+		t.Fatalf("expected 9 items, got %d in %s", n, mid)
+	}
+	for _, want := range []string{
+		`<a href="/blog?page=1">1</a>`,
+		`<li aria-hidden="true">…</li>`,
+		`<a href="/blog?page=9">9</a>`,
+		`<span aria-current="page">10</span>`,
+		`<a href="/blog?page=20">20</a>`,
+	} {
+		if !strings.Contains(mid, want) {
+			t.Fatalf("missing %q in %s", want, mid)
+		}
+	}
+	if strings.Contains(mid, ">15<") {
+		t.Fatalf("a page far from the current one is not in the window: %s", mid)
+	}
+
+	// Near an edge there is only one gap, and the window slides instead of
+	// leaving three numbers on screen.
+	near := render(t, Pagination(Pages{Page: 2, Total: 20, Href: href}))
+	if n := strings.Count(near, `aria-hidden="true"`); n != 1 {
+		t.Fatalf("expected one ellipsis, got %d in %s", n, near)
+	}
+	if !strings.Contains(near, `<a href="/blog?page=5">5</a>`) {
+		t.Fatal(near)
+	}
+}
+
+func TestTooltip(t *testing.T) {
+	got := render(t, Tooltip(`Só você vê "isto"`, Button(h.Text("Ok"))))
+	for _, want := range []string{
+		`<span class="ui-tooltip"`,
+		`data-ui-tooltip="Só você vê &#34;isto&#34;"`,
+		`title="Só você vê &#34;isto&#34;"`,
+		`<button class="ui-btn" type="button">Ok</button>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
 	}
 }
