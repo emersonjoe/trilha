@@ -328,3 +328,34 @@ func TestEveryCodeHasFix(t *testing.T) {
 		}
 	}
 }
+
+// #75 — a folder that starts with a dot is skipped, and that silence turned a
+// URL an RFC requires into a 404 nobody could explain. /.well-known/ is now the
+// single exception, and every other skipped dot folder says what it swallowed.
+func TestWellKnownIsTheException(t *testing.T) {
+	res, errs := scanApp(t, "wellknown")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	var got []string
+	for _, r := range res.Routes {
+		got = append(got, r.Pattern+" "+r.Alias+" "+r.ImportPath)
+	}
+	want := []string{
+		"/ app example.com/wellknown/app",
+		"/.well-known/security.txt app__well_known_security_txt example.com/wellknown/app/.well-known/security.txt",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestHiddenRouteIsReported(t *testing.T) {
+	_, errs := scanApp(t, "err_hidden_route")
+	if len(errs) != 1 || errs[0].Code != ErrHiddenRoute || errs[0].File != "app/.oauth/route.go" {
+		t.Fatalf("want one %s about app/.oauth/route.go, got %v", ErrHiddenRoute, errs)
+	}
+	if errs[0].Fix == "" || !strings.Contains(errs[0].Msg, ".well-known") {
+		t.Fatalf("the message has to name the exception and carry a fix: %+v", errs[0])
+	}
+}

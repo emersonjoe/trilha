@@ -15,6 +15,26 @@
       ]
     },
     {
+      "pattern": "/.well-known/oauth-authorization-server",
+      "kind": "api",
+      "file": "app/.well-known/oauth-authorization-server/route.go",
+      "methods": [
+        "GET"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "summary": "GET answers the metadata a client reads before starting the flow.",
+          "responses": [
+            {
+              "status": 200,
+              "type": "wellknown.Metadata"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "pattern": "/api/items",
       "kind": "api",
       "file": "app/api/items/route.go",
@@ -228,6 +248,26 @@
           "type": "string",
           "required": true,
           "rules": "email"
+        }
+      ]
+    },
+    {
+      "name": "wellknown.Metadata",
+      "fields": [
+        {
+          "name": "authorization_endpoint",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "issuer",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "token_endpoint",
+          "type": "string",
+          "required": true
         }
       ]
     }

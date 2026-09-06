@@ -114,3 +114,29 @@ func TestWatchStaticOnly(t *testing.T) {
 		t.Fatal("no event")
 	}
 }
+
+// #75 — /.well-known/ holds routes, so editing one has to rebuild like any
+// other folder under app/. Every other dot folder stays out of the watch.
+func TestWatchSegueOWellKnown(t *testing.T) {
+	root := t.TempDir()
+	wk := filepath.Join(root, "app", ".well-known", "security.txt")
+	if err := os.MkdirAll(wk, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "app", ".idea"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(wk, "route.go"), []byte("package security"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "app", ".idea", "x.go"), []byte("package idea"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	snap := Take(root)
+	if len(snap) != 1 {
+		t.Fatalf("only the .well-known route is watched: %v", snap)
+	}
+	if _, ok := snap["app/.well-known/security.txt/route.go"]; !ok {
+		t.Fatalf("%v", snap)
+	}
+}

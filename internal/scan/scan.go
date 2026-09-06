@@ -10,6 +10,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -36,7 +37,15 @@ const (
 	ErrParse            = "E_PARSE"
 	ErrNoApp            = "E_NO_APP"
 	ErrDuplicateParam   = "E_DUPLICATE_PARAM"
+	ErrHiddenRoute      = "E_HIDDEN_ROUTE"
 )
+
+// WellKnown is the single dot-prefixed directory that is not skipped: RFC 8414,
+// RFC 9728, RFC 8555, RFC 9116 and OpenID Discovery all publish under
+// /.well-known/, so a folder named this way is a route like any other. Every
+// other scan of the project (the type index of internal/openapi, the watcher of
+// internal/dev) reads this constant instead of repeating the exception.
+const WellKnown = ".well-known"
 
 var methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
 
@@ -80,6 +89,7 @@ var fixes = map[string]string{
 	ErrBadSegment:       "rename the directory: name_ is a parameter, name__ a catch-all, name- a group, and name must be a Go identifier",
 	ErrDuplicateRoute:   "rename one of the directories, or drop the route group so the two URLs differ",
 	ErrDuplicateParam:   "rename one of them: a pattern cannot bind the same name twice",
+	ErrHiddenRoute:      "rename the directory without the leading dot, or start it with \"_\" if you meant to park it out of the routing",
 	ErrParse:            "fix the syntax error the compiler reports; go build ./... shows the same line",
 	ErrNoApp:            "run trilha from the project root, the directory that has app/",
 }
@@ -292,6 +302,39 @@ func (seg segment) pattern() string {
 	return seg.literal
 }
 
+// hiddenRoutes reports the pages and APIs buried in a directory the scanner is
+// about to skip. Only the dot is loud: a leading underscore and testdata are the
+// documented way to keep a folder out of the routing, and the message points at
+// them. Without this, the single symptom of a misnamed folder was a 404.
+func (s *scanner) hiddenRoutes(abs, rel, name string) {
+	if !strings.HasPrefix(name, ".") {
+		return
+	}
+	dir := filepath.Join(abs, name)
+	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d == nil {
+			return nil
+		}
+		if d.IsDir() {
+			if p != dir && (d.Name() == ".git" || d.Name() == "node_modules") {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if d.Name() != "page.go" && d.Name() != "route.go" {
+			return nil
+		}
+		r, err := filepath.Rel(abs, p)
+		if err != nil {
+			return nil
+		}
+		s.errf(path.Join(rel, filepath.ToSlash(r)), ErrHiddenRoute,
+			"%s is inside %q, a directory the scanner skips: a name that starts with a dot is not a route (%s is the only exception)",
+			d.Name(), name, WellKnown)
+		return nil
+	})
+}
+
 // walk visits one directory. rel is slash-separated relative to root.
 func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMethod map[string][]Ref) {
 	files, err := os.ReadDir(abs)
@@ -304,7 +347,8 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 	for _, f := range files {
 		name := f.Name()
 		if f.IsDir() {
-			if strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".") || name == "testdata" {
+			if name != WellKnown && (strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".") || name == "testdata") {
+				s.hiddenRoutes(abs, rel, name)
 				continue
 			}
 			subdirs = append(subdirs, name)

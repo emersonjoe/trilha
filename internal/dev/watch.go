@@ -8,12 +8,15 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/emersonjoe/trilha/internal/scan"
 )
 
 // Snapshot maps a relative path to its modification time and size.
 type Snapshot map[string]string
 
-// ignoredDirs are never watched.
+// ignoredDirs are never watched. Dot folders are skipped too, with the single
+// exception of /.well-known/, which holds routes (see scan.WellKnown).
 var ignoredDirs = map[string]bool{".git": true, "bin": true, ".trilha": true, "node_modules": true, "testdata": true}
 
 // Watchable reports whether a path (relative, slash-separated) matters for
@@ -42,7 +45,7 @@ func Take(root string) Snapshot {
 		rel = filepath.ToSlash(rel)
 		if d.IsDir() {
 			name := d.Name()
-			if p != root && (ignoredDirs[name] || strings.HasPrefix(name, ".")) {
+			if p != root && name != scan.WellKnown && (ignoredDirs[name] || strings.HasPrefix(name, ".")) {
 				return filepath.SkipDir
 			}
 			return nil

@@ -10,6 +10,37 @@
     }
   ],
   "paths": {
+    "/.well-known/oauth-authorization-server": {
+      "get": {
+        "tags": [
+          "oauth-authorization-server"
+        ],
+        "summary": "GET answers the metadata a client reads before starting the flow.",
+        "operationId": "getWellKnownOauthAuthorizationServer",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/wellknown.Metadata"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/items": {
       "get": {
         "tags": [
@@ -395,6 +426,25 @@
         },
         "required": [
           "email"
+        ]
+      },
+      "wellknown.Metadata": {
+        "type": "object",
+        "properties": {
+          "authorization_endpoint": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "token_endpoint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorization_endpoint",
+          "issuer",
+          "token_endpoint"
         ]
       }
     }

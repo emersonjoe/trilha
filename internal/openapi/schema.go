@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/emersonjoe/trilha/internal/scan"
 )
 
 // schema is the piece of JSON Schema a Go type turns into. Field order here is
@@ -84,7 +86,7 @@ func newIndex(root, module string) (*index, error) {
 			if p == root {
 				return nil
 			}
-			if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" || name == "vendor" || name == "node_modules" {
+			if name != scan.WellKnown && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" || name == "vendor" || name == "node_modules") {
 				return fs.SkipDir
 			}
 			return nil
