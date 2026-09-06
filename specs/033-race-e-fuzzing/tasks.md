@@ -35,4 +35,4 @@
 - [x] T010 `CONTRIBUTING.md` e `docs/pt-BR/CONTRIBUTING.md`: comandos novos e a regra do corpus
       commitado.
 - [x] T011 `CHANGELOG.md` (0.24.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 3, item 15).
-- [ ] T012 `make test` verde e `make release VERSION=0.24.0 ISSUES="33"`.
+- [x] T012 `make test` verde e `make release VERSION=0.24.0 ISSUES="33"`.
