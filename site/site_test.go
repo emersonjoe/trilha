@@ -2,8 +2,11 @@ package main
 
 import (
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -311,4 +314,55 @@ func TestFormDemoIsInteractive(t *testing.T) {
 			t.Errorf("%s: demo without output area or note", path)
 		}
 	}
+}
+
+// cookbookSection is the position of the Cookbook in every locale's list of
+// sections; the keys differ per language, the position does not.
+const cookbookSection = 2
+
+// Spec 038: every Go block of the cookbook is a declaration copied from a
+// file that compiles with the rest of the repository. A block that stops
+// matching its source is a recipe that stopped being true, and a recipe
+// nobody can run is worse than no recipe.
+func TestCookbookSnippetsAreReal(t *testing.T) {
+	sources := repoGoSources(t)
+	fence := regexp.MustCompile("(?s)```go\n(.*?)\n```")
+	for _, p := range docs.All() {
+		if p.Section != docs.LocaleOf(p.Locale).Sections[cookbookSection].Key {
+			continue
+		}
+		for _, b := range fence.FindAllStringSubmatch(p.Body, -1) {
+			if !strings.Contains(sources, b[1]) {
+				t.Errorf("%s: block is in no .go file of the repository:\n%s", p.Path(), b[1])
+			}
+		}
+	}
+}
+
+// repoGoSources concatenates every .go file of the repository, minus the
+// synthetic trees under testdata, which exist to be broken.
+func repoGoSources(t *testing.T) string {
+	t.Helper()
+	var b strings.Builder
+	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case d.IsDir() && (d.Name() == ".git" || d.Name() == "testdata"):
+			return fs.SkipDir
+		case d.IsDir() || !strings.HasSuffix(path, ".go"):
+			return nil
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		b.Write(raw)
+		b.WriteString("\n")
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b.String()
 }

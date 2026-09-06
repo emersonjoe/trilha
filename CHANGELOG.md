@@ -5,6 +5,29 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.29.0 — 2026-09-06
+
+### Added
+- **Cookbook: the nine recipes every app writes**
+  ([#38](https://github.com/emersonjoe/trilha/issues/38)). A third top-level section of the
+  site, next to Learn and Reference, for the question that shows up on the second day: how do
+  I open a database, keep someone logged in, receive a file, paginate a list, send an e-mail,
+  run a task every hour, put the whole thing in a container? Each page answers one of those
+  with the trade-offs written down — the pool sized once per process and closed on shutdown,
+  the session that costs one indexed query and can be revoked now, the upload served from a
+  sandboxed mount, offset pagination and the cursor that replaces it, the mailer behind an
+  interface so a test sends nothing, the ticker that stops with the app, the distroless image
+  and the two probes.
+  Two more pages close the set: a **production checklist** read from top to bottom before the
+  first deploy (what `trilha audit` finds for you, what it cannot see, and the two things to
+  prepare for the bad day) and a **migration guide** — plain `net/http` to Trilha one route at
+  a time, with both systems in the same process, plus what to run when moving between minor
+  versions.
+  Every Go block on those pages is copied from `examples/cookbook`, which is part of the
+  repository's module: `go vet ./...` compiles it and a site test checks that each block still
+  appears, character for character, in the file it came from. A recipe that stops compiling
+  breaks the build before it can mislead anyone.
+
 ## 0.28.0 — 2026-09-06
 
 ### Added

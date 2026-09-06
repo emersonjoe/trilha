@@ -41,10 +41,12 @@ var Locales = []Locale{
 	{Code: "en", Prefix: "", Lang: "en", Name: "English", Sections: []Section{
 		{"learn", "Learn", []string{"", "pages-and-routes", "layouts", "html-with-h", "forms", "api", "data", "middleware", "security", "observability", "authentication", "ui-kit", "interactivity", "ai-and-agents", "examples", "testing", "dev-and-production", "troubleshooting"}},
 		{"reference", "Reference", []string{"", "conventions", "ctx", "h", "tmpl", "errors", "validation", "app", "security", "observability", "auth", "cache", "ui", "ai", "mcp", "cli", "performance"}},
+		{"cookbook", "Cookbook", []string{"", "database", "sessions", "uploads", "pagination", "email", "scheduled-tasks", "docker", "production-checklist", "migration"}},
 	}},
 	{Code: "pt", Prefix: "/pt", Lang: "pt-BR", Name: "Português", Sections: []Section{
 		{"aprender", "Aprender", []string{"", "paginas-e-rotas", "layouts", "html-com-h", "formularios", "api", "dados", "middleware", "seguranca", "observabilidade", "autenticacao", "interface-com-ui", "interatividade", "ia-e-agentes", "exemplos", "testes", "dev-e-producao", "problemas-comuns"}},
 		{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "validacao", "app", "seguranca", "observabilidade", "auth", "cache", "ui", "ai", "mcp", "cli", "desempenho"}},
+		{"receitas", "Receitas", []string{"", "banco-de-dados", "sessoes", "uploads", "paginacao", "email", "tarefas-agendadas", "docker", "checklist-de-producao", "migracao"}},
 	}},
 }
 
