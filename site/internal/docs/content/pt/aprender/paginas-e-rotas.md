@@ -84,7 +84,9 @@ trilha generate route /api/eventos     # app/api/eventos/route.go
 ```
 
 A página já vem com `c.Param("slug")` lido, e o `trilha_gen.go` é regerado no fim, então a URL
-responde antes de você abrir o editor. As flags estão em
+responde antes de você abrir o editor. Com `--methods`, `--bind` e `--form` o esqueleto vem
+também com o contrato — os handlers, a struct, a validação e o formulário — e o
+`trilha generate test <url>` escreve o teste ao lado. As flags estão em
 [CLI](/pt/referencia/cli#trilha-generate).
 
 ## O que o gerador faz com isso

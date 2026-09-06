@@ -47,7 +47,11 @@ const (
 // internal/dev) reads this constant instead of repeating the exception.
 const WellKnown = ".well-known"
 
-var methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+// Methods is every HTTP method a route.go may export a handler for, in the
+// order the generated file lists them. Anything outside this list is not a
+// handler for the scanner, so the generator of skeletons reads it from here
+// instead of writing the list down a second time.
+var Methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
 
 // GeneratedFileName is the file trilha gen writes at the project root. The
 // scanner skips it when reading what the author wrote by hand.
@@ -363,7 +367,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 
 	pkg := s.parsePackage(abs, rel, goFiles)
 	if pkg.broken {
-		for _, fn := range append([]string{"Page", "Layout", "Middleware", "NotFound", "Error", "Setup"}, methods...) {
+		for _, fn := range append([]string{"Page", "Layout", "Middleware", "NotFound", "Error", "Setup"}, Methods...) {
 			pkg.funcs[fn] = true
 		}
 	}
@@ -392,7 +396,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 			found = true
 		}
 		if !pkg.broken {
-			for _, m := range methods {
+			for _, m := range Methods {
 				fn := "Middleware" + m
 				if !pkg.funcs[fn] {
 					continue
@@ -439,7 +443,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 				s.errf(rel+"/page.go", ErrNoPageFunc, "page.go must export func Page(c *trilha.Ctx) (h.Node, error)%s", other).at(line)
 			}
 			r.HasPage = pkg.funcs["Page"]
-			for _, m := range methods[1:] {
+			for _, m := range Methods[1:] {
 				if pkg.funcs[m] {
 					r.Methods = append(r.Methods, m)
 				}
@@ -448,13 +452,13 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 			r.Kind = "api"
 			r.HasKind = pkg.vars["Kind"]
 			r.Layouts = nil
-			for _, m := range methods {
+			for _, m := range Methods {
 				if pkg.funcs[m] {
 					r.Methods = append(r.Methods, m)
 				}
 			}
 			if len(r.Methods) == 0 {
-				other, line := pkg.instead(methods...)
+				other, line := pkg.instead(Methods...)
 				e := s.errf(rel+"/route.go", ErrNoMethod, "route.go must export at least one of GET, POST, PUT, PATCH, DELETE with signature func(c *trilha.Ctx) error%s", other).at(line)
 				if m, ml := pkg.lowercaseMethod(); m != "" {
 					e.at(ml).withFix("handlers are named by HTTP method in upper case: rename func " + m + " to func " + strings.ToUpper(m))
@@ -590,7 +594,7 @@ func patternOf(segs []segment) string {
 // middlewareFuncs lists every name middleware.go may export.
 func middlewareFuncs() []string {
 	out := []string{"Middleware"}
-	for _, m := range methods {
+	for _, m := range Methods {
 		out = append(out, "Middleware"+m)
 	}
 	return out
@@ -692,7 +696,7 @@ func (info pkgInfo) lowercaseMethod() (string, int) {
 		if up == n {
 			continue
 		}
-		for _, m := range methods {
+		for _, m := range Methods {
 			if up == m && (found == "" || n < found) {
 				found = n
 			}

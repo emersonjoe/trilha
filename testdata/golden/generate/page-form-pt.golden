@@ -1,0 +1,51 @@
+package contato
+
+import (
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+)
+
+// Contact é o que o formulário manda; as tags são o contrato.
+type Contact struct {
+	Name  string `form:"name" validate:"required,min=3,max=80"`
+	Email string `form:"email" validate:"required,email"`
+}
+
+// Page desenha o formulário.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return form(c, Contact{}, nil), nil
+}
+
+// POST trata o formulário: 422 com as mensagens ao lado dos campos, ou redirect.
+func POST(c *trilha.Ctx) error {
+	var in Contact
+	if err := c.Bind(&in); err != nil {
+		errs, ok := err.(trilha.FieldErrors)
+		if !ok {
+			return err
+		}
+		return c.Render(http.StatusUnprocessableEntity, form(c, in, errs))
+	}
+	// POST → redirect → GET: recarregar não manda o formulário de novo.
+	return c.Redirect(c.Request().URL.Path)
+}
+
+func form(c *trilha.Ctx, in Contact, errs trilha.FieldErrors) h.Node {
+	c.SetTitle("contato")
+	return ui.Card(
+		ui.CardHeader(ui.CardTitle("contato")),
+		ui.CardContent(h.Form(h.Method("post"), h.Action(c.Request().URL.Path), h.Class("ui-stack"),
+			trilha.CSRFInput(c),
+			ui.Field("name", "Name",
+				ui.Input(h.ID("name"), h.Name("name"), h.Value(in.Name), ui.InvalidIf(errs, "name")),
+				ui.Errors(errs, "name")),
+			ui.Field("email", "Email",
+				ui.Input(h.ID("email"), h.Name("email"), h.Value(in.Email), ui.InvalidIf(errs, "email")),
+				ui.Errors(errs, "email")),
+			h.Div(ui.Submit(h.Text("Enviar"))),
+		)),
+	)
+}

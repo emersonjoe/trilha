@@ -1,0 +1,24 @@
+package contato
+
+import (
+	"net/url"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+// TestContatoPage renders the page and looks at the node, which survives a change of layout.
+func TestContatoPage(t *testing.T) {
+	res := trilha.TestPage(t, trilha.Route{Pattern: "/contato", Page: Page}, "/contato")
+	res.WantStatus(200)
+	if res.Node == nil {
+		t.Fatal("the page returned no node")
+	}
+}
+
+// TestContatoRoute exercises every method the route answers.
+func TestContatoRoute(t *testing.T) {
+	route := trilha.Route{Pattern: "/contato", Page: Page, Methods: map[string]trilha.HandlerFunc{"POST": POST}}
+	trilha.TestRoute(t, route, "POST", "/contato",
+		trilha.WithForm(url.Values{"email": {"someone@example.com"}, "name": {"example"}})).WantStatus(303)
+}

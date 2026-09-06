@@ -10,9 +10,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 	"unicode"
+
+	"github.com/emersonjoe/trilha/internal/scan"
 )
 
 // Errors Generate returns for the two refusals a caller has to tell apart.
@@ -29,10 +32,16 @@ const DefaultComponentDir = "internal/components"
 
 // GenOptions is one generate invocation.
 type GenOptions struct {
-	Kind  string // page | route | component
-	Arg   string // URL for page and route, exported name for component
-	Force bool   // overwrite an existing file
-	Dir   string // component destination; DefaultComponentDir when empty
+	Kind    string   // page | route | component | test
+	Arg     string   // URL for page, route and test; exported name for component
+	Force   bool     // overwrite an existing file
+	Dir     string   // component destination; DefaultComponentDir when empty
+	Methods []string // route: one handler per method
+	Bind    string   // route: the type the body binds to
+	Form    string   // page: the type the form binds to
+	Layout  string   // page: layout.go to write when the folder has none
+	Module  string   // import path of the project, for a type in another package
+	Lang    string   // language of the generated comments; "en" when empty
 }
 
 // GenResult says what was written.
@@ -40,19 +49,87 @@ type GenResult struct {
 	File    string // slash path relative to root
 	Pattern string // URL the file answers; empty for a component
 	Package string
+	Extra   []string // other files this call wrote, like a missing layout
+}
+
+// texts returns the comments of the skeleton in the language asked for.
+func (o GenOptions) texts() (map[string]string, error) {
+	lang := o.Lang
+	if lang == "" {
+		lang = "en"
+	}
+	t, ok := texts[lang]
+	if !ok {
+		return nil, errors.New("scaffold: unknown language " + lang)
+	}
+	return t, nil
+}
+
+// check refuses a flag on a kind that has no use for it, before any file is
+// written: a flag silently ignored is a lesson learned twice.
+func (o GenOptions) check() error {
+	switch o.Kind {
+	case "route":
+		if o.Form != "" || o.Layout != "" {
+			return errors.New("--form and --layout are for a page; a route binds with --bind")
+		}
+	case "page":
+		if o.Bind != "" {
+			return errors.New("--bind is for a route; a page binds the form with --form")
+		}
+		if len(o.Methods) > 0 {
+			return errors.New("a page answers GET, and POST when it has --form; any other method is a route")
+		}
+	default:
+		if len(o.Methods) > 0 || o.Bind != "" || o.Form != "" || o.Layout != "" {
+			return fmt.Errorf("--methods, --bind, --form and --layout are for a page or a route, not for %s", o.Kind)
+		}
+	}
+	return nil
+}
+
+// normalizeMethods puts the methods asked for in the order the generated file
+// lists them, and refuses what route.go could not export anyway.
+func normalizeMethods(list []string) ([]string, error) {
+	seen := map[string]bool{}
+	for _, m := range list {
+		m = strings.ToUpper(strings.TrimSpace(m))
+		if m == "" {
+			continue
+		}
+		if !slices.Contains(scan.Methods, m) {
+			return nil, fmt.Errorf("%s: route.go exports handlers named %s", m, strings.Join(scan.Methods, ", "))
+		}
+		if seen[m] {
+			return nil, fmt.Errorf("%s: asked for twice", m)
+		}
+		seen[m] = true
+	}
+	var out []string
+	for _, m := range scan.Methods {
+		if seen[m] {
+			out = append(out, m)
+		}
+	}
+	return out, nil
 }
 
 // Generate writes one skeleton in the project at root. The argument of a page
 // or a route is the URL: the folder convention is derived from it, which is
 // the whole point — the convention is what costs to remember, not the file.
 func Generate(root string, o GenOptions) (GenResult, error) {
+	if err := o.check(); err != nil {
+		return GenResult{}, err
+	}
 	switch o.Kind {
 	case "page", "route":
 		return generateRoute(root, o)
 	case "component":
 		return generateComponent(root, o)
+	case "test":
+		return generateTest(root, o)
 	default:
-		return GenResult{}, fmt.Errorf("unknown kind %q: page, route or component", o.Kind)
+		return GenResult{}, fmt.Errorf("unknown kind %q: page, route, component or test", o.Kind)
 	}
 }
 
@@ -176,15 +253,129 @@ func generateRoute(root string, o GenOptions) (GenResult, error) {
 		"Title":   title,
 		"Params":  params,
 	}
+	rel := path.Join(dir, file)
+	res := GenResult{File: rel, Pattern: pattern, Package: pkg}
+	// A layout is written before the page: a page that answers without the
+	// layout it was asked for is the surprise this flag exists to avoid.
+	if o.Layout != "" {
+		extra, err := ensureLayout(root, o, dir)
+		if err != nil {
+			return GenResult{}, err
+		}
+		res.Extra = extra
+	}
+	switch {
+	case o.Kind == "route" && (len(o.Methods) > 0 || o.Bind != ""):
+		if err := writeRouteContract(root, o, dir, rel, pkg, pattern, params); err != nil {
+			return GenResult{}, err
+		}
+		return res, nil
+	case o.Kind == "page" && o.Form != "":
+		if err := writePageForm(root, o, dir, rel, pkg, title); err != nil {
+			return GenResult{}, err
+		}
+		return res, nil
+	}
 	tmpl := pageTemplate
 	if o.Kind == "route" {
 		tmpl = routeTemplate
 	}
-	rel := path.Join(dir, file)
 	if err := writeGo(root, rel, tmpl, data, o.Force); err != nil {
 		return GenResult{}, err
 	}
-	return GenResult{File: rel, Pattern: pattern, Package: pkg}, nil
+	return res, nil
+}
+
+// writeRouteContract writes route.go with one handler per method and, when a
+// type was named, the bind that turns the tags into a 422.
+func writeRouteContract(root string, o GenOptions, dir, rel, pkg, pattern string, params []string) error {
+	t, err := o.texts()
+	if err != nil {
+		return err
+	}
+	ms, err := normalizeMethods(o.Methods)
+	if err != nil {
+		return err
+	}
+	if len(ms) == 0 {
+		ms = []string{"GET"}
+	}
+	var bound *boundType
+	imps := []string{"github.com/emersonjoe/trilha"}
+	data := routeContract{Package: pkg, Pattern: pattern}
+	if o.Bind != "" {
+		b, err := resolveBound(root, o.Module, dir, o.Bind, "json", t["gen_input_route"])
+		if err != nil {
+			return err
+		}
+		bound = &b
+		data.Decl = strings.TrimRight(b.Decl, "\n")
+		imps = append(imps, b.Import)
+	}
+	data.Imports = imports(imps...)
+	for _, m := range ms {
+		data.Handlers = append(data.Handlers, handler{Method: m, Body: handlerBody(m, params, bound, t)})
+	}
+	return writeGo(root, rel, routeContractTemplate, data, o.Force)
+}
+
+// writePageForm writes page.go with the whole round trip of a form.
+func writePageForm(root string, o GenOptions, dir, rel, pkg, title string) error {
+	t, err := o.texts()
+	if err != nil {
+		return err
+	}
+	b, err := resolveBound(root, o.Module, dir, o.Form, "form", t["gen_input_form"])
+	if err != nil {
+		return err
+	}
+	fields, needsHelper := formFields(b, t)
+	imps := []string{"net/http", "github.com/emersonjoe/trilha", "github.com/emersonjoe/trilha/h", "github.com/emersonjoe/trilha/ui", b.Import}
+	if strings.Contains(fields, "fmt.Sprint(") {
+		imps = append(imps, "fmt")
+	}
+	data := pageForm{
+		Package: pkg,
+		Imports: imports(imps...),
+		Decl:    strings.TrimRight(b.Decl, "\n"),
+		Type:    b.Ref,
+		Title:   title,
+		Fields:  fields,
+		PageDoc: t["gen_page_form"],
+		PostDoc: t["gen_post_form"],
+		FormDoc: t["gen_redirect"],
+		Submit:  t["gen_submit"],
+	}
+	if needsHelper {
+		data.Helper = checkedHelper
+	}
+	return writeGo(root, rel, pageFormTemplate, data, o.Force)
+}
+
+// ensureLayout writes the layout the page was asked to sit under, when the
+// folder has none. An existing layout is never touched: --force is about the
+// file the command came to write.
+func ensureLayout(root string, o GenOptions, pageDir string) ([]string, error) {
+	t, err := o.texts()
+	if err != nil {
+		return nil, err
+	}
+	rel, err := layoutPath(o.Layout, pageDir)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err == nil {
+		return nil, nil
+	}
+	abs := filepath.Join(root, filepath.FromSlash(path.Dir(rel)))
+	pkg, err := packageFor(abs, path.Base(path.Dir(rel)))
+	if err != nil {
+		return nil, err
+	}
+	if err := writeGo(root, rel, layoutTemplate, map[string]any{"Package": pkg, "Doc": t["gen_layout"]}, false); err != nil {
+		return nil, err
+	}
+	return []string{rel}, nil
 }
 
 func generateComponent(root string, o GenOptions) (GenResult, error) {

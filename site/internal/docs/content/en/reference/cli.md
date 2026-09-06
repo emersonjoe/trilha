@@ -6,7 +6,8 @@ description: The trilha commands and their options.
 ```text
 trilha new <dir> [--module path] [--lang en|pt] [--agents] [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check] [--package name]
-trilha generate page|route <url> | component <Name> [--force] [--dir path]
+trilha generate page|route|test <url> | component <Name>
+    [--methods GET,POST] [--bind Type] [--form Type] [--layout file] [--force] [--dir path] [--lang en|pt]
 trilha dev [--addr :3000]
 trilha build [-o bin/<name>]
 trilha export [-o out] [--base /prefix]
@@ -79,6 +80,38 @@ comes from the folder name (`slug_` → `slug`, `relatorio.csv` → `relatoriocs
 
 An existing file is not overwritten without `--force`, and `--force` does not cover the one
 refusal that is a convention: a folder answers either a page or a route, never both.
+
+### The contract, not only the folder
+
+Without flags the skeleton is generic, and what is left to write — the struct, the `Bind`, the
+validation, the answer, the test — is exactly where a signature gets typed wrong. The flags
+write that part:
+
+```bash
+trilha generate route /api/posts/{id}/comments --methods GET,POST --bind Comment
+trilha generate page /contact --form Contact --layout app/layout.go
+trilha generate test /api/posts
+```
+
+- `--methods` writes one handler per method, in the signature the scanner reads, with
+  `c.Param("id")` already there for each parameter of the path.
+- `--bind Type` makes the methods that carry a body do `c.BindJSON(&in)`: returning that error
+  is the 422 with the fields, so there is nothing else to handle. A type the project already
+  declares is imported from where it is; one it does not have is born in the route's package
+  with example `json` and `validate` tags. A name declared in two packages is refused, and the
+  message says to write `posts.Comment`.
+- `--form Type` on a page writes the whole round trip: `trilha.CSRFInput`, one `ui.Field` per
+  field with the message beside it, 422 with `trilha.FieldErrors` when the `Bind` refuses and
+  `POST → redirect → GET` when it accepts.
+- `--layout <file>` writes the `layout.go` that is missing above the page. A path that does not
+  wrap the page is refused: the scanner would never apply it, and finding that out costs a
+  round trip.
+- `generate test <url>` writes the test next to the route, in its own package, with one case
+  per method the scanner finds — and a body built from the tags when it can read the type the
+  handler binds. Right after generating, `trilha check` is green with nobody editing anything.
+
+`--lang en|pt` chooses the language of the comments in the skeleton; identifiers, field names
+and error messages stay in English.
 
 ## trilha ui
 

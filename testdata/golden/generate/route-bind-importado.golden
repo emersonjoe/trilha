@@ -1,0 +1,16 @@
+package comments
+
+import (
+	"example.com/loja/internal/posts"
+	"github.com/emersonjoe/trilha"
+)
+
+// POST /api/comments
+func POST(c *trilha.Ctx) error {
+	var in posts.Comment
+	// Bind validates by the tags: returning its error is the 422 with the fields.
+	if err := c.BindJSON(&in); err != nil {
+		return err
+	}
+	return c.JSON(201, in)
+}

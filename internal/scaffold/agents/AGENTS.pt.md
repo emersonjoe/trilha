@@ -29,7 +29,7 @@ O HTML é escrito em Go com o pacote `h`, não com template:
 | `trilha ctx` | o mapa do projeto — rotas, API, tipos de entrada e saída, setup — numa leitura só; `--json` para ferramenta, `--all` sem nada elidido. Leia antes de abrir arquivo por arquivo |
 | `trilha dev` | servidor de desenvolvimento com recarga; deixe rodando enquanto trabalha |
 | `trilha gen` | regrava `trilha_gen.go` a partir de `app/`; rode depois de criar ou remover rota |
-| `trilha generate page /caminho` | grava o esqueleto na pasta certa (também `route`, `component`) |
+| `trilha generate page /caminho` | grava o esqueleto na pasta certa (também `route`, `component`, `test`); `--methods`, `--bind` e `--form` escrevem o contrato junto |
 | `trilha routes` | lista as rotas encontradas e o arquivo de onde vieram |
 | `trilha audit` | verifica segurança e configuração: segredos, CSP, cookies, dependências |
 | `trilha build` | gera e compila um binário único |

@@ -28,7 +28,7 @@ HTML is written in Go with the `h` package, not with templates:
 | `trilha ctx` | the map of the project — routes, API, request and response types, setup — in one read; `--json` for a tool, `--all` for nothing elided. Read it before opening files one by one |
 | `trilha dev` | dev server with live reload; keep it running while you work |
 | `trilha gen` | rewrites `trilha_gen.go` from `app/`; run it after adding or removing a route |
-| `trilha generate page /path` | writes the skeleton in the right folder (also `route`, `component`) |
+| `trilha generate page /path` | writes the skeleton in the right folder (also `route`, `component`, `test`); `--methods`, `--bind` and `--form` write the contract too |
 | `trilha routes` | lists every route the scanner found and the file it came from |
 | `trilha audit` | checks security and configuration: secrets, CSP, cookies, dependencies |
 | `trilha build` | generates and compiles a single binary |

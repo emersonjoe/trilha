@@ -1,0 +1,28 @@
+package itens
+
+import (
+	"github.com/emersonjoe/trilha"
+)
+
+// Item is what this route receives; the tags are the contract.
+type Item struct {
+	Title string `json:"title" validate:"required,max=80"`
+	Body  string `json:"body" validate:"required"`
+}
+
+// GET /api/itens
+func GET(c *trilha.Ctx) error {
+	return c.JSON(200, map[string]any{
+		"ok": true,
+	})
+}
+
+// POST /api/itens
+func POST(c *trilha.Ctx) error {
+	var in Item
+	// Bind validates by the tags: returning its error is the 422 with the fields.
+	if err := c.BindJSON(&in); err != nil {
+		return err
+	}
+	return c.JSON(201, in)
+}

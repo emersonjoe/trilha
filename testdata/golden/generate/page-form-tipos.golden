@@ -1,0 +1,56 @@
+package perfil
+
+import (
+	"fmt"
+	"net/http"
+
+	"example.com/loja/internal/perfil"
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+)
+
+// Page renders the form.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return form(c, perfil.Profile{}, nil), nil
+}
+
+// POST handles the form: 422 with the messages beside the fields, or redirect.
+func POST(c *trilha.Ctx) error {
+	var in perfil.Profile
+	if err := c.Bind(&in); err != nil {
+		errs, ok := err.(trilha.FieldErrors)
+		if !ok {
+			return err
+		}
+		return c.Render(http.StatusUnprocessableEntity, form(c, in, errs))
+	}
+	// POST → redirect → GET: reloading does not send the form again.
+	return c.Redirect(c.Request().URL.Path)
+}
+
+func form(c *trilha.Ctx, in perfil.Profile, errs trilha.FieldErrors) h.Node {
+	c.SetTitle("perfil")
+	return ui.Card(
+		ui.CardHeader(ui.CardTitle("perfil")),
+		ui.CardContent(h.Form(h.Method("post"), h.Action(c.Request().URL.Path), h.Class("ui-stack"),
+			trilha.CSRFInput(c),
+			ui.Field("nick", "Nick",
+				ui.Input(h.ID("nick"), h.Name("nick"), h.Value(in.Nick), ui.InvalidIf(errs, "nick")),
+				ui.Errors(errs, "nick")),
+			ui.Field("age", "Age",
+				ui.Input(h.ID("age"), h.Name("age"), h.Type("number"), h.Value(fmt.Sprint(in.Age)), ui.InvalidIf(errs, "age")),
+				ui.Errors(errs, "age")),
+			ui.CheckRow(ui.Checkbox(h.ID("public"), h.Name("public"), checked(in.Public)), "Public", "public"),
+			h.Div(ui.Submit(h.Text("Send"))),
+		)),
+	)
+}
+
+// checked marks the box when the value is on.
+func checked(on bool) h.Node {
+	if on {
+		return h.Checked()
+	}
+	return h.Nil
+}

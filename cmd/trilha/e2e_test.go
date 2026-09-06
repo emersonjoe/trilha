@@ -494,3 +494,59 @@ func mustWrite(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+// TestGenerateContratoE2E is issue #49 end to end: what the flags write has to
+// compile and pass trilha check with nobody editing it. It is the only place
+// that proves the skeleton and the test it generates agree on the status.
+func TestGenerateContratoE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	// The audit step of check reads the environment, and a missing secret is
+	// about this machine, not about what generate wrote.
+	t.Setenv("TRILHA_SECRET", "um-segredo-de-teste-com-mais-de-32-bytes")
+	cli := filepath.Join(tmp, "trilha-cli")
+	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+
+	proj := filepath.Join(tmp, "loja")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/loja", "--trilha-dir", repo)
+
+	out := run(t, proj, cli, "generate", "route", "/api/itens/{id}", "--methods", "GET,POST", "--bind", "Item")
+	if !strings.Contains(out, "app/api/itens/id_/route.go") || !strings.Contains(out, "/api/itens/{id}") {
+		t.Fatal(out)
+	}
+	run(t, proj, cli, "generate", "page", "/painel/contato", "--form", "Contact", "--layout", "app/painel/layout.go")
+	if _, err := os.Stat(filepath.Join(proj, "app", "painel", "layout.go")); err != nil {
+		t.Fatal("--layout must write the layout that is missing:", err)
+	}
+	run(t, proj, cli, "generate", "test", "/api/itens/{id}")
+	run(t, proj, cli, "generate", "test", "/painel/contato")
+
+	// The whole point: no edit between generating and the gate being green.
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "test") {
+		t.Fatal(out)
+	}
+
+	// A type the project already declares is imported, not declared twice.
+	run(t, proj, cli, "generate", "route", "/api/itens", "--methods", "POST", "--bind", "Item")
+	b, err := os.ReadFile(filepath.Join(proj, "app", "api", "itens", "route.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"example.com/loja/app/api/itens/id_"`) || strings.Contains(string(b), "type Item struct") {
+		t.Fatal("the type that already exists is imported, not declared again:\n" + string(b))
+	}
+
+	// A method route.go could not export is a refusal, and it writes nothing.
+	bad := exec.Command(cli, "generate", "route", "/api/x", "--methods", "TRACE")
+	bad.Dir = proj
+	if out, err := bad.CombinedOutput(); err == nil || !strings.Contains(string(out), "TRACE") {
+		t.Fatal(string(out), err)
+	}
+	if _, err := os.Stat(filepath.Join(proj, "app", "api", "x")); err == nil {
+		t.Fatal("a refusal must not leave a folder behind")
+	}
+}

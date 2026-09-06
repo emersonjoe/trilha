@@ -6,7 +6,8 @@ description: Os comandos de trilha e suas opções.
 ```text
 trilha new <dir> [--module caminho] [--lang en|pt] [--agents] [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check] [--package nome]
-trilha generate page|route <url> | component <Nome> [--force] [--dir caminho]
+trilha generate page|route|test <url> | component <Nome>
+    [--methods GET,POST] [--bind Tipo] [--form Tipo] [--layout arquivo] [--force] [--dir caminho] [--lang en|pt]
 trilha dev [--addr :3000]
 trilha build [-o bin/<nome>]
 trilha export [-o out] [--base /prefixo]
@@ -78,6 +79,38 @@ O nome do pacote é o que já está declarado na pasta, quando existe; senão ve
 
 Um arquivo existente não é sobrescrito sem `--force`, e o `--force` não cobre a única recusa
 que é convenção: uma pasta responde ou uma página ou uma rota, nunca as duas.
+
+### O contrato, não só a pasta
+
+Sem flags o esqueleto é genérico, e o que sobra para escrever — a struct, o `Bind`, a
+validação, a resposta, o teste — é justamente onde se erra assinatura. As flags escrevem essa
+parte:
+
+```bash
+trilha generate route /api/posts/{id}/comments --methods GET,POST --bind Comment
+trilha generate page /contato --form Contact --layout app/layout.go
+trilha generate test /api/posts
+```
+
+- `--methods` escreve um handler por método, na assinatura que o scanner lê, com o
+  `c.Param("id")` já pronto para cada parâmetro do caminho.
+- `--bind Tipo` faz os métodos com corpo chamarem `c.BindJSON(&in)`: devolver esse erro já é o
+  422 com os campos, não sobra tratamento. Um tipo que o projeto já declara é importado de
+  onde está; um que não existe nasce no pacote da rota com tags `json` e `validate` de
+  exemplo. Um nome declarado em dois pacotes é recusa, e a mensagem manda escrever
+  `posts.Comment`.
+- `--form Tipo` numa página escreve a ida e volta inteira: `trilha.CSRFInput`, um `ui.Field`
+  por campo com a mensagem ao lado, 422 com `trilha.FieldErrors` quando o `Bind` recusa e
+  `POST → redirect → GET` quando ele aceita.
+- `--layout <arquivo>` grava o `layout.go` que falta acima da página. Um caminho que não
+  envolve a página é recusado: o scanner nunca o aplicaria, e descobrir isso custa uma ida e
+  volta.
+- `generate test <url>` escreve o teste ao lado da rota, no pacote dela, com um caso por
+  método que o scanner encontra — e um corpo montado das tags quando dá para ler o tipo que o
+  handler lê. Logo depois de gerar, o `trilha check` fica verde sem ninguém editar nada.
+
+O `--lang en|pt` escolhe o idioma dos comentários do esqueleto; identificadores, nomes de
+campo e mensagens de erro seguem em inglês.
 
 ## trilha ui
 

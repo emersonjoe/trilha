@@ -1,0 +1,15 @@
+package id
+
+import (
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+// TestIdRoute exercises every method the route answers.
+func TestIdRoute(t *testing.T) {
+	route := trilha.Route{Pattern: "/api/itens/{id}", Methods: map[string]trilha.HandlerFunc{"GET": GET, "POST": POST}}
+	trilha.TestRoute(t, route, "GET", "/api/itens/id").WantStatus(200)
+	trilha.TestRoute(t, route, "POST", "/api/itens/id",
+		trilha.WithBody("application/json", `{"body": "example", "title": "example"}`)).WantStatus(201)
+}

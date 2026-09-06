@@ -3,7 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
-## Unreleased
+## 0.39.0 — 2026-09-06
+
+### Added
+
+- **`trilha generate` writes the contract, not only the folder**
+  ([#49](https://github.com/emersonjoe/trilha/issues/49)). `--methods GET,POST` writes one
+  handler per method with `c.Param` already reading each parameter of the path; `--bind Type`
+  makes the methods that carry a body call `c.BindJSON`, which is the 422 with the fields;
+  `--form Type` writes a page's whole round trip (`CSRFInput`, a `ui.Field` per field, 422
+  with the messages beside them, `POST → redirect → GET`); `--layout` writes the `layout.go`
+  the folder above is missing. A type the project declares is imported from where it is; one
+  it does not have is born in the route's package with example tags, and a name declared in
+  two packages is refused with both paths.
+- **`trilha generate test <url>`** writes the test beside the route, in its package, with one
+  case per method the scanner finds and a body built from the `validate` tags when the type
+  the handler binds can be read. Generating a route and its test leaves `trilha check` green
+  with nothing edited by hand.
+- **`--lang en|pt` for `generate`**, like `new`: it chooses the language of the comments in
+  the skeleton. Identifiers, field names and error messages stay in English.
 
 ### Documentation
 

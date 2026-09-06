@@ -45,7 +45,8 @@ var msgs = map[string][2]string{
 Usage:
   trilha new <dir> [--module path] [--lang en|pt] [--agents]   create a new project
   trilha gen [--check]                              generate trilha_gen.go from app/ (--check: fail if stale)
-  trilha generate page|route <url> | component <Name>   write a skeleton in the right place
+  trilha generate page|route|test <url> | component <Name>   write a skeleton in the right place
+    [--methods GET,POST] [--bind Type] [--form Type] [--layout file] [--lang en|pt]
   trilha dev [--addr :3000]                         dev server with live reload
   trilha build [-o bin/<name>]                      generate + compile a single binary
   trilha check [--json] [--fix]                     the single gate: gen, gofmt, vet, test, audit, openapi
@@ -64,7 +65,8 @@ Language: TRILHA_LANG=en|pt (falls back to LC_ALL, LC_MESSAGES, LANG).
 Uso:
   trilha new <dir> [--module caminho] [--lang en|pt] [--agents]  cria um projeto novo
   trilha gen [--check]                                gera trilha_gen.go a partir de app/ (--check: falha se desatualizado)
-  trilha generate page|route <url> | component <Nome>  grava um esqueleto no lugar certo
+  trilha generate page|route|test <url> | component <Nome>  grava um esqueleto no lugar certo
+    [--methods GET,POST] [--bind Tipo] [--form Tipo] [--layout arquivo] [--lang en|pt]
   trilha dev [--addr :3000]                           dev server com recarga automática
   trilha build [-o bin/<nome>]                        gera + compila um binário único
   trilha check [--json] [--fix]                       o portão único: gen, gofmt, vet, test, audit, openapi
@@ -124,12 +126,16 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"project created": {"\n✓ project created in %s\n\n  cd %s\n  trilha dev\n", "\n✓ projeto criado em %s\n\n  cd %s\n  trilha dev\n"},
 
 	// generate
-	"flag gen-force":  {"overwrite the file if it already exists", "sobrescrever o arquivo se já existir"},
-	"flag gen-dir":    {"folder of the component (default internal/components)", "pasta do componente (padrão internal/components)"},
-	"generate usage":  {"usage: trilha generate page|route <url> | component <Name> [--force] [--dir path]", "uso: trilha generate page|route <url> | component <Nome> [--force] [--dir caminho]"},
-	"gen use force":   {"use --force to overwrite it", "use --force para sobrescrever"},
-	"gen conflict":    {"a folder answers either a page or a route, never both", "uma pasta responde ou uma página ou uma rota, nunca as duas"},
-	"generated route": {"\n✓ %s answers now; trilha_gen.go is up to date\n", "\n✓ %s já responde; trilha_gen.go está atualizado\n"},
+	"flag gen-force":   {"overwrite the file if it already exists", "sobrescrever o arquivo se já existir"},
+	"flag gen-dir":     {"folder of the component (default internal/components)", "pasta do componente (padrão internal/components)"},
+	"flag gen-methods": {"one handler per method: GET,POST,PUT,PATCH,DELETE", "um handler por método: GET,POST,PUT,PATCH,DELETE"},
+	"flag gen-bind":    {"type the body binds to; written in the route's package when the project has none", "tipo em que o corpo é lido; nasce no pacote da rota quando o projeto não tem"},
+	"flag gen-form":    {"type the form binds to, with the round trip of errors and the redirect", "tipo em que o formulário é lido, com a ida e volta dos erros e o redirect"},
+	"flag gen-layout":  {"layout.go to write when the folder above the page has none", "layout.go a gravar quando a pasta acima da página não tem um"},
+	"generate usage":   {"usage: trilha generate page|route|test <url> | component <Name> [--methods GET,POST] [--bind Type] [--form Type] [--layout file] [--force] [--dir path] [--lang en|pt]", "uso: trilha generate page|route|test <url> | component <Nome> [--methods GET,POST] [--bind Tipo] [--form Tipo] [--layout arquivo] [--force] [--dir caminho] [--lang en|pt]"},
+	"gen use force":    {"use --force to overwrite it", "use --force para sobrescrever"},
+	"gen conflict":     {"a folder answers either a page or a route, never both", "uma pasta responde ou uma página ou uma rota, nunca as duas"},
+	"generated route":  {"\n✓ %s answers now; trilha_gen.go is up to date\n", "\n✓ %s já responde; trilha_gen.go está atualizado\n"},
 
 	// dev / build / export
 	"flag addr":     {"public address of the dev server", "endereço público do dev server"},

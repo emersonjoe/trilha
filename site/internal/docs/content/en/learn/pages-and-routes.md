@@ -84,7 +84,9 @@ trilha generate route /api/events     # app/api/events/route.go
 ```
 
 The page comes with `c.Param("slug")` already read, and `trilha_gen.go` is regenerated at the
-end, so the URL answers before you open the editor. The flags are in
+end, so the URL answers before you open the editor. With `--methods`, `--bind` and `--form`
+the skeleton also comes with the contract — the handlers, the struct, the validation and the
+form — and `trilha generate test <url>` writes the test beside it. The flags are in
 [CLI](/reference/cli#trilha-generate).
 
 ## What the generator does with this

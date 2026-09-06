@@ -1,0 +1,21 @@
+package comments
+
+import (
+	"github.com/emersonjoe/trilha"
+)
+
+// GET /api/posts/{id}/comments
+func GET(c *trilha.Ctx) error {
+	return c.JSON(200, map[string]any{
+		"id": c.Param("id"),
+		"ok": true,
+	})
+}
+
+// POST /api/posts/{id}/comments
+func POST(c *trilha.Ctx) error {
+	return c.JSON(200, map[string]any{
+		"id": c.Param("id"),
+		"ok": true,
+	})
+}

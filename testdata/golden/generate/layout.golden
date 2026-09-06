@@ -1,0 +1,11 @@
+package painel
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+)
+
+// Layout wraps every page in this folder and below.
+func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
+	return h.Div(children), nil
+}
