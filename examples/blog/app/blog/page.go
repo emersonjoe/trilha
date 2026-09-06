@@ -10,7 +10,10 @@ import (
 // Page lists posts at GET /blog.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Blog")
-	all := posts.All()
+	all, err := posts.Cached(c.Context())
+	if err != nil {
+		return nil, err
+	}
 	return ui.Stack(
 		ui.H1(h.Text("Blog")),
 		h.If(len(all) == 0, ui.Muted(h.Text("Nenhum post ainda."))),

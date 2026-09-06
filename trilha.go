@@ -350,11 +350,11 @@ func (a *App) Metrics() *Metrics { return a.metrics }
 // registerDefaultMetrics declares the series the framework itself fills.
 func (a *App) registerDefaultMetrics() {
 	m := a.metrics
-	a.mReq = m.Counter("trilha_requests_total", "Requisições atendidas, por método, rota registrada e status.", "method", "route", "status")
-	a.mDur = m.Histogram("trilha_request_duration_seconds", "Duração das requisições, em segundos.", nil, "method", "route")
-	a.mInFlight = m.Gauge("trilha_requests_in_flight", "Requisições sendo atendidas neste instante.")
-	a.mPanics = m.Counter("trilha_panics_total", "Pânicos recuperados na borda do servidor.")
-	a.mSec = m.Counter("trilha_security_events_total", "Requisições bloqueadas, por tipo de evento.", "kind")
+	a.mReq = m.Counter("trilha_requests_total", "Requests served, by method, registered route and status.", "method", "route", "status")
+	a.mDur = m.Histogram("trilha_request_duration_seconds", "Request duration, in seconds.", nil, "method", "route")
+	a.mInFlight = m.Gauge("trilha_requests_in_flight", "Requests being served right now.")
+	a.mPanics = m.Counter("trilha_panics_total", "Panics recovered at the server edge.")
+	a.mSec = m.Counter("trilha_security_events_total", "Requests blocked, by kind of event.", "kind")
 }
 
 // ListenAndServe serves until SIGINT/SIGTERM, then shuts down gracefully.

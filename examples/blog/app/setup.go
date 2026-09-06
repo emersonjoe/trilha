@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/cache"
 	"github.com/emersonjoe/trilha/examples/blog/internal/icones"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
 )
@@ -50,6 +51,10 @@ func Config(cfg *trilha.Config) error {
 
 // Setup runs once before the server starts.
 func Setup(a *trilha.App) error {
+	// O cache é do app, não do framework: quem o cria decide o teto, o nome
+	// que aparece em /metrics e quem enxerga a variável. Aqui ele vive no
+	// pacote que produz as listas, ao lado das escritas que o derrubam.
+	posts.Cache = cache.New(cache.Options{Name: "posts", MaxEntries: 500, Metrics: a.Metrics()})
 	posts.Seed()
 	a.Values()["site"] = "Trilha Blog"
 	// Prontidão: o app só serve depois que o "banco" (aqui, a memória de

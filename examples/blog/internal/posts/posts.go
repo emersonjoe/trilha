@@ -2,12 +2,14 @@
 package posts
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/cache"
 )
 
 // Post is a blog post.
@@ -27,6 +29,35 @@ var (
 // at the app registry; nil (this package under its own test) counts nothing.
 var Published *trilha.Counter
 
+// Cache holds the lists this package computes. Setup points it at a cache of
+// the app's; nil (this package under its own test) means every call reads the
+// store, which is the behaviour the cache is supposed to be invisible against.
+var Cache *cache.Cache
+
+// listKey is the whole cache policy of this example in one place: one name,
+// five minutes, one tag. The tag is what Create and Delete pull.
+var listKey = cache.Key{Name: "posts:all", TTL: 5 * time.Minute, Tags: []string{"posts"}}
+
+// Cached returns the same thing as All, once per window. Here the store is a
+// map and the saving is nothing; in an app this is the query every visit to
+// the list makes.
+func Cached(ctx context.Context) ([]Post, error) {
+	if Cache == nil {
+		return All(), nil
+	}
+	return cache.Do(ctx, Cache, listKey, func(context.Context) ([]Post, error) {
+		return All(), nil
+	})
+}
+
+// invalidate drops what stopped being true. It lives next to the writes, not
+// next to the reads: a cache is invalidated by whoever changed the data.
+func invalidate() {
+	if Cache != nil {
+		Cache.Invalidate("posts")
+	}
+}
+
 // Seed loads the initial posts.
 func Seed() {
 	mu.Lock()
@@ -39,6 +70,7 @@ func Seed() {
 		p.Created = time.Date(2026, 9, 1+i, 0, 0, 0, 0, time.UTC)
 		store[p.Slug] = p
 	}
+	invalidate()
 }
 
 // All returns posts, newest first.
@@ -67,6 +99,7 @@ func Create(title, body string) Post {
 	mu.Lock()
 	store[p.Slug] = p
 	mu.Unlock()
+	invalidate()
 	if Published != nil {
 		Published.Inc()
 	}
@@ -86,6 +119,7 @@ func Delete(slug string) bool {
 	defer mu.Unlock()
 	_, ok := store[slug]
 	delete(store, slug)
+	invalidate()
 	return ok
 }
 

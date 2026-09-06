@@ -486,3 +486,34 @@ func TestIlhaDoEditorDegradaSemScript(t *testing.T) {
 		t.Fatal("o carregador da ilha não levou o nonce da requisição")
 	}
 }
+
+// Issue #25: a lista de posts vem do cache, e publicar não pode atrasar. O
+// que o cache resolve (a segunda visita não vai ao banco) e o que ele não pode
+// quebrar (quem publicou vê o post) cabem no mesmo teste.
+func TestCacheDaListaDePosts(t *testing.T) {
+	t.Setenv("TRILHA_METRICS", "/_trilha/metrics")
+	t.Setenv("TRILHA_OBS_TOKEN", "0123456789abcdef0123456789abcdef")
+	c := newClient(t, "prod")
+	wantContains(t, c.get("/blog"), 200, `href="/blog/layouts"`, "2 posts")
+	wantContains(t, c.get("/blog"), 200, `href="/blog/layouts"`)
+
+	c.get("/blog/novo")
+	if rec := c.postForm("/blog/novo", "titulo=Cache+quente&corpo=x"); rec.Code != 303 {
+		t.Fatalf("publicar: %d", rec.Code)
+	}
+	wantContains(t, c.get("/blog"), 200, `href="/blog/cache-quente"`, "3 posts")
+
+	rec := c.do("GET", "/_trilha/metrics", "", map[string]string{"Authorization": "Bearer 0123456789abcdef0123456789abcdef"})
+	if rec.Code != 200 {
+		t.Fatal(rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		`trilha_cache_hits_total{cache="posts"} 1`,
+		`trilha_cache_misses_total{cache="posts"} 2`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("falta %q em\n%s", want, body)
+		}
+	}
+}
