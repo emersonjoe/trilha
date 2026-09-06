@@ -55,14 +55,12 @@ import (
 	"testing"
 
 	"github.com/emersonjoe/trilha"
-	"MODULE/internal/posts"
 )
 
 func TestBenchComments(t *testing.T) {
 	t.Setenv("TRILHA_ENV", "dev")
 	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	posts.Seed()
 	a := newApp()
 	ok := map[string]string{"author": "Ana", "body": "Primeiro!"}
 	trilha.TestRequest(t, a, "POST", "/api/posts/ola-trilha/comments", trilha.WithJSON(ok)).
@@ -102,14 +100,12 @@ import (
 	"testing"
 
 	"github.com/emersonjoe/trilha"
-	"MODULE/internal/posts"
 )
 
 func TestBenchContato(t *testing.T) {
 	t.Setenv("TRILHA_ENV", "dev")
 	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	posts.Seed()
 	c := trilha.NewTestClient(t, newApp())
 	// "Preços" is a link of the root layout: the page must be inside it.
 	c.Get("/contato").WantStatus(200).WantContains("<form", "Preços")
@@ -285,10 +281,10 @@ func TestBenchPaginacao(t *testing.T) {
 	t.Setenv("TRILHA_ENV", "dev")
 	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	posts.Seed()
 	a := newApp()
+	store := trilha.Use[*posts.Store](a)
 	for i := 1; i <= 12; i++ { // 2 seeded + 12 = 14 posts: 5, 5, 4
-		posts.Create(fmt.Sprintf("Post %02d", i), "corpo")
+		store.Create(fmt.Sprintf("Post %02d", i), "corpo")
 	}
 	p1 := trilha.TestRequest(t, a, "GET", "/blog").WantStatus(200)
 	if n := countPosts(p1.Body.String()); n != 5 {
