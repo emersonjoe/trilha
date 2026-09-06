@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -34,6 +35,7 @@ const (
 	ErrDuplicateRoute   = "E_DUPLICATE_ROUTE"
 	ErrParse            = "E_PARSE"
 	ErrNoApp            = "E_NO_APP"
+	ErrDuplicateParam   = "E_DUPLICATE_PARAM"
 )
 
 var methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
@@ -42,14 +44,45 @@ var methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
 // scanner skips it when reading what the author wrote by hand.
 const GeneratedFileName = "trilha_gen.go"
 
-// Error is one convention violation.
+// Error is one convention violation. Line is 0 when the violation is about a
+// directory, or about a file as a whole; Fix is the sentence that resolves it,
+// and it is never empty — an error without a fix costs the reader a round trip
+// to find out what to do (spec 047).
 type Error struct {
 	File string
 	Code string
 	Msg  string
+	Line int
+	Fix  string
 }
 
-func (e *Error) Error() string { return fmt.Sprintf("%s: %s: %s", e.File, e.Code, e.Msg) }
+func (e *Error) Error() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("%s:%d: %s: %s", e.File, e.Line, e.Code, e.Msg)
+	}
+	return fmt.Sprintf("%s: %s: %s", e.File, e.Code, e.Msg)
+}
+
+// fixes is the conserto of each code. The scanner says what is wrong; this
+// says what to do about it, in one line, the way trilha audit already does.
+var fixes = map[string]string{
+	ErrPageAndRoute:     "keep the page here and move the API to a subdirectory, or the other way around",
+	ErrNoPageFunc:       "rename the function to Page, or delete page.go if this directory is not a page",
+	ErrNoMethod:         "name the handler after the HTTP method it answers: func GET(c *trilha.Ctx) error",
+	ErrNoLayoutFunc:     "rename the function to Layout, or delete layout.go",
+	ErrNoMiddlewareFunc: "rename the function to Middleware (or MiddlewareGET, MiddlewarePOST, ...), or delete middleware.go",
+	ErrUnusedMethodMW:   "remove it, or add below this directory the route it was meant to guard",
+	ErrNoNotFoundFunc:   "rename the function to NotFound, or delete not_found.go",
+	ErrNoErrorFunc:      "rename the function to Error, or delete error.go",
+	ErrNoSetupFunc:      "rename the function to Setup, or delete setup.go",
+	ErrAmbiguousSegment: "keep one dynamic directory per level: merge them, or make one a literal segment",
+	ErrCatchAllNotLeaf:  "move what is below it to a sibling directory; a catch-all takes the rest of the path",
+	ErrBadSegment:       "rename the directory: name_ is a parameter, name__ a catch-all, name- a group, and name must be a Go identifier",
+	ErrDuplicateRoute:   "rename one of the directories, or drop the route group so the two URLs differ",
+	ErrDuplicateParam:   "rename one of them: a pattern cannot bind the same name twice",
+	ErrParse:            "fix the syntax error the compiler reports; go build ./... shows the same line",
+	ErrNoApp:            "run trilha from the project root, the directory that has app/",
+}
 
 // Errors is a list of violations; the scanner reports all it finds.
 type Errors []*Error
@@ -183,8 +216,34 @@ type scanner struct {
 	methodMW []methodMW
 }
 
-func (s *scanner) errf(file, code, format string, a ...any) {
-	s.errs = append(s.errs, &Error{File: filepath.ToSlash(file), Code: code, Msg: fmt.Sprintf(format, a...)})
+func (s *scanner) errf(file, code, format string, a ...any) *Error {
+	e := &Error{File: filepath.ToSlash(file), Code: code, Msg: fmt.Sprintf(format, a...), Fix: fixes[code]}
+	if e.Line == 0 && code == ErrParse {
+		e.Line = lineOf(e.Msg)
+	}
+	s.errs = append(s.errs, e)
+	return e
+}
+
+// at records the line of the offending declaration; 0 leaves the error about
+// the file as a whole.
+func (e *Error) at(line int) *Error { e.Line = line; return e }
+
+// withFix replaces the fix of the code with one that knows the case at hand.
+func (e *Error) withFix(fix string) *Error { e.Fix = fix; return e }
+
+// lineOf reads the line out of a "file.go:12:3: ..." message, which is how the
+// parser reports itself.
+func lineOf(msg string) int {
+	parts := strings.SplitN(msg, ":", 3)
+	if len(parts) < 3 {
+		return 0
+	}
+	n, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 type segment struct {
@@ -278,7 +337,8 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 			}
 			s.use(alias, importPath)
 		} else {
-			s.errf(rel+"/layout.go", ErrNoLayoutFunc, "layout.go must export func Layout(c *trilha.Ctx, children h.Node) (h.Node, error)")
+			other, line := pkg.instead("Layout")
+			s.errf(rel+"/layout.go", ErrNoLayoutFunc, "layout.go must export func Layout(c *trilha.Ctx, children h.Node) (h.Node, error)%s", other).at(line)
 		}
 	}
 	if present["middleware.go"] {
@@ -301,7 +361,8 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 		if found {
 			s.use(alias, importPath)
 		} else {
-			s.errf(rel+"/middleware.go", ErrNoMiddlewareFunc, "middleware.go must export func Middleware(c *trilha.Ctx, next trilha.Next) error, or MiddlewareGET|POST|PUT|PATCH|DELETE with the same signature for a single method")
+			other, line := pkg.instead(middlewareFuncs()...)
+			s.errf(rel+"/middleware.go", ErrNoMiddlewareFunc, "middleware.go must export func Middleware(c *trilha.Ctx, next trilha.Next) error, or MiddlewareGET|POST|PUT|PATCH|DELETE with the same signature for a single method%s", other).at(line)
 		}
 	}
 	if isRoot {
@@ -323,11 +384,15 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 	if present["page.go"] && present["route.go"] {
 		s.errf(rel, ErrPageAndRoute, "a directory serves either a page (page.go) or an API (route.go), never both")
 	} else if present["page.go"] || present["route.go"] {
+		if name, first, second := repeatedParam(rel); name != "" {
+			s.errf(rel, ErrDuplicateParam, "parameter {%s} is bound twice in this path: %s and %s", name, first, second)
+		}
 		r := Route{Dir: rel, ImportPath: importPath, Alias: alias, Layouts: layouts, Middlewares: mws, Pattern: patternOf(segs)}
 		if present["page.go"] {
 			r.Kind = "page"
 			if !pkg.funcs["Page"] {
-				s.errf(rel+"/page.go", ErrNoPageFunc, "page.go must export func Page(c *trilha.Ctx) (h.Node, error)")
+				other, line := pkg.instead("Page")
+				s.errf(rel+"/page.go", ErrNoPageFunc, "page.go must export func Page(c *trilha.Ctx) (h.Node, error)%s", other).at(line)
 			}
 			r.HasPage = pkg.funcs["Page"]
 			for _, m := range methods[1:] {
@@ -345,7 +410,11 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 				}
 			}
 			if len(r.Methods) == 0 {
-				s.errf(rel+"/route.go", ErrNoMethod, "route.go must export at least one of GET, POST, PUT, PATCH, DELETE with signature func(c *trilha.Ctx) error")
+				other, line := pkg.instead(methods...)
+				e := s.errf(rel+"/route.go", ErrNoMethod, "route.go must export at least one of GET, POST, PUT, PATCH, DELETE with signature func(c *trilha.Ctx) error%s", other).at(line)
+				if m, ml := pkg.lowercaseMethod(); m != "" {
+					e.at(ml).withFix("handlers are named by HTTP method in upper case: rename func " + m + " to func " + strings.ToUpper(m))
+				}
 			}
 		}
 		sort.Strings(r.Methods)
@@ -435,7 +504,8 @@ func (s *scanner) rootFile(present map[string]bool, pkg pkgInfo, rel, alias, imp
 		return
 	}
 	if !pkg.funcs[fn] {
-		s.errf(rel+"/"+file, code, "%s must export %s", file, sig)
+		other, line := pkg.instead(fn)
+		s.errf(rel+"/"+file, code, "%s must export %s%s", file, sig, other).at(line)
 		return
 	}
 	*dst = &Ref{Alias: alias, ImportPath: importPath, Func: fn}
@@ -473,6 +543,39 @@ func patternOf(segs []segment) string {
 	return "/" + strings.Join(parts, "/")
 }
 
+// middlewareFuncs lists every name middleware.go may export.
+func middlewareFuncs() []string {
+	out := []string{"Middleware"}
+	for _, m := range methods {
+		out = append(out, "Middleware"+m)
+	}
+	return out
+}
+
+// repeatedParam finds a parameter bound twice along one path
+// (app/a/id_/b/id_). net/http panics on a pattern like that, so the scanner
+// stops it here, naming the two directories.
+func repeatedParam(rel string) (name, first, second string) {
+	seen := map[string]string{}
+	var dir string
+	for _, part := range strings.Split(rel, "/") {
+		if dir == "" {
+			dir = part
+		} else {
+			dir += "/" + part
+		}
+		seg, err := parseSegment(part)
+		if err != nil || seg.kind == 0 || seg.kind == kindGroup {
+			continue
+		}
+		if prev, ok := seen[seg.name]; ok {
+			return seg.name, prev, dir
+		}
+		seen[seg.name] = dir
+	}
+	return "", "", ""
+}
+
 func (s *scanner) use(alias, importPath string) { s.imports[alias] = importPath }
 
 // alias derives a unique, valid Go identifier for an import.
@@ -508,12 +611,58 @@ type pkgInfo struct {
 	// exists with and without an error, and both stay valid.
 	results map[string]int
 	vars    map[string]bool // exported package-level var/const names
-	broken  bool            // a file failed to parse: skip "missing func" checks
+	// lines is the line of every top-level function, exported or not: it is
+	// what lets an error point at the function that was written instead of
+	// the one the convention asks for.
+	lines  map[string]int
+	broken bool // a file failed to parse: skip "missing func" checks
+}
+
+// instead names the functions the directory declares in place of the one the
+// convention asks for, and the line of the first of them: "page.go must export
+// func Page ...; found func Render" saves the reader a look at the file.
+func (info pkgInfo) instead(want ...string) (string, int) {
+	skip := map[string]bool{}
+	for _, w := range want {
+		skip[w] = true
+	}
+	var names []string
+	for n := range info.lines {
+		if !skip[n] {
+			names = append(names, n)
+		}
+	}
+	if len(names) == 0 {
+		return "", 0
+	}
+	sort.Strings(names)
+	return "; found func " + strings.Join(names, ", func "), info.lines[names[0]]
+}
+
+// lowercaseMethod finds a handler written in lower case (func get), the
+// mistake that deserves its own sentence instead of the generic one.
+func (info pkgInfo) lowercaseMethod() (string, int) {
+	var found string
+	for n := range info.lines {
+		up := strings.ToUpper(n)
+		if up == n {
+			continue
+		}
+		for _, m := range methods {
+			if up == m && (found == "" || n < found) {
+				found = n
+			}
+		}
+	}
+	if found == "" {
+		return "", 0
+	}
+	return found, info.lines[found]
 }
 
 // parsePackage collects exported top-level functions across the dir's files.
 func (s *scanner) parsePackage(abs, rel string, files []string) pkgInfo {
-	info := pkgInfo{funcs: map[string]bool{}, results: map[string]int{}, vars: map[string]bool{}}
+	info := pkgInfo{funcs: map[string]bool{}, results: map[string]int{}, vars: map[string]bool{}, lines: map[string]int{}}
 	fset := token.NewFileSet()
 	for _, f := range files {
 		file, err := parser.ParseFile(fset, filepath.Join(abs, f), nil, parser.SkipObjectResolution)
@@ -526,6 +675,9 @@ func (s *scanner) parsePackage(abs, rel string, files []string) pkgInfo {
 		for _, d := range file.Decls {
 			switch d := d.(type) {
 			case *ast.FuncDecl:
+				if d.Recv == nil {
+					info.lines[d.Name.Name] = fset.Position(d.Name.Pos()).Line
+				}
 				if d.Recv == nil && d.Name.IsExported() {
 					info.funcs[d.Name.Name] = true
 					if d.Type.Results != nil {

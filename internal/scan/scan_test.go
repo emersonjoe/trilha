@@ -137,7 +137,7 @@ func TestErrors(t *testing.T) {
 
 func TestErrorFormat(t *testing.T) {
 	_, errs := scanApp(t, "err_no_page_func")
-	if got := errs.Error(); got != "app/page.go: E_NO_PAGE_FUNC: page.go must export func Page(c *trilha.Ctx) (h.Node, error)" {
+	if got := errs.Error(); got != "app/page.go:3: E_NO_PAGE_FUNC: page.go must export func Page(c *trilha.Ctx) (h.Node, error); found func Render" {
 		t.Fatal(got)
 	}
 }
@@ -273,5 +273,58 @@ func TestMethodMiddleware(t *testing.T) {
 	}
 	if _, ok := api.MiddlewaresByMethod["GET"]; ok {
 		t.Errorf("/api/funis GET inherited a chain it was never given: %v", api.MiddlewaresByMethod)
+	}
+}
+
+// TestErrorsCarryLineAndFix is the contract the check command depends on
+// (spec 047): a violation says where it is and what resolves it.
+func TestErrorsCarryLineAndFix(t *testing.T) {
+	cases := []struct {
+		app, code, file string
+		line            int
+		msg, fix        string
+	}{
+		{"err_no_page_func", ErrNoPageFunc, "app/page.go", 3, "found func Render", "rename"},
+		{"err_no_method", ErrNoMethod, "app/api/route.go", 3, "found func Handle", "HTTP method"},
+		{"err_lowercase_method", ErrNoMethod, "app/api/route.go", 3, "found func get", "upper case"},
+		{"err_dup_param", ErrDuplicateParam, "app/a/id_/b/id_", 0, "id", "rename"},
+	}
+	for _, c := range cases {
+		_, errs := scanApp(t, c.app)
+		var got *Error
+		for _, e := range errs {
+			if e.Code == c.code && e.File == c.file {
+				got = e
+			}
+		}
+		if got == nil {
+			t.Errorf("%s: want %s at %s, got %v", c.app, c.code, c.file, errs)
+			continue
+		}
+		if got.Line != c.line {
+			t.Errorf("%s: line %d, want %d", c.app, got.Line, c.line)
+		}
+		if !strings.Contains(got.Msg, c.msg) {
+			t.Errorf("%s: message %q does not say %q", c.app, got.Msg, c.msg)
+		}
+		if !strings.Contains(got.Fix, c.fix) {
+			t.Errorf("%s: fix %q does not say %q", c.app, got.Fix, c.fix)
+		}
+	}
+}
+
+// TestEveryCodeHasFix keeps the promise above whole: a code without a fix is
+// a round trip the reader pays for.
+func TestEveryCodeHasFix(t *testing.T) {
+	codes := []string{
+		ErrPageAndRoute, ErrNoPageFunc, ErrNoMethod, ErrNoLayoutFunc, ErrNoMiddlewareFunc,
+		ErrUnusedMethodMW, ErrNoNotFoundFunc, ErrNoErrorFunc, ErrNoSetupFunc,
+		ErrAmbiguousSegment, ErrCatchAllNotLeaf, ErrBadSegment, ErrDuplicateRoute,
+		ErrDuplicateParam, ErrParse, ErrNoApp,
+	}
+	for _, c := range codes {
+		if fixes[c] == "" {
+			t.Errorf("%s has no fix", c)
+		}
 	}
 }
