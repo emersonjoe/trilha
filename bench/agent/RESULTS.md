@@ -1,6 +1,15 @@
 # Custo por feature de um agente
 
-**Ainda sem medição.** Rode `claude auth login` e depois `make bench-agent`; este arquivo é regravado a partir de `results.json`.
+Gerado em 2026-09-06 por `make bench-agent` — Trilha v0.32.0-5-g02aeee0, agente claude 2.1.212 (Claude Code), modelo claude-opus-4-8[1m], go1.25.1, darwin/arm64.
+
+| Cenário | Entrada | Cache lido | Saída | Rodadas | Negados | Tempo (s) | Custo (US$) | Passou |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `comments` | 67.1k | 2241.4k | 26.8k | 39 | 1 | 421 | 2.54 | 3/3 |
+| `contact-form` | 48.5k | 1074.0k | 10.5k | 30 | 2 | 185 | 1.28 | 3/3 |
+| `cognito` | 23.6k | 442.1k | 4.6k | 18 | 0 | 73 | 0.57 | 3/3 |
+| `pagination` | 30.2k | 496.2k | 6.3k | 16 | 1 | 101 | 0.71 | 3/3 |
+
+Mediana de cada coluna sobre as execuções; *Passou* é quantas execuções deixaram o teste escondido verde.
 
 ## Metodologia
 
@@ -11,9 +20,15 @@
 - **O que não conta.** Nada é descontado: um comando repetido, um arquivo aberto à toa e uma
   assinatura errada são exatamente o que a régua quer ver.
 - **Isolamento.** O agente roda com cwd numa cópia do exemplo em diretório temporário, com
-  `go.mod` próprio e `replace` para o repositório, a CLI `trilha` compilada no `PATH`, sem
-  servidores MCP, sem plugins, sem memória do usuário (`--setting-sources project`): só o que
-  está dentro do projeto conta, que é o que a #46 (`AGENTS.md`) muda.
+  `go.mod` próprio e `replace` para uma cópia somente-leitura do repositório no mesmo
+  diretório (o agente lê o framework como leria o cache de módulos, mas não o altera), a CLI
+  `trilha` compilada no `PATH`, sem servidores MCP, sem plugins, sem memória do usuário
+  (`--setting-sources project`): só o que está dentro do projeto conta, que é o que a #46
+  (`AGENTS.md`) muda.
+- **Negados.** A lista de comandos liberados cobre o que um ciclo Go precisa (`go`, `gofmt`,
+  `trilha`, `make` e utilitários de leitura). Uma recusa é o agente pedindo algo fora dela; a
+  coluna existe para que um vão na lista apareça em vez de virar custo do framework, e
+  `results.json` guarda o comando recusado.
 - **Passou.** Depois do agente, um teste escondido é copiado para a cópia e `go vet ./...` +
   `go test ./...` rodam. Verde é passou; o resto, não. O teste falha na fixture intocada, e
   `go test ./...` do módulo `bench` prova isso sem agente nenhum.

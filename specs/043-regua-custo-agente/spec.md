@@ -91,8 +91,11 @@ na fixture intocada (um teste que passa antes do agente não mede nada).
       (corrigido: cópia somente-leitura do repositório no workspace + `--add-dir`) e `echo`/
       `command -v` fora da lista (acrescentados). `results.json` passa a guardar o comando
       recusado.
-- [ ] T008 Primeira medição (exige `claude auth login` na máquina): `make bench-agent`, commit
+- [x] T008 Primeira medição (exige `claude auth login` na máquina): `make bench-agent`, commit
       de `results.json` + `RESULTS.md`, item 23 do `ROADMAP.md`, `make release VERSION=0.33.0 ISSUES="45"`.
+      Resultado: 12/12 verdes; 12 recusas residuais em 12 rodadas (`cd`, `cat > arquivo <<EOF`
+      e a CLI chamada pelo caminho absoluto), deixadas na lista de propósito: a lista fica
+      congelada para o antes × depois valer.
 
 ## Aceitação
 

@@ -18,6 +18,10 @@ versioning. This file is written in English only.
   on the untouched fixture without spending a token. Trilha before × Trilha after, never
   against another framework (#45).
 - Reference → Performance: section "Cost per feature for an agent", both locales.
+- First measurement in `bench/agent/results.json` (Claude Code 2.1.212, Opus 4.8, 12/12 runs
+  green). Median turns and wall time: `comments` 39 / 421 s, `contact-form` 30 / 185 s,
+  `cognito` 18 / 73 s, `pagination` 16 / 101 s. This is the "before" every Fase 5 item is
+  measured against.
 ## 0.32.0 — 2026-09-06
 
 ### Added
