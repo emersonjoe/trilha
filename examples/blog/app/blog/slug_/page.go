@@ -11,7 +11,7 @@ import (
 
 // Page renders one post at GET /blog/{slug}.
 func Page(c *trilha.Ctx) (h.Node, error) {
-	p, ok := posts.Get(c.Param("slug"))
+	p, ok := trilha.Use[*posts.Store](c).Get(c.Param("slug"))
 	if !ok {
 		return nil, trilha.ErrNotFound
 	}
@@ -44,7 +44,7 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 
 // DELETE is exposed for API clients; the form above uses POST.
 func DELETE(c *trilha.Ctx) error {
-	if !posts.Delete(c.Param("slug")) {
+	if !trilha.Use[*posts.Store](c).Delete(c.Param("slug")) {
 		return trilha.ErrNotFound
 	}
 	return c.Redirect("/blog")

@@ -23,10 +23,15 @@ func newClient(t *testing.T, env string) *client {
 	t.Setenv("TRILHA_ENV", env)
 	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	posts.Seed()
+	// Os posts nascem no Setup, dentro do app: cada cliente de teste tem o
+	// seu store, e nenhum teste depende da ordem em que os outros rodaram.
 	a := newApp()
 	return &client{trilha.NewTestClient(t, a), a}
 }
+
+// posts devolve o store deste app — o mesmo que as páginas recebem com
+// trilha.Use, alcançado aqui pelo app em vez de por uma requisição.
+func (c *client) posts() *posts.Store { return trilha.Use[*posts.Store](c.app) }
 
 // postForm manda o formulário no formato cru dos testes daqui; o token do CSRF
 // vai junto sozinho, como no navegador.
@@ -86,10 +91,10 @@ func TestUS1_NotFoundPageInsideLayout(t *testing.T) {
 
 func TestUS1_ErrorPageStackOnlyInDev(t *testing.T) {
 	dev := newClient(t, "dev")
-	posts.Create("boom", "x")
+	dev.posts().Create("boom", "x")
 	dev.Get("/blog/boom").WantStatus(500).WantContains("<h1>Algo deu errado</h1>", "post explodiu", "_trilha/events")
 	prod := newClient(t, "prod")
-	posts.Create("boom", "x")
+	prod.posts().Create("boom", "x")
 	rec := prod.Get("/blog/boom")
 	rec.WantStatus(500).WantContains("<h1>Algo deu errado</h1>")
 	if strings.Contains(rec.Body.String(), "post explodiu") {
@@ -139,7 +144,7 @@ func TestUS2_FormPostRedirectGetWithCSRF(t *testing.T) {
 	if rec := c.postForm("/blog/novo", "titulo=Sem+token", trilha.WithoutCSRF()); rec.Code != 403 {
 		t.Fatal(rec.Code)
 	}
-	if _, ok := posts.Get("sem-token"); ok {
+	if _, ok := c.posts().Get("sem-token"); ok {
 		t.Fatal("handler ran without CSRF")
 	}
 	c.Get("/blog/novo").WantStatus(200).WantContains(`name="_csrf"`)
@@ -409,8 +414,8 @@ func TestHealthProbesOnExample(t *testing.T) {
 		t.Fatal("detalhe vazou: " + ready.Body.String())
 	}
 	// Sem posts, a prontidão falha e o balanceador tira o processo da roda.
-	posts.Delete("ola-trilha")
-	posts.Delete("layouts")
+	c.posts().Delete("ola-trilha")
+	c.posts().Delete("layouts")
 	time.Sleep(2100 * time.Millisecond) // o resultado fica em cache por 2s
 	if rec := c.Get("/_trilha/health/ready"); rec.Code != 503 {
 		t.Fatalf("prontidão deveria falhar sem posts: %d %s", rec.Code, rec.Body.String())
@@ -426,7 +431,7 @@ func TestMetricsOnExample(t *testing.T) {
 	c := newClient(t, "prod")
 	c.Get("/")
 	c.Get("/blog")
-	posts.Create("Métrica de domínio", "corpo")
+	c.posts().Create("Métrica de domínio", "corpo")
 	if rec := c.Get("/_trilha/metrics"); rec.Code != 401 {
 		t.Fatalf("raspagem anônima: %d", rec.Code)
 	}
@@ -527,7 +532,7 @@ func TestPostRespondeComETag(t *testing.T) {
 		t.Fatalf("revalidação: %d, %d bytes", again.Code, again.Body.Len())
 	}
 
-	posts.Create("Ola Trilha", "outro corpo")
+	c.posts().Create("Ola Trilha", "outro corpo")
 	novo := c.Get("/blog/ola-trilha", trilha.WithHeader("If-None-Match", tag))
 	if novo.Code != 200 || !strings.Contains(novo.Body.String(), "outro corpo") {
 		t.Fatalf("depois de republicar: %d", novo.Code)
@@ -599,4 +604,23 @@ func TestPainelPOSTGuardadoPorMetodo(t *testing.T) {
 		t.Fatalf("POST autorizado: %d %s", rec.Code, rec.Body.String())
 	}
 	c.Get("/painel").WantStatus(200).WantContains("de 20")
+}
+
+// Spec 046 (#55): dois apps no mesmo processo não enxergam as dependências um
+// do outro. É o que o estado de pacote impedia — e é o formato de qualquer
+// suíte que sobe um servidor por teste.
+func TestDoisAppsNoMesmoProcesso(t *testing.T) {
+	um := newClient(t, "prod")
+	dois := newClient(t, "prod")
+	um.posts().Create("Só no primeiro", "corpo")
+
+	if _, ok := dois.posts().Get("so-no-primeiro"); ok {
+		t.Fatal("o segundo app enxergou o post do primeiro")
+	}
+	if body := dois.Get("/blog").Body.String(); strings.Contains(body, "Só no primeiro") {
+		t.Fatal("a lista do segundo app trouxe o post do primeiro")
+	}
+	if body := um.Get("/blog").Body.String(); !strings.Contains(body, "Só no primeiro") {
+		t.Fatal("o primeiro app perdeu o próprio post")
+	}
 }

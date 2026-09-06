@@ -14,7 +14,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	// ela. É para a pergunta que o layout e a página fazem — aqui a contagem;
 	// num app, quem está logado — sem passar o resultado de mão em mão.
 	total, err := cache.Once(c, "posts:total", func() (int, error) {
-		return posts.Count(), nil
+		return trilha.Use[*posts.Store](c).Count(), nil
 	})
 	if err != nil {
 		return nil, err

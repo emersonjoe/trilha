@@ -10,7 +10,7 @@ import (
 // Page lists posts at GET /blog.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Blog")
-	all, err := posts.Cached(c.Context())
+	all, err := trilha.Use[*posts.Store](c).Cached(c.Context())
 	if err != nil {
 		return nil, err
 	}

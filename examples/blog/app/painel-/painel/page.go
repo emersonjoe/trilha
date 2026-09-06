@@ -18,7 +18,8 @@ func init() { meta.Store(10) }
 // Page renders GET /painel.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Painel")
-	n := len(posts.All())
+	st := trilha.Use[*posts.Store](c)
+	n := len(st.All())
 	return ui.Stack(
 		h.H1(h.Class("ui-h1"), h.Text("Painel")),
 		ui.Grid(
@@ -32,7 +33,7 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 			)),
 		),
 		ui.Tabs("painel-tabs",
-			ui.Tab{Label: "Recentes", Content: h.Ul(h.Map(posts.All(), func(p posts.Post) h.Node { return h.Li(h.A(h.Href("/blog/"+p.Slug), h.Text(p.Title))) }))},
+			ui.Tab{Label: "Recentes", Content: h.Ul(h.Map(st.All(), func(p posts.Post) h.Node { return h.Li(h.A(h.Href("/blog/"+p.Slug), h.Text(p.Title))) }))},
 			ui.Tab{Label: "Ajuda", Content: h.P(h.Text("Abas, cards e barra de progresso vêm do kit ui."))},
 		),
 	), nil

@@ -64,20 +64,25 @@ func Setup(a *trilha.App) error {
 	// O cache é do app, não do framework: quem o cria decide o teto, o nome
 	// que aparece em /metrics e quem enxerga a variável. Aqui ele vive no
 	// pacote que produz as listas, ao lado das escritas que o derrubam.
-	posts.Cache = cache.New(cache.Options{Name: "posts", MaxEntries: 500, Metrics: a.Metrics()})
-	posts.Seed()
+	// As dependências do app são valores do app, não estado de pacote: assim
+	// uma suíte que sobe um servidor por teste dá a cada um o seu store, e
+	// nenhum teste vê o cache do outro.
+	store := posts.New()
+	store.Cache = cache.New(cache.Options{Name: "posts", MaxEntries: 500, Metrics: a.Metrics()})
+	store.Seed()
+	trilha.Provide(a, store)
 	a.Values()["site"] = "Trilha Blog"
 	// Prontidão: o app só serve depois que o "banco" (aqui, a memória de
 	// posts) responde. A verificação tem prazo e o resultado fica em cache,
 	// então a sonda não vira carga.
 	a.Check("posts", func(ctx context.Context) error {
-		if posts.Count() == 0 {
+		if store.Count() == 0 {
 			return errors.New("nenhum post carregado")
 		}
 		return nil
 	})
 	// Métrica de domínio: aparece na raspagem junto com as do framework.
-	posts.Published = a.Metrics().Counter("blog_posts_total", "Posts publicados desde o início do processo.")
+	store.Published = a.Metrics().Counter("blog_posts_total", "Posts publicados desde o início do processo.")
 	// Limite global brando; /api tem o seu próprio em app/api/middleware.go.
 	a.Security().CSPExtra = map[string][]string{"img-src": {"https:"}}
 	return nil

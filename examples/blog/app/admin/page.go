@@ -11,9 +11,12 @@ import (
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Admin")
 	user, _ := c.Get("user").(string)
+	// As dependências do app chegam pelo tipo: quem as põe é o Setup, com
+	// trilha.Provide, e nenhuma página precisa saber de nome de chave.
+	st := trilha.Use[*posts.Store](c)
 	return ui.Stack(
 		ui.Row(ui.Avatar("AD", ""), h.H1(h.Class("ui-h1"), h.Textf("Olá, %s", user))),
-		h.P(h.Textf("%d posts publicados.", len(posts.All()))),
+		h.P(h.Textf("%d posts publicados.", len(st.All()))),
 		h.Form(h.Method("post"), h.Action("/login"), trilha.CSRFInput(c),
 			h.Input(h.Type("hidden"), h.Name("sair"), h.Value("1")),
 			ui.Submit(ui.Outline(), h.Text("Sair"))),

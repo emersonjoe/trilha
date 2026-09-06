@@ -32,7 +32,7 @@ func POST(c *trilha.Ctx) error {
 		}
 		return c.Render(http.StatusUnprocessableEntity, formulario(c, in, errs))
 	}
-	p := posts.Create(in.Titulo, in.Corpo)
+	p := trilha.Use[*posts.Store](c).Create(in.Titulo, in.Corpo)
 	return c.Redirect("/blog/" + p.Slug)
 }
 

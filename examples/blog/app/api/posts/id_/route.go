@@ -11,7 +11,7 @@ import (
 //
 // openapi:response 429
 func GET(c *trilha.Ctx) error {
-	p, ok := posts.Get(c.Param("id"))
+	p, ok := trilha.Use[*posts.Store](c).Get(c.Param("id"))
 	if !ok {
 		return trilha.ErrNotFound
 	}
@@ -22,7 +22,7 @@ func GET(c *trilha.Ctx) error {
 //
 // openapi:response 429
 func DELETE(c *trilha.Ctx) error {
-	if !posts.Delete(c.Param("id")) {
+	if !trilha.Use[*posts.Store](c).Delete(c.Param("id")) {
 		return trilha.ErrNotFound
 	}
 	c.Writer().WriteHeader(http.StatusNoContent)

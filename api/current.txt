@@ -23,6 +23,7 @@ pkg trilha, func New(Config) *App
 pkg trilha, func NewSigner(...[]byte) *Signer
 pkg trilha, func NewTestClient(TestingT, *App) *TestClient
 pkg trilha, func NonceAttr(*Ctx) h.Node
+pkg trilha, func Provide[T any](*App, T)
 pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
 pkg trilha, func RedirectCode(string, int) error
@@ -32,6 +33,7 @@ pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse
 pkg trilha, func TestRequest(TestingT, *App, string, string, ...TestOption) *TestResponse
 pkg trilha, func TestRoute(TestingT, Route, string, string, ...TestOption) *TestResponse
 pkg trilha, func UseValidationPTBR()
+pkg trilha, func Use[T any](Bag) T
 pkg trilha, func WithApp(*App) TestOption
 pkg trilha, func WithBody(string, string) TestOption
 pkg trilha, func WithCookie(string, string) TestOption
@@ -154,6 +156,7 @@ pkg trilha, method (FieldErrors) Get(string) string
 pkg trilha, method (FieldErrors) Has(string) bool
 pkg trilha, method (FieldErrors) OrNil() error
 pkg trilha, type App struct
+pkg trilha, type Bag interface
 pkg trilha, type CORS struct
 pkg trilha, type CORS struct, Credentials bool
 pkg trilha, type CORS struct, Expose []string

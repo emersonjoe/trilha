@@ -25,6 +25,6 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	}
 	return tmpl.Node(t, name, map[string]any{
 		"Titulo": "Relatório <de posts>",
-		"Posts":  posts.All(),
+		"Posts":  trilha.Use[*posts.Store](c).All(),
 	}), nil
 }

@@ -13,6 +13,7 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
 	"sync"
 	"syscall"
@@ -339,8 +340,51 @@ func (a *App) applyConfig() {
 func (a *App) Env() Env { return a.cfg.Env }
 
 // Values is a process-wide bag filled by Setup (database pools, caches...).
-// Prefer package-level variables in your own packages; this exists for glue.
+// Provide and Use are the typed door to it; this one is the glue for what has
+// no type of its own.
 func (a *App) Values() map[string]any { return a.values }
+
+// typeKey names the slot of T in the values bag. It carries the package, so
+// *farol.Deps and *crm.Deps are different keys, and it is derived, not typed
+// by hand, which is the whole point.
+func typeKey[T any]() string { return reflect.TypeOf((*T)(nil)).Elem().String() }
+
+// Provide stores v as the app's dependency of its type, for Use to find. The
+// place for it is Setup, which runs once, before the server:
+//
+//	trilha.Provide(a, &Deps{Pool: pool, Cfg: cfg})
+//
+// The values live in the App, not in a package variable, so a test suite that
+// boots one server per test gives each one its own pool. Providing the same
+// type twice replaces it.
+func Provide[T any](a *App, v T) { a.values[typeKey[T]()] = v }
+
+// Bag is where Use reads from: a *Ctx in a handler, an *App in Setup or in a
+// test that has to reach what it provided. Only those two implement it.
+type Bag interface{ bag() map[string]any }
+
+func (a *App) bag() map[string]any { return a.values }
+func (c *Ctx) bag() map[string]any { return c.app.values }
+
+// Use returns what Setup provided for T:
+//
+//	d := trilha.Use[*Deps](c)
+//
+// It panics, naming the type, when nothing was provided — the alternative is
+// the zero value travelling until it is dereferenced somewhere else, which is
+// a crash that says nothing about its cause.
+func Use[T any](b Bag) T {
+	k := typeKey[T]()
+	v, ok := b.bag()[k]
+	if !ok {
+		panic("trilha: nothing provided for " + k + "; call trilha.Provide(a, ...) in Setup")
+	}
+	t, ok := v.(T)
+	if !ok {
+		panic("trilha: value provided for " + k + " is a " + reflect.TypeOf(v).String())
+	}
+	return t
+}
 
 // Logger returns the app logger.
 func (a *App) Logger() *slog.Logger { return a.log }
