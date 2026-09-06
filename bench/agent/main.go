@@ -26,15 +26,16 @@ func main() {
 		dry      = flag.Bool("dry", false, "build every fixture and prove the hidden test fails; no agent")
 		render   = flag.Bool("render", false, "only rewrite -md from -out")
 		list     = flag.Bool("list", false, "print the scenarios and exit")
+		agentsMD = flag.Bool("agents", false, "write AGENTS.md into every fixture, as `trilha new --agents` does")
 	)
 	flag.Parse()
-	if err := run(*scenario, *runs, *model, *agent, *maxTurns, *timeout, *out, *md, *keep, *dry, *render, *list); err != nil {
+	if err := run(*scenario, *runs, *model, *agent, *maxTurns, *timeout, *out, *md, *keep, *dry, *render, *list, *agentsMD); err != nil {
 		fmt.Fprintln(os.Stderr, "agent:", err)
 		os.Exit(1)
 	}
 }
 
-func run(scenario string, runs int, model, agent string, maxTurns int, timeout time.Duration, out, md string, keep, dry, render, list bool) error {
+func run(scenario string, runs int, model, agent string, maxTurns int, timeout time.Duration, out, md string, keep, dry, render, list, agentsMD bool) error {
 	all := Scenarios()
 	if list {
 		for _, s := range all {
@@ -80,7 +81,7 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 	if dry {
 		for _, s := range selected {
 			dir := filepath.Join(work, s.Name)
-			if err := Build(repo, s, dir); err != nil {
+			if err := Build(repo, s, dir, agentsMD); err != nil {
 				return err
 			}
 			if err := Vet(dir); err != nil {
@@ -91,6 +92,9 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 			cancel()
 			if ok {
 				return fmt.Errorf("%s: the hidden test passes on the untouched fixture; it measures nothing", s.Name)
+			}
+			if BrokenRuler(why) {
+				return fmt.Errorf("%s: the fixture does not compile with the hidden test; the ruler is broken, not the feature:\n%s", s.Name, why)
 			}
 			fmt.Printf("%-14s verify: FAIL (expected) — %s\n", s.Name, failLine(why))
 			if keep {
@@ -110,7 +114,7 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 	for _, s := range selected {
 		for n := 1; n <= runs; n++ {
 			dir := filepath.Join(work, fmt.Sprintf("%s-%d", s.Name, n))
-			if err := Build(repo, s, dir); err != nil {
+			if err := Build(repo, s, dir, agentsMD); err != nil {
 				return err
 			}
 			fmt.Printf("%-14s run %d/%d … ", s.Name, n, runs)
@@ -120,7 +124,7 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 				cancel()
 				return err
 			}
-			r := Run{Scenario: s.Name, N: n, At: time.Now().UTC(), Usage: u, Summary: summary(raw)}
+			r := Run{Scenario: s.Name, N: n, At: time.Now().UTC(), Variant: variant(agentsMD), Usage: u, Summary: summary(raw)}
 			// The raw result lives next to the fixture: with -keep it is
 			// there to read, without it it goes with the rest.
 			_ = os.WriteFile(dir+".agent.json", raw, 0o644)

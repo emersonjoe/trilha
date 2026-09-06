@@ -1,5 +1,5 @@
 {
-  "trilha": "v0.32.0-5-g02aeee0",
+  "trilha": "v0.33.0-1-g926a20e-dirty",
   "agent": "claude 2.1.212 (Claude Code)",
   "model": "claude-opus-4-8[1m]",
   "machine": "go1.25.1, darwin/arm64",
@@ -234,6 +234,254 @@
       },
       "passed": true,
       "summary": "Both green. Done."
+    },
+    {
+      "scenario": "comments",
+      "n": 1,
+      "variant": "agents",
+      "at": "2026-09-06T16:14:52.933691Z",
+      "usage": {
+        "input": 80655,
+        "cache_read": 2156498,
+        "output": 23273,
+        "turns": 47,
+        "duration_ms": 376304,
+        "cost_usd": 2.466254,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 3,
+        "denied": [
+          "Bash: /var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T/trilha-agen…",
+          "Bash: /var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T/trilha-agen…",
+          "Bash: PATH=\"/var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T/trilh…"
+        ]
+      },
+      "passed": true,
+      "summary": "Both gates are green. Here's what I built."
+    },
+    {
+      "scenario": "comments",
+      "n": 2,
+      "variant": "agents",
+      "at": "2026-09-06T16:17:35.92517Z",
+      "usage": {
+        "input": 29000,
+        "cache_read": 750169,
+        "output": 9032,
+        "turns": 21,
+        "duration_ms": 157309,
+        "cost_usd": 0.8906845000000001,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 3,
+        "denied": [
+          "Bash: /var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T/trilha-agen…",
+          "Bash: /var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T/trilha-agen…",
+          "Bash: cd \"$PWD\" \u0026\u0026 \"/var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn…"
+        ]
+      },
+      "passed": true,
+      "summary": "Pronto. A API de comentários está no ar, com teste verde e `go vet`/`go test ./...` limpos."
+    },
+    {
+      "scenario": "comments",
+      "n": 3,
+      "variant": "agents",
+      "at": "2026-09-06T16:23:09.683451Z",
+      "usage": {
+        "input": 51663,
+        "cache_read": 1573056,
+        "output": 20086,
+        "turns": 32,
+        "duration_ms": 328500,
+        "cost_usd": 1.8050079999999997,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 3,
+        "denied": [
+          "Bash: (command -v trilha \u0026\u0026 trilha gen) 2\u003e\u00261 | head -30 || echo \"n…",
+          "Bash: cd /private/var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T/…",
+          "Bash: trilha gen --check \u0026\u0026 echo \"GEN_OK\" \u0026\u0026 (make test 2\u003e\u00261 | tai…"
+        ]
+      },
+      "passed": true,
+      "summary": "`make test` não existe neste projeto (a menção em AGENTS.md é do template genérico); a verificação real é `go test ./...`, que passa. Está tudo pronto."
+    },
+    {
+      "scenario": "contact-form",
+      "n": 1,
+      "variant": "agents",
+      "at": "2026-09-06T16:25:49.277595Z",
+      "usage": {
+        "input": 23636,
+        "cache_read": 893277,
+        "output": 8716,
+        "turns": 27,
+        "duration_ms": 154762,
+        "cost_usd": 0.9006435,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 3,
+        "denied": [
+          "Bash: cd \"/var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T/trilha-…",
+          "Bash: cd \"/private/var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T…",
+          "Bash: cd \"/private/var/folders/xd/vy0xsb2j23g5mxx8d4gw75tm0000gn/T…"
+        ]
+      },
+      "passed": true,
+      "summary": "Pronto. Adicionei a página `/contato`."
+    },
+    {
+      "scenario": "contact-form",
+      "n": 2,
+      "variant": "agents",
+      "at": "2026-09-06T16:27:54.381399Z",
+      "usage": {
+        "input": 19221,
+        "cache_read": 581206,
+        "output": 6928,
+        "turns": 19,
+        "duration_ms": 120066,
+        "cost_usd": 0.6558330000000001,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 1,
+        "denied": [
+          "Bash: cat \u003e /private/tmp/claude-501/-private-var-folders-xd-vy0xsb…"
+        ]
+      },
+      "passed": true,
+      "summary": "Pronto. Adicionei a página `/contato` ao blog."
+    },
+    {
+      "scenario": "contact-form",
+      "n": 3,
+      "variant": "agents",
+      "at": "2026-09-06T16:29:55.686205Z",
+      "usage": {
+        "input": 32955,
+        "cache_read": 592110,
+        "output": 7233,
+        "turns": 25,
+        "duration_ms": 116119,
+        "cost_usd": 0.806295,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 0
+      },
+      "passed": true,
+      "summary": "Pronto. Adicionei a página `/contato` ao blog."
+    },
+    {
+      "scenario": "cognito",
+      "n": 1,
+      "variant": "agents",
+      "at": "2026-09-06T16:31:13.501889Z",
+      "usage": {
+        "input": 22911,
+        "cache_read": 384702,
+        "output": 4536,
+        "turns": 17,
+        "duration_ms": 72675,
+        "cost_usd": 0.534761,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 0
+      },
+      "passed": true,
+      "summary": "Pronto. Troquei o provedor de Keycloak para AWS Cognito usando o pacote `auth` do Trilha, `go vet ./...` e `go test ./...` estão verdes."
+    },
+    {
+      "scenario": "cognito",
+      "n": 2,
+      "variant": "agents",
+      "at": "2026-09-06T16:32:36.731077Z",
+      "usage": {
+        "input": 18621,
+        "cache_read": 387399,
+        "output": 4189,
+        "turns": 13,
+        "duration_ms": 80265,
+        "cost_usd": 0.4845095,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 1,
+        "denied": [
+          "Bash: for f in internal/sso/sso.go app/setup.go app/page.go app/en…"
+        ]
+      },
+      "passed": true,
+      "summary": "Both green. Done."
+    },
+    {
+      "scenario": "cognito",
+      "n": 3,
+      "variant": "agents",
+      "at": "2026-09-06T16:33:45.923608Z",
+      "usage": {
+        "input": 18158,
+        "cache_read": 358100,
+        "output": 3445,
+        "turns": 12,
+        "duration_ms": 67138,
+        "cost_usd": 0.44664000000000004,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 0
+      },
+      "passed": true,
+      "summary": "Pronto. `go vet ./...` e `go test ./...` verdes."
+    },
+    {
+      "scenario": "pagination",
+      "n": 1,
+      "variant": "agents",
+      "at": "2026-09-06T16:34:51.771948Z",
+      "usage": {
+        "input": 16691,
+        "cache_read": 331114,
+        "output": 3839,
+        "turns": 16,
+        "duration_ms": 60436,
+        "cost_usd": 0.42832699999999996,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 1,
+        "denied": [
+          "Bash: cat go.mod; echo \"---GOMODCACHE---\"; go env GOMODCACHE GOFLA…"
+        ]
+      },
+      "passed": true,
+      "summary": "Both green. `go vet ./...` passes and `go test ./...` is all `ok`."
+    },
+    {
+      "scenario": "pagination",
+      "n": 2,
+      "variant": "agents",
+      "at": "2026-09-06T16:36:06.226645Z",
+      "usage": {
+        "input": 15869,
+        "cache_read": 331673,
+        "output": 3909,
+        "turns": 12,
+        "duration_ms": 69540,
+        "cost_usd": 0.4221365,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 0
+      },
+      "passed": true,
+      "summary": "Both `go vet ./...` and `go test ./...` are green."
+    },
+    {
+      "scenario": "pagination",
+      "n": 3,
+      "variant": "agents",
+      "at": "2026-09-06T16:38:07.22811Z",
+      "usage": {
+        "input": 17108,
+        "cache_read": 429992,
+        "output": 4687,
+        "turns": 15,
+        "duration_ms": 116047,
+        "cost_usd": 0.5031059999999999,
+        "model": "claude-opus-4-8[1m]",
+        "denials": 1,
+        "denied": [
+          "WebFetch"
+        ]
+      },
+      "passed": true,
+      "summary": "Both `go vet ./...` and `go test ./...` are green."
     }
   ]
 }

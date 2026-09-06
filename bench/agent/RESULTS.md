@@ -1,6 +1,8 @@
 # Custo por feature de um agente
 
-Gerado em 2026-09-06 por `make bench-agent` — Trilha v0.32.0-5-g02aeee0, agente claude 2.1.212 (Claude Code), modelo claude-opus-4-8[1m], go1.25.1, darwin/arm64.
+Gerado em 2026-09-06 por `make bench-agent` — Trilha v0.33.0-1-g926a20e-dirty, agente claude 2.1.212 (Claude Code), modelo claude-opus-4-8[1m], go1.25.1, darwin/arm64.
+
+### Sem `AGENTS.md`
 
 | Cenário | Entrada | Cache lido | Saída | Rodadas | Negados | Tempo (s) | Custo (US$) | Passou |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -8,6 +10,28 @@ Gerado em 2026-09-06 por `make bench-agent` — Trilha v0.32.0-5-g02aeee0, agent
 | `contact-form` | 48.5k | 1074.0k | 10.5k | 30 | 2 | 185 | 1.28 | 3/3 |
 | `cognito` | 23.6k | 442.1k | 4.6k | 18 | 0 | 73 | 0.57 | 3/3 |
 | `pagination` | 30.2k | 496.2k | 6.3k | 16 | 1 | 101 | 0.71 | 3/3 |
+
+### Com `AGENTS.md` (`trilha new --agents`)
+
+| Cenário | Entrada | Cache lido | Saída | Rodadas | Negados | Tempo (s) | Custo (US$) | Passou |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `comments` | 51.7k | 1573.1k | 20.1k | 32 | 3 | 328 | 1.81 | 3/3 |
+| `contact-form` | 23.6k | 592.1k | 7.2k | 25 | 1 | 120 | 0.81 | 3/3 |
+| `cognito` | 18.6k | 384.7k | 4.2k | 13 | 0 | 73 | 0.48 | 3/3 |
+| `pagination` | 16.7k | 331.7k | 3.9k | 15 | 1 | 70 | 0.43 | 3/3 |
+
+### Diferença
+
+| Cenário | Rodadas | Cache lido | Tempo | Custo |
+|---|---:|---:|---:|---:|
+| `comments` | -18% | -30% | -22% | -29% |
+| `contact-form` | -17% | -45% | -35% | -37% |
+| `cognito` | -28% | -13% | -1% | -15% |
+| `pagination` | -6% | -33% | -31% | -40% |
+
+Negativo é menos: menos rodadas, menos tokens, menos tempo, menos dinheiro.
+
+As duas tabelas medem a **mesma** fixture, com o `AGENTS.md` como única diferença. Quando o exemplo muda de forma, a comparação morre e a linha de base tem que ser remedida — uma tabela contra outro exemplo mediria a troca do exemplo.
 
 Mediana de cada coluna sobre as execuções; *Passou* é quantas execuções deixaram o teste escondido verde.
 
@@ -36,6 +60,9 @@ Mediana de cada coluna sobre as execuções; *Passou* é quantas execuções dei
   cada coluna e quantas execuções passaram.
 - **Antes × depois.** A comparação é sempre Trilha contra Trilha: mesma tarefa, mesmo
   agente, mesmo modelo, versões diferentes. Nunca contra outro framework (spec 011).
+- **Duas fixtures.** `make bench-agent` mede o projeto cru; `make bench-agent-agents` mede o
+  mesmo projeto com o `AGENTS.md` que a 0.36.0 escreve (`trilha new --agents`). Cada uma tem
+  sua tabela e sua mediana; a seção *Diferença* é a segunda contra a primeira.
 - **Reproduzir.** `claude auth login`, depois `make bench-agent` (12 execuções, dezenas de minutos e
   custo real). `make bench-agent-dry` monta os cenários sem gastar token.
 

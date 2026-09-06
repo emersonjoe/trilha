@@ -92,7 +92,7 @@ func TestFixturesFailWithoutTheAgent(t *testing.T) {
 		s := s
 		t.Run(s.Name, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "proj")
-			if err := Build(repo, s, dir); err != nil {
+			if err := Build(repo, s, dir, false); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := os.Stat(filepath.Join(dir, ".trilha")); err == nil {
@@ -107,8 +107,11 @@ func TestFixturesFailWithoutTheAgent(t *testing.T) {
 			if ok {
 				t.Fatal("the hidden test passes on the untouched fixture; it measures nothing")
 			}
-			if !strings.Contains(why, "FAIL") && !strings.Contains(why, "undefined") && !strings.Contains(why, "cannot") {
-				t.Fatalf("unexpected verify output: %s", why)
+			if BrokenRuler(why) {
+				t.Fatalf("the fixture does not compile with the hidden test beside it, so a run would measure the agent repairing the ruler: %s", why)
+			}
+			if !strings.Contains(why, "--- FAIL") {
+				t.Fatalf("the hidden test did not run and fail; verify said: %s", why)
 			}
 		})
 	}

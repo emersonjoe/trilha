@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/emersonjoe/trilha/internal/scaffold"
 )
 
 // Module is the import path of every copy: the example moves out of the
@@ -20,7 +22,7 @@ func Module(sc Scenario) string { return "example.com/" + filepath.Base(sc.Examp
 // Build copies the scenario's example into dir as a module of its own,
 // pointing at the repo, and applies the scenario's preparation. Imports of
 // the example's old path are rewritten to the new module on the way.
-func Build(repo string, sc Scenario, dir string) error {
+func Build(repo string, sc Scenario, dir string, agents bool) error {
 	src := filepath.Join(repo, filepath.FromSlash(sc.Example))
 	old := "github.com/emersonjoe/trilha/" + sc.Example
 	if err := copyTree(src, dir, old, Module(sc)); err != nil {
@@ -29,6 +31,13 @@ func Build(repo string, sc Scenario, dir string) error {
 	gomod := fmt.Sprintf("module %s\n\ngo 1.22\n\nrequire github.com/emersonjoe/trilha v0.0.0\n\nreplace github.com/emersonjoe/trilha => %s\n", Module(sc), repo)
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
 		return err
+	}
+	// The AGENTS.md of spec 044, exactly as `trilha new --agents` writes it:
+	// this is the one variable the ruler is measuring here.
+	if agents {
+		if _, err := scaffold.WriteAgents(dir, scaffold.Data{Name: filepath.Base(sc.Example)}, false); err != nil {
+			return err
+		}
 	}
 	if sc.Prepare != nil {
 		return sc.Prepare(dir)
@@ -77,6 +86,15 @@ func Verify(ctx context.Context, dir string, sc Scenario) (bool, string) {
 	}
 	return true, ""
 }
+
+// BrokenRuler reports whether a Verify failure on an *untouched* fixture is
+// the harness and not the feature. The hidden tests talk to the app over HTTP
+// (trilha.TestRequest) and name no symbol the agent has to write, so on a
+// fixture nobody edited `go vet` has nothing to complain about: a failure
+// there means the fixture stopped compiling with the hidden test beside it,
+// and a run on it would measure the agent fixing the ruler. After the agent
+// has written code, a vet failure is the agent's own and this says nothing.
+func BrokenRuler(why string) bool { return strings.HasPrefix(why, "go vet ./...: ") }
 
 // Vet is the sanity check of a fixture before any agent touches it.
 func Vet(dir string) error {
