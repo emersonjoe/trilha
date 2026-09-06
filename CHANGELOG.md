@@ -41,6 +41,8 @@ versioning. This file is written in English only.
   it on reads. A method middleware that no route in the subtree serves is an error,
   `E_UNUSED_METHOD_MIDDLEWARE`: a rule that guards nothing is worse than no rule. The route
   inspector in `trilha dev` lists the per-method chains next to the route-wide ones.
+
+### Fixed
 - **`app/error.go` answers every status, not only 500**
   ([#53](https://github.com/emersonjoe/trilha/issues/53)). A 403, a 401, a 409 or a 422 that
   reaches the framework now renders the app's own error page at its own status, wrapped by
