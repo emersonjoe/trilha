@@ -131,7 +131,8 @@ func (es Errors) Error() string {
 	return sb.String()
 }
 
-// Ref points at an exported function in a route package.
+// Ref points at an exported function (or, for Kind, an exported variable) in a
+// route package.
 type Ref struct {
 	Alias      string
 	ImportPath string
@@ -147,8 +148,13 @@ type Route struct {
 	Alias      string
 	Methods    []string // sorted
 	HasPage    bool
-	// HasKind is true when route.go exports `var Kind = trilha.KindPage|KindAPI`.
-	HasKind bool
+	// KindRef points at the `var Kind = trilha.KindPage|KindAPI` that decides
+	// this route: the one in its own package, or the nearest one above it.
+	// Kind is inherited down the subtree like Layout and Middleware are, and
+	// the deepest declaration wins. Nil for a route that no Kind reaches, and
+	// always nil for a page route: a page.go is a page whatever a branch of
+	// APIs above it says.
+	KindRef *Ref
 	// HasCORS is true when route.go exports `var CORS = trilha.CORS{...}`: the
 	// cross-origin policy of this route alone, preflight included.
 	HasCORS     bool
@@ -213,7 +219,7 @@ func Scan(root, module string) (*Result, error) {
 		return nil, Errors{{File: "app", Code: ErrNoApp, Msg: "app/ directory not found"}}
 	}
 	s := &scanner{root: root, module: module, aliases: map[string]bool{}, imports: map[string]string{}}
-	s.walk(appDir, "app", nil, nil, nil, nil)
+	s.walk(appDir, "app", nil, nil, nil, nil, nil)
 	s.res.Module = module
 	s.res.AppDir = "app"
 	if st, err := os.Stat(filepath.Join(root, "public")); err == nil && st.IsDir() {
@@ -362,7 +368,7 @@ func (s *scanner) hiddenRoutes(abs, rel, name string) {
 }
 
 // walk visits one directory. rel is slash-separated relative to root.
-func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMethod map[string][]Ref) {
+func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMethod map[string][]Ref, kind *Ref) {
 	files, err := os.ReadDir(abs)
 	if err != nil {
 		s.errf(rel, ErrParse, "%v", err)
@@ -410,6 +416,12 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 			other, line := pkg.instead("Layout")
 			s.errf(rel+"/layout.go", ErrNoLayoutFunc, "layout.go must export func Layout(c *trilha.Ctx, children h.Node) (h.Node, error)%s", other).at(line)
 		}
+	}
+	// Kind for this subtree (own dir included). Unlike Layout and Middleware it
+	// is a variable, so any file of the package declares it; kind.go is where a
+	// directory with no route.go of its own says it.
+	if pkg.vars["Kind"] {
+		kind = &Ref{Alias: alias, ImportPath: importPath, Func: "Kind"}
 	}
 	if present["middleware.go"] {
 		found := false
@@ -482,7 +494,10 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 			}
 		} else {
 			r.Kind = "api"
-			r.HasKind = pkg.vars["Kind"]
+			r.KindRef = kind
+			if kind != nil {
+				s.use(kind.Alias, kind.ImportPath)
+			}
 			r.HasCORS = pkg.vars["CORS"]
 			r.Layouts = nil
 			for _, m := range Methods {
@@ -533,7 +548,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 				continue
 			}
 		}
-		s.walk(filepath.Join(abs, d), rel+"/"+d, childSegs, layouts, mws, byMethod)
+		s.walk(filepath.Join(abs, d), rel+"/"+d, childSegs, layouts, mws, byMethod, kind)
 	}
 	if dynamic > 1 {
 		s.errf(rel, ErrAmbiguousSegment, "more than one dynamic directory (name_ or name__) at the same level is ambiguous")

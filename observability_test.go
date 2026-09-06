@@ -103,3 +103,50 @@ func TestHealthEndpointsDoNotSetCookiesOrCSRF(t *testing.T) {
 		t.Fatal("hardening headers still apply")
 	}
 }
+
+// Spec 055 (#42): the access record carries both the concrete path and the
+// route template. An app with an id in the URL writes one path per record and
+// one route per screen; whoever investigates a case wants the first, whoever
+// aggregates wants the second, and rebuilding the second from the first with a
+// regular expression outside the app is the cardinality problem this exists to
+// avoid. What the fallback answered has no template, and says so with an empty
+// field rather than by inventing one out of user input.
+func TestAccessLogCarriesPathAndRoute(t *testing.T) {
+	var buf strings.Builder
+	a := New(Config{Env: Prod, Logger: slog.New(slog.NewTextHandler(&buf, nil))})
+	a.Register(Route{Pattern: "/blog/{slug}", Methods: map[string]HandlerFunc{"GET": func(c *Ctx) error {
+		return c.Text(200, c.Pattern())
+	}}})
+	rec := get(t, a, "GET", "/blog/ola-mundo", "", nil)
+	if rec.Body.String() != "/blog/{slug}" {
+		t.Fatalf("c.Pattern() = %q", rec.Body.String())
+	}
+	line := buf.String()
+	if !strings.Contains(line, "path=/blog/ola-mundo") || !strings.Contains(line, "route=/blog/{slug}") {
+		t.Fatalf("access record without both fields: %s", line)
+	}
+	buf.Reset()
+	if rec := get(t, a, "GET", "/nao-existe", "", nil); rec.Code != 404 {
+		t.Fatalf("expected the fallback: %d", rec.Code)
+	}
+	if strings.Contains(buf.String(), "route=/") {
+		t.Fatalf("the fallback has no template to report: %s", buf.String())
+	}
+}
+
+// Spec 055 (#42): the template is there from the first middleware, which is
+// what a bridge to code that already exists needs — it runs before the handler
+// and used to have to be told its own route as a string.
+func TestPatternIsReadableFromMiddleware(t *testing.T) {
+	a := New(Config{Env: Prod, Logger: quiet()})
+	var seen string
+	a.Register(Route{
+		Pattern:     "/v/{viagemId}/orcamento",
+		Middlewares: []MiddlewareFunc{func(c *Ctx, next Next) error { seen = c.Pattern(); return next() }},
+		Methods:     map[string]HandlerFunc{"GET": func(c *Ctx) error { return c.Text(200, "ok") }},
+	})
+	get(t, a, "GET", "/v/cmtkldayg000527g3e2mkw51p/orcamento", "", nil)
+	if seen != "/v/{viagemId}/orcamento" {
+		t.Fatalf("middleware saw %q", seen)
+	}
+}

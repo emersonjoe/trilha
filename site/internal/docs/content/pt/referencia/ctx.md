@@ -15,6 +15,7 @@ usado por outra goroutine depois que o handler devolve.
 | `SetRequest(*http.Request)` | troca a requisição (URL reescrita, corpo embrulhado) |
 | `Context() context.Context` | contexto da requisição (cancelamento) |
 | `Param(nome) string` | parâmetro de rota (`slug_` → `"slug"`) |
+| `Pattern() string` | o gabarito da rota que casou (`/blog/{slug}`), a forma agregável do caminho; `""` para o que o fallback respondeu (estático, 404, redirecionamento de barra) |
 | `Query(nome) string` | primeiro valor do parâmetro de query |
 | `Form(nome) string` | campo do formulário (faz o parse sob demanda, com limite de tamanho) |
 | `FormErr() error` | erro do parse do formulário: 400 inválido, 413 grande demais |

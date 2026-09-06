@@ -26,9 +26,11 @@ The column is decided per route; the `Accept` header is the tie-breaker, ranked 
   under `/api/` shows the error page to a browser just like any other.
 - An absent `Accept`, or `*/*` (`fetch`, `curl`), is not a preference: the kind of the route
   decides.
-- `route.go` can pin the behaviour by exporting `var Kind = trilha.KindPage` (always a page,
-  and CSRF required on `POST`/`PUT`/`PATCH`/`DELETE`) or `trilha.KindAPI` (always
-  `problem+json`, whatever `Accept` says).
+- `var Kind = trilha.KindPage` (always a page, and CSRF required on
+  `POST`/`PUT`/`PATCH`/`DELETE`) or `trilha.KindAPI` (always `problem+json`, whatever `Accept`
+  says) pins the behaviour. It is inherited by the whole subtree, so a `kind.go` at the root
+  of a branch decides every `route.go` below it; see
+  [File conventions](/reference/conventions#kind-follows-the-subtree).
 - With no route at all (404), there is no kind to ask: `Accept` decides, and when it is
   silent the `/api/` prefix is the last resort.
 

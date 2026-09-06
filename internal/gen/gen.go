@@ -88,8 +88,8 @@ func {{.Ctor}}() *trilha.App {
 {{- if .HasPage}}
 		Page: {{.Alias}}.Page,
 {{- end}}
-{{- if .HasKind}}
-		Kind: {{.Alias}}.Kind,
+{{- if .KindRef}}
+		Kind: {{.KindRef.Alias}}.{{.KindRef.Func}},
 {{- end}}
 {{- if .HasCORS}}
 		CORS: &{{.Alias}}.CORS,

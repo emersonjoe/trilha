@@ -55,7 +55,9 @@ leia essa frase em vez de adivinhar.
 - **Não ponha segredo no código.** Leia do ambiente. O `trilha audit` falha em literal com cara
   de chave.
 - **Não escreva seu próprio CSRF, assinatura de sessão ou escape de HTML.** Os três já existem e
-  já vêm ligados.
+  já vêm ligados. A exceção é a escrita que mora num `route.go`: `route.go` é API, e API não
+  confere o token, então ponha `var Kind = trilha.KindPage` num `kind.go` na raiz daquele ramo —
+  ele é herdado por tudo abaixo, e o `trilha audit` aponta a escrita que nenhum `Kind` alcança.
 - **Não invente um cookie de flash nem um `onclick="return confirm()"`.** Depois de um `POST`,
   conte o que aconteceu com `c.Flash(ui.FlashSuccess, "…")` — o `ui.Flashes(c)` do layout mostra
   na página onde o redirect cai — e pergunte antes de destruir com `ui.Confirm(título,

@@ -127,3 +127,9 @@ a do Trilha, vira aviso: um segredo que não assina nada entra no `.env`, no dep
 rotação, e no dia em que alguém o girar não acontece nada — que é a pior coisa que um
 segredo pode ensinar. Definido e curto demais segue crítico nos dois casos: quem definiu
 quis usar.
+
+Ele também avisa da escrita que nenhum `Kind` alcança. Um `route.go` é API, e API não confere
+o token de CSRF, então uma rota de `POST` num app que também serve páginas quase sempre quer
+`var Kind = trilha.KindPage` num `kind.go` acima dela — uma linha para o ramo inteiro, veja
+[Convenções de arquivo](/pt/referencia/convencoes#o-kind-segue-a-subarvore). Ligar o
+`Config.CSRFForAPI` responde a mesma pergunta pelo outro lado e também cala o aviso.

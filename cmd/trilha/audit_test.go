@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/emersonjoe/trilha/internal/scan"
 )
 
 // A auditoria precisa enxergar o segredo literal mesmo quando os outros
@@ -119,5 +121,53 @@ func TestAuditoriaDoSegredoOlhaOCodigo(t *testing.T) {
 	t.Setenv("TRILHA_SECRET", "curto")
 	if got := acha(t, runAudit(&project{Root: semAssinatura}, false)); got.level != "critical" {
 		t.Errorf("segredo curto demais é %q", got.level)
+	}
+}
+
+// Spec 055 (#43): uma escrita que mora num route.go nasce API e não confere o
+// token. Num app que também serve páginas isso é quase sempre engano — o mesmo
+// formulário, movido de page.go para route.go, passa a aceitar POST de outro
+// site sem que nada avise. A auditoria avisa; a herança do Kind cala.
+func TestAuditoriaAvisaEscritaSemCSRF(t *testing.T) {
+	escreve := func(t *testing.T, arquivos map[string]string) *scan.Result {
+		t.Helper()
+		dir := t.TempDir()
+		for nome, src := range arquivos {
+			caminho := filepath.Join(dir, filepath.FromSlash(nome))
+			if err := os.MkdirAll(filepath.Dir(caminho), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(caminho, []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		res, err := scan.Scan(dir, "exemplo.com/x")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+	const pagina = "package app\n\nimport (\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n)\n\nfunc Page(c *trilha.Ctx) (h.Node, error) { return h.Div(), nil }\n"
+	const escrita = "package acoes\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc POST(c *trilha.Ctx) error { return c.Text(200, \"ok\") }\n"
+	const leitura = "package leitura\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc GET(c *trilha.Ctx) error { return c.JSON(200, nil) }\n"
+	const kind = "package app\n\nimport \"github.com/emersonjoe/trilha\"\n\nvar Kind = trilha.KindPage\n"
+
+	aberto := escreve(t, map[string]string{"app/page.go": pagina, "app/acoes/route.go": escrita})
+	if got := openWrites(aberto); len(got) != 1 || got[0] != "/acoes" {
+		t.Errorf("escrita aberta não apontada: %v", got)
+	}
+	coberto := escreve(t, map[string]string{"app/page.go": pagina, "app/kind.go": kind, "app/acoes/route.go": escrita})
+	if got := openWrites(coberto); got != nil {
+		t.Errorf("o kind.go acima devia calar o aviso: %v", got)
+	}
+	// Leitura não escreve nada, e um app que não serve página nenhuma é uma
+	// API de verdade: nos dois casos o aviso seria ruído.
+	so := escreve(t, map[string]string{"app/page.go": pagina, "app/coisas/route.go": leitura})
+	if got := openWrites(so); got != nil {
+		t.Errorf("GET não é escrita: %v", got)
+	}
+	api := escreve(t, map[string]string{"app/route.go": strings.Replace(escrita, "package acoes", "package app", 1)})
+	if got := openWrites(api); got != nil {
+		t.Errorf("app sem páginas é uma API: %v", got)
 	}
 }

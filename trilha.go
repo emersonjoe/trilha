@@ -202,7 +202,10 @@ type Route struct {
 	// Kind decides how errors are rendered (HTML page or JSON) and whether
 	// CSRF applies. KindAuto: page.go routes are pages; route.go routes are
 	// APIs, except that a browser navigation (Accept: text/html, outside
-	// /api/) gets HTML error pages. route.go may export `var Kind = trilha.KindPage`.
+	// /api/) gets HTML error pages. `var Kind = trilha.KindPage` in the package
+	// of a directory decides that directory and everything below it, the way
+	// layout.go and middleware.go do, and the deepest declaration wins; a
+	// directory with no route.go of its own says it in kind.go.
 	Kind RouteKind
 	// CORS is the cross-origin policy of this route alone, from
 	// `var CORS = trilha.CORS{...}` in route.go. It answers the preflight and

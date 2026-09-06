@@ -144,12 +144,20 @@ ninguém. `LogRequest` decide, com a resposta já pronta:
 
 ```go
 cfg.LogRequest = func(c *trilha.Ctx, status int, _ time.Duration) bool {
-	return status >= 400 || !strings.HasPrefix(c.Request().URL.Path, "/js/")
+	return status >= 400 || c.Pattern() != ""
 }
 ```
 
 Serve também para "não logar health check" e "amostrar 1% do tráfego". Arquivo servido por
 `Public` ou por `Mounts` nunca passou por esse log.
+
+O registro traz os dois endereços: `path` é o concreto (`/v/cmtk…/orcamento`), para quem
+investiga um caso, e `route` é o gabarito (`/v/{viagemId}/orcamento`), para quem agrega. Um
+app com id na URL tem um `path` por registro e um `route` por tela, e reconstruir o segundo a
+partir do primeiro por expressão regular fora do app é o problema de cardinalidade que esse
+campo existe para evitar. O [`c.Pattern()`](/pt/referencia/ctx) é o mesmo valor dentro do
+handler, e é vazio para o que o fallback respondeu — que é o corte usado no exemplo acima
+para manter os estáticos fora do log.
 
 ### Versão no endereço (`Asset`)
 

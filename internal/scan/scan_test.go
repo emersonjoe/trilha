@@ -226,7 +226,7 @@ func TestDotFolders(t *testing.T) {
 	}
 	var got []string
 	for _, r := range res.Routes {
-		got = append(got, r.Pattern+" "+r.Alias+" "+r.ImportPath+" kind="+strconv.FormatBool(r.HasKind))
+		got = append(got, r.Pattern+" "+r.Alias+" "+r.ImportPath+" kind="+strconv.FormatBool(r.KindRef != nil))
 	}
 	want := []string{
 		"/ app example.com/dotdir/app kind=false",
@@ -400,5 +400,41 @@ func TestCORSOnPageIsReported(t *testing.T) {
 	_, errs := scanApp(t, "err_cors_on_page")
 	if len(errs) != 1 || errs[0].Code != ErrCORSOnPage || errs[0].File != "app/page.go" {
 		t.Fatalf("want one %s about app/page.go, got %v", ErrCORSOnPage, errs)
+	}
+}
+
+// Spec 055 (#43): Kind is inherited down the subtree the way Layout and
+// Middleware are. It used to be the one thing in the tree that was not, which
+// meant the decision "this branch is pages, not an API" — the decision that
+// turns CSRF on — had to be repeated in every leaf, and a new write route born
+// without the line was born without CSRF, in silence.
+func TestKindIsInherited(t *testing.T) {
+	res, errs := scanApp(t, "kindtree")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	got := map[string]string{}
+	for _, r := range res.Routes {
+		if r.KindRef == nil {
+			got[r.Pattern] = ""
+			continue
+		}
+		got[r.Pattern] = r.KindRef.ImportPath
+	}
+	want := map[string]string{
+		"/":                   "",                                            // page.go is a page whatever the branch says
+		"/paginas":            "",                                            // same, one level down
+		"/formularios":        "example.com/kindtree/app",                    // from the root
+		"/formularios/fundo":  "example.com/kindtree/app",                    // two levels down, still the root
+		"/api/coisas":         "example.com/kindtree/app/api",                // the deepest declaration wins
+		"/api/coisas/propria": "example.com/kindtree/app/api/coisas/propria", // its own still wins
+	}
+	for pat, w := range want {
+		if got[pat] != w {
+			t.Errorf("%s: Kind from %q, want %q", pat, got[pat], w)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("got %d routes, want %d: %v", len(got), len(want), got)
 	}
 }

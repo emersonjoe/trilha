@@ -178,10 +178,14 @@ func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
 		return
 	}
 	dur := elapsed.Round(time.Microsecond).String()
+	// Both paths: "path" is the concrete one, for whoever is looking into a
+	// single case; "route" is the template, for whoever is counting. An app
+	// with an id in the URL has one path per record and one route per screen.
 	if tid := c.TraceID(); tid != "" {
 		a.log.Info("request",
 			"method", c.r.Method,
 			"path", c.r.URL.Path,
+			"route", c.Pattern(),
 			"status", rw.status,
 			"bytes", rw.bytes,
 			"dur", dur,
@@ -193,6 +197,7 @@ func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
 	a.log.Info("request",
 		"method", c.r.Method,
 		"path", c.r.URL.Path,
+		"route", c.Pattern(),
 		"status", rw.status,
 		"bytes", rw.bytes,
 		"dur", dur,

@@ -10,7 +10,7 @@ description: Tabela completa do que cada arquivo e nome de pasta em app/ signifi
 | `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` | rota GET da pasta |
 | `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (opcionais) | `func(c *trilha.Ctx) error` | formulários; CSRF exigido |
 | `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` (ao menos um) | `func(c *trilha.Ctx) error` | API JSON da pasta |
-| `route.go` (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | como erros são renderizados e se há CSRF (veja [Erros](/pt/referencia/erros)) |
+| `kind.go`, ou qualquer arquivo (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | subárvore: como erros são renderizados e se há CSRF (veja [Erros](/pt/referencia/erros)) |
 | `route.go` (opcional) | `CORS` | `var CORS = trilha.CORS{...}` | política de origem cruzada só desta rota, preflight incluído |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subárvore |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore |
@@ -23,6 +23,29 @@ description: Tabela completa do que cada arquivo e nome de pasta em app/ signifi
 
 `page.go` e `route.go` na mesma pasta é erro. A função pode estar em qualquer arquivo do
 pacote; o nome do arquivo é o que liga a convenção.
+
+### O Kind segue a subárvore
+
+`Kind` é variável, não função, e é herdado como o `Layout` e o `Middleware`: declarado no
+pacote de uma pasta, vale para ela e para tudo abaixo, e a declaração mais funda ganha.
+`kind.go` é o nome do arquivo para a pasta que não tem `route.go` próprio — a raiz de uma
+subárvore precisa poder falar sem ter rota:
+
+```go
+// app/painel/kind.go — este ramo é de páginas do navegador, então as escritas cobram CSRF
+package painel
+
+var Kind = trilha.KindPage
+```
+
+Isso pesa mais do que a renderização do erro: **`Kind` é o que liga o CSRF**. Um `route.go`
+nasce API, e API não confere o token, então a mesma ação de formulário movida de um `page.go`
+para um `route.go` passa a aceitar POST de outro site — em silêncio. Uma linha na raiz do ramo
+cobre todas as folhas, inclusive a que alguém criar no mês que vem. O `trilha audit` aponta a
+rota de escrita que nenhum `Kind` alcança num app que também serve páginas.
+
+Uma rota de `page.go` é página independente do que o ramo acima diz: um `KindAPI` herdado
+nunca transforma página em JSON.
 
 ## Pastas
 

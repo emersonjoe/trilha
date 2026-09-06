@@ -141,12 +141,23 @@ func runAudit(p *project, vuln bool) []check {
 	res, err := scan.Scan(p.Root, p.Module)
 	if err != nil {
 		add("critical", t("app invalid"), err.Error())
-	} else if src, err := gen.Generate(res); err == nil {
-		cur, _ := os.ReadFile(filepath.Join(p.Root, gen.FileName))
-		if string(cur) != string(src) {
-			add("warn", t("gen stale"), t("gen stale hint"))
-		} else {
-			add("ok", t("gen fresh"), "")
+	} else {
+		// CSRF on the writes that live in a route.go (spec 055): a route.go is
+		// an API by default, and an API does not check the token. In an app
+		// that also serves pages, a POST route with no Kind above it and no
+		// CSRFForAPI accepts a form posted from another site — and it does so
+		// in silence, which is why it is worth saying out loud here.
+		if open := openWrites(res); len(open) > 0 && !strings.Contains(src, "CSRFForAPI") {
+			add("warn", fmt.Sprintf(t("csrf open writes"), len(open)),
+				fmt.Sprintf(t("csrf open writes hint"), strings.Join(open, ", ")))
+		}
+		if out, err := gen.Generate(res); err == nil {
+			cur, _ := os.ReadFile(filepath.Join(p.Root, gen.FileName))
+			if string(cur) != string(out) {
+				add("warn", t("gen stale"), t("gen stale hint"))
+			} else {
+				add("ok", t("gen fresh"), "")
+			}
 		}
 	}
 
@@ -194,6 +205,36 @@ func runAudit(p *project, vuln bool) []check {
 			}
 		} else {
 			add("ok", t("vuln clean"), "")
+		}
+	}
+	return out
+}
+
+// openWrites lists the route.go routes that take a body method with no Kind
+// deciding them, in an app that also serves pages. A page.go route enforces
+// CSRF; the same form action moved into a route.go does not, and the two look
+// identical from the outside.
+func openWrites(res *scan.Result) []string {
+	pages := false
+	for _, r := range res.Routes {
+		if r.Kind == "page" {
+			pages = true
+			break
+		}
+	}
+	if !pages {
+		return nil
+	}
+	var out []string
+	for _, r := range res.Routes {
+		if r.Kind != "api" || r.KindRef != nil {
+			continue
+		}
+		for _, m := range r.Methods {
+			if m == "POST" || m == "PUT" || m == "PATCH" || m == "DELETE" {
+				out = append(out, r.Pattern)
+				break
+			}
 		}
 	}
 	return out

@@ -21,6 +21,7 @@ import (
 	app_docs_path__ "github.com/emersonjoe/trilha/examples/blog/app/docs/path__"
 	app_legado_ "github.com/emersonjoe/trilha/examples/blog/app/legado-"
 	app_legado__legado "github.com/emersonjoe/trilha/examples/blog/app/legado-/legado"
+	app_legado__legado_apagar "github.com/emersonjoe/trilha/examples/blog/app/legado-/legado/apagar"
 	app_login "github.com/emersonjoe/trilha/examples/blog/app/login"
 	app_marketing_ "github.com/emersonjoe/trilha/examples/blog/app/marketing-"
 	app_marketing__precos "github.com/emersonjoe/trilha/examples/blog/app/marketing-/precos"
@@ -78,6 +79,7 @@ func newApp() *trilha.App {
 	})
 	a.Register(trilha.Route{
 		Pattern: "/api/posts",
+		Kind:    app_api.Kind,
 		Methods: map[string]trilha.HandlerFunc{
 			"GET":  app_api_posts.GET,
 			"POST": app_api_posts.POST,
@@ -86,6 +88,7 @@ func newApp() *trilha.App {
 	})
 	a.Register(trilha.Route{
 		Pattern: "/api/posts/{id}",
+		Kind:    app_api.Kind,
 		Methods: map[string]trilha.HandlerFunc{
 			"DELETE": app_api_posts_id_.DELETE,
 			"GET":    app_api_posts_id_.GET,
@@ -130,6 +133,14 @@ func newApp() *trilha.App {
 			"POST": app_legado__legado.POST,
 		},
 		Layouts:     []trilha.LayoutFunc{app_legado_.Layout, app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/legado/apagar",
+		Kind:    app_legado_.Kind,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_legado__legado_apagar.POST,
+		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{

@@ -10,7 +10,7 @@ description: Complete table of what each file and folder name in app/ means.
 | `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` | the folder's GET route |
 | `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (optional) | `func(c *trilha.Ctx) error` | forms; CSRF required |
 | `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` (at least one) | `func(c *trilha.Ctx) error` | the folder's JSON API |
-| `route.go` (optional) | `Kind` | `var Kind = trilha.KindPage` or `KindAPI` | how errors are rendered and whether CSRF applies (see [Errors](/reference/errors)) |
+| `kind.go`, or any file (optional) | `Kind` | `var Kind = trilha.KindPage` or `KindAPI` | subtree: how errors are rendered and whether CSRF applies (see [Errors](/reference/errors)) |
 | `route.go` (optional) | `CORS` | `var CORS = trilha.CORS{...}` | cross-origin policy of this route alone, preflight included |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subtree |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree |
@@ -23,6 +23,29 @@ description: Complete table of what each file and folder name in app/ means.
 
 `page.go` and `route.go` in the same folder is an error. The function may live in any file of
 the package; the file name is what binds the convention.
+
+### Kind follows the subtree
+
+`Kind` is a variable, not a function, and it is inherited like `Layout` and `Middleware`:
+declared in the package of a folder, it decides that folder and everything below it, and the
+deepest declaration wins. `kind.go` is the file name for a folder that has no `route.go` of
+its own — a subtree root has to be able to speak without owning a route:
+
+```go
+// app/painel/kind.go — this branch is browser pages, so its writes enforce CSRF
+package painel
+
+var Kind = trilha.KindPage
+```
+
+This matters more than error rendering: **`Kind` is what turns CSRF on**. A `route.go` is an
+API by default, and an API does not check the token, so the same form action moved from a
+`page.go` into a `route.go` starts accepting a POST from another site — silently. One line at
+the root of the branch covers every leaf, including the leaf someone adds next month.
+`trilha audit` reports a write route that no `Kind` reaches in an app that also serves pages.
+
+A `page.go` route is a page whatever the branch above it says: an inherited `KindAPI` never
+turns a page into JSON.
 
 ## Folders
 

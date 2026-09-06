@@ -140,6 +140,19 @@ func (c *Ctx) RequestID() string { return c.requestID }
 // Param returns a path parameter ({slug} or {path...}).
 func (c *Ctx) Param(name string) string { return c.r.PathValue(name) }
 
+// Pattern returns the template of the route that matched, e.g.
+// "/blog/{slug}" — the aggregatable form of Request().URL.Path, and the one
+// thing a handler cannot rebuild from the parameters it reads one by one. It
+// is empty for what the fallback answered (a static file, a 404, a
+// trailing-slash redirect), where the concrete path is user input and no
+// template exists to stand for it.
+func (c *Ctx) Pattern() string {
+	if c.route == nil {
+		return ""
+	}
+	return c.route.Pattern
+}
+
 // Query returns the first value of a query-string parameter.
 func (c *Ctx) Query(name string) string { return c.r.URL.Query().Get(name) }
 

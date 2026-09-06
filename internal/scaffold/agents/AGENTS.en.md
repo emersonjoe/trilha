@@ -54,7 +54,10 @@ that resolves it — read that line instead of guessing.
 - **Do not put a secret in the code.** Read it from the environment. `trilha audit` fails on a
   literal that looks like a key.
 - **Do not write your own CSRF, session signing or HTML escaping.** All three already exist and
-  are on by default.
+  are on by default. A write that lives in a `route.go` is the exception: a `route.go` is an API
+  and an API does not check the token, so put `var Kind = trilha.KindPage` in a `kind.go` at the
+  root of that branch — it is inherited by everything below, and `trilha audit` reports the
+  write no `Kind` reaches.
 - **Do not invent a flash cookie or an `onclick="return confirm()"`.** After a `POST`, say what
   happened with `c.Flash(ui.FlashSuccess, "…")` — the layout's `ui.Flashes(c)` shows it on the
   page the redirect lands on — and ask before destroying with `ui.Confirm(title, description)`

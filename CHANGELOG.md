@@ -71,8 +71,30 @@ versioning. This file is written in English only.
   of cloning it per request costs 8.3× less on the same 21 templates. A shell that never
   reaches the slot fails the render instead of quietly answering a page with no content.
   `examples/blog` keeps a working copy in `app/legado-`.
+- **`c.Pattern()`** ([#42](https://github.com/emersonjoe/trilha/issues/42)): the template of
+  the route that matched, `/blog/{slug}` where the path is `/blog/hello`. The router knew it
+  all along and nobody could ask: a handler could read one parameter at a time and never the
+  shape they came from. The access record now carries both — `path` for whoever is looking
+  into a single case, `route` for whoever is counting, since an app with an id in the URL has
+  one path per record and one route per screen. `LogRequest` already receives the `*Ctx`, so
+  it gets the template without changing signature. Empty for what the fallback answered.
 
 ### Changed
+
+- **`Kind` is inherited by the subtree**
+  ([#43](https://github.com/emersonjoe/trilha/issues/43)). It was the one thing in the tree
+  that was not: `layout.go` and `middleware.go` decide a whole branch, `var Kind` decided one
+  leaf, so "this branch is pages, not an API" had to be repeated in every `route.go` — forty
+  of them in one app that adopted the framework's CSRF. `var Kind` in the package of a
+  directory now decides that directory and everything below it, deepest declaration wins, and
+  `kind.go` is the file name for a branch root with no `route.go` of its own. This is not
+  about how errors render: **`Kind` is what turns CSRF on**, and a write route born without
+  the line was born without CSRF, in silence. A `page.go` route stays a page whatever the
+  branch above says.
+- **`trilha audit` reports the write that no `Kind` reaches**: a `route.go` with a body method
+  in an app that also serves pages, with no `Config.CSRFForAPI`, accepts a form posted from
+  another site. It is a warning, not a critical item — an app whose API client really is its
+  own is a real thing, and failing its `trilha check` would repeat the mistake #77 fixed.
 
 - **`trilha audit` asks whether the app signs anything**
   ([#77](https://github.com/emersonjoe/trilha/issues/77)). A missing `TRILHA_SECRET` is a
@@ -98,6 +120,11 @@ versioning. This file is written in English only.
   [tmpl reference](https://emersonjoe.github.io/trilha/reference/tmpl) now show the halfway
   state of a migration: the `layout.html` of the app that already exists, with the pages
   under it written in `h`.
+- **What `Kind` decides, and where to say it**. The
+  [file conventions](https://emersonjoe.github.io/trilha/reference/conventions) gained the
+  section on inheritance, and the [security reference](https://emersonjoe.github.io/trilha/reference/security)
+  the new audit warning. The `AGENTS.md` written by `trilha agents` says it too: it is the
+  kind of rule an agent breaks by writing perfectly reasonable code.
 
 ## 0.38.0 — 2026-09-06
 

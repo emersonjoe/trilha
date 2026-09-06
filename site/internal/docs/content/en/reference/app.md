@@ -145,12 +145,21 @@ nobody. `LogRequest` decides, with the response already written:
 
 ```go
 cfg.LogRequest = func(c *trilha.Ctx, status int, _ time.Duration) bool {
-	return status >= 400 || !strings.HasPrefix(c.Request().URL.Path, "/js/")
+	return status >= 400 || c.Pattern() != ""
 }
 ```
 
 It also covers "do not log the health check" and "sample 1% of the traffic". Files served
 from `Public` or `Mounts` never went through this log.
+
+The record carries both addresses: `path` is the concrete one (`/v/cmtk…/budget`), for
+whoever is looking into a single case, and `route` is the template
+(`/v/{tripId}/budget`), for whoever is counting. An app with an id in the URL has one path
+per record and one route per screen, and rebuilding the second from the first with a regular
+expression outside the app is the cardinality problem this field exists to avoid.
+[`c.Pattern()`](/reference/ctx) is the same value inside the handler, and it is empty for
+what the fallback answered — which is what the example above uses to keep static files out
+of the log.
 
 ### Version in the address (`Asset`)
 

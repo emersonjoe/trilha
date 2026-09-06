@@ -26,9 +26,11 @@ A coluna é decidida por rota; o desempate é o cabeçalho `Accept`, ranqueado p
   `route.go` dentro de `/api/` mostra a página de erro para o navegador como qualquer outro.
 - `Accept` ausente, ou `*/*` (`fetch`, `curl`), não é preferência: quem decide é o tipo da
   rota.
-- `route.go` pode fixar o comportamento exportando `var Kind = trilha.KindPage` (página
-  sempre, e CSRF exigido em `POST`/`PUT`/`PATCH`/`DELETE`) ou `trilha.KindAPI`
-  (`problem+json` sempre, diga o `Accept` o que disser).
+- `var Kind = trilha.KindPage` (sempre página, com CSRF exigido em
+  `POST`/`PUT`/`PATCH`/`DELETE`) ou `trilha.KindAPI` (sempre `problem+json`, diga o `Accept` o
+  que disser) fixa o comportamento. Ele é herdado pela subárvore inteira, então um `kind.go`
+  na raiz de um ramo decide todo `route.go` abaixo dele; veja
+  [Convenções de arquivo](/pt/referencia/convencoes#o-kind-segue-a-subarvore).
 - Sem rota nenhuma (404) não há tipo para perguntar: decide o `Accept` e, quando ele está
   mudo, o prefixo `/api/` é o último recurso.
 

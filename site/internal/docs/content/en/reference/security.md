@@ -127,3 +127,9 @@ session is not Trilha's gets a warning instead: a secret that signs nothing stil
 `.env`, the deploy and the rotation, and the day somebody rotates it nothing happens, which
 is the worst thing a secret can teach. Set too short is critical either way — whoever set it
 meant to use it.
+
+It also warns about a write that no `Kind` reaches. A `route.go` is an API, and an API does
+not check the CSRF token, so a `POST` route in an app that also serves pages usually wants
+`var Kind = trilha.KindPage` in a `kind.go` above it — one line for the whole branch, see
+[File conventions](/reference/conventions#kind-follows-the-subtree). Setting
+`Config.CSRFForAPI` answers the same question the other way and silences the warning too.

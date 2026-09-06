@@ -101,6 +101,7 @@ pkg trilha, method (*Ctx) NoReadDeadline() error
 pkg trilha, method (*Ctx) NoWriteDeadline() error
 pkg trilha, method (*Ctx) Nonce() string
 pkg trilha, method (*Ctx) Param(string) string
+pkg trilha, method (*Ctx) Pattern() string
 pkg trilha, method (*Ctx) Query(string) string
 pkg trilha, method (*Ctx) Redirect(string) error
 pkg trilha, method (*Ctx) Render(int, h.Node) error

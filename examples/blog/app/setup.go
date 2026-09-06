@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/emersonjoe/trilha"
@@ -34,9 +33,11 @@ func Config(cfg *trilha.Config) error {
 	// das duas.
 	cfg.Mounts = map[string]fs.FS{"/icones/": icones.FS()}
 	// O log de requisição fica com o que alguém vai ler: arquivo estático
-	// servido com 200 é a maior parte do volume e não diz nada.
+	// servido com 200 é a maior parte do volume e não diz nada. Quem não tem
+	// gabarito de rota veio do fallback — estático, 404, barra sobrando —, e é
+	// exatamente esse o corte.
 	cfg.LogRequest = func(c *trilha.Ctx, status int, _ time.Duration) bool {
-		return status >= 400 || !strings.HasPrefix(c.Request().URL.Path, "/icones/")
+		return status >= 400 || c.Pattern() != ""
 	}
 	// A /api é chamada pelo painel que mora em outro endereço. A lista é
 	// exata: subdomínio curinga é onde o CORS costuma vazar. Sem credencial,

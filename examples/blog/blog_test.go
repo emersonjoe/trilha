@@ -696,6 +696,21 @@ func TestUS2_CascaAntigaComMioloNovo(t *testing.T) {
 	c.Get("/legado").WantStatus(200).WantContains("Salvo Ana")
 }
 
+// #43 — Kind é herdado pela subárvore. A escrita de /legado/apagar mora num
+// route.go, que nasce API e não confere o token; ela só cobra CSRF porque
+// app/legado-/kind.go diz que aquele ramo é de páginas, uma linha acima de
+// todas as folhas. Sem a herança essa rota responderia 200 a um formulário de
+// outro site, em silêncio.
+func TestUS3_KindHerdadoLigaOCSRFNoRouteGo(t *testing.T) {
+	c := newClient(t, "prod")
+	c.Get("/legado").WantStatus(200).WantContains(`action="/legado/apagar"`)
+	if rec := c.postForm("/legado/apagar", "", trilha.WithoutCSRF()); rec.Code != 403 {
+		t.Fatalf("escrita em route.go sem token: %d", rec.Code)
+	}
+	c.postForm("/legado/apagar", "").WantStatus(303)
+	c.Get("/legado").WantStatus(200).WantContains("Apagado")
+}
+
 // entre devolve o que está entre dois pedaços de texto, ou falha o teste.
 func entre(t *testing.T, s, abre, fecha string) string {
 	t.Helper()

@@ -15,6 +15,7 @@ used by another goroutine after the handler returns.
 | `SetRequest(*http.Request)` | replaces the request (rewritten URL, wrapped body) |
 | `Context() context.Context` | request context (cancellation) |
 | `Param(name) string` | route parameter (`slug_` → `"slug"`) |
+| `Pattern() string` | the template of the route that matched (`/blog/{slug}`), the aggregatable form of the path; `""` for what the fallback answered (static file, 404, trailing-slash redirect) |
 | `Query(name) string` | first value of the query parameter |
 | `Form(name) string` | form field (parses on demand, with a size limit) |
 | `FormErr() error` | form parse error: 400 invalid, 413 too large |
