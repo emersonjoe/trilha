@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -164,7 +165,11 @@ func (c *Ctx) BindJSON(v any) error {
 		}
 		return &HTTPError{Code: http.StatusBadRequest, Message: "invalid JSON: " + err.Error()}
 	}
-	return nil
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer || rv.Elem().Kind() != reflect.Struct {
+		return nil // a map or a slice: there are no tags to apply
+	}
+	return validated(v, rv, nil)
 }
 
 // Header sets a response header.
