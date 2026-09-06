@@ -1,0 +1,235 @@
+{
+  "trilha": "0.0.0",
+  "module": "example.com/openapi",
+  "generated": {
+    "file": "trilha_gen.go",
+    "status": "missing"
+  },
+  "routes": [
+    {
+      "pattern": "/",
+      "kind": "page",
+      "file": "app/page.go",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "pattern": "/api/items",
+      "kind": "api",
+      "file": "app/api/items/route.go",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "summary": "GET lists every item.",
+          "query": [
+            "q"
+          ],
+          "responses": [
+            {
+              "status": 200,
+              "type": "store.Item[]"
+            }
+          ]
+        },
+        {
+          "method": "POST",
+          "summary": "POST creates an item.",
+          "request": "object{kind, name}",
+          "responses": [
+            {
+              "status": 201,
+              "type": "store.Item"
+            },
+            {
+              "status": 422,
+              "type": "Problem",
+              "media": "application/problem+json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "/api/items/{id}",
+      "kind": "api",
+      "file": "app/api/items/id_/route.go",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PUT"
+      ],
+      "params": [
+        "id"
+      ],
+      "api": [
+        {
+          "method": "DELETE",
+          "summary": "DELETE removes an item and answers with no body.",
+          "responses": [
+            {
+              "status": 204
+            },
+            {
+              "status": 404,
+              "type": "Problem",
+              "media": "application/problem+json"
+            }
+          ]
+        },
+        {
+          "method": "GET",
+          "summary": "GET returns one item by id.",
+          "responses": [
+            {
+              "status": 200,
+              "type": "store.Item"
+            },
+            {
+              "status": 404,
+              "type": "Problem",
+              "media": "application/problem+json"
+            }
+          ]
+        },
+        {
+          "method": "PUT",
+          "summary": "PUT replaces an item.",
+          "request": "store.Item",
+          "responses": [
+            {
+              "status": 200,
+              "type": "store.Item"
+            },
+            {
+              "status": 409,
+              "type": "Problem",
+              "media": "application/problem+json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "/api/report.csv",
+      "kind": "api",
+      "file": "app/api/report.csv/route.go",
+      "methods": [
+        "GET"
+      ],
+      "api": [
+        {
+          "method": "GET",
+          "summary": "GET writes one line per item.",
+          "query": [
+            "mes"
+          ],
+          "responses": [
+            {
+              "status": 200,
+              "type": "string",
+              "media": "text/csv"
+            },
+            {
+              "status": 400,
+              "type": "Problem",
+              "media": "application/problem+json"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "Problem",
+      "fields": [
+        {
+          "name": "detail",
+          "type": "string"
+        },
+        {
+          "name": "fields",
+          "type": "object"
+        },
+        {
+          "name": "instance",
+          "type": "string"
+        },
+        {
+          "name": "request_id",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "rules": "uri"
+        }
+      ]
+    },
+    {
+      "name": "store.Item",
+      "fields": [
+        {
+          "name": "created",
+          "type": "string",
+          "rules": "date-time"
+        },
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": true,
+          "rules": "one of book|tool"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "rules": "max 40"
+        },
+        {
+          "name": "owner",
+          "type": "store.Owner"
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "rules": "\u003e= 0"
+        },
+        {
+          "name": "tags",
+          "type": "string[]"
+        }
+      ]
+    },
+    {
+      "name": "store.Owner",
+      "fields": [
+        {
+          "name": "email",
+          "type": "string",
+          "required": true,
+          "rules": "email"
+        }
+      ]
+    }
+  ]
+}

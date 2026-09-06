@@ -13,13 +13,13 @@
 
 ## Bloco 2 — o modelo (SC-001, SC-002, SC-003, SC-004)
 
-- [ ] T003 Teste que falha em `internal/ctx/ctx_test.go`: `Build` sobre a árvore sintética dá
+- [x] T003 Teste que falha em `internal/ctx/ctx_test.go`: `Build` sobre a árvore sintética dá
       rotas em ordem de precedência, contrato de API, tipos com regras de `validate` e o
       `Setup`; duas chamadas de `JSON` dão bytes idênticos; `Markdown` sem `--all` elide a
       cadeia por método e com `--all` não.
-- [ ] T004 `internal/ctx/ctx.go`: `Context`, `Build`, `JSON`, `Markdown(Sections)`; leitura do
+- [x] T004 `internal/ctx/ctx.go`: `Context`, `Build`, `JSON`, `Markdown(Sections)`; leitura do
       documento do `openapi`; deduzir `trilha.Provide` do `setup.go`.
-- [ ] T005 Golden `testdata/golden/ctx.json.golden` e `ctx.md.golden` do `examples/blog`, com
+- [x] T005 Golden `testdata/golden/ctx.json.golden` e `ctx.md.golden` do `examples/blog`, com
       `make golden` regravando; teste de tempo com 40 rotas sintéticas (< 1 s).
 
 ## Bloco 3 — os comandos (SC-005, SC-007, SC-008, SC-009)

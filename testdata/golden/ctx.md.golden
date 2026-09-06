@@ -1,0 +1,31 @@
+# example.com/full
+
+- trilha 0.0.0 · 8 routes (6 pages, 2 APIs)
+- trilha_gen.go: missing
+- app/setup.go: Setup, Config
+
+## Routes
+
+- `GET /` — app/page.go · layouts: app/layout.go · middleware: app/middleware.go
+- `GET /admin` — app/admin/page.go · layouts: app/layout.go · middleware: app/middleware.go, app/admin/middleware.go
+- `DELETE GET POST /api/posts` — app/api/posts/route.go · middleware: app/middleware.go
+- `GET /api/posts/{id}` — app/api/posts/id_/route.go · middleware: app/middleware.go
+- `GET /blog` — app/blog/page.go · layouts: app/blog/layout.go, app/layout.go · middleware: app/middleware.go
+- `GET POST /blog/novo` — app/blog/novo/page.go · layouts: app/blog/layout.go, app/layout.go · middleware: app/middleware.go
+- `GET /blog/{slug}` — app/blog/slug_/page.go · layouts: app/blog/layout.go, app/layout.go · middleware: app/middleware.go
+- `GET /docs/{path...}` — app/docs/path__/page.go · layouts: app/layout.go · middleware: app/middleware.go
+
+## API
+
+### DELETE /api/posts
+- 200
+
+### GET /api/posts
+- 200
+
+### POST /api/posts
+- 200
+
+### GET /api/posts/{id}
+- 200
+
