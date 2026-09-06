@@ -5,6 +5,27 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.24.0 — 2026-09-06
+
+### Added
+- **`-race` and fuzzing in CI** ([#33](https://github.com/emersonjoe/trilha/issues/33)). Two
+  new jobs run on every push: `go test -race ./...` and 20 seconds on each fuzz target. A
+  concurrency test (`TestConcorrencia`) hits one app from 32 goroutines — login, signed page,
+  API route, static file, `/metrics` — so the detector has real contention to look at instead
+  of a suite that answers one request at a time.
+- **Six fuzz targets, one invariant each**: `FuzzRouteMatch` (no target crashes the app or
+  serves a file from outside `public/`), `FuzzBindForm` and `FuzzBindJSON` (no error implies
+  every `validate` rule holds), `FuzzSignedVerify` (a cookie is only accepted if some key
+  would have produced it, and only until it expires), `FuzzParseTraceparent` (the trace id is
+  empty or hex that came from the header) and `FuzzRenderEscapes` (what goes into `h.Text` or
+  an attribute comes back escaped).
+- **`make race`, `make fuzz` and `make fuzz-long`**, with `scripts/fuzz.sh` running the list
+  of targets — `go test -fuzz` takes one target of one package at a time. `FUZZTIME=2m make
+  fuzz` for a longer round; a failure lands in `testdata/fuzz/<Target>/` and gets committed
+  with the fix, so `go test ./...` replays it forever.
+- **A "Race and fuzzing" section in the Testing chapter** and the new commands in
+  `CONTRIBUTING.md`, in both languages.
+
 ## 0.23.0 — 2026-09-06
 
 ### Added

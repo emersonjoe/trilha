@@ -37,7 +37,13 @@ git clone https://github.com/emersonjoe/trilha && cd trilha
 make test          # gofmt + vet + testes (inclui e2e da CLI)
 make dev-example   # examples/blog com recarga
 make golden        # regrava goldens do gerador (confira o diff!)
+make race          # go test -race ./... (o TestConcorrencia é quem lhe dá concorrência)
+make fuzz          # 20s em cada alvo de fuzzing, igual ao CI; FUZZTIME=2m make fuzz para mais
+make fuzz-long     # 5 minutos por alvo, antes de uma release
 ```
+
+Falha achada pelo fuzzing cai em `testdata/fuzz/<Alvo>/`. Commite esse arquivo junto com a
+correção: é a regressão que impede a volta do defeito.
 
 Go 1.22 ou mais novo. Nenhuma outra ferramenta.
 

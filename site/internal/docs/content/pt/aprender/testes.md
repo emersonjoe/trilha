@@ -155,6 +155,59 @@ if res.Cookie("sessao") == nil {
 }
 ```
 
+## Corrida e fuzzing
+
+Dois defeitos nunca aparecem numa suíte determinística. Um é a corrida de dados: dois
+pedidos mexendo no mesmo campo do app ao mesmo tempo — o cache de assets, os contadores da
+métrica, os baldes do limite de taxa. O outro é a entrada que ninguém escreveu: um caminho
+com `%2e%2e`, um cookie com a assinatura de outra chave, um corpo de formulário que é só
+um `;`.
+
+A suíte do framework cobre os dois, e cada comando é uma linha:
+
+```bash
+make race    # go test -race ./...
+make fuzz    # 20s em cada alvo de fuzzing, o mesmo do CI
+```
+
+O `make race` só vale o que a suíte der para ele olhar, então existe um teste
+(`TestConcorrencia`) que bate no mesmo app com 32 goroutines: entra, lê uma página
+assinada, chama uma rota de API, pede um arquivo estático e lê o `/metrics`. Sem ele o
+detector passaria por um app respondendo um pedido por vez e não acharia nada.
+
+Os alvos de fuzzing afirmam uma invariante, não uma saída esperada:
+
+| Alvo | O que ele sustenta |
+| --- | --- |
+| `FuzzRouteMatch` | nenhum alvo derruba o app nem serve arquivo de fora do `public/` |
+| `FuzzBindForm` / `FuzzBindJSON` | se o `Bind` não devolve erro, toda regra do `validate` vale |
+| `FuzzSignedVerify` | um cookie só é aceito se alguma chave o teria produzido, e enquanto não vence |
+| `FuzzParseTraceparent` | o id do trace ou é vazio ou é hexadecimal que veio do cabeçalho |
+| `FuzzRenderEscapes` | o que entra num `h.Text` ou num atributo volta escapado |
+
+Fazer fuzzing no seu app tem a mesma forma. Escreva o alvo ao lado do código que ele testa,
+semeie com os casos que você já conhece e afirme a propriedade — não a saída:
+
+```go
+func FuzzSlug(f *testing.F) {
+	for _, s := range []string{"", "Olá mundo", "a//b", "---"} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		got := Slug(s)
+		if strings.ContainsAny(got, " /?#") {
+			t.Fatalf("%q gerou %q", s, got)
+		}
+	})
+}
+```
+
+:::note
+Quando o fuzzing acha uma falha, o Go grava a entrada em `testdata/fuzz/<Alvo>/`. Commite
+esse arquivo junto com a correção: dali em diante o `go test ./...` o repete, e o defeito
+não volta em silêncio.
+:::
+
 ## Desafio
 
 Escreva um teste provando que o formulário do blog recusa um título maior que o limite e

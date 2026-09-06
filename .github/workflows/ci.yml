@@ -18,6 +18,22 @@ jobs:
       - run: cd bench && go test ./... && go test -run XXX -bench . -benchtime=50ms
       - run: go vet ./...
       - run: go test ./...
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - run: go test -race ./...
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - run: FUZZTIME=20s ./scripts/fuzz.sh
   vuln:
     runs-on: ubuntu-latest
     steps:

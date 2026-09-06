@@ -1,4 +1,4 @@
-.PHONY: test vet fmt example dev-example golden reload bench bench-results release
+.PHONY: test vet fmt example dev-example golden reload race fuzz fuzz-long bench bench-results release
 
 test: vet
 	go test ./...
@@ -12,6 +12,19 @@ fmt:
 
 golden:
 	go test ./internal/gen/ -update
+
+# O detector de corrida sobre a suíte inteira; TestConcorrencia é quem lhe dá
+# concorrência de verdade.
+race:
+	go test -race ./...
+
+# Uma rodada curta em cada alvo, igual à do CI.
+fuzz:
+	./scripts/fuzz.sh $(if $(FUZZTIME),$(FUZZTIME))
+
+# Rodada longa, para antes de uma release ou depois de mexer no parser.
+fuzz-long:
+	FUZZTIME=5m ./scripts/fuzz.sh
 
 example:
 	cd examples/blog && go run ../../cmd/trilha gen && go run .

@@ -155,6 +155,58 @@ if res.Cookie("sessao") == nil {
 }
 ```
 
+## Race and fuzzing
+
+Two bugs never show up in a deterministic suite. One is the data race: two requests
+touching the same field of the app at the same time — the asset cache, the metric
+counters, the rate-limit buckets. The other is the input nobody wrote: a path with
+`%2e%2e`, a cookie with the signature of another key, a form body that is a single `;`.
+
+The framework's own suite covers both, and the two commands are one line each:
+
+```bash
+make race    # go test -race ./...
+make fuzz    # 20s on each fuzz target, same as CI
+```
+
+`make race` is only worth what the suite gives it to look at, so there is a test
+(`TestConcorrencia`) that hits the same app from 32 goroutines: it logs in, reads a signed
+page, calls an API route, asks for a static file and reads `/metrics`. Without it the
+detector would run over an app answering one request at a time and find nothing.
+
+The fuzz targets state an invariant rather than an expected output:
+
+| Target | What it holds |
+| --- | --- |
+| `FuzzRouteMatch` | no target crashes the app or serves a file from outside `public/` |
+| `FuzzBindForm` / `FuzzBindJSON` | if `Bind` returns no error, every `validate` rule holds |
+| `FuzzSignedVerify` | a cookie is only accepted if some key would have produced it, and it has not expired |
+| `FuzzParseTraceparent` | the trace id is either empty or hex that came from the header |
+| `FuzzRenderEscapes` | whatever goes into `h.Text` or an attribute comes back escaped |
+
+Fuzzing in your own app is the same shape. Write the target next to the code it tests, seed
+it with the cases you already know, and assert the property — not the output:
+
+```go
+func FuzzSlug(f *testing.F) {
+	for _, s := range []string{"", "Olá mundo", "a//b", "---"} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		got := Slug(s)
+		if strings.ContainsAny(got, " /?#") {
+			t.Fatalf("%q gerou %q", s, got)
+		}
+	})
+}
+```
+
+:::note
+When fuzzing finds a failure, Go writes the input to `testdata/fuzz/<Target>/`. Commit that
+file with the fix: from then on `go test ./...` replays it, and the bug cannot come back
+quietly.
+:::
+
 ## Challenge
 
 Write a test proving that the blog's form rejects a title longer than the limit and shows

@@ -36,7 +36,13 @@ git clone https://github.com/emersonjoe/trilha && cd trilha
 make test          # gofmt + vet + tests (includes the CLI e2e)
 make dev-example   # examples/blog with reload
 make golden        # rewrites the generator goldens (check the diff!)
+make race          # go test -race ./... (TestConcorrencia is what gives it concurrency)
+make fuzz          # 20s on each fuzz target, same as CI; FUZZTIME=2m make fuzz for longer
+make fuzz-long     # 5 minutes per target, before a release
 ```
+
+A failure found by fuzzing lands in `testdata/fuzz/<Target>/`. Commit that file with the
+fix: it is the regression that keeps the bug from coming back.
 
 Go 1.22 or newer. No other tool.
 
