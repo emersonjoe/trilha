@@ -130,3 +130,27 @@ func TestExportRedirectStub(t *testing.T) {
 		t.Fatalf("external redirect must fail the export: %v", err)
 	}
 }
+
+// Issue #26: uma rota que declara ETag continua exportável. O export não manda
+// If-None-Match, então nada pode responder 304 — e um 304 no export escreveria
+// um arquivo vazio no lugar da página.
+func TestExportWithETag(t *testing.T) {
+	a := New(Config{Env: Prod, Logger: quiet()})
+	a.Register(Route{Pattern: "/", Page: func(c *Ctx) (h.Node, error) {
+		if c.ETag("v1") {
+			return nil, nil
+		}
+		return h.P(h.Text("conteúdo exportado")), nil
+	}})
+	dir := filepath.Join(t.TempDir(), "out")
+	if err := a.Export(dir); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "conteúdo exportado") {
+		t.Fatalf("página vazia: %q", string(b))
+	}
+}

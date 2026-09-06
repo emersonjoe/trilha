@@ -141,3 +141,38 @@ func TestCtxAsset(t *testing.T) {
 		t.Fatalf("Ctx.Asset %q, App.Asset %q", got, want)
 	}
 }
+
+// Issue #26: o arquivo estático ganha ETag da mesma impressão digital que já
+// vai no "?v=" — data de modificação sozinha invalida tudo num container novo,
+// onde o clone reescreve arquivos idênticos com a hora de agora.
+func TestStaticETagAnswers304(t *testing.T) {
+	files := fstest.MapFS{"site.css": &fstest.MapFile{Data: []byte("body{}")}}
+	a := New(Config{Env: Prod, Public: files, Logger: quiet()})
+
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/site.css", nil))
+	tag := rec.Header().Get("ETag")
+	if rec.Code != 200 || tag == "" {
+		t.Fatalf("%d %q", rec.Code, tag)
+	}
+	if want := `"` + strings.TrimPrefix(a.Asset("/site.css"), "/site.css?v=") + `"`; tag != want {
+		t.Fatalf("ETag %s, esperado %s (a mesma versão da URL)", tag, want)
+	}
+
+	again := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/site.css", nil)
+	req.Header.Set("If-None-Match", tag)
+	a.Handler().ServeHTTP(again, req)
+	if again.Code != 304 || again.Body.Len() != 0 {
+		t.Fatalf("revalidação: %d, %d bytes", again.Code, again.Body.Len())
+	}
+
+	// Conteúdo diferente, etiqueta diferente: ninguém fica com o CSS velho.
+	other := New(Config{Env: Prod, Logger: quiet(),
+		Public: fstest.MapFS{"site.css": &fstest.MapFile{Data: []byte("body{color:red}")}}})
+	rec2 := httptest.NewRecorder()
+	other.Handler().ServeHTTP(rec2, httptest.NewRequest("GET", "/site.css", nil))
+	if rec2.Header().Get("ETag") == tag {
+		t.Fatal("dois conteúdos, uma etiqueta")
+	}
+}
