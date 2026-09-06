@@ -43,4 +43,4 @@
 - [x] T405 `cookbook/migration` + pt: a seção do app embutido ganha os três — cabeçalhos do
       hospedeiro, nomes do CSRF e dependências.
 - [x] T406 CHANGELOG (0.35.0), ROADMAP, `version` em `cmd/trilha/main.go`.
-- [ ] T407 `make test`, rebase em `origin/main` e `make release VERSION=0.35.0 ISSUES="52 54 55"`.
+- [x] T407 `make test`, rebase em `origin/main` e `make release VERSION=0.35.0 ISSUES="52 54 55"`.
