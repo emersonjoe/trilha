@@ -129,6 +129,10 @@ existia. As issues 42–58 são o que doeu lá; a ordem aqui é a do que doeu ma
 30. ~~[#56](https://github.com/emersonjoe/trilha/issues/56) `middleware.go` não distinguia método.~~ **Entregue na 0.32.0** (spec 042): `MiddlewareGET|POST|PUT|PATCH|DELETE` herdam pela subárvore como o `Middleware`, rodam depois dele, e um middleware de método que nenhuma rota serve é erro (`E_UNUSED_METHOD_MIDDLEWARE`).
 31. ~~[#53](https://github.com/emersonjoe/trilha/issues/53) `error.go` não era chamado para 4xx.~~ **Entregue na 0.32.0** (spec 042): todo status que não é 404 passa pela página do app, com o layout raiz e o status certo; `trilha.StatusOf(err)` dá o código para o `switch`, o `problem+json` da API fica intocado e a página interna segue de rede.
 
+32. ~~[#52](https://github.com/emersonjoe/trilha/issues/52) os cabeçalhos do app sobrescreviam os do hospedeiro.~~ **Entregue na 0.35.0** (spec 046): `Security.Delegated` não escreve nenhum dos sete, e `Security.Nonce` faz o `c.Nonce()` devolver o nonce que o hospedeiro já publicou na política dele.
+33. ~~[#54](https://github.com/emersonjoe/trilha/issues/54) os nomes do CSRF eram constantes.~~ **Entregue na 0.35.0** (spec 046): `Config.CSRF` troca cookie, campo e cabeçalho, com as constantes como padrão; dois `_csrf` na mesma página deixa de ser possível sem querer.
+34. ~~[#55](https://github.com/emersonjoe/trilha/issues/55) dependências só chegavam por `map[string]any`.~~ **Entregue na 0.35.0** (spec 046): `trilha.Provide`/`trilha.Use[T]` guardam e leem por tipo, do `*Ctx` ou do `*App`, e o exemplo do blog saiu das variáveis de pacote — que é o que quebra com dois apps no mesmo processo.
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |

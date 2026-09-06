@@ -5,6 +5,48 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.35.0 — 2026-09-06
+
+### Added
+- **The response headers can belong to the host**
+  ([#52](https://github.com/emersonjoe/trilha/issues/52)). An app mounted inside a server
+  that already answers for its responses now says so in one line:
+  `Security.Delegated = true` writes none of the seven headers — not the six that had an
+  `Off`, and not the `X-Content-Type-Options` that had none — so the host's
+  `Content-Security-Policy` is the only one on the response. `Security.Nonce
+  func(*http.Request) string` is the other half: `c.Nonce()` and `trilha.NonceAttr(c)` then
+  carry the nonce the host already published in its own policy, instead of one this app
+  invented that the browser has never heard of. An empty answer renders no attribute at all
+  rather than `nonce=""`. `Delegated` is a decision and not a default — the zero value still
+  writes every header, so a hand-written `Security{...}` cannot turn them off by omission —
+  and the boot logs the delegation once.
+- **The CSRF cookie, field and header have names you choose**
+  ([#54](https://github.com/emersonjoe/trilha/issues/54)). `Config.CSRF` sets `Cookie`,
+  `Field` and `Header`; an empty one keeps the constant it had, so renaming one is one line.
+  Two hidden inputs called `_csrf` on the same page — the host's and the app's — is a bug
+  nobody sees until a form posts the wrong token, and this is what gets out of the way of it.
+  The name given is the one `CSRFInput`, `CSRFToken`, the check, the CORS allow-list and the
+  test client all use.
+- **Dependencies by type: `trilha.Provide` and `trilha.Use`**
+  ([#55](https://github.com/emersonjoe/trilha/issues/55)). `trilha.Provide(a, v)` files a
+  value under its type in `Setup`, and `trilha.Use[T](b)` reads it back from either the
+  `*Ctx` of a handler or the `*App` itself, which is what `Setup` and a test have in hand. A
+  type nobody provided panics at the call, naming the type, instead of surfacing later as a
+  nil somewhere else. The type is the key, so a seam is declared by writing it:
+  `trilha.Provide[Mailer](a, SMTPMailer{...})` files the interface. `Values()` stays for glue
+  by name.
+- The OpenAPI deduction follows a method on a value, not only a package function: a handler
+  that reaches its store through `Use` still publishes the schema of what it answers. The
+  index now knows methods and the type parameters of a generic function.
+
+### What changes for you
+Nothing breaks. `examples/blog` moved off package variables — `internal/posts` is a
+`*posts.Store` created in `Setup`, provided, and read with `Use` in every page and route —
+because that is the shape that survives two apps in one process, and the example is what
+people copy. If your `Setup` keeps state in package variables and you ever mount a second app
+in the same binary, or build a second app in a test, that state is shared; `Provide`/`Use` is
+the fix, and both apps then get their own.
+
 ## 0.33.0 — 2026-09-06
 
 ### Added

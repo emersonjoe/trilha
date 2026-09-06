@@ -23,24 +23,24 @@
 
 ## Fase 3 — `Provide` e `Use` (#55)
 
-- [ ] T301 `values_test.go`: `Provide`/`Use` de ponteiro, de valor e de interface; pânico
+- [x] T301 `values_test.go`: `Provide`/`Use` de ponteiro, de valor e de interface; pânico
       nomeando o tipo quando falta; dois apps no mesmo processo sem interferência.
-- [ ] T302 `trilha.go`: `Provide[T]`, `Use[T]`, chave por tipo, documentação dizendo que o
+- [x] T302 `trilha.go`: `Provide[T]`, `Use[T]`, chave por tipo, documentação dizendo que o
       lugar é o `Setup`.
-- [ ] T303 `examples/blog/internal/posts`: `type Store` com as funções viradas métodos, sem
+- [x] T303 `examples/blog/internal/posts`: `type Store` com as funções viradas métodos, sem
       `var` de pacote.
-- [ ] T304 `examples/blog`: `Provide` no `Setup`, `Use` nas páginas e no middleware,
+- [x] T304 `examples/blog`: `Provide` no `Setup`, `Use` nas páginas e no middleware,
       `trilha_gen.go` regerado, `blog_test.go` subindo dois apps.
-- [ ] T305 `make test`.
+- [x] T305 `make test`.
 
 ## Fase 4 — documentação e release
 
-- [ ] T401 `make api` (superfície pública) e revisão do diff.
-- [ ] T402 `reference/security` + pt: `Delegated`, `Nonce`, e a tabela do que sai em cada caso.
-- [ ] T403 `reference/csrf` (ou onde o CSRF mora) + pt: os três nomes e quando trocá-los.
-- [ ] T404 `reference/app` + pt e `learn/*`: `Provide`/`Use` como a receita de dependências,
+- [x] T401 `make api` (superfície pública) e revisão do diff.
+- [x] T402 `reference/security` + pt: `Delegated`, `Nonce`, e a tabela do que sai em cada caso.
+- [x] T403 `reference/csrf` (ou onde o CSRF mora) + pt: os três nomes e quando trocá-los.
+- [x] T404 `reference/app` + pt e `learn/*`: `Provide`/`Use` como a receita de dependências,
       com o aviso sobre estado de pacote.
-- [ ] T405 `cookbook/migration` + pt: a seção do app embutido ganha os três — cabeçalhos do
+- [x] T405 `cookbook/migration` + pt: a seção do app embutido ganha os três — cabeçalhos do
       hospedeiro, nomes do CSRF e dependências.
-- [ ] T406 CHANGELOG (0.35.0), ROADMAP, `version` em `cmd/trilha/main.go`.
+- [x] T406 CHANGELOG (0.35.0), ROADMAP, `version` em `cmd/trilha/main.go`.
 - [ ] T407 `make test`, rebase em `origin/main` e `make release VERSION=0.35.0 ISSUES="52 54 55"`.
