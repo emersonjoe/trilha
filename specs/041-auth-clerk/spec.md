@@ -81,7 +81,7 @@ a pessoa erra.
       `referencia/auth`; no capítulo, a seção "Other providers"/"Outros provedores" troca o
       parágrafo do que ficou em aberto pela seção do Clerk, com o passo a passo do painel.
 - [x] T005 `CHANGELOG.md` (0.31.0), `version` em `cmd/trilha/main.go`, item do `ROADMAP.md`.
-- [ ] T006 `make test` verde e `make release VERSION=0.31.0 ISSUES="41"`.
+- [x] T006 `make test` verde e `make release VERSION=0.31.0 ISSUES="41"`.
 
 ## Aceitação
 
