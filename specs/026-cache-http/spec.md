@@ -109,7 +109,7 @@ calcula para o `?v=` — `http.ServeFileFS` cuida da comparação e do `304` a p
       os três métodos em `reference/ctx` / `referencia/ctx`.
 - [x] T007 `CHANGELOG.md` (0.17.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 2,
       item 7).
-- [ ] T008 `make test` verde e `make release VERSION=0.17.0 ISSUES="26"`.
+- [x] T008 `make test` verde e `make release VERSION=0.17.0 ISSUES="26"`.
 
 ## Aceitação
 
