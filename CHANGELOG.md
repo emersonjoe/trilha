@@ -34,6 +34,28 @@ versioning. This file is written in English only.
   them would trade a gap for a surface. A route that declares a policy decides alone, and a
   `func OPTIONS` written by hand still wins over it.
 
+- **`c.Flash(kind, text)` and `ui.Flashes(c)`**
+  ([#66](https://github.com/emersonjoe/trilha/issues/66)). The Trilha way of answering a
+  form is `POST → 303 → GET`, and the redirect used to eat the news with it: `ui.Toast`
+  existed, but only the *next* page could render it, and it had no way of knowing. `c.Flash`
+  writes the message in a signed cookie of its own, read once and cleared, and the
+  `ui.Flashes(c)` that replaces `ui.Toaster()` in the layout shows it. On a fragment answer
+  there is no redirect to survive, so the messages travel in the `Trilha-Flash` header and
+  `ui.js` shows them — the call in the handler does not change. Without `TRILHA_SECRET`
+  nothing is written and the app says so once, like `SetSigned`.
+- **`ui.Confirm(title, description)`** asks before a form is submitted, fragment forms
+  included: `ui.js` holds the submit, builds the kit's `<dialog>` and lets it through only
+  after the answer. The confirming button repeats the pressed button's label, and the other
+  one says `Cancel` unless `h.Data("ui-confirm-cancel", "…")` says otherwise. It replaces the
+  fifteen hand-written lines the `examples/blog` used to spend on "delete this post?" —
+  `onclick="return confirm()"` was never an option, because the CSP forbids inline script.
+- **`h.Maxlength`, `h.Minlength`, `h.Autocomplete` and `h.Inputmode`**
+  ([#58](https://github.com/emersonjoe/trilha/issues/58)): four attributes that only came out
+  of `h.Attr`, next to `Pattern` and `Required`, which are functions. In a form where one
+  attribute is a loose string, that string is the one nobody proofreads. **`h.Attrs(...)`**
+  groups attributes into one node, for a component that sets more than one on the element it
+  is placed in.
+
 ### Changed
 
 - **`trilha audit` asks whether the app signs anything**

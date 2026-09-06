@@ -38,7 +38,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			),
 			h.Main(h.ID("conteudo"), ui.Container(children)),
 			h.Footer(ui.Container(ui.Muted(h.Textf("request %s", c.RequestID())))),
-			ui.Toaster(),
+			ui.Flashes(c),
 		),
 	), nil
 }

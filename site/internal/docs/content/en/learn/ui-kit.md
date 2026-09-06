@@ -30,7 +30,7 @@ h.Head(…, ui.Head(c)),          // ui.theme.css, ui.css, saved theme, ui.js
 h.Body(ui.Body(),               // theme font and colors
 	ui.Header(ui.Brand("/", "My app"), ui.Nav(ui.NavLink("/", "Home", true)), ui.Spacer(), ui.ThemeToggle()),
 	h.Main(ui.Container(children)),
-	ui.Toaster(),               // where toasts show up
+	ui.Flashes(c),              // where toasts show up, c.Flash included
 )
 ```
 
@@ -52,8 +52,35 @@ all fields simply appear.
 
 After a `POST`, render the error in the field itself (`ui.Error("Title is required")` +
 `ui.Invalid()` on the control) and a toast that disappears on its own: `ui.Toast("success",
-"Saved!", 4000)` inside the layout's `ui.Toaster()`. The `examples/blog` app does both in
+"Saved!", 4000)` inside the layout's toaster. The `examples/blog` app does both in
 `app/blog/novo/page.go`.
+
+## Saying what happened, and asking before destroying
+
+A `POST` that works ends in a redirect, and the redirect eats the news. `c.Flash` writes it
+in a signed cookie, and the `ui.Flashes(c)` in the layout shows it on the page that follows:
+
+```go
+c.Flash(ui.FlashSuccess, "Post deleted")
+return c.Redirect("/blog")
+```
+
+`ui.FlashInfo`, `ui.FlashSuccess` and `ui.FlashError` are the kinds. On a fragment answer
+there is no redirect to survive, so the messages travel in a header and `ui.js` shows them —
+the call in the handler is the same. Without `TRILHA_SECRET` nothing is written, and the app
+says so once in the log.
+
+Before something irreversible, `ui.Confirm` puts the question on the form itself:
+
+```go
+h.Form(h.Method("post"), h.Action("/blog/"+p.Slug), trilha.CSRFInput(c),
+	ui.Confirm("Delete this post?", "There is no undo."),
+	ui.Submit(ui.Destructive(), h.Text("Delete")))
+```
+
+`ui.js` holds the submit, opens the kit's dialog and only then lets it through. Without
+JavaScript the form submits straight away; when that is not good enough, ask on a page of
+its own (`GET /blog/{slug}/delete` rendering the same form), which works either way.
 
 ## Cards, tabs, progress
 

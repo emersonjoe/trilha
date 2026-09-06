@@ -117,10 +117,12 @@ func TestHeadAndAssets(t *testing.T) {
 			t.Fatalf("%s defined %d times", v, n)
 		}
 	}
-	// FR-007 of spec 006, with the ui.js budget raised to 12 KB in 0.30.0: the
+	// FR-007 of spec 006, with the ui.js budget raised to 12 KB in 0.30.0 (the
 	// tooltip is the first component since the kit shipped to need script of
-	// its own, and a hint that cannot be dismissed is not accessible.
-	if len(Asset("ui.css")) > 25<<10 || len(Asset("ui.js")) > 12<<10 {
+	// its own, and a hint that cannot be dismissed is not accessible) and to
+	// 16 KB in 0.39.0, where the confirmation dialog is built here so that no
+	// app has to write the inline script the CSP forbids.
+	if len(Asset("ui.css")) > 25<<10 || len(Asset("ui.js")) > 16<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {
@@ -321,6 +323,63 @@ func TestTooltip(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestConfirmMarcaOFormulario(t *testing.T) {
+	got := render(t, h.Form(h.Method("post"),
+		Confirm("Apagar este post?", "Não dá para desfazer."),
+		Submit(Destructive(), h.Text("Apagar"))))
+	for _, want := range []string{
+		`data-ui-confirm="Apagar este post?"`,
+		`data-ui-confirm-description="Não dá para desfazer."`,
+		`<button type="submit" class="ui-btn ui-btn-destructive"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
+	}
+	// Os atributos ficam na tag de abertura, não no corpo do formulário.
+	if i, j := strings.Index(got, ">"), strings.Index(got, "data-ui-confirm"); j > i {
+		t.Fatalf("atributo fora da tag: %s", got)
+	}
+	if s := render(t, h.Form(Confirm("Tem certeza?", ""))); strings.Contains(s, "description") {
+		t.Fatal(s)
+	}
+}
+
+func TestFlashesRenderizaOsAvisos(t *testing.T) {
+	a := trilha.New(trilha.Config{Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Secret: []byte(strings.Repeat("k", 32))})
+	var out, empty string
+	a.Register(trilha.Route{Pattern: "/", Page: func(c *trilha.Ctx) (h.Node, error) {
+		empty = render(t, Flashes(c))
+		c.Flash(FlashSuccess, "Post apagado")
+		c.Flash(FlashError, "<b>ops</b>")
+		out = render(t, Flashes(c))
+		return h.Div(), nil
+	}})
+	a.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	// Sem avisos o toaster continua lá: é onde o ui.js pendura os que chegam
+	// pelo cabeçalho.
+	if !strings.Contains(empty, `class="ui-toaster"`) || strings.Contains(empty, "ui-toast ") {
+		t.Fatalf("toaster vazio: %s", empty)
+	}
+	for _, want := range []string{"ui-toast-success", "Post apagado", "ui-toast-error", "&lt;b&gt;ops&lt;/b&gt;", strconv.Itoa(FlashFadeMs)} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in %s", want, out)
+		}
+	}
+}
+
+// O ui.js é a outra metade destas duas funções: sem o par de nomes que ele
+// procura, o Go escreve atributos que ninguém lê.
+func TestUiJSConheceOsAtributosNovos(t *testing.T) {
+	js := string(Asset("ui.js"))
+	for _, want := range []string{"data-ui-confirm", "data-ui-confirm-description", "data-ui-confirm-cancel", "Trilha-Flash", "requestSubmit"} {
+		if !strings.Contains(js, want) {
+			t.Fatalf("ui.js não fala de %q", want)
 		}
 	}
 }

@@ -29,7 +29,7 @@ h.Head(…, ui.Head(c)),          // ui.theme.css, ui.css, tema salvo, ui.js
 h.Body(ui.Body(),               // fonte e cores do tema
 	ui.Header(ui.Brand("/", "Meu app"), ui.Nav(ui.NavLink("/", "Início", true)), ui.Spacer(), ui.ThemeToggle()),
 	h.Main(ui.Container(children)),
-	ui.Toaster(),               // onde os avisos aparecem
+	ui.Flashes(c),              // onde os avisos aparecem, o c.Flash junto
 )
 ```
 
@@ -52,8 +52,36 @@ campos simplesmente aparecem todos.
 
 Depois de um `POST`, renderize o erro no próprio campo (`ui.Error("Título obrigatório")` +
 `ui.Invalid()` no controle) e um aviso que some sozinho: `ui.Toast("success", "Salvo!",
-4000)` dentro do `ui.Toaster()` do layout. O exemplo `examples/blog` faz as duas coisas em
+4000)` dentro do toaster do layout. O exemplo `examples/blog` faz as duas coisas em
 `app/blog/novo/page.go`.
+
+## Contar o que aconteceu, e perguntar antes de destruir
+
+Um `POST` que deu certo termina em redirect, e o redirect come a notícia. O `c.Flash`
+escreve num cookie assinado, e o `ui.Flashes(c)` do layout mostra na página seguinte:
+
+```go
+c.Flash(ui.FlashSuccess, "Post apagado")
+return c.Redirect("/blog")
+```
+
+Os tipos são `ui.FlashInfo`, `ui.FlashSuccess` e `ui.FlashError`. Numa resposta de fragmento
+não há redirect para sobreviver: os avisos vão num cabeçalho e quem mostra é o `ui.js` — a
+chamada no handler é a mesma. Sem `TRILHA_SECRET` nada é escrito, e o app avisa uma vez no
+log.
+
+Antes de algo irreversível, o `ui.Confirm` põe a pergunta no próprio formulário:
+
+```go
+h.Form(h.Method("post"), h.Action("/blog/"+p.Slug), trilha.CSRFInput(c),
+	ui.Confirm("Apagar este post?", "Não dá para desfazer."),
+	h.Data("ui-confirm-cancel", "Cancelar"),
+	ui.Submit(ui.Destructive(), h.Text("Apagar")))
+```
+
+O `ui.js` segura o envio, abre o diálogo do kit e só então deixa passar. Sem JavaScript o
+formulário envia direto; quando isso não serve, pergunte numa página própria (`GET
+/blog/{slug}/apagar` renderizando o mesmo formulário), que funciona dos dois jeitos.
 
 ## Cards, abas, progresso
 

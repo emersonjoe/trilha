@@ -56,6 +56,10 @@ leia essa frase em vez de adivinhar.
   de chave.
 - **Não escreva seu próprio CSRF, assinatura de sessão ou escape de HTML.** Os três já existem e
   já vêm ligados.
+- **Não invente um cookie de flash nem um `onclick="return confirm()"`.** Depois de um `POST`,
+  conte o que aconteceu com `c.Flash(ui.FlashSuccess, "…")` — o `ui.Flashes(c)` do layout mostra
+  na página onde o redirect cai — e pergunte antes de destruir com `ui.Confirm(título,
+  descrição)` no formulário. Script inline a CSP bloqueia de qualquer jeito.
 
 ## Onde procurar
 

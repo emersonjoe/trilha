@@ -28,7 +28,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 				ui.ThemeToggle(),
 			),
 			h.Main(ui.Container(children)),
-			ui.Toaster(),
+			ui.Flashes(c), // c.Flash(ui.FlashSuccess, "…") shows up here after a redirect
 		),
 	), nil
 }

@@ -60,9 +60,10 @@ Every commonly used HTML element has a function with a capitalized name: `Html`,
 | `Attr(name, value)` | any attribute, escaped value |
 | `Bool(name)` | boolean attribute |
 | `Class(v...)` | `class`, joined with spaces and skipping empty values |
-| `ID`, `Href`, `Src`, `Alt`, `Type`, `Name`, `Value`, `Placeholder`, `Action`, `Method`, `Rel`, `Lang`, `Charset`, `Content`, `For`, `Role`, `Target`, `Width`, `Height`, `Rows`, `Cols`, `Min`, `Max`, `Step`, `Pattern`, `Enctype`, `Accept`, `Datetime`, `Tabindex`, `Onclick` | the attribute of the same name |
+| `ID`, `Href`, `Src`, `Alt`, `Type`, `Name`, `Value`, `Placeholder`, `Action`, `Method`, `Rel`, `Lang`, `Charset`, `Content`, `For`, `Role`, `Target`, `Width`, `Height`, `Rows`, `Cols`, `Min`, `Max`, `Step`, `Pattern`, `Maxlength`, `Minlength`, `Autocomplete`, `Inputmode`, `Enctype`, `Accept`, `Datetime`, `Tabindex`, `Onclick` | the attribute of the same name |
 | `StyleAttr`, `TitleAttr`, `LabelAttr` | `style`, `title`, `label` (the names without the suffix are elements) |
 | `Data(key, v)`, `Aria(key, v)` | `data-key`, `aria-key` |
+| `Attrs(...)` | several attributes as one node, for a component that sets more than one on the element it is placed in (`ui.Confirm`); non-attributes are dropped |
 | `Disabled()`, `Checked()`, `Selected()`, `Required()`, `Autofocus()`, `Hidden()`, `Readonly()`, `Multiple()`, `Open()`, `Defer()`, `Async()`, `Autoplay()`, `Controls()`, `Novalidate()` | booleans |
 
 Attributes may appear at any position among the children; they are written in the opening

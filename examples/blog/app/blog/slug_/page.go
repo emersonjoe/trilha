@@ -31,13 +31,13 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		h.H1(h.Class("ui-h1"), h.Text(p.Title)),
 		h.P(h.Text(p.Body)),
 		ui.Row(
-			ui.DialogTrigger("apagar", ui.Destructive(), ui.Sm(), ui.Icon("trash"), h.Text("Apagar")),
-			ui.Badge(ui.Secondary(), h.Text(p.Created.Format("02/01/2006"))),
-		),
-		ui.Dialog("apagar", "Apagar este post?",
-			ui.DialogDescription("Não dá para desfazer."),
+			// O diálogo de confirmação é do formulário: sem JavaScript ele
+			// envia direto, com JavaScript o ui.js pergunta antes.
 			h.Form(h.Method("post"), h.Action("/blog/"+p.Slug), trilha.CSRFInput(c),
-				ui.DialogFooter(ui.DialogClose(ui.Outline(), h.Text("Cancelar")), ui.Submit(ui.Destructive(), h.Text("Apagar")))),
+				ui.Confirm("Apagar este post?", "Não dá para desfazer."),
+				h.Data("ui-confirm-cancel", "Cancelar"),
+				ui.Submit(ui.Destructive(), ui.Sm(), ui.Icon("trash"), h.Text("Apagar"))),
+			ui.Badge(ui.Secondary(), h.Text(p.Created.Format("02/01/2006"))),
 		),
 	), nil
 }
@@ -47,6 +47,8 @@ func DELETE(c *trilha.Ctx) error {
 	if !trilha.Use[*posts.Store](c).Delete(c.Param("slug")) {
 		return trilha.ErrNotFound
 	}
+	// O redirect apaga a notícia; o flash é como ela chega na página seguinte.
+	c.Flash(ui.FlashSuccess, "Post apagado")
 	return c.Redirect("/blog")
 }
 

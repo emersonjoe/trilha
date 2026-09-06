@@ -38,6 +38,8 @@ usado por outra goroutine depois que o handler devolve.
 | `Status(code)` | status que a próxima renderização de página vai usar |
 | `Header(k, v)` | define um cabeçalho de resposta |
 | `SetCookie(*http.Cookie)` | adiciona `Set-Cookie` |
+| `Flash(tipo, texto)` | guarda um aviso para a requisição seguinte, num cookie assinado: a notícia que o redirect comeria. O `ui.Flashes(c)` mostra. Numa resposta de fragmento ele vai no cabeçalho `Trilha-Flash`, e quem mostra é o `ui.js`. Sem `TRILHA_SECRET` nada é escrito e o app avisa uma vez no log |
+| `Flashes() []Flash` | os avisos deixados pela requisição anterior mais os que esta ainda não mandou; ler é gastar, e ler duas vezes dá a mesma lista |
 | `Render(code, node) error` | escreve a página **com os layouts da rota** (como o GET): para um `POST` devolver o formulário com erros (422); num fragmento, sem os layouts |
 | `Stream() *Stream` | resposta em Server-Sent Events: `Send(evento, dados)`, `JSON(evento, v)`, `Comment(s)`, `Done()`; desliga o *write timeout* ([IA e agentes](/pt/aprender/ia-e-agentes)) |
 | `Writer() http.ResponseWriter` | acesso direto (downloads longos, WebSocket) |

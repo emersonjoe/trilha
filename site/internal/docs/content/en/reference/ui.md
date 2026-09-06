@@ -42,9 +42,11 @@ description: The kit's components, variants, assets and the theme contract.
 | `ShowWhen(field, values...)` | `data-ui-show-when`: shows the element only with the value (or any non-empty value); hidden controls are disabled |
 | `Badge`, `Alert(title, ...)`, `AlertDescription(...)` | badge and alert (`role=alert`) |
 | `Toaster(...)`, `Toast(kind, text, fadeMs)` | toast stack; `kind` = `""`, `success`, `error`; `fadeMs > 0` disappears on its own |
+| `Flashes(c)` | the toaster with the messages of [`c.Flash`](/reference/ctx) — put it in the layout; `FlashInfo`, `FlashSuccess` and `FlashError` are the kinds |
 | `Table(...)`, `Num()`, `Depth(n)` | scrollable table; numeric cell; row indentation (tree) |
 | `Tabs(id, Tab{Label, Content}...)` | accessible tabs (arrows, Home/End); the first starts open |
 | `Dialog(id, title, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | native `<dialog>` with `showModal` |
+| `Confirm(title, description)` | attributes for a `<form>`: `ui.js` asks in a dialog before submitting, fragment forms included. The confirming button repeats the pressed button's label; the other says `Cancel`, or what `h.Data("ui-confirm-cancel", "…")` says. Without JavaScript the form submits straight away |
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu with the native `popover` attribute |
 | `Pagination(Pages{Page, Total, Href, Prev, Next, Label})` | page navigation as links; the current page is a `<span>` with `aria-current`, the edges are absent instead of disabled, and a window of seven slots keeps the first and last page with `…` over each gap; one page renders nothing |
 | `Tooltip(text, ...)` | hint on what it wraps: `title` plus `data-ui-tooltip`, upgraded by `ui.js` into a bubble with `role=tooltip` and `aria-describedby` |

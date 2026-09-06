@@ -135,6 +135,38 @@ func Attr(name, value string) Node { return attr{name: name, value: value} }
 // Bool creates a boolean attribute such as disabled or checked.
 func Bool(name string) Node { return attr{name: name, boolean: true} }
 
+// attrGroup is several attributes travelling as one node, so a component can
+// hand back more than one and still land inside the opening tag.
+type attrGroup []Node
+
+func (attrGroup) isAttr() {}
+
+func (g attrGroup) Render(w io.Writer) error {
+	for _, n := range g {
+		if n == nil {
+			continue
+		}
+		if err := n.Render(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Attrs groups attributes into one node, for a component that sets more than
+// one attribute on the element it is placed in. Anything that is not an
+// attribute is dropped, and a class inside the group is written as it is
+// instead of being merged with the element's other classes.
+func Attrs(list ...Node) Node {
+	g := make(attrGroup, 0, len(list))
+	for _, n := range list {
+		if _, ok := n.(attrNode); ok {
+			g = append(g, n)
+		}
+	}
+	return g
+}
+
 // ---- text ------------------------------------------------------------------
 
 type text string

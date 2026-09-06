@@ -359,6 +359,52 @@ func Toast(kind, text string, fadeMs int) h.Node {
 	return h.Div(append(n, h.Span(h.Text(text)))...)
 }
 
+// Kinds of trilha.Flash, which is where the toast that shows it takes its
+// colour from. FlashInfo is the neutral one.
+const (
+	FlashInfo    = ""
+	FlashSuccess = "success"
+	FlashError   = "error"
+)
+
+// FlashFadeMs is how long a flash toast stays on screen.
+const FlashFadeMs = 5000
+
+// Flashes renders the messages left by c.Flash on the request before, inside
+// the toaster. It replaces Toaster() in the layout:
+//
+//	h.Body(..., ui.Flashes(c))
+//
+// An empty toaster is still rendered, because ui.js appends live toasts to it.
+func Flashes(c *trilha.Ctx) h.Node {
+	var toasts []h.Node
+	for _, f := range c.Flashes() {
+		toasts = append(toasts, Toast(f.Kind, f.Text, FlashFadeMs))
+	}
+	return Toaster(toasts...)
+}
+
+// Confirm asks before the form it sits in is submitted. Put it in the form,
+// next to the CSRF input:
+//
+//	h.Form(h.Method("post"), h.Action("/blog/"+p.Slug), trilha.CSRFInput(c),
+//		ui.Confirm("Delete this post?", "There is no undo."),
+//		ui.Submit(Destructive(), h.Text("Delete")))
+//
+// ui.js holds the submit, opens the kit's dialog and only then lets it
+// through, fragment forms included. The confirming button repeats the label of
+// the button that was pressed; the other one says "Cancel", or whatever
+// h.Data("ui-confirm-cancel", "…") says on the same form. Without JavaScript
+// the form submits straight away — when that is not good enough, ask on a page
+// of its own, which works either way.
+func Confirm(title, description string) h.Node {
+	n := []h.Node{h.Data("ui-confirm", title)}
+	if description != "" {
+		n = append(n, h.Data("ui-confirm-description", description))
+	}
+	return h.Attrs(n...)
+}
+
 // ---- table -----------------------------------------------------------------
 
 // Table wraps a <table class="ui-table"> in a horizontally scrollable box.

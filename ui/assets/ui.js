@@ -90,6 +90,59 @@
     if (b) toast(b.getAttribute("data-ui-toast"), { kind: b.getAttribute("data-ui-toast-kind") || "success" });
   });
 
+  // Flashes (spec 053): a fragment answer carries the messages of c.Flash in a
+  // header, because there is no redirect for a cookie to survive.
+  const showFlashes = (v) => {
+    try {
+      const bin = atob(v.replace(/-/g, "+").replace(/_/g, "/"));
+      const txt = new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)));
+      for (const f of JSON.parse(txt) || []) toast(f.t, { kind: f.k || "", ms: 5000 });
+    } catch {}
+  };
+
+  // Confirm (spec 053): a form with [data-ui-confirm] asks before it submits.
+  // The dialog is built here, with the kit's own classes, so no page needs a
+  // <dialog> per button and no app needs inline script the CSP would block.
+  const confirm = (f, btn) => new Promise((resolve) => {
+    const d = document.createElement("dialog");
+    d.className = "ui-dialog";
+    const el = (tag, cls, txt) => { const n = document.createElement(tag); n.className = cls; n.textContent = txt; return n; };
+    d.appendChild(el("h2", "ui-dialog-title", f.getAttribute("data-ui-confirm") || ""));
+    const desc = f.getAttribute("data-ui-confirm-description");
+    if (desc) d.appendChild(el("p", "ui-dialog-description", desc));
+    const cancel = el("button", "ui-btn ui-btn-outline", f.getAttribute("data-ui-confirm-cancel") || "Cancel");
+    const ok = el("button", "ui-btn" + (btn?.classList.contains("ui-btn-destructive") ? " ui-btn-destructive" : ""), btn?.textContent.trim() || "OK");
+    cancel.type = ok.type = "button";
+    const foot = el("div", "ui-dialog-footer", "");
+    foot.append(cancel, ok);
+    d.appendChild(foot);
+    document.body.appendChild(d);
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; d.close(); d.remove(); resolve(v); };
+    cancel.addEventListener("click", () => finish(false));
+    ok.addEventListener("click", () => finish(true));
+    d.addEventListener("cancel", () => finish(false)); // Escape
+    d.addEventListener("click", (ev) => { if (ev.target === d) finish(false); });
+    d.showModal();
+    cancel.focus(); // the safe answer is the one under the finger
+  });
+
+  // Capture, so the confirmation happens before the fragment listener below
+  // decides what to do with the same submit.
+  document.addEventListener("submit", (e) => {
+    const f = e.target;
+    if (!(f instanceof HTMLFormElement) || !f.hasAttribute("data-ui-confirm") || f.dataset.uiConfirmed) return;
+    const btn = e.submitter;
+    e.preventDefault();
+    e.stopPropagation();
+    confirm(f, btn).then((yes) => {
+      if (!yes) return;
+      f.dataset.uiConfirmed = "1"; // the second submit is the confirmed one
+      if (f.requestSubmit) f.requestSubmit(btn); else f.submit();
+      delete f.dataset.uiConfirmed;
+    });
+  }, true);
+
   // Conditional fields: [data-ui-show-when="campo=valor"] (or "campo=a|b", "campo" for any truthy).
   // Hidden groups also get their controls disabled so they are not submitted.
   const evalShowWhen = (root) => {
@@ -156,6 +209,8 @@
     target?.setAttribute("aria-busy", "true");
     try {
       const res = await fetch(url, { ...opts, headers: { "Trilha-Fragment": id }, credentials: "same-origin" });
+      const flash = res.headers.get("Trilha-Flash");
+      if (flash) showFlashes(flash);
       const loc = res.headers.get("Trilha-Location");
       if (loc) { location.assign(loc); return true; }
       if (res.redirected) { location.assign(res.url); return true; }
@@ -257,5 +312,5 @@
 
   const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, evalShowWhen, applyTheme, swap, hydrate, initTooltips });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips });
 })();

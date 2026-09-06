@@ -131,6 +131,21 @@ func TestUS2_APIGetPostDelete(t *testing.T) {
 	c.Get("/api/nada").WantStatus(404).WantContains(`"status":404`)
 }
 
+// Apagar um post: o formulário não tem JavaScript aqui, então ele envia direto
+// — é o caminho sem script — e o aviso do c.Flash atravessa o redirect.
+func TestUS2_ApagarAvisaNaPaginaSeguinte(t *testing.T) {
+	c := newClient(t, "prod")
+	c.Get("/blog/layouts").WantStatus(200).
+		WantContains(`data-ui-confirm="Apagar este post?"`).
+		WantContains("Não dá para desfazer.")
+	c.postForm("/blog/layouts", "").WantStatus(303)
+	c.Get("/blog").WantStatus(200).WantContains("ui-toast-success").WantContains("Post apagado")
+	// Lido é gasto: a próxima página já não repete o aviso.
+	if body := c.Get("/blog").WantStatus(200).Body.String(); strings.Contains(body, "Post apagado") {
+		t.Fatal("o aviso apareceu duas vezes")
+	}
+}
+
 func TestUS2_MethodNotAllowed(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.Request("PUT", "/api/posts")

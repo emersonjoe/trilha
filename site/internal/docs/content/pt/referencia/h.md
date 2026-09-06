@@ -61,9 +61,10 @@ atributos.
 | `Attr(nome, valor)` | qualquer atributo, valor escapado |
 | `Bool(nome)` | atributo booleano |
 | `Class(v...)` | `class`, juntando com espaço e ignorando vazios |
-| `ID`, `Href`, `Src`, `Alt`, `Type`, `Name`, `Value`, `Placeholder`, `Action`, `Method`, `Rel`, `Lang`, `Charset`, `Content`, `For`, `Role`, `Target`, `Width`, `Height`, `Rows`, `Cols`, `Min`, `Max`, `Step`, `Pattern`, `Enctype`, `Accept`, `Datetime`, `Tabindex`, `Onclick` | o atributo de mesmo nome |
+| `ID`, `Href`, `Src`, `Alt`, `Type`, `Name`, `Value`, `Placeholder`, `Action`, `Method`, `Rel`, `Lang`, `Charset`, `Content`, `For`, `Role`, `Target`, `Width`, `Height`, `Rows`, `Cols`, `Min`, `Max`, `Step`, `Pattern`, `Maxlength`, `Minlength`, `Autocomplete`, `Inputmode`, `Enctype`, `Accept`, `Datetime`, `Tabindex`, `Onclick` | o atributo de mesmo nome |
 | `StyleAttr`, `TitleAttr`, `LabelAttr` | `style`, `title`, `label` (os nomes sem sufixo são elementos) |
 | `Data(chave, v)`, `Aria(chave, v)` | `data-chave`, `aria-chave` |
+| `Attrs(...)` | vários atributos num nó só, para um componente que põe mais de um no elemento onde é colocado (`ui.Confirm`); o que não é atributo é descartado |
 | `Disabled()`, `Checked()`, `Selected()`, `Required()`, `Autofocus()`, `Hidden()`, `Readonly()`, `Multiple()`, `Open()`, `Defer()`, `Async()`, `Autoplay()`, `Controls()`, `Novalidate()` | booleanos |
 
 Atributos podem aparecer em qualquer posição entre os filhos; são escritos na tag de

@@ -82,6 +82,8 @@ pkg trilha, method (*Ctx) Cookie(string) (*http.Cookie, error)
 pkg trilha, method (*Ctx) ETag(string) bool
 pkg trilha, method (*Ctx) Env() Env
 pkg trilha, method (*Ctx) File(string, FileRules) (*Upload, error)
+pkg trilha, method (*Ctx) Flash(string, string)
+pkg trilha, method (*Ctx) Flashes() []Flash
 pkg trilha, method (*Ctx) Form(string) string
 pkg trilha, method (*Ctx) FormErr() error
 pkg trilha, method (*Ctx) Fragment() string
@@ -211,6 +213,9 @@ pkg trilha, type FileRules struct
 pkg trilha, type FileRules struct, Accept []string
 pkg trilha, type FileRules struct, MaxSize int64
 pkg trilha, type FileRules struct, Optional bool
+pkg trilha, type Flash struct
+pkg trilha, type Flash struct, Kind string
+pkg trilha, type Flash struct, Text string
 pkg trilha, type Gauge struct
 pkg trilha, type HTTPError struct
 pkg trilha, type HTTPError struct, Code int
@@ -567,7 +572,9 @@ pkg h, func Article(...Node) Node
 pkg h, func Aside(...Node) Node
 pkg h, func Async() Node
 pkg h, func Attr(string, string) Node
+pkg h, func Attrs(...Node) Node
 pkg h, func Audio(...Node) Node
+pkg h, func Autocomplete(string) Node
 pkg h, func Autofocus() Node
 pkg h, func Autoplay() Node
 pkg h, func B(...Node) Node
@@ -636,6 +643,7 @@ pkg h, func IfElse(bool, Node, Node) Node
 pkg h, func Iframe(...Node) Node
 pkg h, func Img(...Node) Node
 pkg h, func Input(...Node) Node
+pkg h, func Inputmode(string) Node
 pkg h, func Ins(...Node) Node
 pkg h, func Kbd(...Node) Node
 pkg h, func Label(...Node) Node
@@ -649,11 +657,13 @@ pkg h, func MapIndex[T any]([]T, func(int, T) Node) Node
 pkg h, func Map[T any]([]T, func(T) Node) Node
 pkg h, func Mark(...Node) Node
 pkg h, func Max(string) Node
+pkg h, func Maxlength(string) Node
 pkg h, func Menu(...Node) Node
 pkg h, func Meta(...Node) Node
 pkg h, func Meter(...Node) Node
 pkg h, func Method(string) Node
 pkg h, func Min(string) Node
+pkg h, func Minlength(string) Node
 pkg h, func Multiple() Node
 pkg h, func Name(string) Node
 pkg h, func Nav(...Node) Node
@@ -733,6 +743,10 @@ pkg h, type Node interface, Render(io.Writer) error
 pkg h, var Nil Node
 pkg tmpl, func Must(fs.FS, ...string) *template.Template
 pkg tmpl, func Node(*template.Template, string, any) h.Node
+pkg ui, const FlashError
+pkg ui, const FlashFadeMs
+pkg ui, const FlashInfo
+pkg ui, const FlashSuccess
 pkg ui, func Alert(string, ...h.Node) h.Node
 pkg ui, func AlertDescription(...h.Node) h.Node
 pkg ui, func Asset(string) []byte
@@ -754,6 +768,7 @@ pkg ui, func Checkbox(...h.Node) h.Node
 pkg ui, func Checked(bool) h.Node
 pkg ui, func Code(string) h.Node
 pkg ui, func Collapsible(string, ...h.Node) h.Node
+pkg ui, func Confirm(string, string) h.Node
 pkg ui, func Container(...h.Node) h.Node
 pkg ui, func Depth(int) h.Node
 pkg ui, func Destructive() h.Node
@@ -765,6 +780,7 @@ pkg ui, func DialogTrigger(string, ...h.Node) h.Node
 pkg ui, func Error(string) FieldOpt
 pkg ui, func Errors(map[string]string, string) FieldOpt
 pkg ui, func Field(string, string, h.Node, ...FieldOpt) h.Node
+pkg ui, func Flashes(*trilha.Ctx) h.Node
 pkg ui, func Ghost() h.Node
 pkg ui, func Grid(...h.Node) h.Node
 pkg ui, func H1(...h.Node) h.Node

@@ -18,6 +18,9 @@ const (
 	// response cannot redirect, or the destination page would be pasted
 	// inside a <div>.
 	locationHeader = "Trilha-Location"
+	// flashHeader carries the messages of a fragment response, which has no
+	// redirect for a cookie to survive.
+	flashHeader = "Trilha-Flash"
 )
 
 // renderPage runs Page, wraps the result with the route's layouts (innermost

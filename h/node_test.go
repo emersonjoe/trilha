@@ -71,3 +71,24 @@ func TestClassMerge(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestAtributosDeFormulario(t *testing.T) {
+	got := mustRender(t, Input(Type("text"), Minlength("3"), Maxlength("30"),
+		Autocomplete("email"), Inputmode("numeric")))
+	want := `<input type="text" minlength="3" maxlength="30" autocomplete="email" inputmode="numeric">`
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestAttrsAgrupaAtributosNaTag(t *testing.T) {
+	got := mustRender(t, Form(Method("post"), Attrs(Data("a", "1"), Data("b", "2")), Text("x")))
+	want := `<form method="post" data-a="1" data-b="2">x</form>`
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	// O que não é atributo não tem como entrar na tag de abertura.
+	if got := mustRender(t, Div(Attrs(Text("sumiu"), ID("k")))); got != `<div id="k"></div>` {
+		t.Fatalf("got %q", got)
+	}
+}

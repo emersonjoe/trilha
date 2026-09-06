@@ -38,6 +38,8 @@ used by another goroutine after the handler returns.
 | `Status(code)` | status the next page render will use |
 | `Header(k, v)` | sets a response header |
 | `SetCookie(*http.Cookie)` | adds `Set-Cookie` |
+| `Flash(kind, text)` | queues a message for the next request, in a signed cookie: the news the redirect would eat. `ui.Flashes(c)` shows it. On a fragment answer it travels in the `Trilha-Flash` header instead, and `ui.js` shows it. Without `TRILHA_SECRET` nothing is written and the app says so once in the log |
+| `Flashes() []Flash` | the messages left by the previous request plus the ones this one has not sent yet; reading them takes them, and reading twice gives the same list |
 | `Render(code, node) error` | writes the page **with the route's layouts** (like GET): for a `POST` to return the form with errors (422); on a fragment, without the layouts |
 | `Stream() *Stream` | Server-Sent Events response: `Send(event, data)`, `JSON(event, v)`, `Comment(s)`, `Done()`; disables the *write timeout* ([AI and agents](/learn/ai-and-agents)) |
 | `Writer() http.ResponseWriter` | direct access (long downloads, WebSocket) |

@@ -49,6 +49,9 @@ type Ctx struct {
 	fragParsed   bool
 	islandLoader bool
 	rawBody      io.ReadCloser
+	flashOut     []Flash
+	flashIn      []Flash
+	flashRead    bool
 }
 
 func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
@@ -58,7 +61,9 @@ func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
 		_, _ = rand.Read(b[:])
 		id = hex.EncodeToString(b[:])
 	}
-	return &Ctx{w: w, r: r, app: a, kind: kind, values: map[string]any{}, requestID: id}
+	c := &Ctx{w: w, r: r, app: a, kind: kind, values: map[string]any{}, requestID: id}
+	w.before = c.writeFlashes
+	return c
 }
 
 // Request returns the underlying *http.Request.
@@ -292,6 +297,7 @@ type responseWriter struct {
 	wrote    bool
 	hijacked bool
 	bytes    int
+	before   func() // last chance to set a header, run once
 }
 
 // Hijack makes the response satisfy http.Hijacker, which is what a WebSocket
@@ -304,6 +310,11 @@ func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 func (w *responseWriter) WriteHeader(code int) {
 	if w.wrote || w.hijacked {
 		return
+	}
+	if w.before != nil {
+		f := w.before
+		w.before = nil
+		f()
 	}
 	w.wrote = true
 	w.status = code

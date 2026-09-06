@@ -55,6 +55,10 @@ that resolves it — read that line instead of guessing.
   literal that looks like a key.
 - **Do not write your own CSRF, session signing or HTML escaping.** All three already exist and
   are on by default.
+- **Do not invent a flash cookie or an `onclick="return confirm()"`.** After a `POST`, say what
+  happened with `c.Flash(ui.FlashSuccess, "…")` — the layout's `ui.Flashes(c)` shows it on the
+  page the redirect lands on — and ask before destroying with `ui.Confirm(title, description)`
+  on the form. Inline script is blocked by the CSP anyway.
 
 ## Where to look
 
