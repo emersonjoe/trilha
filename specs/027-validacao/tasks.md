@@ -30,10 +30,10 @@
 
 ## Bloco 4 — documentação e fechamento
 
-- [ ] T009 `learn/forms` + `pt/aprender/formularios`: seção de validação (tag, tipo próprio,
+- [x] T009 `learn/forms` + `pt/aprender/formularios`: seção de validação (tag, tipo próprio,
       regra própria, a fronteira com a regra de negócio).
-- [ ] T010 `reference/ctx` (`Bind`) + `reference/validation` nas duas locales, com a tabela
+- [x] T010 `reference/ctx` (`Bind`) + `reference/validation` nas duas locales, com a tabela
       de regras e as mensagens.
-- [ ] T011 `CHANGELOG.md` (0.18.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 2,
+- [x] T011 `CHANGELOG.md` (0.18.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 2,
       item 8).
 - [ ] T012 `make test` verde e `make release VERSION=0.18.0 ISSUES="27"`.

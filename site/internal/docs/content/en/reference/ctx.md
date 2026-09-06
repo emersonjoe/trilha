@@ -150,4 +150,5 @@ of `route.go` if `Config.CSRFForAPI` is on), through the `_csrf` field or the
 `time.Time` (`2006-01-02` or `2006-01-02T15:04`) and pointers (nil when absent). A nested
 struct is flattened, with the tag as prefix (`Billing Address `+"`form:\"bill_\"`"+` reads
 `bill_zip`…). Values that do not convert become `FieldErrors` (message `trilha.BindInvalid`,
-adjustable) after every field has been tried.
+adjustable) after every field has been tried. The `validate:"..."` tag of each field is
+applied right after, in the same pass: see [Validation](/reference/validation).

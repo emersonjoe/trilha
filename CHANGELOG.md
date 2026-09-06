@@ -5,6 +5,36 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.18.0 — 2026-09-05
+
+### Added
+- Declarative validation in `Bind` ([#27](https://github.com/emersonjoe/trilha/issues/27)):
+  the `validate:"required,min=3"` tag next to the field, applied right after the values are
+  converted, in the same pass. Rules: `required`, `min`, `max`, `len`, `email`, `url`,
+  `oneof` and `eqfield`, each meaning what it should per type (characters for text, value
+  for numbers, date for `time.Time`, items chosen for `[]string`). The answer is still
+  `FieldErrors`, with every message at once.
+- `trilha.Validator` (`interface{ Validate() error }`): a field type checks itself, and a
+  struct's own `Validate` runs at the end, only when no field failed — which is what makes a
+  check that reads two fields safe. Value and pointer receivers both work.
+- `trilha.AddRule(name, func(trilha.Field) bool)` registers a rule for the tag;
+  `trilha.Field` carries `Name`, `Param`, `Text`, `Value` and `Other(name)` for a rule that
+  compares two fields. A name that already exists panics, and so does an unknown name in a
+  tag: a typo would otherwise be a form that accepts anything in production.
+- `trilha.ValidationMessages` (message per rule, with `{param}`) and
+  `trilha.UseValidationPTBR()`, which also switches `BindInvalid`. Messages are read by the
+  person filling the form, which is why they are the one part of the runtime that ships
+  translated.
+- `BindJSON` validates too, naming the field by its `json` tag so the message comes back
+  under a key the client recognises.
+
+### Notes
+- `required` means "not the zero value". Where `0` or `false` is a real answer, declare the
+  field as a pointer: a `*int` that arrived holding `0` is present.
+- Every rule but `required` ignores an empty value, and a value that does not convert gets
+  `BindInvalid` and no rule message — one message per field.
+- Nothing changed for a struct without `validate` tags.
+
 ## 0.17.0 — 2026-09-05
 
 ### Added

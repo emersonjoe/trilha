@@ -23,6 +23,8 @@ Nenhum deles depende de nada fora da biblioteca padrão. Compatível com Go 1.22
 - Toda função de rota recebe `*trilha.Ctx` ([Ctx](/pt/referencia/ctx)) e devolve `error` ou
   `(h.Node, error)`.
 - Erros são valores com significado HTTP ([Erros](/pt/referencia/erros)).
+- Entrada de formulário e de JSON é preenchida e conferida pelo `Bind`
+  ([Validação](/pt/referencia/validacao)).
 - O HTML é um `h.Node` ([h](/pt/referencia/h)), vindo do DSL ou de um template
   ([tmpl](/pt/referencia/tmpl)).
 - `trilha_gen.go` liga tudo e é gerado pela [CLI](/pt/referencia/cli); `App`

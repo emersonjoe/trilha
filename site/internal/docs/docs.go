@@ -40,11 +40,11 @@ type Locale struct {
 var Locales = []Locale{
 	{Code: "en", Prefix: "", Lang: "en", Name: "English", Sections: []Section{
 		{"learn", "Learn", []string{"", "pages-and-routes", "layouts", "html-with-h", "forms", "api", "data", "middleware", "security", "observability", "authentication", "ui-kit", "interactivity", "ai-and-agents", "examples", "dev-and-production", "troubleshooting"}},
-		{"reference", "Reference", []string{"", "conventions", "ctx", "h", "tmpl", "errors", "app", "security", "observability", "auth", "cache", "ui", "ai", "mcp", "cli", "performance"}},
+		{"reference", "Reference", []string{"", "conventions", "ctx", "h", "tmpl", "errors", "validation", "app", "security", "observability", "auth", "cache", "ui", "ai", "mcp", "cli", "performance"}},
 	}},
 	{Code: "pt", Prefix: "/pt", Lang: "pt-BR", Name: "Português", Sections: []Section{
 		{"aprender", "Aprender", []string{"", "paginas-e-rotas", "layouts", "html-com-h", "formularios", "api", "dados", "middleware", "seguranca", "observabilidade", "autenticacao", "interface-com-ui", "interatividade", "ia-e-agentes", "exemplos", "dev-e-producao", "problemas-comuns"}},
-		{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "app", "seguranca", "observabilidade", "auth", "cache", "ui", "ai", "mcp", "cli", "desempenho"}},
+		{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "validacao", "app", "seguranca", "observabilidade", "auth", "cache", "ui", "ai", "mcp", "cli", "desempenho"}},
 	}},
 }
 

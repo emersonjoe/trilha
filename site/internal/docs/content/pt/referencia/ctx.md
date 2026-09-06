@@ -151,4 +151,6 @@ campo); tipos: `string`, `[]string`, `bool` (`on`/`true`/`1`), `int`, `int64`, `
 (vírgula ou ponto), `time.Time` (`2006-01-02` ou `2006-01-02T15:04`) e ponteiros (nil quando
 ausente). Struct aninhada é achatada, com a tag como prefixo (`Cobranca Endereco
 `+"`form:\"cob_\"`"+` lê `cob_cep`…). Valores que não convertem viram `FieldErrors`
-(mensagem `trilha.BindInvalid`, ajustável) depois de todos os campos serem tentados.
+(mensagem `trilha.BindInvalid`, ajustável) depois de todos os campos serem tentados. A tag
+`validate:"..."` de cada campo é aplicada logo em seguida, na mesma passada: veja
+[Validação](/pt/referencia/validacao).
