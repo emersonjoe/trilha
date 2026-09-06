@@ -26,6 +26,10 @@ versions (0.2, 0.3), always listed in `CHANGELOG.md` with the migration path. 1.
 published when the file conventions and the `Ctx`/`h` API stay stable for at least three
 minor versions without a breaking change.
 
+What "breaking" means, which packages the promise covers and how a symbol is retired are in
+[`API.md`](API.md); the exported surface is versioned in
+[`api/current.txt`](api/current.txt) and a test fails when it changes without anyone saying so.
+
 Every release is an annotated `vX.Y.Z` tag with a GitHub release. **Every closed spec
 (merged into `main`) produces a release**, so that `go get ...@latest` and the site's
 documentation always describe the same API (issue #5).

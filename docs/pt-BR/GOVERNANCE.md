@@ -25,6 +25,10 @@ em versões menores (0.2, 0.3), sempre listadas no `CHANGELOG.md` com o caminho 
 A 1.0 será publicada quando as convenções de arquivo e a API de `Ctx`/`h` ficarem estáveis
 por pelo menos três versões menores sem mudança incompatível.
 
+O que "quebra" quer dizer, quais pacotes a promessa cobre e como um símbolo é aposentado estão
+no [`API.md`](API.md); a superfície exportada é versionada em
+[`api/current.txt`](../../api/current.txt) e um teste falha quando ela muda sem ninguém dizer.
+
 Toda versão é uma tag anotada `vX.Y.Z` com uma release no GitHub. **Toda spec fechada
 (mergeada na `main`) gera uma versão**, para que `go get ...@latest` e a documentação do
 site descrevam sempre a mesma API (issue #5).
