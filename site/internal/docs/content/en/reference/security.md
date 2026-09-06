@@ -33,6 +33,20 @@ Adjust in `Setup` through `a.Security()`.
 the peer is trusted: `c.ClientIP()` reads `X-Forwarded-For` (the rightmost IP that is not a
 proxy), `X-Forwarded-Proto: https` turns on HSTS and marks cookies as `Secure`.
 
+## Allowed hosts
+
+`Config.AllowedHosts []string` or `TRILHA_ALLOWED_HOSTS=a,b`. A request whose `Host` is not in
+the list is answered with 400 before the router, the probes and CORS, and emits a `host`
+event. Empty list = no check.
+
+| Pattern | Allows | Does not allow |
+|---|---|---|
+| `example.com` | `example.com`, `example.com:8443`, `EXAMPLE.com.` | `sub.example.com` |
+| `*.example.com` | `app.example.com` | `example.com`, `a.b.example.com` |
+
+In `Dev`, `localhost`, `127.0.0.1` and `::1` always pass. The value compared is the host the
+app receives — behind a proxy that rewrites `Host`, list what the proxy sends.
+
 ## Rate limiting
 
 `Config.RateLimit{RPS float64, Burst int}` applies a *token bucket* per `ClientIP` before
@@ -62,7 +76,7 @@ For long responses (SSE, download), call `c.NoWriteDeadline()` before writing.
 
 ```go
 type SecurityEvent struct {
-	Kind      string // csrf | auth | body | rate | panic
+	Kind      string // csrf | auth | body | host | rate | panic
 	Status    int
 	Method    string
 	Path      string

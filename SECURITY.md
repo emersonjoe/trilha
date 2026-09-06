@@ -22,6 +22,9 @@ unless asked otherwise.
 The runtime (`trilha`, `h`, `tmpl`), the CLI and the generated file. Examples and the
 documentation site are welcome, but with lower priority.
 
+The [threat model](SECURITY-MODEL.md) says what these guarantees are defending against, and
+what stays open.
+
 ## Guarantees the framework offers by default
 
 - HTML escaping in text and attributes (`h`) and contextual escaping (`tmpl`).

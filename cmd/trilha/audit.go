@@ -67,9 +67,17 @@ func runAudit(p *project, vuln bool) []check {
 		add("ok", t("proxies ok"), "")
 	}
 
+	src := projectSource(p.Root)
+	// Host validation (spec 034): without a list, any Host the client sends
+	// is the one the app builds its own links with.
+	if os.Getenv("TRILHA_ALLOWED_HOSTS") == "" && !strings.Contains(src, "AllowedHosts") {
+		add("warn", t("hosts unset"), t("hosts unset hint"))
+	} else {
+		add("ok", t("hosts ok"), "")
+	}
+
 	// Observability (NIST SP 800-53 AU-9: audit information is protected;
 	// OWASP API Security 2023 API8: no unprotected monitoring endpoint).
-	src := projectSource(p.Root)
 	metricsOn := os.Getenv("TRILHA_METRICS") != "" || strings.Contains(src, "Metrics:")
 	tok := os.Getenv("TRILHA_OBS_TOKEN")
 	trusted := os.Getenv("TRILHA_OBS_TRUSTED") != "" || strings.Contains(src, "Trusted:")

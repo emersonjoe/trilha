@@ -33,6 +33,20 @@ Ajuste em `Setup` por `a.Security()`.
 o peer é confiável: `c.ClientIP()` lê `X-Forwarded-For` (o IP mais à direita que não seja
 proxy), `X-Forwarded-Proto: https` liga HSTS e marca cookies como `Secure`.
 
+## Hosts permitidos
+
+`Config.AllowedHosts []string` ou `TRILHA_ALLOWED_HOSTS=a,b`. A requisição cujo `Host` não
+está na lista é respondida com 400 antes do roteador, das sondas e do CORS, e emite um evento
+`host`. Lista vazia = sem conferência.
+
+| Padrão | Libera | Não libera |
+|---|---|---|
+| `exemplo.com` | `exemplo.com`, `exemplo.com:8443`, `EXEMPLO.com.` | `sub.exemplo.com` |
+| `*.exemplo.com` | `app.exemplo.com` | `exemplo.com`, `a.b.exemplo.com` |
+
+Em `Dev`, `localhost`, `127.0.0.1` e `::1` passam sempre. O que se compara é o host que o app
+recebe — atrás de um proxy que reescreve o `Host`, liste o que o proxy manda.
+
 ## Limite de taxa
 
 `Config.RateLimit{RPS float64, Burst int}` aplica um *token bucket* por `ClientIP` antes dos
@@ -62,7 +76,7 @@ Para respostas longas (SSE, download), chame `c.NoWriteDeadline()` antes de escr
 
 ```go
 type SecurityEvent struct {
-	Kind      string // csrf | auth | body | rate | panic
+	Kind      string // csrf | auth | body | host | rate | panic
 	Status    int
 	Method    string
 	Path      string

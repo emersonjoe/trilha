@@ -65,6 +65,37 @@ Only then does `c.ClientIP()` return the real client, HSTS is sent and the rate 
 per client instead of per proxy. Without that variable, `X-Forwarded-*` headers are
 ignored, which is the safe behavior.
 
+## The host you answer for
+
+The `Host` header is chosen by whoever calls. Your app uses it to build absolute URLs — the
+password-reset link, the invitation e-mail, a redirect — and any cache in front keys on it. A
+request with `Host: attacker.example` is enough to get a link pointing at somebody else's
+domain into an e-mail your app sends.
+
+List the hosts you answer for and the rest gets 400 before the router runs:
+
+```go
+trilha.Config{AllowedHosts: []string{"example.com", "*.example.com"}}
+```
+
+```bash
+TRILHA_ALLOWED_HOSTS=example.com,*.example.com
+```
+
+The port and the case do not count, so `example.com:8443` passes. `*.example.com` allows one
+extra label — `app.example.com` yes, `a.b.example.com` no. In `Dev`, `localhost` and the
+loopback addresses always pass, so copying the production list into your dev config does not
+break the dev server. An empty list checks nothing, which is what an app that never set it
+gets.
+
+A refusal is a `host` security event, so it shows up in the log, in the metric and in
+`OnSecurityEvent` like every other block.
+
+:::note
+The list is about the host the **app** receives. If a proxy rewrites `Host`, write down what
+the proxy sends, not what the browser typed.
+:::
+
 ## Session with a signed cookie
 
 A signed cookie cannot be forged or altered, and it expires on its own:
@@ -217,7 +248,9 @@ from the script, and a client that is not a browser was never the one being prot
 - **Secrets**: only in environment variables or a vault; never in the repository.
 - **Govern, Identify, Recover**: inventory, data classification, response plan and
   restoration are processes of the organization. The project's `SECURITY.md` describes how
-  to report vulnerabilities in the framework.
+  to report vulnerabilities in the framework, and
+  [SECURITY-MODEL.md](https://github.com/emersonjoe/trilha/blob/main/SECURITY-MODEL.md) is the
+  written threat model: what each control defends against, and what stays open.
 
 ## Challenge
 

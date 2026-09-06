@@ -65,6 +65,37 @@ Só então `c.ClientIP()` devolve o cliente real, o HSTS é enviado e o limite d
 cliente e não por proxy. Sem essa variável, cabeçalhos `X-Forwarded-*` são ignorados, o que
 é o comportamento seguro.
 
+## O host que você atende
+
+O cabeçalho `Host` é escolhido por quem chama. Seu app o usa para montar URL absoluta — o link
+de redefinição de senha, o e-mail de convite, um redirecionamento — e qualquer cache à frente
+o usa como chave. Uma requisição com `Host: atacante.example` basta para pôr num e-mail que o
+seu app envia um link apontando para o domínio de outra pessoa.
+
+Liste os hosts que você atende e o resto leva 400 antes de o roteador rodar:
+
+```go
+trilha.Config{AllowedHosts: []string{"exemplo.com", "*.exemplo.com"}}
+```
+
+```bash
+TRILHA_ALLOWED_HOSTS=exemplo.com,*.exemplo.com
+```
+
+A porta e a caixa não contam, então `exemplo.com:8443` passa. `*.exemplo.com` libera um rótulo
+a mais — `app.exemplo.com` sim, `a.b.exemplo.com` não. Em `Dev`, `localhost` e os endereços de
+loopback passam sempre, então copiar a lista de produção para a configuração de
+desenvolvimento não quebra o dev server. Lista vazia não confere nada, que é o que recebe o
+app que nunca ouviu falar disso.
+
+A recusa é um evento de segurança de tipo `host`: aparece no log, na métrica e no
+`OnSecurityEvent` como todo bloqueio.
+
+:::note
+A lista fala do host que o **app** recebe. Se um proxy reescreve o `Host`, escreva o que o
+proxy manda, não o que o navegador digitou.
+:::
+
 ## Sessão com cookie assinado
 
 Um cookie assinado não pode ser forjado nem alterado, e vence sozinho:
@@ -218,7 +249,9 @@ navegador, e o cliente que não é navegador nunca foi quem estava sendo protegi
 - **Segredos**: só em variáveis de ambiente ou em um cofre; nunca no repositório.
 - **Governar, Identificar, Recuperar**: inventário, classificação de dados, plano de
   resposta e restauração são processos da organização. O `SECURITY.md` do projeto descreve
-  como relatar vulnerabilidades do framework.
+  como relatar vulnerabilidades do framework, e o
+  [SECURITY-MODEL.md](https://github.com/emersonjoe/trilha/blob/main/docs/pt-BR/SECURITY-MODEL.md)
+  é o modelo de ameaças escrito: contra o quê cada controle defende e o que continua aberto.
 
 ## Desafio
 

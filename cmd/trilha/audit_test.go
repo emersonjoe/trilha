@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 // A auditoria precisa enxergar o segredo literal mesmo quando os outros
 // argumentos são chamadas com parênteses e vírgulas dentro.
@@ -36,5 +41,40 @@ func TestAuthCallsSeparaArgumentos(t *testing.T) {
 	// authCalls não procurava a chamada: a checagem nunca rodava.
 	if got := byName["Cognito"].args[secretArg("Cognito")]; got != `"s3cret"` {
 		t.Errorf("posição do segredo do Cognito: %q", got)
+	}
+}
+
+// TestAuditoriaDeHost: sem AllowedHosts a auditoria avisa; com o campo no
+// fonte ou com a variável de ambiente, o item passa.
+func TestAuditoriaDeHost(t *testing.T) {
+	acha := func(t *testing.T, cs []check) check {
+		t.Helper()
+		for _, c := range cs {
+			if strings.Contains(c.title, "AllowedHosts") {
+				return c
+			}
+		}
+		t.Fatal("a auditoria não olhou o AllowedHosts")
+		return check{}
+	}
+	semCampo := t.TempDir()
+	if err := os.WriteFile(filepath.Join(semCampo, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	comCampo := t.TempDir()
+	src := "package main\n\nvar cfg = trilha.Config{AllowedHosts: []string{\"exemplo.com\"}}\n"
+	if err := os.WriteFile(filepath.Join(comCampo, "main.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := acha(t, runAudit(&project{Root: semCampo}, false)); got.level != "warn" {
+		t.Errorf("sem o campo o nível é %q, queria warn", got.level)
+	}
+	if got := acha(t, runAudit(&project{Root: comCampo}, false)); got.level != "ok" {
+		t.Errorf("com o campo o nível é %q", got.level)
+	}
+	t.Setenv("TRILHA_ALLOWED_HOSTS", "exemplo.com")
+	if got := acha(t, runAudit(&project{Root: semCampo}, false)); got.level != "ok" {
+		t.Errorf("com a variável de ambiente o nível é %q", got.level)
 	}
 }

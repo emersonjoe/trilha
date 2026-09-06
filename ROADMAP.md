@@ -86,7 +86,7 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 13. ~~[#31](https://github.com/emersonjoe/trilha/issues/31) Geração de OpenAPI a partir das rotas registradas.~~ **Entregue na 0.22.0** (spec 031).
 14. ~~[#32](https://github.com/emersonjoe/trilha/issues/32) Auxiliares de teste (`trilha.TestRequest`, `TestPage`, `TestRoute`).~~ **Entregue na 0.23.0** (spec 032): cliente com pote de cookies, CSRF que passa sozinho e `WithSigned`; os cinco exemplos deixaram de reimplementar o `httptest`.
 15. ~~[#33](https://github.com/emersonjoe/trilha/issues/33) `go test -race` e *fuzzing* no CI (roteador, `h`, `Bind`, cookies assinados).~~ **Entregue na 0.24.0** (spec 033): teste de concorrência com 32 goroutines, seis alvos de fuzzing por invariante e dois jobs novos no CI.
-16. [#34](https://github.com/emersonjoe/trilha/issues/34) Modelo de ameaças escrito e validação de `Host`.
+16. ~~[#34](https://github.com/emersonjoe/trilha/issues/34) Modelo de ameaças escrito e validação de `Host`.~~ **Entregue na 0.25.0** (spec 034): `SECURITY-MODEL.md` nas duas línguas, com o que fica aberto escrito, e `Config.AllowedHosts` recusando na borda.
 17. [#35](https://github.com/emersonjoe/trilha/issues/35) Definição formal da API pública e política de depreciação, antes da 1.0.
 
 ### Fase 4 — DX e acabamento

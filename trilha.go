@@ -54,6 +54,11 @@ type Config struct {
 	Security Security
 	// TrustedProxies lists CIDRs whose X-Forwarded-For/Proto are honoured.
 	TrustedProxies []string
+	// AllowedHosts refuses a request whose Host is not in the list, with 400,
+	// before the router (cache poisoning, password-reset links). Empty = no
+	// check. The port and the case do not count; "*.example.com" allows one
+	// extra label. Loopback always passes in Dev. TRILHA_ALLOWED_HOSTS=a,b.
+	AllowedHosts []string
 	// RateLimit enables a global per-client limit (zero = off).
 	RateLimit RateLimit
 	// Secret signs cookies (TRILHA_SECRET); PreviousSecret still verifies.
@@ -122,6 +127,13 @@ func ConfigFromEnv() Config {
 	}
 	if p := os.Getenv("TRILHA_TRUSTED_PROXIES"); p != "" {
 		cfg.TrustedProxies = strings.Split(p, ",")
+	}
+	if hosts := os.Getenv("TRILHA_ALLOWED_HOSTS"); hosts != "" {
+		for _, host := range strings.Split(hosts, ",") {
+			if host = strings.TrimSpace(host); host != "" {
+				cfg.AllowedHosts = append(cfg.AllowedHosts, host)
+			}
+		}
 	}
 	cfg.Observability.Token = os.Getenv("TRILHA_OBS_TOKEN")
 	cfg.Observability.Metrics = os.Getenv("TRILHA_METRICS")
@@ -337,6 +349,11 @@ func (a *App) Handler() http.Handler {
 
 // serveHTTP answers the observability endpoints first, then routes.
 func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	// Before everything: a Host the app does not answer for gets no route, no
+	// probe and no CORS answer.
+	if len(a.cfg.AllowedHosts) > 0 && a.checkHost(w, r) {
+		return
+	}
 	// Before the router, so the preflight is answered for any route and for
 	// the static files, which never reach wrap.
 	if a.cors != nil && a.cors.handle(w, r) {

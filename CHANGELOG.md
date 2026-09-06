@@ -5,6 +5,25 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.25.0 — 2026-09-06
+
+### Added
+- **A written threat model** ([#34](https://github.com/emersonjoe/trilha/issues/34)).
+  `SECURITY-MODEL.md` (and `docs/pt-BR/SECURITY-MODEL.md`) lists the assets, the trust
+  boundaries, the actors and the threats by STRIDE, each pointing at the control that answers
+  it — and, just as importantly, at what stays **open**: domain authorization, secrets at
+  rest, an audit trail of business actions, volumetric attacks. Linked from `SECURITY.md` and
+  from the security chapter.
+- **`Config.AllowedHosts`**: a request whose `Host` is not in the list is answered with 400
+  before the router, the probes and CORS, which is what keeps a forged `Host` out of the
+  absolute URLs your app builds (password-reset links, invitation e-mails) and out of any
+  cache in front. The port and the case do not count; `*.example.com` allows one extra label;
+  `localhost` and the loopback addresses always pass in `Dev`. `TRILHA_ALLOWED_HOSTS=a,b`
+  fills it from the environment. **An empty list keeps today's behaviour.**
+- **A `host` security event** on every refusal, in the log, in
+  `trilha_security_events_total` and in `Config.OnSecurityEvent`.
+- **`trilha audit`** warns when the app declares no `AllowedHosts`.
+
 ## 0.24.0 — 2026-09-06
 
 ### Added

@@ -22,6 +22,9 @@ salvo pedido em contrário.
 O runtime (`trilha`, `h`, `tmpl`), a CLI e o arquivo gerado. Exemplos e o site de
 documentação são bem-vindos, mas com prioridade menor.
 
+O [modelo de ameaças](SECURITY-MODEL.md) diz contra o quê essas garantias defendem, e o que
+continua aberto.
+
 ## Garantias que o framework oferece por padrão
 
 - Escape de HTML em texto e atributos (`h`) e escape contextual (`tmpl`).
