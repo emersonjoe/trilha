@@ -1,0 +1,822 @@
+pkg trilha, const CSRFCookie
+pkg trilha, const CSRFField
+pkg trilha, const CSRFHeader
+pkg trilha, const Dev Env
+pkg trilha, const KindAPI RouteKind
+pkg trilha, const KindAuto RouteKind
+pkg trilha, const KindPage RouteKind
+pkg trilha, const MinSecretLen
+pkg trilha, const NoTimeout time.Duration
+pkg trilha, const Off
+pkg trilha, const ProblemMediaType
+pkg trilha, const Prod Env
+pkg trilha, const StatusFail
+pkg trilha, const StatusPass
+pkg trilha, func AddRule(string, func(Field) bool)
+pkg trilha, func CSRFInput(*Ctx) h.Node
+pkg trilha, func CompileErrorPage(string) string
+pkg trilha, func ConfigFromEnv() Config
+pkg trilha, func Errorf(int, string, ...any) error
+pkg trilha, func Fatal(error)
+pkg trilha, func Limit(float64, int) MiddlewareFunc
+pkg trilha, func New(Config) *App
+pkg trilha, func NewSigner(...[]byte) *Signer
+pkg trilha, func NewTestClient(TestingT, *App) *TestClient
+pkg trilha, func NonceAttr(*Ctx) h.Node
+pkg trilha, func PublicFS(fs.FS, string) fs.FS
+pkg trilha, func Redirect(string) error
+pkg trilha, func RedirectCode(string, int) error
+pkg trilha, func Run(*App)
+pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse
+pkg trilha, func TestRequest(TestingT, *App, string, string, ...TestOption) *TestResponse
+pkg trilha, func TestRoute(TestingT, Route, string, string, ...TestOption) *TestResponse
+pkg trilha, func UseValidationPTBR()
+pkg trilha, func WithApp(*App) TestOption
+pkg trilha, func WithBody(string, string) TestOption
+pkg trilha, func WithCookie(string, string) TestOption
+pkg trilha, func WithForm(url.Values) TestOption
+pkg trilha, func WithHeader(string, string) TestOption
+pkg trilha, func WithJSON(any) TestOption
+pkg trilha, func WithSigned(string, string) TestOption
+pkg trilha, func WithoutCSRF() TestOption
+pkg trilha, method (*App) AddExportPath(...string)
+pkg trilha, method (*App) Asset(string) string
+pkg trilha, method (*App) BasePath() string
+pkg trilha, method (*App) Check(string, func(context.Context) error)
+pkg trilha, method (*App) Config() *Config
+pkg trilha, method (*App) Env() Env
+pkg trilha, method (*App) Export(string) error
+pkg trilha, method (*App) ExportPaths() []string
+pkg trilha, method (*App) Handler() http.Handler
+pkg trilha, method (*App) HealthReport(context.Context) HealthReport
+pkg trilha, method (*App) ListenAndServe() error
+pkg trilha, method (*App) Logger() *slog.Logger
+pkg trilha, method (*App) Metrics() *Metrics
+pkg trilha, method (*App) OnShutdown(func(*App) error)
+pkg trilha, method (*App) Register(Route)
+pkg trilha, method (*App) Routes() map[string][]string
+pkg trilha, method (*App) Security() *Security
+pkg trilha, method (*App) SetErrorPage(ErrorPageFunc)
+pkg trilha, method (*App) SetNotFound(PageFunc)
+pkg trilha, method (*App) SetRootLayout(LayoutFunc)
+pkg trilha, method (*App) Values() map[string]any
+pkg trilha, method (*Counter) Add(float64)
+pkg trilha, method (*Counter) Inc()
+pkg trilha, method (*Counter) With(...string) *Counter
+pkg trilha, method (*Ctx) Accepts(...string) string
+pkg trilha, method (*Ctx) AllowBody(int64)
+pkg trilha, method (*Ctx) App() *App
+pkg trilha, method (*Ctx) Asset(string) string
+pkg trilha, method (*Ctx) Base() string
+pkg trilha, method (*Ctx) Bind(any) error
+pkg trilha, method (*Ctx) BindJSON(any) error
+pkg trilha, method (*Ctx) CSRFToken() string
+pkg trilha, method (*Ctx) CacheControl(string)
+pkg trilha, method (*Ctx) ClearCookie(string)
+pkg trilha, method (*Ctx) ClientIP() string
+pkg trilha, method (*Ctx) Context() context.Context
+pkg trilha, method (*Ctx) Cookie(string) (*http.Cookie, error)
+pkg trilha, method (*Ctx) ETag(string) bool
+pkg trilha, method (*Ctx) Env() Env
+pkg trilha, method (*Ctx) File(string, FileRules) (*Upload, error)
+pkg trilha, method (*Ctx) Form(string) string
+pkg trilha, method (*Ctx) FormErr() error
+pkg trilha, method (*Ctx) Fragment() string
+pkg trilha, method (*Ctx) Get(string) any
+pkg trilha, method (*Ctx) HTML(int, h.Node) error
+pkg trilha, method (*Ctx) Header(string, string)
+pkg trilha, method (*Ctx) Hijack() (net.Conn, *bufio.ReadWriter, error)
+pkg trilha, method (*Ctx) Island(string, any, ...h.Node) h.Node
+pkg trilha, method (*Ctx) JSON(int, any) error
+pkg trilha, method (*Ctx) LastModified(time.Time) bool
+pkg trilha, method (*Ctx) Log() *slog.Logger
+pkg trilha, method (*Ctx) NoReadDeadline() error
+pkg trilha, method (*Ctx) NoWriteDeadline() error
+pkg trilha, method (*Ctx) Nonce() string
+pkg trilha, method (*Ctx) Param(string) string
+pkg trilha, method (*Ctx) Query(string) string
+pkg trilha, method (*Ctx) Redirect(string) error
+pkg trilha, method (*Ctx) Render(int, h.Node) error
+pkg trilha, method (*Ctx) Request() *http.Request
+pkg trilha, method (*Ctx) RequestID() string
+pkg trilha, method (*Ctx) Set(string, any)
+pkg trilha, method (*Ctx) SetContext(context.Context)
+pkg trilha, method (*Ctx) SetCookie(*http.Cookie)
+pkg trilha, method (*Ctx) SetRequest(*http.Request)
+pkg trilha, method (*Ctx) SetSigned(string, string, time.Duration) error
+pkg trilha, method (*Ctx) SetTitle(string)
+pkg trilha, method (*Ctx) Signed(string) (string, bool)
+pkg trilha, method (*Ctx) Status(int)
+pkg trilha, method (*Ctx) Stream() *Stream
+pkg trilha, method (*Ctx) Text(int, string) error
+pkg trilha, method (*Ctx) Title() string
+pkg trilha, method (*Ctx) TraceID() string
+pkg trilha, method (*Ctx) Writer() http.ResponseWriter
+pkg trilha, method (*Ctx) Written() bool
+pkg trilha, method (*Gauge) Add(float64)
+pkg trilha, method (*Gauge) Dec()
+pkg trilha, method (*Gauge) Inc()
+pkg trilha, method (*Gauge) Set(float64)
+pkg trilha, method (*Gauge) With(...string) *Gauge
+pkg trilha, method (*HTTPError) Error() string
+pkg trilha, method (*Histogram) Observe(float64)
+pkg trilha, method (*Histogram) With(...string) *Histogram
+pkg trilha, method (*Metrics) Counter(string, string, ...string) *Counter
+pkg trilha, method (*Metrics) Gauge(string, string, ...string) *Gauge
+pkg trilha, method (*Metrics) Histogram(string, string, []float64, ...string) *Histogram
+pkg trilha, method (*Problem) Error() string
+pkg trilha, method (*Problem) MarshalJSON() ([]byte, error)
+pkg trilha, method (*RedirectError) Error() string
+pkg trilha, method (*Signer) Sign(string, time.Time) (string, error)
+pkg trilha, method (*Signer) Verify(string, time.Time) (string, bool)
+pkg trilha, method (*Stream) Comment(string) error
+pkg trilha, method (*Stream) Done() <-chan struct{}
+pkg trilha, method (*Stream) Flush()
+pkg trilha, method (*Stream) JSON(string, any) error
+pkg trilha, method (*Stream) Send(string, string) error
+pkg trilha, method (*TestClient) Get(string, ...TestOption) *TestResponse
+pkg trilha, method (*TestClient) PostForm(string, url.Values, ...TestOption) *TestResponse
+pkg trilha, method (*TestClient) PostJSON(string, any, ...TestOption) *TestResponse
+pkg trilha, method (*TestClient) Request(string, string, ...TestOption) *TestResponse
+pkg trilha, method (*TestResponse) Cookie(string) *http.Cookie
+pkg trilha, method (*TestResponse) JSON(any) *TestResponse
+pkg trilha, method (*TestResponse) WantContains(...string) *TestResponse
+pkg trilha, method (*TestResponse) WantHeader(string, string) *TestResponse
+pkg trilha, method (*TestResponse) WantStatus(int) *TestResponse
+pkg trilha, method (*Upload) Close() error
+pkg trilha, method (*Upload) Save(string) (string, error)
+pkg trilha, method (Field) Other(string) string
+pkg trilha, method (FieldErrors) Add(string, string)
+pkg trilha, method (FieldErrors) Any() bool
+pkg trilha, method (FieldErrors) Error() string
+pkg trilha, method (FieldErrors) Get(string) string
+pkg trilha, method (FieldErrors) Has(string) bool
+pkg trilha, method (FieldErrors) OrNil() error
+pkg trilha, type App struct
+pkg trilha, type CORS struct
+pkg trilha, type CORS struct, Credentials bool
+pkg trilha, type CORS struct, Expose []string
+pkg trilha, type CORS struct, Headers []string
+pkg trilha, type CORS struct, MaxAge time.Duration
+pkg trilha, type CORS struct, Methods []string
+pkg trilha, type CORS struct, Origins []string
+pkg trilha, type CheckResult struct
+pkg trilha, type CheckResult struct, DurationMS float64
+pkg trilha, type CheckResult struct, Error string
+pkg trilha, type CheckResult struct, Name string
+pkg trilha, type CheckResult struct, Status string
+pkg trilha, type Config struct
+pkg trilha, type Config struct, Addr string
+pkg trilha, type Config struct, AllowedHosts []string
+pkg trilha, type Config struct, BasePath string
+pkg trilha, type Config struct, CORS CORS
+pkg trilha, type Config struct, CSRFForAPI bool
+pkg trilha, type Config struct, DevReload string
+pkg trilha, type Config struct, Env Env
+pkg trilha, type Config struct, LogRequest func(*Ctx, int, time.Duration) bool
+pkg trilha, type Config struct, Logger *slog.Logger
+pkg trilha, type Config struct, MaxBodyBytes int64
+pkg trilha, type Config struct, Mounts map[string]fs.FS
+pkg trilha, type Config struct, Observability Observability
+pkg trilha, type Config struct, OnSecurityEvent func(SecurityEvent)
+pkg trilha, type Config struct, PreviousSecret []byte
+pkg trilha, type Config struct, Public fs.FS
+pkg trilha, type Config struct, RateLimit RateLimit
+pkg trilha, type Config struct, Secret []byte
+pkg trilha, type Config struct, Security Security
+pkg trilha, type Config struct, StaticCacheControl string
+pkg trilha, type Config struct, StaticHeaders func(string, http.Header)
+pkg trilha, type Config struct, Timeouts Timeouts
+pkg trilha, type Config struct, TrustedProxies []string
+pkg trilha, type Counter struct
+pkg trilha, type Ctx struct
+pkg trilha, type Env string
+pkg trilha, type ErrorPageFunc func(*Ctx, error) (h.Node, error)
+pkg trilha, type Field struct
+pkg trilha, type Field struct, Name string
+pkg trilha, type Field struct, Param string
+pkg trilha, type Field struct, Text string
+pkg trilha, type Field struct, Value any
+pkg trilha, type FieldErrors map[string]string
+pkg trilha, type FileRules struct
+pkg trilha, type FileRules struct, Accept []string
+pkg trilha, type FileRules struct, MaxSize int64
+pkg trilha, type FileRules struct, Optional bool
+pkg trilha, type Gauge struct
+pkg trilha, type HTTPError struct
+pkg trilha, type HTTPError struct, Code int
+pkg trilha, type HTTPError struct, Message string
+pkg trilha, type HandlerFunc func(*Ctx) error
+pkg trilha, type HealthReport struct
+pkg trilha, type HealthReport struct, Checks []CheckResult
+pkg trilha, type HealthReport struct, Status string
+pkg trilha, type HealthReport struct, UptimeSeconds float64
+pkg trilha, type Histogram struct
+pkg trilha, type LayoutFunc func(*Ctx, h.Node) (h.Node, error)
+pkg trilha, type Metrics struct
+pkg trilha, type Metrics struct, MaxSeries int
+pkg trilha, type MiddlewareFunc func(*Ctx, Next) error
+pkg trilha, type Next func() error
+pkg trilha, type Observability struct
+pkg trilha, type Observability struct, CacheFor time.Duration
+pkg trilha, type Observability struct, Details string
+pkg trilha, type Observability struct, Health string
+pkg trilha, type Observability struct, Metrics string
+pkg trilha, type Observability struct, Timeout time.Duration
+pkg trilha, type Observability struct, Token string
+pkg trilha, type Observability struct, Trusted []string
+pkg trilha, type PageFunc func(*Ctx) (h.Node, error)
+pkg trilha, type Problem struct
+pkg trilha, type Problem struct, Detail string
+pkg trilha, type Problem struct, Extra map[string]any
+pkg trilha, type Problem struct, Fields FieldErrors
+pkg trilha, type Problem struct, Instance string
+pkg trilha, type Problem struct, Status int
+pkg trilha, type Problem struct, Title string
+pkg trilha, type Problem struct, Type string
+pkg trilha, type RateLimit struct
+pkg trilha, type RateLimit struct, Burst int
+pkg trilha, type RateLimit struct, RPS float64
+pkg trilha, type RedirectError struct
+pkg trilha, type RedirectError struct, Code int
+pkg trilha, type RedirectError struct, URL string
+pkg trilha, type Route struct
+pkg trilha, type Route struct, Kind RouteKind
+pkg trilha, type Route struct, Layouts []LayoutFunc
+pkg trilha, type Route struct, Methods map[string]HandlerFunc
+pkg trilha, type Route struct, Middlewares []MiddlewareFunc
+pkg trilha, type Route struct, Page PageFunc
+pkg trilha, type Route struct, Pattern string
+pkg trilha, type RouteKind int
+pkg trilha, type Security struct
+pkg trilha, type Security struct, COOP string
+pkg trilha, type Security struct, CSP string
+pkg trilha, type Security struct, CSPExtra map[string][]string
+pkg trilha, type Security struct, FrameOptions string
+pkg trilha, type Security struct, HSTS string
+pkg trilha, type Security struct, PermissionsPolicy string
+pkg trilha, type Security struct, Referrer string
+pkg trilha, type SecurityEvent struct
+pkg trilha, type SecurityEvent struct, IP string
+pkg trilha, type SecurityEvent struct, Kind string
+pkg trilha, type SecurityEvent struct, Method string
+pkg trilha, type SecurityEvent struct, Path string
+pkg trilha, type SecurityEvent struct, RequestID string
+pkg trilha, type SecurityEvent struct, Status int
+pkg trilha, type Signer struct
+pkg trilha, type Stream struct
+pkg trilha, type TestClient struct
+pkg trilha, type TestOption func(*testOptions)
+pkg trilha, type TestResponse struct
+pkg trilha, type TestResponse struct, Node h.Node
+pkg trilha, type TestResponse struct, Request *http.Request
+pkg trilha, type TestResponse struct, embedded *httptest.ResponseRecorder
+pkg trilha, type TestingT interface
+pkg trilha, type TestingT interface, Fatalf(string, ...any)
+pkg trilha, type TestingT interface, Helper()
+pkg trilha, type Timeouts struct
+pkg trilha, type Timeouts struct, Idle time.Duration
+pkg trilha, type Timeouts struct, MaxHeaderBytes int
+pkg trilha, type Timeouts struct, Read time.Duration
+pkg trilha, type Timeouts struct, ReadHeader time.Duration
+pkg trilha, type Timeouts struct, Shutdown time.Duration
+pkg trilha, type Timeouts struct, Write time.Duration
+pkg trilha, type Upload struct
+pkg trilha, type Upload struct, Ext string
+pkg trilha, type Upload struct, File multipart.File
+pkg trilha, type Upload struct, MIME string
+pkg trilha, type Upload struct, Name string
+pkg trilha, type Upload struct, Size int64
+pkg trilha, type Validator interface
+pkg trilha, type Validator interface, Validate() error
+pkg trilha, var BindInvalid
+pkg trilha, var ErrNoSecret
+pkg trilha, var ErrNotFound
+pkg trilha, var ErrRateLimited
+pkg trilha, var ProblemType func(int) string
+pkg trilha, var ValidationMessages
+pkg ai, const DefaultBaseURL
+pkg ai, func Assistant(string) Message
+pkg ai, func Chain(context.Context, *Client, string, ...*Agent) ([]*Result, error)
+pkg ai, func NewFromEnv() *Client
+pkg ai, func NewTool(string, string, json.RawMessage, ToolFunc) *Tool
+pkg ai, func Parallel(context.Context, *Client, string, ...*Agent) ([]*Result, error)
+pkg ai, func Run(context.Context, *Client, *Agent, string, ...Message) (*Result, error)
+pkg ai, func RunStream(context.Context, *Client, *Agent, string, func(Event), ...Message) (*Result, error)
+pkg ai, func Schema(string) json.RawMessage
+pkg ai, func System(string) Message
+pkg ai, func ToolResult(string, string) Message
+pkg ai, func Typed[T any](func(context.Context, T) (string, error)) ToolFunc
+pkg ai, func User(string) Message
+pkg ai, method (*Agent) AsTool(*Client, string) *Tool
+pkg ai, method (*Client) Chat(context.Context, Request) (*Response, error)
+pkg ai, method (*Client) Stream(context.Context, Request, func(Delta) error) error
+pkg ai, method (*Error) Error() string
+pkg ai, method (*Response) Text() string
+pkg ai, method (*Response) ToolCalls() []ToolCall
+pkg ai, method (*Tool) Def() ToolDef
+pkg ai, method (*Usage) Add(Usage)
+pkg ai, method (Request) MarshalJSON() ([]byte, error)
+pkg ai, type Agent struct
+pkg ai, type Agent struct, Handoffs []*Agent
+pkg ai, type Agent struct, Instructions string
+pkg ai, type Agent struct, MaxTurns int
+pkg ai, type Agent struct, Model string
+pkg ai, type Agent struct, Name string
+pkg ai, type Agent struct, ResponseFormat *ResponseFormat
+pkg ai, type Agent struct, Temperature *float64
+pkg ai, type Agent struct, Tools []*Tool
+pkg ai, type Choice struct
+pkg ai, type Choice struct, FinishReason string
+pkg ai, type Choice struct, Index int
+pkg ai, type Choice struct, Message Message
+pkg ai, type Client struct
+pkg ai, type Client struct, APIKey string
+pkg ai, type Client struct, BaseURL string
+pkg ai, type Client struct, HTTPClient *http.Client
+pkg ai, type Client struct, Headers map[string]string
+pkg ai, type Client struct, Model string
+pkg ai, type Delta struct
+pkg ai, type Delta struct, Content string
+pkg ai, type Delta struct, Finish string
+pkg ai, type Delta struct, ToolCalls []ToolCall
+pkg ai, type Delta struct, Usage *Usage
+pkg ai, type Error struct
+pkg ai, type Error struct, Code string
+pkg ai, type Error struct, Message string
+pkg ai, type Error struct, Status int
+pkg ai, type Event struct
+pkg ai, type Event struct, Agent string
+pkg ai, type Event struct, Err error
+pkg ai, type Event struct, Result *Result
+pkg ai, type Event struct, Step *Step
+pkg ai, type Event struct, Text string
+pkg ai, type Event struct, Type string
+pkg ai, type FunctionCall struct
+pkg ai, type FunctionCall struct, Arguments string
+pkg ai, type FunctionCall struct, Name string
+pkg ai, type FunctionDef struct
+pkg ai, type FunctionDef struct, Description string
+pkg ai, type FunctionDef struct, Name string
+pkg ai, type FunctionDef struct, Parameters json.RawMessage
+pkg ai, type FunctionDef struct, Strict bool
+pkg ai, type Message struct
+pkg ai, type Message struct, Content string
+pkg ai, type Message struct, Name string
+pkg ai, type Message struct, Role string
+pkg ai, type Message struct, ToolCallID string
+pkg ai, type Message struct, ToolCalls []ToolCall
+pkg ai, type Request struct
+pkg ai, type Request struct, Extra map[string]any
+pkg ai, type Request struct, MaxTokens int
+pkg ai, type Request struct, Messages []Message
+pkg ai, type Request struct, Model string
+pkg ai, type Request struct, ResponseFormat *ResponseFormat
+pkg ai, type Request struct, Stream bool
+pkg ai, type Request struct, Temperature *float64
+pkg ai, type Request struct, ToolChoice any
+pkg ai, type Request struct, Tools []ToolDef
+pkg ai, type Response struct
+pkg ai, type Response struct, Choices []Choice
+pkg ai, type Response struct, ID string
+pkg ai, type Response struct, Model string
+pkg ai, type Response struct, Usage Usage
+pkg ai, type ResponseFormat struct
+pkg ai, type ResponseFormat struct, JSONSchema json.RawMessage
+pkg ai, type ResponseFormat struct, Type string
+pkg ai, type Result struct
+pkg ai, type Result struct, Agent *Agent
+pkg ai, type Result struct, Messages []Message
+pkg ai, type Result struct, Output string
+pkg ai, type Result struct, Steps []Step
+pkg ai, type Result struct, Turns int
+pkg ai, type Result struct, Usage Usage
+pkg ai, type Step struct
+pkg ai, type Step struct, Agent string
+pkg ai, type Step struct, Arguments string
+pkg ai, type Step struct, CallID string
+pkg ai, type Step struct, Err error
+pkg ai, type Step struct, HandoffTo string
+pkg ai, type Step struct, Output string
+pkg ai, type Step struct, Tool string
+pkg ai, type Tool struct
+pkg ai, type Tool struct, Description string
+pkg ai, type Tool struct, Func ToolFunc
+pkg ai, type Tool struct, Name string
+pkg ai, type Tool struct, Parameters json.RawMessage
+pkg ai, type ToolCall struct
+pkg ai, type ToolCall struct, Function FunctionCall
+pkg ai, type ToolCall struct, ID string
+pkg ai, type ToolCall struct, Type string
+pkg ai, type ToolDef struct
+pkg ai, type ToolDef struct, Function FunctionDef
+pkg ai, type ToolDef struct, Type string
+pkg ai, type ToolFunc func(context.Context, json.RawMessage) (string, error)
+pkg ai, type Usage struct
+pkg ai, type Usage struct, CompletionTokens int
+pkg ai, type Usage struct, PromptTokens int
+pkg ai, type Usage struct, TotalTokens int
+pkg ai, var ErrMaxTurns
+pkg ai/mcp, const ProtocolVersion
+pkg ai/mcp, func Dial(context.Context, Dialer) (*Client, error)
+pkg ai/mcp, func HTTP(string, map[string]string) Dialer
+pkg ai/mcp, func NewServer(string, string, ...*ai.Tool) *Server
+pkg ai/mcp, func Pipe(io.Reader, io.Writer, func() error) Transport
+pkg ai/mcp, func Stdio(string, ...string) Dialer
+pkg ai/mcp, method (*Client) CallTool(context.Context, string, json.RawMessage) (CallResult, error)
+pkg ai/mcp, method (*Client) Close() error
+pkg ai/mcp, method (*Client) ListTools(context.Context) ([]ToolInfo, error)
+pkg ai/mcp, method (*Client) Tools(context.Context) ([]*ai.Tool, error)
+pkg ai/mcp, method (*Server) Handler() http.Handler
+pkg ai/mcp, method (*Server) ServeHTTP(*trilha.Ctx) error
+pkg ai/mcp, method (*Server) ServeStdio(context.Context, io.Reader, io.Writer) error
+pkg ai/mcp, method (CallResult) Text() string
+pkg ai/mcp, type CallResult struct
+pkg ai/mcp, type CallResult struct, Content []Content
+pkg ai/mcp, type CallResult struct, IsError bool
+pkg ai/mcp, type Client struct
+pkg ai/mcp, type Client struct, Server struct{ Name, Version, ProtocolVersion string }
+pkg ai/mcp, type Content struct
+pkg ai/mcp, type Content struct, Data string
+pkg ai/mcp, type Content struct, MimeType string
+pkg ai/mcp, type Content struct, Text string
+pkg ai/mcp, type Content struct, Type string
+pkg ai/mcp, type Dialer func(context.Context) (Transport, error)
+pkg ai/mcp, type Server struct
+pkg ai/mcp, type Server struct, SessionTTL time.Duration
+pkg ai/mcp, type ToolInfo struct
+pkg ai/mcp, type ToolInfo struct, Description string
+pkg ai/mcp, type ToolInfo struct, InputSchema json.RawMessage
+pkg ai/mcp, type ToolInfo struct, Name string
+pkg ai/mcp, type Transport interface
+pkg ai/mcp, type Transport interface, Close() error
+pkg ai/mcp, type Transport interface, Recv(context.Context) ([]byte, error)
+pkg ai/mcp, type Transport interface, Send(context.Context, []byte) error
+pkg auth, func Cognito(string, string, string, string, string) *Provider
+pkg auth, func EntraID(string, string, string, string) *Provider
+pkg auth, func Keycloak(string, string, string, string, string) *Provider
+pkg auth, func New(*Provider, Options) *Auth
+pkg auth, func NewMemoryStore() *MemoryStore
+pkg auth, func OIDC(string, string, string, string) *Provider
+pkg auth, method (*Auth) Callback(*trilha.Ctx) error
+pkg auth, method (*Auth) Logout(*trilha.Ctx) error
+pkg auth, method (*Auth) Optional() trilha.MiddlewareFunc
+pkg auth, method (*Auth) Provider() *Provider
+pkg auth, method (*Auth) Require() trilha.MiddlewareFunc
+pkg auth, method (*Auth) RequireRole(...string) trilha.MiddlewareFunc
+pkg auth, method (*Auth) Session(*trilha.Ctx) (*User, error)
+pkg auth, method (*Auth) Start(*trilha.Ctx) error
+pkg auth, method (*Auth) User(*trilha.Ctx) *User
+pkg auth, method (*MemoryStore) Delete(string) error
+pkg auth, method (*MemoryStore) Load(string) (*User, bool)
+pkg auth, method (*MemoryStore) Save(string, *User, time.Duration) error
+pkg auth, method (*User) HasRole(string) bool
+pkg auth, type Auth struct
+pkg auth, type Claims struct
+pkg auth, type Claims struct, All map[string]any
+pkg auth, type Claims struct, Audience []string
+pkg auth, type Claims struct, Email string
+pkg auth, type Claims struct, ExpiresAt time.Time
+pkg auth, type Claims struct, IssuedAt time.Time
+pkg auth, type Claims struct, Issuer string
+pkg auth, type Claims struct, Name string
+pkg auth, type Claims struct, Nonce string
+pkg auth, type Claims struct, NotBefore time.Time
+pkg auth, type Claims struct, Subject string
+pkg auth, type MemoryStore struct
+pkg auth, type Options struct
+pkg auth, type Options struct, Absolute time.Duration
+pkg auth, type Options struct, AfterLogin string
+pkg auth, type Options struct, AfterLogout string
+pkg auth, type Options struct, CookieName string
+pkg auth, type Options struct, Idle time.Duration
+pkg auth, type Options struct, IdleOff bool
+pkg auth, type Options struct, LoginPath string
+pkg auth, type Options struct, RoleClaims []string
+pkg auth, type Options struct, Scopes []string
+pkg auth, type Options struct, Store Store
+pkg auth, type Provider struct
+pkg auth, type Provider struct, ClientID string
+pkg auth, type Provider struct, ClientSecret string
+pkg auth, type Provider struct, HTTPClient *http.Client
+pkg auth, type Provider struct, Issuer string
+pkg auth, type Provider struct, LogoutDomain string
+pkg auth, type Provider struct, RedirectURL string
+pkg auth, type Store interface
+pkg auth, type Store interface, Delete(string) error
+pkg auth, type Store interface, Load(string) (*User, bool)
+pkg auth, type Store interface, Save(string, *User, time.Duration) error
+pkg auth, type User struct
+pkg auth, type User struct, Email string
+pkg auth, type User struct, ExpiresAt time.Time
+pkg auth, type User struct, IssuedAt time.Time
+pkg auth, type User struct, Name string
+pkg auth, type User struct, Roles []string
+pkg auth, type User struct, Seen time.Time
+pkg auth, type User struct, SessionID string
+pkg auth, type User struct, Subject string
+pkg auth, var ErrNoSession
+pkg cache, func Do[T any](context.Context, *Cache, Key, func(context.Context) (T, error)) (T, error)
+pkg cache, func Get[T any](*Cache, string) (T, bool)
+pkg cache, func New(Options) *Cache
+pkg cache, func Once[T any](*trilha.Ctx, string, func() (T, error)) (T, error)
+pkg cache, method (*Cache) Clear()
+pkg cache, method (*Cache) Delete(...string) int
+pkg cache, method (*Cache) Get(string) (any, bool)
+pkg cache, method (*Cache) Invalidate(...string) int
+pkg cache, method (*Cache) Len() int
+pkg cache, method (*Cache) Set(Key, any)
+pkg cache, method (*Cache) Stats() Stats
+pkg cache, type Cache struct
+pkg cache, type Key struct
+pkg cache, type Key struct, Name string
+pkg cache, type Key struct, TTL time.Duration
+pkg cache, type Key struct, Tags []string
+pkg cache, type Options struct
+pkg cache, type Options struct, MaxEntries int
+pkg cache, type Options struct, Metrics *trilha.Metrics
+pkg cache, type Options struct, Name string
+pkg cache, type Stats struct
+pkg cache, type Stats struct, Entries int
+pkg cache, type Stats struct, Evictions int64
+pkg cache, type Stats struct, Hits int64
+pkg cache, type Stats struct, Misses int64
+pkg h, func A(...Node) Node
+pkg h, func Abbr(...Node) Node
+pkg h, func Accept(string) Node
+pkg h, func Action(string) Node
+pkg h, func Address(...Node) Node
+pkg h, func Alt(string) Node
+pkg h, func Area(...Node) Node
+pkg h, func Aria(string, string) Node
+pkg h, func Article(...Node) Node
+pkg h, func Aside(...Node) Node
+pkg h, func Async() Node
+pkg h, func Attr(string, string) Node
+pkg h, func Audio(...Node) Node
+pkg h, func Autofocus() Node
+pkg h, func Autoplay() Node
+pkg h, func B(...Node) Node
+pkg h, func Base(...Node) Node
+pkg h, func Bdi(...Node) Node
+pkg h, func Bdo(...Node) Node
+pkg h, func Blockquote(...Node) Node
+pkg h, func Body(...Node) Node
+pkg h, func Bool(string) Node
+pkg h, func Br(...Node) Node
+pkg h, func Button(...Node) Node
+pkg h, func Canvas(...Node) Node
+pkg h, func Caption(...Node) Node
+pkg h, func Charset(string) Node
+pkg h, func Checked() Node
+pkg h, func Cite(...Node) Node
+pkg h, func Class(...string) Node
+pkg h, func Code(...Node) Node
+pkg h, func Col(...Node) Node
+pkg h, func Colgroup(...Node) Node
+pkg h, func Cols(string) Node
+pkg h, func Content(string) Node
+pkg h, func Controls() Node
+pkg h, func Data(string, string) Node
+pkg h, func Datalist(...Node) Node
+pkg h, func Datetime(string) Node
+pkg h, func Dd(...Node) Node
+pkg h, func Defer() Node
+pkg h, func Del(...Node) Node
+pkg h, func Details(...Node) Node
+pkg h, func Dialog(...Node) Node
+pkg h, func Disabled() Node
+pkg h, func Div(...Node) Node
+pkg h, func Dl(...Node) Node
+pkg h, func Doctype() Node
+pkg h, func Dt(...Node) Node
+pkg h, func El(string, ...Node) Node
+pkg h, func Em(...Node) Node
+pkg h, func Embed(...Node) Node
+pkg h, func Enctype(string) Node
+pkg h, func Fieldset(...Node) Node
+pkg h, func Figcaption(...Node) Node
+pkg h, func Figure(...Node) Node
+pkg h, func Footer(...Node) Node
+pkg h, func For(string) Node
+pkg h, func Form(...Node) Node
+pkg h, func Fragment(...Node) Node
+pkg h, func Group(...Node) Node
+pkg h, func H1(...Node) Node
+pkg h, func H2(...Node) Node
+pkg h, func H3(...Node) Node
+pkg h, func H4(...Node) Node
+pkg h, func H5(...Node) Node
+pkg h, func H6(...Node) Node
+pkg h, func Head(...Node) Node
+pkg h, func Header(...Node) Node
+pkg h, func Height(string) Node
+pkg h, func Hidden() Node
+pkg h, func Hr(...Node) Node
+pkg h, func Href(string) Node
+pkg h, func Html(...Node) Node
+pkg h, func I(...Node) Node
+pkg h, func ID(string) Node
+pkg h, func If(bool, Node) Node
+pkg h, func IfElse(bool, Node, Node) Node
+pkg h, func Iframe(...Node) Node
+pkg h, func Img(...Node) Node
+pkg h, func Input(...Node) Node
+pkg h, func Ins(...Node) Node
+pkg h, func Kbd(...Node) Node
+pkg h, func Label(...Node) Node
+pkg h, func LabelAttr(string) Node
+pkg h, func Lang(string) Node
+pkg h, func Legend(...Node) Node
+pkg h, func Li(...Node) Node
+pkg h, func Link(...Node) Node
+pkg h, func Main(...Node) Node
+pkg h, func MapIndex[T any]([]T, func(int, T) Node) Node
+pkg h, func Map[T any]([]T, func(T) Node) Node
+pkg h, func Mark(...Node) Node
+pkg h, func Max(string) Node
+pkg h, func Menu(...Node) Node
+pkg h, func Meta(...Node) Node
+pkg h, func Meter(...Node) Node
+pkg h, func Method(string) Node
+pkg h, func Min(string) Node
+pkg h, func Multiple() Node
+pkg h, func Name(string) Node
+pkg h, func Nav(...Node) Node
+pkg h, func Noscript(...Node) Node
+pkg h, func Novalidate() Node
+pkg h, func Object(...Node) Node
+pkg h, func Ol(...Node) Node
+pkg h, func Onclick(string) Node
+pkg h, func Open() Node
+pkg h, func Optgroup(...Node) Node
+pkg h, func Option(...Node) Node
+pkg h, func Output(...Node) Node
+pkg h, func P(...Node) Node
+pkg h, func Param(...Node) Node
+pkg h, func Pattern(string) Node
+pkg h, func Picture(...Node) Node
+pkg h, func Placeholder(string) Node
+pkg h, func Pre(...Node) Node
+pkg h, func Progress(...Node) Node
+pkg h, func Q(...Node) Node
+pkg h, func Raw(string) Node
+pkg h, func Readonly() Node
+pkg h, func Rel(string) Node
+pkg h, func Render(Node) (string, error)
+pkg h, func Required() Node
+pkg h, func Role(string) Node
+pkg h, func Rows(string) Node
+pkg h, func Ruby(...Node) Node
+pkg h, func S(...Node) Node
+pkg h, func Samp(...Node) Node
+pkg h, func Script(...Node) Node
+pkg h, func Search(...Node) Node
+pkg h, func Section(...Node) Node
+pkg h, func Select(...Node) Node
+pkg h, func Selected() Node
+pkg h, func Slot(...Node) Node
+pkg h, func Small(...Node) Node
+pkg h, func Source(...Node) Node
+pkg h, func Span(...Node) Node
+pkg h, func Src(string) Node
+pkg h, func Step(string) Node
+pkg h, func Strong(...Node) Node
+pkg h, func Style(...Node) Node
+pkg h, func StyleAttr(string) Node
+pkg h, func Sub(...Node) Node
+pkg h, func Summary(...Node) Node
+pkg h, func Sup(...Node) Node
+pkg h, func Svg(...Node) Node
+pkg h, func Tabindex(string) Node
+pkg h, func Table(...Node) Node
+pkg h, func Target(string) Node
+pkg h, func Tbody(...Node) Node
+pkg h, func Td(...Node) Node
+pkg h, func Template(...Node) Node
+pkg h, func Text(string) Node
+pkg h, func Textarea(...Node) Node
+pkg h, func Textf(string, ...any) Node
+pkg h, func Tfoot(...Node) Node
+pkg h, func Th(...Node) Node
+pkg h, func Thead(...Node) Node
+pkg h, func Time(...Node) Node
+pkg h, func Title(...Node) Node
+pkg h, func TitleAttr(string) Node
+pkg h, func Tr(...Node) Node
+pkg h, func Track(...Node) Node
+pkg h, func Type(string) Node
+pkg h, func U(...Node) Node
+pkg h, func Ul(...Node) Node
+pkg h, func Value(string) Node
+pkg h, func Var(...Node) Node
+pkg h, func Video(...Node) Node
+pkg h, func Void(string, ...Node) Node
+pkg h, func Wbr(...Node) Node
+pkg h, func Width(string) Node
+pkg h, type Node interface
+pkg h, type Node interface, Render(io.Writer) error
+pkg h, var Nil Node
+pkg tmpl, func Must(fs.FS, ...string) *template.Template
+pkg tmpl, func Node(*template.Template, string, any) h.Node
+pkg ui, func Alert(string, ...h.Node) h.Node
+pkg ui, func AlertDescription(...h.Node) h.Node
+pkg ui, func Asset(string) []byte
+pkg ui, func Avatar(string, string) h.Node
+pkg ui, func Badge(...h.Node) h.Node
+pkg ui, func Body() h.Node
+pkg ui, func Brand(string, string) h.Node
+pkg ui, func Breadcrumb(...Crumb) h.Node
+pkg ui, func Button(...h.Node) h.Node
+pkg ui, func ButtonLink(string, ...h.Node) h.Node
+pkg ui, func Card(...h.Node) h.Node
+pkg ui, func CardContent(...h.Node) h.Node
+pkg ui, func CardDescription(string) h.Node
+pkg ui, func CardFooter(...h.Node) h.Node
+pkg ui, func CardHeader(...h.Node) h.Node
+pkg ui, func CardTitle(string) h.Node
+pkg ui, func CheckRow(h.Node, string, string) h.Node
+pkg ui, func Checkbox(...h.Node) h.Node
+pkg ui, func Checked(bool) h.Node
+pkg ui, func Code(string) h.Node
+pkg ui, func Collapsible(string, ...h.Node) h.Node
+pkg ui, func Container(...h.Node) h.Node
+pkg ui, func Depth(int) h.Node
+pkg ui, func Destructive() h.Node
+pkg ui, func Dialog(string, string, ...h.Node) h.Node
+pkg ui, func DialogClose(...h.Node) h.Node
+pkg ui, func DialogDescription(string) h.Node
+pkg ui, func DialogFooter(...h.Node) h.Node
+pkg ui, func DialogTrigger(string, ...h.Node) h.Node
+pkg ui, func Error(string) FieldOpt
+pkg ui, func Errors(map[string]string, string) FieldOpt
+pkg ui, func Field(string, string, h.Node, ...FieldOpt) h.Node
+pkg ui, func Ghost() h.Node
+pkg ui, func Grid(...h.Node) h.Node
+pkg ui, func H1(...h.Node) h.Node
+pkg ui, func H2(...h.Node) h.Node
+pkg ui, func H3(...h.Node) h.Node
+pkg ui, func Head(*trilha.Ctx) h.Node
+pkg ui, func Header(...h.Node) h.Node
+pkg ui, func Help(string) FieldOpt
+pkg ui, func Icon(string, ...h.Node) h.Node
+pkg ui, func IconSize() h.Node
+pkg ui, func Icons() []string
+pkg ui, func Input(...h.Node) h.Node
+pkg ui, func Invalid() h.Node
+pkg ui, func InvalidIf(map[string]string, string) h.Node
+pkg ui, func Kbd(string) h.Node
+pkg ui, func Label(...h.Node) h.Node
+pkg ui, func Lead(...h.Node) h.Node
+pkg ui, func Lg() h.Node
+pkg ui, func LinkStyle() h.Node
+pkg ui, func Menu(string, ...h.Node) h.Node
+pkg ui, func MenuItem(...h.Node) h.Node
+pkg ui, func MenuLink(string, ...h.Node) h.Node
+pkg ui, func MenuTrigger(string, ...h.Node) h.Node
+pkg ui, func Muted(...h.Node) h.Node
+pkg ui, func Nav(...h.Node) h.Node
+pkg ui, func NavLink(string, string, bool) h.Node
+pkg ui, func Navigate(string) h.Node
+pkg ui, func NavigateScript(*trilha.Ctx) h.Node
+pkg ui, func NoNavigate() h.Node
+pkg ui, func NoPush() h.Node
+pkg ui, func Num() h.Node
+pkg ui, func Outline() h.Node
+pkg ui, func Progress(int, int) h.Node
+pkg ui, func Radio(...h.Node) h.Node
+pkg ui, func Row(...h.Node) h.Node
+pkg ui, func Secondary() h.Node
+pkg ui, func Select(...h.Node) h.Node
+pkg ui, func SelectOptions([]Option, string) h.Node
+pkg ui, func Separator() h.Node
+pkg ui, func ShowWhen(string, ...string) h.Node
+pkg ui, func Sidebar(...h.Node) h.Node
+pkg ui, func Skeleton(...h.Node) h.Node
+pkg ui, func Sm() h.Node
+pkg ui, func Spacer() h.Node
+pkg ui, func Stack(...h.Node) h.Node
+pkg ui, func Submit(...h.Node) h.Node
+pkg ui, func Swap(string) h.Node
+pkg ui, func Switch(...h.Node) h.Node
+pkg ui, func Table(...h.Node) h.Node
+pkg ui, func Tabs(string, ...Tab) h.Node
+pkg ui, func Textarea(...h.Node) h.Node
+pkg ui, func ThemeToggle() h.Node
+pkg ui, func Toast(string, string, int) h.Node
+pkg ui, func Toaster(...h.Node) h.Node
+pkg ui, func UploadBar(...h.Node) h.Node
+pkg ui, func UploadScript(*trilha.Ctx) h.Node
+pkg ui, func UploadTo(string) h.Node
+pkg ui, func With(...h.Node) FieldOpt
+pkg ui, type Crumb struct
+pkg ui, type Crumb struct, Href string
+pkg ui, type Crumb struct, Label string
+pkg ui, type FieldOpt func(*fieldCfg)
+pkg ui, type Option struct
+pkg ui, type Option struct, Label string
+pkg ui, type Option struct, Value string
+pkg ui, type Tab struct
+pkg ui, type Tab struct, Content h.Node
+pkg ui, type Tab struct, Label string
+pkg ui, var Files

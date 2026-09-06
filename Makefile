@@ -1,4 +1,4 @@
-.PHONY: test vet fmt example dev-example golden reload race fuzz fuzz-long bench bench-results release
+.PHONY: test vet fmt example dev-example golden api reload race fuzz fuzz-long bench bench-results release
 
 test: vet
 	go test ./...
@@ -12,6 +12,11 @@ fmt:
 
 golden:
 	go test ./internal/gen/ -update
+
+# A superfície pública versionada: o diff de api/current.txt é a parte da
+# revisão que diz o que quem usa o framework vai sentir.
+api:
+	go test . -run TestSuperficiePublica -update
 
 # O detector de corrida sobre a suíte inteira; TestConcorrencia é quem lhe dá
 # concorrência de verdade.
