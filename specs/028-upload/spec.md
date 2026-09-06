@@ -94,7 +94,7 @@ de controle, sem separador, sem `..`, limitado a 100 caracteres e nunca vazio.
 - [x] T004 Documentação nas duas locales: seção no capítulo de segurança e a tabela em
       `reference/ctx`.
 - [x] T005 `CHANGELOG.md` (0.19.0), `version`, ROADMAP (Fase 2, item 9).
-- [ ] T006 `make test` verde e `make release VERSION=0.19.0 ISSUES="28"`.
+- [x] T006 `make test` verde e `make release VERSION=0.19.0 ISSUES="28"`.
 
 ## Aceitação
 
