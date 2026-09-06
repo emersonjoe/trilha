@@ -110,6 +110,8 @@ var ValidationMessages = map[string]string{
 	"url":      "invalid URL",
 	"oneof":    "invalid option",
 	"eqfield":  "does not match",
+	"filemax":  "file must be at most {param}",
+	"filetype": "file type not allowed",
 }
 
 // UseValidationPTBR switches the validation messages, BindInvalid included, to
@@ -133,6 +135,8 @@ func UseValidationPTBR() {
 		"url":      "URL inválida",
 		"oneof":    "opção inválida",
 		"eqfield":  "não confere",
+		"filemax":  "arquivo pode ter no máximo {param}",
+		"filetype": "tipo de arquivo não permitido",
 	}
 	BindInvalid = "valor inválido"
 }

@@ -321,12 +321,12 @@ func TestNavegacaoNoClienteDegradaSemScript(t *testing.T) {
 func TestUploadComProgressoDegradaSemScript(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.get("/anexos")
-	wantContains(t, rec, 200, `data-trilha-upload="lista"`, "<progress", `id="lista"`, `<script src="/ui.upload.js`)
+	wantContains(t, rec, 200, `data-trilha-upload="anexos"`, "<progress", `id="anexos"`, `id="lista"`, `<script src="/ui.upload.js`)
 
 	// 2 MiB: acima do MaxBodyBytes padrão, dentro do que a rota permitiu.
 	body, ct := multipart(c, "planilha.csv", strings.Repeat("a", 2<<20))
-	frag := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct, "Trilha-Fragment": "lista"})
-	wantContains(t, frag, 200, `id="lista"`, "planilha.csv", "2,0 MB")
+	frag := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct, "Trilha-Fragment": "anexos"})
+	wantContains(t, frag, 200, `id="anexos"`, "planilha.csv", "2,0 MB", "text/plain")
 	if strings.Contains(frag.Body.String(), "<!doctype") {
 		t.Fatal("o fragmento não pode vir com o documento inteiro")
 	}
@@ -343,6 +343,26 @@ func TestUploadComProgressoDegradaSemScript(t *testing.T) {
 	huge := c.do("POST", "/blog/novo", strings.Repeat("x", 2<<20), map[string]string{"Content-Type": "application/x-www-form-urlencoded"})
 	if huge.Code == 200 {
 		t.Fatal("o limite global tem de continuar de pé fora da rota de anexos")
+	}
+}
+
+// Issue #28: o arquivo grande demais e o tipo mentido param no c.File, com a
+// mensagem no campo e em português — não em 500 nem na lista.
+func TestUploadRecusaTamanhoETipo(t *testing.T) {
+	c := newClient(t, "prod")
+	c.get("/anexos")
+
+	body, ct := multipart(c, "grande.txt", strings.Repeat("a", 5<<20))
+	grande := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct, "Trilha-Fragment": "anexos"})
+	wantContains(t, grande, 422, "no máximo 4 MB", `aria-invalid="true"`, `id="anexos"`)
+
+	// Um binário qualquer com nome de imagem: o tipo sai do conteúdo.
+	body, ct = multipart(c, "foto.png", "\x00\x01\x02\x03rmnop\x00\xff")
+	mentido := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct, "Trilha-Fragment": "anexos"})
+	wantContains(t, mentido, 422, "tipo de arquivo não permitido", `aria-invalid="true"`)
+
+	if strings.Contains(c.get("/anexos").Body.String(), "grande.txt") {
+		t.Fatal("arquivo recusado não pode entrar na lista")
 	}
 }
 

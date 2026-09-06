@@ -14,6 +14,7 @@ import (
 type Anexo struct {
 	Nome   string
 	Bytes  int64
+	Tipo   string // o tipo lido no conteúdo pelo c.File, não a extensão
 	Quando time.Time
 }
 
@@ -23,10 +24,10 @@ var (
 )
 
 // Add registra um anexo recebido.
-func Add(nome string, n int64) Anexo {
+func Add(nome string, n int64, tipo string) Anexo {
 	mu.Lock()
 	defer mu.Unlock()
-	a := Anexo{Nome: nome, Bytes: n, Quando: time.Now()}
+	a := Anexo{Nome: nome, Bytes: n, Tipo: tipo, Quando: time.Now()}
 	lista = append(lista, a)
 	sort.SliceStable(lista, func(i, j int) bool { return lista[i].Quando.After(lista[j].Quando) })
 	return a
