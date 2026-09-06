@@ -37,7 +37,9 @@ type GenResult struct {
 	Package string
 }
 
-func Generate(root, kind, arg string, force bool, dir string) (GenResult, error)
+type GenOptions struct { Kind, Arg string; Force bool; Dir string }
+
+func Generate(root string, o GenOptions) (GenResult, error)
 ```
 
 `kind` ∈ `page|route|component`. Sentinelas `ErrGenExists` e `ErrGenConflict` para o comando

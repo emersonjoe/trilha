@@ -6,6 +6,7 @@ description: The trilha commands and their options.
 ```text
 trilha new <dir> [--module path] [--lang en|pt] [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check]
+trilha generate page|route <url> | component <Name> [--force] [--dir path]
 trilha dev [--addr :3000]
 trilha build [-o bin/<name>]
 trilha export [-o out] [--base /prefix]
@@ -20,6 +21,7 @@ trilha version
 |---|---|
 | `new` | creates a project with `go.mod`, layout, home page, 404, one API route, `public/style.css` and `.gitignore`; runs `go mod tidy` and `gen` |
 | `gen` | scans `app/` and writes `trilha_gen.go`; fails with one line per violated convention |
+| `generate` | writes one skeleton — a page, an API route or a component — in the folder the convention asks for |
 | `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + runs with `TRILHA_EXPORT` to produce static HTML |
@@ -39,6 +41,30 @@ your code and logs) are always in English.
 
 `trilha new --lang en|pt` chooses the language of the generated texts (home page, 404,
 `<html lang>`); the default is the CLI's language.
+
+## trilha generate
+
+The convention is what costs to remember: that `/blog/{slug}` lives in `app/blog/slug_/`,
+that a catch-all folder ends in `__`, that a group ends in `-`. `generate` takes the URL and
+does the translation:
+
+```bash
+trilha generate page /blog/{slug}     # app/blog/slug_/page.go
+trilha generate route /api/itens/{id} # app/api/itens/id_/route.go
+trilha generate component Aviso       # internal/components/aviso.go
+```
+
+The page and the route come out compiling, with `c.Param` already reading each parameter, and
+`trilha_gen.go` is regenerated at the end — the URL answers before you open the editor. A
+component is a function returning `h.Node`, so it composes like any other; `--dir` puts it
+somewhere else (`internal/icons`, for instance).
+
+The package name is the one already declared in the folder, when there is one; otherwise it
+comes from the folder name (`slug_` → `slug`, `relatorio.csv` → `relatoriocsv`, `type` →
+`type_`).
+
+An existing file is not overwritten without `--force`, and `--force` does not cover the one
+refusal that is a convention: a folder answers either a page or a route, never both.
 
 ## trilha ui
 

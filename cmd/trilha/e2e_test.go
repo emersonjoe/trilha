@@ -126,6 +126,43 @@ func TestE2E(t *testing.T) {
 	os.RemoveAll(filepath.Join(proj, "app", "api", "novo"))
 	os.Remove(filepath.Join(proj, "openapi.json"))
 
+	// #36: generate writes the folder the convention asks for, refuses to
+	// overwrite and refuses page + route in the same folder.
+	if out := run(t, proj, cli, "generate", "page", "/blog/{slug}"); !strings.Contains(out, "app/blog/slug_/page.go") || !strings.Contains(out, "/blog/{slug}") {
+		t.Fatal(out)
+	}
+	if b, _ := os.ReadFile(filepath.Join(proj, "trilha_gen.go")); !strings.Contains(string(b), "/blog/{slug}") {
+		t.Fatal("generate must leave trilha_gen.go up to date")
+	}
+	again := exec.Command(cli, "generate", "page", "/blog/{slug}")
+	again.Dir = proj
+	if out, err := again.CombinedOutput(); err == nil || !strings.Contains(string(out), "--force") {
+		t.Fatalf("generating twice must refuse and point at --force: %s", out)
+	}
+	conflict := exec.Command(cli, "generate", "route", "/blog/{slug}")
+	conflict.Dir = proj
+	if out, err := conflict.CombinedOutput(); err == nil || !strings.Contains(string(out), "never both") {
+		t.Fatalf("page + route in the same folder must be refused: %s", out)
+	}
+	run(t, proj, cli, "generate", "route", "/api/itens/{id}")
+	run(t, proj, cli, "generate", "component", "Aviso")
+	for _, f := range []string{"app/api/itens/id_/route.go", "internal/components/aviso.go"} {
+		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {
+			t.Fatalf("generate missing %s", f)
+		}
+	}
+	unknown := exec.Command(cli, "generate", "layout", "/x")
+	unknown.Dir = proj
+	if out, err := unknown.CombinedOutput(); err == nil || !strings.Contains(string(out), "unknown kind") {
+		t.Fatalf("only page, route and component: %s", out)
+	}
+	// The whole point of a skeleton is that it compiles before you touch it.
+	run(t, proj, "go", "build", "./...")
+	os.RemoveAll(filepath.Join(proj, "app", "blog"))
+	os.RemoveAll(filepath.Join(proj, "app", "api", "itens"))
+	os.RemoveAll(filepath.Join(proj, "internal"))
+	run(t, proj, cli, "gen")
+
 	// Boot the binary from a different directory: public/ must be embedded.
 	port := freePort(t)
 	ctx, cancel := context.WithCancel(context.Background())

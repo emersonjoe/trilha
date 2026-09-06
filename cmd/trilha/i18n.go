@@ -45,6 +45,7 @@ var msgs = map[string][2]string{
 Usage:
   trilha new <dir> [--module path] [--lang en|pt]   create a new project
   trilha gen [--check]                              generate trilha_gen.go from app/ (--check: fail if stale)
+  trilha generate page|route <url> | component <Name>   write a skeleton in the right place
   trilha dev [--addr :3000]                         dev server with live reload
   trilha build [-o bin/<name>]                      generate + compile a single binary
   trilha routes                                     list the discovered routes
@@ -60,6 +61,7 @@ Language: TRILHA_LANG=en|pt (falls back to LC_ALL, LC_MESSAGES, LANG).
 Uso:
   trilha new <dir> [--module caminho] [--lang en|pt]  cria um projeto novo
   trilha gen [--check]                                gera trilha_gen.go a partir de app/ (--check: falha se desatualizado)
+  trilha generate page|route <url> | component <Nome>  grava um esqueleto no lugar certo
   trilha dev [--addr :3000]                           dev server com recarga automática
   trilha build [-o bin/<nome>]                        gera + compila um binário único
   trilha routes                                       lista as rotas descobertas
@@ -92,6 +94,14 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"bad lang":        {"--lang must be en or pt", "--lang deve ser en ou pt"},
 	"tidy failed":     {"warning: go mod tidy failed (no network?); run it manually:", "aviso: go mod tidy falhou (sem rede?); rode manualmente:"},
 	"project created": {"\n✓ project created in %s\n\n  cd %s\n  trilha dev\n", "\n✓ projeto criado em %s\n\n  cd %s\n  trilha dev\n"},
+
+	// generate
+	"flag gen-force":  {"overwrite the file if it already exists", "sobrescrever o arquivo se já existir"},
+	"flag gen-dir":    {"folder of the component (default internal/components)", "pasta do componente (padrão internal/components)"},
+	"generate usage":  {"usage: trilha generate page|route <url> | component <Name> [--force] [--dir path]", "uso: trilha generate page|route <url> | component <Nome> [--force] [--dir caminho]"},
+	"gen use force":   {"use --force to overwrite it", "use --force para sobrescrever"},
+	"gen conflict":    {"a folder answers either a page or a route, never both", "uma pasta responde ou uma página ou uma rota, nunca as duas"},
+	"generated route": {"\n✓ %s answers now; trilha_gen.go is up to date\n", "\n✓ %s já responde; trilha_gen.go está atualizado\n"},
 
 	// dev / build / export
 	"flag addr":     {"public address of the dev server", "endereço público do dev server"},

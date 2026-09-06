@@ -6,6 +6,7 @@ description: Os comandos de trilha e suas opções.
 ```text
 trilha new <dir> [--module caminho] [--lang en|pt] [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check]
+trilha generate page|route <url> | component <Nome> [--force] [--dir caminho]
 trilha dev [--addr :3000]
 trilha build [-o bin/<nome>]
 trilha export [-o out] [--base /prefixo]
@@ -20,6 +21,7 @@ trilha version
 |---|---|
 | `new` | cria um projeto com `go.mod`, layout, página inicial, 404, uma rota de API, `public/style.css` e `.gitignore`; roda `go mod tidy` e `gen` |
 | `gen` | varre `app/` e escreve `trilha_gen.go`; falha com uma linha por convenção violada |
+| `generate` | grava um esqueleto — página, rota de API ou componente — na pasta que a convenção pede |
 | `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` com `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + executa com `TRILHA_EXPORT` para gerar HTML estático |
@@ -39,6 +41,29 @@ que acabam no seu código e nos seus logs) são sempre em inglês.
 
 `trilha new --lang en|pt` escolhe o idioma dos textos gerados (página inicial, 404,
 `<html lang>`); o padrão é o idioma da CLI.
+
+## trilha generate
+
+A convenção é o que custa lembrar: que `/blog/{slug}` mora em `app/blog/slug_/`, que uma pasta
+catch-all termina em `__`, que um grupo termina em `-`. O `generate` recebe a URL e faz a
+tradução:
+
+```bash
+trilha generate page /blog/{slug}     # app/blog/slug_/page.go
+trilha generate route /api/itens/{id} # app/api/itens/id_/route.go
+trilha generate component Aviso       # internal/components/aviso.go
+```
+
+A página e a rota saem compilando, com `c.Param` já lendo cada parâmetro, e o `trilha_gen.go`
+é regerado no fim — a URL responde antes de você abrir o editor. Um componente é uma função
+que devolve `h.Node`, então compõe como qualquer outra; `--dir` põe em outro lugar
+(`internal/icones`, por exemplo).
+
+O nome do pacote é o que já está declarado na pasta, quando existe; senão vem do nome da pasta
+(`slug_` → `slug`, `relatorio.csv` → `relatoriocsv`, `type` → `type_`).
+
+Um arquivo existente não é sobrescrito sem `--force`, e o `--force` não cobre a única recusa
+que é convenção: uma pasta responde ou uma página ou uma rota, nunca as duas.
 
 ## trilha ui
 

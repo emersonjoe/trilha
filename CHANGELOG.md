@@ -5,6 +5,21 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.27.0 — 2026-09-06
+
+### Added
+- **`trilha generate page|route|component`**
+  ([#36](https://github.com/emersonjoe/trilha/issues/36)). The command takes the URL and writes
+  the folder the convention asks for: `trilha generate page /blog/{slug}` creates
+  `app/blog/slug_/page.go` with `c.Param("slug")` already read, `trilha generate route
+  /api/itens/{id}` creates `app/api/itens/id_/route.go`, and `trilha generate component Aviso`
+  creates `internal/components/aviso.go` (`--dir` for another folder). What comes out compiles,
+  and `trilha_gen.go` is regenerated at the end, so the URL answers before the editor is open.
+  The package name is the one already declared in the folder when there is one, otherwise it
+  is derived from the folder (`slug_` → `slug`, `relatorio.csv` → `relatoriocsv`, `type` →
+  `type_`). An existing file needs `--force`; page and route in the same folder is refused
+  with or without it, because that is a convention, not a preference.
+
 ## 0.26.0 — 2026-09-06
 
 ### Added

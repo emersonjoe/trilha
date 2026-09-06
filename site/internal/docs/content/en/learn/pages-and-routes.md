@@ -73,6 +73,20 @@ app/organizer-/events/page.go    → GET /events  ✗ conflicts with app/events/
 The generator refuses two folders that produce the same URL (`E_DUPLICATE_ROUTE`), so the
 second example above does not compile.
 
+## Letting the CLI do the translation
+
+Nothing above needs to be typed by hand. `trilha generate` takes the URL and writes the
+folder the convention asks for, already compiling:
+
+```bash
+trilha generate page /events/{slug}   # app/events/slug_/page.go
+trilha generate route /api/events     # app/api/events/route.go
+```
+
+The page comes with `c.Param("slug")` already read, and `trilha_gen.go` is regenerated at the
+end, so the URL answers before you open the editor. The flags are in
+[CLI](/reference/cli#trilha-generate).
+
 ## What the generator does with this
 
 Run `trilha routes` at any time to see the table:

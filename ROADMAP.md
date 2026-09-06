@@ -91,7 +91,7 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 
 ### Fase 4 — DX e acabamento
 
-18. [#36](https://github.com/emersonjoe/trilha/issues/36) `trilha generate page|route|component`.
+18. ~~[#36](https://github.com/emersonjoe/trilha/issues/36) `trilha generate page|route|component`.~~ **Entregue na 0.27.0** (spec 036): o comando recebe a URL e escreve a pasta da convenção, com esqueleto que compila e `trilha_gen.go` regerado no fim.
 19. [#37](https://github.com/emersonjoe/trilha/issues/37) Inspetor de rotas no `trilha dev`.
 20. [#38](https://github.com/emersonjoe/trilha/issues/38) Cookbook, checklist de produção e guia de migração.
 21. [#39](https://github.com/emersonjoe/trilha/issues/39) `Pagination` e `Tooltip` no kit `ui` (o resto da lista da avaliação já existe).

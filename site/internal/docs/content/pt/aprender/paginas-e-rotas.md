@@ -73,6 +73,20 @@ app/organizador-/eventos/page.go  → GET /eventos  ✗ conflita com app/eventos
 O gerador recusa duas pastas que produzam a mesma URL (`E_DUPLICATE_ROUTE`), então o
 segundo exemplo acima não compila.
 
+## Deixando a CLI fazer a tradução
+
+Nada acima precisa ser digitado à mão. O `trilha generate` recebe a URL e grava a pasta que a
+convenção pede, já compilando:
+
+```bash
+trilha generate page /eventos/{slug}   # app/eventos/slug_/page.go
+trilha generate route /api/eventos     # app/api/eventos/route.go
+```
+
+A página já vem com `c.Param("slug")` lido, e o `trilha_gen.go` é regerado no fim, então a URL
+responde antes de você abrir o editor. As flags estão em
+[CLI](/pt/referencia/cli#trilha-generate).
+
 ## O que o gerador faz com isso
 
 Rode `trilha routes` a qualquer momento para ver a tabela:

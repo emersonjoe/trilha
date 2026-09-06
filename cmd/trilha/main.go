@@ -1,5 +1,5 @@
-// Command trilha is the CLI: new, gen, dev, build, routes, export, openapi,
-// audit, ui.
+// Command trilha is the CLI: new, gen, generate, dev, build, routes, export,
+// openapi, audit, ui.
 // Messages follow TRILHA_LANG / LANG (see i18n.go).
 package main
 
@@ -16,7 +16,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.26.0"
+const version = "0.27.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -29,6 +29,8 @@ func main() {
 		err = cmdNew(os.Args[2:])
 	case "gen":
 		err = cmdGen(os.Args[2:])
+	case "generate":
+		err = cmdGenerate(os.Args[2:])
 	case "dev":
 		err = cmdDev(os.Args[2:])
 	case "build":
