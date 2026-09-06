@@ -8,6 +8,7 @@ description: Os pacotes do Trilha e o que cada um faz.
 | `trilha` | `github.com/emersonjoe/trilha` | runtime: `App`, `Ctx`, erros, CSRF, estáticos, export |
 | `h` | `github.com/emersonjoe/trilha/h` | DSL de HTML |
 | `tmpl` | `github.com/emersonjoe/trilha/tmpl` | adaptador para `html/template` |
+| `cache` | `github.com/emersonjoe/trilha/cache` | cache com prazo, tags e memo por requisição |
 | `ui` | `github.com/emersonjoe/trilha/ui` | kit de componentes (tema compatível com shadcn/ui) |
 | `ai` | `github.com/emersonjoe/trilha/ai` | cliente OpenAI-compatível, ferramentas, agentes |
 | `ai/mcp` | `github.com/emersonjoe/trilha/ai/mcp` | cliente e servidor MCP |

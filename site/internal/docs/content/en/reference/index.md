@@ -8,6 +8,7 @@ description: Trilha's packages and what each one does.
 | `trilha` | `github.com/emersonjoe/trilha` | runtime: `App`, `Ctx`, errors, CSRF, static files, export |
 | `h` | `github.com/emersonjoe/trilha/h` | HTML DSL |
 | `tmpl` | `github.com/emersonjoe/trilha/tmpl` | adapter for `html/template` |
+| `cache` | `github.com/emersonjoe/trilha/cache` | cache with expiry, tags and per-request memo |
 | `ui` | `github.com/emersonjoe/trilha/ui` | component kit (theme compatible with shadcn/ui) |
 | `ai` | `github.com/emersonjoe/trilha/ai` | OpenAI-compatible client, tools, agents |
 | `ai/mcp` | `github.com/emersonjoe/trilha/ai/mcp` | MCP client and server |

@@ -32,9 +32,9 @@
 
 ## Bloco 5 — documentação e fechamento
 
-- [ ] T009 `learn/data` + `pt/aprender/dados` (capítulo novo): onde o dado é buscado, quanto
+- [x] T009 `learn/data` + `pt/aprender/dados` (capítulo novo): onde o dado é buscado, quanto
       vale, o que o derruba, e a diferença entre `Do` e `Once`.
-- [ ] T010 `reference/cache` + `pt/referencia/cache`, e a linha do pacote no índice das duas
+- [x] T010 `reference/cache` + `pt/referencia/cache`, e a linha do pacote no índice das duas
       locales.
-- [ ] T011 `CHANGELOG.md` (0.16.0), `version`, ROADMAP (Fase 2, item 6).
+- [x] T011 `CHANGELOG.md` (0.16.0), `version`, ROADMAP (Fase 2, item 6).
 - [ ] T012 `make test` verde e `make release VERSION=0.16.0 ISSUES="25"`.

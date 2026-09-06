@@ -5,6 +5,32 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.16.0 — 2026-09-05
+
+### Added
+- `cache` package ([#25](https://github.com/emersonjoe/trilha/issues/25)): an in-memory
+  cache with expiry, tags and bulk invalidation. `cache.New(cache.Options{Name, MaxEntries,
+  Metrics})` is created by the app, not by the framework, and the ceiling is mandatory
+  (default 10 000, LRU eviction) — a cache without one is a memory leak that takes a week
+  to show up. `Set`/`Get`/`Delete`/`Invalidate`/`Clear`/`Len`/`Stats` are the untyped half;
+  `cache.Get[T]`, `cache.Do[T]` and `cache.Once[T]` are the typed half, because Go does not
+  allow type parameters on methods.
+- `cache.Do(ctx, c, key, fn)` returns the cached value or produces it with `fn`, with one
+  flight per name: whoever arrives during a fetch waits for it instead of piling onto the
+  database, which is what the first request after an `Invalidate` would otherwise do. An
+  error is returned to everyone waiting and cached for nobody, and the cache lock is not
+  held while `fn` runs, so a nested `Do` works.
+- `cache.Once(c, name, fn)` answers a question once per request and forgets it with the
+  response — for what a layout, a page and three components all need to know. It is not the
+  cache, and cannot outlive the request the way a per-user value in a shared cache would.
+- Four metric series with `Options.Metrics`, labelled by the cache's name:
+  `trilha_cache_hits_total`, `trilha_cache_misses_total`, `trilha_cache_evictions_total`
+  and `trilha_cache_entries`.
+
+### Changed
+- The HELP text of the five framework metrics is now in English, like the rest of the code.
+  The series names are untouched, so no dashboard or alert changes.
+
 ## 0.15.0 — 2026-09-05
 
 ### Added
