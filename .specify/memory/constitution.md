@@ -119,6 +119,9 @@ renumeração de versão, conflito de tradução — supera o ganho do paralelis
 Fechar uma spec é `scripts/release.sh X.Y.Z --issues "NN"` (ou `make release`): testar, fundir
 por fast-forward, marcar a tag anotada, publicar a release com as notas do `CHANGELOG.md` e
 fechar as issues. O ritual é sempre o mesmo, então é script, não passo a passo escrito à mão.
+O branch entra **rebasado** — merge commit é recusado antes de qualquer escrita, porque o
+ruleset da `main` também recusa —, e o script não troca de branch: a fusão é um `push` para o
+remoto, então a `main` pode estar checada no worktree da outra sessão sem travar a release.
 
 ## Governance
 
@@ -127,4 +130,4 @@ registro da mudança neste arquivo com nova versão semântica, atualização do
 `.specify/templates/` que dependam do princípio alterado, e migração dos exemplos afetados.
 Revisões de código verificam aderência aos princípios I–VII antes de aprovar.
 
-**Version**: 1.4.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-06 (fronteira da API pública e ciclo de depreciação no princípio IV)
+**Version**: 1.4.1 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-06 (a release não troca de branch e o branch entra rebasado)

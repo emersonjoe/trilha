@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Fecha uma spec: testa, funde na main, marca a versão, publica e fecha as issues.
+# Fecha uma spec: testa, funde na main pelo remoto, marca a versão, publica e
+# fecha as issues. O script não troca de branch — a main pode estar checada em
+# outro worktree, e o worktree de quem roda fica onde está.
 # Uso: scripts/release.sh 0.11.0 [--issues "20 21"] [--dry-run]
 #
 # Rode a partir do branch da spec, com tudo commitado, o `version` de
@@ -52,6 +54,13 @@ grep -q "^## $VERSION — " CHANGELOG.md ||
 	{ echo "a tag $TAG já existe" >&2; exit 1; }
 command -v gh >/dev/null || { echo "gh não encontrado no PATH" >&2; exit 1; }
 
+# A main de verdade é a do remoto: é contra ela que o push vai ser conferido.
+git fetch -q origin main || { echo "não deu para buscar a main do remoto" >&2; exit 1; }
+[ -z "$(git log --merges origin/main..HEAD)" ] ||
+	{ echo "o branch tem merge commit, e o ruleset da main recusa; rebase antes: git rebase origin/main" >&2; exit 1; }
+git merge-base --is-ancestor origin/main HEAD ||
+	{ echo "o branch está atrás da main; rebase antes: git rebase origin/main" >&2; exit 1; }
+
 # Notas da release: a seção da versão no CHANGELOG, sem o cabeçalho.
 NOTES=$(awk -v v="## $VERSION — " '
 	index($0, v) == 1 { on = 1; next }
@@ -67,14 +76,15 @@ echo "==> $TAG a partir de $BRANCH${ISSUES:+, fechando issues: $ISSUES}"
 echo "==> make test"
 run make test
 
-echo "==> main"
-run git checkout main
-run git pull --ff-only origin main
-run git merge --ff-only "$BRANCH"
+# O fast-forward é o próprio push: o remoto recusa se não for um, e ninguém
+# precisa da main checada aqui para isso acontecer.
+echo "==> main pelo remoto"
+run git push origin HEAD:main
 
+# A tag vem depois do push da main, para não sobrar tag local apontando para um
+# commit que a fusão recusou.
 echo "==> tag e push"
 run git tag -a "$TAG" -m "$TAG"
-run git push origin main
 run git push origin "$TAG"
 
 echo "==> release no GitHub"
@@ -88,6 +98,14 @@ for n in $ISSUES; do
 	echo "==> fecha #$n"
 	run gh issue close "$n" --comment "Entregue na $TAG."
 done
+
+# A main local é conveniência, não fonte de verdade: se estiver checada em outro
+# worktree o Git recusa, e a release já saiu de qualquer jeito.
+if [ "$DRY" = 1 ]; then
+	printf '  [dry-run] git fetch origin main:main\n'
+elif ! git fetch -q origin main:main 2>/dev/null; then
+	echo "==> a main local não foi adiantada (checada em outro worktree); dê 'git pull --ff-only' lá"
+fi
 
 echo
 echo "Falta o que nenhum script escreve por você:"
