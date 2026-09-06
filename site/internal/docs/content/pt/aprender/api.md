@@ -56,7 +56,7 @@ curl -s -X PUT localhost:3000/api/eventos     # 405 com Allow: GET, POST
 func GET(c *trilha.Ctx) error {
 	ev, ok := eventos.Buscar(c.Param("slug"))
 	if !ok {
-		return trilha.ErrNotFound // {"error":"Not Found","status":404}
+		return trilha.ErrNotFound // 404 problem+json
 	}
 	return c.JSON(200, ev)
 }
@@ -76,12 +76,37 @@ func DELETE(c *trilha.Ctx) error {
 |---|---|
 | `nil` | o que você escreveu; 204 se não escreveu nada |
 | `trilha.ErrNotFound` | 404 em JSON |
-| `trilha.Errorf(422, "msg")` | 422 com `{"error":"msg"}` |
+| `trilha.Errorf(422, "msg")` | 422 com `"detail":"msg"` |
 | `c.Redirect(url)` | 303 |
-| qualquer outro `error` | 500 com `{"error":"Internal Server Error"}`; a mensagem real vai para o log |
+| qualquer outro `error` | 500 com `"title":"Internal Server Error"`; a mensagem real vai para o log |
+| `&trilha.Problem{…}` | exatamente o problema que você descreveu |
 
-Em rotas de API os erros saem em JSON; em páginas, em HTML. O formato segue o tipo de rota,
-não o cabeçalho `Accept`.
+O corpo é *problem details*, do [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457), enviado
+como `application/problem+json` — o formato que cliente gerado, gateway e teste de contrato
+já sabem ler:
+
+```json
+{"type":"about:blank","title":"Not Found","status":404,
+ "instance":"/api/eventos/nao-existe","request_id":"01J…"}
+```
+
+O `fields` do 422 continua igual, então o formulário que o lê não muda. E quando o status não
+basta, descreva o problema:
+
+```go
+return &trilha.Problem{
+	Type:   "https://exemplo.com/probs/esgotado",
+	Title:  "Ingressos esgotados",
+	Status: http.StatusConflict,
+	Detail: "O último lugar saiu há 4 minutos.",
+	Extra:  map[string]any{"espera": "/api/eventos/" + ev.Slug + "/espera"},
+}
+```
+
+Qual formato sai segue o tipo da rota, com o `Accept` como desempate: um `route.go` responde
+`problem+json`, a não ser que o cliente prefira `text/html` — o navegador na barra de
+endereço recebe a página de erro, esteja a rota onde estiver. Veja
+[Erros](/pt/referencia/erros).
 
 ## CSRF em APIs
 

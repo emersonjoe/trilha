@@ -179,12 +179,12 @@ func TestAPIRoutes(t *testing.T) {
 		t.Fatal(rec.Code)
 	}
 	rec = get(t, a, "DELETE", "/api/posts", "", nil)
-	if rec.Code != 404 || !strings.Contains(rec.Body.String(), `"error":"Not Found"`) {
+	if rec.Code != 404 || !strings.Contains(rec.Body.String(), `"title":"Not Found"`) {
 		t.Fatalf("%d %s", rec.Code, rec.Body.String())
 	}
 	rec = get(t, a, "GET", "/api/nada", "", nil)
-	if rec.Code != 404 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/json") {
-		t.Fatalf("api 404 should be json: %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	if rec.Code != 404 || !strings.HasPrefix(rec.Header().Get("Content-Type"), ProblemMediaType) {
+		t.Fatalf("api 404 should be problem+json: %d %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
 }
 

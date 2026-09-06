@@ -111,14 +111,16 @@ func TestRouteKindErrors(t *testing.T) {
 		t.Fatalf("browser must get HTML: %d %q", rec.Code, rec.Body.String())
 	}
 	for _, accept := range []string{"", "*/*", "application/json", "text/html, application/json"} {
-		if rec := do("GET", "/auto", accept); rec.Code != 403 || !strings.HasPrefix(rec.Body.String(), `{"error"`) {
+		if rec := do("GET", "/auto", accept); rec.Code != 403 || !strings.HasPrefix(rec.Body.String(), `{"type"`) {
 			t.Fatalf("accept %q must get JSON: %q", accept, rec.Body.String())
 		}
 	}
-	if rec := do("GET", "/api/x", html); !strings.HasPrefix(rec.Body.String(), `{"error"`) {
-		t.Fatal("/api/ stays JSON:", rec.Body.String())
+	// #30: o caminho não decide mais nada — o navegador vê a página também
+	// dentro de /api/, e quem quer JSON pede JSON.
+	if rec := do("GET", "/api/x", html); !strings.Contains(rec.Body.String(), "<html") {
+		t.Fatal("browser gets HTML inside /api/ too:", rec.Body.String())
 	}
-	if rec := do("GET", "/forced-api", html); !strings.HasPrefix(rec.Body.String(), `{"error"`) {
+	if rec := do("GET", "/forced-api", html); !strings.HasPrefix(rec.Body.String(), `{"type"`) {
 		t.Fatal("KindAPI stays JSON:", rec.Body.String())
 	}
 	if rec := do("GET", "/forced-page", "*/*"); !strings.Contains(rec.Body.String(), "<html") {

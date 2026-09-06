@@ -159,7 +159,7 @@ func TestUS2_APIGetPostDelete(t *testing.T) {
 	if rec := c.do("DELETE", "/api/posts/via-api", "", nil); rec.Code != 204 {
 		t.Fatal(rec.Code)
 	}
-	wantContains(t, c.do("DELETE", "/api/posts/via-api", "", nil), 404, `"error":"Not Found"`)
+	wantContains(t, c.do("DELETE", "/api/posts/via-api", "", nil), 404, `"title":"Not Found"`)
 	wantContains(t, c.get("/api/nada"), 404, `"status":404`)
 }
 
@@ -593,4 +593,22 @@ func TestCORSDoPainel(t *testing.T) {
 	if rec.Code != 200 || rec.Header().Get("Access-Control-Allow-Origin") == "" {
 		t.Errorf("GET do painel: %d sem allow-origin", rec.Code)
 	}
+}
+
+// #30 — o erro da API é problem+json, com o type e o membro de extensão que o
+// handler escolheu.
+func TestProblemJSONDaAPI(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.do("POST", "/api/posts", `{"title":"Repetido","body":"b"}`, map[string]string{"Content-Type": "application/json"})
+	if rec.Code != 201 {
+		t.Fatalf("primeiro POST = %d", rec.Code)
+	}
+	rec = c.do("POST", "/api/posts", `{"title":"Repetido","body":"b"}`, map[string]string{"Content-Type": "application/json"})
+	if !strings.HasPrefix(rec.Header().Get("Content-Type"), trilha.ProblemMediaType) {
+		t.Fatalf("content-type = %q", rec.Header().Get("Content-Type"))
+	}
+	wantContains(t, rec, 409, `"type":"https://trilha.dev/probs/slug-em-uso"`, `"slug":"repetido"`,
+		`"instance":"/api/posts"`)
+	// A validação continua respondendo fields, no mesmo corpo.
+	wantContains(t, c.do("POST", "/api/posts", `{"title":""}`, nil), 422, `"fields":{"title":"obrigatório"}`)
 }

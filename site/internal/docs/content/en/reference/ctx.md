@@ -20,6 +20,7 @@ used by another goroutine after the handler returns.
 | `FormErr() error` | form parse error: 400 invalid, 413 too large |
 | `BindJSON(&v) error` | decodes the JSON body; unknown fields are an error (400); 413 above the limit |
 | `Cookie(name) (*http.Cookie, error)` | request cookie |
+| `Accepts(offers...) string` | the offer the client prefers (`Accept`, ranked by `q`), or `""`; an absent or `*/*` header picks the first offer |
 | `RequestID() string` | received `X-Request-ID` or a generated id |
 | `Env() trilha.Env` | `trilha.Dev` or `trilha.Prod` |
 | `Base() string` | URL prefix (`TRILHA_BASE_PATH`), without trailing slash |

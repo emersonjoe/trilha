@@ -150,17 +150,7 @@ func (a *App) handleError(c *Ctx, err error) {
 		a.log.Error("handler error", "err", err, "path", c.r.URL.Path, "request_id", c.requestID)
 	}
 	if c.kind == kindAPI {
-		msg := http.StatusText(code)
-		var he *HTTPError
-		if errors.As(err, &he) && he.Message != "" && code < 500 {
-			msg = he.Message
-		}
-		body := map[string]any{"error": msg, "status": code}
-		var fe FieldErrors
-		if errors.As(err, &fe) {
-			body["fields"] = fe
-		}
-		_ = c.JSON(code, body)
+		c.writeProblem(a.problemFor(c, err, code))
 		return
 	}
 	switch {

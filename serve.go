@@ -67,7 +67,7 @@ func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
 		c := newCtx(a, rw, req, kind)
 		c.rawBody = raw
 		c.route = r
-		if kind == kindAPI && r.Kind == KindAuto && wantsHTML(req) {
+		if kind == kindAPI && r.Kind == KindAuto && prefersHTML(req) {
 			c.kind = kindPage // browser navigation to a route.go: HTML error pages
 		}
 		a.applySecurity(c)
@@ -184,7 +184,7 @@ func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 			allow := a.allowFor(r)
 			rw.Header().Set("Allow", allow)
 			fc.kind = kindOf(r)
-			if fc.kind == kindAPI && r.Kind == KindAuto && wantsHTML(req) {
+			if fc.kind == kindAPI && r.Kind == KindAuto && prefersHTML(req) {
 				fc.kind = kindPage
 			}
 			a.handleError(fc, &HTTPError{Code: http.StatusMethodNotAllowed})
@@ -203,7 +203,11 @@ func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	c := fc
-	if strings.HasPrefix(req.URL.Path, "/api/") || strings.Contains(req.Header.Get("Accept"), "application/json") {
+	// No route to ask for the kind, so the Accept decides; silent (curl sends
+	// */*), the /api/ prefix is the last resort.
+	switch {
+	case prefersHTML(req):
+	case prefersJSON(req), strings.HasPrefix(req.URL.Path, "/api/"):
 		c.kind = kindAPI
 	}
 	a.handleError(c, ErrNotFound)
@@ -220,13 +224,6 @@ func kindOf(r *Route) routeKind {
 		return kindPage
 	}
 	return kindAPI
-}
-
-// wantsHTML reports a browser navigation: Accept lists text/html and not
-// application/json, and the path is outside /api/.
-func wantsHTML(req *http.Request) bool {
-	accept := req.Header.Get("Accept")
-	return strings.Contains(accept, "text/html") && !strings.Contains(accept, "application/json") && !strings.HasPrefix(req.URL.Path, "/api/")
 }
 
 func (a *App) allowFor(r *Route) string {

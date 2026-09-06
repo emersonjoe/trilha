@@ -48,9 +48,12 @@ func Errorf(code int, format string, a ...any) error {
 func statusOf(err error) int {
 	var he *HTTPError
 	var fe FieldErrors
+	var p *Problem
 	switch {
 	case err == nil:
 		return http.StatusOK
+	case errors.As(err, &p) && p.Status != 0:
+		return p.Status
 	case errors.Is(err, ErrNotFound):
 		return http.StatusNotFound
 	case errors.As(err, &fe):

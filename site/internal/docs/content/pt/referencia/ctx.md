@@ -20,6 +20,7 @@ usado por outra goroutine depois que o handler devolve.
 | `FormErr() error` | erro do parse do formulário: 400 inválido, 413 grande demais |
 | `BindJSON(&v) error` | decodifica o corpo JSON; campos desconhecidos são erro (400); 413 acima do limite |
 | `Cookie(nome) (*http.Cookie, error)` | cookie da requisição |
+| `Accepts(ofertas...) string` | a oferta que o cliente prefere (`Accept`, ranqueado por `q`), ou `""`; cabeçalho ausente ou `*/*` fica com a primeira oferta |
 | `RequestID() string` | `X-Request-ID` recebido ou um id gerado |
 | `Env() trilha.Env` | `trilha.Dev` ou `trilha.Prod` |
 | `Base() string` | prefixo de URL (`TRILHA_BASE_PATH`), sem barra final |

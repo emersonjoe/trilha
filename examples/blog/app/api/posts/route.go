@@ -23,6 +23,19 @@ func POST(c *trilha.Ctx) error {
 	if err := c.BindJSON(&in); err != nil {
 		return err
 	}
+	// Um erro que o cliente precisa entender sem ler documentação nenhuma: o
+	// type aponta para a página que explica, e o membro de extensão diz qual
+	// slug bateu. É isso que o problem+json compra.
+	slug := posts.Slugify(in.Title)
+	if _, existe := posts.Get(slug); existe {
+		return &trilha.Problem{
+			Type:   "https://trilha.dev/probs/slug-em-uso",
+			Title:  "Slug já existe",
+			Status: http.StatusConflict,
+			Detail: "Já existe um post com esse título.",
+			Extra:  map[string]any{"slug": slug},
+		}
+	}
 	p := posts.Create(in.Title, in.Body)
 	c.Header("Location", "/api/posts/"+p.Slug)
 	return c.JSON(http.StatusCreated, p)

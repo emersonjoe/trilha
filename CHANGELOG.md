@@ -5,6 +5,39 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.21.0 — 2026-09-05
+
+### Changed
+- **API errors are now [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details**
+  ([#30](https://github.com/emersonjoe/trilha/issues/30)), sent as
+  `application/problem+json`. The mapping from the old body: `error` → `title`, `status`
+  stays, `fields` stays; `type`, `instance` and `request_id` are new. A client that reads
+  `fields` needs no change; one that reads `error` reads `title` instead.
+- **The format of an error is negotiated with `Accept`, not guessed from the path.** A
+  `KindAuto` route from `route.go` answers `problem+json` unless the client prefers
+  `text/html` (ranked by `q`), wherever the route lives — the `/api/` prefix no longer
+  forces JSON on a browser, and an API outside `/api/` no longer sends a page to a JSON
+  client. `KindAPI` and `KindPage` still do not negotiate. For a request that matches no
+  route, `Accept` decides and the `/api/` prefix is the last resort.
+
+### Added
+- `trilha.Problem`: `Type`, `Title`, `Status`, `Detail`, `Instance`, `Fields` and `Extra`
+  (extension members, written at the top level). Return one from a handler to describe an
+  error the client can act on; the framework fills in what is missing.
+- `trilha.ProblemType func(status int) string`, for an app that documents its errors at
+  URLs of its own, and `trilha.ProblemMediaType`.
+- `c.Accepts(offers ...string) string`: content negotiation with `q` values, `type/*` and
+  `*/*`. An absent or `*/*` `Accept` picks the first offer.
+- `examples/blog` answers 409 with its own `type` and a `slug` extension member when a title
+  repeats.
+
+### Notes
+- A 5xx never carries a `Detail` the framework derived, in production: the message goes to
+  the log with the `request_id` (ASVS V7.4.1). In `Dev` it comes in the response. A `Detail`
+  written by the handler is always sent.
+- `request_id` travels in the body as well as in `X-Request-ID`, because a script from
+  another origin cannot read the header without `Expose-Headers`.
+
 ## 0.20.0 — 2026-09-05
 
 ### Added

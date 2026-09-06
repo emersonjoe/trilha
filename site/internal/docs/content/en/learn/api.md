@@ -56,7 +56,7 @@ curl -s -X PUT localhost:3000/api/events     # 405 with Allow: GET, POST
 func GET(c *trilha.Ctx) error {
 	ev, ok := events.Find(c.Param("slug"))
 	if !ok {
-		return trilha.ErrNotFound // {"error":"Not Found","status":404}
+		return trilha.ErrNotFound // 404 problem+json
 	}
 	return c.JSON(200, ev)
 }
@@ -76,12 +76,37 @@ func DELETE(c *trilha.Ctx) error {
 |---|---|
 | `nil` | whatever you wrote; 204 if you wrote nothing |
 | `trilha.ErrNotFound` | 404 as JSON |
-| `trilha.Errorf(422, "msg")` | 422 with `{"error":"msg"}` |
+| `trilha.Errorf(422, "msg")` | 422 with `"detail":"msg"` |
 | `c.Redirect(url)` | 303 |
-| any other `error` | 500 with `{"error":"Internal Server Error"}`; the real message goes to the log |
+| any other `error` | 500 with `"title":"Internal Server Error"`; the real message goes to the log |
+| `&trilha.Problem{…}` | exactly the problem you described |
 
-In API routes errors come out as JSON; in pages, as HTML. The format follows the kind of
-route, not the `Accept` header.
+The body is [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details, sent as
+`application/problem+json` — the format generated clients, gateways and contract tests
+already read:
+
+```json
+{"type":"about:blank","title":"Not Found","status":404,
+ "instance":"/api/events/nope","request_id":"01J…"}
+```
+
+`fields` is still there on a 422, unchanged, so the form that reads it keeps working. When a
+status is not enough, describe the problem yourself:
+
+```go
+return &trilha.Problem{
+	Type:   "https://example.com/probs/sold-out",
+	Title:  "Sold out",
+	Status: http.StatusConflict,
+	Detail: "The last seat went 4 minutes ago.",
+	Extra:  map[string]any{"waitlist": "/api/events/" + ev.Slug + "/waitlist"},
+}
+```
+
+Which format comes out follows the kind of route, with `Accept` as the tie-breaker: a
+`route.go` answers `problem+json`, unless the client prefers `text/html` — a browser in the
+address bar gets the error page, wherever the route lives. See
+[Errors](/reference/errors).
 
 ## CSRF in APIs
 
