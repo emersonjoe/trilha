@@ -1,0 +1,84 @@
+// Package id is one item: the same form as the creation screen, filled in,
+// plus the button that destroys it.
+package id
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	newitem "{{.Module}}/app/items/new"
+	"{{.Module}}/internal/store"
+)
+
+// Page renders GET /items/{id}.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	it, err := item(c)
+	if err != nil {
+		return nil, err
+	}
+	in := newitem.Input{Name: it.Name, Status: it.Status, Amount: store.Plain(it.Amount)}
+	return screen(c, it, in, nil), nil
+}
+
+// POST saves the item, or deletes it when the form says so — one address, two
+// buttons, because a delete is a write like any other and needs the token.
+func POST(c *trilha.Ctx) error {
+	it, err := item(c)
+	if err != nil {
+		return err
+	}
+	db := trilha.Use[*store.Store](c)
+	if c.Form("delete") != "" {
+		db.Delete(it.ID)
+		c.Flash(ui.FlashSuccess, "{{.T.app_deleted}}")
+		return c.Redirect("/items")
+	}
+	var in newitem.Input
+	if err := c.Bind(&in); err != nil {
+		errs, ok := err.(trilha.FieldErrors)
+		if !ok {
+			return err
+		}
+		return c.Render(http.StatusUnprocessableEntity, screen(c, it, in, errs))
+	}
+	cents, err := newitem.Cents(in.Amount)
+	if err != nil {
+		return c.Render(http.StatusUnprocessableEntity, screen(c, it, in, trilha.FieldErrors{"amount": "{{.T.app_bad_amount}}"}))
+	}
+	it.Name, it.Status, it.Amount = in.Name, in.Status, cents
+	db.Save(it)
+	c.Flash(ui.FlashSuccess, "{{.T.app_saved}}")
+	return c.Redirect("/items")
+}
+
+// item reads the id of the address and answers 404 for anything else, so no
+// handler below has to think about a missing row.
+func item(c *trilha.Ctx) (store.Item, error) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return store.Item{}, trilha.Errorf(http.StatusNotFound, "%s", "{{.T.not_found}}")
+	}
+	it, ok := trilha.Use[*store.Store](c).Get(id)
+	if !ok {
+		return store.Item{}, trilha.Errorf(http.StatusNotFound, "%s", "{{.T.not_found}}")
+	}
+	return it, nil
+}
+
+func screen(c *trilha.Ctx, it store.Item, in newitem.Input, errs trilha.FieldErrors) h.Node {
+	action := "/items/" + strconv.Itoa(it.ID)
+	return ui.Stack(
+		newitem.Form(c, in, errs, action, "{{.T.app_edit_item}}"),
+		ui.Card(ui.CardContent(h.Form(h.Method("post"), h.Action(action), trilha.CSRFInput(c),
+			// ui.Confirm asks before the form is sent. An onclick with a
+			// confirm() would be inline script, which the CSP blocks.
+			ui.Confirm("{{.T.app_delete_q}}", "{{.T.app_delete_desc}}"),
+			h.Input(h.Type("hidden"), h.Name("delete"), h.Value("1")),
+			ui.Submit(ui.Destructive(), ui.Icon("trash"), h.Text("{{.T.app_delete}}")),
+		))),
+	)
+}

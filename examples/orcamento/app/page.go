@@ -15,6 +15,7 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	return ui.Stack(
 		ui.Row(ui.H1(h.Text("Orçamento "), ui.Muted(h.Text(plano.MesLabel(m)))), ui.Spacer(), componentes.SeletorMes("/", m), componentes.DialogoLancamento(c, "", "/?mes="+m)),
 		componentes.ResumoCards(plano.Resumir(m)),
+		componentes.GraficosDoMes(m),
 		ui.Card(
 			ui.CardHeader(ui.CardTitle("Plano de contas"), ui.CardDescription("Clique numa conta para aprofundar. Contas sintéticas somam as filhas.")),
 			ui.CardContent(componentes.Tabela(plano.Raizes(), m, 1)),

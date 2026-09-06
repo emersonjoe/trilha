@@ -4,7 +4,8 @@ description: The trilha commands and their options.
 ---
 
 ```text
-trilha new <dir> [--module path] [--lang en|pt] [--agents] [--trilha-dir ../trilha] [--no-tidy]
+trilha new <dir> [--module path] [--template blog|app] [--lang en|pt] [--agents]
+    [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check] [--package name]
 trilha generate page|route|test <url> | component <Name>
     [--methods GET,POST] [--bind Type] [--form Type] [--layout file] [--force] [--dir path] [--lang en|pt]
@@ -38,6 +39,20 @@ trilha version
 
 Commands run in the folder containing `app/`. The project's import path comes from the
 nearest `go.mod`, plus the subfolder, so an app can live inside a larger module.
+
+## trilha new --template
+
+`--template` picks the shape of the project:
+
+| Shape | What it writes |
+|---|---|
+| `blog` (default) | a home page, an API route and a 404: the smallest thing that runs |
+| `app` | the management app — login, [shell](/reference/shell), dashboard with [charts](/reference/charts), a [listing](/reference/listings) and a form, with tests |
+
+The `app` project comes green: it compiles, `trilha check` passes and `go test ./...`
+passes without a single edit. Its seeded account is printed on the login page, and every
+route below `app/` is behind a session because the middleware sits at the root of the
+folder — including the routes you add tomorrow.
 
 ## Language
 

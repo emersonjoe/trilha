@@ -1,0 +1,30 @@
+package app
+
+import (
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+)
+
+// Error renders every error status but 404, with the app's own layout. The
+// status comes from the error, so a 403 reads like the app instead of like the
+// framework.
+func Error(c *trilha.Ctx, err error) (h.Node, error) {
+	switch trilha.StatusOf(err) {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		c.SetTitle("{{.T.app_no_access_title}}")
+		return ui.Stack(
+			ui.H1(h.Text("{{.T.app_no_access_title}}")),
+			ui.Muted(h.Text("{{.T.app_no_access}}")),
+			h.Div(ui.ButtonLink("/login", h.Text("{{.T.app_login}}"))),
+		), nil
+	}
+	c.SetTitle("{{.T.app_error_title}}")
+	return ui.Stack(
+		ui.H1(h.Text("{{.T.app_error_title}}")),
+		h.If(c.Env() == trilha.Dev, ui.Alert("dev", ui.Destructive(), ui.Icon("triangle-alert"), ui.AlertDescription(h.Pre(h.Text(err.Error()))))),
+		ui.Muted(h.Textf("{{.T.app_error_id}} %s", c.RequestID())),
+	), nil
+}

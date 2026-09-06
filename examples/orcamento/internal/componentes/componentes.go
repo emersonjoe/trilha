@@ -88,6 +88,25 @@ func ResumoCards(r plano.Resumo) h.Node {
 	)
 }
 
+// GraficosDoMes is the month in two drawings: what each top-level account
+// actually moved, and how the expense divides between them. Both are SVG the
+// server writes — no chart library for six rectangles — and the value beside
+// each bar is money the app formatted, because the framework has no locale.
+func GraficosDoMes(mes string) h.Node {
+	var barras, fatias []ui.Datum
+	for _, c := range plano.Raizes() {
+		re := plano.Realizado(c, mes)
+		barras = append(barras, ui.Datum{Label: c.Nome, Value: float64(re), Text: plano.Money(re)})
+		if c.Tipo == "despesa" && re > 0 {
+			fatias = append(fatias, ui.Datum{Label: c.Nome, Value: float64(re), Text: plano.Money(re)})
+		}
+	}
+	return ui.Grid(
+		ui.Card(ui.CardHeader(ui.CardTitle("Realizado por conta")), ui.CardContent(ui.Bars(barras, ui.ChartTitle("Realizado por conta")))),
+		ui.Card(ui.CardHeader(ui.CardTitle("Despesa por conta")), ui.CardContent(ui.Donut(fatias, ui.ChartTitle("Despesa por conta")))),
+	)
+}
+
 // SeletorMes is a GET form that changes ?mes= keeping the current path.
 func SeletorMes(path, mes string) h.Node {
 	opts := make([]ui.Option, 0, 4)

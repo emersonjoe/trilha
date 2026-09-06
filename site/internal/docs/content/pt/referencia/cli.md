@@ -4,7 +4,8 @@ description: Os comandos de trilha e suas opções.
 ---
 
 ```text
-trilha new <dir> [--module caminho] [--lang en|pt] [--agents] [--trilha-dir ../trilha] [--no-tidy]
+trilha new <dir> [--module caminho] [--template blog|app] [--lang en|pt] [--agents]
+    [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check] [--package nome]
 trilha generate page|route|test <url> | component <Nome>
     [--methods GET,POST] [--bind Tipo] [--form Tipo] [--layout arquivo] [--force] [--dir caminho] [--lang en|pt]
@@ -38,6 +39,20 @@ trilha version
 
 Os comandos rodam na pasta que contém `app/`. O caminho de import do projeto vem do
 `go.mod` mais próximo, mais a subpasta, então um app pode viver dentro de um módulo maior.
+
+## trilha new --template
+
+O `--template` escolhe o formato do projeto:
+
+| Formato | O que grava |
+|---|---|
+| `blog` (padrão) | uma home, uma rota de API e um 404: a menor coisa que roda |
+| `app` | o app de gestão — login, [shell](/pt/referencia/shell), painel com [gráficos](/pt/referencia/graficos), uma [listagem](/pt/referencia/listagens) e um formulário, com testes |
+
+O projeto `app` já nasce verde: compila, o `trilha check` passa e o `go test ./...` passa
+sem nenhuma edição. A conta de exemplo aparece na própria tela de login, e toda rota
+abaixo de `app/` está atrás de uma sessão porque o middleware está na raiz da pasta —
+inclusive as rotas que você escrever amanhã.
 
 ## Idioma
 

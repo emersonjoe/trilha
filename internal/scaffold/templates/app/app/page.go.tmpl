@@ -1,0 +1,46 @@
+package app
+
+import (
+	"strconv"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"{{.Module}}/internal/store"
+)
+
+// Page renders GET /: the dashboard. Every drawing on it is SVG the server
+// wrote — no chart library, no JavaScript.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("{{.T.app_dashboard}}")
+	db := trilha.Use[*store.Store](c)
+	n, sum := db.Total()
+	counts, sums := db.ByStatus()
+
+	bars := make([]ui.Datum, 0, len(store.Statuses()))
+	slices := make([]ui.Datum, 0, len(store.Statuses()))
+	for _, s := range store.Statuses() {
+		bars = append(bars, ui.Datum{Label: store.StatusLabel(s), Value: float64(sums[s]), Text: store.Money(sums[s])})
+		slices = append(slices, ui.Datum{Label: store.StatusLabel(s), Value: float64(counts[s]), Text: strconv.Itoa(counts[s])})
+	}
+
+	return ui.Stack(
+		ui.PageHeader("{{.T.app_dashboard}}", ui.ButtonLink("/items/new", ui.Icon("plus"), h.Text("{{.T.app_new_item}}"))),
+		ui.Grid(
+			ui.Card(ui.CardContent(ui.Stat("{{.T.app_items}}", strconv.Itoa(n), ui.StatHint("{{.T.app_all}}")))),
+			ui.Card(ui.CardContent(ui.Stat("{{.T.app_amount_total}}", store.Money(sum), ui.StatHint("{{.T.app_all}}")))),
+			ui.Card(ui.CardContent(ui.Stat("{{.T.app_open}}", strconv.Itoa(counts["open"]), ui.StatHint(store.Money(sums["open"]))))),
+		),
+		ui.Grid(
+			ui.Card(
+				ui.CardHeader(ui.CardTitle("{{.T.app_by_status}}")),
+				ui.CardContent(ui.Bars(bars, ui.ChartTitle("{{.T.app_by_status}}"))),
+			),
+			ui.Card(
+				ui.CardHeader(ui.CardTitle("{{.T.app_items}}")),
+				ui.CardContent(ui.Donut(slices, ui.ChartTitle("{{.T.app_by_status}}"))),
+			),
+		),
+	), nil
+}

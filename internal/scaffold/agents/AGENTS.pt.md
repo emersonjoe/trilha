@@ -77,6 +77,12 @@ leia essa frase em vez de adivinhar.
   recuando no erro, parando quando a rota responde `c.PollStop()` — e o `ui.Live`/`ui.On`
   fazem o mesmo por um Server-Sent Event que carrega só o nome do que mudou. Carregue o
   `ui.LiveScript(c)` uma vez na página que observa alguma coisa.
+- **Não monte a moldura de um app interno na mão, nem vá buscar uma biblioteca de
+  gráficos.** O `ui.Shell` é a barra lateral, o cabeçalho e o menu do usuário, com o item
+  ativo achado pelo prefixo mais longo; o `ui.PageHeader` é o título da tela dentro dele.
+  `ui.Stat`, `ui.Bars`, `ui.Sparkline` e `ui.Donut` desenham um painel em SVG no servidor,
+  com uma tabela invisível dos mesmos números para o leitor de tela. Esconder item de menu
+  é enfeite: quem mantém alguém do lado de fora é o middleware na raiz da pasta.
 - **Não invente um cookie de flash nem um `onclick="return confirm()"`.** Depois de um `POST`,
   conte o que aconteceu com `c.Flash(ui.FlashSuccess, "…")` — o `ui.Flashes(c)` do layout mostra
   na página onde o redirect cai — e pergunte antes de destruir com `ui.Confirm(título,

@@ -40,7 +40,7 @@ func Head(c *trilha.Ctx) h.Node {
 	)
 }
 
-const themeInit = `(()=>{try{var t=localStorage.getItem("ui-theme")}catch(e){}if(!t)t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.classList.add(t)})()`
+const themeInit = `(()=>{var s;try{var t=localStorage.getItem("ui-theme");s=localStorage.getItem("ui-sidebar")}catch(e){}if(!t)t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.classList.add(t);if(s==="collapsed"||(!s&&matchMedia("(max-width: 767px)").matches))document.documentElement.classList.add("ui-sidebar-collapsed")})()`
 
 // ---- variants (extra class attributes, composable like any h attribute) -----
 

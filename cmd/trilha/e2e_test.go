@@ -550,3 +550,52 @@ func TestGenerateContratoE2E(t *testing.T) {
 		t.Fatal("a refusal must not leave a folder behind")
 	}
 }
+
+// TestTemplateAppE2E is issue #65 end to end: `trilha new --template app` has
+// to produce a project that is already green — it compiles, `trilha check`
+// passes and the tests that come with it pass — without a single edit. A
+// skeleton that needs a fix before it runs is not a starting point.
+func TestTemplateAppE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	cli := filepath.Join(tmp, "trilha-cli")
+	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+
+	proj := filepath.Join(tmp, "gestao")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/gestao", "--template", "app", "--trilha-dir", repo)
+	for _, f := range []string{
+		"app/page.go", "app/middleware.go", "app/login/page.go", "app/logout/route.go",
+		"app/items/page.go", "app/items/new/page.go", "app/items/id_/page.go",
+		"internal/store/store.go", "internal/session/session.go", "app_test.go",
+		"go.mod", "trilha_gen.go", "public/ui.css",
+	} {
+		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {
+			t.Fatalf("missing %s", f)
+		}
+	}
+	// The middleware at the root of app/ is what protects the tree, so every
+	// route below it shows up in the listing of routes.
+	out := run(t, proj, cli, "routes")
+	for _, want := range []string{"/login", "/items", "/items/new", "/items/{id}"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("route %s missing from:\n%s", want, out)
+		}
+	}
+	// check is gen + gofmt + vet + test + audit: the whole bar the project is
+	// held to from its first day.
+	t.Setenv("TRILHA_SECRET", "an-e2e-secret-with-more-than-32-bytes!!")
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "ok") {
+		t.Fatal(out)
+	}
+
+	// An unknown shape is a message, not a stack trace.
+	cmd := exec.Command(cli, "new", filepath.Join(tmp, "nope"), "--template", "banana", "--no-tidy")
+	cmd.Dir = tmp
+	if b, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(b), "--template") {
+		t.Fatalf("expected a complaint about --template, got %v\n%s", err, b)
+	}
+}

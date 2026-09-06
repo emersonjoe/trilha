@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/emersonjoe/trilha/internal/gen"
@@ -17,6 +18,7 @@ func cmdNew(args []string) error {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
 	module := fs.String("module", "", t("flag module"))
 	langFlag := fs.String("lang", lang, t("flag lang"))
+	tmpl := fs.String("template", "blog", t("flag template"))
 	trilhaDir := fs.String("trilha-dir", "", t("flag trilha-dir"))
 	noTidy := fs.Bool("no-tidy", false, t("flag no-tidy"))
 	agents := fs.Bool("agents", false, t("flag agents"))
@@ -34,6 +36,9 @@ func cmdNew(args []string) error {
 	if *langFlag != "en" && *langFlag != "pt" {
 		return errors.New(t("bad lang"))
 	}
+	if !slices.Contains(scaffold.Templates(), *tmpl) {
+		return errors.New(t("bad template"))
+	}
 	name := filepath.Base(dir)
 	if *module == "" {
 		*module = name
@@ -41,7 +46,7 @@ func cmdNew(args []string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	written, err := scaffold.Write(dir, scaffold.Data{Module: *module, Name: name, Lang: *langFlag})
+	written, err := scaffold.Write(dir, scaffold.Data{Module: *module, Name: name, Lang: *langFlag, Template: *tmpl})
 	if err != nil {
 		return err
 	}

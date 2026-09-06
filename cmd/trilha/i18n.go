@@ -122,6 +122,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"flag no-tidy":    {"do not run go mod tidy", "não rodar go mod tidy"},
 	"new usage":       {"usage: trilha new <dir> [--module path] [--lang en|pt]", "uso: trilha new <dir> [--module caminho] [--lang en|pt]"},
 	"bad lang":        {"--lang must be en or pt", "--lang deve ser en ou pt"},
+	"flag template":   {"shape of the project: blog or app", "formato do projeto: blog ou app"},
+	"bad template":    {"--template must be blog or app", "--template deve ser blog ou app"},
 	"tidy failed":     {"warning: go mod tidy failed (no network?); run it manually:", "aviso: go mod tidy falhou (sem rede?); rode manualmente:"},
 	"project created": {"\n✓ project created in %s\n\n  cd %s\n  trilha dev\n", "\n✓ projeto criado em %s\n\n  cd %s\n  trilha dev\n"},
 

@@ -1,0 +1,30 @@
+// Package session is the login of {{.Name}}: the same *auth.Auth, with no
+// provider, because the users of this app are a table of its own.
+package session
+
+import (
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/auth"
+
+	"{{.Module}}/internal/store"
+)
+
+// Flow holds the session. NewMemoryStore forgets everything when the process
+// restarts: point it at a database or Redis before this app is real.
+var Flow = auth.Sessions(auth.Options{
+	Store:      auth.NewMemoryStore(),
+	Idle:       30 * time.Minute,
+	LoginPath:  "/login",
+	AfterLogin: "/",
+})
+
+// Login opens the session for a row of the users table, after the page has
+// checked the password.
+func Login(c *trilha.Ctx, u store.User) error {
+	return Flow.Login(c, &auth.User{Subject: u.ID, Email: u.Email, Name: u.Name, Roles: []string{u.Role}})
+}
+
+// User is who is signed in, or nil.
+func User(c *trilha.Ctx) *auth.User { return Flow.User(c) }

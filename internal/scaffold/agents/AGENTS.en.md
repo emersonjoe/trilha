@@ -77,6 +77,12 @@ that resolves it — read that line instead of guessing.
   stopping when the route answers `c.PollStop()` — and `ui.Live`/`ui.On` do the same on a
   Server-Sent Event that carries only the name of what changed. Load `ui.LiveScript(c)`
   once on the page that watches something.
+- **Do not hand-build the frame of an internal app, and do not reach for a charting
+  library.** `ui.Shell` is the sidebar, the header and the user menu, with the active item
+  found by the longest matching prefix; `ui.PageHeader` is the title of the screen inside
+  it. `ui.Stat`, `ui.Bars`, `ui.Sparkline` and `ui.Donut` draw a dashboard as server-side
+  SVG, with an invisible table of the same numbers for a screen reader. Hiding a menu item
+  is cosmetics: what keeps somebody out is a middleware at the root of the folder.
 - **Do not invent a flash cookie or an `onclick="return confirm()"`.** After a `POST`, say what
   happened with `c.Flash(ui.FlashSuccess, "…")` — the layout's `ui.Flashes(c)` shows it on the
   page the redirect lands on — and ask before destroying with `ui.Confirm(title, description)`

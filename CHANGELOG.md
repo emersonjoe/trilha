@@ -66,6 +66,31 @@ versioning. This file is written in English only.
   watching. A page that polls or listens loads `ui.LiveScript(c)` once.
 - **`Pages.Attrs`** puts the same attributes on every page link, which is how `ui.DataTable`
   paginates inside a fragment.
+- **`ui.Shell`: the frame of an internal app**
+  ([#65](https://github.com/emersonjoe/trilha/issues/65)). Sidebar with groups, header, user
+  menu and the screen in the middle, composed out of `ui.Sidebar`, `ui.Nav`, `ui.Menu` and
+  `ui.ThemeToggle` rather than out of a new primitive. The active item is the longest `Href`
+  that prefixes the current path, so `/items/42/edit` lights up `/items`; `Hide` leaves an
+  item out of the HTML and says so — hiding a link is cosmetics, the middleware at the root
+  of the folder is the rule. Collapsing stamps a class on `<html>`, is remembered in
+  `localStorage` and is read back by the script `ui.Head` already emits, so nothing flashes
+  on the first paint and no asset was added; on a narrow screen the same class turns the
+  sidebar into a drawer. `ui.PageHeader` is the title of the screen inside the shell, with
+  `ui.Back` as the way back.
+- **`ui.Stat`, `ui.Bars`, `ui.Sparkline` and `ui.Donut`: a dashboard with no charting
+  library** ([#68](https://github.com/emersonjoe/trilha/issues/68)). Server-side SVG that
+  arrives with the page, prints, and works with JavaScript off. `ui.Datum` carries the value
+  the drawing measures and the `Text` a person reads, because the framework has no locale and
+  money is formatted by the app. Colours come from the theme (`--chart-1` to `--chart-5`).
+  Every chart also renders an invisible table with the same numbers, which is what a screen
+  reader reads — the SVG is `aria-hidden` unless `ui.ChartTitle` gives it a name. An empty
+  series, a series of zeros and a single point each have a defined drawing.
+- **`trilha new --template app`**
+  ([#65](https://github.com/emersonjoe/trilha/issues/65)). A second shape for a new project:
+  login with `auth.Sessions`, a middleware at the root of `app/` that protects the whole
+  tree, the shell, a dashboard with the charts, a listing with `ui.DataTable` and an entity
+  with create, edit and delete — with its own tests. It comes green: it compiles, `trilha
+  check` passes and `go test ./...` passes without an edit. `blog` remains the default.
 
 ### Changed
 
@@ -78,6 +103,9 @@ versioning. This file is written in English only.
   channel that says when something happened to whoever is listening.
 - **`trilha ui` writes six files**: `ui.live.js` joins `ui.theme.css`, `ui.css`, `ui.js`,
   `ui.nav.js` and `ui.upload.js` in `public/`.
+- **The scaffold templates are split into `base/` and one folder per shape**, so a new shape
+  is a folder and not a fork of the generator. `scaffold.Data.Template` and
+  `scaffold.Templates()` name them; an unknown one is a message, not a stack trace.
 
 ### Documentation
 
@@ -87,6 +115,8 @@ versioning. This file is written in English only.
 - New reference pages **Listings** and **Live**, the recipe **A listing that filters, orders
   and paginates**, and the `ui` reference updated, all in both languages; `AGENTS.md` gained
   the two things not to hand-write — a listing screen and a `setInterval`.
+- New reference pages **Shell** and **Charts**, and the `--template` section of the CLI
+  reference, in both languages.
 
 ## 0.40.1 — 2026-09-08
 

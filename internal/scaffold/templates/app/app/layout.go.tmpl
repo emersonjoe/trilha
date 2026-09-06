@@ -1,0 +1,62 @@
+package app
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"{{.Module}}/internal/session"
+)
+
+// Layout is the root layout: the <html> document and the frame around every
+// page. ui.Shell is the sidebar, the top bar and the content, with the active
+// item worked out from the address.
+func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
+	title := c.Title()
+	if title == "" {
+		title = "{{.Name}}"
+	}
+	u := session.User(c)
+	if u == nil {
+		// The login screen has no shell: there is nothing to navigate yet.
+		return document(c, title, h.Main(ui.Container(children))), nil
+	}
+	admin := false
+	for _, r := range u.Roles {
+		if r == "admin" {
+			admin = true
+		}
+	}
+	return document(c, title, ui.Shell(c, ui.ShellOpts{
+		Brand: ui.Brand("/", "{{.Name}}"),
+		Nav: []ui.NavGroup{
+			{Label: "{{.T.app_menu_work}}", Items: []ui.NavItem{
+				{Href: "/", Label: "{{.T.app_dashboard}}", Icon: "house"},
+				{Href: "/items", Label: "{{.T.app_items}}", Icon: "search"},
+			}},
+			// Hide is cosmetics: what keeps a non-admin out of the route is
+			// the middleware.go of that branch, never the menu.
+			{Label: "{{.T.app_menu_admin}}", Hide: !admin, Items: []ui.NavItem{
+				{Href: "/items/new", Label: "{{.T.app_new_item}}", Icon: "plus"},
+			}},
+		},
+		Header: []h.Node{ui.ThemeToggle()},
+		User: ui.UserMenu{Name: u.Name, Detail: u.Email, Items: []h.Node{
+			h.Form(h.Method("post"), h.Action("/logout"), trilha.CSRFInput(c),
+				h.Button(h.Type("submit"), h.Role("menuitem"), h.Text("{{.T.app_logout}}"))),
+		}},
+	}, children)), nil
+}
+
+func document(c *trilha.Ctx, title string, body h.Node) h.Node {
+	return h.Html(h.Lang("{{.T.html_lang}}"),
+		h.Head(
+			h.Meta(h.Charset("utf-8")),
+			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),
+			h.Title(h.Text(title)),
+			ui.Head(c), // public/ui.theme.css (your theme), ui.css and ui.js
+			h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))),
+		),
+		h.Body(ui.Body(), body, ui.Flashes(c)),
+	)
+}

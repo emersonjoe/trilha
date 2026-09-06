@@ -793,6 +793,7 @@ pkg ui, func AlertDescription(...h.Node) h.Node
 pkg ui, func Asset(string) []byte
 pkg ui, func Avatar(string, string) h.Node
 pkg ui, func Badge(...h.Node) h.Node
+pkg ui, func Bars([]Datum, ...h.Node) h.Node
 pkg ui, func Body() h.Node
 pkg ui, func Brand(string, string) h.Node
 pkg ui, func Breadcrumb(...Crumb) h.Node
@@ -804,6 +805,7 @@ pkg ui, func CardDescription(string) h.Node
 pkg ui, func CardFooter(...h.Node) h.Node
 pkg ui, func CardHeader(...h.Node) h.Node
 pkg ui, func CardTitle(string) h.Node
+pkg ui, func ChartTitle(string) h.Node
 pkg ui, func CheckRow(h.Node, string, string) h.Node
 pkg ui, func Checkbox(...h.Node) h.Node
 pkg ui, func Checked(bool) h.Node
@@ -819,6 +821,7 @@ pkg ui, func DialogClose(...h.Node) h.Node
 pkg ui, func DialogDescription(string) h.Node
 pkg ui, func DialogFooter(...h.Node) h.Node
 pkg ui, func DialogTrigger(string, ...h.Node) h.Node
+pkg ui, func Donut([]Datum, ...h.Node) h.Node
 pkg ui, func Error(string) FieldOpt
 pkg ui, func Errors(map[string]string, string) FieldOpt
 pkg ui, func Field(string, string, h.Node, ...FieldOpt) h.Node
@@ -860,6 +863,7 @@ pkg ui, func NoTransition() h.Node
 pkg ui, func Num() h.Node
 pkg ui, func On(string, string) h.Node
 pkg ui, func Outline() h.Node
+pkg ui, func PageHeader(string, ...h.Node) h.Node
 pkg ui, func Pagination(Pages) h.Node
 pkg ui, func PendingAfter(int) h.Node
 pkg ui, func Poll(string, string) h.Node
@@ -870,13 +874,18 @@ pkg ui, func Secondary() h.Node
 pkg ui, func Select(...h.Node) h.Node
 pkg ui, func SelectOptions([]Option, string) h.Node
 pkg ui, func Separator() h.Node
+pkg ui, func Shell(*trilha.Ctx, ShellOpts, ...h.Node) h.Node
 pkg ui, func ShowWhen(string, ...string) h.Node
 pkg ui, func Sidebar(...h.Node) h.Node
 pkg ui, func Skeleton(...h.Node) h.Node
 pkg ui, func Sm() h.Node
 pkg ui, func Spacer() h.Node
+pkg ui, func Sparkline([]float64, SparkOpts) h.Node
+pkg ui, func SparklineTitle([]float64, SparkOpts, ...h.Node) h.Node
 pkg ui, func Spinner(...h.Node) h.Node
 pkg ui, func Stack(...h.Node) h.Node
+pkg ui, func Stat(string, string, ...h.Node) h.Node
+pkg ui, func StatHint(string, ...h.Node) h.Node
 pkg ui, func Submit(...h.Node) h.Node
 pkg ui, func Swap(string) h.Node
 pkg ui, func Switch(...h.Node) h.Node
@@ -891,6 +900,10 @@ pkg ui, func UploadBar(...h.Node) h.Node
 pkg ui, func UploadScript(*trilha.Ctx) h.Node
 pkg ui, func UploadTo(string) h.Node
 pkg ui, func With(...h.Node) FieldOpt
+pkg ui, method (Back) Render(io.Writer) error
+pkg ui, type Back struct
+pkg ui, type Back struct, Href string
+pkg ui, type Back struct, Label string
 pkg ui, type Column struct, Cell func(T) h.Node
 pkg ui, type Column struct, Key string
 pkg ui, type Column struct, Label string
@@ -901,6 +914,10 @@ pkg ui, type Columns[T any] []Column[T]
 pkg ui, type Crumb struct
 pkg ui, type Crumb struct, Href string
 pkg ui, type Crumb struct, Label string
+pkg ui, type Datum struct
+pkg ui, type Datum struct, Label string
+pkg ui, type Datum struct, Text string
+pkg ui, type Datum struct, Value float64
 pkg ui, type FieldOpt func(*fieldCfg)
 pkg ui, type ListSelect struct
 pkg ui, type ListSelect struct, Action string
@@ -918,6 +935,16 @@ pkg ui, type ListState struct, RowHref func(int) string
 pkg ui, type ListState struct, Search string
 pkg ui, type ListState struct, Select *ListSelect
 pkg ui, type ListState struct, Total int
+pkg ui, type NavGroup struct
+pkg ui, type NavGroup struct, Hide bool
+pkg ui, type NavGroup struct, Items []NavItem
+pkg ui, type NavGroup struct, Label string
+pkg ui, type NavItem struct
+pkg ui, type NavItem struct, Badge string
+pkg ui, type NavItem struct, Hide bool
+pkg ui, type NavItem struct, Href string
+pkg ui, type NavItem struct, Icon string
+pkg ui, type NavItem struct, Label string
 pkg ui, type Option struct
 pkg ui, type Option struct, Label string
 pkg ui, type Option struct, Value string
@@ -929,7 +956,20 @@ pkg ui, type Pages struct, Next string
 pkg ui, type Pages struct, Page int
 pkg ui, type Pages struct, Prev string
 pkg ui, type Pages struct, Total int
+pkg ui, type ShellOpts struct
+pkg ui, type ShellOpts struct, Brand h.Node
+pkg ui, type ShellOpts struct, Current string
+pkg ui, type ShellOpts struct, Header []h.Node
+pkg ui, type ShellOpts struct, Nav []NavGroup
+pkg ui, type ShellOpts struct, User UserMenu
+pkg ui, type SparkOpts struct
+pkg ui, type SparkOpts struct, Height int
+pkg ui, type SparkOpts struct, Width int
 pkg ui, type Tab struct
 pkg ui, type Tab struct, Content h.Node
 pkg ui, type Tab struct, Label string
+pkg ui, type UserMenu struct
+pkg ui, type UserMenu struct, Detail string
+pkg ui, type UserMenu struct, Items []h.Node
+pkg ui, type UserMenu struct, Name string
 pkg ui, var Files

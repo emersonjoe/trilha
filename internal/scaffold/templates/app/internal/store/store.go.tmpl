@@ -1,0 +1,283 @@
+// Package store is the data of {{.Name}}: the items the app is about and the
+// users who sign in. It is a map behind a mutex — swap it for a database and
+// the pages above do not change, because they only ever call these methods.
+package store
+
+import (
+	"errors"
+	"sort"
+	"strings"
+	"sync"
+
+	"github.com/emersonjoe/trilha/auth"
+)
+
+// Item is the record this app manages.
+type Item struct {
+	ID     int
+	Name   string
+	Status string // open | hold | done
+	Amount int64  // cents: money is an integer, never a float
+	Owner  string
+}
+
+// User is a row of the users table. Hash is pbkdf2_sha256$iter$salt$hash, the
+// format Django and hashlib write, so an existing table stays valid.
+type User struct {
+	ID    string
+	Email string
+	Name  string
+	Role  string
+	Hash  string
+}
+
+// ErrCredentials is the one answer to a wrong e-mail and to a wrong password:
+// saying which of the two was wrong tells an attacker who has an account.
+var ErrCredentials = errors.New("wrong e-mail or password")
+
+// Query is what a listing asks for: the filter, the ordering and the page.
+type Query struct {
+	Q      string
+	Status string
+	Sort   string
+	Asc    bool
+	Offset int
+	Limit  int
+}
+
+// Store is the whole database of the example.
+type Store struct {
+	mu    sync.RWMutex
+	items map[int]Item
+	users map[string]User
+	next  int
+}
+
+// New seeds enough rows for the listing to have more than one page.
+func New() *Store {
+	s := &Store{items: map[int]Item{}, users: map[string]User{}, next: 1}
+	s.AddUser("u-1", "{{.T.app_seed_email}}", "{{.T.app_seed_name}}", "admin", "{{.T.app_seed_password}}")
+	seed := []struct {
+		name   string
+		status string
+		amount int64
+	}{
+		{"Alpha", "open", 125000}, {"Bravo", "done", 98000}, {"Charlie", "hold", 45000},
+		{"Delta", "open", 310000}, {"Echo", "done", 27500}, {"Foxtrot", "open", 66000},
+		{"Golf", "hold", 18000}, {"Hotel", "done", 240000}, {"India", "open", 5000},
+		{"Juliett", "open", 150000}, {"Kilo", "done", 72000}, {"Lima", "hold", 33000},
+		{"Mike", "open", 410000}, {"November", "done", 12500}, {"Oscar", "open", 87000},
+		{"Papa", "hold", 61000}, {"Quebec", "open", 205000}, {"Romeo", "done", 39500},
+		{"Sierra", "open", 74000}, {"Tango", "hold", 118000}, {"Uniform", "done", 9000},
+		{"Victor", "open", 260000}, {"Whiskey", "done", 51000},
+	}
+	for _, r := range seed {
+		s.Create(r.name, r.status, r.amount, "{{.T.app_seed_name}}")
+	}
+	return s
+}
+
+// AddUser hashes the password and stores the row.
+func (s *Store) AddUser(id, email, name, role, password string) {
+	hash, err := auth.HashPBKDF2(password)
+	if err != nil {
+		panic(err)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.users[strings.ToLower(email)] = User{ID: id, Email: email, Name: name, Role: role, Hash: hash}
+}
+
+// Verify answers the row when the password checks out. The comparison runs
+// even for an e-mail that does not exist, so the answer takes the same time
+// either way.
+func (s *Store) Verify(email, password string) (User, error) {
+	s.mu.RLock()
+	u, ok := s.users[strings.ToLower(strings.TrimSpace(email))]
+	s.mu.RUnlock()
+	if !ok {
+		auth.CheckPBKDF2(noUser, password)
+		return User{}, ErrCredentials
+	}
+	if !auth.CheckPBKDF2(u.Hash, password) {
+		return User{}, ErrCredentials
+	}
+	return u, nil
+}
+
+// noUser is a valid hash of a password nobody knows, so a wrong e-mail costs
+// the same as a wrong password.
+var noUser, _ = auth.HashPBKDF2("no-such-user")
+
+// List answers the page the query asks for and how many rows there are in all.
+func (s *Store) List(q Query) ([]Item, int) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]Item, 0, len(s.items))
+	for _, it := range s.items {
+		if q.Status != "" && it.Status != q.Status {
+			continue
+		}
+		if q.Q != "" && !strings.Contains(strings.ToLower(it.Name), strings.ToLower(q.Q)) {
+			continue
+		}
+		out = append(out, it)
+	}
+	less := func(i, j int) bool { return out[i].ID < out[j].ID }
+	switch q.Sort {
+	case "name":
+		less = func(i, j int) bool { return out[i].Name < out[j].Name }
+	case "status":
+		less = func(i, j int) bool { return out[i].Status < out[j].Status }
+	case "amount":
+		less = func(i, j int) bool { return out[i].Amount < out[j].Amount }
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if q.Asc {
+			return less(i, j)
+		}
+		return less(j, i)
+	})
+	total := len(out)
+	if q.Offset >= total {
+		return nil, total
+	}
+	out = out[q.Offset:]
+	if q.Limit > 0 && len(out) > q.Limit {
+		out = out[:q.Limit]
+	}
+	return out, total
+}
+
+// Get answers one item.
+func (s *Store) Get(id int) (Item, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	it, ok := s.items[id]
+	return it, ok
+}
+
+// Create stores a new item and answers it with its id.
+func (s *Store) Create(name, status string, amount int64, owner string) Item {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	it := Item{ID: s.next, Name: name, Status: status, Amount: amount, Owner: owner}
+	s.items[it.ID] = it
+	s.next++
+	return it
+}
+
+// Save writes an item that already exists.
+func (s *Store) Save(it Item) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.items[it.ID]; !ok {
+		return false
+	}
+	s.items[it.ID] = it
+	return true
+}
+
+// Delete removes an item.
+func (s *Store) Delete(id int) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.items[id]; !ok {
+		return false
+	}
+	delete(s.items, id)
+	return true
+}
+
+// Statuses is the order the status shows up in, everywhere.
+func Statuses() []string { return []string{"open", "hold", "done"} }
+
+// StatusLabel is how a status is written on screen. It lives here, next to
+// the values it names, so a new status is one edit and not five.
+func StatusLabel(s string) string {
+	switch s {
+	case "open":
+		return "{{.T.app_open}}"
+	case "hold":
+		return "{{.T.app_hold}}"
+	case "done":
+		return "{{.T.app_done}}"
+	}
+	return s
+}
+
+// ByStatus counts the items of each status and adds up what they are worth.
+func (s *Store) ByStatus() (map[string]int, map[string]int64) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	n, sum := map[string]int{}, map[string]int64{}
+	for _, it := range s.items {
+		n[it.Status]++
+		sum[it.Status] += it.Amount
+	}
+	return n, sum
+}
+
+// Total is how many items there are and how much they add up to.
+func (s *Store) Total() (int, int64) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var sum int64
+	for _, it := range s.items {
+		sum += it.Amount
+	}
+	return len(s.items), sum
+}
+
+// Money formats cents the way this app writes money. The framework has no
+// locale: whoever knows the currency is the app.
+func Money(cents int64) string {
+	sign := ""
+	if cents < 0 {
+		sign, cents = "-", -cents
+	}
+	return sign + "{{.T.app_currency}}" + itoa(cents/100) + "{{.T.app_decimal}}" + pad(cents%100)
+}
+
+// Plain writes cents the way the form reads them back: no grouping, a dot.
+func Plain(cents int64) string { return digits(cents/100) + "." + pad(cents%100) }
+
+func pad(n int64) string {
+	if n < 10 {
+		return "0" + itoa(n)
+	}
+	return itoa(n)
+}
+
+// itoa groups the thousands the way {{.T.app_currency}} is written.
+func itoa(n int64) string {
+	s := ""
+	for {
+		part := n % 1000
+		n /= 1000
+		if n == 0 {
+			return digits(part) + s
+		}
+		s = "{{.T.app_thousands}}" + three(part) + s
+	}
+}
+
+func three(n int64) string {
+	d := digits(n)
+	for len(d) < 3 {
+		d = "0" + d
+	}
+	return d
+}
+
+func digits(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+	out := ""
+	for n > 0 {
+		out = string(rune('0'+n%10)) + out
+		n /= 10
+	}
+	return out
+}

@@ -1,0 +1,110 @@
+// Package items is the listing every management app has: filter, sortable
+// table and pagination, all of it in the URL.
+package items
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"{{.Module}}/internal/store"
+)
+
+// query is what this screen reads from the address: the embedded listing plus
+// the filter only it has. c.Bind reads both at once and applies the limits.
+type query struct {
+	trilha.ListParams
+	Status string `form:"status"`
+}
+
+// columns declares what the table shows and, with Sort, what the repository is
+// allowed to be ordered by: a column that is not here is dropped before the
+// query, so a crooked address answers unordered instead of reaching the data.
+var columns = ui.Columns[store.Item]{
+	{Key: "name", Label: "{{.T.app_name}}", Sort: true, Cell: func(it store.Item) h.Node {
+		return h.Text(it.Name)
+	}},
+	{Key: "status", Label: "{{.T.app_status}}", Sort: true, Cell: func(it store.Item) h.Node {
+		return ui.Badge(ui.Outline(), h.Text(store.StatusLabel(it.Status)))
+	}},
+	{Key: "amount", Label: "{{.T.app_amount}}", Sort: true, Num: true, Cell: func(it store.Item) h.Node {
+		return h.Text(store.Money(it.Amount))
+	}},
+}
+
+// Page answers GET /items: the whole screen, or only the table when the script
+// asks for that fragment.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	var q query
+	if err := c.Bind(&q); err != nil {
+		return nil, err
+	}
+	q.Status = validStatus(q.Status)
+	table := list(c, q)
+	if c.Fragment() == "items" {
+		return table, nil
+	}
+	c.SetTitle("{{.T.app_items}}")
+	return ui.Stack(
+		ui.PageHeader("{{.T.app_items}}", ui.ButtonLink("/items/new", ui.Icon("plus"), h.Text("{{.T.app_new_item}}"))),
+		table,
+	), nil
+}
+
+// POST deletes the item the form names, and lands back on the listing, which
+// is what makes reloading the page harmless.
+func POST(c *trilha.Ctx) error {
+	id, err := strconv.Atoi(c.Form("id"))
+	if err != nil {
+		return trilha.Errorf(http.StatusBadRequest, "%s", "{{.T.app_bad_id}}")
+	}
+	if !trilha.Use[*store.Store](c).Delete(id) {
+		return trilha.Errorf(http.StatusNotFound, "%s", "{{.T.not_found}}")
+	}
+	c.Flash(ui.FlashSuccess, "{{.T.app_deleted}}")
+	return c.Redirect("/items")
+}
+
+// validStatus is to the filter what Restrict is to the ordering: what comes
+// from the address only reaches the repository when it is one of the values
+// this screen offers.
+func validStatus(s string) string {
+	for _, v := range store.Statuses() {
+		if v == s {
+			return s
+		}
+	}
+	return ""
+}
+
+func list(c *trilha.Ctx, q query) h.Node {
+	rows, total := trilha.Use[*store.Store](c).List(store.Query{
+		Q: q.Q, Status: q.Status, Sort: q.Sort, Asc: q.Asc(),
+		Offset: q.Offset(), Limit: q.Limit(),
+	})
+	return ui.DataTable(c, columns, rows, ui.ListState{
+		Params:  q.ListParams,
+		Total:   total,
+		ID:      "items",
+		Search:  "{{.T.app_search}}",
+		Filters: filter(q.Status),
+		Caption: "{{.T.app_items}}",
+		RowHref: func(i int) string { return "/items/" + strconv.Itoa(rows[i].ID) },
+		Empty:   ui.Muted(h.Text("{{.T.app_empty}}")),
+	})
+}
+
+// filter is the rest of the filter form: the search box is the kit's, and this
+// is what only this screen has.
+func filter(status string) h.Node {
+	opts := []ui.Option{
+		{Value: "", Label: "{{.T.app_all}}"},
+	}
+	for _, s := range store.Statuses() {
+		opts = append(opts, ui.Option{Value: s, Label: store.StatusLabel(s)})
+	}
+	return ui.Select(h.Name("status"), h.Aria("label", "{{.T.app_status}}"), ui.SelectOptions(opts, status))
+}

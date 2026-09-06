@@ -1,0 +1,23 @@
+// Package app is {{.Name}}: a management app — a login of its own, a shell
+// with a sidebar, a dashboard and a listing that lives in the URL.
+package app
+
+import (
+	"context"
+
+	"github.com/emersonjoe/trilha"
+
+	"{{.Module}}/internal/store"
+)
+
+// Setup runs once, before the first request: it puts the dependencies where
+// the pages find them with trilha.Use[T](c), and registers what has to be
+// answering for the app to call itself ready.
+func Setup(a *trilha.App) error {
+	db := store.New()
+	trilha.Provide(a, db)
+	// A readiness check is what /_trilha/ready answers with. Point this at
+	// the database ping when there is a database.
+	a.Check("store", func(ctx context.Context) error { return nil })
+	return nil
+}

@@ -16,6 +16,22 @@
     try { localStorage.setItem("ui-theme", next); } catch {}
   });
 
+  // Sidebar: [data-ui-sidebar-toggle] collapses the shell's sidebar; persisted
+  // in localStorage("ui-sidebar") and applied to <html> before the first paint
+  // by the same inline script that applies the theme.
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ui-sidebar-toggle]");
+    if (!b) return;
+    const off = document.documentElement.classList.toggle("ui-sidebar-collapsed");
+    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", String(!off)));
+    try { localStorage.setItem("ui-sidebar", off ? "collapsed" : "open"); } catch {}
+  });
+  // The button says what the page already shows: a reload lands with the class
+  // in place and the attribute has to agree with it.
+  if (document.documentElement.classList.contains("ui-sidebar-collapsed")) {
+    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", "false"));
+  }
+
   // Tabs: [data-ui-tabs] > .ui-tabs-list > .ui-tab[aria-controls] + panels.
   const selectTab = (tab) => {
     const tabs = tab.closest("[data-ui-tabs]");

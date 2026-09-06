@@ -1,0 +1,45 @@
+// Package login is the only screen that answers without a session.
+package login
+
+import (
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"{{.Module}}/internal/session"
+	"{{.Module}}/internal/store"
+)
+
+// Page renders GET /login.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return form(c, "", ""), nil
+}
+
+// POST checks the password and opens the session. The message is the same for
+// a wrong e-mail and for a wrong password: saying which one was wrong tells
+// whoever is guessing that the account exists.
+func POST(c *trilha.Ctx) error {
+	email, password := c.Form("email"), c.Form("password")
+	u, err := trilha.Use[*store.Store](c).Verify(email, password)
+	if err != nil {
+		return c.Render(http.StatusUnprocessableEntity, form(c, email, "{{.T.app_bad_credentials}}"))
+	}
+	return session.Login(c, u)
+}
+
+func form(c *trilha.Ctx, email, wrong string) h.Node {
+	c.SetTitle("{{.T.app_login}}")
+	return ui.Stack(
+		ui.Card(
+			ui.CardHeader(ui.CardTitle("{{.T.app_login}}"), ui.CardDescription("{{.T.app_seed_hint}}")),
+			ui.CardContent(h.Form(h.Method("post"), h.Action("/login"), h.Class("ui-stack"), trilha.CSRFInput(c),
+				h.If(wrong != "", ui.Alert(wrong, ui.Destructive(), ui.Icon("triangle-alert"))),
+				ui.Field("email", "{{.T.app_email}}", ui.Input(h.ID("email"), h.Name("email"), h.Type("email"), h.Value(email), h.Autocomplete("username"), h.Required())),
+				ui.Field("password", "{{.T.app_password}}", ui.Input(h.ID("password"), h.Name("password"), h.Type("password"), h.Autocomplete("current-password"), h.Required())),
+				h.Div(ui.Submit(h.Text("{{.T.app_login}}"))),
+			)),
+		),
+	)
+}

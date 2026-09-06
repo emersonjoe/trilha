@@ -1,0 +1,112 @@
+// Package newitem is the form that creates an item. The folder is /items/new;
+// the package is not called new because that is a predeclared identifier.
+package newitem
+
+import (
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"{{.Module}}/internal/session"
+	"{{.Module}}/internal/store"
+)
+
+// Input is what the form sends; the tags are the contract, and the 422 that
+// c.Bind answers is the same contract read back with the messages beside the
+// fields.
+type Input struct {
+	Name   string `form:"name" validate:"required,min=2,max=60"`
+	Status string `form:"status" validate:"required,oneof=open hold done"`
+	Amount string `form:"amount" validate:"required"`
+}
+
+// Page renders GET /items/new.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return Form(c, Input{Status: "open"}, nil, "/items/new", "{{.T.app_new_item}}"), nil
+}
+
+// POST creates the item: 422 with the messages next to the fields, or
+// POST -> redirect -> GET, so reloading does not send the form again.
+func POST(c *trilha.Ctx) error {
+	var in Input
+	if err := c.Bind(&in); err != nil {
+		errs, ok := err.(trilha.FieldErrors)
+		if !ok {
+			return err
+		}
+		return c.Render(http.StatusUnprocessableEntity, Form(c, in, errs, "/items/new", "{{.T.app_new_item}}"))
+	}
+	cents, err := Cents(in.Amount)
+	if err != nil {
+		return c.Render(http.StatusUnprocessableEntity, Form(c, in, trilha.FieldErrors{"amount": "{{.T.app_bad_amount}}"}, "/items/new", "{{.T.app_new_item}}"))
+	}
+	owner := ""
+	if u := session.User(c); u != nil {
+		owner = u.Name
+	}
+	trilha.Use[*store.Store](c).Create(in.Name, in.Status, cents, owner)
+	c.Flash(ui.FlashSuccess, "{{.T.app_saved}}")
+	return c.Redirect("/items")
+}
+
+// Form is the shape of the item, used by this page and by the edit one: one
+// form, one place to change it.
+func Form(c *trilha.Ctx, in Input, errs trilha.FieldErrors, action, title string) h.Node {
+	c.SetTitle(title)
+	opts := make([]ui.Option, 0, 3)
+	for _, s := range store.Statuses() {
+		opts = append(opts, ui.Option{Value: s, Label: store.StatusLabel(s)})
+	}
+	return ui.Stack(
+		ui.PageHeader(title, ui.Back{Href: "/items", Label: "{{.T.app_items}}"}),
+		ui.Card(ui.CardContent(h.Form(h.Method("post"), h.Action(action), h.Class("ui-stack"), trilha.CSRFInput(c),
+			h.If(errs.Any(), ui.Alert("{{.T.app_fix_fields}}", ui.Destructive(), ui.Icon("triangle-alert"))),
+			ui.Field("name", "{{.T.app_name}}", ui.Input(h.ID("name"), h.Name("name"), h.Value(in.Name), ui.InvalidIf(errs, "name")), ui.Errors(errs, "name")),
+			ui.Field("status", "{{.T.app_status}}", ui.Select(h.ID("status"), h.Name("status"), ui.InvalidIf(errs, "status"), ui.SelectOptions(opts, in.Status)), ui.Errors(errs, "status")),
+			ui.Field("amount", "{{.T.app_amount}}", ui.Input(h.ID("amount"), h.Name("amount"), h.Value(in.Amount), h.Inputmode("decimal"), ui.InvalidIf(errs, "amount")), ui.Errors(errs, "amount")),
+			h.Div(ui.Submit(h.Text("{{.T.app_save}}"))),
+		))),
+	)
+}
+
+// Cents reads money as an integer. A float would be wrong by a cent sooner or
+// later, and later is always in production.
+func Cents(s string) (int64, error) {
+	var whole, frac int64
+	var digits int
+	var dot bool
+	for _, r := range s {
+		switch {
+		case r >= '0' && r <= '9':
+			if dot {
+				if digits < 2 {
+					frac = frac*10 + int64(r-'0')
+					digits++
+				}
+				continue
+			}
+			whole = whole*10 + int64(r-'0')
+		case r == '.' || r == ',':
+			if dot {
+				return 0, errBadAmount
+			}
+			dot = true
+		case r == ' ':
+		default:
+			return 0, errBadAmount
+		}
+	}
+	for digits < 2 {
+		frac *= 10
+		digits++
+	}
+	return whole*100 + frac, nil
+}
+
+var errBadAmount = errBad("{{.T.app_bad_amount}}")
+
+type errBad string
+
+func (e errBad) Error() string { return string(e) }

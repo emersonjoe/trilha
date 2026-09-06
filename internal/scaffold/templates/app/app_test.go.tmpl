@@ -1,0 +1,92 @@
+package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+// client builds the app the way the server does and drives it in memory: no
+// port, no browser, and the cookies of the session kept between requests.
+func client(t *testing.T) *trilha.TestClient {
+	t.Helper()
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return trilha.NewTestClient(t, newApp())
+}
+
+// browser is the Accept a browser sends: it is what turns the 401 of a
+// protected page into the redirect to the login.
+func browser() trilha.TestOption { return trilha.WithHeader("Accept", "text/html") }
+
+func signIn(t *testing.T, c *trilha.TestClient) {
+	t.Helper()
+	c.Request("POST", "/login", trilha.WithBody("application/x-www-form-urlencoded",
+		"email={{.T.app_seed_email}}&password={{.T.app_seed_password}}")).WantStatus(http.StatusSeeOther)
+}
+
+// Nothing but the login answers without a session — the middleware at the root
+// of app/ is inherited by every route, the ones added tomorrow included.
+func TestSessionIsRequired(t *testing.T) {
+	c := client(t)
+	c.Get("/", browser()).WantStatus(http.StatusFound).WantContains("/login")
+	c.Get("/items", browser()).WantStatus(http.StatusFound)
+	c.Get("/login").WantStatus(200).WantContains("{{.T.app_login}}")
+
+	c.Request("POST", "/login", trilha.WithBody("application/x-www-form-urlencoded",
+		"email={{.T.app_seed_email}}&password=wrong")).WantStatus(422).WantContains("{{.T.app_bad_credentials}}")
+}
+
+// The dashboard: the counters and the drawings the server wrote.
+func TestDashboard(t *testing.T) {
+	c := client(t)
+	signIn(t, c)
+	c.Get("/").WantStatus(200).WantContains("{{.T.app_dashboard}}", `class="ui-stat"`, "<svg", `<table class="ui-sr">`)
+}
+
+// The listing lives in the URL: ordering, filter and page are the address, so
+// a screen someone shares opens the same way.
+func TestListing(t *testing.T) {
+	c := client(t)
+	signIn(t, c)
+	c.Get("/items").WantStatus(200).WantContains("{{.T.app_items}}", "Alpha", `aria-label="Pagination"`)
+	c.Get("/items?sort=name&dir=desc").WantStatus(200).WantContains(`aria-sort="descending"`)
+	c.Get("/items?q=alp").WantStatus(200).WantContains("Alpha")
+	c.Get("/items?status=done").WantStatus(200).WantContains("Bravo")
+	// A column nobody declared answers unordered instead of reaching the data.
+	c.Get("/items?sort=drop%20table").WantStatus(200)
+}
+
+// Create, edit and delete, each one landing on the listing: reloading the page
+// after a write does not write again.
+func TestItemRoundTrip(t *testing.T) {
+	c := client(t)
+	signIn(t, c)
+	c.Request("POST", "/items/new", trilha.WithBody("application/x-www-form-urlencoded",
+		"name=&status=open&amount=1")).WantStatus(422)
+	c.Request("POST", "/items/new", trilha.WithBody("application/x-www-form-urlencoded",
+		"name=Zulu&status=open&amount=12.50")).WantStatus(http.StatusSeeOther)
+	c.Get("/items?q=zulu").WantStatus(200).WantContains("Zulu")
+
+	c.Get("/items/24").WantStatus(200).WantContains("Zulu", "{{.T.app_delete}}")
+	c.Request("POST", "/items/24", trilha.WithBody("application/x-www-form-urlencoded",
+		"name=Zulu+2&status=done&amount=99")).WantStatus(http.StatusSeeOther)
+	c.Get("/items/24").WantStatus(200).WantContains("Zulu 2")
+
+	c.Request("POST", "/items/24", trilha.WithBody("application/x-www-form-urlencoded", "delete=1")).WantStatus(http.StatusSeeOther)
+	c.Get("/items/24").WantStatus(404)
+}
+
+// A write without the token is refused, which is what the CSRF is for — and
+// the reason /logout has a kind.go saying that branch is pages, not an API.
+func TestWriteNeedsTheToken(t *testing.T) {
+	c := client(t)
+	signIn(t, c)
+	c.Request("POST", "/items", trilha.WithoutCSRF(), trilha.WithBody("application/x-www-form-urlencoded", "id=1")).WantStatus(403)
+	c.Request("POST", "/logout").WantStatus(http.StatusSeeOther)
+	c.Get("/", browser()).WantStatus(http.StatusFound)
+}

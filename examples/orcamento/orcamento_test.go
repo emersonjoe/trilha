@@ -62,6 +62,10 @@ func TestOverviewAndDrillDown(t *testing.T) {
 		"Contas filhas", "ui-badge ui-badge-destructive")
 	c.Get("/contas/2.3.2?mes=2026-08").WantStatus(200).
 		WantContains("Lançamentos", "Eventos (1ª quinzena)", "<tfoot>")
+	// SC-017 — the month drawn: bars and a ring the server wrote, with the
+	// money already formatted and the same numbers in the hidden table.
+	res.WantContains(`<svg class="ui-chart-svg"`, "<title>Realizado por conta</title>", `class="ui-chart-svg ui-donut"`,
+		`<table class="ui-sr">`, "R$ ")
 	c.Get("/contas/9.9").WantStatus(404)
 	c.Get("/?mes=lixo").WantStatus(200).WantContains("set/2026")
 }
