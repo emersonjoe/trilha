@@ -48,6 +48,8 @@ Usage:
   trilha generate page|route <url> | component <Name>   write a skeleton in the right place
   trilha dev [--addr :3000]                         dev server with live reload
   trilha build [-o bin/<name>]                      generate + compile a single binary
+  trilha check [--json] [--fix]                     the single gate: gen, gofmt, vet, test, audit, openapi
+  trilha ctx [--json] [--routes|--types|--all]      the map of the project: routes, API, types, setup
   trilha routes                                     list the discovered routes
   trilha export [-o out] [--base /prefix]           export the static pages as HTML
   trilha openapi [-o file] [--check]                write the OpenAPI document of the API routes
@@ -65,6 +67,8 @@ Uso:
   trilha generate page|route <url> | component <Nome>  grava um esqueleto no lugar certo
   trilha dev [--addr :3000]                           dev server com recarga automática
   trilha build [-o bin/<nome>]                        gera + compila um binário único
+  trilha check [--json] [--fix]                       o portão único: gen, gofmt, vet, test, audit, openapi
+  trilha ctx [--json] [--routes|--types|--all]        o mapa do projeto: rotas, API, tipos, setup
   trilha routes                                       lista as rotas descobertas
   trilha export [-o out] [--base /prefixo]            exporta as páginas estáticas em HTML
   trilha openapi [-o arquivo] [--check]               escreve o documento OpenAPI das rotas de API
@@ -75,14 +79,30 @@ Uso:
 
 Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 `},
-	"unknown command":  {"unknown command: %s\n\n%s", "comando desconhecido: %s\n\n%s"},
-	"error:":           {"error:", "erro:"},
-	"no app dir":       {"app/ directory not found: run at the project root (or use `trilha new`)", "pasta app/ não encontrada: rode na raiz do projeto (ou use `trilha new`)"},
-	"no go.mod":        {"go.mod not found above %s", "go.mod não encontrado acima de %s"},
-	"no module line":   {"%s: `module` line not found", "%s: linha `module` não encontrada"},
-	"gen done":         {"✓ %s (%d routes)\n", "✓ %s (%d rotas)\n"},
-	"unknown flag":     {"unknown flag %q; usage: %s", "bandeira desconhecida %q; uso: %s"},
-	"bad package name": {"%q is not a valid package name", "%q não é um nome de pacote válido"},
+	"flag ctx json":     {"print the map as JSON", "imprime o mapa em JSON"},
+	"flag ctx routes":   {"only the routes", "só as rotas"},
+	"flag ctx types":    {"only the types", "só os tipos"},
+	"flag ctx all":      {"everything, with nothing elided", "tudo, sem nada elidido"},
+	"ctx one view":      {"choose one of --routes, --types or --all", "escolha um entre --routes, --types e --all"},
+	"flag check json":   {"print the report as JSON", "imprime o relatório em JSON"},
+	"flag check fix":    {"fix what can be fixed: trilha_gen.go and the formatting", "conserta o que dá: trilha_gen.go e a formatação"},
+	"check ok":          {"ok", "ok"},
+	"check failed":      {"check failed", "check falhou"},
+	"gen missing":       {"trilha_gen.go is missing", "trilha_gen.go não existe"},
+	"fix gen":           {"run trilha gen (or trilha check --fix)", "rode trilha gen (ou trilha check --fix)"},
+	"gofmt unformatted": {"not gofmt'd", "fora do gofmt"},
+	"fix gofmt":         {"run gofmt -w (or trilha check --fix)", "rode gofmt -w (ou trilha check --fix)"},
+	"fix vet":           {"fix what go vet reports at this line", "conserte o que o go vet aponta nesta linha"},
+	"fix test":          {"run go test ./... and read this test's output", "rode go test ./... e leia a saída deste teste"},
+	"fix openapi":       {"run trilha openapi", "rode trilha openapi"},
+	"unknown command":   {"unknown command: %s\n\n%s", "comando desconhecido: %s\n\n%s"},
+	"error:":            {"error:", "erro:"},
+	"no app dir":        {"app/ directory not found: run at the project root (or use `trilha new`)", "pasta app/ não encontrada: rode na raiz do projeto (ou use `trilha new`)"},
+	"no go.mod":         {"go.mod not found above %s", "go.mod não encontrado acima de %s"},
+	"no module line":    {"%s: `module` line not found", "%s: linha `module` não encontrada"},
+	"gen done":          {"✓ %s (%d routes)\n", "✓ %s (%d rotas)\n"},
+	"unknown flag":      {"unknown flag %q; usage: %s", "bandeira desconhecida %q; uso: %s"},
+	"bad package name":  {"%q is not a valid package name", "%q não é um nome de pacote válido"},
 	"embedded no binary": {
 		"this app is package %[1]s, not package main: there is no binary to run here.\nThe host binary runs it: mux.Handle(\"/\", %[1]s.NewApp().Handler())",
 		"este app é o pacote %[1]s, não package main: não há binário para rodar aqui.\nQuem roda é o binário hospedeiro: mux.Handle(\"/\", %[1]s.NewApp().Handler())",

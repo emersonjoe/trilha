@@ -1,5 +1,5 @@
-// Command trilha is the CLI: new, gen, generate, dev, build, routes, export,
-// openapi, audit, ui.
+// Command trilha is the CLI: new, gen, generate, dev, build, check, ctx,
+// routes, export, openapi, audit, ui.
 // Messages follow TRILHA_LANG / LANG (see i18n.go).
 package main
 
@@ -19,7 +19,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.36.0"
+const version = "0.37.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -38,6 +38,10 @@ func main() {
 		err = cmdDev(os.Args[2:])
 	case "build":
 		err = cmdBuild(os.Args[2:])
+	case "check":
+		err = cmdCheck(os.Args[2:])
+	case "ctx":
+		err = cmdCtx(os.Args[2:])
 	case "routes":
 		err = cmdRoutes(os.Args[2:])
 	case "export":
@@ -59,9 +63,26 @@ func main() {
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, t("error:"), err)
+		fatal(err)
+	}
+}
+
+// fatal prints the error and leaves. A list of scanner violations prints one
+// per line with its conserto underneath: the reader — a person or an agent —
+// should not have to go find out what resolves it.
+func fatal(err error) {
+	var errs scan.Errors
+	if errors.As(err, &errs) {
+		for _, e := range errs {
+			fmt.Fprintln(os.Stderr, t("error:"), e.Error())
+			if e.Fix != "" {
+				fmt.Fprintln(os.Stderr, "  →", e.Fix)
+			}
+		}
 		os.Exit(1)
 	}
+	fmt.Fprintln(os.Stderr, t("error:"), err)
+	os.Exit(1)
 }
 
 // project locates the project root (the nearest go.mod) and its module path.

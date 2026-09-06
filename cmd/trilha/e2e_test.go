@@ -120,6 +120,74 @@ func TestE2E(t *testing.T) {
 	}
 	os.RemoveAll(filepath.Join(proj, "app", "nova"))
 	run(t, proj, cli, "gen", "--check")
+
+	// #48: check is the single gate — the steps in order, in one command —
+	// and #47: ctx is the map of the project, in one read.
+	os.Setenv("TRILHA_SECRET", strings.Repeat("s", 32))
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "✓ gen") || !strings.Contains(out, "✓ test") || !strings.Contains(out, "– openapi") {
+		t.Fatal(out)
+	}
+	os.MkdirAll(filepath.Join(proj, "app", "nova"), 0o755)
+	os.WriteFile(filepath.Join(proj, "app", "nova", "page.go"), []byte(page), 0o644)
+	staleCheck := exec.Command(cli, "check", "--json")
+	staleCheck.Dir = proj
+	raw, err := staleCheck.Output() // the report goes to stdout; the failure line, to stderr
+	if err == nil {
+		t.Fatalf("a route added and not generated must fail check: %s", raw)
+	}
+	var report struct {
+		OK    bool `json:"ok"`
+		Steps []struct {
+			Tool, Status string
+		} `json:"steps"`
+		Problems []struct {
+			Tool, File, Message, Fix string
+		} `json:"problems"`
+	}
+	if err := json.Unmarshal(raw, &report); err != nil {
+		t.Fatalf("check --json must write JSON: %v\n%s", err, raw)
+	}
+	if report.OK || report.Steps[0].Status != "failed" || len(report.Problems) == 0 {
+		t.Fatalf("%s", raw)
+	}
+	if !strings.Contains(report.Problems[0].Fix, "trilha gen") {
+		t.Fatalf("the problem must carry its conserto: %s", raw)
+	}
+	for _, s := range report.Steps[1:] {
+		if s.Status != "not run" {
+			t.Fatalf("%s ran after gen failed: %s", s.Tool, raw)
+		}
+	}
+	if out := run(t, proj, cli, "check", "--fix"); !strings.Contains(out, "gen (fixed)") {
+		t.Fatal(out)
+	}
+	ctxOut := run(t, proj, cli, "ctx")
+	for _, want := range []string{"## Routes", "/api/hello", "/nova"} {
+		if !strings.Contains(ctxOut, want) {
+			t.Fatalf("ctx without %q:\n%s", want, ctxOut)
+		}
+	}
+	var mapa struct {
+		Module string `json:"module"`
+		Routes []struct {
+			Pattern string `json:"pattern"`
+		} `json:"routes"`
+	}
+	if err := json.Unmarshal([]byte(run(t, proj, cli, "ctx", "--json")), &mapa); err != nil {
+		t.Fatalf("ctx --json must write JSON: %v", err)
+	}
+	if mapa.Module != "example.com/meu-app" || len(mapa.Routes) < 2 {
+		t.Fatalf("%+v", mapa)
+	}
+	views := exec.Command(cli, "ctx", "--routes", "--types")
+	views.Dir = proj
+	if out, err := views.CombinedOutput(); err == nil || !strings.Contains(string(out), "choose one") {
+		t.Fatalf("two views at once must be refused: %s", out)
+	}
+	os.Unsetenv("TRILHA_SECRET")
+	os.RemoveAll(filepath.Join(proj, "app", "nova"))
+	run(t, proj, cli, "gen")
+
 	run(t, proj, cli, "export", "-o", "out")
 	for _, f := range []string{"out/index.html", "out/404.html", "out/style.css", "out/.trilha-export"} {
 		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {

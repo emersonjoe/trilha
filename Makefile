@@ -11,7 +11,7 @@ fmt:
 	gofmt -w *.go h internal cmd examples tmpl
 
 golden:
-	go test ./internal/gen/ ./internal/openapi/ ./internal/ctx/ -update
+	go test ./internal/gen/ ./internal/openapi/ ./internal/ctx/ ./cmd/trilha/ -update
 
 # A superfície pública versionada: o diff de api/current.txt é a parte da
 # revisão que diz o que quem usa o framework vai sentir.

@@ -22,9 +22,11 @@ O HTML é escrito em Go com o pacote `h`, não com template:
 
 | Comando | O que faz |
 |---|---|
+| `trilha check` | o portão único: gen, gofmt, vet, test, audit, openapi, nesta ordem, parando na primeira falha. Rode antes de dizer que terminou — é também a única linha que a CI roda |
+| `trilha check --fix` | o mesmo, regravando `trilha_gen.go` e a formatação pelo caminho |
+| `trilha ctx` | o mapa do projeto — rotas, API, tipos de entrada e saída, setup — numa leitura só; `--json` para ferramenta, `--all` sem nada elidido. Leia antes de abrir arquivo por arquivo |
 | `trilha dev` | servidor de desenvolvimento com recarga; deixe rodando enquanto trabalha |
 | `trilha gen` | regrava `trilha_gen.go` a partir de `app/`; rode depois de criar ou remover rota |
-| `trilha gen --check` | falha se `trilha_gen.go` estiver desatualizado — é o que a CI roda |
 | `trilha generate page /caminho` | grava o esqueleto na pasta certa (também `route`, `component`) |
 | `trilha routes` | lista as rotas encontradas e o arquivo de onde vieram |
 | `trilha audit` | verifica segurança e configuração: segredos, CSP, cookies, dependências |
@@ -35,9 +37,10 @@ O HTML é escrito em Go com o pacote `h`, não com template:
 | `trilha agents` | regrava este arquivo |
 | `trilha new` | cria outro projeto |
 | `trilha version` | a versão do framework |
-| `make test` | a suíte do próprio projeto; rode antes de dizer que terminou |
 
-Rota que responde 404 quase sempre é `trilha gen` que faltou.
+Rota que responde 404 quase sempre é `trilha gen` que faltou; o `trilha check` pega isso antes
+do navegador. Todo problema que ele reporta vem com a linha em que está e a frase que resolve —
+leia essa frase em vez de adivinhar.
 
 ## O que não fazer
 

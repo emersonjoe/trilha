@@ -21,9 +21,11 @@ HTML is written in Go with the `h` package, not with templates:
 
 | Command | What it does |
 |---|---|
+| `trilha check` | the single gate: gen, gofmt, vet, test, audit, openapi, in that order, stopping at the first failure. Run it before saying you are done — it is also the one line CI runs |
+| `trilha check --fix` | the same, rewriting `trilha_gen.go` and the formatting on the way |
+| `trilha ctx` | the map of the project — routes, API, request and response types, setup — in one read; `--json` for a tool, `--all` for nothing elided. Read it before opening files one by one |
 | `trilha dev` | dev server with live reload; keep it running while you work |
 | `trilha gen` | rewrites `trilha_gen.go` from `app/`; run it after adding or removing a route |
-| `trilha gen --check` | fails when `trilha_gen.go` is stale — this is the one CI runs |
 | `trilha generate page /path` | writes the skeleton in the right folder (also `route`, `component`) |
 | `trilha routes` | lists every route the scanner found and the file it came from |
 | `trilha audit` | checks security and configuration: secrets, CSP, cookies, dependencies |
@@ -34,9 +36,10 @@ HTML is written in Go with the `h` package, not with templates:
 | `trilha agents` | rewrites this file |
 | `trilha new` | creates another project |
 | `trilha version` | the version of the framework |
-| `make test` | this project's own suite; run it before saying you are done |
 
-A route that answers 404 is almost always a missing `trilha gen`.
+A route that answers 404 is almost always a missing `trilha gen`; `trilha check` catches it
+before the browser does. Every problem it reports comes with the line it is on and the sentence
+that resolves it — read that line instead of guessing.
 
 ## Do not
 

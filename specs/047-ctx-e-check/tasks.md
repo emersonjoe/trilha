@@ -24,13 +24,13 @@
 
 ## Bloco 3 — os comandos (SC-005, SC-007, SC-008, SC-009)
 
-- [ ] T006 Teste que falha em `cmd/trilha/check_test.go`: ordem dos passos, parada no primeiro
+- [x] T006 Teste que falha em `cmd/trilha/check_test.go`: ordem dos passos, parada no primeiro
       erro com os seguintes como não executados, `--fix` regerando e formatando, `--json`
       batendo com `testdata/golden/check.json.golden`, código de saída.
-- [ ] T007 `cmd/trilha/ctx.go` e `cmd/trilha/check.go`: as flags, a execução dos passos, a
+- [x] T007 `cmd/trilha/ctx.go` e `cmd/trilha/check.go`: as flags, a execução dos passos, a
       tradução para `{tool,file,line,message,fix}` e a impressão compartilhada dos erros do
       scanner com o conserto (usada também por `gen` e `dev`).
-- [ ] T008 e2e em `cmd/trilha/e2e_test.go`: projeto novo passa no `check`; projeto com rota
+- [x] T008 e2e em `cmd/trilha/e2e_test.go`: projeto novo passa no `check`; projeto com rota
       adicionada sem `gen` reprova e passa com `--fix`.
 
 ## Bloco 4 — fechamento (SC-010)
