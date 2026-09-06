@@ -71,17 +71,17 @@ type Server struct {
 
 ## Tarefas
 
-- [ ] T001 Teste que falha em `internal/dev/inspector_test.go`: a página lista os padrões de
+- [x] T001 Teste que falha em `internal/dev/inspector_test.go`: a página lista os padrões de
       uma árvore sintética com layouts e middlewares, ordena por precedência, e
       `?path=/blog/hoje` aponta a rota literal em vez de `/blog/{slug}`; caminho sem rota diz
       que ninguém responde; a página escapa o que veio da URL.
-- [ ] T002 `internal/dev/inspector.go`: o handler, a resolução por `http.ServeMux` e o
+- [x] T002 `internal/dev/inspector.go`: o handler, a resolução por `http.ServeMux` e o
       template; `serveHTTP` intercepta `/_trilha/routes`; `Server.Module`.
-- [ ] T003 Teste em `serve_test.go` (raiz): o app responde 404 em `/_trilha/routes` em `Dev` e
+- [x] T003 Teste em `serve_test.go` (raiz): o app responde 404 em `/_trilha/routes` em `Dev` e
       em `Prod` — o inspetor nunca é do app.
-- [ ] T004 `cmd/trilha/dev.go` passa `Module` e a linha do endereço no `Run` imprime o link.
-- [ ] T005 Documentação nas duas locales: `learn/dev-and-production` e `reference/cli`.
-- [ ] T006 `CHANGELOG.md` (0.28.0), `version` em `cmd/trilha/main.go`, item 19 do `ROADMAP.md`.
+- [x] T004 `cmd/trilha/dev.go` passa `Module` e a linha do endereço no `Run` imprime o link.
+- [x] T005 Documentação nas duas locales: `learn/dev-and-production` e `reference/cli`.
+- [x] T006 `CHANGELOG.md` (0.28.0), `version` em `cmd/trilha/main.go`, item 19 do `ROADMAP.md`.
 - [ ] T007 `make test` verde e `make release VERSION=0.28.0 ISSUES="37"`.
 
 ## Aceitação

@@ -17,6 +17,22 @@ Changes only in `public/` skip steps 1 to 3. A compile error becomes a page with
 of `go build`; fix it and the page goes away. The app process runs with `TRILHA_ENV=dev`,
 which turns on stack traces in error pages and turns off the static file cache.
 
+## The route inspector
+
+While `trilha dev` runs, `http://localhost:3000/_trilha/routes` answers with the map of the
+app: every route in the order the router decides, with its kind, its methods, the folder it
+comes from, the layouts that wrap it (outermost first) and the middlewares that run before
+it — the two things `trilha routes` cannot show, because they are chains, not lines.
+
+The box at the top answers the question that usually brings someone there: type `/blog/hello`
+and the page says which pattern serves it and what each parameter is worth. The answer comes
+from an `http.ServeMux` built from your patterns, so it is the router deciding, not a second
+implementation of the precedence rules.
+
+The page is served by the dev supervisor, not by your app: it is not in the binary
+`trilha build` produces, and the same URL in production is a 404 like any other. There is
+nothing to turn off before publishing.
+
 ## `trilha build`
 
 ```bash

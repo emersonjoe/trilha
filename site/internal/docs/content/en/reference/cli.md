@@ -22,7 +22,7 @@ trilha version
 | `new` | creates a project with `go.mod`, layout, home page, 404, one API route, `public/style.css` and `.gitignore`; runs `go mod tidy` and `gen` |
 | `gen` | scans `app/` and writes `trilha_gen.go`; fails with one line per violated convention |
 | `generate` | writes one skeleton — a page, an API route or a component — in the folder the convention asks for |
-| `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE |
+| `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE + route inspector on `/_trilha/routes` |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + runs with `TRILHA_EXPORT` to produce static HTML |
 | `openapi` | writes the OpenAPI 3.1 document of the API routes (`-o -` to stdout) |
@@ -41,6 +41,14 @@ your code and logs) are always in English.
 
 `trilha new --lang en|pt` chooses the language of the generated texts (home page, 404,
 `<html lang>`); the default is the CLI's language.
+
+## trilha dev
+
+Besides the proxy and the reload, the supervisor serves the route inspector on
+`/_trilha/routes`: the table of routes in precedence order with layouts and middlewares per
+route, and a box that answers which pattern would serve a given path. The page belongs to the
+supervisor, not to the app, so it does not exist in the binary `trilha build` produces — see
+[Development and production](/learn/dev-and-production#the-route-inspector).
 
 ## trilha generate
 

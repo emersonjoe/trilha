@@ -17,6 +17,22 @@ Mudanças só em `public/` pulam os passos 1 a 3. Um erro de compilação vira u
 saída do `go build`; corrija e ela some. O processo do app roda com `TRILHA_ENV=dev`, o que
 liga stack traces nas páginas de erro e desliga o cache de estáticos.
 
+## O inspetor de rotas
+
+Enquanto o `trilha dev` roda, `http://localhost:3000/_trilha/routes` responde com o mapa do
+app: cada rota na ordem em que o roteador decide, com o tipo, os métodos, a pasta de origem,
+os layouts que a embrulham (de fora para dentro) e os middlewares que rodam antes dela — as
+duas coisas que o `trilha routes` não mostra, porque são cadeias, não linhas.
+
+A caixa no topo responde à pergunta que costuma levar alguém até lá: digite `/blog/ola` e a
+página diz qual padrão atende e quanto vale cada parâmetro. A resposta sai de um
+`http.ServeMux` montado com os seus padrões, então é o roteador decidindo, não uma segunda
+implementação das regras de precedência.
+
+Quem serve a página é o supervisor do dev, não o seu app: ela não está no binário que o
+`trilha build` produz, e a mesma URL em produção é um 404 como outro qualquer. Não há o que
+desligar antes de publicar.
+
 ## `trilha build`
 
 ```bash

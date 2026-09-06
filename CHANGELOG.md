@@ -5,6 +5,19 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.28.0 — 2026-09-06
+
+### Added
+- **Route inspector in `trilha dev`**
+  ([#37](https://github.com/emersonjoe/trilha/issues/37)). While the dev server runs,
+  `/_trilha/routes` shows the map of the app: every route in the order the router decides,
+  with kind, methods, source folder, the layouts that wrap it (outermost first) and the
+  middlewares that run before it. A box at the top answers "who serves this path?" — the
+  pattern that wins and the value of each parameter, resolved by an `http.ServeMux` built from
+  your own patterns rather than by a second implementation of the precedence rules.
+  The page is served by the dev supervisor, not by the app: it is not in the binary
+  `trilha build` produces, and the same URL in production is a 404 like any other.
+
 ## 0.27.0 — 2026-09-06
 
 ### Added

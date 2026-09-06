@@ -92,7 +92,7 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 ### Fase 4 — DX e acabamento
 
 18. ~~[#36](https://github.com/emersonjoe/trilha/issues/36) `trilha generate page|route|component`.~~ **Entregue na 0.27.0** (spec 036): o comando recebe a URL e escreve a pasta da convenção, com esqueleto que compila e `trilha_gen.go` regerado no fim.
-19. [#37](https://github.com/emersonjoe/trilha/issues/37) Inspetor de rotas no `trilha dev`.
+19. ~~[#37](https://github.com/emersonjoe/trilha/issues/37) Inspetor de rotas no `trilha dev`.~~ **Entregue na 0.28.0** (spec 037): `/_trilha/routes` com a tabela em ordem de precedência, layouts e middlewares por rota, e a caixa que diz quem atende um caminho; servido pelo supervisor, fora do binário.
 20. [#38](https://github.com/emersonjoe/trilha/issues/38) Cookbook, checklist de produção e guia de migração.
 21. [#39](https://github.com/emersonjoe/trilha/issues/39) `Pagination` e `Tooltip` no kit `ui` (o resto da lista da avaliação já existe).
 22. [#41](https://github.com/emersonjoe/trilha/issues/41) Atalhos de provedor no `auth` para **AWS Cognito** e **Clerk**. O Cognito foi

@@ -23,9 +23,10 @@ func cmdDev(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	s := &dev.Server{
-		Root: p.Root,
-		Addr: *addr,
-		Out:  os.Stdout,
+		Root:   p.Root,
+		Module: p.Module,
+		Addr:   *addr,
+		Out:    os.Stdout,
 		Generate: func() error {
 			_, err := generate(p)
 			return err

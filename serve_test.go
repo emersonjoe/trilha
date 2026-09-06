@@ -346,3 +346,15 @@ func TestRoutesListing(t *testing.T) {
 var _ = http.StatusOK
 
 var tlsState = tls.ConnectionState{}
+
+// #37: the route inspector is served by trilha dev, not by the app. A page
+// that does not exist in the binary cannot be exposed in production by a flag
+// flipped the wrong way.
+func TestInspectorIsNotTheApps(t *testing.T) {
+	for _, env := range []Env{Dev, Prod} {
+		a := testApp(env, nil)
+		if rec := get(t, a, "GET", "/_trilha/routes", "", nil); rec.Code != http.StatusNotFound {
+			t.Errorf("%s: GET /_trilha/routes = %d, want 404", env, rec.Code)
+		}
+	}
+}

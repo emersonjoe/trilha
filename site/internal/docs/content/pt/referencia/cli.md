@@ -22,7 +22,7 @@ trilha version
 | `new` | cria um projeto com `go.mod`, layout, página inicial, 404, uma rota de API, `public/style.css` e `.gitignore`; roda `go mod tidy` e `gen` |
 | `gen` | varre `app/` e escreve `trilha_gen.go`; falha com uma linha por convenção violada |
 | `generate` | grava um esqueleto — página, rota de API ou componente — na pasta que a convenção pede |
-| `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE |
+| `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE + inspetor de rotas em `/_trilha/routes` |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` com `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + executa com `TRILHA_EXPORT` para gerar HTML estático |
 | `openapi` | escreve o documento OpenAPI 3.1 das rotas de API (`-o -` na saída padrão) |
@@ -41,6 +41,14 @@ que acabam no seu código e nos seus logs) são sempre em inglês.
 
 `trilha new --lang en|pt` escolhe o idioma dos textos gerados (página inicial, 404,
 `<html lang>`); o padrão é o idioma da CLI.
+
+## trilha dev
+
+Além do proxy e da recarga, o supervisor serve o inspetor de rotas em `/_trilha/routes`: a
+tabela de rotas em ordem de precedência com layouts e middlewares de cada uma, e uma caixa que
+responde qual padrão atenderia um caminho. A página é do supervisor, não do app, então ela não
+existe no binário que o `trilha build` produz — veja
+[Dev e produção](/pt/aprender/dev-e-producao#o-inspetor-de-rotas).
 
 ## trilha generate
 

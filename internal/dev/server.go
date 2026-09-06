@@ -28,6 +28,7 @@ type Generator func() error
 // Server is the dev supervisor: public listener + proxy + child process.
 type Server struct {
 	Root     string
+	Module   string // module path, for the scan behind the route inspector
 	Addr     string
 	Generate Generator
 	Out      io.Writer
@@ -62,6 +63,7 @@ func (s *Server) Run(ctx context.Context) error {
 	srv := &http.Server{Handler: http.HandlerFunc(s.serveHTTP)}
 	go func() { _ = srv.Serve(ln) }()
 	fmt.Fprintf(s.Out, "→ http://localhost:%d\n", ln.Addr().(*net.TCPAddr).Port)
+	fmt.Fprintf(s.Out, "  routes: http://localhost:%d%s\n", ln.Addr().(*net.TCPAddr).Port, InspectorPath)
 
 	s.rebuild()
 
@@ -221,6 +223,10 @@ func freePort() (int, error) {
 func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/_trilha/events" {
 		s.events(w, r)
+		return
+	}
+	if r.URL.Path == InspectorPath {
+		s.serveInspector(w, r)
 		return
 	}
 	s.mu.Lock()
