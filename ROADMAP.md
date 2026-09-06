@@ -105,6 +105,21 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
     partir da Frontend API URL e diz a verdade sobre o resto: papéis caem no par genérico e o
     `Logout` avisa no log que a sessão do Clerk ficou de pé.
 
+### Fase 5 — Agentes
+
+A pergunta desta fase é outra: não "o que falta ao framework", mas **quanto uma ferramenta
+de IA gasta para entregar uma feature nele**. Um agente paga em token cada arquivo que abre
+para descobrir o que o projeto já tem, cada erro que não diz onde nem como consertar, cada
+rodada de verificação separada. A ordem abaixo é de retorno por esforço, e o primeiro item
+é a régua que mede os outros — sem ela a gente otimiza no escuro.
+
+23. [#45](https://github.com/emersonjoe/trilha/issues/45) **Régua: custo por feature.** Harness em `bench/agent/` que roda quatro cenários fixos (rota com `Bind`, página com formulário, troca de provedor, paginação) com um agente de linha de comando e publica tokens e rodadas no `RESULTS.md`. Comparação Trilha antes × Trilha depois, nunca contra outro framework.
+24. [#46](https://github.com/emersonjoe/trilha/issues/46) **`AGENTS.md` no scaffold e `llms.txt` no site.** `trilha new` grava as convenções, os comandos e o que não fazer em sessenta linhas; o site exporta `/llms.txt` e `/llms-full.txt` nas duas línguas a partir do mesmo Markdown.
+25. [#47](https://github.com/emersonjoe/trilha/issues/47) **`trilha ctx --json`.** O mapa do projeto para máquinas: rotas, layouts, middlewares, o que cada handler recebe e devolve, tipos em `Bind`. Reaproveita `internal/scan`, a inferência do `openapi` e os dados do inspetor `/_trilha/routes`.
+26. [#48](https://github.com/emersonjoe/trilha/issues/48) **`trilha check`.** Um só portão (`gen --check`, `gofmt`, `vet`, `test`, `audit`, `openapi --check`) com `--json` e `--fix`, e toda mensagem com `file:line` e o conserto.
+27. [#49](https://github.com/emersonjoe/trilha/issues/49) **`trilha generate` com contrato.** `--methods`, `--bind Tipo`, `--form Tipo` e `generate test <url>`: o esqueleto já nasce com a assinatura certa, o `Bind`, a resposta e um teste verde.
+28. [#50](https://github.com/emersonjoe/trilha/issues/50) **`trilha mcp` e MCP de documentação.** Por último, de propósito: um servidor stdio que embrulha os comandos acima sobre o pacote `mcp` da spec 005, e um MCP hospedado só de leitura (`search_docs`, `get_recipe`) para agente sem shell, servido por um app Trilha.
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |
@@ -119,9 +134,9 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 
 ## Como acompanhar
 
-- **Issues**: [#20 a #41](https://github.com/emersonjoe/trilha/issues?q=is%3Aissue+label%3Aroadmap), com o rótulo `roadmap`, agrupadas por
+- **Issues**: [#20 a #50](https://github.com/emersonjoe/trilha/issues?q=is%3Aissue+label%3Aroadmap), com o rótulo `roadmap`, agrupadas por
   marco (`Fase 1 — Interatividade`, `Fase 2 — Dados e identidade`, `Fase 3 — Produção`,
-  `Fase 4 — DX`).
+  `Fase 4 — DX`, `Fase 5 — Agentes`).
 - **Specs**: quando um item entra em execução, ganha `specs/NNN-nome/` (spec → plan →
   tasks → implement) e a issue passa a apontar para ela.
 - **Versões**: toda spec fechada vira uma versão (`GOVERNANCE.md`), então a documentação do
