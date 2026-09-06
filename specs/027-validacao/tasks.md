@@ -36,4 +36,4 @@
       de regras e as mensagens.
 - [x] T011 `CHANGELOG.md` (0.18.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 2,
       item 8).
-- [ ] T012 `make test` verde e `make release VERSION=0.18.0 ISSUES="27"`.
+- [x] T012 `make test` verde e `make release VERSION=0.18.0 ISSUES="27"`.
