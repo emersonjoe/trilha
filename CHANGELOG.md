@@ -5,6 +5,36 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.37.0 — 2026-09-06
+
+### Added
+
+- **`trilha check`, the single gate**
+  ([#48](https://github.com/emersonjoe/trilha/issues/48)). One command runs `gen`, `gofmt`,
+  `vet`, `test`, `audit` (without the vulnerability scan, which needs the network) and
+  `openapi`, in the order that fails cheapest first, and stops at the first failure: what comes
+  after a broken build says nothing about the project, and the steps that never ran say so
+  instead of pretending. `--fix` rewrites `trilha_gen.go` and the formatting before judging
+  them; `--json` writes `{ok, steps, problems}` for a tool to read. The `openapi` step reads the
+  title, version and server back from the existing `openapi.json`, so it never reports a
+  staleness that is only a missing flag.
+- **`trilha ctx`, the map of the project**
+  ([#47](https://github.com/emersonjoe/trilha/issues/47)). Routes with their file, methods,
+  parameters, layouts and middlewares; each API operation with its query, body and responses;
+  the types those operations exchange; what `app/setup.go` provides; and whether
+  `trilha_gen.go` is up to date — in one read instead of a dozen file openings. Compact
+  Markdown by default, `--routes`, `--types` and `--all` to choose how much, `--json` for the
+  same model as a document. The API section comes from the same inference behind
+  `trilha openapi`, so the map and the document cannot disagree, and the output is
+  deterministic: same tree, same bytes.
+- Every scanner violation now carries its **line** and its **fix**: `app/page.go:3:
+  E_NO_PAGE_FUNC: page.go must export func Page(...); found func Render`, with
+  `→ rename the function to Page, ...` underneath. `trilha gen`, `trilha dev`, `trilha check`
+  and `trilha ctx` all print it, and the sixteen codes are covered by a test that fails when a
+  new one arrives without its conserto.
+- `AGENTS.md` now opens with `trilha check` as the single gate and `trilha ctx` as the read
+  that comes before opening files one by one, in both languages.
+
 ## 0.36.0 — 2026-09-06
 
 ### Added

@@ -12,6 +12,8 @@ trilha build [-o bin/<name>]
 trilha export [-o out] [--base /prefix]
 trilha openapi [-o file] [--title T] [--version V] [--server URL] [--check]
 trilha routes
+trilha check [--json] [--fix]
+trilha ctx [--json] [--routes|--types|--all]
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
 trilha agents [--force] [--lang en|pt]
@@ -28,6 +30,8 @@ trilha version
 | `export` | `gen` + `go build` + runs with `TRILHA_EXPORT` to produce static HTML |
 | `openapi` | writes the OpenAPI 3.1 document of the API routes (`-o -` to stdout) |
 | `routes` | prints `METHODS PATTERN SOURCE` for each route |
+| `check` | the single gate: `gen`, `gofmt`, `vet`, `test`, `audit` and `openapi`, in that order, stopping at the first failure |
+| `ctx` | the map of the project — routes, API, types, setup — in one read, as Markdown or JSON |
 | `audit` | security checklist before publishing (see [Security](/reference/security)) |
 | `agents` | writes `AGENTS.md` and `CLAUDE.md` so a coding agent finds the conventions |
 
@@ -114,6 +118,79 @@ to the module name, `0.0.0` and no server). `--check` compares with the file on 
 
 What is deduced and the `openapi:` directives are in [APIs](/learn/api#the-openapi-document).
 
+## trilha check
+
+Six gates in one command, in the order that fails cheapest first: `gen`, `gofmt`, `vet`,
+`test`, `audit` (without the vulnerability scan, which needs the network) and `openapi` (only
+if the project keeps the document). It stops at the first failure — what comes after a broken
+build says nothing about the project — and the steps that never ran say so:
+
+```text
+✓ gen
+✗ gofmt (failed)
+    app/blog/page.go: not gofmt'd
+    → run gofmt -w (or trilha check --fix)
+- vet (not run)
+- test (not run)
+- audit (not run)
+- openapi (not run)
+```
+
+Every problem carries the file, the line and the sentence that resolves it. `--fix` rewrites
+`trilha_gen.go` and the formatting before judging them, and the step then reports `fixed`.
+`--json` writes the report a tool reads, with the same fields:
+
+```json
+{
+  "ok": false,
+  "steps": [{ "tool": "gen", "status": "failed" }],
+  "problems": [
+    {
+      "tool": "gen",
+      "file": "app/page.go",
+      "line": 3,
+      "message": "page.go must export func Page(c *trilha.Ctx) (h.Node, error); found func Render",
+      "fix": "rename the function to Page, or delete page.go if this directory is not a page"
+    }
+  ]
+}
+```
+
+Exit `1` when anything failed, so in CI it is the single line:
+
+```yaml
+- run: trilha check
+```
+
+## trilha ctx
+
+The map of the project in one read: the module, whether `trilha_gen.go` is up to date, every
+route with its file, methods, parameters, layouts and middlewares, each API operation with its
+query, body and responses, the types those operations exchange, and what `app/setup.go`
+provides:
+
+```text
+# example.com/store
+
+- trilha 0.37.0 · 8 routes (6 pages, 2 APIs)
+- trilha_gen.go: up to date
+- app/setup.go: Setup, Config
+
+## Routes
+
+- `GET /` — app/page.go · layouts: app/layout.go
+...
+```
+
+The default is compact Markdown for reading. `--routes` and `--types` print one section alone,
+`--all` elides nothing (the per-method middlewares, every error response, the `Problem` type),
+and `--json` writes the same model as a document, sorted and free of clocks and absolute paths,
+so two runs of the same tree produce the same bytes.
+
+The API section and the types come from the same inference behind `trilha openapi`, so the map
+and the document can never disagree. Like `openapi.json`, the output itself is a machine
+document and is not translated.
+
 ## trilha gen --check
 
 Generates in memory, compares with the committed `trilha_gen.go` and exits `1` with the
@@ -124,7 +201,9 @@ running `trilha gen` stops being a 404 nobody can explain:
 - run: trilha gen --check
 ```
 
-`trilha audit` runs the same comparison as a warning, and also compares the CLI's version
+`trilha check` runs this same comparison as its first gate, which is why a project that uses
+it needs no separate `gen --check` line. `trilha audit` runs the comparison as a warning, and
+also compares the CLI's version
 with the library's in `go.mod`: a newer CLI writes code the library may not have yet, and
 the error then shows up inside generated code — the worst place to look for it.
 

@@ -35,8 +35,12 @@
 
 ## Bloco 4 — fechamento (SC-010)
 
-- [ ] T009 `internal/scaffold/agents/*.md`: `trilha check` como o portão único, `trilha ctx`
+- [x] T009 `internal/scaffold/agents/*.md`: `trilha check` como o portão único, `trilha ctx`
       na tabela de comandos, nos dois idiomas; `usage` da CLI e `TestAgentsMatchesUsage`.
-- [ ] T010 Documentação nos dois idiomas (referência da CLI e a página de agentes) e
+- [x] T010 Documentação nos dois idiomas (referência da CLI e a página de agentes) e
       `site/internal/docs` em sincronia.
-- [ ] T011 CHANGELOG (0.37.0), ROADMAP (itens 25 e 26), régua (#45) antes e depois.
+- [x] T011 CHANGELOG (0.37.0), ROADMAP (itens 25 e 26). Régua (#45): a linha de base
+      commitada foi medida no `examples/blog` de antes da 0.35.0, então o "antes" precisa ser
+      remedido na fixture de hoje — cerca de uma hora e custo real de cada lado
+      (`make bench-agent` e `make bench-agent-agents`). Fica combinado com o usuário antes de
+      gastar; a 0.37.0 não publica número de régua que não foi medido.

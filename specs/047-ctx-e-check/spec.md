@@ -42,8 +42,9 @@ Sem flag, um Markdown compacto (alvo: 1–2k tokens num projeto médio) com cinc
 5. **Setup** — `Setup`, `Config`, `Shutdown` e os valores registrados com `trilha.Provide`,
    quando o tipo é dedutível sem compilar.
 
-`--routes` imprime só a seção 2, `--types` só a 4, `--all` imprime tudo sem elidir: cadeia de
-middlewares por método, layouts de cada rota e todo tipo indexado, não só os alcançáveis.
+`--routes` imprime só a seção 2, `--types` só a 4, `--all` imprime tudo sem elidir: a cadeia de
+middlewares por método, cada resposta de erro (e não a linha `errors: 404, 422`) e o tipo
+`Problem`, que a saída compacta troca por uma linha dizendo que os erros seguem a RFC 9457.
 
 `--json` devolve a mesma coisa estruturada e determinística: mesma entrada, mesmos bytes,
 sem data, sem tempo, sem caminho absoluto.
@@ -93,6 +94,8 @@ Nada novo em `package trilha`.
 
 ## Fora de escopo
 
+- **Traduzir a saída do `ctx`.** Ela é um documento de máquina, como o `openapi.json`: fica em
+  inglês nas duas locales. Só a ajuda das flags passa pelo `t()`.
 - **Inferência de tipos de verdade** (`go/types` com importador) para os valores de
   `trilha.Provide`. O tipo sai do argumento de tipo explícito ou do literal composto; o resto
   é registrado como expressão, com o tipo vazio. O `openapi` faz a mesma aposta desde a 031.
@@ -119,8 +122,10 @@ Nada novo em `package trilha`.
   com `GET` e `POST`, a rota `/blog/{slug}` com o parâmetro e o layout, e a saída inteira
   cabe em menos de 2k tokens (≈ 8 KB).
 - **SC-002** `trilha ctx --json` roda duas vezes com bytes idênticos e bate com o golden
-  `testdata/golden/ctx.json.golden`; `trilha ctx` bate com `ctx.md.golden`
-  (`make golden` regrava os dois).
+  `testdata/golden/ctx.json.golden` (sobre `testdata/apps/openapi`, que tem o contrato e os
+  tipos); `trilha ctx` bate com `ctx.md.golden` (sobre `testdata/apps/full`, que tem as
+  convenções de roteamento). `make golden` regrava os dois. As fixtures são sintéticas de
+  propósito: o `examples/blog` muda por outros motivos e faria os goldens tremerem.
 - **SC-003** `--routes` e `--types` imprimem só a sua seção; `--all` traz a cadeia de
   middlewares por método que a saída padrão elide.
 - **SC-004** `trilha ctx` num projeto de 40 rotas responde em menos de 1 s (teste com árvore
@@ -128,8 +133,9 @@ Nada novo em `package trilha`.
 - **SC-005** Num projeto recém-criado (`trilha new`), `trilha check` termina verde e com
   código de saída 0.
 - **SC-006** Cada erro da lista da #48 (`page.go` sem `Page`, método em minúsculas,
-  parâmetro repetido) sai do `check` com `file:line` preenchido e `fix` não vazio, tanto no
-  texto quanto no `--json`.
+  parâmetro repetido) sai do `check` com `fix` não vazio e com a linha preenchida sempre que a
+  violação está numa linha de arquivo. O parâmetro repetido é a exceção: ele aponta para um
+  diretório, não para uma linha, e por isso sai sem `line` — o `fix` continua obrigatório.
 - **SC-007** `check` para no primeiro passo que falha: os passos seguintes saem como não
   executados, e o código de saída é 1.
 - **SC-008** `check --fix` num projeto com `trilha_gen.go` velho e arquivo desformatado

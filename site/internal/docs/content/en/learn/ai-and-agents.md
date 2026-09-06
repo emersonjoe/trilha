@@ -155,6 +155,16 @@ untouched copy from an older version is rewritten in silence and one you edited 
 `--force`. Add your rules to it and they survive the next upgrade — the command will refuse
 rather than overwrite them.
 
+Two commands exist for that reader in particular. `trilha ctx` prints the map of the project —
+every route with its file and methods, each API operation with what it receives and returns,
+the types involved, what `app/setup.go` provides — in one read instead of a dozen file
+openings, with `--json` when the reader is a tool. `trilha check` is the single gate before
+calling the work done: `gen`, `gofmt`, `vet`, `test`, `audit` and `openapi` in one command,
+stopping at the first failure, with `--fix` for the two problems nobody should be told twice.
+Every problem it reports carries the file, the line and the sentence that resolves it, so
+finding that out costs no extra round trip. Both are in
+[CLI](/reference/cli#trilha-check).
+
 :::note
 This documentation is also published as plain text, which is much cheaper for an agent to read
 than the HTML around it: [/llms.txt](/llms.txt) is the index, one line per page, and

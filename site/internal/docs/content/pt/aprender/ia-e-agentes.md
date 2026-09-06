@@ -155,6 +155,16 @@ intocada de uma versão anterior é regravada em silêncio e uma que você edito
 Acrescente suas regras nele e elas sobrevivem à próxima atualização — o comando recusa em vez
 de sobrescrever.
 
+Dois comandos existem para esse leitor em particular. O `trilha ctx` imprime o mapa do projeto
+— cada rota com seu arquivo e seus métodos, cada operação de API com o que recebe e o que
+devolve, os tipos envolvidos, o que o `app/setup.go` provê — numa leitura só, em vez de uma
+dúzia de arquivos abertos, com `--json` quando quem lê é uma ferramenta. O `trilha check` é o
+portão único antes de dizer que terminou: `gen`, `gofmt`, `vet`, `test`, `audit` e `openapi`
+num comando, parando na primeira falha, com `--fix` para os dois problemas que ninguém devia
+precisar ouvir duas vezes. Todo problema que ele reporta vem com o arquivo, a linha e a frase
+que resolve, então descobrir isso não custa uma ida e volta a mais. Os dois estão na
+[CLI](/pt/referencia/cli#trilha-check).
+
 :::note
 Esta documentação também é publicada em texto puro, muito mais barato para um agente ler do que
 o HTML em volta: o [/pt/llms.txt](/pt/llms.txt) é o índice, uma linha por página, e o
