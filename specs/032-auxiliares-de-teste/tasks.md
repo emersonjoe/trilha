@@ -20,8 +20,8 @@
 
 ## Bloco 3 — documentação e fechamento
 
-- [ ] T005 Página nova `learn/testing.md` + `pt/aprender/testes.md`, registrada em
+- [x] T005 Página nova `learn/testing.md` + `pt/aprender/testes.md`, registrada em
       `site/internal/docs/docs.go`, com o exemplo de cada auxiliar e a nota do CSRF.
-- [ ] T006 `reference/app` nas duas locales: a tabela do canto de teste.
-- [ ] T007 `CHANGELOG.md` (0.23.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 3, item 14).
-- [ ] T008 `make test` verde e `make release VERSION=0.23.0 ISSUES="32"`.
+- [x] T006 `reference/app` nas duas locales: a tabela do canto de teste.
+- [x] T007 `CHANGELOG.md` (0.23.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 3, item 14).
+- [x] T008 `make test` verde e `make release VERSION=0.23.0 ISSUES="32"`.

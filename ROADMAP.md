@@ -84,7 +84,7 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 11. ~~[#29](https://github.com/emersonjoe/trilha/issues/29) CORS.~~ **Entregue na 0.20.0** (spec 029).
 12. ~~[#30](https://github.com/emersonjoe/trilha/issues/30) Negociação de conteúdo e erro de API padronizado (RFC 9457, `application/problem+json`).~~ **Entregue na 0.21.0** (spec 030).
 13. ~~[#31](https://github.com/emersonjoe/trilha/issues/31) Geração de OpenAPI a partir das rotas registradas.~~ **Entregue na 0.22.0** (spec 031).
-14. [#32](https://github.com/emersonjoe/trilha/issues/32) Auxiliares de teste (`trilha.TestRequest`, `TestPage`, `TestRoute`).
+14. ~~[#32](https://github.com/emersonjoe/trilha/issues/32) Auxiliares de teste (`trilha.TestRequest`, `TestPage`, `TestRoute`).~~ **Entregue na 0.23.0** (spec 032): cliente com pote de cookies, CSRF que passa sozinho e `WithSigned`; os cinco exemplos deixaram de reimplementar o `httptest`.
 15. [#33](https://github.com/emersonjoe/trilha/issues/33) `go test -race` e *fuzzing* no CI (roteador, `h`, `Bind`, cookies assinados).
 16. [#34](https://github.com/emersonjoe/trilha/issues/34) Modelo de ameaças escrito e validação de `Host`.
 17. [#35](https://github.com/emersonjoe/trilha/issues/35) Definição formal da API pública e política de depreciação, antes da 1.0.

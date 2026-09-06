@@ -193,14 +193,30 @@ func main() {
 
 ## Testar um app
 
-O arquivo gerado define `newApp()`. Um teste no pacote `main` do projeto pode usá-lo:
+O arquivo gerado define `newApp()`, e o `package trilha` traz o cliente de teste, então um
+teste no pacote `main` do projeto passa pelo app de verdade sem encanamento próprio:
 
 ```go
 func TestHome(t *testing.T) {
-	rec := httptest.NewRecorder()
-	newApp().Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
-	if rec.Code != 200 {
-		t.Fatal(rec.Code)
-	}
+	trilha.TestRequest(t, newApp(), "GET", "/").WantStatus(200).WantContains("<h1>")
 }
 ```
+
+| Símbolo | Papel |
+|---|---|
+| `TestingT` | `Helper()` e `Fatalf(...)`: o que os auxiliares usam de `*testing.T`, para o pacote nunca importar `testing` |
+| `TestRequest(t, a *App, method, target string, opts ...TestOption) *TestResponse` | um pedido no app inteiro |
+| `TestRoute(t, r Route, method, target string, opts ...TestOption) *TestResponse` | um `route.go`, com seus middlewares |
+| `TestPage(t, r Route, target string, opts ...TestOption) *TestResponse` | uma página, com seus layouts; o `Node` vem preenchido |
+| `NewTestClient(t, a *App) *TestClient` | o cliente com pote de cookies |
+| `(*TestClient) Request / Get / PostForm / PostJSON` | os pedidos |
+| `TestOption` | `WithApp`, `WithHeader`, `WithCookie`, `WithSigned`, `WithForm`, `WithJSON`, `WithBody`, `WithoutCSRF` |
+| `TestResponse` | `Node`, `WantStatus`, `WantContains`, `WantHeader`, `JSON(&v)`, `Cookie(nome)`; embute o `*httptest.ResponseRecorder` |
+
+Todo pedido leva o cookie do CSRF e, num método com corpo, o cabeçalho `X-CSRF-Token`
+correspondente: cookie e token vêm do mesmo cliente, que é exatamente o que o duplo envio
+pede de um navegador. O `WithoutCSRF()` é como um teste prova a recusa.
+
+Nenhuma asserção devolve `error` — em teste, o valor de um erro é parar com a mensagem certa,
+então a falha imprime o alvo, o status e o corpo. O que as asserções prontas não cobrem é um
+`if` sobre o recorder embutido. Veja [Testes](/pt/aprender/testes) para a trilha inteira.

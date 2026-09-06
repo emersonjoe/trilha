@@ -195,14 +195,31 @@ func main() {
 
 ## Testing an app
 
-The generated file defines `newApp()`. A test in the project's `main` package can use it:
+The generated file defines `newApp()`, and `package trilha` ships the test client, so a test
+in the project's `main` package goes through the real app with no plumbing of its own:
 
 ```go
 func TestHome(t *testing.T) {
-	rec := httptest.NewRecorder()
-	newApp().Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
-	if rec.Code != 200 {
-		t.Fatal(rec.Code)
-	}
+	trilha.TestRequest(t, newApp(), "GET", "/").WantStatus(200).WantContains("<h1>")
 }
 ```
+
+| Symbol | Role |
+|---|---|
+| `TestingT` | `Helper()` and `Fatalf(...)`: what the helpers use from `*testing.T`, so the package never imports `testing` |
+| `TestRequest(t, a *App, method, target string, opts ...TestOption) *TestResponse` | one request against the whole app |
+| `TestRoute(t, r Route, method, target string, opts ...TestOption) *TestResponse` | one `route.go`, with its middlewares |
+| `TestPage(t, r Route, target string, opts ...TestOption) *TestResponse` | one page, with its layouts; `Node` comes filled in |
+| `NewTestClient(t, a *App) *TestClient` | the client with a cookie jar |
+| `(*TestClient) Request / Get / PostForm / PostJSON` | the requests |
+| `TestOption` | `WithApp`, `WithHeader`, `WithCookie`, `WithSigned`, `WithForm`, `WithJSON`, `WithBody`, `WithoutCSRF` |
+| `TestResponse` | `Node`, `WantStatus`, `WantContains`, `WantHeader`, `JSON(&v)`, `Cookie(name)`; embeds `*httptest.ResponseRecorder` |
+
+Every request carries the CSRF cookie and, on a method with a body, the matching
+`X-CSRF-Token` header: cookie and token come from the same client, which is exactly what
+double submit asks a browser for. `WithoutCSRF()` is how a test proves the refusal.
+
+No assertion returns an `error` — in a test, the value of an error is stopping with the right
+message, so a failure prints the target, the status and the body. Anything the ready-made
+assertions do not cover is an `if` over the embedded recorder. See
+[Testing](/learn/testing) for the whole trail.

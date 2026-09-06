@@ -5,6 +5,38 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.23.0 — 2026-09-06
+
+### Added
+- **Test helpers in `package trilha`: the client every app was writing by hand**
+  ([#32](https://github.com/emersonjoe/trilha/issues/32)). `trilha.TestRequest(t, app, method,
+  target, opts...)` sends one request through the real path — mux, middlewares, layouts, CSRF,
+  error negotiation — and returns a `*TestResponse` with chainable assertions
+  (`WantStatus`, `WantContains`, `WantHeader`, `JSON(&v)`, `Cookie(name)`). No assertion returns
+  an `error`: a failure stops the test printing the target, the status and the body.
+- `trilha.NewTestClient(t, app)` keeps the cookies the app sets, so a flow (open the form,
+  submit it, read the result) is three lines with `Get`, `PostForm` and `PostJSON`.
+- Every request carries the CSRF cookie and, on a method with a body, the matching
+  `X-CSRF-Token` header. It is not a hole: cookie and token come from the same client, which is
+  what double submit asks a browser for. `WithoutCSRF()` is how a test proves the refusal.
+- `trilha.TestRoute(t, route, method, target)` exercises one `route.go` with its middlewares
+  and resolves `{id}` from the pattern; `trilha.TestPage(t, route, target)` renders a page with
+  its layouts and hands back the node in `res.Node`, so an assertion survives a change of
+  layout. Both mount a throwaway app in `Dev`; `WithApp(a)` uses yours.
+- Options: `WithApp`, `WithHeader`, `WithCookie`, `WithSigned` (a cookie signed by the app's own
+  signer, so the admin page needs no `POST /login` first), `WithForm`, `WithJSON`, `WithBody`
+  and `WithoutCSRF`.
+- `TestingT` is the interface the helpers take (`Helper`, `Fatalf`), so `package trilha` still
+  never imports `testing`: the test flags stay out of the production binary. `TestResponse`
+  embeds `*httptest.ResponseRecorder`, so `Code`, `Body` and `Header()` remain at hand.
+- New chapter [Testing](https://trilha.dev/learn/testing) (`/pt/aprender/testes`) and the
+  helper table in `reference/app`.
+
+### Changed
+- The five examples use the helpers: `examples/blog`, `examples/cadastro`,
+  `examples/orcamento`, `examples/sso` and `examples/assistente` no longer carry their own
+  `httptest` client, cookie jar or CSRF copy — 500 lines became 254.
+
 ## 0.22.0 — 2026-09-05
 
 ### Added
