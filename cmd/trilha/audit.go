@@ -53,9 +53,17 @@ func runAudit(p *project, vuln bool) []check {
 	var out []check
 	add := func(level, title, hint string) { out = append(out, check{level, title, hint}) }
 
-	// Secret.
+	src := projectSource(p.Root)
+
+	// Secret. A missing secret only breaks what the secret signs: an app that
+	// never calls SetSigned would be told to invent a key that protects
+	// nothing, and a key nobody uses is a key nobody notices being rotated.
 	if s := os.Getenv("TRILHA_SECRET"); s == "" {
-		add("critical", t("secret unset"), t("secret unset hint"))
+		if signsCookies(src) {
+			add("critical", t("secret unset"), t("secret unset hint"))
+		} else {
+			add("warn", t("secret unused"), t("secret unused hint"))
+		}
 	} else if len(s) < 32 {
 		add("critical", t("secret short"), t("secret short hint"))
 	} else {
@@ -67,7 +75,6 @@ func runAudit(p *project, vuln bool) []check {
 		add("ok", t("proxies ok"), "")
 	}
 
-	src := projectSource(p.Root)
 	// Host validation (spec 034): without a list, any Host the client sends
 	// is the one the app builds its own links with.
 	if os.Getenv("TRILHA_ALLOWED_HOSTS") == "" && !strings.Contains(src, "AllowedHosts") {
@@ -194,6 +201,18 @@ func runAudit(p *project, vuln bool) []check {
 
 // projectSource concatenates the Go sources of the project, so the checks can
 // look for configuration the environment does not reveal.
+// signsCookies reports whether the app signs anything with TRILHA_SECRET: the
+// Ctx helpers, a Signer of its own, a Secret set in Config, or the auth package,
+// whose login flow keeps its state in a signed cookie.
+func signsCookies(src string) bool {
+	for _, s := range []string{".SetSigned(", ".Signed(", "NewSigner(", "Secret:", "trilha/auth"} {
+		if strings.Contains(src, s) {
+			return true
+		}
+	}
+	return false
+}
+
 func projectSource(root string) string {
 	var b strings.Builder
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {

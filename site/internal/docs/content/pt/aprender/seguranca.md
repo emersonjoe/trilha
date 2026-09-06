@@ -239,6 +239,22 @@ clara é o que aparece na aba de rede. Já a requisição **simples** de origem 
 servida como sempre, só que sem os cabeçalhos de CORS: quem esconde a resposta do script é o
 navegador, e o cliente que não é navegador nunca foi quem estava sendo protegido aqui.
 
+### Quando só alguns caminhos são públicos
+
+`Config.CORS` é o app inteiro. Um documento de descoberta em `/.well-known/`, buscado de
+outra origem por um cliente que ainda não tem sessão, são três caminhos em noventa — e
+abrir os outros oitenta e sete para consertar três é trocar uma lacuna por uma superfície.
+Essas rotas levam a própria política, no `route.go` que as serve:
+
+```go
+var CORS = trilha.CORS{Origins: []string{"*"}, Methods: []string{"GET"}}
+```
+
+A rota responde ao próprio preflight, com as mesmas checagens e o mesmo 403; o resto do app
+segue de mesma origem. A rota que declara política decide sozinha — a lista do app não a
+estreita, e ela não alarga a lista do app para mais ninguém. Veja
+[Convenções](/pt/referencia/convencoes).
+
 ## O que continua sendo seu
 
 - **Autenticação e autorização**: quem é o usuário e o que pode fazer. O Trilha dá o

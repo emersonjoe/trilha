@@ -59,6 +59,23 @@ the only symptom was a 404. Rename the folder without the leading dot, or, if th
 meant to stay out of the routing, start its name with `_`. The single dot folder that *is*
 routed is `.well-known` (see [conventions](/reference/conventions#folders)).
 
+## `E_UNROUTABLE_METHOD`
+
+`func HEAD`, `func TRACE` or `func CONNECT` in a `route.go`. The router does not take those
+from a file, so the function used to compile and answer nothing: the request fell into the
+405 the fallback writes before any middleware. HEAD is not missing — since Go 1.22 the
+router answers it with the `GET` handler, so write the response there. `OPTIONS`, on the
+other hand, is a handler like the others, and a route that only needs the preflight can
+declare `var CORS` instead of writing it (see
+[conventions](/reference/conventions#cross-origin-on-one-route)).
+
+## The preflight answers 405
+
+The route serves no `OPTIONS`. Either declare `var CORS = trilha.CORS{...}` in its
+`route.go` — the framework then answers the preflight from the policy — or write `func
+OPTIONS` by hand. `Config.CORS` also answers, but for the whole app: use it when every route
+shares the policy, not to open three paths.
+
 ## The form answers 403
 
 `trilha.CSRFInput(c)` is missing inside the `<form>`, or the form page was opened before the

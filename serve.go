@@ -25,8 +25,15 @@ func (a *App) Register(r Route) {
 	a.routes[pattern] = &route
 	a.pathMux.HandleFunc(muxPat, func(http.ResponseWriter, *http.Request) {})
 	kind := kindOf(&route)
+	// The route's own policy, built once: a preflight is answered before the
+	// middleware chain, the same way Config.CORS answers before the router.
+	var policy *corsPolicy
+	if route.CORS != nil {
+		policy = newCORSPolicy(*route.CORS, a.cfg.CSRF.Header)
+	}
+	handle := func(pat string, h http.Handler) { a.mux.Handle(pat, withCORS(policy, h)) }
 	if route.Page != nil {
-		a.mux.Handle("GET "+muxPat, a.wrap(&route, kind, chainFor(&route, "GET"), func(c *Ctx) error { return a.renderPage(c, &route) }))
+		handle("GET "+muxPat, a.wrap(&route, kind, chainFor(&route, "GET"), func(c *Ctx) error { return a.renderPage(c, &route) }))
 	}
 	methods := make([]string, 0, len(route.Methods))
 	for m := range route.Methods {
@@ -35,8 +42,32 @@ func (a *App) Register(r Route) {
 	sort.Strings(methods)
 	for _, m := range methods {
 		fn := route.Methods[m]
-		a.mux.Handle(m+" "+muxPat, a.wrap(&route, kind, chainFor(&route, m), fn))
+		handle(m+" "+muxPat, a.wrap(&route, kind, chainFor(&route, m), fn))
 	}
+	if policy != nil && route.Methods["OPTIONS"] == nil {
+		// Nobody wrote the preflight handler, so the policy is the handler: a
+		// bare OPTIONS (no Origin) still answers what the path accepts.
+		allow := a.allowFor(&route)
+		a.mux.Handle("OPTIONS "+muxPat, withCORS(policy, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Allow", allow)
+			w.WriteHeader(http.StatusNoContent)
+		})))
+	}
+}
+
+// withCORS puts the route's policy in front of a handler: handle answers the
+// preflight itself and, for every other request, writes the headers the browser
+// needs before the handler runs.
+func withCORS(p *corsPolicy, h http.Handler) http.Handler {
+	if p == nil {
+		return h
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if p.handle(w, req) {
+			return
+		}
+		h.ServeHTTP(w, req)
+	})
 }
 
 // Routes lists registered patterns (sorted) with their methods.
@@ -242,6 +273,9 @@ func (a *App) allowFor(r *Route) string {
 	var ms []string
 	if r.Page != nil {
 		ms = append(ms, "GET", "HEAD")
+	}
+	if r.CORS != nil && r.Methods["OPTIONS"] == nil {
+		ms = append(ms, "OPTIONS")
 	}
 	for m := range r.Methods {
 		ms = append(ms, m)

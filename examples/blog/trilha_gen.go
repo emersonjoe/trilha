@@ -53,6 +53,7 @@ func newApp() *trilha.App {
 	})
 	a.Register(trilha.Route{
 		Pattern: "/.well-known/security.txt",
+		CORS:    &app__well_known_security_txt.CORS,
 		Methods: map[string]trilha.HandlerFunc{
 			"GET": app__well_known_security_txt.GET,
 		},

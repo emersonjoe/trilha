@@ -15,7 +15,9 @@ sem dependências externas.
   `/blog/{slug}`, lido com `c.Param("slug")`. Já uma pasta com ponto no nome é caminho fixo
   (`app/api/relatorio.csv/route.go` responde `/api/relatorio.csv`). Pasta cujo nome
   *começa* com ponto é ignorada, menos a `.well-known`
-  (`app/.well-known/security.txt/route.go` responde `/.well-known/security.txt`).
+  (`app/.well-known/security.txt/route.go` responde `/.well-known/security.txt`). Rota
+  buscada de outra origem declara a própria política — `var CORS = trilha.CORS{...}` no
+  `route.go` — e o framework responde o preflight.
 
 O HTML é escrito em Go com o pacote `h`, não com template:
 `h.Div(h.Class("card"), h.H1(nil, h.Text(titulo)))`. Tudo que ele renderiza sai escapado.

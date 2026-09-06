@@ -14,7 +14,9 @@ external dependencies.
   read with `c.Param("slug")`. A folder with a dot in its name is a fixed path instead
   (`app/api/report.csv/route.go` answers `/api/report.csv`). A folder whose name *starts*
   with a dot is ignored, except `.well-known`
-  (`app/.well-known/security.txt/route.go` answers `/.well-known/security.txt`).
+  (`app/.well-known/security.txt/route.go` answers `/.well-known/security.txt`). A route
+  fetched from another origin declares its own policy — `var CORS = trilha.CORS{...}` in the
+  `route.go` — and the framework answers the preflight.
 
 HTML is written in Go with the `h` package, not with templates:
 `h.Div(h.Class("card"), h.H1(nil, h.Text(title)))`. Everything it renders is escaped.

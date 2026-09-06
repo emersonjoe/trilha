@@ -59,6 +59,23 @@ sintoma era um 404. Renomeie a pasta sem o ponto na frente ou, se ela deve mesmo
 do roteamento, comece o nome com `_`. A única pasta com ponto que **é** roteada é a
 `.well-known` (veja [convenções](/pt/referencia/convencoes#pastas)).
 
+## `E_UNROUTABLE_METHOD`
+
+`func HEAD`, `func TRACE` ou `func CONNECT` num `route.go`. O roteador não tira esses de um
+arquivo, então a função compilava e não respondia nada: a requisição caía no 405 que o
+fallback escreve antes de qualquer middleware. HEAD não está faltando — desde o Go 1.22 o
+roteador responde com o handler do `GET`, então escreva a resposta lá. Já o `OPTIONS` é um
+handler como os outros, e a rota que só precisa do preflight pode declarar `var CORS` em vez
+de escrevê-lo (veja
+[convenções](/pt/referencia/convencoes#origem-cruzada-numa-rota-so)).
+
+## O preflight responde 405
+
+A rota não serve `OPTIONS`. Ou declare `var CORS = trilha.CORS{...}` no `route.go` dela — aí
+o framework responde o preflight a partir da política — ou escreva `func OPTIONS` à mão. O
+`Config.CORS` também responde, mas para o app inteiro: use quando todas as rotas dividem a
+política, não para abrir três caminhos.
+
 ## Formulário responde 403
 
 Faltou `trilha.CSRFInput(c)` dentro do `<form>`, ou a página do formulário foi aberta antes

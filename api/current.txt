@@ -250,6 +250,7 @@ pkg trilha, type RedirectError struct
 pkg trilha, type RedirectError struct, Code int
 pkg trilha, type RedirectError struct, URL string
 pkg trilha, type Route struct
+pkg trilha, type Route struct, CORS *CORS
 pkg trilha, type Route struct, Kind RouteKind
 pkg trilha, type Route struct, Layouts []LayoutFunc
 pkg trilha, type Route struct, Methods map[string]HandlerFunc

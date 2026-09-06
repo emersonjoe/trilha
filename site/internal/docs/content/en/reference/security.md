@@ -117,3 +117,10 @@ request.
 Checks: `TRILHA_SECRET`, `TRILHA_TRUSTED_PROXIES`, up-to-date `trilha_gen.go`, Go version,
 `.gitignore`, `go vet` and `govulncheck` (`--no-vuln` to skip). Exit code 1 with a critical
 item.
+
+A missing `TRILHA_SECRET` is critical only when the code signs something — `SetSigned`,
+`Signed`, a `Signer` of its own, `Config.Secret`, or the `auth` package. An app whose
+session is not Trilha's gets a warning instead: a secret that signs nothing still enters the
+`.env`, the deploy and the rotation, and the day somebody rotates it nothing happens, which
+is the worst thing a secret can teach. Set too short is critical either way — whoever set it
+meant to use it.

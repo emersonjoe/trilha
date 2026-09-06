@@ -38,6 +38,8 @@ const (
 	ErrNoApp            = "E_NO_APP"
 	ErrDuplicateParam   = "E_DUPLICATE_PARAM"
 	ErrHiddenRoute      = "E_HIDDEN_ROUTE"
+	ErrUnroutableMethod = "E_UNROUTABLE_METHOD"
+	ErrCORSOnPage       = "E_CORS_ON_PAGE"
 )
 
 // WellKnown is the single dot-prefixed directory that is not skipped: RFC 8414,
@@ -51,7 +53,22 @@ const WellKnown = ".well-known"
 // order the generated file lists them. Anything outside this list is not a
 // handler for the scanner, so the generator of skeletons reads it from here
 // instead of writing the list down a second time.
-var Methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+//
+// OPTIONS is here because a preflight has to be answered by the route that owns
+// the policy: Config.CORS is the whole app, and a document published under
+// /.well-known/ is fetched from another origin while the other routes are
+// same-origin cookies.
+var Methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+
+// unroutableMethods are HTTP methods the router does not take from a file, so a
+// function named after one of them would be dropped without a word. HEAD is not
+// missing: since Go 1.22 net/http's ServeMux answers HEAD with the GET handler,
+// and a second one would be two answers for the same request.
+var unroutableMethods = map[string]string{
+	"HEAD":    "GET already answers HEAD; write the response in func GET",
+	"TRACE":   "TRACE echoes the request back and is not routable",
+	"CONNECT": "CONNECT is for proxies and is not routable",
+}
 
 // GeneratedFileName is the file trilha gen writes at the project root. The
 // scanner skips it when reading what the author wrote by hand.
@@ -95,6 +112,8 @@ var fixes = map[string]string{
 	ErrDuplicateParam:   "rename one of them: a pattern cannot bind the same name twice",
 	ErrHiddenRoute:      "rename the directory without the leading dot, or start it with \"_\" if you meant to park it out of the routing",
 	ErrParse:            "fix the syntax error the compiler reports; go build ./... shows the same line",
+	ErrUnroutableMethod: "delete the function, or answer that request from the method the router knows",
+	ErrCORSOnPage:       "move the route to a route.go, or drop the var: a page is navigation on your own site",
 	ErrNoApp:            "run trilha from the project root, the directory that has app/",
 }
 
@@ -129,7 +148,10 @@ type Route struct {
 	Methods    []string // sorted
 	HasPage    bool
 	// HasKind is true when route.go exports `var Kind = trilha.KindPage|KindAPI`.
-	HasKind     bool
+	HasKind bool
+	// HasCORS is true when route.go exports `var CORS = trilha.CORS{...}`: the
+	// cross-origin policy of this route alone, preflight included.
+	HasCORS     bool
 	Layouts     []Ref // innermost first
 	Middlewares []Ref // outermost first
 	// MiddlewaresByMethod holds the chains declared per method
@@ -410,7 +432,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 			s.use(alias, importPath)
 		} else {
 			other, line := pkg.instead(middlewareFuncs()...)
-			s.errf(rel+"/middleware.go", ErrNoMiddlewareFunc, "middleware.go must export func Middleware(c *trilha.Ctx, next trilha.Next) error, or MiddlewareGET|POST|PUT|PATCH|DELETE with the same signature for a single method%s", other).at(line)
+			s.errf(rel+"/middleware.go", ErrNoMiddlewareFunc, "middleware.go must export func Middleware(c *trilha.Ctx, next trilha.Next) error, or MiddlewareGET|POST|PUT|PATCH|DELETE|OPTIONS with the same signature for a single method%s", other).at(line)
 		}
 	}
 	if isRoot {
@@ -436,11 +458,21 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 			s.errf(rel, ErrDuplicateParam, "parameter {%s} is bound twice in this path: %s and %s", name, first, second)
 		}
 		r := Route{Dir: rel, ImportPath: importPath, Alias: alias, Layouts: layouts, Middlewares: mws, Pattern: patternOf(segs)}
+		file := "route.go"
+		if present["page.go"] {
+			file = "page.go"
+		}
+		s.unroutable(pkg, rel+"/"+file)
 		if present["page.go"] {
 			r.Kind = "page"
 			if !pkg.funcs["Page"] {
 				other, line := pkg.instead("Page")
 				s.errf(rel+"/page.go", ErrNoPageFunc, "page.go must export func Page(c *trilha.Ctx) (h.Node, error)%s", other).at(line)
+			}
+			if pkg.vars["CORS"] {
+				// A page is navigation on the site itself; a var nobody reads is
+				// the silent discard this convention exists to avoid.
+				s.errf(rel+"/page.go", ErrCORSOnPage, "var CORS is a route.go declaration: a page cannot carry a cross-origin policy")
 			}
 			r.HasPage = pkg.funcs["Page"]
 			for _, m := range Methods[1:] {
@@ -451,6 +483,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 		} else {
 			r.Kind = "api"
 			r.HasKind = pkg.vars["Kind"]
+			r.HasCORS = pkg.vars["CORS"]
 			r.Layouts = nil
 			for _, m := range Methods {
 				if pkg.funcs[m] {
@@ -459,7 +492,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 			}
 			if len(r.Methods) == 0 {
 				other, line := pkg.instead(Methods...)
-				e := s.errf(rel+"/route.go", ErrNoMethod, "route.go must export at least one of GET, POST, PUT, PATCH, DELETE with signature func(c *trilha.Ctx) error%s", other).at(line)
+				e := s.errf(rel+"/route.go", ErrNoMethod, "route.go must export at least one of GET, POST, PUT, PATCH, DELETE, OPTIONS with signature func(c *trilha.Ctx) error%s", other).at(line)
 				if m, ml := pkg.lowercaseMethod(); m != "" {
 					e.at(ml).withFix("handlers are named by HTTP method in upper case: rename func " + m + " to func " + strings.ToUpper(m))
 				}
@@ -504,6 +537,26 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 	}
 	if dynamic > 1 {
 		s.errf(rel, ErrAmbiguousSegment, "more than one dynamic directory (name_ or name__) at the same level is ambiguous")
+	}
+}
+
+// unroutable reports a handler named after a method the router does not take
+// from a file. Without this the function compiles, the generator says nothing,
+// and the request answers 405 in production — the same silent discard that
+// E_HIDDEN_ROUTE closed for directories.
+func (s *scanner) unroutable(pkg pkgInfo, file string) {
+	if pkg.broken {
+		return
+	}
+	var names []string
+	for n := range unroutableMethods {
+		if pkg.funcs[n] {
+			names = append(names, n)
+		}
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		s.errf(file, ErrUnroutableMethod, "func %s is not a route: %s", n, unroutableMethods[n]).at(pkg.lines[n])
 	}
 }
 

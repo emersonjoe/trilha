@@ -163,3 +163,158 @@ func TestCORSDesligadoNaoMudaNada(t *testing.T) {
 		t.Errorf("preflight respondido com CORS desligado")
 	}
 }
+
+// #76/#78: a política de uma rota só, declarada no route.go dela. O app inteiro
+// segue de mesma origem; o documento buscado de fora responde ao preflight.
+func rotaComCORS(t *testing.T) *App {
+	t.Helper()
+	a := New(Config{Logger: quiet()})
+	a.Register(Route{
+		Pattern: "/.well-known/oauth-protected-resource",
+		CORS:    &CORS{Origins: []string{"*"}, Methods: []string{"GET"}, MaxAge: time.Hour},
+		Methods: map[string]HandlerFunc{
+			"GET": func(c *Ctx) error { return c.JSON(http.StatusOK, map[string]string{"resource": "x"}) },
+		},
+	})
+	a.Register(Route{Pattern: "/api", Methods: map[string]HandlerFunc{
+		"GET": func(c *Ctx) error { return c.Text(http.StatusOK, "ok") },
+	}})
+	return a
+}
+
+func TestCORSDaRotaRespondePreflight(t *testing.T) {
+	a := rotaComCORS(t)
+	rec := do(a, "OPTIONS", "/.well-known/oauth-protected-resource", map[string]string{
+		"Origin": "https://cliente.exemplo.com", "Access-Control-Request-Method": "GET",
+	})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("preflight respondeu %d, queria 204", rec.Code)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Allow-Origin %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Max-Age"); got != "3600" {
+		t.Fatalf("Max-Age %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); got != "GET" {
+		t.Fatalf("Allow-Methods %q", got)
+	}
+}
+
+func TestCORSDaRotaRecusaMetodoDeFora(t *testing.T) {
+	a := rotaComCORS(t)
+	rec := do(a, "OPTIONS", "/.well-known/oauth-protected-resource", map[string]string{
+		"Origin": "https://cliente.exemplo.com", "Access-Control-Request-Method": "DELETE",
+	})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("método fora da política respondeu %d, queria 403", rec.Code)
+	}
+}
+
+func TestCORSDaRotaNaRequisicaoSimples(t *testing.T) {
+	a := rotaComCORS(t)
+	rec := do(a, "GET", "/.well-known/oauth-protected-resource", map[string]string{
+		"Origin": "https://cliente.exemplo.com",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET respondeu %d", rec.Code)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Allow-Origin %q", got)
+	}
+	if !strings.Contains(rec.Header().Get("Vary"), "Origin") {
+		t.Fatalf("sem Vary: Origin um cache serve a resposta de uma origem para outra: %q", rec.Header().Get("Vary"))
+	}
+}
+
+// A rota vizinha não muda: é a diferença entre política por rota e Config.CORS.
+func TestCORSDaRotaNaoVazaParaAsOutras(t *testing.T) {
+	a := rotaComCORS(t)
+	rec := do(a, "GET", "/api", map[string]string{"Origin": "https://cliente.exemplo.com"})
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("a rota sem política ganhou %q", got)
+	}
+	if rec := do(a, "OPTIONS", "/api", map[string]string{
+		"Origin": "https://cliente.exemplo.com", "Access-Control-Request-Method": "GET",
+	}); rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("preflight numa rota sem política respondeu %d, queria 405", rec.Code)
+	}
+}
+
+// Um OPTIONS sem Origin não é preflight: é a pergunta do que o caminho aceita.
+func TestCORSDaRotaResponde204ComAllow(t *testing.T) {
+	a := rotaComCORS(t)
+	rec := do(a, "OPTIONS", "/.well-known/oauth-protected-resource", nil)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS sem Origin respondeu %d", rec.Code)
+	}
+	if got := rec.Header().Get("Allow"); got != "GET, OPTIONS" {
+		t.Fatalf("Allow %q", got)
+	}
+}
+
+// O caso esquisito continua possível: quem escreve o próprio OPTIONS manda.
+func TestOPTIONSEscritoAMaoPrevalece(t *testing.T) {
+	a := New(Config{Logger: quiet()})
+	a.Register(Route{
+		Pattern: "/api",
+		CORS:    &CORS{Origins: []string{"*"}},
+		Methods: map[string]HandlerFunc{
+			"GET":     func(c *Ctx) error { return c.Text(http.StatusOK, "ok") },
+			"OPTIONS": func(c *Ctx) error { return c.Text(http.StatusTeapot, "meu") },
+		},
+	})
+	rec := do(a, "OPTIONS", "/api", nil)
+	if rec.Code != http.StatusTeapot || rec.Body.String() != "meu" {
+		t.Fatalf("o handler do arquivo respondeu %d %q", rec.Code, rec.Body.String())
+	}
+}
+
+// E o preflight de verdade continua sendo do framework, mesmo assim: o handler
+// escrito à mão só vê o que não é preflight.
+func TestOPTIONSAMaoNaoAtrapalhaOPreflight(t *testing.T) {
+	a := New(Config{Logger: quiet()})
+	a.Register(Route{
+		Pattern: "/api",
+		CORS:    &CORS{Origins: []string{"https://app.exemplo.com"}},
+		Methods: map[string]HandlerFunc{
+			"GET":     func(c *Ctx) error { return c.Text(http.StatusOK, "ok") },
+			"OPTIONS": func(c *Ctx) error { return c.Text(http.StatusTeapot, "meu") },
+		},
+	})
+	rec := do(a, "OPTIONS", "/api", map[string]string{
+		"Origin": "https://app.exemplo.com", "Access-Control-Request-Method": "GET",
+	})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("preflight respondeu %d, queria 204", rec.Code)
+	}
+}
+
+// A rota que declara a própria política decide sozinha: sem isso, um app que já
+// tem Config.CORS nunca conseguiria abrir três caminhos, que é o caso das #76 e
+// #78 — o preflight morreria no 403 do app antes de chegar à rota.
+func TestCORSDaRotaVenceAPoliticaDoApp(t *testing.T) {
+	a := New(Config{Logger: quiet(), CORS: CORS{Origins: []string{"https://painel.exemplo.com"}}})
+	a.Register(Route{
+		Pattern: "/.well-known/oauth-protected-resource",
+		CORS:    &CORS{Origins: []string{"*"}, Methods: []string{"GET"}},
+		Methods: map[string]HandlerFunc{
+			"GET": func(c *Ctx) error { return c.JSON(http.StatusOK, "x") },
+		},
+	})
+	a.Register(Route{Pattern: "/api", Methods: map[string]HandlerFunc{
+		"GET": func(c *Ctx) error { return c.Text(http.StatusOK, "ok") },
+	}})
+	rec := do(a, "OPTIONS", "/.well-known/oauth-protected-resource", map[string]string{
+		"Origin": "https://cliente.exemplo.com", "Access-Control-Request-Method": "GET",
+	})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("preflight respondeu %d, queria 204", rec.Code)
+	}
+	// E o resto do app segue com a política do app: a lista continua exata.
+	if rec := do(a, "OPTIONS", "/api", map[string]string{
+		"Origin": "https://cliente.exemplo.com", "Access-Control-Request-Method": "GET",
+	}); rec.Code != http.StatusForbidden {
+		t.Fatalf("a política do app respondeu %d para uma origem de fora da lista", rec.Code)
+	}
+}

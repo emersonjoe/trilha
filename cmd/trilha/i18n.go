@@ -128,7 +128,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	// generate
 	"flag gen-force":   {"overwrite the file if it already exists", "sobrescrever o arquivo se já existir"},
 	"flag gen-dir":     {"folder of the component (default internal/components)", "pasta do componente (padrão internal/components)"},
-	"flag gen-methods": {"one handler per method: GET,POST,PUT,PATCH,DELETE", "um handler por método: GET,POST,PUT,PATCH,DELETE"},
+	"flag gen-methods": {"one handler per method: GET,POST,PUT,PATCH,DELETE,OPTIONS", "um handler por método: GET,POST,PUT,PATCH,DELETE,OPTIONS"},
 	"flag gen-bind":    {"type the body binds to; written in the route's package when the project has none", "tipo em que o corpo é lido; nasce no pacote da rota quando o projeto não tem"},
 	"flag gen-form":    {"type the form binds to, with the round trip of errors and the redirect", "tipo em que o formulário é lido, com a ida e volta dos erros e o redirect"},
 	"flag gen-layout":  {"layout.go to write when the folder above the page has none", "layout.go a gravar quando a pasta acima da página não tem um"},
@@ -179,6 +179,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"no critical":         {"\nNo critical items. Review the warnings before publishing.", "\nNenhum item crítico. Revise os avisos antes de publicar."},
 	"secret unset":        {"TRILHA_SECRET not set in this environment", "TRILHA_SECRET não definido neste ambiente"},
 	"secret unset hint":   {"signed cookies (sessions) do not work in production; generate one with: openssl rand -base64 32", "cookies assinados (sessão) não funcionam em produção; gere com: openssl rand -base64 32"},
+	"secret unused":       {"TRILHA_SECRET not set (nothing in this app signs cookies)", "TRILHA_SECRET não definido (nada neste app assina cookie)"},
+	"secret unused hint":  {"nothing here calls SetSigned, Signed or trilha/auth; set it when sessions arrive: openssl rand -base64 32", "nada aqui chama SetSigned, Signed ou trilha/auth; defina quando a sessão chegar: openssl rand -base64 32"},
 	"secret short":        {"TRILHA_SECRET too short", "TRILHA_SECRET curto demais"},
 	"secret short hint":   {"use at least 32 bytes", "use ao menos 32 bytes"},
 	"secret ok":           {"TRILHA_SECRET set", "TRILHA_SECRET definido"},

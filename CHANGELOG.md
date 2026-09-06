@@ -22,6 +22,31 @@ versioning. This file is written in English only.
   with nothing edited by hand.
 - **`--lang en|pt` for `generate`**, like `new`: it chooses the language of the comments in
   the skeleton. Identifiers, field names and error messages stay in English.
+- **`func OPTIONS` is a handler like the others**
+  ([#76](https://github.com/emersonjoe/trilha/issues/76),
+  [#78](https://github.com/emersonjoe/trilha/issues/78)). The scanner knows the method,
+  `MiddlewareOPTIONS` guards it, and a preflight stops falling into the 405 the fallback
+  answers before any middleware runs. The router always routed it; only the scanner was
+  short.
+- **`var CORS = trilha.CORS{...}` in a `route.go`**: the cross-origin policy of that route
+  alone, preflight included. `Config.CORS` is the whole app, and a discovery document under
+  `/.well-known/` is three paths out of ninety — opening the other eighty-seven to reach
+  them would trade a gap for a surface. A route that declares a policy decides alone, and a
+  `func OPTIONS` written by hand still wins over it.
+
+### Changed
+
+- **`trilha audit` asks whether the app signs anything**
+  ([#77](https://github.com/emersonjoe/trilha/issues/77)). A missing `TRILHA_SECRET` is a
+  warning, not a critical item, when nothing in the project calls `SetSigned`, `Signed`,
+  `NewSigner`, sets `Config.Secret` or imports `trilha/auth`. `trilha check` stops at the
+  first failure, so the gate the AGENTS file tells an agent to run was failing on a secret
+  that would sign nothing — and `openapi`, the step that catches regressions, never ran. Set
+  and too short stays critical: whoever set it meant to use it.
+- **A method the router cannot take from a file is an error, not a silent discard**. `func
+  HEAD`, `func TRACE` and `func CONNECT` in a `route.go` stop the generation with
+  `E_UNROUTABLE_METHOD`, line and fix included (HEAD is answered by the `GET` handler since
+  Go 1.22). `var CORS` in a `page.go` is `E_CORS_ON_PAGE`.
 
 ### Documentation
 

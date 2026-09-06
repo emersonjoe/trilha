@@ -9,11 +9,12 @@ description: Tabela completa do que cada arquivo e nome de pasta em app/ signifi
 |---|---|---|---|
 | `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` | rota GET da pasta |
 | `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (opcionais) | `func(c *trilha.Ctx) error` | formulários; CSRF exigido |
-| `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (ao menos um) | `func(c *trilha.Ctx) error` | API JSON da pasta |
+| `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` (ao menos um) | `func(c *trilha.Ctx) error` | API JSON da pasta |
 | `route.go` (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | como erros são renderizados e se há CSRF (veja [Erros](/pt/referencia/erros)) |
+| `route.go` (opcional) | `CORS` | `var CORS = trilha.CORS{...}` | política de origem cruzada só desta rota, preflight incluído |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subárvore |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore |
-| `middleware.go` (opcional) | `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH`, `MiddlewareDELETE` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore, só naquele método |
+| `middleware.go` (opcional) | `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH`, `MiddlewareDELETE`, `MiddlewareOPTIONS` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore, só naquele método |
 | `not_found.go` (só na raiz) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | 404 do app |
 | `error.go` (só na raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | todo status de erro menos o 404 |
 | `setup.go` (só na raiz) | `Setup` | `func(a *trilha.App) error` | antes de servir |
@@ -50,6 +51,30 @@ nome com `_`.
 A ferramenta Go não casa caminho com ponto no padrão `./...`, então `go vet ./...` e `go
 test ./...` não pegam esse pacote como alvo. Ele compila do mesmo jeito: o `trilha_gen.go` o
 importa pelo caminho explícito.
+
+## Origem cruzada numa rota só
+
+`Config.CORS` é a política do app inteiro. Quando só alguns caminhos são públicos — os
+documentos de descoberta em `/.well-known/`, buscados de outra origem por um cliente que
+ainda não tem sessão —, a política mora na rota:
+
+```go
+package oauthresource
+
+// Só esta rota. As outras seguem de mesma origem.
+var CORS = trilha.CORS{Origins: []string{"*"}, Methods: []string{"GET"}}
+
+func GET(c *trilha.Ctx) error { ... }
+```
+
+O framework responde o preflight a partir dela (204 com `Access-Control-Allow-*`, ou 403 se
+a origem ou o método estiverem fora da lista) e põe os cabeçalhos em toda resposta daquela
+rota. A rota que declara a própria política decide sozinha: a lista do app não a alarga nem
+a estreita. Escrever `func OPTIONS` no mesmo arquivo retoma o preflight — o caso comum é
+declarativo, o esquisito continua seu.
+
+`HEAD` não é nome de handler: desde o Go 1.22 o roteador responde HEAD com o handler do
+`GET`.
 
 Precedência: literal vence parâmetro, que vence catch-all. Duas pastas dinâmicas irmãs são
 erro. Duas pastas que gerem a mesma URL (via grupos) são erro.
@@ -91,3 +116,5 @@ própria roda só a da rota.
 | `E_PARSE` | arquivo Go que não compila |
 | `E_NO_APP` | não há pasta `app/` |
 | `E_HIDDEN_ROUTE` | `page.go` ou `route.go` dentro de pasta cujo nome começa com ponto |
+| `E_UNROUTABLE_METHOD` | `func HEAD`, `TRACE` ou `CONNECT`: o roteador não tira esses de um arquivo |
+| `E_CORS_ON_PAGE` | `var CORS` num `page.go` |

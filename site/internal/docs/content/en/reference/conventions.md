@@ -9,11 +9,12 @@ description: Complete table of what each file and folder name in app/ means.
 |---|---|---|---|
 | `page.go` | `Page` | `func(c *trilha.Ctx) (h.Node, error)` | the folder's GET route |
 | `page.go` | `POST`, `PUT`, `PATCH`, `DELETE` (optional) | `func(c *trilha.Ctx) error` | forms; CSRF required |
-| `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (at least one) | `func(c *trilha.Ctx) error` | the folder's JSON API |
+| `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` (at least one) | `func(c *trilha.Ctx) error` | the folder's JSON API |
 | `route.go` (optional) | `Kind` | `var Kind = trilha.KindPage` or `KindAPI` | how errors are rendered and whether CSRF applies (see [Errors](/reference/errors)) |
+| `route.go` (optional) | `CORS` | `var CORS = trilha.CORS{...}` | cross-origin policy of this route alone, preflight included |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subtree |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree |
-| `middleware.go` (optional) | `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH`, `MiddlewareDELETE` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree, that method only |
+| `middleware.go` (optional) | `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH`, `MiddlewareDELETE`, `MiddlewareOPTIONS` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree, that method only |
 | `not_found.go` (root only) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | the app's 404 |
 | `error.go` (root only) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | every error status but 404 |
 | `setup.go` (root only) | `Setup` | `func(a *trilha.App) error` | before serving |
@@ -49,6 +50,29 @@ of the routing on purpose, start its name with `_`.
 The Go tool does not match a path with a dot in `./...`, so `go vet ./...` and `go test
 ./...` skip that package as a target. It still compiles: `trilha_gen.go` imports it by its
 explicit path.
+
+## Cross-origin on one route
+
+`Config.CORS` is the policy of the whole app. When only a few paths are public — the
+discovery documents under `/.well-known/`, fetched from another origin by a client that has
+no session yet — the route carries its own:
+
+```go
+package oauthresource
+
+// Only this route. The other routes stay same-origin.
+var CORS = trilha.CORS{Origins: []string{"*"}, Methods: []string{"GET"}}
+
+func GET(c *trilha.Ctx) error { ... }
+```
+
+The framework answers the preflight from the policy (204 with `Access-Control-Allow-*`, or
+403 for an origin or method that is not on the list) and adds the headers to every response
+of that route. A route that declares its own policy decides alone: the app-wide list neither
+widens nor narrows it. Writing `func OPTIONS` in the same file takes the preflight back —
+the common case is declarative, the odd one is still yours.
+
+`HEAD` is not a handler name: since Go 1.22 the router answers HEAD with the `GET` handler.
 
 Precedence: literal beats parameter, which beats catch-all. Two sibling dynamic folders are
 an error. Two folders producing the same URL (through groups) are an error.
@@ -90,3 +114,5 @@ chain of its own just runs the route's.
 | `E_PARSE` | Go file that does not compile |
 | `E_NO_APP` | there is no `app/` folder |
 | `E_HIDDEN_ROUTE` | `page.go` or `route.go` inside a folder whose name starts with a dot |
+| `E_UNROUTABLE_METHOD` | `func HEAD`, `TRACE` or `CONNECT`: the router does not take those from a file |
+| `E_CORS_ON_PAGE` | `var CORS` in a `page.go` |

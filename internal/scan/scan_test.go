@@ -359,3 +359,46 @@ func TestHiddenRouteIsReported(t *testing.T) {
 		t.Fatalf("the message has to name the exception and carry a fix: %+v", errs[0])
 	}
 }
+
+func TestOptionsIsARoutableMethod(t *testing.T) {
+	res, errs := scanApp(t, "cors")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	byPat := map[string]Route{}
+	for _, r := range res.Routes {
+		byPat[r.Pattern] = r
+	}
+	api := byPat["/api"]
+	if strings.Join(api.Methods, ",") != "GET,OPTIONS" {
+		t.Fatalf("a preflight written by hand is a handler like the others: %v", api.Methods)
+	}
+	if refs(api.MiddlewaresByMethod["OPTIONS"]) != "app_api.MiddlewareOPTIONS" {
+		t.Fatalf("MiddlewareOPTIONS guards the method: %v", api.MiddlewaresByMethod)
+	}
+	if api.HasCORS {
+		t.Fatal("this route declares no var CORS")
+	}
+	doc := byPat["/.well-known/oauth-protected-resource"]
+	if !doc.HasCORS {
+		t.Fatal("var CORS in route.go is the route's own policy and has to reach the generator")
+	}
+}
+
+func TestUnroutableMethodIsReported(t *testing.T) {
+	_, errs := scanApp(t, "err_unroutable_method")
+	if len(errs) != 1 || errs[0].Code != ErrUnroutableMethod {
+		t.Fatalf("want one %s, got %v", ErrUnroutableMethod, errs)
+	}
+	e := errs[0]
+	if e.File != "app/arquivos/route.go" || e.Line == 0 || !strings.Contains(e.Msg, "GET already answers HEAD") {
+		t.Fatalf("the message points at the line and says what answers instead: %+v", e)
+	}
+}
+
+func TestCORSOnPageIsReported(t *testing.T) {
+	_, errs := scanApp(t, "err_cors_on_page")
+	if len(errs) != 1 || errs[0].Code != ErrCORSOnPage || errs[0].File != "app/page.go" {
+		t.Fatalf("want one %s about app/page.go, got %v", ErrCORSOnPage, errs)
+	}
+}

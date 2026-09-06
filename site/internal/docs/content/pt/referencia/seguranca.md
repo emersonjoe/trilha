@@ -117,3 +117,10 @@ por requisição.
 Verifica: `TRILHA_SECRET`, `TRILHA_TRUSTED_PROXIES`, `trilha_gen.go` atualizado, versão do
 Go, `.gitignore`, `go vet` e `govulncheck` (`--no-vuln` para pular). Código de saída 1 com
 item crítico.
+
+`TRILHA_SECRET` ausente só é crítico quando o código assina alguma coisa — `SetSigned`,
+`Signed`, um `Signer` próprio, `Config.Secret` ou o pacote `auth`. Num app cuja sessão não é
+a do Trilha, vira aviso: um segredo que não assina nada entra no `.env`, no deploy e na
+rotação, e no dia em que alguém o girar não acontece nada — que é a pior coisa que um
+segredo pode ensinar. Definido e curto demais segue crítico nos dois casos: quem definiu
+quis usar.

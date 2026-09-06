@@ -635,3 +635,23 @@ func TestWellKnownSecurityTxt(t *testing.T) {
 		t.Errorf("content-type %q", ct)
 	}
 }
+
+// #76/#78 — o documento do /.well-known/ é buscado de outra origem, e a
+// política é dele: o preflight responde aqui sem que as outras 14 rotas do blog
+// deixem de ser de mesma origem.
+func TestWellKnownRespondePreflight(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.Request("OPTIONS", "/.well-known/security.txt",
+		trilha.WithHeader("Origin", "https://cliente.exemplo.com"),
+		trilha.WithHeader("Access-Control-Request-Method", "GET"))
+	rec.WantStatus(204).WantHeader("Access-Control-Allow-Origin", "*")
+
+	doc := c.Get("/.well-known/security.txt", trilha.WithHeader("Origin", "https://cliente.exemplo.com"))
+	doc.WantStatus(200).WantHeader("Access-Control-Allow-Origin", "*")
+
+	// A rota vizinha continua fechada, que é a razão de a política ser por rota.
+	if got := c.Get("/api/posts", trilha.WithHeader("Origin", "https://cliente.exemplo.com")).
+		Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("a API do blog ganhou a política do documento: %q", got)
+	}
+}

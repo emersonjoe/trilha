@@ -152,6 +152,9 @@ func (g *generator) route(root string, r scan.Route) (*pathItem, error) {
 	}
 	item := &pathItem{Parameters: pathParams(r.Pattern)}
 	for _, m := range r.Methods {
+		if m == "OPTIONS" {
+			continue // preflight is CORS mechanics, not an operation of the API
+		}
 		fn, ok := funcs[m]
 		if !ok || fn.Body == nil {
 			continue

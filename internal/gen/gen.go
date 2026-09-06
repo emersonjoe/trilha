@@ -91,6 +91,9 @@ func {{.Ctor}}() *trilha.App {
 {{- if .HasKind}}
 		Kind: {{.Alias}}.Kind,
 {{- end}}
+{{- if .HasCORS}}
+		CORS: &{{.Alias}}.CORS,
+{{- end}}
 {{- if .Methods}}
 		Methods: map[string]trilha.HandlerFunc{
 {{- range .Methods}}

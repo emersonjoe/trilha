@@ -82,3 +82,42 @@ func TestAuditoriaDeHost(t *testing.T) {
 		t.Errorf("com a variável de ambiente o nível é %q", got.level)
 	}
 }
+
+// #77 — o segredo ausente só é crítico no app que assina alguma coisa. Num app
+// que nunca chama SetSigned, exigir a variável é ensinar a guardar um segredo
+// que não protege nada — e o check parava antes do openapi por causa dele.
+func TestAuditoriaDoSegredoOlhaOCodigo(t *testing.T) {
+	acha := func(t *testing.T, cs []check) check {
+		t.Helper()
+		for _, c := range cs {
+			if strings.Contains(c.title, "TRILHA_SECRET") {
+				return c
+			}
+		}
+		t.Fatal("a auditoria não olhou o TRILHA_SECRET")
+		return check{}
+	}
+	escreve := func(t *testing.T, src string) string {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	semAssinatura := escreve(t, "package main\n\nfunc main() {}\n")
+	comAssinatura := escreve(t, "package main\n\nfunc h(c *trilha.Ctx) error { return c.SetSigned(\"s\", \"1\", 0) }\n")
+	t.Setenv("TRILHA_SECRET", "")
+
+	if got := acha(t, runAudit(&project{Root: semAssinatura}, false)); got.level != "warn" {
+		t.Errorf("num app que não assina nada o nível é %q, queria warn", got.level)
+	}
+	if got := acha(t, runAudit(&project{Root: comAssinatura}, false)); got.level != "critical" {
+		t.Errorf("num app que chama SetSigned o nível é %q, queria critical", got.level)
+	}
+	// Definido e curto continua crítico nos dois: quem definiu quis usar.
+	t.Setenv("TRILHA_SECRET", "curto")
+	if got := acha(t, runAudit(&project{Root: semAssinatura}, false)); got.level != "critical" {
+		t.Errorf("segredo curto demais é %q", got.level)
+	}
+}

@@ -238,6 +238,22 @@ answer is what shows up in the network tab. A **simple** request from an unliste
 served as usual, only without the CORS headers: it is the browser that hides the response
 from the script, and a client that is not a browser was never the one being protected here.
 
+### When only a few paths are public
+
+`Config.CORS` is the app. A discovery document under `/.well-known/`, fetched from another
+origin by a client that has no session yet, is three paths out of ninety — and opening the
+other eighty-seven to fix three trades a gap for a surface. Those routes carry their own
+policy, in the `route.go` that serves them:
+
+```go
+var CORS = trilha.CORS{Origins: []string{"*"}, Methods: []string{"GET"}}
+```
+
+The route answers its own preflight, with the same checks and the same 403; the rest of the
+app stays same-origin. A route that declares a policy decides alone — the app-wide list does
+not narrow it, and it does not widen the app-wide list for anybody else. See
+[Conventions](/reference/conventions).
+
 ## What remains yours
 
 - **Authentication and authorization**: who the user is and what they may do. Trilha gives

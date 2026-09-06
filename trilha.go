@@ -204,6 +204,11 @@ type Route struct {
 	// APIs, except that a browser navigation (Accept: text/html, outside
 	// /api/) gets HTML error pages. route.go may export `var Kind = trilha.KindPage`.
 	Kind RouteKind
+	// CORS is the cross-origin policy of this route alone, from
+	// `var CORS = trilha.CORS{...}` in route.go. It answers the preflight and
+	// adds the headers to every response of the route, leaving the rest of the
+	// app same-origin. Nil means only the app-wide Config.CORS decides.
+	CORS *CORS
 }
 
 // RouteKind is the error/CSRF behaviour of a Route; see Route.Kind.
@@ -398,6 +403,24 @@ func (a *App) SetNotFound(p PageFunc) { a.notFound = p }
 // SetErrorPage sets the page rendered on 500 (app/error.go).
 func (a *App) SetErrorPage(e ErrorPageFunc) { a.errorPage = e }
 
+// routeOwnsCORS reports whether the path is served by a route with a policy of
+// its own. Looked up only when the app has an app-wide policy to skip.
+func (a *App) routeOwnsCORS(r *http.Request) bool {
+	if a.cors == nil || r.Header.Get("Origin") == "" {
+		return false
+	}
+	_, pat := a.pathMux.Handler(r)
+	if pat == "" {
+		return false
+	}
+	key := strings.TrimSuffix(pat, "{$}")
+	if key != "/" {
+		key = strings.TrimSuffix(key, "/")
+	}
+	rt, ok := a.routes[key]
+	return ok && rt.CORS != nil
+}
+
 // Handler returns the root http.Handler (useful for tests and embedding).
 // Like ListenAndServe, it reapplies Config changes made in Setup.
 func (a *App) Handler() http.Handler {
@@ -413,8 +436,10 @@ func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Before the router, so the preflight is answered for any route and for
-	// the static files, which never reach wrap.
-	if a.cors != nil && a.cors.handle(w, r) {
+	// the static files, which never reach wrap. A route that declared its own
+	// var CORS is the exception: its policy decides alone, or an app-wide list
+	// could never be widened for the three paths that need it.
+	if a.cors != nil && !a.routeOwnsCORS(r) && a.cors.handle(w, r) {
 		return
 	}
 	if (a.obsHealth != "" || a.obsMetrics != "") && a.serveObservability(w, r) {
