@@ -9,6 +9,7 @@ import (
 
 	trilha "github.com/emersonjoe/trilha"
 	app "github.com/emersonjoe/trilha/examples/blog/app"
+	app__well_known_security_txt "github.com/emersonjoe/trilha/examples/blog/app/.well-known/security.txt"
 	app_admin "github.com/emersonjoe/trilha/examples/blog/app/admin"
 	app_anexos "github.com/emersonjoe/trilha/examples/blog/app/anexos"
 	app_api "github.com/emersonjoe/trilha/examples/blog/app/api"
@@ -48,6 +49,13 @@ func newApp() *trilha.App {
 		Pattern:     "/",
 		Page:        app.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/.well-known/security.txt",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app__well_known_security_txt.GET,
+		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{

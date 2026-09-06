@@ -624,3 +624,14 @@ func TestDoisAppsNoMesmoProcesso(t *testing.T) {
 		t.Fatal("o primeiro app perdeu o próprio post")
 	}
 }
+
+// #75 — /.well-known/ é a exceção do ponto no começo do nome: a pasta vira
+// rota como qualquer outra, e a URL que a RFC 9116 exige responde de verdade.
+func TestWellKnownSecurityTxt(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.Get("/.well-known/security.txt")
+	rec.WantStatus(200).WantContains("Contact: mailto:")
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "text/plain") {
+		t.Errorf("content-type %q", ct)
+	}
+}

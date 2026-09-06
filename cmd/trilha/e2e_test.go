@@ -188,6 +188,34 @@ func TestE2E(t *testing.T) {
 	os.RemoveAll(filepath.Join(proj, "app", "nova"))
 	run(t, proj, cli, "gen")
 
+	// #75: /.well-known/ is the one dot folder that becomes a route — and it has
+	// to compile, since the Go tool does not match its import path in ./... .
+	wk := filepath.Join(proj, "app", ".well-known", "security.txt")
+	os.MkdirAll(wk, 0o755)
+	os.WriteFile(filepath.Join(wk, "route.go"),
+		[]byte("package security\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc GET(c *trilha.Ctx) error { return c.Text(200, \"Contact: mailto:x@example.com\\n\") }\n"), 0o644)
+	run(t, proj, cli, "gen")
+	if out := run(t, proj, cli, "routes"); !strings.Contains(out, "/.well-known/security.txt") {
+		t.Fatalf("the .well-known route must be listed: %s", out)
+	}
+	run(t, proj, cli, "build", "-o", "bin/app")
+	os.RemoveAll(filepath.Join(proj, "app", ".well-known"))
+
+	// Every other dot folder still disappears, but it says so instead of
+	// answering 404 later.
+	os.MkdirAll(filepath.Join(proj, "app", ".oauth"), 0o755)
+	os.WriteFile(filepath.Join(proj, "app", ".oauth", "route.go"),
+		[]byte("package oauth\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc GET(c *trilha.Ctx) error { return c.Text(200, \"x\") }\n"), 0o644)
+	hidden := exec.Command(cli, "gen")
+	hidden.Dir = proj
+	if out, err := hidden.CombinedOutput(); err == nil {
+		t.Fatalf("a route inside a dot folder must not pass in silence: %s", out)
+	} else if !strings.Contains(string(out), "app/.oauth/route.go") || !strings.Contains(string(out), ".well-known") {
+		t.Fatalf("the error must name the file and the exception: %s", out)
+	}
+	os.RemoveAll(filepath.Join(proj, "app", ".oauth"))
+	run(t, proj, cli, "gen")
+
 	run(t, proj, cli, "export", "-o", "out")
 	for _, f := range []string{"out/index.html", "out/404.html", "out/style.css", "out/.trilha-export"} {
 		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {
