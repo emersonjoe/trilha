@@ -5,6 +5,29 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.20.0 — 2026-09-05
+
+### Added
+- `Config.CORS` ([#29](https://github.com/emersonjoe/trilha/issues/29)): the cross-origin
+  policy of the app in one place — `Origins` (exact, or the single entry `"*"`), `Methods`,
+  `Headers`, `Expose`, `Credentials` and `MaxAge`. The zero value is off: no header is added
+  and `OPTIONS` keeps reaching the router.
+- The `OPTIONS` preflight is answered by the framework, before the router, so it works on
+  every route and on static files: 204 with `Allow-Origin`, `Allow-Methods`, `Allow-Headers`
+  and `Max-Age` for an allowed origin and method, 403 otherwise.
+- `examples/blog` opens `/api` to one origin, with the preflight covered by an integration
+  test.
+
+### Notes
+- An unsafe or malformed policy panics in `New`, not on the first request from outside:
+  `"*"` together with `Credentials`, `"*"` mixed with other origins, and an origin with a
+  path, a trailing slash or no scheme.
+- `Vary: Origin` goes out with every response that carries an `Origin`, so a shared cache
+  never serves the allowed origin's response to somebody else.
+- A **simple** request from an unlisted origin is served as usual, only without the CORS
+  headers: the browser is what hides the response from the script. Only the preflight is
+  refused with a status.
+
 ## 0.19.0 — 2026-09-05
 
 ### Added

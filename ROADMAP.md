@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.19.0)
+## Onde o Trilha está (setembro de 2026, v0.20.0)
 
 | Área da avaliação | Estado | Onde |
 |---|---|---|
@@ -22,7 +22,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors` e validação por tag, fragmentos, ilhas, navegação no cliente e upload com progresso | specs 006, 009, 018, 022, 023, 024, 027 |
 | Dados | funções Go comuns, sem loader mágico; `cache` com prazo, tags, invalidação, voo único e memo por requisição; `ETag`/`Last-Modified`/`304` no `Ctx` e no estático | por decisão, specs 025 e 026 |
 | Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak, Cognito) com PKCE, sessão, papéis e logout | specs 004, 016, 020 |
-| Segurança | CSP com nonce, HSTS, COOP, `Permissions-Policy`, proxies confiáveis, timeouts, limite de corpo (global e por rota), upload com tipo pelo conteúdo e nome seguro, `trilha audit` | specs 004, 024, 028 |
+| Segurança | CSP com nonce, HSTS, COOP, `Permissions-Policy`, proxies confiáveis, timeouts, limite de corpo (global e por rota), upload com tipo pelo conteúdo e nome seguro, CORS configurável, `trilha audit` | specs 004, 024, 028, 029 |
 | Observabilidade | sondas de vida e prontidão, métricas Prometheus, `traceparent`, eventos de segurança, log de requisição com filtro | specs 014, 021 |
 | API | JSON, erros de API, SSE, `route.go` com `Kind` | specs 001, 005, 008 |
 | SSG | `trilha export`, `AddExportPath`, `BasePath` | spec 003 |
@@ -32,7 +32,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Desempenho | módulo `bench/`, resultados publicados, metodologia | spec 011 |
 | Comunidade | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, GOVERNANCE, templates, CODEOWNERS | spec 004 |
 
-Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.19.0 — a
+Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.20.0 — a
 avaliação enxergou o projeto num ponto anterior. O que sobra, sobra de verdade.
 
 ## O que vamos fazer
@@ -81,7 +81,7 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 
 ### Fase 3 — Produção e API
 
-11. [#29](https://github.com/emersonjoe/trilha/issues/29) CORS.
+11. ~~[#29](https://github.com/emersonjoe/trilha/issues/29) CORS.~~ **Entregue na 0.20.0** (spec 029).
 12. [#30](https://github.com/emersonjoe/trilha/issues/30) Negociação de conteúdo e erro de API padronizado (RFC 9457, `application/problem+json`).
 13. [#31](https://github.com/emersonjoe/trilha/issues/31) Geração de OpenAPI a partir das rotas registradas.
 14. [#32](https://github.com/emersonjoe/trilha/issues/32) Auxiliares de teste (`trilha.TestRequest`, `TestPage`, `TestRoute`).

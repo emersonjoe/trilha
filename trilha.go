@@ -77,6 +77,8 @@ type Config struct {
 	// Observability configures the health probes, the metrics endpoint and
 	// what each of them reveals.
 	Observability Observability
+	// CORS allows other origins to call this app (zero value = off).
+	CORS CORS
 }
 
 // Timeouts are the http.Server limits. Zero fields get defaults; NoTimeout
@@ -210,6 +212,7 @@ type App struct {
 	exportExtra []string
 	proxies     []netip.Prefix
 	limiter     *limiter
+	cors        *corsPolicy
 	signer      *Signer
 
 	metrics    *Metrics
@@ -278,6 +281,7 @@ func (a *App) applyConfig() {
 	a.metrics.log = cfg.Logger
 	a.parseProxies()
 	a.parseMounts()
+	a.cors = newCORSPolicy(cfg.CORS)
 	a.applyObservability()
 	if cfg.RateLimit.RPS > 0 {
 		if a.limiter == nil || a.limiter.cfg != cfg.RateLimit {
@@ -333,6 +337,11 @@ func (a *App) Handler() http.Handler {
 
 // serveHTTP answers the observability endpoints first, then routes.
 func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	// Before the router, so the preflight is answered for any route and for
+	// the static files, which never reach wrap.
+	if a.cors != nil && a.cors.handle(w, r) {
+		return
+	}
 	if (a.obsHealth != "" || a.obsMetrics != "") && a.serveObservability(w, r) {
 		return
 	}

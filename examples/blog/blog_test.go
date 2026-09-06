@@ -565,3 +565,32 @@ func TestPostRespondeComETag(t *testing.T) {
 		t.Fatalf("depois de republicar: %d", novo.Code)
 	}
 }
+
+// #29 — o preflight do painel de outra origem é respondido pelo framework, e
+// quem não está na lista não passa dele.
+func TestCORSDoPainel(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.do("OPTIONS", "/api/posts", "", map[string]string{
+		"Origin": "https://painel.exemplo.com", "Access-Control-Request-Method": "POST",
+	})
+	if rec.Code != 204 {
+		t.Fatalf("preflight = %d, quero 204", rec.Code)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://painel.exemplo.com" {
+		t.Errorf("allow-origin = %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Max-Age"); got != "600" {
+		t.Errorf("max-age = %q", got)
+	}
+	rec = c.do("OPTIONS", "/api/posts", "", map[string]string{
+		"Origin": "https://atacante.net", "Access-Control-Request-Method": "POST",
+	})
+	if rec.Code != 403 || rec.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Errorf("origem de fora: %d %q", rec.Code, rec.Header().Get("Access-Control-Allow-Origin"))
+	}
+	// A leitura simples do painel continua funcionando, agora com o cabeçalho.
+	rec = c.do("GET", "/api/posts", "", map[string]string{"Origin": "https://painel.exemplo.com"})
+	if rec.Code != 200 || rec.Header().Get("Access-Control-Allow-Origin") == "" {
+		t.Errorf("GET do painel: %d sem allow-origin", rec.Code)
+	}
+}

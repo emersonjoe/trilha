@@ -25,6 +25,8 @@ type Config struct {
 	LogRequest   func(c *Ctx, status int, dur time.Duration) bool // nil logs every request
 	OnSecurityEvent func(SecurityEvent)
 	DevReload    string       // trilha.Off disables the reload script in dev; TRILHA_DEV_RELOAD=off
+	Observability Observability // health probes and the metrics endpoint
+	CORS         CORS         // origins allowed to call the app (zero value = off)
 }
 ```
 
@@ -43,12 +45,30 @@ value is read:
 | Fields | Read at | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
 | `Security`, `Public`, `MaxBodyBytes`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | every request | ✓ | ✓ |
-| `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies` | derived in `New` and **reapplied** when serving starts (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
+| `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS` | derived in `New` and **reapplied** when serving starts (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
 | `Env` | `New` (ephemeral key in dev) and per request | ✓ | partial |
 
 Use `Config` when you want to build the configuration from your own package (file, Vault,
 flags) instead of the environment.
+
+### CORS
+
+`CORS` is off while `Origins` is empty: no header is added, and `OPTIONS` keeps reaching the
+router.
+
+| Field | Meaning |
+|---|---|
+| `Origins []string` | exact origins (`https://app.example.com`), or the single entry `"*"` |
+| `Methods []string` | default `GET, HEAD, POST, PUT, PATCH, DELETE` |
+| `Headers []string` | what the client may send; default `Content-Type, Authorization, X-CSRF-Token, Trilha-Fragment` |
+| `Expose []string` | response headers the other origin's script may read |
+| `Credentials bool` | allows cookies and `Authorization`; incompatible with `"*"` |
+| `MaxAge time.Duration` | how long the browser caches the preflight; zero omits the header |
+
+An unsafe or malformed policy panics in `New` (`"*"` with `Credentials`, `"*"` mixed with
+other origins, an origin with a path, a trailing slash or no scheme). See
+[Security](/learn/security) for why.
 
 ### Timeouts
 

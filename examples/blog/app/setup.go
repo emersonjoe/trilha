@@ -38,6 +38,14 @@ func Config(cfg *trilha.Config) error {
 	cfg.LogRequest = func(c *trilha.Ctx, status int, _ time.Duration) bool {
 		return status >= 400 || !strings.HasPrefix(c.Request().URL.Path, "/icones/")
 	}
+	// A /api é chamada pelo painel que mora em outro endereço. A lista é
+	// exata: subdomínio curinga é onde o CORS costuma vazar. Sem credencial,
+	// porque o painel manda token no cabeçalho, não cookie.
+	cfg.CORS = trilha.CORS{
+		Origins: []string{"https://painel.exemplo.com"},
+		Methods: []string{"GET", "POST", "DELETE"},
+		MaxAge:  10 * time.Minute,
+	}
 	// Aqui é onde a configuração do próprio app é lida — e onde ela falha.
 	if v := os.Getenv("BLOG_CACHE_SEGUNDOS"); v != "" {
 		n, err := strconv.Atoi(v)

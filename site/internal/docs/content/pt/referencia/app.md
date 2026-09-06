@@ -25,6 +25,8 @@ type Config struct {
 	LogRequest   func(c *Ctx, status int, dur time.Duration) bool // nil loga todas
 	OnSecurityEvent func(SecurityEvent)
 	DevReload    string       // trilha.Off desliga o script de recarga em dev; TRILHA_DEV_RELOAD=off
+	Observability Observability // sondas de saúde e o endereço de métricas
+	CORS         CORS         // origens que podem chamar o app (zero = desligado)
 }
 ```
 
@@ -43,12 +45,30 @@ só *quando* o valor é lido:
 | Campos | Lidos em | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
 | `Security`, `Public`, `MaxBodyBytes`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | a cada requisição | ✓ | ✓ |
-| `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies` | derivados em `New` e **reaplicados** ao começar a servir (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
+| `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS` | derivados em `New` e **reaplicados** ao começar a servir (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
 | `Env` | `New` (chave efêmera em dev) e por requisição | ✓ | parcial |
 
 Use `Config` quando quiser montar a configuração a partir do seu próprio pacote (arquivo,
 Vault, flags) em vez do ambiente.
+
+### CORS
+
+`CORS` fica desligado enquanto `Origins` estiver vazio: nenhum cabeçalho novo, e o `OPTIONS`
+continua chegando ao roteador.
+
+| Campo | Papel |
+|---|---|
+| `Origins []string` | origens exatas (`https://app.exemplo.com`), ou a entrada única `"*"` |
+| `Methods []string` | padrão `GET, HEAD, POST, PUT, PATCH, DELETE` |
+| `Headers []string` | o que o cliente pode mandar; padrão `Content-Type, Authorization, X-CSRF-Token, Trilha-Fragment` |
+| `Expose []string` | cabeçalhos de resposta que o script da outra origem pode ler |
+| `Credentials bool` | libera cookie e `Authorization`; incompatível com `"*"` |
+| `MaxAge time.Duration` | quanto o navegador guarda o preflight; zero omite o cabeçalho |
+
+Política insegura ou malformada entra em pânico no `New` (`"*"` com `Credentials`, `"*"`
+misturado com outras origens, origem com caminho, barra no fim ou sem esquema). O porquê
+está em [Segurança](/pt/aprender/seguranca).
 
 ### Timeouts
 

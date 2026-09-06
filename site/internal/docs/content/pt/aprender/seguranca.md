@@ -172,6 +172,42 @@ um bucket, um banco) e **quem** pode mandar. E arquivo que o app devolve sai por
 sua, com o tipo que você decidiu — nunca entregando o diretório de upload para o
 `http.FileServer`.
 
+## Outra origem chamando seu app
+
+O navegador só deixa um script ler a resposta de outra origem quando o servidor autoriza.
+Autorize em um lugar só, `Config.CORS`, com a lista de origens escrita por extenso:
+
+```go
+func Config(cfg *trilha.Config) error {
+	cfg.CORS = trilha.CORS{
+		Origins: []string{"https://painel.exemplo.com"},
+		Methods: []string{"GET", "POST", "DELETE"},
+		MaxAge:  10 * time.Minute,
+	}
+	return nil
+}
+```
+
+Com isso o preflight `OPTIONS` é respondido pelo framework, antes do roteador — então vale
+em qualquer rota, inclusive nos arquivos estáticos — e toda resposta para uma origem
+liberada leva `Access-Control-Allow-Origin` e `Vary: Origin`.
+
+Três coisas que o middleware caseiro costuma errar, e que este não erra:
+
+- **`"*"` com credencial é recusado na subida, não em runtime.** `Origins:
+  []string{"*"}` serve uma API pública; no instante em que você põe `Credentials: true` do
+  lado, o `New` entra em pânico. O "conserto" habitual dessa dupla — ecoar de volta qualquer
+  `Origin` que chegue — entrega a sessão dos seus usuários a qualquer site que peça.
+- **A lista de origens é exata.** Sem subdomínio curinga: `https://app.exemplo.com` é uma
+  entrada, e `exemplo.com.atacante.net` nunca casa por acidente.
+- **O `Vary: Origin` sempre sai**, para um cache na frente do app nunca servir a resposta da
+  origem liberada para outra pessoa.
+
+Preflight de origem que ninguém listou volta 403 — o navegador está perguntando, e resposta
+clara é o que aparece na aba de rede. Já a requisição **simples** de origem não listada é
+servida como sempre, só que sem os cabeçalhos de CORS: quem esconde a resposta do script é o
+navegador, e o cliente que não é navegador nunca foi quem estava sendo protegido aqui.
+
 ## O que continua sendo seu
 
 - **Autenticação e autorização**: quem é o usuário e o que pode fazer. O Trilha dá o

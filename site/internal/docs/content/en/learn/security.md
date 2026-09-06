@@ -171,6 +171,42 @@ a database) and **who** may send it. And a file the app serves back is served fr
 of yours, with the type you decided — never by handing the upload directory to
 `http.FileServer`.
 
+## Another origin calling your app
+
+The browser only lets a script read a response from another origin when the server says so.
+Say it in one place, `Config.CORS`, with the list of origins spelled out:
+
+```go
+func Config(cfg *trilha.Config) error {
+	cfg.CORS = trilha.CORS{
+		Origins: []string{"https://panel.example.com"},
+		Methods: []string{"GET", "POST", "DELETE"},
+		MaxAge:  10 * time.Minute,
+	}
+	return nil
+}
+```
+
+With that, the `OPTIONS` preflight is answered by the framework, before the router — so it
+works on every route, including static files — and every response to an allowed origin
+carries `Access-Control-Allow-Origin` and `Vary: Origin`.
+
+Three things the hand-written middleware usually gets wrong, and that this one does not:
+
+- **`"*"` with credentials is refused at boot, not at runtime.** `Origins: []string{"*"}`
+  serves a public API; the moment you set `Credentials: true` next to it, `New` panics. The
+  usual "fix" for that pair — echoing back whatever `Origin` arrives — hands your users'
+  session to any site that asks.
+- **The origin list is exact.** No wildcard subdomains: `https://app.example.com` is one
+  entry, and `example.com.attacker.net` never matches by accident.
+- **`Vary: Origin` always goes out**, so a cache in front of the app never serves the
+  allowed origin's response to somebody else.
+
+A preflight from an origin nobody listed gets 403 — the browser is asking, and a plain
+answer is what shows up in the network tab. A **simple** request from an unlisted origin is
+served as usual, only without the CORS headers: it is the browser that hides the response
+from the script, and a client that is not a browser was never the one being protected here.
+
 ## What remains yours
 
 - **Authentication and authorization**: who the user is and what they may do. Trilha gives
