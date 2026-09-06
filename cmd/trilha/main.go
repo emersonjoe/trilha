@@ -19,7 +19,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.35.0"
+const version = "0.36.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -46,6 +46,8 @@ func main() {
 		err = cmdOpenAPI(os.Args[2:])
 	case "ui":
 		err = cmdUI(os.Args[2:])
+	case "agents":
+		err = cmdAgents(os.Args[2:])
 	case "audit":
 		err = cmdAudit(os.Args[2:])
 	case "version", "-v", "--version":

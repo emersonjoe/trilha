@@ -194,7 +194,7 @@ func TestChaptersHaveChallengeAndSolution(t *testing.T) {
 func TestInternalLinksResolve(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "")
 	known := map[string]bool{}
-	for _, p := range allPaths() {
+	for _, p := range append(allPaths(), llmsPaths()...) {
 		known[p] = true
 	}
 	re := regexp.MustCompile(`href="(/[^"#?]*)`)
@@ -365,4 +365,56 @@ func repoGoSources(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return b.String()
+}
+
+// llmsPaths lists the plain-text documentation of every locale.
+func llmsPaths() []string {
+	var out []string
+	for _, l := range docs.Locales {
+		out = append(out, l.Prefix+"/llms.txt", l.Prefix+"/llms-full.txt")
+	}
+	return out
+}
+
+func TestLLMsRoutes(t *testing.T) {
+	for _, p := range llmsPaths() {
+		rec := request(t, p)
+		if rec.Code != 200 {
+			t.Errorf("%s = %d", p, rec.Code)
+			continue
+		}
+		if ct := rec.Header().Get("Content-Type"); ct != "text/plain; charset=utf-8" {
+			t.Errorf("%s content-type = %q", p, ct)
+		}
+		if !strings.HasPrefix(rec.Body.String(), "# Trilha\n") {
+			t.Errorf("%s does not open with the site name", p)
+		}
+	}
+	// The index of a locale lists that locale's pages and links nowhere else.
+	_, body := get(t, "/llms.txt")
+	for _, p := range docs.Pages("en") {
+		if !strings.Contains(body, "]("+p.Path()+"):") {
+			t.Errorf("/llms.txt misses %s", p.Path())
+		}
+	}
+	if strings.Contains(body, "](/pt/") {
+		t.Error("/llms.txt links into the Portuguese site")
+	}
+	if _, body := get(t, "/pt/llms.txt"); !strings.Contains(body, "](/pt/aprender):") {
+		t.Error("/pt/llms.txt misses its own section")
+	}
+	// The full text carries the code blocks, which is what it is for.
+	if _, body := get(t, "/llms-full.txt"); !strings.Contains(body, "```go") {
+		t.Error("/llms-full.txt lost the code blocks")
+	}
+}
+
+func TestLLMsExported(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	got := " " + strings.Join(newApp().ExportPaths(), " ") + " "
+	for _, p := range llmsPaths() {
+		if !strings.Contains(got, " "+p+" ") {
+			t.Errorf("export misses %s", p)
+		}
+	}
 }

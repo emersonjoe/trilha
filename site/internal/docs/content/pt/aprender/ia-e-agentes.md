@@ -132,6 +132,35 @@ Proteja a rota como qualquer API (middleware com token, limite de taxa). O servi
 `Mcp-Session-Id` no `initialize` e rejeita mensagens sem sessão. Para hosts que preferem
 stdio, `servidor.ServeStdio(ctx, os.Stdin, os.Stdout)` em um `main` separado.
 
+## Seu projeto explicado para um agente
+
+Os capítulos acima falam do agente que a sua aplicação executa. Esta seção fala do agente que
+edita a sua aplicação — Claude Code, Cursor, Copilot — e do arquivo que ele lê primeiro.
+
+```bash
+trilha agents             # num projeto que já existe
+trilha new loja --agents  # já na criação
+```
+
+Ele grava dois arquivos na raiz. O `AGENTS.md` é do framework: as três convenções, os comandos
+e o que cada um verifica, e o que não fazer (editar `trilha_gen.go`, acrescentar dependência,
+pôr segredo no código). O `CLAUDE.md` é seu: três linhas apontando para o `AGENTS.md` e espaço
+para o que este repositório precisar.
+
+Nenhum dos dois existe sem que você peça. Suporte a agentes é escolha do time, não convenção do
+framework, então `trilha new` sozinho deixa seu projeto exatamente como deixava antes.
+
+O `AGENTS.md` é atualizado como o kit ui: ele leva o hash do próprio corpo, então uma cópia
+intocada de uma versão anterior é regravada em silêncio e uma que você editou pede `--force`.
+Acrescente suas regras nele e elas sobrevivem à próxima atualização — o comando recusa em vez
+de sobrescrever.
+
+:::note
+Esta documentação também é publicada em texto puro, muito mais barato para um agente ler do que
+o HTML em volta: o [/pt/llms.txt](/pt/llms.txt) é o índice, uma linha por página, e o
+[/pt/llms-full.txt](/pt/llms-full.txt) é tudo concatenado, blocos de código inclusive.
+:::
+
 ## Desafio
 
 Dê ao agente do exemplo uma ferramenta `buscar_post` que consulte a API do blog

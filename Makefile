@@ -1,4 +1,4 @@
-.PHONY: test vet fmt example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-dry release
+.PHONY: test vet fmt example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry release
 
 test: vet
 	go test ./...
@@ -51,6 +51,10 @@ bench-results:
 # `claude auth login`; 4 cenários x 3 execuções, custo real. Veja bench/agent/RESULTS.md.
 bench-agent:
 	cd bench/agent && go run . -runs 3 && cat RESULTS.md
+
+# A mesma régua com o AGENTS.md da spec 044 no fixture: o "depois" da medição.
+bench-agent-agents:
+	cd bench/agent && go run . -runs 3 -agents && cat RESULTS.md
 
 # Monta os cenários e prova que o teste escondido falha sem o agente; não gasta token.
 bench-agent-dry:

@@ -15,9 +15,13 @@ import (
 	app_cookbook_slug_ "github.com/emersonjoe/trilha/site/app/cookbook/slug_"
 	app_learn "github.com/emersonjoe/trilha/site/app/learn"
 	app_learn_slug_ "github.com/emersonjoe/trilha/site/app/learn/slug_"
+	app_llms_full_txt "github.com/emersonjoe/trilha/site/app/llms-full.txt"
+	app_llms_txt "github.com/emersonjoe/trilha/site/app/llms.txt"
 	app_pt "github.com/emersonjoe/trilha/site/app/pt"
 	app_pt_aprender "github.com/emersonjoe/trilha/site/app/pt/aprender"
 	app_pt_aprender_slug_ "github.com/emersonjoe/trilha/site/app/pt/aprender/slug_"
+	app_pt_llms_full_txt "github.com/emersonjoe/trilha/site/app/pt/llms-full.txt"
+	app_pt_llms_txt "github.com/emersonjoe/trilha/site/app/pt/llms.txt"
 	app_pt_receitas "github.com/emersonjoe/trilha/site/app/pt/receitas"
 	app_pt_receitas_slug_ "github.com/emersonjoe/trilha/site/app/pt/receitas/slug_"
 	app_pt_referencia "github.com/emersonjoe/trilha/site/app/pt/referencia"
@@ -86,6 +90,20 @@ func newApp() *trilha.App {
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{
+		Pattern: "/llms-full.txt",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_llms_full_txt.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/llms.txt",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_llms_txt.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
 		Pattern:     "/pt",
 		Page:        app_pt.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
@@ -101,6 +119,20 @@ func newApp() *trilha.App {
 		Pattern:     "/pt/aprender/{slug}",
 		Page:        app_pt_aprender_slug_.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/pt/llms-full.txt",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_pt_llms_full_txt.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/pt/llms.txt",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_pt_llms_txt.GET,
+		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{

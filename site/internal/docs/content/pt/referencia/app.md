@@ -187,7 +187,7 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 | `ListenAndServe() error` | serve com desligamento gracioso em SIGINT/SIGTERM; depois roda os ganchos de `OnShutdown` |
 | `OnShutdown(func(*App) error)` | registra o que fechar ao encerrar (pool, fila, flush); `setup.go` pode exportar `Shutdown`, que o arquivo gerado registra |
 | `Routes() map[string][]string` | padrões registrados e seus métodos |
-| `AddExportPath(paths...)` | caminhos extras para `Export` |
+| `AddExportPath(paths...)` | caminhos extras para `Export`; último segmento com ponto exporta como o arquivo, não como `index.html` |
 | `ExportPaths() []string` | o que `Export` vai renderizar |
 | `Export(dir) error` | escreve o site estático |
 | `BasePath() string` | prefixo de URL |

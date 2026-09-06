@@ -204,6 +204,12 @@ See `examples/assistente` (streaming chat with `c.Stream()`, handoff to a transl
 MCP server at `/mcp`) and the chapter
 [AI and agents](https://emersonjoe.github.io/trilha/learn/ai-and-agents).
 
+For the agent that *edits* your app rather than the one it runs, `trilha agents` writes an
+`AGENTS.md` with the conventions, the commands and what not to do. It is opt-in: `trilha new`
+on its own writes nothing. This documentation is also published as plain text, at
+[/llms.txt](https://emersonjoe.github.io/trilha/llms.txt) and
+[/llms-full.txt](https://emersonjoe.github.io/trilha/llms-full.txt).
+
 ## How it works
 
 `trilha gen` scans `app/` with `go/ast` and writes `trilha_gen.go` (committed): a

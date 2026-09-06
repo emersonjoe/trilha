@@ -189,7 +189,7 @@ typo in the layout does not take the page down. `ui.Head` and the examples alrea
 | `ListenAndServe() error` | serves with graceful shutdown on SIGINT/SIGTERM; then runs the `OnShutdown` hooks |
 | `OnShutdown(func(*App) error)` | registers what to close on exit (pool, queue, flush); `setup.go` may export `Shutdown`, which the generated file registers |
 | `Routes() map[string][]string` | registered patterns and their methods |
-| `AddExportPath(paths...)` | extra paths for `Export` |
+| `AddExportPath(paths...)` | extra paths for `Export`; a last segment with a dot exports as that file, not as `index.html` |
 | `ExportPaths() []string` | what `Export` will render |
 | `Export(dir) error` | writes the static site |
 | `BasePath() string` | URL prefix |

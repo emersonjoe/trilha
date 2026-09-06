@@ -20,6 +20,11 @@ func Setup(a *trilha.App) error {
 			a.AddExportPath(strings.TrimPrefix(p.Path(), pt.Prefix))
 		}
 	}
+	// Texto puro para agentes: índice curto e documentação inteira, por locale.
+	// Nenhuma das quatro é página, então entram no export pela lista.
+	for _, l := range docs.Locales {
+		a.AddExportPath(l.Prefix+"/llms.txt", l.Prefix+"/llms-full.txt")
+	}
 	// Fontes do Google no site (o export estático não envia cabeçalhos, mas o dev sim).
 	a.Security().CSPExtra = map[string][]string{
 		"style-src": {"https://fonts.googleapis.com"},

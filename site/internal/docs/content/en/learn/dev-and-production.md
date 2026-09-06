@@ -105,6 +105,20 @@ Pages with parameters are included when `Setup` declares them with
 `a.AddExportPath("/events/x")`. Pages that answer a same-site redirect become a small HTML
 stub pointing to the destination. The site you are reading was generated this way.
 
+An exported path whose last segment has a dot is written as that file, not as a folder with an
+`index.html` inside it. That is how a route can produce `out/llms.txt` or `out/feed.xml`:
+
+```go
+func Setup(a *trilha.App) error {
+	a.AddExportPath("/llms.txt", "/feed.xml")
+	return nil
+}
+```
+
+It is the same rule the scanner uses for a folder name with a dot in it
+(`app/llms.txt/route.go` answers `/llms.txt`), so the route and the exported file agree without
+a second convention.
+
 ## Assets and cache
 
 Publishing new HTML with old CSS is the bug nobody can reproduce ten minutes later. The

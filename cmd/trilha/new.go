@@ -19,6 +19,7 @@ func cmdNew(args []string) error {
 	langFlag := fs.String("lang", lang, t("flag lang"))
 	trilhaDir := fs.String("trilha-dir", "", t("flag trilha-dir"))
 	noTidy := fs.Bool("no-tidy", false, t("flag no-tidy"))
+	agents := fs.Bool("agents", false, t("flag agents"))
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -46,6 +47,16 @@ func cmdNew(args []string) error {
 	}
 	for _, w := range written {
 		fmt.Println("  +", w)
+	}
+	// AI support is opt-in: without --agents a new project gets neither file.
+	if *agents {
+		res, err := scaffold.WriteAgents(dir, scaffold.Data{Name: name, Lang: *langFlag}, false)
+		if err != nil {
+			return err
+		}
+		for _, r := range res {
+			fmt.Println("  +", r.File)
+		}
 	}
 	if *trilhaDir != "" {
 		abs, err := filepath.Abs(*trilhaDir)

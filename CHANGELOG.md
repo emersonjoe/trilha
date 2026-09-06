@@ -5,6 +5,53 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.36.0 — 2026-09-06
+
+### Added
+
+- **`AGENTS.md` on request, never by default**
+  ([#46](https://github.com/emersonjoe/trilha/issues/46)). `trilha agents` writes `AGENTS.md`
+  and `CLAUDE.md` at the project root: the three conventions, every command and what each one
+  checks, what not to do, and where the cookbook and the reference live. `trilha new --agents`
+  does the same at scaffolding time. Without the flag a new project gets neither file — AI
+  support is opt-in, as it should be for a framework that ships no dependency you did not ask
+  for. `AGENTS.md` carries the same stamp the ui kit uses, so an untouched copy is refreshed
+  by the next `trilha agents` and an edited one is kept until `--force`; `CLAUDE.md` is
+  created once and never rewritten, because that file is where your own repository rules go.
+- **`/llms.txt` and `/llms-full.txt` on the site**, both locales
+  (`/llms.txt`, `/pt/llms.txt`, and the `-full` pair). The short one is an index of every page
+  with its one-line description; the full one is the whole documentation as plain Markdown,
+  code blocks intact, links rewritten to absolute. Both are generated from the same content
+  the site renders, so they cannot drift, and both are written by `trilha export`.
+- `App.Export` now writes a path whose last segment has a dot as the file itself, instead of
+  `<path>/index.html`. That is what puts `llms.txt` in the static export, and it is the rule
+  any `/robots.txt` or `/feed.xml` route needed.
+
+### Fixed
+
+- The ruler's own guard was accepting a fixture that does not compile as proof that the
+  hidden test fails. `TestFixturesFailWithoutTheAgent` now demands `--- FAIL` — the hidden
+  test actually running and failing — and treats a failure coming from `go vet` on the
+  untouched fixture as a broken ruler, with a message saying so. `make bench-agent-dry` stops
+  on it too, instead of printing an expected failure that was really a compile error.
+
+### The ruler
+
+`make bench-agent` before, `make bench-agent-agents` after — same fixture, same agent, same
+model (Claude Code, Opus 4.8), three runs per scenario, median, 12/12 green on both sides. The
+only difference is the `AGENTS.md` this release writes:
+
+| Scenario | Turns | Cache read | Time (s) | Cost (US$) |
+|---|---:|---:|---:|---:|
+| `comments` | 39 → 32 (-18%) | 2241k → 1573k (-30%) | 421 → 328 (-22%) | 2.54 → 1.81 (-29%) |
+| `contact-form` | 30 → 25 (-17%) | 1074k → 592k (-45%) | 185 → 120 (-35%) | 1.28 → 0.81 (-37%) |
+| `cognito` | 18 → 13 (-28%) | 442k → 385k (-13%) | 73 → 73 (-1%) | 0.57 → 0.48 (-15%) |
+| `pagination` | 16 → 15 (-6%) | 496k → 332k (-33%) | 101 → 70 (-31%) | 0.71 → 0.43 (-40%) |
+
+Sixty lines of `AGENTS.md` take between 15% and 40% off the bill of a feature, and the cheapest
+saving is the one the file was written for: the agent stops reading the project to find out
+what the project already is. `bench/agent/RESULTS.md` has the full tables.
+
 ## 0.35.0 — 2026-09-06
 
 ### Added

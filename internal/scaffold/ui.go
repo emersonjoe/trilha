@@ -25,17 +25,40 @@ const (
 	UIKept      = "kept"
 	UIKeptTheme = "kept (your theme)"
 	UIModified  = "modified locally"
+	UIKeptOwn   = "kept (yours)"
 )
 
 // ErrUIModified is returned when ui.css/ui.js were edited locally and force is false.
 var ErrUIModified = errors.New("ui kit files were modified locally; use --force to overwrite")
 
-const stampPrefix = "/* trilha ui "
+// stampFmt is a one-line header carrying the hash of the body that follows,
+// written in the comment syntax of the file it heads. It is what lets a later
+// write tell an untouched older copy (hash matches its own body) from one the
+// project edited (it does not).
+type stampFmt struct{ open, close string }
 
-// stamp prepends a header with the hash of the body, so a later WriteUI can
-// tell an untouched older copy (hash matches) from a locally edited one.
-func stamp(body []byte) []byte {
-	return append([]byte(stampPrefix+digest(body)+" */\n"), body...)
+var (
+	cssStamp = stampFmt{"/* trilha ui ", " */"}
+	mdStamp  = stampFmt{"<!-- trilha agents ", " -->"}
+)
+
+func (f stampFmt) apply(body []byte) []byte {
+	return append([]byte(f.open+digest(body)+f.close+"\n"), body...)
+}
+
+func (f stampFmt) untouched(content []byte) bool {
+	if !bytes.HasPrefix(content, []byte(f.open)) {
+		return false
+	}
+	nl := bytes.IndexByte(content, '\n')
+	if nl < 0 {
+		return false
+	}
+	head := string(content[len(f.open):nl])
+	if len(head) < 16+len(f.close) {
+		return false
+	}
+	return head[:16] == digest(content[nl+1:])
 }
 
 func digest(b []byte) string {
@@ -43,22 +66,9 @@ func digest(b []byte) string {
 	return hex.EncodeToString(sum[:8])
 }
 
-// untouched reports whether content is a stamped kit file whose body still
-// matches its own stamp.
-func untouched(content []byte) bool {
-	if !bytes.HasPrefix(content, []byte(stampPrefix)) {
-		return false
-	}
-	nl := bytes.IndexByte(content, '\n')
-	if nl < 0 {
-		return false
-	}
-	head := string(content[len(stampPrefix):nl])
-	if len(head) < 16+3 {
-		return false
-	}
-	return head[:16] == digest(content[nl+1:])
-}
+// stamp and untouched keep the ui kit's own calls short.
+func stamp(body []byte) []byte      { return cssStamp.apply(body) }
+func untouched(content []byte) bool { return cssStamp.untouched(content) }
 
 // WriteUI writes the kit into dir/public. ui.theme.css is only ever created
 // (it belongs to the project); ui.css and ui.js are refreshed when untouched

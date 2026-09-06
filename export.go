@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -94,6 +95,11 @@ func (a *App) Export(dir string) error {
 			return fmt.Errorf("export: %s answered %d", p, code)
 		}
 		out := filepath.Join(dir, filepath.FromSlash(strings.TrimPrefix(p, "/")), "index.html")
+		if isFilePath(p) {
+			// A last segment with a dot is a file (/llms.txt, /feed.xml), the
+			// same rule the scanner uses for a folder with a dot in its name.
+			out = filepath.Join(dir, filepath.FromSlash(strings.TrimPrefix(p, "/")))
+		}
 		if err := writeFile(out, body); err != nil {
 			return err
 		}
@@ -115,6 +121,11 @@ func (a *App) Export(dir string) error {
 	}
 	a.log.Info("export done", "dir", dir, "pages", len(a.ExportPaths()))
 	return nil
+}
+
+// isFilePath reports whether the path names a file rather than a page.
+func isFilePath(p string) bool {
+	return strings.Contains(path.Base(p), ".")
 }
 
 // render answers a GET for p in-process: body, status and Location (for 3xx).

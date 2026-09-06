@@ -154,3 +154,29 @@ func TestExportWithETag(t *testing.T) {
 		t.Fatalf("página vazia: %q", string(b))
 	}
 }
+
+// A path whose last segment has a dot is a file, not a folder: /llms.txt has
+// to land in llms.txt, not in llms.txt/index.html. Same rule the scanner uses
+// for a folder with a dot in its name (spec 008).
+func TestExportWritesFilePaths(t *testing.T) {
+	a := testApp(Prod, nil)
+	a.Register(Route{Pattern: "/llms.txt", Methods: map[string]HandlerFunc{
+		"GET": func(c *Ctx) error { return c.Text(200, "# Trilha\n") },
+	}})
+	a.AddExportPath("/llms.txt")
+	dir := filepath.Join(t.TempDir(), "out")
+	if err := a.Export(dir); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "llms.txt"))
+	if err != nil || string(b) != "# Trilha\n" {
+		t.Fatalf("llms.txt = %q, %v", b, err)
+	}
+	if st, err := os.Stat(filepath.Join(dir, "llms.txt")); err == nil && st.IsDir() {
+		t.Fatal("llms.txt must be a file")
+	}
+	// A page path keeps its folder: /blog/novo stays blog/novo/index.html.
+	if _, err := os.Stat(filepath.Join(dir, "blog", "novo", "index.html")); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -43,6 +43,8 @@ func uiAction(a string) string {
 		return t("ui kept")
 	case scaffold.UIKeptTheme:
 		return t("ui kept theme")
+	case scaffold.UIKeptOwn:
+		return t("ui kept own")
 	case scaffold.UIModified:
 		return t("ui local")
 	}

@@ -62,6 +62,42 @@ func TestE2E(t *testing.T) {
 	if b, _ := os.ReadFile(theme); string(b) != ":root{--primary:red}" {
 		t.Fatal("theme must be preserved")
 	}
+	// trilha agents: opt-in, so `trilha new` above left nothing behind.
+	agents := filepath.Join(proj, "AGENTS.md")
+	if _, err := os.Stat(agents); err == nil {
+		t.Fatal("trilha new must not write AGENTS.md by default")
+	}
+	if out := run(t, proj, cli, "agents"); !strings.Contains(out, "AGENTS.md") || !strings.Contains(out, "CLAUDE.md") {
+		t.Fatal(out)
+	}
+	if b, _ := os.ReadFile(agents); !strings.Contains(string(b), "trilha gen") {
+		t.Fatalf("AGENTS.md = %s", b)
+	}
+	if out := run(t, proj, cli, "agents"); !regexp.MustCompile(`AGENTS\.md\s+kept`).MatchString(out) {
+		t.Fatal(out)
+	}
+	b, _ := os.ReadFile(agents)
+	os.WriteFile(agents, append(b, []byte("\n## our own rules\n")...), 0o644)
+	agCmd := exec.Command(cli, "agents")
+	agCmd.Dir = proj
+	if out, err := agCmd.CombinedOutput(); err == nil || !strings.Contains(string(out), "modified locally") {
+		t.Fatal(string(out), err)
+	} else if b, _ := os.ReadFile(agents); !strings.Contains(string(b), "our own rules") {
+		t.Fatal("must not overwrite AGENTS.md without --force")
+	}
+	if out := run(t, proj, cli, "agents", "--force"); !regexp.MustCompile(`AGENTS\.md\s+updated`).MatchString(out) {
+		t.Fatal(out)
+	}
+	// A project scaffolded with --agents already has both files.
+	withAI := filepath.Join(tmp, "com-agentes")
+	run(t, tmp, cli, "new", withAI, "--trilha-dir", repo, "--no-tidy", "--agents")
+	for _, f := range []string{"AGENTS.md", "CLAUDE.md"} {
+		if _, err := os.Stat(filepath.Join(withAI, f)); err != nil {
+			t.Fatalf("new --agents missing %s", f)
+		}
+	}
+	os.Remove(agents)
+	os.Remove(filepath.Join(proj, "CLAUDE.md"))
 	run(t, proj, cli, "build", "-o", "bin/app")
 	os.Setenv("TRILHA_SECRET", strings.Repeat("s", 32))
 	if out := run(t, proj, cli, "audit", "--no-vuln"); !strings.Contains(out, "✓ TRILHA_SECRET set") || !strings.Contains(out, "✓ trilha_gen.go up to date") {

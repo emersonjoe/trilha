@@ -4,7 +4,7 @@ description: The trilha commands and their options.
 ---
 
 ```text
-trilha new <dir> [--module path] [--lang en|pt] [--trilha-dir ../trilha] [--no-tidy]
+trilha new <dir> [--module path] [--lang en|pt] [--agents] [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check] [--package name]
 trilha generate page|route <url> | component <Name> [--force] [--dir path]
 trilha dev [--addr :3000]
@@ -14,6 +14,7 @@ trilha openapi [-o file] [--title T] [--version V] [--server URL] [--check]
 trilha routes
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
+trilha agents [--force] [--lang en|pt]
 trilha version
 ```
 
@@ -28,6 +29,7 @@ trilha version
 | `openapi` | writes the OpenAPI 3.1 document of the API routes (`-o -` to stdout) |
 | `routes` | prints `METHODS PATTERN SOURCE` for each route |
 | `audit` | security checklist before publishing (see [Security](/reference/security)) |
+| `agents` | writes `AGENTS.md` and `CLAUDE.md` so a coding agent finds the conventions |
 
 Commands run in the folder containing `app/`. The project's import path comes from the
 nearest `go.mod`, plus the subfolder, so an app can live inside a larger module.
@@ -80,6 +82,24 @@ Writes or updates the UI kit in `public/`: `ui.theme.css` (only created; it is y
 `ui.css` and `ui.js` (updated; if edited locally, only with `--force`). `--css-only` and
 `--js-only` limit what is touched. `trilha new` runs the same step. See
 [UI kit](/learn/ui-kit).
+
+## trilha agents
+
+Writes two files at the root of the project, and only when asked: support for coding agents is
+opt-in, so `trilha new` on its own leaves neither behind. `trilha new --agents` adds them at
+creation time.
+
+| File | Who owns it |
+|---|---|
+| `AGENTS.md` | the framework: the conventions, the commands, and what not to do |
+| `CLAUDE.md` | you: three lines pointing at `AGENTS.md`, plus whatever this repository needs |
+
+`AGENTS.md` carries a stamp with the hash of its own body, the same rule the ui kit uses. An
+untouched copy from an older version is refreshed in silence on the next run; one you edited is
+only overwritten with `--force`, and without it the command stops and says so. `CLAUDE.md` is
+never overwritten.
+
+`--lang en|pt` picks the language of both files and defaults to the CLI's.
 
 ## trilha openapi
 

@@ -4,7 +4,7 @@ description: Os comandos de trilha e suas opções.
 ---
 
 ```text
-trilha new <dir> [--module caminho] [--lang en|pt] [--trilha-dir ../trilha] [--no-tidy]
+trilha new <dir> [--module caminho] [--lang en|pt] [--agents] [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check] [--package nome]
 trilha generate page|route <url> | component <Nome> [--force] [--dir caminho]
 trilha dev [--addr :3000]
@@ -14,6 +14,7 @@ trilha openapi [-o arquivo] [--title T] [--version V] [--server URL] [--check]
 trilha routes
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
+trilha agents [--force] [--lang en|pt]
 trilha version
 ```
 
@@ -28,6 +29,7 @@ trilha version
 | `openapi` | escreve o documento OpenAPI 3.1 das rotas de API (`-o -` na saída padrão) |
 | `routes` | imprime `MÉTODOS PADRÃO ORIGEM` para cada rota |
 | `audit` | checklist de segurança antes de publicar (veja [Segurança](/pt/referencia/seguranca)) |
+| `agents` | grava `AGENTS.md` e `CLAUDE.md` para um agente de código achar as convenções |
 
 Os comandos rodam na pasta que contém `app/`. O caminho de import do projeto vem do
 `go.mod` mais próximo, mais a subpasta, então um app pode viver dentro de um módulo maior.
@@ -79,6 +81,24 @@ Grava ou atualiza o kit de interface em `public/`: `ui.theme.css` (só criado; �
 tema), `ui.css` e `ui.js` (atualizados; se editados localmente, só com `--force`).
 `--css-only` e `--js-only` limitam o que é tocado. `trilha new` roda o mesmo passo. Veja
 [Interface com ui](/pt/aprender/interface-com-ui).
+
+## trilha agents
+
+Grava dois arquivos na raiz do projeto, e só quando é pedido: suporte a agentes de código é
+opt-in, então `trilha new` sozinho não deixa nenhum dos dois. `trilha new --agents` já os cria
+junto com o projeto.
+
+| Arquivo | De quem é |
+|---|---|
+| `AGENTS.md` | do framework: as convenções, os comandos e o que não fazer |
+| `CLAUDE.md` | seu: três linhas apontando para o `AGENTS.md`, mais o que este repositório pedir |
+
+O `AGENTS.md` leva um carimbo com o hash do próprio corpo, a mesma regra do kit ui. Uma cópia
+intocada de uma versão anterior é atualizada em silêncio na próxima rodada; uma que você editou
+só é sobrescrita com `--force`, e sem ele o comando para e avisa. O `CLAUDE.md` nunca é
+sobrescrito.
+
+`--lang en|pt` escolhe a língua dos dois arquivos e por padrão é a da CLI.
 
 ## trilha openapi
 

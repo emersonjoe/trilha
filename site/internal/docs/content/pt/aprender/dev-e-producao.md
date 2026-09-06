@@ -105,6 +105,20 @@ Páginas com parâmetro entram quando `Setup` as declara com `a.AddExportPath("/
 Páginas que respondem um redirecionamento para o próprio site viram um pequeno HTML
 apontando para o destino. O site que você está lendo foi gerado assim.
 
+Um caminho exportado cujo último segmento tem ponto é gravado como esse arquivo, e não como
+pasta com um `index.html` dentro. É assim que uma rota produz `out/llms.txt` ou `out/feed.xml`:
+
+```go
+func Setup(a *trilha.App) error {
+	a.AddExportPath("/llms.txt", "/feed.xml")
+	return nil
+}
+```
+
+É a mesma regra que a varredura usa para pasta com ponto no nome (`app/llms.txt/route.go`
+responde `/llms.txt`), então a rota e o arquivo exportado combinam sem inventar uma segunda
+convenção.
+
 ## Assets e cache
 
 Publicar HTML novo com CSS velho é o bug que ninguém consegue reproduzir dez minutos

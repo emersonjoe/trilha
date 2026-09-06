@@ -132,6 +132,36 @@ Protect the route like any API (middleware with a token, rate limit). The server
 `Mcp-Session-Id` on `initialize` and rejects messages without a session. For hosts that
 prefer stdio, `server.ServeStdio(ctx, os.Stdin, os.Stdout)` in a separate `main`.
 
+## Your project, explained to an agent
+
+The chapters above are about the agent your app runs. This section is about the agent that
+edits your app — Claude Code, Cursor, Copilot — and the file it reads first.
+
+```bash
+trilha agents           # in an existing project
+trilha new loja --agents  # at creation time
+```
+
+It writes two files at the root. `AGENTS.md` is the framework's: the three conventions, the
+commands and what each one checks, and what not to do (edit `trilha_gen.go`, add a dependency,
+put a secret in the code). `CLAUDE.md` is yours: three lines pointing at `AGENTS.md`, and room
+for whatever this repository needs.
+
+Neither exists unless you ask. Support for agents is a choice of the team, not a convention of
+the framework, so `trilha new` on its own leaves your project exactly as it did before.
+
+`AGENTS.md` is refreshed the way the ui kit is: it carries the hash of its own body, so an
+untouched copy from an older version is rewritten in silence and one you edited needs
+`--force`. Add your rules to it and they survive the next upgrade — the command will refuse
+rather than overwrite them.
+
+:::note
+This documentation is also published as plain text, which is much cheaper for an agent to read
+than the HTML around it: [/llms.txt](/llms.txt) is the index, one line per page, and
+[/llms-full.txt](/llms-full.txt) is everything concatenated, code blocks included. The
+Portuguese ones are at `/pt/llms.txt` and `/pt/llms-full.txt`.
+:::
+
 ## Challenge
 
 Give the example's agent a `find_post` tool that queries the blog API (`/api/posts/{id}`)

@@ -43,7 +43,7 @@ var msgs = map[string][2]string{
 	"usage": {`trilha — Next.js-style web framework for Go with file-based routing
 
 Usage:
-  trilha new <dir> [--module path] [--lang en|pt]   create a new project
+  trilha new <dir> [--module path] [--lang en|pt] [--agents]   create a new project
   trilha gen [--check]                              generate trilha_gen.go from app/ (--check: fail if stale)
   trilha generate page|route <url> | component <Name>   write a skeleton in the right place
   trilha dev [--addr :3000]                         dev server with live reload
@@ -53,13 +53,14 @@ Usage:
   trilha openapi [-o file] [--check]                write the OpenAPI document of the API routes
   trilha audit [--no-vuln]                          check the project's security and configuration
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
+  trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
   trilha version
 
 Language: TRILHA_LANG=en|pt (falls back to LC_ALL, LC_MESSAGES, LANG).
 `, `trilha — framework web para Go com roteamento por arquivos
 
 Uso:
-  trilha new <dir> [--module caminho] [--lang en|pt]  cria um projeto novo
+  trilha new <dir> [--module caminho] [--lang en|pt] [--agents]  cria um projeto novo
   trilha gen [--check]                                gera trilha_gen.go a partir de app/ (--check: falha se desatualizado)
   trilha generate page|route <url> | component <Nome>  grava um esqueleto no lugar certo
   trilha dev [--addr :3000]                           dev server com recarga automática
@@ -69,6 +70,7 @@ Uso:
   trilha openapi [-o arquivo] [--check]               escreve o documento OpenAPI das rotas de API
   trilha audit [--no-vuln]                            verifica segurança e configuração do projeto
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
+  trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
   trilha version
 
 Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
@@ -127,6 +129,12 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"ui kept":       {"kept", "mantido"},
 	"ui kept theme": {"kept (your theme)", "mantido (seu tema)"},
 	"ui local":      {"modified locally", "modificado localmente"},
+	"ui kept own":   {"kept (yours)", "mantido (seu)"},
+
+	// agents
+	"flag agents":       {"also write AGENTS.md and CLAUDE.md for coding agents", "também gravar AGENTS.md e CLAUDE.md para agentes de código"},
+	"flag force agents": {"overwrite a locally modified AGENTS.md", "sobrescrever um AGENTS.md modificado localmente"},
+	"agents modified":   {"AGENTS.md was modified locally; use --force to overwrite", "AGENTS.md foi modificado localmente; use --force para sobrescrever"},
 
 	// openapi
 	"flag openapi out":     {`output file ("-" writes to stdout)`, `arquivo de saída ("-" escreve na saída padrão)`},
