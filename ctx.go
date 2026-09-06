@@ -40,6 +40,7 @@ type Ctx struct {
 	formErr      error
 	parsed       bool
 	nonce        string
+	nonceAsked   bool
 	secEmitted   bool
 	traceID      string
 	traceParsed  bool

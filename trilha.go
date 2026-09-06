@@ -47,6 +47,10 @@ type Config struct {
 	Mounts map[string]fs.FS
 	// CSRFForAPI also enforces CSRF tokens on route.go handlers.
 	CSRFForAPI bool
+	// CSRF renames the double-submit cookie, the form field and the header
+	// (zero value = CSRFCookie, CSRFField, CSRFHeader), for an app embedded
+	// in a host that already uses those names.
+	CSRF CSRF
 	// BasePath is the URL prefix the app is served under (e.g. "/docs" on
 	// GitHub Pages). Read it with Ctx.Base when building links.
 	BasePath string
@@ -295,9 +299,15 @@ func (a *App) applyConfig() {
 	}
 	a.log = cfg.Logger
 	a.metrics.log = cfg.Logger
+	cfg.CSRF = cfg.CSRF.names()
 	a.parseProxies()
 	a.parseMounts()
-	a.cors = newCORSPolicy(cfg.CORS)
+	// A response without security headers has to be a decision someone can
+	// find later, so it is written down once, at boot.
+	if cfg.Security.Delegated {
+		a.infoOnce("security-delegated", "trilha: security headers delegated to the host; this app writes none of them")
+	}
+	a.cors = newCORSPolicy(cfg.CORS, cfg.CSRF.Header)
 	a.applyObservability()
 	if cfg.RateLimit.RPS > 0 {
 		if a.limiter == nil || a.limiter.cfg != cfg.RateLimit {

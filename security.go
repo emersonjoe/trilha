@@ -3,6 +3,7 @@ package trilha
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"net/http"
 	"sort"
 	"strings"
 
@@ -31,6 +32,19 @@ type Security struct {
 	FrameOptions string
 	// Referrer is Referrer-Policy.
 	Referrer string
+	// Delegated says the response headers belong to whoever is in front —
+	// the server an embedded app is mounted in. The app then writes none of
+	// them, X-Content-Type-Options included, so the policy of the host
+	// reaches the visitor unchanged on the app's routes too. It is a
+	// different statement from Off on every field: Off is "not this policy",
+	// this is "not my responsibility".
+	Delegated bool
+	// Nonce supplies the CSP nonce of the host, one call per request that
+	// asks for it. With it Ctx.Nonce stops drawing its own, so NonceAttr
+	// renders a nonce that is really in the policy the visitor received. An
+	// empty answer means the host has no nonce for this request, and then
+	// NonceAttr renders no attribute at all.
+	Nonce func(*http.Request) string
 }
 
 const (
@@ -99,6 +113,9 @@ func (s *Security) csp(nonce string) string {
 func (a *App) applySecurity(c *Ctx) {
 	h := c.w.Header()
 	s := &a.cfg.Security
+	if s.Delegated {
+		return
+	}
 	h.Set("X-Content-Type-Options", "nosniff")
 	if v := pick(s.FrameOptions, defaultFrame); v != "" {
 		h.Set("X-Frame-Options", v)
@@ -125,16 +142,31 @@ func (a *App) applySecurity(c *Ctx) {
 // Security returns the security settings for adjustment in Setup.
 func (a *App) Security() *Security { return &a.cfg.Security }
 
-// Nonce returns the per-request CSP nonce for inline scripts.
+// Nonce returns the per-request CSP nonce for inline scripts. In an app
+// embedded in a host that owns the policy, Security.Nonce answers instead,
+// and an empty answer means this request has no nonce.
 func (c *Ctx) Nonce() string {
-	if c.nonce == "" {
-		var b [16]byte
-		_, _ = rand.Read(b[:])
-		c.nonce = base64.RawStdEncoding.EncodeToString(b[:])
+	if c.nonce != "" || c.nonceAsked {
+		return c.nonce
 	}
+	c.nonceAsked = true
+	if f := c.app.cfg.Security.Nonce; f != nil {
+		c.nonce = f(c.r)
+		return c.nonce
+	}
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	c.nonce = base64.RawStdEncoding.EncodeToString(b[:])
 	return c.nonce
 }
 
 // NonceAttr renders the nonce attribute for an inline <script>:
-// h.Script(trilha.NonceAttr(c), h.Raw(js)).
-func NonceAttr(c *Ctx) h.Node { return h.Attr("nonce", c.Nonce()) }
+// h.Script(trilha.NonceAttr(c), h.Raw(js)). It renders nothing when the
+// request has no nonce, because nonce="" is the same lie in another shape.
+func NonceAttr(c *Ctx) h.Node {
+	n := c.Nonce()
+	if n == "" {
+		return h.Group()
+	}
+	return h.Attr("nonce", n)
+}

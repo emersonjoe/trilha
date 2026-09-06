@@ -229,15 +229,16 @@ func (c *TestClient) Request(method, target string, opts ...TestOption) *TestRes
 	if o.csrf && bodyMethods[method] {
 		// Double submit is only the cookie against the header, so the client
 		// mints the token: it is the same proof the browser gives.
-		tok, ok := cookies[CSRFCookie]
+		names := c.app.cfg.CSRF.names()
+		tok, ok := cookies[names.Cookie]
 		if !ok {
 			tok = newCSRFToken()
-			c.jar[CSRFCookie] = tok
-			cookies[CSRFCookie] = tok
+			c.jar[names.Cookie] = tok
+			cookies[names.Cookie] = tok
 		}
-		req.Header.Set(CSRFHeader, tok)
+		req.Header.Set(names.Header, tok)
 	} else if !o.csrf {
-		delete(cookies, CSRFCookie)
+		delete(cookies, c.app.cfg.CSRF.names().Cookie)
 	}
 	for _, name := range sortedKeys(cookies) {
 		req.AddCookie(&http.Cookie{Name: name, Value: cookies[name]})

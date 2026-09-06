@@ -19,13 +19,44 @@ const CSRFField = "_csrf"
 // CSRFHeader is the header accepted instead of the form field.
 const CSRFHeader = "X-CSRF-Token"
 
+// CSRF renames the three places the double-submit token appears. The empty
+// value of a field means the constant above, so an app that is alone in its
+// process never writes any of this. An app embedded in a host that already
+// has a _csrf of its own does: two fields with the same name on one page are
+// two tokens nobody reading the HTML can tell apart.
+type CSRF struct {
+	// Cookie is the double-submit cookie (default CSRFCookie).
+	Cookie string
+	// Field is the hidden form field (default CSRFField).
+	Field string
+	// Header is accepted instead of the field (default CSRFHeader).
+	Header string
+}
+
+// names returns the CSRF names in force, with the defaults filled in. New and
+// Handler resolve them once; this is the belt for an App built by hand in a
+// test that never reached applyConfig.
+func (c CSRF) names() CSRF {
+	if c.Cookie == "" {
+		c.Cookie = CSRFCookie
+	}
+	if c.Field == "" {
+		c.Field = CSRFField
+	}
+	if c.Header == "" {
+		c.Header = CSRFHeader
+	}
+	return c
+}
+
 // CSRFToken returns the request's CSRF token, creating the cookie on first
 // use. Put it in forms with CSRFInput or send it in the X-CSRF-Token header.
 func (c *Ctx) CSRFToken() string {
 	if v := c.Get("_trilha_csrf"); v != nil {
 		return v.(string)
 	}
-	if ck, err := c.r.Cookie(CSRFCookie); err == nil && len(ck.Value) >= 32 {
+	names := c.app.cfg.CSRF.names()
+	if ck, err := c.r.Cookie(names.Cookie); err == nil && len(ck.Value) >= 32 {
 		c.Set("_trilha_csrf", ck.Value)
 		return ck.Value
 	}
@@ -33,7 +64,7 @@ func (c *Ctx) CSRFToken() string {
 	_, _ = rand.Read(b[:])
 	tok := base64.RawURLEncoding.EncodeToString(b[:])
 	http.SetCookie(c.w, &http.Cookie{
-		Name:     CSRFCookie,
+		Name:     names.Cookie,
 		Value:    tok,
 		Path:     "/",
 		HttpOnly: true,
@@ -46,24 +77,25 @@ func (c *Ctx) CSRFToken() string {
 
 // CSRFInput renders the hidden input for forms: h.Form(..., trilha.CSRFInput(c), ...).
 func CSRFInput(c *Ctx) h.Node {
-	return h.Input(h.Type("hidden"), h.Name(CSRFField), h.Value(c.CSRFToken()))
+	return h.Input(h.Type("hidden"), h.Name(c.app.cfg.CSRF.names().Field), h.Value(c.CSRFToken()))
 }
 
 // checkCSRF validates the double-submit token on state-changing requests.
 func (a *App) checkCSRF(c *Ctx) error {
-	ck, err := c.r.Cookie(CSRFCookie)
+	names := a.cfg.CSRF.names()
+	ck, err := c.r.Cookie(names.Cookie)
 	if err != nil || ck.Value == "" {
 		a.securityEvent(c, "csrf", http.StatusForbidden)
 		return &HTTPError{Code: http.StatusForbidden, Message: "missing CSRF cookie"}
 	}
-	sent := c.r.Header.Get(CSRFHeader)
+	sent := c.r.Header.Get(names.Header)
 	if sent == "" {
 		ct := c.r.Header.Get("Content-Type")
 		if strings.HasPrefix(ct, "application/x-www-form-urlencoded") || strings.HasPrefix(ct, "multipart/form-data") {
 			if err := c.parseForm(); err != nil {
 				return err
 			}
-			sent = c.r.PostFormValue(CSRFField)
+			sent = c.r.PostFormValue(names.Field)
 		}
 	}
 	if sent == "" || subtle.ConstantTimeCompare([]byte(sent), []byte(ck.Value)) != 1 {

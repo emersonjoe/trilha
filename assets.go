@@ -105,7 +105,13 @@ func (a *App) versionMatches(name, v string) bool {
 
 // warnOnce logs a warning the first time a key appears; a warning that
 // repeats per request is a warning nobody reads.
-func (a *App) warnOnce(key, msg string, args ...any) {
+func (a *App) warnOnce(key, msg string, args ...any) { a.logOnce(a.log.Warn, key, msg, args...) }
+
+// infoOnce is warnOnce for a deliberate choice: it is recorded, not
+// complained about, and the boot log is where someone goes to find it.
+func (a *App) infoOnce(key, msg string, args ...any) { a.logOnce(a.log.Info, key, msg, args...) }
+
+func (a *App) logOnce(write func(string, ...any), key, msg string, args ...any) {
 	a.warnedMu.Lock()
 	if a.warned == nil {
 		a.warned = map[string]bool{}
@@ -114,7 +120,7 @@ func (a *App) warnOnce(key, msg string, args ...any) {
 	a.warned[key] = true
 	a.warnedMu.Unlock()
 	if !seen {
-		a.log.Warn(msg, args...)
+		write(msg, args...)
 	}
 }
 

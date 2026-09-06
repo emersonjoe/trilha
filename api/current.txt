@@ -161,6 +161,10 @@ pkg trilha, type CORS struct, Headers []string
 pkg trilha, type CORS struct, MaxAge time.Duration
 pkg trilha, type CORS struct, Methods []string
 pkg trilha, type CORS struct, Origins []string
+pkg trilha, type CSRF struct
+pkg trilha, type CSRF struct, Cookie string
+pkg trilha, type CSRF struct, Field string
+pkg trilha, type CSRF struct, Header string
 pkg trilha, type CheckResult struct
 pkg trilha, type CheckResult struct, DurationMS float64
 pkg trilha, type CheckResult struct, Error string
@@ -171,6 +175,7 @@ pkg trilha, type Config struct, Addr string
 pkg trilha, type Config struct, AllowedHosts []string
 pkg trilha, type Config struct, BasePath string
 pkg trilha, type Config struct, CORS CORS
+pkg trilha, type Config struct, CSRF CSRF
 pkg trilha, type Config struct, CSRFForAPI bool
 pkg trilha, type Config struct, DevReload string
 pkg trilha, type Config struct, Env Env
@@ -254,8 +259,10 @@ pkg trilha, type Security struct
 pkg trilha, type Security struct, COOP string
 pkg trilha, type Security struct, CSP string
 pkg trilha, type Security struct, CSPExtra map[string][]string
+pkg trilha, type Security struct, Delegated bool
 pkg trilha, type Security struct, FrameOptions string
 pkg trilha, type Security struct, HSTS string
+pkg trilha, type Security struct, Nonce func(*http.Request) string
 pkg trilha, type Security struct, PermissionsPolicy string
 pkg trilha, type Security struct, Referrer string
 pkg trilha, type SecurityEvent struct

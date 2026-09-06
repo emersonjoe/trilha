@@ -57,7 +57,18 @@ var (
 	corsDefaultHeaders = []string{"Content-Type", "Authorization", CSRFHeader, fragmentHeader}
 )
 
-func newCORSPolicy(c CORS) *corsPolicy {
+// corsHeaders is the allow-list of request headers, with the app's own CSRF
+// header in it: a renamed header that the preflight does not allow is a call
+// the browser blocks before the handler sees it.
+func corsHeaders(csrf string) []string {
+	out := append([]string{}, corsDefaultHeaders...)
+	if csrf != "" && csrf != CSRFHeader {
+		out = append(out, csrf)
+	}
+	return out
+}
+
+func newCORSPolicy(c CORS, csrfHeader string) *corsPolicy {
 	if len(c.Origins) == 0 {
 		return nil
 	}
@@ -89,7 +100,7 @@ func newCORSPolicy(c CORS) *corsPolicy {
 	p.methodList = strings.Join(methods, ", ")
 	headers := c.Headers
 	if len(headers) == 0 {
-		headers = corsDefaultHeaders
+		headers = corsHeaders(csrfHeader)
 	}
 	p.headerList = strings.Join(headers, ", ")
 	p.exposeList = strings.Join(c.Expose, ", ")

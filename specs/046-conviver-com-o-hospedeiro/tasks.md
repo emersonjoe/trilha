@@ -2,24 +2,24 @@
 
 ## Fase 1 — cabeçalhos e nonce (#52)
 
-- [ ] T101 `security_test.go`: resposta com `Delegated` não traz nenhum dos sete cabeçalhos e
+- [x] T101 `security_test.go`: resposta com `Delegated` não traz nenhum dos sete cabeçalhos e
       preserva o que o hospedeiro escreveu antes; `Security.Nonce` mandando no `c.Nonce()` e no
       `NonceAttr`, inclusive o vazio que não vira atributo.
-- [ ] T102 `security.go`: campos `Delegated` e `Nonce`, saída antecipada em `applySecurity`,
+- [x] T102 `security.go`: campos `Delegated` e `Nonce`, saída antecipada em `applySecurity`,
       `Ctx.Nonce` consultando a função, `NonceAttr` com nó vazio.
-- [ ] T103 Aviso no log ao subir com `Delegated` (uma linha, nível info): cabeçalho ausente é
+- [x] T103 Aviso no log ao subir com `Delegated` (uma linha, nível info): cabeçalho ausente é
       decisão, não acidente.
-- [ ] T104 `make test`.
+- [x] T104 `make test`.
 
 ## Fase 2 — nomes do CSRF (#54)
 
-- [ ] T201 `csrf_test.go`: com `cfg.CSRF` renomeado, o input sai com o nome novo, o cookie sai
+- [x] T201 `csrf_test.go`: com `cfg.CSRF` renomeado, o input sai com o nome novo, o cookie sai
       com o nome novo, o cabeçalho novo passa e o antigo não.
-- [ ] T202 `trilha.go`/`csrf.go`: `type CSRF`, `Config.CSRF`, padrões em `applyConfig`, leitura
+- [x] T202 `trilha.go`/`csrf.go`: `type CSRF`, `Config.CSRF`, padrões em `applyConfig`, leitura
       em `CSRFToken`, `CSRFInput`, `checkCSRF`.
-- [ ] T203 `cors.go` e `testing.go`: cabeçalho permitido e cliente de teste lendo os nomes do
+- [x] T203 `cors.go` e `testing.go`: cabeçalho permitido e cliente de teste lendo os nomes do
       app, não as constantes.
-- [ ] T204 `make test`.
+- [x] T204 `make test`.
 
 ## Fase 3 — `Provide` e `Use` (#55)
 

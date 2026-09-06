@@ -1,6 +1,7 @@
 package trilha
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -242,5 +243,54 @@ func TestSecurityEventsForCSRFAndAuth(t *testing.T) {
 	get(t, a, "GET", "/f", "", nil)
 	if len(events) != 3 || events[0].Kind != "csrf" || events[1].Kind != "auth" || events[2].Kind != "panic" {
 		t.Fatalf("%+v", events)
+	}
+}
+
+// Spec 046 (#52): Delegated says the headers belong to whoever is in front.
+// It is not six Offs: it also drops nosniff, which had no Off, and it keeps
+// what the host wrote before the app ran.
+func TestSecurityDelegated(t *testing.T) {
+	a := New(Config{Logger: quiet(), Security: Security{Delegated: true}})
+	a.Register(Route{Pattern: "/", Page: func(c *Ctx) (h.Node, error) { return h.Text("x"), nil }})
+
+	rec := httptest.NewRecorder()
+	rec.Header().Set("Content-Security-Policy", "default-src 'self' cdn.farol")
+	req := httptest.NewRequest("GET", "/", nil)
+	a.Handler().ServeHTTP(rec, req)
+
+	for _, k := range []string{
+		"X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy",
+		"Permissions-Policy", "Cross-Origin-Opener-Policy", "Strict-Transport-Security",
+	} {
+		if v := rec.Header().Get(k); v != "" {
+			t.Errorf("%s=%q: the app must not write it when delegated", k, v)
+		}
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); got != "default-src 'self' cdn.farol" {
+		t.Fatalf("the host policy was overwritten: %q", got)
+	}
+}
+
+// Spec 046 (#52): with Security.Nonce the app stops drawing its own and
+// answers with the one the host already put in its policy — which is what
+// makes NonceAttr true inside a host.
+func TestSecurityNonceFromHost(t *testing.T) {
+	a := New(Config{Logger: quiet(), Security: Security{
+		Delegated: true,
+		Nonce:     func(r *http.Request) string { return r.Header.Get("X-Farol-Nonce") },
+	}})
+	a.Register(Route{Pattern: "/", Page: func(c *Ctx) (h.Node, error) {
+		return h.Script(NonceAttr(c), h.Raw("void 0")), nil
+	}})
+
+	rec := get(t, a, "GET", "/", "", map[string]string{"X-Farol-Nonce": "abc123"})
+	if !strings.Contains(rec.Body.String(), `<script nonce="abc123">`) {
+		t.Fatalf("the host nonce did not reach the attribute:\n%s", rec.Body.String())
+	}
+
+	// No nonce for this request: no attribute at all, instead of nonce="".
+	rec = get(t, a, "GET", "/", "", nil)
+	if strings.Contains(rec.Body.String(), "nonce=") {
+		t.Fatalf("empty nonce must render no attribute:\n%s", rec.Body.String())
 	}
 }

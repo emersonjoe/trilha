@@ -79,3 +79,59 @@ func TestSecureCookieBehindProxy(t *testing.T) {
 		t.Fatal("expected Secure cookie")
 	}
 }
+
+// Spec 046 (#54): inside a host that already has a _csrf of its own, the two
+// names have to be tellable apart — in the HTML, in the cookie jar and in the
+// header. The constants stay as the defaults; Config picks other names.
+func TestCSRFNamesFromConfig(t *testing.T) {
+	a := New(Config{Logger: quiet(), CSRF: CSRF{
+		Cookie: "farol_trilha_csrf", Field: "_farol_trilha_csrf", Header: "X-Farol-Trilha-Token",
+	}})
+	a.Register(Route{Pattern: "/form",
+		Page: func(c *Ctx) (h.Node, error) {
+			return h.Form(h.Method("post"), CSRFInput(c)), nil
+		},
+		Methods: map[string]HandlerFunc{"POST": func(c *Ctx) error { return c.Text(200, "ok") }},
+	})
+
+	rec := get(t, a, "GET", "/form", "", nil)
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != "farol_trilha_csrf" {
+		t.Fatalf("cookie: %+v", cookies)
+	}
+	tok := cookies[0].Value
+	if !strings.Contains(rec.Body.String(), `name="_farol_trilha_csrf" value="`+tok+`"`) {
+		t.Fatalf("field: %s", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `name="_csrf"`) {
+		t.Fatal("the default field name is still in the page")
+	}
+
+	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Cookie": "farol_trilha_csrf=" + tok}
+	if rec := get(t, a, "POST", "/form", "_farol_trilha_csrf="+tok, form); rec.Code != 200 {
+		t.Fatalf("renamed field: %d", rec.Code)
+	}
+	if rec := get(t, a, "POST", "/form", "_csrf="+tok, form); rec.Code != 403 {
+		t.Fatalf("the old field name must not pass: %d", rec.Code)
+	}
+	if rec := get(t, a, "POST", "/form", "", map[string]string{"Cookie": "farol_trilha_csrf=" + tok, "X-Farol-Trilha-Token": tok}); rec.Code != 200 {
+		t.Fatalf("renamed header: %d", rec.Code)
+	}
+	if rec := get(t, a, "POST", "/form", "", map[string]string{"Cookie": "farol_trilha_csrf=" + tok, CSRFHeader: tok}); rec.Code != 403 {
+		t.Fatalf("the old header must not pass: %d", rec.Code)
+	}
+	// The token is still reachable by the app's own name, for the test client
+	// and for whoever reads the jar instead of the HTML.
+	if a.Config().CSRF.Cookie != "farol_trilha_csrf" {
+		t.Fatalf("Config().CSRF: %+v", a.Config().CSRF)
+	}
+}
+
+// The default stays what it was: nobody who does not embed writes a line.
+func TestCSRFNamesDefault(t *testing.T) {
+	a := csrfApp(false)
+	a.Handler()
+	if got := a.Config().CSRF; got.Cookie != CSRFCookie || got.Field != CSRFField || got.Header != CSRFHeader {
+		t.Fatalf("%+v", got)
+	}
+}
