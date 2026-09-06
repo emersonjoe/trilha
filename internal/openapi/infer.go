@@ -157,7 +157,7 @@ func (g *generator) read(fn *ast.FuncDecl, sc *fileScope, file string) (*handler
 func (g *generator) assign(n *ast.AssignStmt, sc *fileScope, locals map[string]typeRef) {
 	if len(n.Rhs) == 1 {
 		if call, ok := n.Rhs[0].(*ast.CallExpr); ok {
-			res, ok := g.callResults(call, sc)
+			res, ok := g.callResults(call, sc, locals)
 			if !ok {
 				return
 			}
@@ -193,16 +193,95 @@ func literalType(e ast.Expr, sc *fileScope) (typeRef, bool) {
 	return typeRef{}, false
 }
 
-func (g *generator) callResults(call *ast.CallExpr, sc *fileScope) ([]typeRef, bool) {
+// callResults answers what a call gives back, in the shapes a handler writes:
+// a function of the package, a function of another package, a generic call
+// written with its type argument, and a method of any of those — either on a
+// local variable or straight on the result, store.All() and
+// trilha.Use[*posts.Store](c).All() alike.
+func (g *generator) callResults(call *ast.CallExpr, sc *fileScope, locals map[string]typeRef) ([]typeRef, bool) {
 	switch fn := call.Fun.(type) {
 	case *ast.Ident:
-		return g.ix.resultsOf(sc, "", fn.Name)
+		sig, ok := g.ix.sigOf(sc, "", fn.Name)
+		return sig.results, ok
+	case *ast.IndexExpr:
+		return g.instantiated(fn.X, []ast.Expr{fn.Index}, sc)
+	case *ast.IndexListExpr:
+		return g.instantiated(fn.X, fn.Indices, sc)
 	case *ast.SelectorExpr:
 		if q, ok := fn.X.(*ast.Ident); ok {
-			return g.ix.resultsOf(sc, q.Name, fn.Sel.Name)
+			// A local shadows a package name, and it is a local that has a
+			// method: the store the handler got from Use is one of these.
+			if t, ok := locals[q.Name]; ok {
+				sig, ok := g.ix.methodSig(t, fn.Sel.Name)
+				return sig.results, ok
+			}
+			sig, ok := g.ix.sigOf(sc, q.Name, fn.Sel.Name)
+			return sig.results, ok
+		}
+		if inner, ok := fn.X.(*ast.CallExpr); ok {
+			res, ok := g.callResults(inner, sc, locals)
+			if !ok || len(res) != 1 {
+				return nil, false
+			}
+			sig, ok := g.ix.methodSig(res[0], fn.Sel.Name)
+			return sig.results, ok
 		}
 	}
 	return nil, false
+}
+
+// instantiated reads a call written with type arguments, f[T](...). The
+// results of f are declared in terms of its type parameters, so a result that
+// names one is read as the type argument written at the call site — which is
+// how Use[*posts.Store](c) is known to hold a *posts.Store. A result that is
+// not a bare type parameter stays as the function declared it.
+func (g *generator) instantiated(fun ast.Expr, args []ast.Expr, sc *fileScope) ([]typeRef, bool) {
+	if isTrilhaUse(fun) && len(args) == 1 {
+		// Use[T] is how a handler reaches a dependency, and the framework is
+		// not in the index of the app being read: the type argument is the
+		// whole answer, written right there at the call.
+		return []typeRef{{expr: args[0], scope: sc}}, true
+	}
+	var sig funcSig
+	var ok bool
+	switch f := fun.(type) {
+	case *ast.Ident:
+		sig, ok = g.ix.sigOf(sc, "", f.Name)
+	case *ast.SelectorExpr:
+		q, isIdent := f.X.(*ast.Ident)
+		if !isIdent {
+			return nil, false
+		}
+		sig, ok = g.ix.sigOf(sc, q.Name, f.Sel.Name)
+	}
+	if !ok {
+		return nil, false
+	}
+	res := make([]typeRef, len(sig.results))
+	for i, r := range sig.results {
+		res[i] = r
+		id, isIdent := r.expr.(*ast.Ident)
+		if !isIdent {
+			continue
+		}
+		for j, name := range sig.tparams {
+			if name == id.Name && j < len(args) {
+				res[i] = typeRef{expr: args[j], scope: sc}
+				break
+			}
+		}
+	}
+	return res, true
+}
+
+// isTrilhaUse spots trilha.Use, written the way an app writes it.
+func isTrilhaUse(fun ast.Expr) bool {
+	sel, ok := fun.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != "Use" {
+		return false
+	}
+	q, ok := sel.X.(*ast.Ident)
+	return ok && q.Name == "trilha"
 }
 
 // call reads the four things a handler does that the document cares about:
@@ -270,7 +349,7 @@ func (g *generator) valueSchema(e ast.Expr, sc *fileScope, locals map[string]typ
 			return g.schemaFor(t)
 		}
 	case *ast.CallExpr:
-		if res, ok := g.callResults(v, sc); ok && len(res) > 0 {
+		if res, ok := g.callResults(v, sc, locals); ok && len(res) > 0 {
 			return g.schemaFor(res[0])
 		}
 	case *ast.UnaryExpr, *ast.CompositeLit:

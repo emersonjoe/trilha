@@ -261,3 +261,74 @@ func TestExemplos(t *testing.T) {
 		t.Errorf("openapi:tag = %v", got)
 	}
 }
+
+// TestInferenciaPorMetodo: um app que alcança seus dados por um valor — uma
+// dependência recebida, e não uma função de pacote — continua dizendo o que
+// responde. Sem isso o handler injetado publica resposta sem schema.
+func TestInferenciaPorMetodo(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, src string) {
+		t.Helper()
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("internal/store/store.go", `package store
+
+// Item is one thing on sale.
+type Item struct {
+	ID   string `+"`json:\"id\"`"+`
+	Name string `+"`json:\"name\"`"+`
+}
+
+// Store is the data behind the API.
+type Store struct{}
+
+// Open returns the store.
+func Open() *Store { return &Store{} }
+
+// Of is the app's own way of reaching a dependency.
+func Of[T any]() T { var zero T; return zero }
+
+// All returns every item.
+func (s *Store) All() []Item { return nil }
+
+// Get returns one item by id.
+func (s *Store) Get(id string) (Item, bool) { return Item{}, false }
+`)
+	write("app/api/items/route.go", `package items
+
+import (
+	"github.com/emersonjoe/trilha"
+	"example.com/x/internal/store"
+)
+
+// GET lists items through a store held in a variable.
+func GET(c *trilha.Ctx) error {
+	st := store.Open()
+	return c.JSON(200, st.All())
+}
+
+// POST answers with one item read straight off a generic call.
+func POST(c *trilha.Ctx) error {
+	it, _ := store.Of[*store.Store]().Get("x")
+	return c.JSON(201, it)
+}
+`)
+	doc := decode(t, gen(t, root, "example.com/x", Options{}))
+	get := at(t, doc, "paths", "/api/items", "get").(map[string]any)
+	if got := at(t, get, "responses", "200", "content", "application/json", "schema", "type"); got != "array" {
+		t.Errorf("st.All() devia dar uma lista: %v", got)
+	}
+	if got := at(t, get, "responses", "200", "content", "application/json", "schema", "items", "$ref"); got != "#/components/schemas/store.Item" {
+		t.Errorf("método em variável local = %v", got)
+	}
+	post := at(t, doc, "paths", "/api/items", "post").(map[string]any)
+	if got := at(t, post, "responses", "201", "content", "application/json", "schema", "$ref"); got != "#/components/schemas/store.Item" {
+		t.Errorf("método sobre chamada genérica = %v", got)
+	}
+}

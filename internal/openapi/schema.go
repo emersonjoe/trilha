@@ -51,10 +51,19 @@ type typeRef struct {
 	name  string // the declared name, when this came from a type declaration
 }
 
+// funcSig is what a call to a function or a method gives back: the result
+// types, and the type parameter names when the function is generic — the names
+// the results are written in terms of.
+type funcSig struct {
+	results []typeRef
+	tparams []string
+}
+
 type pkgIndex struct {
-	name  string
-	types map[string]typeRef
-	funcs map[string][]typeRef // exported function -> result types
+	name    string
+	types   map[string]typeRef
+	funcs   map[string]funcSig // exported function -> what it returns
+	methods map[string]funcSig // "Type.Method" -> what it returns
 }
 
 // index is every package of the project, by import path. It is built by
@@ -106,7 +115,7 @@ func (ix *index) add(root, file string) {
 	}
 	pi := ix.pkgs[imp]
 	if pi == nil {
-		pi = &pkgIndex{types: map[string]typeRef{}, funcs: map[string][]typeRef{}}
+		pi = &pkgIndex{types: map[string]typeRef{}, funcs: map[string]funcSig{}, methods: map[string]funcSig{}}
 		ix.pkgs[imp] = pi
 	}
 	pi.name = f.Name.Name
@@ -125,20 +134,74 @@ func (ix *index) add(root, file string) {
 				pi.types[ts.Name.Name] = typeRef{expr: ts.Type, scope: sc, name: ts.Name.Name}
 			}
 		case *ast.FuncDecl:
-			if d.Recv != nil || !d.Name.IsExported() || d.Type.Results == nil {
+			if !d.Name.IsExported() || d.Type.Results == nil {
 				continue
 			}
-			var res []typeRef
-			for _, r := range d.Type.Results.List {
-				n := len(r.Names)
-				if n == 0 {
-					n = 1
-				}
-				for i := 0; i < n; i++ {
-					res = append(res, typeRef{expr: r.Type, scope: sc})
-				}
+			sig := funcSig{results: resultTypes(d.Type.Results, sc), tparams: paramNames(d.Type.TypeParams)}
+			if d.Recv == nil {
+				pi.funcs[d.Name.Name] = sig
+				continue
 			}
-			pi.funcs[d.Name.Name] = res
+			if recv := recvName(d.Recv); recv != "" {
+				pi.methods[recv+"."+d.Name.Name] = sig
+			}
+		}
+	}
+}
+
+// resultTypes reads a result list: one entry per value the call gives back,
+// which is what a multiple assignment lines up against.
+func resultTypes(results *ast.FieldList, sc *fileScope) []typeRef {
+	var res []typeRef
+	for _, r := range results.List {
+		n := len(r.Names)
+		if n == 0 {
+			n = 1
+		}
+		for i := 0; i < n; i++ {
+			res = append(res, typeRef{expr: r.Type, scope: sc})
+		}
+	}
+	return res
+}
+
+// paramNames is the type parameter names of a generic declaration, in the
+// order the type arguments of a call fill them.
+func paramNames(tp *ast.FieldList) []string {
+	if tp == nil {
+		return nil
+	}
+	var names []string
+	for _, f := range tp.List {
+		for _, n := range f.Names {
+			names = append(names, n.Name)
+		}
+	}
+	return names
+}
+
+// recvName is the type a method hangs on, with the pointer and the type
+// parameters of a generic receiver taken off: func (s *Store[K]) All() is a
+// method of Store.
+func recvName(recv *ast.FieldList) string {
+	if len(recv.List) == 0 {
+		return ""
+	}
+	e := recv.List[0].Type
+	for {
+		switch v := e.(type) {
+		case *ast.StarExpr:
+			e = v.X
+		case *ast.ParenExpr:
+			e = v.X
+		case *ast.IndexExpr:
+			e = v.X
+		case *ast.IndexListExpr:
+			e = v.X
+		case *ast.Ident:
+			return v.Name
+		default:
+			return ""
 		}
 	}
 }
@@ -191,13 +254,13 @@ func (ix *index) typeIn(pkgPath, name string) (typeRef, bool) {
 	return tr, ok
 }
 
-// resultsOf answers what a call to pkg.Fn returns, which is how a local
-// variable gets a type without a type checker.
-func (ix *index) resultsOf(sc *fileScope, qual, name string) ([]typeRef, bool) {
+// sigOf answers what a call to pkg.Fn returns, which is how a local variable
+// gets a type without a type checker.
+func (ix *index) sigOf(sc *fileScope, qual, name string) (funcSig, bool) {
 	if qual == "" {
 		pi := ix.pkgs[sc.pkgPath]
 		if pi == nil {
-			return nil, false
+			return funcSig{}, false
 		}
 		r, ok := pi.funcs[name]
 		return r, ok
@@ -215,7 +278,44 @@ func (ix *index) resultsOf(sc *fileScope, qual, name string) ([]typeRef, bool) {
 			return r, ok
 		}
 	}
-	return nil, false
+	return funcSig{}, false
+}
+
+// named walks a type expression down to the declaration it points at, so a
+// value of type *posts.Store finds the Store that package declares.
+func (ix *index) named(t typeRef) (typeRef, bool) {
+	if t.expr == nil || t.scope == nil {
+		return typeRef{}, false
+	}
+	switch e := t.expr.(type) {
+	case *ast.ParenExpr:
+		return ix.named(typeRef{expr: e.X, scope: t.scope})
+	case *ast.StarExpr:
+		return ix.named(typeRef{expr: e.X, scope: t.scope})
+	case *ast.Ident:
+		return ix.resolveType(t.scope, e.Name)
+	case *ast.SelectorExpr:
+		if q, ok := e.X.(*ast.Ident); ok {
+			return ix.resolveType(t.scope, q.Name+"."+e.Sel.Name)
+		}
+	}
+	return typeRef{}, false
+}
+
+// methodSig answers what v.M() returns, when v holds a type this project
+// declares. It is how a handler that reaches its store through a dependency
+// still says what it answers.
+func (ix *index) methodSig(t typeRef, name string) (funcSig, bool) {
+	tr, ok := ix.named(t)
+	if !ok || tr.name == "" || tr.scope == nil {
+		return funcSig{}, false
+	}
+	pi := ix.pkgs[tr.scope.pkgPath]
+	if pi == nil {
+		return funcSig{}, false
+	}
+	r, ok := pi.methods[tr.name+"."+name]
+	return r, ok
 }
 
 func (ix *index) pkgName(pkgPath string) string {
