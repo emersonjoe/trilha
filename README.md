@@ -179,6 +179,7 @@ ui.Card(
 | Medium | `examples/cadastro` | a form with rules: conditional fields, per-field validation (`c.Bind`, `trilha.FieldErrors`, `c.Render`), dependent select, disappearing toast |
 | Complex | `examples/orcamento` | tree-shaped chart of accounts, drill-down, recursive components, dialog, CSV |
 | SSO | `examples/sso` | OpenID Connect login (Entra ID/Keycloak), protected area, required role |
+| Login of your own | `examples/local-login` | session without OIDC (PBKDF2 in the format Python writes) and `/api/` forwarded to an existing API with the session credential |
 | AI | `examples/assistente` | streaming chat, agent with tools, MCP |
 
 The example apps are written in Portuguese (identifiers and UI texts); the code is the same

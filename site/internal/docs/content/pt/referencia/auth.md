@@ -3,8 +3,9 @@ title: auth
 description: Provider, Options, Auth, User e Store — a API do pacote auth, com os padrões e o que cada campo muda.
 ---
 
-`import "github.com/emersonjoe/trilha/auth"` — login OpenID Connect com a biblioteca padrão.
-O pacote não registra rota: expõe manipuladores que o seu `app/` publica.
+`import "github.com/emersonjoe/trilha/auth"` — login com a biblioteca padrão, por um provedor
+(OpenID Connect) ou contra a tabela de usuários do próprio app. O pacote não registra rota:
+expõe manipuladores que o seu `app/` publica.
 
 ## Provedores
 
@@ -49,6 +50,7 @@ primeiro uso e vale por uma hora; um emissor divergente entre a configuração e
 | `AfterLogout string` | `/` | destino após o logout |
 | `RoleClaims []string` | — | claims adicionais de onde ler papéis |
 | `Store Store` | `nil` | persiste a sessão; `nil` = cookie assinado, sem estado |
+| `OnLogin func(c, *User) error` | — | roda dentro de `Login` e `Callback`, com a sessão ainda não gravada; o erro dele impede o login |
 
 ## Auth
 
@@ -62,6 +64,10 @@ func (a *Auth) RequireRole(roles ...string) trilha.MiddlewareFunc
 func (a *Auth) Optional() trilha.MiddlewareFunc
 func (a *Auth) User(c *trilha.Ctx) *User     // nil quando anônimo
 func (a *Auth) Session(c *trilha.Ctx) (*User, error)
+
+func Sessions(o Options) *Auth               // o mesmo tipo, sem provedor
+func (a *Auth) Login(c *trilha.Ctx, u *User) error // sessão para quem o app autenticou
+func (a *Auth) RequireFunc(pred func(*User, *trilha.Ctx) bool) trilha.MiddlewareFunc
 ```
 
 `Require` responde **302** para o login quando a requisição é uma navegação (Accept com
@@ -81,10 +87,69 @@ type User struct {
 	ExpiresAt time.Time
 	Seen      time.Time // última atividade (janela de ociosidade)
 	SessionID string    // muda a cada login
+	Extra map[string]string // o que o OIDC não tem claim para dizer (token da API, tenant)
 }
 
 func (u *User) HasRole(role string) bool
 ```
+
+## Sessão sem OIDC
+
+Um app cujos usuários são uma tabela sua — e-mail, hash de senha, papel — monta o mesmo
+`*Auth` com `Sessions` e diz sozinho quem é a pessoa:
+
+```go
+sessoes := auth.Sessions(auth.Options{Store: store, LoginPath: "/entrar"})
+
+// app/entrar/page.go
+func POST(c *trilha.Ctx) error {
+	u, err := usuarios.Verify(c.Form("email"), c.Form("senha"))
+	if err != nil {
+		return c.Render(422, formulario(c, "e-mail ou senha inválidos"))
+	}
+	return sessoes.Login(c, &auth.User{Subject: u.ID, Email: u.Email,
+		Roles: []string{u.Papel}, Extra: map[string]string{"api_token": u.JWT}})
+}
+```
+
+`Login` redireciona para o `next` que pediram, ou para o `AfterLogin`. `Start` e `Callback`
+respondem erro claro num `Auth` sem provedor; `Logout` limpa a sessão e aterrissa, já que
+não há nada acima deste app para encerrar.
+
+`User.Extra` é o que esta sessão carrega e uma claim não sabe dizer — o token que um
+[upstream](/pt/referencia/upstreams) injeta, o tenant. Ele viaja por onde o resto da sessão
+viaja: deixe-o pequeno e nunca ponha uma senha ali.
+
+### Senhas
+
+```go
+func HashPBKDF2(senha string) (string, error)   // pbkdf2_sha256$600000$sal$hash
+func CheckPBKDF2(codificado, senha string) bool // tempo constante; false para hash ilegível
+func PBKDF2(senha, sal []byte, iter, tamanho int) []byte
+```
+
+O formato é o que o Django e o `hashlib.pbkdf2_hmac` gravam, então a tabela de usuários que
+já existe continua valendo sem migração de senha — o número de iterações viaja dentro de
+cada hash, então aumentar `DefaultPBKDF2Iterations` não tranca ninguém do lado de fora.
+`bcrypt` e `argon2` fazem isso melhor e nenhum dos dois está na biblioteca padrão, que é a
+razão inteira de este estar aqui.
+
+### Autorização que os papéis não expressam
+
+Uma matriz de módulo e nível, um tenant, o dono de um registro: todos a mesma forma, e
+nenhum deles uma lista de nomes de papel.
+
+```go
+// app/painel/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error {
+	return sessoes.RequireFunc(func(u *auth.User, c *trilha.Ctx) bool {
+		return u.Extra["tenant"] == c.Param("tenant")
+	})(c, next)
+}
+```
+
+O anônimo nunca chega ao predicado: vai para o login antes, como no `Require`. Esconder o
+item do menu é cosmético — a regra é o middleware.
 
 ## Store
 

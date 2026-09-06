@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -187,6 +188,24 @@ func runAudit(p *project, vuln bool) []check {
 		add("ok", t("gitignore ok"), "")
 	}
 
+	// Upstreams (spec 056). A proxy carries the session's credential to
+	// another service: in the clear it is a token on the wire, and with no
+	// Headers at all it is probably a credential somebody forgot.
+	if strings.Contains(src, "Upstreams") {
+		if plain := plainTargets(src); len(plain) > 0 {
+			add("critical", t("upstream plaintext"), fmt.Sprintf(t("upstream plaintext hint"), strings.Join(plain, ", ")))
+		}
+		if upstreamWithoutCredential(src) {
+			add("warn", t("upstream no credential"), t("upstream no credential hint"))
+		}
+	}
+
+	// Login without a rate limit is a password guessing machine with the
+	// app's own uptime (OWASP ASVS 2.2.1).
+	if loginWithoutLimit(src, os.Getenv("TRILHA_RATE_LIMIT") != "") {
+		add("warn", t("login no limit"), t("login no limit hint"))
+	}
+
 	// go vet.
 	if outb, err := runCmd(p.Root, "go", "vet", "./..."); err != nil {
 		add("warn", t("vet problems"), strings.TrimSpace(string(outb)))
@@ -238,6 +257,41 @@ func openWrites(res *scan.Result) []string {
 		}
 	}
 	return out
+}
+
+// plainTargets lists the upstream targets written as http:// to a host that is
+// not this machine. localhost is the dev loop; anything else is the session's
+// credential crossing a network in the clear.
+var targetRe = regexp.MustCompile(`Target:\s*"(http://[^"]*)"`)
+
+func plainTargets(src string) []string {
+	var out []string
+	for _, m := range targetRe.FindAllStringSubmatch(src, -1) {
+		host := strings.SplitN(strings.TrimPrefix(m[1], "http://"), "/", 2)[0]
+		host = strings.SplitN(host, ":", 2)[0]
+		switch host {
+		case "localhost", "127.0.0.1", "[::1]", "::1":
+			continue
+		}
+		out = append(out, m[1])
+	}
+	return out
+}
+
+// upstreamWithoutCredential reports an upstream that injects nothing in an app
+// that has a login. The proxy does not forward the browser's Authorization, so
+// with no Headers the API is called anonymously — which is either a forgotten
+// credential or a decision worth writing down.
+func upstreamWithoutCredential(src string) bool {
+	if !strings.Contains(src, "Upstreams") || strings.Contains(src, "Headers:") {
+		return false
+	}
+	return strings.Contains(src, ".Require()") || strings.Contains(src, ".RequireRole(") || strings.Contains(src, ".RequireFunc(")
+}
+
+// loginWithoutLimit reports a login nobody limits (OWASP ASVS 2.2.1).
+func loginWithoutLimit(src string, envLimit bool) bool {
+	return strings.Contains(src, ".Login(") && !strings.Contains(src, "RateLimit") && !envLimit
 }
 
 // projectSource concatenates the Go sources of the project, so the checks can

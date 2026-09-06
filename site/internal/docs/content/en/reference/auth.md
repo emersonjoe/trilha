@@ -3,8 +3,9 @@ title: auth
 description: Provider, Options, Auth, User and Store — the API of the auth package, with the defaults and what each field changes.
 ---
 
-`import "github.com/emersonjoe/trilha/auth"` — OpenID Connect login with the standard
-library. The package registers no route: it exposes handlers that your `app/` publishes.
+`import "github.com/emersonjoe/trilha/auth"` — login with the standard library, through a
+provider (OpenID Connect) or against the app's own users table. The package registers no
+route: it exposes handlers that your `app/` publishes.
 
 ## Providers
 
@@ -49,6 +50,7 @@ the document is an error, not a warning.
 | `AfterLogout string` | `/` | destination after the logout |
 | `RoleClaims []string` | — | additional claims to read roles from |
 | `Store Store` | `nil` | persists the session; `nil` = signed cookie, stateless |
+| `OnLogin func(c, *User) error` | — | runs inside `Login` and `Callback`, session not yet written; its error stops the login |
 
 ## Auth
 
@@ -62,6 +64,10 @@ func (a *Auth) RequireRole(roles ...string) trilha.MiddlewareFunc
 func (a *Auth) Optional() trilha.MiddlewareFunc
 func (a *Auth) User(c *trilha.Ctx) *User     // nil when anonymous
 func (a *Auth) Session(c *trilha.Ctx) (*User, error)
+
+func Sessions(o Options) *Auth               // the same type, without a provider
+func (a *Auth) Login(c *trilha.Ctx, u *User) error // session for a user the app authenticated
+func (a *Auth) RequireFunc(pred func(*User, *trilha.Ctx) bool) trilha.MiddlewareFunc
 ```
 
 `Require` answers **302** to the login when the request is a navigation (Accept with
@@ -81,10 +87,68 @@ type User struct {
 	ExpiresAt time.Time
 	Seen      time.Time // last activity (idle window)
 	SessionID string    // changes on every login
+	Extra map[string]string // what OIDC has no claim for (the API token, the tenant)
 }
 
 func (u *User) HasRole(role string) bool
 ```
+
+## Session without OIDC
+
+An app whose users are a table of its own — e-mail, password hash, role — builds the same
+`*Auth` with `Sessions`, and says who the person is itself:
+
+```go
+sessions := auth.Sessions(auth.Options{Store: store, LoginPath: "/login"})
+
+// app/login/page.go
+func POST(c *trilha.Ctx) error {
+	u, err := users.Verify(c.Form("email"), c.Form("password"))
+	if err != nil {
+		return c.Render(422, form(c, "wrong e-mail or password"))
+	}
+	return sessions.Login(c, &auth.User{Subject: u.ID, Email: u.Email,
+		Roles: []string{u.Role}, Extra: map[string]string{"api_token": u.JWT}})
+}
+```
+
+`Login` redirects to the `next` it was asked for, or to `AfterLogin`. `Start` and
+`Callback` answer a clear error on an `Auth` with no provider; `Logout` clears the session
+and lands, since there is nothing above this app to end.
+
+`User.Extra` is what this session carries and a claim cannot express — the token an
+[upstream](/reference/upstreams) injects, the tenant. It travels where the rest of the
+session travels: keep it small, and never put a password in it.
+
+### Passwords
+
+```go
+func HashPBKDF2(password string) (string, error)  // pbkdf2_sha256$600000$salt$hash
+func CheckPBKDF2(encoded, password string) bool   // constant-time; false on a hash it cannot read
+func PBKDF2(password, salt []byte, iter, keyLen int) []byte
+```
+
+The format is the one Django and `hashlib.pbkdf2_hmac` write, so an existing users table
+stays valid without a password migration — the iteration count travels inside each hash, so
+raising `DefaultPBKDF2Iterations` locks nobody out. `bcrypt` and `argon2` are better at this
+and neither is in the standard library, which is the whole reason this one is here.
+
+### Authorization the roles do not express
+
+A matrix of module and level, a tenant, the owner of a record: all the same shape, and none
+of them a list of role names.
+
+```go
+// app/painel/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error {
+	return sessions.RequireFunc(func(u *auth.User, c *trilha.Ctx) bool {
+		return u.Extra["tenant"] == c.Param("tenant")
+	})(c, next)
+}
+```
+
+Anonymous never reaches the predicate: it is sent to the login first, as `Require` does.
+Hiding the menu item is cosmetic — the rule is the middleware.
 
 ## Store
 

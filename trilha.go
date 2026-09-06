@@ -46,6 +46,11 @@ type Config struct {
 	// is not shaped like its URL tree. They match before Public, longest
 	// prefix first, and fall through to it when the file is not there.
 	Mounts map[string]fs.FS
+	// Upstreams forward a URL prefix to an API that already exists, with the
+	// credential of the session injected — the rewrite of a Next.js app, plus
+	// what a rewrite has no place for. A route.go of this app always wins over
+	// the prefix, so an API can be migrated endpoint by endpoint.
+	Upstreams map[string]Upstream
 	// CSRFForAPI also enforces CSRF tokens on route.go handlers.
 	CSRFForAPI bool
 	// CSRF renames the double-submit cookie, the form field and the header
@@ -261,9 +266,10 @@ type App struct {
 	healthCache *HealthReport
 	healthAt    time.Time
 
-	mounts   []mount
-	warnedMu sync.Mutex
-	warned   map[string]bool
+	mounts    []mount
+	upstreams []*upstream
+	warnedMu  sync.Mutex
+	warned    map[string]bool
 
 	assetMu     sync.RWMutex
 	assets      map[string]assetVersion
@@ -311,6 +317,7 @@ func (a *App) applyConfig() {
 	cfg.CSRF = cfg.CSRF.names()
 	a.parseProxies()
 	a.parseMounts()
+	a.parseUpstreams()
 	// A response without security headers has to be a decision someone can
 	// find later, so it is written down once, at boot.
 	if cfg.Security.Delegated {

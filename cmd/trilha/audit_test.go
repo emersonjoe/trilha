@@ -234,3 +234,78 @@ func TestMetricsItemLooksAtTheEndpoint(t *testing.T) {
 		t.Errorf("with a token the level is %q", got.level)
 	}
 }
+
+// SC-016 — o alvo em http puro é o único dos três que é crítico: a credencial
+// da sessão atravessa a rede legível. O localhost é o laço de desenvolvimento
+// e não conta.
+func TestAuditoriaOlhaOsUpstreams(t *testing.T) {
+	casos := []struct {
+		nome  string
+		src   string
+		plain []string
+	}{
+		{
+			nome:  "http para fora",
+			src:   `cfg.Upstreams = map[string]trilha.Upstream{"/api/": {Target: "http://api.interno:8801", Headers: func(){}}}`,
+			plain: []string{"http://api.interno:8801"},
+		},
+		{
+			nome: "http na própria máquina",
+			src:  `cfg.Upstreams = map[string]trilha.Upstream{"/api/": {Target: "http://localhost:8801", Headers: func(){}}}`,
+		},
+		{
+			nome: "https",
+			src:  `cfg.Upstreams = map[string]trilha.Upstream{"/api/": {Target: "https://api.exemplo.com", Headers: func(){}}}`,
+		},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			got := plainTargets(c.src)
+			if len(got) != len(c.plain) {
+				t.Fatalf("%v, queria %v", got, c.plain)
+			}
+			for i := range got {
+				if got[i] != c.plain[i] {
+					t.Fatalf("%v, queria %v", got, c.plain)
+				}
+			}
+		})
+	}
+	// Um upstream sem Headers nenhum num app que exige login: ou é uma
+	// credencial esquecida, ou merece um comentário dizendo que é de propósito.
+	const comLogin = "\nvar Middleware = sso.Require()\n"
+	const upstream = `cfg.Upstreams = map[string]trilha.Upstream{"/api/": {Target: "https://api.exemplo.com"}}`
+	const comHeaders = `cfg.Upstreams = map[string]trilha.Upstream{"/api/": {Target: "https://x", Headers: nil}}`
+	for _, c := range []struct {
+		nome string
+		src  string
+		quer bool
+	}{
+		{"sem credencial num app com login", upstream + comLogin, true},
+		{"com Headers", comHeaders + comLogin, false},
+		{"sem login nenhum", upstream, false},
+		{"sem upstream", comLogin, false},
+	} {
+		if got := upstreamWithoutCredential(c.src); got != c.quer {
+			t.Errorf("%s: %v", c.nome, got)
+		}
+	}
+
+	// Um login que ninguém limita é uma máquina de adivinhar senha.
+	const login = "return sessoes.Login(c, u)"
+	for _, c := range []struct {
+		nome string
+		src  string
+		env  bool
+		quer bool
+	}{
+		{"login sem limite", login, false, true},
+		{"login com RateLimit no código", login + "\ncfg.RateLimit = trilha.RateLimit{RPS: 1}", false, false},
+		{"login com limite no ambiente", login, true, false},
+		{"sem login", "cfg.Addr = \":3000\"", false, false},
+	} {
+		if got := loginWithoutLimit(c.src, c.env); got != c.quer {
+			t.Errorf("%s: %v", c.nome, got)
+		}
+	}
+}

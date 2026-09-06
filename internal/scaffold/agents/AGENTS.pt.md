@@ -58,6 +58,14 @@ leia essa frase em vez de adivinhar.
   já vêm ligados. A exceção é a escrita que mora num `route.go`: `route.go` é API, e API não
   confere o token, então ponha `var Kind = trilha.KindPage` num `kind.go` na raiz daquele ramo —
   ele é herdado por tudo abaixo, e o `trilha audit` aponta a escrita que nenhum `Kind` alcança.
+- **Não escreva um proxy reverso para alcançar uma API que já existe.** O `Config.Upstreams`
+  encaminha um prefixo com a credencial da sessão injetada, o token do CSRF exigido, o corpo
+  passando por cima do `MaxBodyBytes` e um 502/504 em `problem+json`. Um
+  `httputil.ReverseProxy` escrito à mão num `route.go` catch-all esbarra em cada um desses
+  sozinho.
+- **Não copie uma receita de sessão para um app com usuários próprios.** O `auth.Sessions` é o
+  mesmo `*Auth` sem provedor: confira a senha com `auth.CheckPBKDF2` e chame `Login(c, u)`. O
+  resto — `Require`, `RequireRole`, a `Store`, a janela de ociosidade — já está escrito.
 - **Não invente um cookie de flash nem um `onclick="return confirm()"`.** Depois de um `POST`,
   conte o que aconteceu com `c.Flash(ui.FlashSuccess, "…")` — o `ui.Flashes(c)` do layout mostra
   na página onde o redirect cai — e pergunte antes de destruir com `ui.Confirm(título,

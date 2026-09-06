@@ -37,7 +37,12 @@ documented call. What has no control is listed as **open**.
    really is your proxy. The framework believes them **only** from a CIDR in
    `Config.TrustedProxies`; from anyone else the peer address wins.
 3. **App → outside services.** Out of the framework's hands: it neither opens nor pools those
-   connections. Your app owns it.
+   connections. Your app owns it — with one exception, `Config.Upstreams`, where the
+   framework does make the call. There the target is fixed in the configuration and no part
+   of the request can move it; the credential injected by `Upstream.Headers` is the
+   session's, never the `Authorization` the browser sent; and the response comes back with
+   the upstream's own headers. Anything that upstream returns is data from outside this
+   trust boundary: it is passed to the client, not interpreted by the app.
 4. **App → disk.** `Config.Public` and `Config.Mounts` are an `fs.FS`, which cannot address
    anything above its root; uploads land through `Upload.Save`, which refuses a name that
    would walk out of the directory.
@@ -120,6 +125,25 @@ the [security reference](https://emersonjoe.github.io/trilha/reference/security)
 | Dependency with a known vulnerability | Zero external dependencies in the runtime and the CLI, enforced by a test; `govulncheck` on every CI run. |
 | A bug in the parsing of third-party input | `go test -race` and six fuzz targets in CI (route matching, `Bind`, signed cookies, `traceparent`, escaping). |
 | **Authorization inside the domain** | **Open, by design.** "Can this person read this invoice?" depends on your data model. The framework gives you the identity and the roles; the decision is yours. |
+
+## Session without a provider
+
+`auth.Sessions` puts the credential inside the app instead of at an identity provider, and
+that moves three things in this model:
+
+- **The password hash is now an asset of this app.** `auth.CheckPBKDF2` reads and
+  `auth.HashPBKDF2` writes `pbkdf2_sha256$iterations$salt$hash`; the comparison is
+  constant-time, and a hash the function cannot parse is a false, never a panic. The
+  iteration count travels inside each hash, so raising the default locks nobody out.
+- **The login is a guessing oracle unless it is limited.** With OIDC the provider absorbs
+  that; here it is `Config.RateLimit`, and `trilha audit` says so when a `Login` has none.
+  Answer the same message for a wrong e-mail and a wrong password, and take the same time.
+- **`User.Extra` travels with the session** — in the signed cookie, or in the `Store`. It is
+  for a token an upstream needs, a tenant, a plan: never for a password, and never for more
+  than a cookie should carry.
+
+Revocation is the `Store`'s job, as with OIDC: without one, a session lives in the cookie
+until it expires and `Logout` only stops that browser from sending it.
 
 ## What the framework does not do for you
 

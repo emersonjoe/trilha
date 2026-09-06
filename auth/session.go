@@ -23,6 +23,11 @@ type User struct {
 	Seen time.Time `json:"seen"`
 	// SessionID changes on every login (session fixation).
 	SessionID string `json:"sid"`
+	// Extra carries what this app's session needs and OIDC has no claim for:
+	// the token the upstream wants, the tenant, the plan. It travels where the
+	// rest of the session travels — the signed cookie, or the Store — so keep
+	// it small and never put a password in it.
+	Extra map[string]string `json:"extra,omitempty"`
 }
 
 // HasRole reports whether the user carries the role, case-insensitively.

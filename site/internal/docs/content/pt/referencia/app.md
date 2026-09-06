@@ -13,6 +13,7 @@ type Config struct {
 	Logger       *slog.Logger // slog.Default()
 	Public       fs.FS        // arquivos estáticos; nil desliga
 	Mounts       map[string]fs.FS // árvores estáticas por prefixo de URL, antes de Public
+	Upstreams    map[string]Upstream // prefixo de URL → uma API que já existe
 	CSRFForAPI   bool         // exigir CSRF também em route.go
 	CSRF         CSRF         // nomes do cookie, do campo e do cabeçalho do token
 	BasePath     string       // prefixo de URL; TRILHA_BASE_PATH
@@ -46,7 +47,7 @@ só *quando* o valor é lido:
 | Campos | Lidos em | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
 | `Security`, `Public`, `MaxBodyBytes`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | a cada requisição | ✓ | ✓ |
-| `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS` | derivados em `New` e **reaplicados** ao começar a servir (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
+| `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS`, `Upstreams` | derivados em `New` e **reaplicados** ao começar a servir (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
 | `Env` | `New` (chave efêmera em dev) e por requisição | ✓ | parcial |
 

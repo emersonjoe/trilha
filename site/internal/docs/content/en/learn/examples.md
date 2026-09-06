@@ -19,6 +19,7 @@ The code is the same Trilha you read about in English here; only the words diffe
 | Medium | `examples/cadastro` | a form with rules: conditional fields, server-side validation with per-field errors, dependent select, disappearing toast, responsive layout |
 | Complex | `examples/orcamento` | tree-shaped domain (chart of accounts), aggregation, drill-down through a dynamic route, nested and recursive components, dialog with a form, period filter, CSV |
 | SSO | `examples/sso` | OpenID Connect login with Entra ID or Keycloak, protected area, required role, federated logout |
+| Login of your own | `examples/local-login` | session without a provider (`auth.Sessions`, PBKDF2), and `Config.Upstreams` forwarding `/api/` to an API that already exists with the session credential |
 | AI | `examples/assistente` | streaming chat, agent with tools, handoff, MCP server |
 
 ## Medium: sign-up (`cadastro`)

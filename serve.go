@@ -239,6 +239,13 @@ func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+	// The upstream is the last route of its prefix: a route.go of the app,
+	// and even a 405 from one, answers before it.
+	if up := a.matchUpstream(req.URL.Path); up != nil {
+		if a.serveUpstream(fc, up) {
+			return
+		}
+	}
 	// Trailing slash → canonical path.
 	if p := req.URL.Path; len(p) > 1 && strings.HasSuffix(p, "/") {
 		probe := req.Clone(req.Context())

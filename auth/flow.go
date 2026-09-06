@@ -44,6 +44,10 @@ type Options struct {
 	RoleClaims []string
 	// Store persists sessions; nil keeps them in the signed cookie.
 	Store Store
+	// OnLogin runs inside Login and Callback, with the session not yet
+	// written: it is where the app loads permissions or records the audit
+	// line, and where an error stops the login.
+	OnLogin func(c *trilha.Ctx, u *User) error
 }
 
 // Auth is the configured login flow.
@@ -91,6 +95,9 @@ func (a *Auth) Provider() *Provider { return a.p }
 //	// app/entrar/route.go
 //	func GET(c *trilha.Ctx) error { return sso.Start(c) }
 func (a *Auth) Start(c *trilha.Ctx) error {
+	if a.p == nil {
+		return errNoProvider
+	}
 	doc, err := a.p.discover(c.Context())
 	if err != nil {
 		return a.fail(c, err)
@@ -128,6 +135,9 @@ func (a *Auth) Start(c *trilha.Ctx) error {
 //	// app/entrar/retorno/route.go
 //	func GET(c *trilha.Ctx) error { return sso.Callback(c) }
 func (a *Auth) Callback(c *trilha.Ctx) error {
+	if a.p == nil {
+		return errNoProvider
+	}
 	defer func() {
 		for _, n := range []string{"trilha_oidc_state", "trilha_oidc_nonce", "trilha_oidc_verifier", "trilha_oidc_next"} {
 			c.ClearCookie(n)
@@ -163,9 +173,15 @@ func (a *Auth) Callback(c *trilha.Ctx) error {
 	}
 	u := &User{Subject: claims.Subject, Email: claims.Email, Name: claims.Name,
 		Roles: a.p.roles(claims, a.opts.RoleClaims)}
+
 	if u.Email == "" {
 		if pref, ok := claims.All["preferred_username"].(string); ok {
 			u.Email = pref
+		}
+	}
+	if a.opts.OnLogin != nil {
+		if err := a.opts.OnLogin(c, u); err != nil {
+			return a.fail(c, err)
 		}
 	}
 	if err := a.login(c, u); err != nil {
@@ -187,6 +203,11 @@ func (a *Auth) Callback(c *trilha.Ctx) error {
 //	func POST(c *trilha.Ctx) error { return sso.Logout(c) }
 func (a *Auth) Logout(c *trilha.Ctx) error {
 	a.clear(c)
+	// Without a provider there is nothing above this app to end: the session
+	// was created here and it dies here.
+	if a.p == nil {
+		return c.Redirect(a.opts.AfterLogout)
+	}
 	doc, err := a.p.discover(c.Context())
 	if err != nil {
 		return c.Redirect(a.opts.AfterLogout)

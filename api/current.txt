@@ -202,6 +202,7 @@ pkg trilha, type Config struct, StaticCacheControl string
 pkg trilha, type Config struct, StaticHeaders func(string, http.Header)
 pkg trilha, type Config struct, Timeouts Timeouts
 pkg trilha, type Config struct, TrustedProxies []string
+pkg trilha, type Config struct, Upstreams map[string]Upstream
 pkg trilha, type Counter struct
 pkg trilha, type Ctx struct
 pkg trilha, type Env string
@@ -308,6 +309,12 @@ pkg trilha, type Upload struct, File multipart.File
 pkg trilha, type Upload struct, MIME string
 pkg trilha, type Upload struct, Name string
 pkg trilha, type Upload struct, Size int64
+pkg trilha, type Upstream struct
+pkg trilha, type Upstream struct, CSRF string
+pkg trilha, type Upstream struct, Headers func(*Ctx, http.Header)
+pkg trilha, type Upstream struct, Target string
+pkg trilha, type Upstream struct, Timeout time.Duration
+pkg trilha, type Upstream struct, Transport http.RoundTripper
 pkg trilha, type Validator interface
 pkg trilha, type Validator interface, Validate() error
 pkg trilha, var BindInvalid
@@ -473,18 +480,25 @@ pkg ai/mcp, type Transport interface
 pkg ai/mcp, type Transport interface, Close() error
 pkg ai/mcp, type Transport interface, Recv(context.Context) ([]byte, error)
 pkg ai/mcp, type Transport interface, Send(context.Context, []byte) error
+pkg auth, const DefaultPBKDF2Iterations
+pkg auth, func CheckPBKDF2(string, string) bool
 pkg auth, func Clerk(string, string, string, string) *Provider
 pkg auth, func Cognito(string, string, string, string, string) *Provider
 pkg auth, func EntraID(string, string, string, string) *Provider
+pkg auth, func HashPBKDF2(string) (string, error)
 pkg auth, func Keycloak(string, string, string, string, string) *Provider
 pkg auth, func New(*Provider, Options) *Auth
 pkg auth, func NewMemoryStore() *MemoryStore
 pkg auth, func OIDC(string, string, string, string) *Provider
+pkg auth, func PBKDF2([]byte, []byte, int, int) []byte
+pkg auth, func Sessions(Options) *Auth
 pkg auth, method (*Auth) Callback(*trilha.Ctx) error
+pkg auth, method (*Auth) Login(*trilha.Ctx, *User) error
 pkg auth, method (*Auth) Logout(*trilha.Ctx) error
 pkg auth, method (*Auth) Optional() trilha.MiddlewareFunc
 pkg auth, method (*Auth) Provider() *Provider
 pkg auth, method (*Auth) Require() trilha.MiddlewareFunc
+pkg auth, method (*Auth) RequireFunc(func(*User, *trilha.Ctx) bool) trilha.MiddlewareFunc
 pkg auth, method (*Auth) RequireRole(...string) trilha.MiddlewareFunc
 pkg auth, method (*Auth) Session(*trilha.Ctx) (*User, error)
 pkg auth, method (*Auth) Start(*trilha.Ctx) error
@@ -514,6 +528,7 @@ pkg auth, type Options struct, CookieName string
 pkg auth, type Options struct, Idle time.Duration
 pkg auth, type Options struct, IdleOff bool
 pkg auth, type Options struct, LoginPath string
+pkg auth, type Options struct, OnLogin func(*trilha.Ctx, *User) error
 pkg auth, type Options struct, RoleClaims []string
 pkg auth, type Options struct, Scopes []string
 pkg auth, type Options struct, Store Store
@@ -531,6 +546,7 @@ pkg auth, type Store interface, Save(string, *User, time.Duration) error
 pkg auth, type User struct
 pkg auth, type User struct, Email string
 pkg auth, type User struct, ExpiresAt time.Time
+pkg auth, type User struct, Extra map[string]string
 pkg auth, type User struct, IssuedAt time.Time
 pkg auth, type User struct, Name string
 pkg auth, type User struct, Roles []string

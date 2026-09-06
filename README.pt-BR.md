@@ -178,6 +178,7 @@ ui.Card(
 | Médio | `examples/cadastro` | formulário com regras: campos condicionais, validação por campo (`c.Bind`, `trilha.FieldErrors`, `c.Render`), seleção dependente, aviso que some |
 | Complexo | `examples/orcamento` | plano de contas em árvore, drill-down, componentes recursivos, diálogo, CSV |
 | SSO | `examples/sso` | login OpenID Connect (Entra ID/Keycloak), área protegida, papel exigido |
+| Login próprio | `examples/local-login` | sessão sem OIDC (PBKDF2 no formato que o Python grava) e `/api/` encaminhado para uma API existente com a credencial da sessão |
 | IA | `examples/assistente` | chat em streaming, agente com ferramentas, MCP |
 
 ## IA e agentes

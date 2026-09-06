@@ -3,6 +3,57 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## Unreleased
+
+### Added
+
+- **`Config.Upstreams`: an app in front of an API that already exists**
+  ([#60](https://github.com/emersonjoe/trilha/issues/60)). A URL prefix is forwarded to
+  another service — the `rewrites` of a Next.js app — plus the two things a rewrite has no
+  place for: the credential of the session, injected by `Upstream.Headers` into the outbound
+  request, and the CSRF token, required on writes as on any other write of the app. The
+  target lives in the configuration and no part of the request can move it; the
+  `Authorization` the browser sent is dropped, so nobody talks to the API with a `Bearer` of
+  their own. The body streams both ways, past `MaxBodyBytes` and the write deadline; the
+  upstream's `Content-Type`, `Content-Disposition`, `Cache-Control` and `ETag` come back
+  intact, with Trilha's security headers standing where the upstream said nothing;
+  `X-Request-ID` and `traceparent` cross so the two logs are about the same request. A
+  `route.go` of the app answers before the prefix, which is what lets an API move to Go one
+  endpoint at a time. A dead upstream is 502 and a slow one 504, both `problem+json`.
+- **`auth.Sessions`: a session without OIDC**
+  ([#62](https://github.com/emersonjoe/trilha/issues/62)). The same `*Auth`, without a
+  provider, for an app whose users are a table of its own: `Login(c, *User)` opens the
+  session after the app checked the password, and `Require`, `RequireRole`, `Optional`, the
+  `Store`, the rotation of the identifier and the idle window are the code that was already
+  there. `Start` and `Callback` answer a clear error instead of dying on a nil provider, and
+  `Logout` clears the session and lands.
+- **`User.Extra map[string]string`** carries what a claim cannot say — the token an upstream
+  injects, the tenant — and travels where the rest of the session travels.
+- **`auth.HashPBKDF2`, `auth.CheckPBKDF2` and `auth.PBKDF2`** in the format Django and
+  `hashlib.pbkdf2_hmac` write (`pbkdf2_sha256$iterations$salt$hash`), so an existing users
+  table stays valid without a password migration. Constant-time comparison; a hash the
+  function cannot read is a false, never a panic.
+- **`Options.OnLogin`** runs inside `Login` and `Callback` with the session not yet written,
+  and its error stops the login.
+- **`(*Auth).RequireFunc(pred)`** guards a subtree with a rule the app writes — a matrix of
+  module and level, a tenant, the owner of a record — which is the shape `RequireRole` cannot
+  express. Anonymous never reaches the predicate.
+- **`examples/local-login`**: the two of them together, which is the shape of most
+  migrations — own users, own login, and `/api/` forwarded with what that login stored.
+
+### Changed
+
+- **`trilha audit` looks at the proxy and the login**: a `Target` written as `http://` to a
+  host that is not this machine is critical (the session credential crossing a network in
+  the clear); an upstream with no `Headers` in an app that requires a login, and a `Login`
+  with no rate limit, are warnings.
+
+### Documentation
+
+- New reference page **Upstreams** and the recipe **An app in front of an existing API**, in
+  both languages; the auth reference gained the session-without-OIDC section, and
+  `SECURITY-MODEL.md` says what changes when the credential lives inside the app.
+
 ## 0.40.1 — 2026-09-08
 
 ### Fixed

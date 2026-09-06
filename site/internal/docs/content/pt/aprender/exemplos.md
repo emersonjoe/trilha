@@ -19,6 +19,7 @@ mesma coisa para quem chega por lá.
 | Médio | `examples/cadastro` | formulário com regras: campos condicionais, validação no servidor com erros por campo, seleção dependente, aviso que some, layout responsivo |
 | Complexo | `examples/orcamento` | domínio em árvore (plano de contas), agregação, drill-down por rota dinâmica, componentes aninhados e recursivos, diálogo com formulário, filtro por período, CSV |
 | SSO | `examples/sso` | login OpenID Connect com Entra ID ou Keycloak, área protegida, papel exigido, logout federado |
+| Login próprio | `examples/local-login` | sessão sem provedor (`auth.Sessions`, PBKDF2) e `Config.Upstreams` encaminhando `/api/` para uma API que já existe com a credencial da sessão |
 | IA | `examples/assistente` | chat em streaming, agente com ferramentas, handoff, servidor MCP |
 
 ## Médio: cadastro

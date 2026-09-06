@@ -1,0 +1,11 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; background: Canvas; color: CanvasText; }
+.topo { display: flex; gap: 1rem; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid color-mix(in srgb, CanvasText 15%, transparent); }
+.topo nav { margin-left: auto; display: flex; gap: 1rem; align-items: center; }
+.marca { font-weight: 600; text-decoration: none; color: inherit; }
+main { padding: 1.5rem; }
+.cartao { max-width: 40rem; display: grid; gap: .75rem; }
+.cartao form { display: grid; gap: .5rem; max-width: 20rem; }
+.botao { padding: .5rem .9rem; border: 1px solid currentColor; border-radius: .4rem; background: none; color: inherit; cursor: pointer; text-decoration: none; }
+.erro { color: #b3261e; }
+input { padding: .5rem; border-radius: .4rem; border: 1px solid color-mix(in srgb, CanvasText 30%, transparent); background: Canvas; color: inherit; }

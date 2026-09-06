@@ -58,6 +58,14 @@ that resolves it — read that line instead of guessing.
   and an API does not check the token, so put `var Kind = trilha.KindPage` in a `kind.go` at the
   root of that branch — it is inherited by everything below, and `trilha audit` reports the
   write no `Kind` reaches.
+- **Do not write a reverse proxy to reach an API that already exists.** `Config.Upstreams`
+  forwards a prefix with the session's credential injected, the CSRF token required, the body
+  streaming past `MaxBodyBytes`, and a 502/504 in `problem+json`. A hand-written
+  `httputil.ReverseProxy` in a catch-all `route.go` hits every one of those on its own.
+- **Do not copy a session recipe for an app with its own users.** `auth.Sessions` is the same
+  `*Auth` without a provider: check the password with `auth.CheckPBKDF2` and call
+  `Login(c, u)`. Everything else — `Require`, `RequireRole`, the `Store`, the idle window —
+  is already written.
 - **Do not invent a flash cookie or an `onclick="return confirm()"`.** After a `POST`, say what
   happened with `c.Flash(ui.FlashSuccess, "…")` — the layout's `ui.Flashes(c)` shows it on the
   page the redirect lands on — and ask before destroying with `ui.Confirm(title, description)`

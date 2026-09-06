@@ -38,7 +38,12 @@ documentada. O que não tem controle está marcado como **aberto**.
    par realmente for o seu proxy. O framework acredita neles **só** vindo de um CIDR de
    `Config.TrustedProxies`; de qualquer outro, vale o endereço do par.
 3. **App → serviços de fora.** Fora do alcance do framework: ele não abre nem gerencia essas
-   conexões. É do seu app.
+   conexões. É do seu app — com uma exceção, o `Config.Upstreams`, onde quem faz a chamada é
+   o framework. Ali o alvo é fixo na configuração e nenhuma parte da requisição o move; a
+   credencial injetada pelo `Upstream.Headers` é a da sessão, nunca o `Authorization` que o
+   navegador mandou; e a resposta volta com os cabeçalhos do próprio upstream. O que esse
+   upstream devolve é dado de fora desta fronteira de confiança: é repassado ao cliente, não
+   interpretado pelo app.
 4. **App → disco.** `Config.Public` e `Config.Mounts` são um `fs.FS`, que não endereça nada
    acima da própria raiz; upload entra pelo `Upload.Save`, que recusa nome capaz de sair do
    diretório.
@@ -121,6 +126,27 @@ recopiada aqui.
 | Dependência com vulnerabilidade conhecida | Zero dependências externas no runtime e na CLI, garantido por teste; `govulncheck` em todo CI. |
 | Defeito no parsing de entrada de terceiro | `go test -race` e seis alvos de fuzzing no CI (casamento de rota, `Bind`, cookie assinado, `traceparent`, escape). |
 | **Autorização dentro do domínio** | **Aberto, de propósito.** "Esta pessoa pode ver esta fatura?" depende do seu modelo de dados. O framework entrega a identidade e os papéis; a decisão é sua. |
+
+## Sessão sem provedor
+
+O `auth.Sessions` põe a credencial dentro do app em vez de num provedor de identidade, e
+isso move três coisas neste modelo:
+
+- **O hash da senha passa a ser um ativo deste app.** `auth.CheckPBKDF2` lê e
+  `auth.HashPBKDF2` grava `pbkdf2_sha256$iteracoes$sal$hash`; a comparação é em tempo
+  constante, e um hash que a função não consegue ler é um false, nunca um panic. O número de
+  iterações viaja dentro de cada hash, então aumentar o padrão não tranca ninguém do lado de
+  fora.
+- **O login vira um oráculo de adivinhação se ninguém o limitar.** Com OIDC o provedor
+  absorve isso; aqui é o `Config.RateLimit`, e o `trilha audit` diz quando um `Login` está
+  sem ele. Responda a mesma mensagem para e-mail errado e senha errada, e demore o mesmo
+  tanto.
+- **O `User.Extra` viaja com a sessão** — no cookie assinado ou na `Store`. Ele é para um
+  token que um upstream precisa, um tenant, um plano: nunca para uma senha, e nunca para
+  mais do que um cookie deveria carregar.
+
+A revogação é trabalho da `Store`, como no OIDC: sem uma, a sessão vive no cookie até
+expirar e o `Logout` só faz aquele navegador parar de mandá-la.
 
 ## O que o framework não faz por você
 
