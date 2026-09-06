@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +20,9 @@ func cmdDev(args []string) error {
 	p, err := findProject()
 	if err != nil {
 		return err
+	}
+	if pkg := embeddedPackage(p); pkg != "" {
+		return fmt.Errorf(t("embedded no binary"), pkg)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

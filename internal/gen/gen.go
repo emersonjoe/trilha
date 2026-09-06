@@ -25,7 +25,7 @@ var tmpl = template.Must(template.New("gen").Funcs(template.FuncMap{
 
 //go:generate trilha gen
 
-package main
+package {{.Pkg}}
 
 import (
 {{- if .HasPublic}}
@@ -41,8 +41,13 @@ import (
 //go:embed public
 var publicFS embed.FS
 {{end}}
+{{if .Embedded -}}
+// NewApp builds the application. The host binary calls it and mounts the
+// result: mux.Handle("/", NewApp().Handler()).
+{{else -}}
 // newApp builds the application. Tests can call it and use a.Handler().
-func newApp() *trilha.App {
+{{end -}}
+func {{.Ctor}}() *trilha.App {
 	cfg := trilha.ConfigFromEnv()
 {{- if .HasPublic}}
 	cfg.Public = trilha.PublicFS(publicFS, "public")
@@ -103,7 +108,7 @@ func newApp() *trilha.App {
 {{- end}}
 	return a
 }
-{{- if not .HasMain}}
+{{- if .NeedsMain}}
 
 func main() {
 	trilha.Run(newApp())
@@ -127,12 +132,31 @@ type routeView struct {
 type view struct {
 	*scan.Result
 	Runtime string
+	Pkg     string
 	Routes  []routeView
 }
 
+// Embedded is true when the app is a package inside another binary rather than
+// the binary itself: no func main, and a constructor the host can call.
+func (v view) Embedded() bool { return v.Pkg != "main" }
+
+// Ctor is the constructor's name: exported when someone else has to call it.
+func (v view) Ctor() string {
+	if v.Embedded() {
+		return "NewApp"
+	}
+	return "newApp"
+}
+
+// NeedsMain reports whether the generator must supply func main() itself.
+func (v view) NeedsMain() bool { return !v.Embedded() && !v.HasMain }
+
 // Generate renders the gofmt'ed source of trilha_gen.go.
 func Generate(res *scan.Result) ([]byte, error) {
-	v := view{Result: res, Runtime: RuntimeImport}
+	v := view{Result: res, Runtime: RuntimeImport, Pkg: res.Package}
+	if v.Pkg == "" {
+		v.Pkg = "main"
+	}
 	routes := append([]scan.Route{}, res.Routes...)
 	sort.Slice(routes, func(i, j int) bool { return routes[i].Pattern < routes[j].Pattern })
 	for _, r := range routes {

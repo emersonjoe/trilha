@@ -4,6 +4,9 @@
 package main
 
 import (
+	"go/token"
+	"unicode"
+
 	"bufio"
 	"errors"
 	"fmt"
@@ -110,11 +113,15 @@ func modulePath(gomod string) (string, error) {
 	return "", fmt.Errorf(t("no module line"), gomod)
 }
 
-// render scans and generates trilha_gen.go in memory.
-func render(p *project) (*scan.Result, []byte, error) {
+// render scans and generates trilha_gen.go in memory. pkg overrides the
+// package clause; empty keeps the one the directory already declares.
+func render(p *project, pkg string) (*scan.Result, []byte, error) {
 	res, err := scan.Scan(p.Root, p.Module)
 	if err != nil {
 		return nil, nil, err
+	}
+	if pkg != "" {
+		res.Package = pkg
 	}
 	src, err := gen.Generate(res)
 	if err != nil {
@@ -124,8 +131,10 @@ func render(p *project) (*scan.Result, []byte, error) {
 }
 
 // generate scans and writes trilha_gen.go. Returns the scan result.
-func generate(p *project) (*scan.Result, error) {
-	res, src, err := render(p)
+func generate(p *project) (*scan.Result, error) { return generatePkg(p, "") }
+
+func generatePkg(p *project, pkg string) (*scan.Result, error) {
+	res, src, err := render(p, pkg)
 	if err != nil {
 		return nil, err
 	}
@@ -141,10 +150,28 @@ func cmdGen(args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(args) > 0 && args[0] == "--check" {
-		return checkGen(p)
+	check := false
+	pkg := ""
+	for i := 0; i < len(args); i++ {
+		switch {
+		case args[i] == "--check":
+			check = true
+		case args[i] == "--package" && i+1 < len(args):
+			i++
+			pkg = args[i]
+		case strings.HasPrefix(args[i], "--package="):
+			pkg = strings.TrimPrefix(args[i], "--package=")
+		default:
+			return fmt.Errorf(t("unknown flag"), args[i], "trilha gen [--check] [--package <name>]")
+		}
 	}
-	res, err := generate(p)
+	if pkg != "" && !isPackageName(pkg) {
+		return fmt.Errorf(t("bad package name"), pkg)
+	}
+	if check {
+		return checkGen(p, pkg)
+	}
+	res, err := generatePkg(p, pkg)
 	if err != nil {
 		return err
 	}
@@ -155,8 +182,8 @@ func cmdGen(args []string) error {
 // checkGen compares trilha_gen.go with a fresh generation without writing
 // anything: one line in the CI, and a route added without `trilha gen` stops
 // being a 404 nobody explains.
-func checkGen(p *project) error {
-	_, src, err := render(p)
+func checkGen(p *project, pkg string) error {
+	_, src, err := render(p, pkg)
 	if err != nil {
 		return err
 	}
@@ -224,4 +251,31 @@ func routesTable(res *scan.Result) string {
 		fmt.Fprintf(&sb, "%-22s %-32s %s\n", strings.Join(ms, ","), r.Pattern, r.Dir+"/"+file)
 	}
 	return sb.String()
+}
+
+// isPackageName reports whether s can be a Go package clause. A wrong name
+// here surfaces as a compile error in the app, far from the flag that caused it.
+func isPackageName(s string) bool {
+	if s == "" || s == "_" {
+		return false
+	}
+	for i, r := range s {
+		switch {
+		case r == '_' || unicode.IsLetter(r):
+		case unicode.IsDigit(r) && i > 0:
+		default:
+			return false
+		}
+	}
+	return !token.IsKeyword(s)
+}
+
+// embeddedPackage returns the package name when the app is one inside another
+// binary — no main to run, so dev and build have nothing to start — and "" when
+// the app is the binary itself.
+func embeddedPackage(p *project) string {
+	if pkg := scan.RootPackage(p.Root); pkg != "main" {
+		return pkg
+	}
+	return ""
 }

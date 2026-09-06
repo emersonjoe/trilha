@@ -37,6 +37,10 @@ const (
 
 var methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
 
+// GeneratedFileName is the file trilha gen writes at the project root. The
+// scanner skips it when reading what the author wrote by hand.
+const GeneratedFileName = "trilha_gen.go"
+
 // Error is one convention violation.
 type Error struct {
 	File string
@@ -101,7 +105,11 @@ type Result struct {
 	ShutdownFunc *Ref
 	// HasMain is true when a non-generated file of the root package already
 	// declares func main(); the generator then omits its own.
-	HasMain   bool
+	HasMain bool
+	// Package is the package clause the generated file must carry: the one the
+	// directory already declares, so an app embedded in an existing binary is a
+	// normal, importable package instead of a package main nobody can import.
+	Package   string
 	HasPublic bool
 	Imports   []Import // sorted by Alias
 }
@@ -127,6 +135,7 @@ func Scan(root, module string) (*Result, error) {
 		s.res.HasPublic = dirHasFiles(filepath.Join(root, "public"))
 	}
 	s.res.HasMain = rootHasMain(root)
+	s.res.Package = RootPackage(root)
 	sort.SliceStable(s.res.Routes, func(i, j int) bool { return s.res.Routes[i].Pattern < s.res.Routes[j].Pattern })
 	for i := 1; i < len(s.res.Routes); i++ {
 		a, b := s.res.Routes[i-1], s.res.Routes[i]
@@ -464,7 +473,7 @@ func rootHasMain(root string) bool {
 	fset := token.NewFileSet()
 	for _, e := range entries {
 		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") || name == "trilha_gen.go" {
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") || name == GeneratedFileName {
 			continue
 		}
 		file, err := parser.ParseFile(fset, filepath.Join(root, name), nil, parser.SkipObjectResolution)
@@ -478,6 +487,38 @@ func rootHasMain(root string) bool {
 		}
 	}
 	return false
+}
+
+// RootPackage reports the package clause the generated file must carry. A
+// hand-written file in the root decides it; failing that, an existing
+// trilha_gen.go does, so `--package` is passed once and the CI's `gen --check`
+// keeps agreeing without repeating it. Default: main.
+func RootPackage(root string) string {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return "main"
+	}
+	fset := token.NewFileSet()
+	generated := ""
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, filepath.Join(root, name), nil, parser.PackageClauseOnly|parser.SkipObjectResolution)
+		if err != nil {
+			continue
+		}
+		if name == GeneratedFileName {
+			generated = file.Name.Name
+			continue
+		}
+		return file.Name.Name
+	}
+	if generated != "" {
+		return generated
+	}
+	return "main"
 }
 
 func stripPath(err error, abs string) error {
