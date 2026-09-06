@@ -40,6 +40,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `SelectOptions([]Option{{Value, Label}}, selecionado)` | `<option>`s marcando o selecionado; `Value: ""` é placeholder (desabilitado) e fica selecionado quando nada casa |
 | `Checked(bool)` | `checked` condicional (ida e volta de checkbox/switch/radio) |
 | `ShowWhen(campo, valores...)` | `data-ui-show-when`: mostra o elemento só com o valor (ou qualquer valor não vazio); controles escondidos são desabilitados |
+| `Combobox(ComboboxOpts{...}, attrs...)`, `ComboboxOptions(itens, de)` | campo de texto que busca numa lista — veja [Combobox](#combobox) |
+| `Dropzone(DropzoneOpts{...}, filhos...)` | área de arrastar-e-soltar em cima de um campo de arquivo — veja [Upload com progresso](#upload-com-progresso) |
 | `SchemaForm(esquema, values, errs, ...)` | formulário definido por dado: um campo por `trilha.SchemaField` — veja [Validação](/pt/referencia/validacao) |
 | `Badge`, `Alert(título, ...)`, `AlertDescription(...)` | selo e aviso (`role=alert`) |
 | `Toaster(...)`, `Toast(tipo, texto, fadeMs)` | pilha de avisos; `tipo` = `""`, `success`, `error`; `fadeMs > 0` some sozinho |
@@ -141,6 +143,52 @@ recarregar, não um botão que não fez nada.
 O atributo é `data-trilha-upload`, e não `data-trilha-target`, para o tratador de fragmento
 do `ui.js` não enviar o mesmo formulário uma segunda vez. O limite de corpo é assunto do
 servidor — veja [`AllowBody`](/pt/referencia/ctx).
+
+O `ui.Dropzone(ui.DropzoneOpts{Name, Accept, MaxSize, Single, Attrs})` põe uma área de soltar
+em cima do campo de arquivo: um `<label>` que recebe o arrasto e um `<ul class="ui-queue">`
+com uma linha por arquivo. Com `ui.UploadTo` no formulário, a fila manda **um arquivo por
+requisição**, então cada linha tem o próprio progresso e a própria resposta — uma mensagem que
+diz `arquivos[2]` não tem onde pousar quando três arquivos viajam num corpo só. O elemento
+trocado precisa estar fora do dropzone, ou a fila é destruída no meio do caminho.
+
+O `Accept` e o `MaxSize` das opções só poupam uma ida ao servidor: dá para dizer qualquer coisa
+ao navegador. Quem decide é o [`c.Files`](/pt/referencia/ctx) com as `FileRules` — as mesmas
+regras, aplicadas a bytes que já chegaram. Sem JavaScript o campo é um `multiple` comum e o
+formulário posta todos os arquivos de uma vez, no mesmo handler.
+
+## Combobox
+
+Um campo de texto que busca numa lista são dois campos: o que a pessoa digita e o que o
+formulário manda. O `ui.Combobox` renderiza os dois — um `<input role=combobox
+name="<nome>_q">` visível e um `<input type=hidden name="<nome>">` com o valor escolhido —
+mais o `<ul role=listbox>` das opções.
+
+| Campo do `ComboboxOpts` | Papel |
+|---|---|
+| `Name` | nome do campo escondido; o visível é `Name + "_q"` |
+| `Value` / `Label` | o que foi escolhido e o que está escrito por ele (a ida e volta) |
+| `Options []Option` | lista curta: o `ui.js` filtra no navegador, sem requisição |
+| `Source string` | a URL que busca; a resposta é um `ui.ComboboxOptions(...)` |
+| `With []string` | outros campos do mesmo formulário para levar na query (`?uf=SP&q=camp`) |
+| `MinChars`, `Debounce` | quando buscar (padrão 1 caractere, 200 ms) |
+| `Placeholder`, `Required`, `Attrs` | como no `Input` |
+
+O `ComboboxOptions(itens []T, de func(T) (valor, rótulo string))` é a resposta da rota de
+busca: só os `<li>`, sem envelope. A requisição leva `Trilha-Fragment`, então a rota responde
+com `c.HTML` e o layout da página fica de fora.
+
+```go
+func GET(c *trilha.Ctx) error {
+	return c.HTML(200, ui.ComboboxOptions(
+		Buscar(c.Query("uf"), c.Query("q")),
+		func(cidade string) (string, string) { return cidade, cidade },
+	))
+}
+```
+
+Sem JavaScript nada quebra: o campo visível é um texto comum, então o formulário chega com
+`cidade_q` preenchido e `cidade` vazio. Resolver o texto digitado contra a lista é trabalho do
+servidor — a mesma lista que a rota de busca lê.
 
 ## Tema
 

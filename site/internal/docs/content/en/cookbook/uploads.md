@@ -72,6 +72,63 @@ func SetAvatar(ctx context.Context, user int64, file string) error {
 }
 ```
 
+## Several at once
+
+A field can carry more than one file, and `c.Files` reads all of them under the same rules:
+
+```go
+// SaveAttachments takes every file the field carries. c.Files applies the
+// same rules as c.File to each one, and a file that fails comes back under
+// its own position — arquivos[2] — so the message lands on the right line
+// instead of blaming the whole form.
+func SaveAttachments(c *trilha.Ctx) error {
+	c.AllowBody(MaxAvatar*MaxAttachments + 64<<10)
+	ups, err := c.Files("files", trilha.FileRules{
+		MaxSize:  MaxAvatar,
+		MaxFiles: MaxAttachments,
+		Accept:   []string{"image/png", "image/jpeg", "application/pdf"},
+	})
+	if err != nil {
+		return err
+	}
+	for _, up := range ups {
+		defer up.Close()
+		name, err := up.Save(UploadDir)
+		if err != nil {
+			return err
+		}
+		if err := AddAttachment(c.Context(), name, up.Size, up.MIME); err != nil {
+			return err
+		}
+	}
+	return c.Redirect("/attachments")
+}
+```
+
+Two things change from the single-file version. `MaxFiles` is a ceiling on the count, not on
+the bytes — a request with eleven files is refused before the first one is read:
+
+```go
+// MaxAttachments is how many files one request may carry. The queue in the
+// browser sends one at a time, so this ceiling is for the request that
+// arrives without JavaScript — every file in one multipart body.
+const MaxAttachments = 10
+```
+
+And an error is named by position. `c.File` puts its message under `files`; `c.Files` puts it
+under `files[2]`, so a form that draws one line per file can show the message on the line that
+earned it, and the other files still went through.
+
+```go
+// AddAttachment records what was saved: the name on disk, the size and the
+// type that was sniffed, never the three the browser offered.
+func AddAttachment(ctx context.Context, file string, size int64, mime string) error {
+	_, err := DB.ExecContext(ctx,
+		`INSERT INTO attachments (file, size, mime) VALUES ($1, $2, $3)`, file, size, mime)
+	return err
+}
+```
+
 ## Handing it back
 
 Serving user content from the same origin as your app is how a stored XSS gets a session
@@ -121,6 +178,8 @@ That is the moment `Save` moves to an S3 client — the handler above does not c
 `Save` writes to.
 
 :::tip
-The progress bar and the drag-and-drop area are already in the kit:
-`ui.UploadBar`, `ui.UploadTo` and `ui.UploadScript`, in [the ui reference](/reference/ui).
+The queue, the progress bar and the drag-and-drop area are already in the kit: `ui.Dropzone`,
+`ui.UploadBar`, `ui.UploadTo` and `ui.UploadScript`, in [the ui reference](/reference/ui). The
+queue sends one file per request, so each one gets its own answer; without JavaScript the same
+form posts all of them at once and `c.Files` reads them from the same handler.
 :::

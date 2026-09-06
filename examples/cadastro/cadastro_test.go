@@ -26,7 +26,10 @@ func TestFormRendersConditionalGroups(t *testing.T) {
 	c.Get("/").WantStatus(200).WantContains(
 		`data-ui-show-when="tipo=pf"`, `data-ui-show-when="tipo=pj"`,
 		`data-ui-show-when="cobranca_diferente"`, `data-ui-show-when="novidades"`,
-		"Ada Lovelace", `<select class="ui-select" id="cidade" name="cidade" disabled`)
+		"Ada Lovelace",
+		// A cidade é um combobox servido pela rota: nada de lista inteira no HTML.
+		`data-ui-combo-src="/cidades/busca"`, `data-ui-combo-with="uf"`,
+		`<input type="hidden" name="cidade" value="">`)
 }
 
 func TestValidationRoundTrip(t *testing.T) {
@@ -43,7 +46,7 @@ func TestValidationRoundTrip(t *testing.T) {
 	res := c.PostForm("/", f).WantStatus(422).WantContains(
 		"CNPJ inválido", "E-mail inválido", "Informe a razão social", "CEP com 8 dígitos",
 		"Informe a rua", "Escolha a frequência", `value="Empresa X"`, `value="nao-e-email"`,
-		`value="pj" checked`, `<option value="SP" selected>`, `<option value="Campinas" selected>`,
+		`value="pj" checked`, `<option value="SP" selected>`, `<input type="hidden" name="cidade" value="Campinas">`,
 		`name="novidades" checked`, `<title>Cadastro de cliente</title>`)
 	if strings.Contains(res.Body.String(), "CPF inválido") {
 		t.Fatal("PF rules must not apply to PJ")
@@ -238,4 +241,33 @@ func valido() url.Values {
 	f.Set("uf", "RJ")
 	f.Set("cidade", "Rio de Janeiro")
 	return f
+}
+
+// TestComboboxDeCidade: o servidor busca dentro da UF e responde as opções em
+// HTML; sem JavaScript o texto digitado vai junto e o servidor o resolve.
+func TestComboboxDeCidade(t *testing.T) {
+	c := newClient(t)
+	// O script pede o fragmento, então a resposta são as opções e nada mais.
+	opcoes := trilha.WithHeader("Trilha-Fragment", "cidade-list")
+	c.Get("/cidades/busca?uf=SP&q=camp", opcoes).WantStatus(200).
+		WantContains(`role="option"`, `data-value="Campinas"`)
+	if body := c.Get("/cidades/busca?uf=SP&q=camp", opcoes).Body.String(); strings.Contains(body, "Santos") {
+		t.Fatal("a busca devia filtrar: " + body)
+	}
+	if body := c.Get("/cidades/busca?uf=XX&q=a", opcoes).Body.String(); body != "" {
+		t.Fatal("UF desconhecida não tem cidade: " + body)
+	}
+
+	// Sem script: o hidden vem vazio e só o texto chega.
+	f := valido()
+	f.Del("cidade")
+	f.Set("cidade_q", "rio de janeiro")
+	c.PostForm("/", f).WantStatus(303)
+	if todos := clientes.Todos(); todos[0].Endereco.Cidade != "Rio de Janeiro" {
+		t.Fatalf("o servidor devia resolver o texto: %q", todos[0].Endereco.Cidade)
+	}
+
+	// Texto que não é cidade nenhuma volta como erro, com o que foi digitado.
+	f.Set("cidade_q", "Atlântida")
+	c.PostForm("/", f).WantStatus(422).WantContains("Escolha a cidade", `value="Atlântida"`)
 }

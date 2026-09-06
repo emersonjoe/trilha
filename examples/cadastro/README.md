@@ -9,7 +9,9 @@ O que ensina:
 - **Validação no servidor** com `c.Bind(&struct)` + `trilha.FieldErrors`; a página volta com
   `c.Render(422, …)`, mensagens no campo (`ui.Errors`, `ui.InvalidIf`) e valores preservados
   (`h.Value`, `ui.Checked`, `ui.SelectOptions`).
-- **Seleção dependente** (UF → cidade) por uma rota de API e 20 linhas de `app.js`.
+- **Seleção dependente** (UF → cidade) por um `ui.Combobox`: o servidor busca dentro da UF
+  escolhida (`With: uf`) e responde as opções em HTML; sem JavaScript o texto digitado vai
+  junto e o servidor o resolve. O `app.js` que fazia isso deixou de existir.
 - **Feedback que some**: `ui.Toast("success", …, 4000)` após o redirect (`/?ok=1`).
 - **Lista de sub-registros**: os dependentes vão e voltam como `dependentes[0].nome`, que é o
   nome do input, a chave da mensagem e o que o `Bind` lê de novo; a linha em branco do fim é a

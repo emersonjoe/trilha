@@ -169,6 +169,7 @@ and only answers with it if it passes the rules.
 | `FileRules.MaxSize int64` | limit for this file, apart from `Config.MaxBodyBytes`; 0 leaves the body limit doing the work |
 | `FileRules.Accept []string` | media types allowed, matched against the **detected** type: `"image/png"`, `"image/*"`, `"*/*"`; empty accepts anything |
 | `FileRules.Optional bool` | an absent field returns `(nil, nil)` instead of an error |
+| `FileRules.MaxFiles int` | ceiling on how many files `Files` accepts in one request; 0 is no ceiling |
 | `Upload.Name` | sanitised name: no directory, no separator, no control character, at most 100 characters, never empty |
 | `Upload.MIME` / `Upload.Ext` | type detected in the first 512 bytes, and the extension that matches it |
 | `Upload.Size` / `Upload.File` | size in bytes, and the file itself positioned at the start |
@@ -177,4 +178,12 @@ and only answers with it if it passes the rules.
 
 A rule that fails is `FieldErrors` under the field's name, like `Bind`; anything else (a
 broken body, a full disk) comes back as itself. Messages come from `ValidationMessages`
-(`required`, `filemax`, `filetype`) — see [Validation](/reference/validation).
+(`required`, `filemax`, `filetype`, `filecount`) — see [Validation](/reference/validation).
+
+`Files(field string, rules FileRules) ([]*Upload, error)` reads every file the field carries,
+in the order the browser sent them, applying the same rules to each. An empty file input is
+not a file: it is dropped before the count, so `Optional` still means "nobody chose anything".
+A file that fails names its own position — `files[2]`, not `files` — so a form with one line
+per file can put the message on the right line; the files that passed come back in the slice,
+and closing them is the caller's job. Over `MaxFiles` the whole request is refused under the
+field's own name, before a single byte is read.

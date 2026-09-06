@@ -23,6 +23,9 @@ type FileRules struct {
 	// in the content: "image/png", "application/pdf", or "image/*". Empty
 	// accepts anything.
 	Accept []string
+	// MaxFiles is how many files Ctx.Files accepts in the field. Zero leaves
+	// the body limit doing the work; Ctx.File reads one either way.
+	MaxFiles int
 	// Optional makes an absent field return (nil, nil) instead of an error.
 	Optional bool
 }
@@ -120,6 +123,97 @@ func (c *Ctx) File(field string, rules FileRules) (*Upload, error) {
 	if !accepted(kind, rules.Accept) {
 		f.Close()
 		return nil, FieldErrors{field: message("filetype", "")}
+	}
+	name := safeName(hdr.Filename)
+	return &Upload{Name: name, MIME: kind, Ext: extensionOf(kind, name), Size: hdr.Size, File: f}, nil
+}
+
+// Files reads every file sent under the same name — what a dropzone does — and
+// applies the rules to each one. The message of a file that fails carries its
+// position, files[1], the very name an indexed input would have, so the queue
+// shows it on the line that is wrong instead of at the top of the form.
+//
+//	ups, err := c.Files("files", trilha.FileRules{MaxFiles: 20, MaxSize: 4 << 20})
+//	for _, up := range ups {
+//		defer up.Close()
+//	}
+//
+// A field with no file is a FieldErrors under the field's own name, as in
+// Ctx.File, unless the rules say Optional — then it is an empty list and a nil
+// error. Close every file the call returns.
+func (c *Ctx) Files(field string, rules FileRules) ([]*Upload, error) {
+	if err := c.parseForm(); err != nil {
+		return nil, err
+	}
+	var hdrs []*multipart.FileHeader
+	if c.r.MultipartForm != nil {
+		hdrs = c.r.MultipartForm.File[field]
+	}
+	// A file input that was left empty still arrives, with no name and no
+	// bytes: it is not a file, it is the input.
+	kept := hdrs[:0]
+	for _, hdr := range hdrs {
+		if hdr.Filename == "" && hdr.Size == 0 {
+			continue
+		}
+		kept = append(kept, hdr)
+	}
+	hdrs = kept
+	switch {
+	case len(hdrs) == 0 && rules.Optional:
+		return nil, nil
+	case len(hdrs) == 0:
+		return nil, FieldErrors{field: message("required", "")}
+	case rules.MaxFiles > 0 && len(hdrs) > rules.MaxFiles:
+		return nil, FieldErrors{field: message("filecount", strconv.Itoa(rules.MaxFiles))}
+	}
+	ups := make([]*Upload, 0, len(hdrs))
+	errs := FieldErrors{}
+	for i, hdr := range hdrs {
+		up, err := openUpload(hdr, rules)
+		if fe, ok := err.(FieldErrors); ok {
+			for _, msg := range fe {
+				errs.Add(field+"["+strconv.Itoa(i)+"]", msg)
+			}
+			continue
+		}
+		if err != nil {
+			closeAll(ups)
+			return nil, err
+		}
+		ups = append(ups, up)
+	}
+	if errs.Any() {
+		closeAll(ups)
+		return nil, errs
+	}
+	return ups, nil
+}
+
+func closeAll(ups []*Upload) {
+	for _, up := range ups {
+		up.Close()
+	}
+}
+
+// openUpload is what File and Files both do to one file: the rules, then the
+// name and the type read from the content.
+func openUpload(hdr *multipart.FileHeader, rules FileRules) (*Upload, error) {
+	if rules.MaxSize > 0 && hdr.Size > rules.MaxSize {
+		return nil, FieldErrors{"": message("filemax", humanSize(rules.MaxSize))}
+	}
+	f, err := hdr.Open()
+	if err != nil {
+		return nil, err
+	}
+	kind, err := sniff(f)
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	if !accepted(kind, rules.Accept) {
+		f.Close()
+		return nil, FieldErrors{"": message("filetype", "")}
 	}
 	name := safeName(hdr.Filename)
 	return &Upload{Name: name, MIME: kind, Ext: extensionOf(kind, name), Size: hdr.Size, File: f}, nil

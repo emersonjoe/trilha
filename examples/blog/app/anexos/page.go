@@ -1,10 +1,11 @@
 // Package anexos shows an upload with progress that still works without
-// JavaScript, checked by c.File: limite por arquivo, tipo lido no conteúdo e
-// nome sem caminho.
+// JavaScript, checked by c.Files: limite por arquivo, teto de arquivos, tipo
+// lido no conteúdo e nome sem caminho.
 package anexos
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/blog/internal/anexos"
@@ -15,46 +16,60 @@ import (
 // regras é o que esta rota aceita. O limite por arquivo é menor que o do corpo
 // (middleware.go): um é do arquivo, o outro é da requisição inteira.
 var regras = trilha.FileRules{
-	MaxSize: 4 << 20,
-	Accept:  []string{"image/*", "application/pdf", "text/plain"},
+	MaxSize:  4 << 20,
+	MaxFiles: 10,
+	Accept:   []string{"image/*", "application/pdf", "text/plain"},
 }
 
 // Page renders GET /anexos — a página inteira, ou só o bloco quando o script
 // pede o pedaço.
 func Page(c *trilha.Ctx) (h.Node, error) {
-	if c.Fragment() == "anexos" {
-		return bloco(c, nil), nil
+	if c.Fragment() == "lista" {
+		return lista(), nil
 	}
 	c.SetTitle("Anexos")
 	return pagina(c, nil), nil
 }
 
-// POST recebe o arquivo. O middleware já levantou o limite do corpo; aqui o
-// c.File confere o resto e devolve FieldErrors, que o formulário mostra.
+// POST recebe os arquivos. A fila do ui.upload.js manda um por requisição —
+// cada um com a sua barra e a sua mensagem — e o navegador sem JavaScript manda
+// todos de uma vez; o c.Files atende os dois casos com o mesmo código.
 func POST(c *trilha.Ctx) error {
-	up, err := c.File("arquivo", regras)
+	ups, err := c.Files("arquivos", regras)
 	if err != nil {
 		errs, ok := err.(trilha.FieldErrors)
 		if !ok {
 			return err
 		}
-		return c.Render(http.StatusUnprocessableEntity, resposta(c, errs))
+		// Para a fila, a resposta é a mensagem daquele arquivo, em texto: ela
+		// aparece na linha dele. Sem script, volta a página com o campo marcado.
+		if c.Fragment() != "" {
+			return c.Text(http.StatusUnprocessableEntity, primeira(errs))
+		}
+		return c.Render(http.StatusUnprocessableEntity, pagina(c, errs))
 	}
-	defer up.Close()
-	anexos.Add(up.Name, up.Size, up.MIME)
+	for _, up := range ups {
+		anexos.Add(up.Name, up.Size, up.MIME)
+		up.Close()
+	}
 	if c.Fragment() != "" {
-		return c.Render(http.StatusOK, bloco(c, nil))
+		return c.Render(http.StatusOK, lista())
 	}
 	return c.Redirect("/anexos")
 }
 
-// resposta devolve só o pedaço quando quem perguntou foi o script, e a página
-// inteira quando foi o navegador sem JavaScript.
-func resposta(c *trilha.Ctx, errs trilha.FieldErrors) h.Node {
-	if c.Fragment() != "" {
-		return bloco(c, errs)
+// primeira é a mensagem de menor chave: uma requisição da fila carrega um
+// arquivo, então é a mensagem dele.
+func primeira(errs trilha.FieldErrors) string {
+	chaves := make([]string, 0, len(errs))
+	for k := range errs {
+		chaves = append(chaves, k)
 	}
-	return pagina(c, errs)
+	sort.Strings(chaves)
+	if len(chaves) == 0 {
+		return "não enviado"
+	}
+	return errs[chaves[0]]
 }
 
 func pagina(c *trilha.Ctx, errs trilha.FieldErrors) h.Node {
@@ -70,25 +85,40 @@ func pagina(c *trilha.Ctx, errs trilha.FieldErrors) h.Node {
 	)
 }
 
-// bloco é o pedaço trocado: formulário e lista juntos, porque a mensagem de
-// erro pertence ao campo, e o campo está no formulário.
+// bloco é o formulário: ele fica fora do pedaço trocado, porque a fila vive
+// dentro dele e não pode ser substituída no meio de um envio.
 func bloco(c *trilha.Ctx, errs trilha.FieldErrors) h.Node {
 	return h.Div(h.ID("anexos"), h.Class("ui-stack"),
 		// O formulário é um formulário: action, método e enctype de sempre.
-		// ui.UploadTo diz qual pedaço a resposta troca, e o script só entra se
-		// o navegador o executar.
+		// ui.UploadTo diz qual pedaço a resposta troca — a lista, não isto.
 		h.Form(h.Method("post"), h.Action("/anexos"), h.Enctype("multipart/form-data"),
-			h.Class("ui-stack"), ui.UploadTo("anexos"),
+			h.Class("ui-stack"), ui.UploadTo("lista"),
 			trilha.CSRFInput(c),
-			ui.Field("arquivo", "Arquivo",
-				ui.Input(h.ID("arquivo"), h.Name("arquivo"), h.Type("file"), h.Required(), ui.InvalidIf(errs, "arquivo")),
-				ui.Help("Imagem, PDF ou texto, até 4 MB — o limite deste campo, não o do app."),
-				ui.Errors(errs, "arquivo")),
-			ui.UploadBar(),
+			ui.Dropzone(ui.DropzoneOpts{Name: "arquivos", MaxSize: 4 << 20, Accept: "image/*,application/pdf,text/plain"},
+				ui.Icon("upload"),
+				h.P(h.Text("Solte os arquivos aqui, ou clique para escolher")),
+				h.Span(h.Class("ui-muted"), h.Text("Imagem, PDF ou texto, até 4 MB cada, dez por vez.")),
+			),
+			h.Group(mensagens(errs)...),
 			ui.Submit(h.Text("Enviar")),
 		),
 		lista(),
 	)
+}
+
+// mensagens mostra o que o servidor recusou. Sem script os arquivos vão todos
+// juntos, então pode haver mais de uma mensagem, uma por posição.
+func mensagens(errs trilha.FieldErrors) []h.Node {
+	chaves := make([]string, 0, len(errs))
+	for k := range errs {
+		chaves = append(chaves, k)
+	}
+	sort.Strings(chaves)
+	out := make([]h.Node, 0, len(chaves))
+	for _, k := range chaves {
+		out = append(out, h.P(h.Class("ui-field-error"), h.Role("alert"), h.Text(k+": "+errs[k])))
+	}
+	return out
 }
 
 // lista é a lista de anexos, dentro do bloco trocado.

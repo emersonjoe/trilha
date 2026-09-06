@@ -89,6 +89,13 @@ that resolves it — read that line instead of guessing.
   so `ui.Errors(errs, "items[1].qty")` already points at the right row. When the form itself
   comes from data, `trilha.Schema` decodes from JSON, `trilha.BindSchema` validates it like
   any other form and `ui.SchemaForm` draws it.
+- **Do not write an autocomplete, and do not read a file field in a loop.** `ui.Combobox` is
+  the text field that searches a list: a hidden input carries the chosen value, a `Source`
+  route answers `ui.ComboboxOptions` with only the `<li>`s, and `With` carries the other
+  fields of the form into the query. `ui.Dropzone` is the drop area, and with `ui.UploadTo`
+  its queue sends one file per request. On the server, `c.Files(field, rules)` applies the
+  rules of `c.File` to every file and names a failure by position — `files[2]` — so the
+  message lands on the line that earned it.
 - **Do not invent a flash cookie or an `onclick="return confirm()"`.** After a `POST`, say what
   happened with `c.Flash(ui.FlashSuccess, "…")` — the layout's `ui.Flashes(c)` shows it on the
   page the redirect lands on — and ask before destroying with `ui.Confirm(title, description)`

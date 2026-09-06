@@ -308,12 +308,12 @@ func TestNavegacaoNoClienteDegradaSemScript(t *testing.T) {
 func TestUploadComProgressoDegradaSemScript(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.Get("/anexos")
-	rec.WantStatus(200).WantContains(`data-trilha-upload="anexos"`, "<progress", `id="anexos"`, `id="lista"`, `<script src="/ui.upload.js`)
+	rec.WantStatus(200).WantContains(`data-trilha-upload="lista"`, `data-ui-dropzone=""`, `<ul class="ui-queue"`, `id="anexos"`, `id="lista"`, `<script src="/ui.upload.js`)
 
 	// 2 MiB: acima do MaxBodyBytes padrão, dentro do que a rota permitiu.
 	body, ct := multipart(t, "planilha.csv", strings.Repeat("a", 2<<20))
 	frag := c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento)
-	frag.WantStatus(200).WantContains(`id="anexos"`, "planilha.csv", "2,0 MB", "text/plain")
+	frag.WantStatus(200).WantContains(`id="lista"`, "planilha.csv", "2,0 MB", "text/plain")
 	if strings.Contains(frag.Body.String(), "<!doctype") {
 		t.Fatal("o fragmento não pode vir com o documento inteiro")
 	}
@@ -339,22 +339,53 @@ func TestUploadRecusaTamanhoETipo(t *testing.T) {
 	c := newClient(t, "prod")
 	c.Get("/anexos")
 
+	// Para a fila, a mensagem daquele arquivo vem em texto: a linha dele mostra
+	// o que o servidor disse, e o resto da página não se mexe.
 	body, ct := multipart(t, "grande.txt", strings.Repeat("a", 5<<20))
 	grande := c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento)
-	grande.WantStatus(422).WantContains("no máximo 4 MB", `aria-invalid="true"`, `id="anexos"`)
+	grande.WantStatus(422).WantContains("no máximo 4 MB")
+	if strings.Contains(grande.Body.String(), "<") {
+		t.Fatalf("a fila espera texto, não HTML: %q", grande.Body.String())
+	}
 
 	// Um binário qualquer com nome de imagem: o tipo sai do conteúdo.
 	body, ct = multipart(t, "foto.png", "\x00\x01\x02\x03rmnop\x00\xff")
 	mentido := c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento)
-	mentido.WantStatus(422).WantContains("tipo de arquivo não permitido", `aria-invalid="true"`)
+	mentido.WantStatus(422).WantContains("tipo de arquivo não permitido")
+
+	// Sem script os arquivos vão todos juntos, e a página volta com a mensagem
+	// na posição do arquivo que falhou.
+	body, ct = multipartN(t, [2]string{"ok.txt", "oi"}, [2]string{"outro.png", "\x00\x01\x02\x03rmnop\x00\xff"})
+	juntos := c.Request("POST", "/anexos", trilha.WithBody(ct, body))
+	juntos.WantStatus(422).WantContains("arquivos[1]", "tipo de arquivo não permitido")
+	if strings.Contains(c.Get("/anexos").Body.String(), "ok.txt") {
+		t.Fatal("um arquivo recusado recusa o lote: nada entra pela metade")
+	}
 
 	if strings.Contains(c.Get("/anexos").Body.String(), "grande.txt") {
 		t.Fatal("arquivo recusado não pode entrar na lista")
 	}
 }
 
-// fragmento pede só o pedaço da página, como o script do upload faz.
-var fragmento = trilha.WithHeader("Trilha-Fragment", "anexos")
+// fragmento pede só o pedaço da página, como a fila do upload faz.
+var fragmento = trilha.WithHeader("Trilha-Fragment", "lista")
+
+// multipartN monta um corpo com vários arquivos no mesmo campo, como o
+// navegador manda quando não há script para fazer a fila.
+func multipartN(t *testing.T, files ...[2]string) (body, contentType string) {
+	t.Helper()
+	var sb strings.Builder
+	w := multipartlib.NewWriter(&sb)
+	for _, f := range files {
+		fw, err := w.CreateFormFile("arquivos", f[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		io.WriteString(fw, f[1])
+	}
+	w.Close()
+	return sb.String(), w.FormDataContentType()
+}
 
 // multipart monta um corpo multipart/form-data com um arquivo dentro. O token
 // do CSRF vai no cabeçalho, posto pelo cliente.
@@ -362,7 +393,7 @@ func multipart(t *testing.T, name, content string) (body, contentType string) {
 	t.Helper()
 	var sb strings.Builder
 	w := multipartlib.NewWriter(&sb)
-	f, err := w.CreateFormFile("arquivo", name)
+	f, err := w.CreateFormFile("arquivos", name)
 	if err != nil {
 		t.Fatal(err)
 	}

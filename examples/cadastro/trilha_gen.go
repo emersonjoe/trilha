@@ -10,6 +10,7 @@ import (
 	trilha "github.com/emersonjoe/trilha"
 	app "github.com/emersonjoe/trilha/examples/cadastro/app"
 	app_api_cidades "github.com/emersonjoe/trilha/examples/cadastro/app/api/cidades"
+	app_cidades_busca "github.com/emersonjoe/trilha/examples/cadastro/app/cidades/busca"
 	app_ficha "github.com/emersonjoe/trilha/examples/cadastro/app/ficha"
 )
 
@@ -37,6 +38,12 @@ func newApp() *trilha.App {
 		Pattern: "/api/cidades",
 		Methods: map[string]trilha.HandlerFunc{
 			"GET": app_api_cidades.GET,
+		},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/cidades/busca",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_cidades_busca.GET,
 		},
 	})
 	a.Register(trilha.Route{

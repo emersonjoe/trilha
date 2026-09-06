@@ -191,3 +191,76 @@ func TestFileMessagesFollowTheLocale(t *testing.T) {
 }
 
 func mustErr(_ *Upload, err error) error { return err }
+
+// uploads builds a multipart request with several files under the same name,
+// which is what a dropzone without JavaScript sends.
+func uploads(field string, files ...[2]string) *Ctx {
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	for _, f := range files {
+		fw, _ := w.CreateFormFile(field, f[0])
+		fw.Write([]byte(f[1]))
+	}
+	w.Close()
+	req := httptest.NewRequest("POST", "/", &body)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	return &Ctx{r: req, app: &App{cfg: Config{MaxBodyBytes: 8 << 20}}}
+}
+
+func TestFilesReadsEveryFileInOrder(t *testing.T) {
+	c := uploads("arquivos", [2]string{"a.png", pngBytes}, [2]string{"b.pdf", pdfBytes})
+	ups, err := c.Files("arquivos", FileRules{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeAll(ups)
+	if len(ups) != 2 || ups[0].Name != "a.png" || ups[1].Name != "b.pdf" {
+		t.Fatalf("%+v", ups)
+	}
+	if ups[0].MIME != "image/png" || ups[1].MIME != "application/pdf" {
+		t.Fatalf("types: %q %q", ups[0].MIME, ups[1].MIME)
+	}
+}
+
+// A message about the second file names the second file: the queue shows it on
+// the line that is wrong.
+func TestFilesNameTheFileThatFailed(t *testing.T) {
+	c := uploads("arquivos", [2]string{"a.png", pngBytes}, [2]string{"b.pdf", pdfBytes})
+	ups, err := c.Files("arquivos", FileRules{Accept: []string{"image/*"}})
+	if ups != nil {
+		t.Fatalf("wanted no upload, got %+v", ups)
+	}
+	errs := fieldErrs(t, err)
+	if errs["arquivos[1]"] == "" || errs.Has("arquivos[0]") || errs.Has("arquivos") {
+		t.Fatalf("%+v", errs)
+	}
+}
+
+func TestFilesCountAndOptional(t *testing.T) {
+	c := uploads("arquivos", [2]string{"a.png", pngBytes}, [2]string{"b.png", pngBytes})
+	if _, err := c.Files("arquivos", FileRules{MaxFiles: 1}); !strings.Contains(fieldErrs(t, err)["arquivos"], "1") {
+		t.Fatalf("MaxFiles não recusou a lista: %v", err)
+	}
+
+	empty := uploads("outro")
+	if _, err := empty.Files("arquivos", FileRules{}); !fieldErrs(t, err).Has("arquivos") {
+		t.Fatal("campo vazio devia ser obrigatório")
+	}
+	ups, err := uploads("outro").Files("arquivos", FileRules{Optional: true})
+	if err != nil || len(ups) != 0 {
+		t.Fatalf("optional: %v %+v", err, ups)
+	}
+}
+
+// The empty file input a browser still sends is not a file.
+func TestFilesIgnoresTheEmptyInput(t *testing.T) {
+	c := uploads("arquivos", [2]string{"", ""}, [2]string{"a.png", pngBytes})
+	ups, err := c.Files("arquivos", FileRules{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeAll(ups)
+	if len(ups) != 1 || ups[0].Name != "a.png" {
+		t.Fatalf("%+v", ups)
+	}
+}

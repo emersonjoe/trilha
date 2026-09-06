@@ -40,6 +40,8 @@ description: The kit's components, variants, assets and the theme contract.
 | `SelectOptions([]Option{{Value, Label}}, selected)` | `<option>`s marking the selected one; `Value: ""` is a placeholder (disabled) and is selected when nothing matches |
 | `Checked(bool)` | conditional `checked` (round trip of checkbox/switch/radio) |
 | `ShowWhen(field, values...)` | `data-ui-show-when`: shows the element only with the value (or any non-empty value); hidden controls are disabled |
+| `Combobox(ComboboxOpts{...}, attrs...)`, `ComboboxOptions(items, of)` | a text field that searches a list — see [Combobox](#combobox) |
+| `Dropzone(DropzoneOpts{...}, children...)` | drag-and-drop area over a file input — see [Upload with progress](#upload-with-progress) |
 | `SchemaForm(schema, values, errs, ...)` | a form defined by data: one field per `trilha.SchemaField` — see [Validation](/reference/validation) |
 | `Badge`, `Alert(title, ...)`, `AlertDescription(...)` | badge and alert (`role=alert`) |
 | `Toaster(...)`, `Toast(kind, text, fadeMs)` | toast stack; `kind` = `""`, `success`, `error`; `fadeMs > 0` disappears on its own |
@@ -140,6 +142,52 @@ page reload, not a button that did nothing.
 The attribute is `data-trilha-upload`, not `data-trilha-target`, so the fragment handler in
 `ui.js` does not submit the same form a second time. The body limit is the server's business
 — see [`AllowBody`](/reference/ctx).
+
+`ui.Dropzone(ui.DropzoneOpts{Name, Accept, MaxSize, Single, Attrs})` puts a drop area over the
+file input: a `<label>` that takes the drop and a `<ul class="ui-queue">` with one line per
+file. With `ui.UploadTo` on the form the queue sends **one file per request**, so each line
+gets its own progress and its own answer — a message that names `files[2]` has nowhere to go
+when three files travel in one body. The swapped element must be outside the dropzone, or the
+queue is destroyed halfway through.
+
+`Accept` and `MaxSize` in the options only spare the user a round trip: the browser can be
+told anything. What decides is [`c.Files`](/reference/ctx) with its `FileRules` — the same
+rules, applied to bytes that already arrived. Without JavaScript the input is a plain
+`multiple` field and the form posts every file at once, into the same handler.
+
+## Combobox
+
+A text field that searches a list is two inputs: the one the person types in, and the one the
+form sends. `ui.Combobox` renders both — a visible `<input role=combobox name="<name>_q">` and
+an `<input type=hidden name="<name>">` with the chosen value — plus the `<ul role=listbox>` of
+options.
+
+| Field of `ComboboxOpts` | Role |
+|---|---|
+| `Name` | name of the hidden field; the visible one is `Name + "_q"` |
+| `Value` / `Label` | what was chosen and what is written for it (the round trip) |
+| `Options []Option` | a short list: `ui.js` filters it in the browser, no request |
+| `Source string` | the URL that searches; the answer is `ui.ComboboxOptions(...)` |
+| `With []string` | other fields of the same form to carry in the query (`?uf=SP&q=camp`) |
+| `MinChars`, `Debounce` | when to search (default 1 character, 200 ms) |
+| `Placeholder`, `Required`, `Attrs` | as in `Input` |
+
+`ComboboxOptions(items []T, of func(T) (value, label string))` is the answer of the search
+route: only the `<li>`s, no envelope. The request carries `Trilha-Fragment`, so the route
+answers with `c.HTML` and the page's layout stays out of it.
+
+```go
+func GET(c *trilha.Ctx) error {
+	return c.HTML(200, ui.ComboboxOptions(
+		Search(c.Query("uf"), c.Query("q")),
+		func(city string) (string, string) { return city, city },
+	))
+}
+```
+
+Without JavaScript nothing breaks: the visible field is a normal text input, so the form still
+arrives with `cidade_q` filled in and `cidade` empty. Resolving the typed text against the
+list is the server's job — the same list the search route reads.
 
 ## Theme
 

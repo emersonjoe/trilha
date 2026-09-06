@@ -87,6 +87,7 @@ pkg trilha, method (*Ctx) Cookie(string) (*http.Cookie, error)
 pkg trilha, method (*Ctx) ETag(string) bool
 pkg trilha, method (*Ctx) Env() Env
 pkg trilha, method (*Ctx) File(string, FileRules) (*Upload, error)
+pkg trilha, method (*Ctx) Files(string, FileRules) ([]*Upload, error)
 pkg trilha, method (*Ctx) Flash(string, string)
 pkg trilha, method (*Ctx) Flashes() []Flash
 pkg trilha, method (*Ctx) Form(string) string
@@ -229,6 +230,7 @@ pkg trilha, type Field struct, Value any
 pkg trilha, type FieldErrors map[string]string
 pkg trilha, type FileRules struct
 pkg trilha, type FileRules struct, Accept []string
+pkg trilha, type FileRules struct, MaxFiles int
 pkg trilha, type FileRules struct, MaxSize int64
 pkg trilha, type FileRules struct, Optional bool
 pkg trilha, type Flash struct
@@ -831,6 +833,8 @@ pkg ui, func Checkbox(...h.Node) h.Node
 pkg ui, func Checked(bool) h.Node
 pkg ui, func Code(string) h.Node
 pkg ui, func Collapsible(string, ...h.Node) h.Node
+pkg ui, func Combobox(ComboboxOpts, ...h.Node) h.Node
+pkg ui, func ComboboxOptions[T any]([]T, func(T) (string, string)) h.Node
 pkg ui, func Confirm(string, string) h.Node
 pkg ui, func Container(...h.Node) h.Node
 pkg ui, func DataTable[T any](*trilha.Ctx, Columns[T], []T, ListState) h.Node
@@ -842,6 +846,7 @@ pkg ui, func DialogDescription(string) h.Node
 pkg ui, func DialogFooter(...h.Node) h.Node
 pkg ui, func DialogTrigger(string, ...h.Node) h.Node
 pkg ui, func Donut([]Datum, ...h.Node) h.Node
+pkg ui, func Dropzone(DropzoneOpts, ...h.Node) h.Node
 pkg ui, func Error(string) FieldOpt
 pkg ui, func Errors(map[string]string, string) FieldOpt
 pkg ui, func Field(string, string, h.Node, ...FieldOpt) h.Node
@@ -932,6 +937,18 @@ pkg ui, type Column struct, Num bool
 pkg ui, type Column struct, Sort bool
 pkg ui, type Column[T any] struct
 pkg ui, type Columns[T any] []Column[T]
+pkg ui, type ComboboxOpts struct
+pkg ui, type ComboboxOpts struct, Attrs []h.Node
+pkg ui, type ComboboxOpts struct, Debounce time.Duration
+pkg ui, type ComboboxOpts struct, Label string
+pkg ui, type ComboboxOpts struct, MinChars int
+pkg ui, type ComboboxOpts struct, Name string
+pkg ui, type ComboboxOpts struct, Options []Option
+pkg ui, type ComboboxOpts struct, Placeholder string
+pkg ui, type ComboboxOpts struct, Required bool
+pkg ui, type ComboboxOpts struct, Source string
+pkg ui, type ComboboxOpts struct, Value string
+pkg ui, type ComboboxOpts struct, With []string
 pkg ui, type Crumb struct
 pkg ui, type Crumb struct, Href string
 pkg ui, type Crumb struct, Label string
@@ -939,6 +956,12 @@ pkg ui, type Datum struct
 pkg ui, type Datum struct, Label string
 pkg ui, type Datum struct, Text string
 pkg ui, type Datum struct, Value float64
+pkg ui, type DropzoneOpts struct
+pkg ui, type DropzoneOpts struct, Accept string
+pkg ui, type DropzoneOpts struct, Attrs []h.Node
+pkg ui, type DropzoneOpts struct, MaxSize int64
+pkg ui, type DropzoneOpts struct, Name string
+pkg ui, type DropzoneOpts struct, Single bool
 pkg ui, type FieldOpt func(*fieldCfg)
 pkg ui, type ListSelect struct
 pkg ui, type ListSelect struct, Action string

@@ -69,17 +69,29 @@ func endereco(prefix string, a clientes.Endereco, errs trilha.FieldErrors) h.Nod
 	for _, uf := range clientes.UFs() {
 		ufs = append(ufs, ui.Option{Value: uf, Label: uf})
 	}
-	cidades := []ui.Option{{Value: "", Label: "Escolha a UF primeiro"}}
-	for _, ci := range clientes.Cidades[a.UF] {
-		cidades = append(cidades, ui.Option{Value: ci, Label: ci})
-	}
 	return h.Div(h.Class("ui-grid endereco"),
 		campo(prefix+"cep", "CEP", a.CEP, errs, h.Attr("inputmode", "numeric"), h.Placeholder("00000-000")),
 		campo(prefix+"rua", "Rua", a.Rua, errs),
 		campo(prefix+"numero", "Número", a.Numero, errs),
-		ui.Field(prefix+"uf", "UF", ui.Select(h.ID(prefix+"uf"), h.Name(prefix+"uf"), h.Data("cidades", prefix+"cidade"), ui.InvalidIf(errs, prefix+"uf"), ui.SelectOptions(ufs, a.UF)), ui.Errors(errs, prefix+"uf")),
-		ui.Field(prefix+"cidade", "Cidade", ui.Select(h.ID(prefix+"cidade"), h.Name(prefix+"cidade"), h.If(a.UF == "", h.Disabled()), ui.InvalidIf(errs, prefix+"cidade"), ui.SelectOptions(cidades, a.Cidade)), ui.Errors(errs, prefix+"cidade")),
+		ui.Field(prefix+"uf", "UF", ui.Select(h.ID(prefix+"uf"), h.Name(prefix+"uf"), ui.InvalidIf(errs, prefix+"uf"), ui.SelectOptions(ufs, a.UF)), ui.Errors(errs, prefix+"uf")),
+		// A cidade é um combobox servido por fragmento: o servidor busca dentro
+		// da UF escolhida (With), e sem JavaScript o texto digitado vai junto e
+		// o servidor resolve. As vinte linhas de app.js que faziam isso sumiram.
+		ui.Field(prefix+"cidade", "Cidade", ui.Combobox(ui.ComboboxOpts{
+			Name: prefix + "cidade", Value: a.Cidade, Label: primeiro(a.Cidade, a.CidadeQ),
+			Source: "/cidades/busca", With: []string{prefix + "uf"},
+			Placeholder: "Digite o começo do nome",
+		}, ui.InvalidIf(errs, prefix+"cidade")), ui.Errors(errs, prefix+"cidade")),
 	)
+}
+
+// primeiro devolve o rótulo que a pessoa deve ver: o que já foi escolhido, ou
+// o que ela digitou e o servidor não reconheceu.
+func primeiro(escolhido, digitado string) string {
+	if escolhido != "" {
+		return escolhido
+	}
+	return digitado
 }
 
 // dependentes desenha a lista de sub-registros: cada linha é

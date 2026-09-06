@@ -68,3 +68,43 @@ func ServeUploads(cfg *trilha.Config) {
 		hdr.Set("Content-Security-Policy", "sandbox; default-src 'none'")
 	}
 }
+
+// MaxAttachments is how many files one request may carry. The queue in the
+// browser sends one at a time, so this ceiling is for the request that
+// arrives without JavaScript — every file in one multipart body.
+const MaxAttachments = 10
+
+// SaveAttachments takes every file the field carries. c.Files applies the
+// same rules as c.File to each one, and a file that fails comes back under
+// its own position — arquivos[2] — so the message lands on the right line
+// instead of blaming the whole form.
+func SaveAttachments(c *trilha.Ctx) error {
+	c.AllowBody(MaxAvatar*MaxAttachments + 64<<10)
+	ups, err := c.Files("files", trilha.FileRules{
+		MaxSize:  MaxAvatar,
+		MaxFiles: MaxAttachments,
+		Accept:   []string{"image/png", "image/jpeg", "application/pdf"},
+	})
+	if err != nil {
+		return err
+	}
+	for _, up := range ups {
+		defer up.Close()
+		name, err := up.Save(UploadDir)
+		if err != nil {
+			return err
+		}
+		if err := AddAttachment(c.Context(), name, up.Size, up.MIME); err != nil {
+			return err
+		}
+	}
+	return c.Redirect("/attachments")
+}
+
+// AddAttachment records what was saved: the name on disk, the size and the
+// type that was sniffed, never the three the browser offered.
+func AddAttachment(ctx context.Context, file string, size int64, mime string) error {
+	_, err := DB.ExecContext(ctx,
+		`INSERT INTO attachments (file, size, mime) VALUES ($1, $2, $3)`, file, size, mime)
+	return err
+}

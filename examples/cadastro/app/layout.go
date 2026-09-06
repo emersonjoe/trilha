@@ -19,7 +19,6 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Title(h.Text(title)),
 			ui.Head(c),
 			h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))),
-			h.Script(h.Src(c.Asset("/app.js")), h.Defer()),
 		),
 		h.Body(ui.Body(),
 			ui.Header(ui.Brand("/", "Cadastro"), ui.Nav(h.A(h.Href("/ficha"), h.Text("Ficha")), h.A(h.Href("/api/cidades?uf=SP"), h.Text("API"))), ui.Spacer(), ui.ThemeToggle()),

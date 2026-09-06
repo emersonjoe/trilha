@@ -171,6 +171,7 @@ multipart e só o devolve se ele passar pelas regras.
 | `FileRules.MaxSize int64` | limite deste arquivo, à parte do `Config.MaxBodyBytes`; 0 deixa o limite do corpo trabalhar |
 | `FileRules.Accept []string` | tipos aceitos, comparados com o tipo **detectado**: `"image/png"`, `"image/*"`, `"*/*"`; vazio aceita qualquer um |
 | `FileRules.Optional bool` | campo ausente devolve `(nil, nil)` em vez de erro |
+| `FileRules.MaxFiles int` | teto de quantos arquivos o `Files` aceita numa requisição; 0 é sem teto |
 | `Upload.Name` | nome sanitizado: sem diretório, sem separador, sem caractere de controle, no máximo 100 caracteres, nunca vazio |
 | `Upload.MIME` / `Upload.Ext` | tipo detectado nos primeiros 512 bytes, e a extensão correspondente |
 | `Upload.Size` / `Upload.File` | tamanho em bytes, e o arquivo posicionado no começo |
@@ -179,4 +180,12 @@ multipart e só o devolve se ele passar pelas regras.
 
 Regra que falha vira `FieldErrors` no nome do campo, como no `Bind`; qualquer outra coisa
 (corpo quebrado, disco cheio) volta como está. As mensagens saem do `ValidationMessages`
-(`required`, `filemax`, `filetype`) — veja [Validação](/pt/referencia/validacao).
+(`required`, `filemax`, `filetype`, `filecount`) — veja [Validação](/pt/referencia/validacao).
+
+`Files(campo string, regras FileRules) ([]*Upload, error)` lê todos os arquivos que o campo
+carrega, na ordem em que o navegador mandou, aplicando as mesmas regras a cada um. Um campo de
+arquivo vazio não é um arquivo: ele sai antes da contagem, então `Optional` continua querendo
+dizer "ninguém escolheu nada". O arquivo que falha nomeia a própria posição — `files[2]`, não
+`files` — então um formulário com uma linha por arquivo põe a mensagem na linha certa; os que
+passaram voltam na fatia, e fechá-los é com quem chamou. Acima do `MaxFiles` a requisição
+inteira é recusada no nome do campo, antes de um byte ser lido.

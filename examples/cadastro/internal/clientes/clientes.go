@@ -20,6 +20,10 @@ type Endereco struct {
 	Numero string `form:"numero"`
 	UF     string `form:"uf"`
 	Cidade string `form:"cidade"`
+	// CidadeQ is what was typed in the combobox. With JavaScript the hidden
+	// Cidade already holds the choice; without it, this is all the server has,
+	// and Normalizar resolves it.
+	CidadeQ string `form:"cidade_q"`
 }
 
 // Dependente is one row of the dependants list. It is read from
@@ -71,6 +75,8 @@ func Normalizar(c *Cliente) {
 	case "pj":
 		c.CPF, c.Nascimento = "", ""
 	}
+	resolverCidade(&c.Endereco)
+	resolverCidade(&c.Cobranca)
 	if !c.CobrancaDif {
 		c.Cobranca = Endereco{}
 	}
@@ -219,6 +225,37 @@ func CNPJValido(s string) bool {
 		}
 	}
 	return true
+}
+
+// resolverCidade turns what somebody typed into the city itself, which is what
+// the combobox does in the browser and the server has to do when there is no
+// browser doing it.
+func resolverCidade(a *Endereco) {
+	if a.Cidade != "" || strings.TrimSpace(a.CidadeQ) == "" {
+		return
+	}
+	typed := strings.ToLower(strings.TrimSpace(a.CidadeQ))
+	for _, ci := range Cidades[a.UF] {
+		if strings.ToLower(ci) == typed {
+			a.Cidade = ci
+			return
+		}
+	}
+}
+
+// BuscarCidades lists the cities of a state whose name contains q, at most n.
+func BuscarCidades(uf, q string, n int) []string {
+	q = strings.ToLower(strings.TrimSpace(q))
+	out := []string{}
+	for _, ci := range Cidades[uf] {
+		if q == "" || strings.Contains(strings.ToLower(ci), q) {
+			out = append(out, ci)
+		}
+		if len(out) == n {
+			break
+		}
+	}
+	return out
 }
 
 // UFs and Cidades are the dependent-select data (a small sample).

@@ -121,12 +121,15 @@ func TestHeadAndAssets(t *testing.T) {
 	// tooltip is the first component since the kit shipped to need script of
 	// its own, and a hint that cannot be dismissed is not accessible), to
 	// 16 KB in 0.39.0, where the confirmation dialog is built here so that no
-	// app has to write the inline script the CSP forbids, and to 20 KB in
-	// 0.40.0: the pending threshold, the view transition and the island that
-	// arrives inside a fragment are about 3.8 KB, and every one of them is on
-	// the path a swap already takes — none could be moved to a file that only
-	// the apps using it download, the way ui.nav.js and ui.upload.js are.
-	if len(Asset("ui.css")) > 25<<10 || len(Asset("ui.js")) > 20<<10 {
+	// app has to write the inline script the CSP forbids, and to 24 KB: the
+	// pending threshold, the view transition and the island that arrives inside
+	// a fragment are about 3.8 KB, and the combobox — a listbox driven from the
+	// keyboard — another two. Every one of them sits on the path a swap already
+	// takes, or is a component the app that does not use it pays four hundred
+	// bytes of dead listeners for, against shipping its own copy of the same
+	// thing; none could move to a file only the apps using it download, the way
+	// ui.nav.js and ui.upload.js do.
+	if len(Asset("ui.css")) > 28<<10 || len(Asset("ui.js")) > 26<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {
@@ -223,7 +226,10 @@ func TestUploadIsOptIn(t *testing.T) {
 	}
 	t.Fatal("ui.upload.js is not in Files: trilha ui would not write it")
 found:
-	if n := len(Asset("ui.upload.js")); n == 0 || n > 4<<10 {
+	// 8 KB since the dropzone: the queue that sends one file per request, so
+	// the message of a file lands on the line of that file, lives here and not
+	// in ui.js — the page with no upload still loads nothing.
+	if n := len(Asset("ui.upload.js")); n == 0 || n > 8<<10 {
 		t.Fatalf("ui.upload.js is %d bytes", n)
 	}
 	if strings.Contains(string(Asset("ui.js")), "data-trilha-upload") {

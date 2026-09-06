@@ -72,6 +72,63 @@ func SetAvatar(ctx context.Context, user int64, file string) error {
 }
 ```
 
+## Vários de uma vez
+
+Um campo pode carregar mais de um arquivo, e o `c.Files` lê todos sob as mesmas regras:
+
+```go
+// SaveAttachments takes every file the field carries. c.Files applies the
+// same rules as c.File to each one, and a file that fails comes back under
+// its own position — arquivos[2] — so the message lands on the right line
+// instead of blaming the whole form.
+func SaveAttachments(c *trilha.Ctx) error {
+	c.AllowBody(MaxAvatar*MaxAttachments + 64<<10)
+	ups, err := c.Files("files", trilha.FileRules{
+		MaxSize:  MaxAvatar,
+		MaxFiles: MaxAttachments,
+		Accept:   []string{"image/png", "image/jpeg", "application/pdf"},
+	})
+	if err != nil {
+		return err
+	}
+	for _, up := range ups {
+		defer up.Close()
+		name, err := up.Save(UploadDir)
+		if err != nil {
+			return err
+		}
+		if err := AddAttachment(c.Context(), name, up.Size, up.MIME); err != nil {
+			return err
+		}
+	}
+	return c.Redirect("/attachments")
+}
+```
+
+Duas coisas mudam em relação à versão de um arquivo só. O `MaxFiles` é teto de quantidade, não
+de bytes — uma requisição com onze arquivos é recusada antes de o primeiro ser lido:
+
+```go
+// MaxAttachments is how many files one request may carry. The queue in the
+// browser sends one at a time, so this ceiling is for the request that
+// arrives without JavaScript — every file in one multipart body.
+const MaxAttachments = 10
+```
+
+E o erro é nomeado por posição. O `c.File` põe a mensagem em `files`; o `c.Files` põe em
+`files[2]`, então um formulário que desenha uma linha por arquivo mostra a mensagem na linha
+que a mereceu — e os outros arquivos passaram assim mesmo.
+
+```go
+// AddAttachment records what was saved: the name on disk, the size and the
+// type that was sniffed, never the three the browser offered.
+func AddAttachment(ctx context.Context, file string, size int64, mime string) error {
+	_, err := DB.ExecContext(ctx,
+		`INSERT INTO attachments (file, size, mime) VALUES ($1, $2, $3)`, file, size, mime)
+	return err
+}
+```
+
 ## Devolvendo
 
 Servir conteúdo de usuário da mesma origem do seu app é como um XSS armazenado consegue um
@@ -121,6 +178,8 @@ perguntada por ele. É esse o momento em que o `Save` vira um cliente de S3 — 
 não muda, só muda para onde o `Save` escreve.
 
 :::dica
-A barra de progresso e a área de arrastar-e-soltar já estão no kit: `ui.UploadBar`,
-`ui.UploadTo` e `ui.UploadScript`, na [referência de ui](/pt/referencia/ui).
+A fila, a barra de progresso e a área de arrastar-e-soltar já estão no kit: `ui.Dropzone`,
+`ui.UploadBar`, `ui.UploadTo` e `ui.UploadScript`, na [referência de ui](/pt/referencia/ui). A
+fila manda um arquivo por requisição, então cada um ganha a sua resposta; sem JavaScript o
+mesmo formulário posta todos de uma vez e o `c.Files` os lê do mesmo handler.
 :::

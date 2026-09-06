@@ -7,6 +7,22 @@ versioning. This file is written in English only.
 
 ### Added
 
+- **A field that searches, and an area that takes several files at once**
+  ([#67](https://github.com/emersonjoe/trilha/issues/67)). `ui.Combobox` is a text field over
+  a list: the person types, the server searches, and what the form sends is a hidden field
+  with the chosen value, so the round trip after a 422 comes back with the label written and
+  the value intact. A short list is filtered in the browser with no request; a long one names
+  a `Source` route that answers `ui.ComboboxOptions` — only the `<li>`s — and `With` carries
+  the other fields of the form into the query, which is how a city list narrows to the state
+  that is selected. It is a real listbox: arrows, Enter, Escape, `aria-activedescendant`, and
+  without JavaScript it is a text input the server resolves against the same list.
+  `ui.Dropzone` puts a drop area over a file input and a queue under it, one line per file;
+  with `ui.UploadTo` the queue sends one file per request, so each line gets its own progress
+  and its own message. `c.Files(field, FileRules)` is the other half: it applies the rules of
+  `c.File` to every file the field carries, names a failure by position — `files[2]` — and
+  refuses the whole request over `FileRules.MaxFiles` before a byte is read. Without
+  JavaScript the same form posts every file at once, into the very same handler.
+
 - **A form that grows: lists of sub-records, key/value matrices and a schema that comes as
   data** ([#69](https://github.com/emersonjoe/trilha/issues/69)). `Bind` fills a `[]Row` from
   `items[0].name`, `items[1].name`… and a `map[string]int` from `perm[docs]=2`, and the name
@@ -126,6 +142,9 @@ versioning. This file is written in English only.
 
 ### Documentation
 
+- The `ui` reference gained a **Combobox** section and the dropzone next to the progress bar,
+  the `ctx` reference gained `Files` and `FileRules.MaxFiles`, and the uploads recipe gained
+  **Several at once** — all in both languages.
 - New reference page **Upstreams** and the recipe **An app in front of an existing API**, in
   both languages; the auth reference gained the session-without-OIDC section, and
   `SECURITY-MODEL.md` says what changes when the credential lives inside the app.

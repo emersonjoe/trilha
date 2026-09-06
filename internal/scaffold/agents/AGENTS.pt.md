@@ -89,6 +89,13 @@ leia essa frase em vez de adivinhar.
   mensagem, então `ui.Errors(errs, "itens[1].qtd")` já aponta para a linha certa. Quando o
   formulário em si vem de dado, o `trilha.Schema` decodifica de JSON, o `trilha.BindSchema`
   valida como qualquer outro formulário e o `ui.SchemaForm` desenha.
+- **Não escreva um autocomplete, nem leia campo de arquivo num laço.** O `ui.Combobox` é o
+  campo de texto que busca numa lista: um input escondido carrega o valor escolhido, uma rota
+  `Source` responde `ui.ComboboxOptions` com só os `<li>`, e o `With` leva os outros campos do
+  formulário na query. O `ui.Dropzone` é a área de soltar, e com o `ui.UploadTo` a fila dele
+  manda um arquivo por requisição. No servidor, o `c.Files(campo, regras)` aplica as regras do
+  `c.File` a cada arquivo e nomeia a falha pela posição — `arquivos[2]` — então a mensagem cai
+  na linha que a mereceu.
 - **Não invente um cookie de flash nem um `onclick="return confirm()"`.** Depois de um `POST`,
   conte o que aconteceu com `c.Flash(ui.FlashSuccess, "…")` — o `ui.Flashes(c)` do layout mostra
   na página onde o redirect cai — e pergunte antes de destruir com `ui.Confirm(título,
