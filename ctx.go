@@ -1,12 +1,15 @@
 package trilha
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -43,6 +46,7 @@ type Ctx struct {
 	fragment     string
 	fragParsed   bool
 	islandLoader bool
+	rawBody      io.ReadCloser
 }
 
 func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
@@ -212,9 +216,64 @@ func (c *Ctx) Title() string { return c.title }
 func (c *Ctx) SetTitle(t string) { c.title = t }
 
 // NoWriteDeadline disables the server write timeout for this response; call
-// it before streaming (SSE, long downloads).
+// it before streaming (SSE, long downloads). A writer with no deadline to
+// remove (a test recorder, an export) is not an error.
 func (c *Ctx) NoWriteDeadline() error {
-	return http.NewResponseController(c.w).SetWriteDeadline(time.Time{})
+	return ignoreUnsupported(http.NewResponseController(c.w).SetWriteDeadline(time.Time{}))
+}
+
+// NoReadDeadline disables the server read timeout for this request; call it
+// before reading a body that may take longer than Timeouts.Read (an upload on
+// a slow link).
+func (c *Ctx) NoReadDeadline() error {
+	return ignoreUnsupported(http.NewResponseController(c.w).SetReadDeadline(time.Time{}))
+}
+
+func ignoreUnsupported(err error) error {
+	if errors.Is(err, http.ErrNotSupported) {
+		return nil
+	}
+	return err
+}
+
+// AllowBody raises (or lowers) the body limit for this request only, leaving
+// Config.MaxBodyBytes in place for every other route. Call it before reading
+// the body:
+//
+//	func POST(c *trilha.Ctx) error {
+//		c.AllowBody(8 << 20)
+//		…
+//	}
+//
+// Called after the body started being read, the new limit counts from there.
+// Going over it still answers 413.
+func (c *Ctx) AllowBody(n int64) {
+	if c.rawBody == nil {
+		return
+	}
+	c.r.Body = http.MaxBytesReader(c.w, c.rawBody, n)
+}
+
+// Hijack takes the connection over, so a handler can speak another protocol on
+// it — WebSocket, above all. Trilha does not implement WebSocket: it is a
+// transport, it touches nothing else in the framework, and a library in the
+// app's own go.mod does it better than 400 lines here would. What Trilha owes
+// is the way out, and this is it.
+//
+// The read and write deadlines are cleared before the connection is returned
+// (an idle socket is a WebSocket's normal state, not a stuck request), and the
+// framework writes nothing else to the response: the log records 101 and the
+// connection is the handler's until it closes it. Middleware, CSRF and
+// authentication have already run.
+func (c *Ctx) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, rw, err := http.NewResponseController(c.w).Hijack()
+	if err != nil {
+		return nil, nil, err
+	}
+	_ = conn.SetDeadline(time.Time{})
+	c.w.hijacked = true
+	c.w.status = http.StatusSwitchingProtocols
+	return conn, rw, nil
 }
 
 // Written reports whether the response has already started.
@@ -223,13 +282,21 @@ func (c *Ctx) Written() bool { return c.w.wrote }
 // responseWriter tracks status and bytes for logging and error handling.
 type responseWriter struct {
 	http.ResponseWriter
-	status int
-	wrote  bool
-	bytes  int
+	status   int
+	wrote    bool
+	hijacked bool
+	bytes    int
+}
+
+// Hijack makes the response satisfy http.Hijacker, which is what a WebSocket
+// library asserts on. The wrapper is why it has to be here: without it the
+// assertion fails and Trilha closes the door it tells people to use.
+func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(w.ResponseWriter).Hijack()
 }
 
 func (w *responseWriter) WriteHeader(code int) {
-	if w.wrote {
+	if w.wrote || w.hijacked {
 		return
 	}
 	w.wrote = true
@@ -238,6 +305,9 @@ func (w *responseWriter) WriteHeader(code int) {
 }
 
 func (w *responseWriter) Write(b []byte) (int, error) {
+	if w.hijacked {
+		return len(b), nil // the connection belongs to the handler now
+	}
 	if !w.wrote {
 		w.WriteHeader(http.StatusOK)
 	}

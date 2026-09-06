@@ -206,6 +206,71 @@ verdade.
 A regra de bolso: **fragmento** quando um handler responde um pedaço, **navegação** quando a
 resposta é uma página e a moldura em volta deve ficar.
 
+## O arquivo, e a barra que diz onde ele está
+
+Mandar arquivo é o único lugar onde "a tela pisca" não é o problema — o problema é não
+acontecer nada por trinta segundos. O navegador sabe quanto já subiu; ele só não tem como
+dizer isso num envio de formulário comum.
+
+```go
+// app/anexos/page.go
+h.Form(h.Method("post"), h.Action("/anexos"), h.Enctype("multipart/form-data"),
+	ui.UploadTo("lista"),
+	trilha.CSRFInput(c),
+	ui.Field("arquivo", "Arquivo", ui.Input(h.ID("arquivo"), h.Name("arquivo"), h.Type("file"), h.Required())),
+	ui.UploadBar(),
+	ui.Submit(h.Text("Enviar")),
+)
+```
+
+`ui.UploadTo(id)` envia o formulário por XHR e troca o `#id` pela resposta; `ui.UploadBar()`
+é o `<progress>` que o kit preenche com o evento de progresso do próprio navegador; e
+`ui.UploadScript(c)` carrega o comportamento — arquivo próprio de novo, para que uma página
+sem upload não o baixe. Com o JavaScript desligado nada disso existe, e o formulário é o que
+sempre foi: envia, o servidor responde, a página recarrega.
+
+No servidor não há API nova. A requisição leva o `Trilha-Fragment`, então o mesmo handler que
+desenha a página responde o pedaço:
+
+```go
+func POST(c *trilha.Ctx) error {
+	if err := c.FormErr(); err != nil {
+		return err
+	}
+	f, hdr, err := c.Request().FormFile("arquivo")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	anexos.Add(hdr.Filename, hdr.Size)
+	if c.Fragment() != "" {
+		return c.Render(200, lista()) // o pedaço, com o mesmo id
+	}
+	return c.Redirect("/anexos") // sem JavaScript: gravar, redirecionar, buscar
+}
+```
+
+### O limite é do app; a exceção é da rota
+
+O corpo tem teto no `Config.MaxBodyBytes` (1 MiB por padrão) — é esse teto que impede uma
+requisição de comer a memória do servidor, e ele deve continuar de pé em toda rota que recebe
+formulário. A rota que recebe arquivo diz isso por conta própria, no `middleware.go` dela:
+
+```go
+// app/anexos/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error {
+	if c.Request().Method == "POST" {
+		c.AllowBody(8 << 20)
+		c.NoReadDeadline() // conexão ruim não é erro
+	}
+	return next()
+}
+```
+
+No middleware, e não no handler: o CSRF lê o formulário antes do handler rodar, então lá
+dentro o corpo já teria sido lido no limite antigo. O resto do app continua no 1 MiB, e
+passar dos 8 MiB continua sendo 413 com a mensagem de sempre.
+
 ## O que isso não é
 
 Não é SPA. Não há roteador no cliente, estado compartilhado, hidratação de componente nem

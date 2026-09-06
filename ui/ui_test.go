@@ -191,3 +191,46 @@ func TestNavigateScript(t *testing.T) {
 		t.Fatalf("NavigateScript = %s, want %s", out, want)
 	}
 }
+
+// Issue #24: upload with progress is opt-in the same way navigation is — an
+// attribute on the form and a file of its own.
+func TestUploadIsOptIn(t *testing.T) {
+	got := render(t, h.Form(h.Method("post"), UploadTo("lista"), UploadBar()))
+	for _, want := range []string{`data-trilha-upload="lista"`, `<progress`, `data-trilha-progress=""`, ` hidden`, `max="100"`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
+	}
+	// The fragment handler in ui.js listens on [data-trilha-target]; the upload
+	// form must not carry it, or both would submit the same form.
+	if strings.Contains(got, "data-trilha-target") {
+		t.Fatal("upload must not reuse data-trilha-target:", got)
+	}
+	for _, name := range Files {
+		if name == "ui.upload.js" {
+			goto found
+		}
+	}
+	t.Fatal("ui.upload.js is not in Files: trilha ui would not write it")
+found:
+	if n := len(Asset("ui.upload.js")); n == 0 || n > 4<<10 {
+		t.Fatalf("ui.upload.js is %d bytes", n)
+	}
+	if strings.Contains(string(Asset("ui.js")), "data-trilha-upload") {
+		t.Fatal("upload leaked into ui.js")
+	}
+}
+
+func TestUploadScript(t *testing.T) {
+	a := trilha.New(trilha.Config{BasePath: "/app", Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	var out string
+	a.Register(trilha.Route{Pattern: "/", Page: func(c *trilha.Ctx) (h.Node, error) {
+		out = render(t, UploadScript(c))
+		return h.Div(), nil
+	}})
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if want := `<script src="/app/ui.upload.js" defer></script>`; out != want {
+		t.Fatalf("UploadScript = %s, want %s", out, want)
+	}
+}

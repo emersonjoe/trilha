@@ -64,6 +64,60 @@ não serializam avisam uma vez e deixam o conteúdo de origem em paz. O carregad
 script inline com o nonce da requisição, emitido junto da primeira ilha da resposta
 ([Interatividade](/pt/aprender/interatividade)).
 
+## Conexão longa e corpo grande
+
+| Método | Descrição |
+|---|---|
+| `AllowBody(n int64)` | limite de corpo **desta** requisição, no lugar do `Config.MaxBodyBytes` |
+| `NoReadDeadline() error` | tira o prazo de leitura desta requisição (upload lento não é erro) |
+| `NoWriteDeadline() error` | tira o prazo de escrita (download longo, SSE) |
+| `Hijack() (net.Conn, *bufio.ReadWriter, error)` | assume a conexão: prazos removidos, e o Trilha não escreve mais nada nela |
+
+O limite padrão é do app; a exceção é da rota. Levante no `middleware.go` da rota, não no
+handler — o CSRF de formulário lê o corpo antes do handler rodar, então a decisão tem de vir
+antes:
+
+```go
+// app/anexos/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error {
+	if c.Request().Method == "POST" {
+		c.AllowBody(8 << 20) // só esta requisição; o resto do app segue no limite do app
+		c.NoReadDeadline()
+	}
+	return next()
+}
+```
+
+Estourar o limite continua sendo 413 com a mensagem de sempre, pelo `FormErr`, pelos `Bind*`
+ou na leitura direta do `Request().Body`.
+
+### WebSocket
+
+O Trilha não tem WebSocket próprio, e isso é decisão. O protocolo é transporte: não encosta
+em rota, em layout nem em render. O que ele exige — frames de fragmentação e continuação,
+frame de controle no meio de uma mensagem, aperto de mão de fechamento com prazo, validação
+de UTF-8, máscara, limite de tamanho, escrita concorrente, contrapressão,
+`permessage-deflate` — são algumas centenas de linhas que a suíte Autobahn cobra em mais de
+500 casos. A assimetria decide: o seu app pode pôr `coder/websocket` no go.mod **dele** (o
+princípio II obriga o framework, não o app), mas não consegue tirar essas linhas do
+framework.
+
+O que faltava era a porta, e ela é o `Hijack`:
+
+```go
+func WS(c *trilha.Ctx) error {
+	conn, _, err := c.Hijack() // prazos de leitura e escrita já removidos
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return meuWebsocket.Serve(conn) // coder/websocket, gorilla, o que você escolher
+}
+```
+
+Depois do `Hijack` a conexão é sua: o framework não escreve cabeçalho, página de erro nem
+corpo nela, e o log de acesso registra 101.
+
 ## Segurança
 
 | Método | Descrição |

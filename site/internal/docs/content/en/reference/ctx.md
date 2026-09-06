@@ -64,6 +64,59 @@ that do not serialize warn once and leave the fallback alone. The loader is a si
 script with the request nonce, emitted with the first island of the response
 ([Interactivity](/learn/interactivity)).
 
+## Long connections and large bodies
+
+| Method | Description |
+|---|---|
+| `AllowBody(n int64)` | body limit for **this** request, in place of `Config.MaxBodyBytes` |
+| `NoReadDeadline() error` | drops this request's read deadline (a slow upload is not an error) |
+| `NoWriteDeadline() error` | drops the write deadline (long download, SSE) |
+| `Hijack() (net.Conn, *bufio.ReadWriter, error)` | takes the connection over: deadlines cleared, and Trilha writes nothing more on it |
+
+The default limit belongs to the app; the exception belongs to the route. Raise it in the
+route's `middleware.go`, not in the handler — form CSRF reads the body before the handler
+runs, so the decision has to come first:
+
+```go
+// app/anexos/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error {
+	if c.Request().Method == "POST" {
+		c.AllowBody(8 << 20) // this request only; every other route keeps the app's limit
+		c.NoReadDeadline()
+	}
+	return next()
+}
+```
+
+Going over the limit is still a 413 with the usual message, through `FormErr`, `Bind*` or a
+direct read of `Request().Body`.
+
+### WebSocket
+
+Trilha has no WebSocket of its own, and that is a decision. The protocol is transport: it
+touches no route, no layout and no render. What it does need — fragmentation and
+continuation frames, control frames interleaved with a message, the close handshake with a
+deadline, UTF-8 validation, masking, size limits, concurrent writes, backpressure,
+`permessage-deflate` — is a few hundred lines that the Autobahn suite tests in 500+ cases.
+The asymmetry decides it: your app can add `coder/websocket` to **its** go.mod (principle II
+binds the framework, not the app), but it cannot take those lines out of the framework.
+
+What was missing was the door, and `Hijack` is it:
+
+```go
+func WS(c *trilha.Ctx) error {
+	conn, _, err := c.Hijack() // read and write deadlines already cleared
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return meuWebsocket.Serve(conn) // coder/websocket, gorilla, whatever you picked
+}
+```
+
+After `Hijack` the connection is yours: the framework writes no header, no error page and no
+body on it, and the access log records 101.
+
 ## Security
 
 | Method | Description |

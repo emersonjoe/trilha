@@ -57,6 +57,10 @@ func statusOf(err error) int {
 		return http.StatusUnprocessableEntity
 	case errors.As(err, &he):
 		return he.Code
+	case errors.As(err, new(*http.MaxBytesError)):
+		// A handler reading the body itself and hitting the limit means the
+		// request was too big, not that the app broke.
+		return http.StatusRequestEntityTooLarge
 	default:
 		return http.StatusInternalServerError
 	}

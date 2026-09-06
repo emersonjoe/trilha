@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	multipartlib "mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -310,6 +311,52 @@ func TestNavegacaoNoClienteDegradaSemScript(t *testing.T) {
 	if js := c.get("/ui.nav.js"); js.Code != 200 || !strings.Contains(js.Body.String(), "data-trilha-nav") {
 		t.Fatalf("ui.nav.js: %d", js.Code)
 	}
+}
+
+// Issue #24: o anexo passa do limite global de 1 MiB porque a rota levantou o
+// dela, e a mesma rota responde fragmento ou página conforme quem pergunta.
+func TestUploadComProgressoDegradaSemScript(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.get("/anexos")
+	wantContains(t, rec, 200, `data-trilha-upload="lista"`, "<progress", `id="lista"`, `<script src="/ui.upload.js`)
+
+	// 2 MiB: acima do MaxBodyBytes padrão, dentro do que a rota permitiu.
+	body, ct := multipart(c, "planilha.csv", strings.Repeat("a", 2<<20))
+	frag := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct, "Trilha-Fragment": "lista"})
+	wantContains(t, frag, 200, `id="lista"`, "planilha.csv", "2,0 MB")
+	if strings.Contains(frag.Body.String(), "<!doctype") {
+		t.Fatal("o fragmento não pode vir com o documento inteiro")
+	}
+
+	// O mesmo envio sem JavaScript (sem o cabeçalho) volta para a página.
+	body, ct = multipart(c, "sem-js.txt", "oi")
+	plain := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct})
+	if plain.Code != 303 || plain.Header().Get("Location") != "/anexos" {
+		t.Fatalf("envio normal deve redirecionar: %d %s", plain.Code, plain.Header().Get("Location"))
+	}
+	wantContains(t, c.get("/anexos"), 200, "sem-js.txt")
+
+	// O limite continua valendo para o resto do app.
+	huge := c.do("POST", "/blog/novo", strings.Repeat("x", 2<<20), map[string]string{"Content-Type": "application/x-www-form-urlencoded"})
+	if huge.Code == 200 {
+		t.Fatal("o limite global tem de continuar de pé fora da rota de anexos")
+	}
+}
+
+// multipart monta um corpo multipart/form-data com o token CSRF do cliente.
+func multipart(c *client, name, content string) (body, contentType string) {
+	var sb strings.Builder
+	w := multipartlib.NewWriter(&sb)
+	if tok, ok := c.jar[trilha.CSRFCookie]; ok {
+		w.WriteField("_csrf", tok)
+	}
+	f, err := w.CreateFormFile("arquivo", name)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	io.WriteString(f, content)
+	w.Close()
+	return sb.String(), w.FormDataContentType()
 }
 
 // ---- 002: html/template ---------------------------------------------------

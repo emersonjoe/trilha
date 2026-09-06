@@ -12,8 +12,8 @@ description: The kit's components, variants, assets and the theme contract.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` for `ui.theme.css` and `ui.css`, inline script (with nonce) that applies the saved theme, `<script defer src=ui.js>`; honors `c.Base()` |
 | `ui.Body() h.Node` | `ui-body` class for the `<body>` |
-| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js` or `ui.nav.js` |
-| `ui.Files` | the four names, in the order `trilha ui` writes them |
+| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js` or `ui.upload.js` |
+| `ui.Files` | the five names, in the order `trilha ui` writes them |
 
 ## Variants and sizes
 
@@ -95,6 +95,28 @@ The behavior is a separate file so an app that does not use it does not download
 `ui.Head` does not load it. A link marked with `ui.Swap` stays with fragments: it asks for a
 piece of the page, not for the next page.
 
+## Upload with progress
+
+A form that sends a file is a form: `method="post"`, `enctype="multipart/form-data"`, the
+CSRF field. Three symbols add the progress bar on top of it, and it is off until you ask:
+
+| Symbol | Role |
+|---|---|
+| `ui.UploadTo(id) h.Node` | on the `<form>`: send it with XHR and swap `#id` with what comes back |
+| `ui.UploadBar(attrs…) h.Node` | the `<progress>` the kit fills in; hidden until the send starts |
+| `ui.UploadScript(c) h.Node` | `<script defer src=ui.upload.js>`, once per page that uploads |
+
+The request carries `Trilha-Fragment: id`, so the handler answers the piece with the same
+`c.Fragment()` it already uses. While it uploads, the bar gets `value`/`max` from the
+browser's own progress event (and loses `value` — an indeterminate bar — when the total is
+not known), and a `trilha:upload` event bubbles with `detail: {loaded, total, form}`. On a
+5xx, a network error or a piece without the id, the form submits for real: the user sees the
+page reload, not a button that did nothing.
+
+The attribute is `data-trilha-upload`, not `data-trilha-target`, so the fragment handler in
+`ui.js` does not submit the same form a second time. The body limit is the server's business
+— see [`AllowBody`](/reference/ctx).
+
 ## Theme
 
 `ui.theme.css` defines, in `:root` and `.dark`, exactly the shadcn/ui v4 variables:
@@ -106,6 +128,7 @@ preference before the first paint).
 
 ## CLI
 
-`trilha ui [--force] [--css-only|--js-only]` writes the four files in `public/`:
-`ui.theme.css` is only created (never overwritten); `ui.css`, `ui.js` and `ui.nav.js` are
-updated when they equal a previous version and, if you edited them, only with `--force`.
+`trilha ui [--force] [--css-only|--js-only]` writes the five files in `public/`:
+`ui.theme.css` is only created (never overwritten); `ui.css`, `ui.js`, `ui.nav.js` and
+`ui.upload.js` are updated when they equal a previous version and, if you edited them, only
+with `--force`.

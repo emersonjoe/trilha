@@ -13,7 +13,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 )
 
-//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js
+//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js
 var assets embed.FS
 
 // Asset returns the embedded file (ui.css, ui.theme.css or ui.js).
@@ -26,7 +26,7 @@ func Asset(name string) []byte {
 }
 
 // Files lists the kit files written to a project's public/ folder.
-var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js"}
+var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js"}
 
 // Head links the kit's stylesheets and script and applies the saved theme
 // before first paint (inline script with the request nonce, so the default
@@ -268,6 +268,32 @@ func NoNavigate() h.Node { return h.Data("trilha-nav", "false") }
 // an app without client navigation does not download it.
 func NavigateScript(c *trilha.Ctx) h.Node {
 	return h.Script(h.Src(c.Asset("/ui.nav.js")), h.Defer())
+}
+
+// UploadTo marks a form that sends a file: the kit sends it with XHR, shows how
+// much has gone out and swaps element id with what comes back — the same
+// fragment the route already answers. Without JavaScript the form submits
+// normally and the route answers the whole page.
+//
+//	h.Form(h.Method("post"), h.Action("/anexos"), h.EncType("multipart/form-data"),
+//		ui.UploadTo("lista"), trilha.CSRFInput(c),
+//		ui.Input(h.Type("file"), h.Name("arquivo")), ui.UploadBar(),
+//		ui.Submit(h.Text("Send")))
+//
+// It is a different attribute from Swap on purpose: a form carrying both would
+// be sent twice.
+func UploadTo(id string) h.Node { return h.Data("trilha-upload", id) }
+
+// UploadBar is the progress element UploadTo fills in. It starts hidden and is
+// only shown while sending; style it through the progress selector.
+func UploadBar(attrs ...h.Node) h.Node {
+	return h.Progress(append([]h.Node{h.Data("trilha-progress", ""), h.Class("ui-upload"), h.Hidden(), h.Value("0"), h.Max("100")}, attrs...)...)
+}
+
+// UploadScript loads ui.upload.js, the behavior behind UploadTo. Put it once,
+// in the layout or page that has the form; ui.Head does not load it.
+func UploadScript(c *trilha.Ctx) h.Node {
+	return h.Script(h.Src(c.Asset("/ui.upload.js")), h.Defer())
 }
 
 // Swap marks a link or form as a fragment request: clicking or submitting it

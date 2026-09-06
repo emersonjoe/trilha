@@ -2,8 +2,10 @@ package trilha
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -67,5 +69,44 @@ func TestCtxHelpers(t *testing.T) {
 	}
 	if rec.Result().Cookies()[0].Value != "v" {
 		t.Fatal("cookie")
+	}
+}
+
+// Issue #24: the body limit protects every route, so raising it for the one
+// route that receives a file must not raise it for the rest.
+func TestAllowBodyIsPerRequest(t *testing.T) {
+	app := New(Config{Logger: quiet(), CSRFForAPI: false})
+	var read int
+	app.Register(Route{Pattern: "/api/anexo", Methods: map[string]HandlerFunc{"POST": func(c *Ctx) error {
+		if c.Query("grande") != "" {
+			c.AllowBody(4 << 20)
+			if err := c.NoReadDeadline(); err != nil {
+				return err
+			}
+		}
+		n, err := io.Copy(io.Discard, c.Request().Body)
+		read = int(n)
+		if err != nil {
+			return err
+		}
+		return c.JSON(200, map[string]int{"bytes": read})
+	}}})
+	body := strings.Repeat("x", 2<<20)
+	post := func(url string) *httptest.ResponseRecorder {
+		read = 0
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", url, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/octet-stream")
+		app.Handler().ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := post("/api/anexo"); rec.Code != 413 {
+		t.Fatalf("default limit must still answer 413, got %d", rec.Code)
+	}
+	if rec := post("/api/anexo?grande=1"); rec.Code != 200 || read != len(body) {
+		t.Fatalf("AllowBody: %d, read %d of %d", rec.Code, read, len(body))
+	}
+	if rec := post("/api/anexo"); rec.Code != 413 {
+		t.Fatalf("the raised limit must not leak to the next request: %d", rec.Code)
 	}
 }

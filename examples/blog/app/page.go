@@ -24,6 +24,7 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 			item("/admin", "Admin", "protegido por middleware.go"),
 			item("/precos", "Preços", "grupo de rota marketing- (layout sem segmento na URL)"),
 			item("/relatorio", "Relatório", "página com html/template via tmpl"),
+			item("/anexos", "Anexos", "upload com progresso e limite de corpo por rota"),
 		),
 	), nil
 }

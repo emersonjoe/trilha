@@ -5,6 +5,37 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.15.0 — 2026-09-05
+
+### Added
+- `Ctx.Hijack()`, `Ctx.AllowBody(n)` and `Ctx.NoReadDeadline()`
+  ([#24](https://github.com/emersonjoe/trilha/issues/24)): the two things a long connection
+  and a large body were missing. Trilha's response now implements `http.Hijacker` (libraries
+  type-assert on it), and `Hijack` clears the deadlines a hijacked connection would otherwise
+  inherit from the server, marks the request as hijacked so the framework writes nothing more
+  on it, and logs 101. `AllowBody` replaces `Config.MaxBodyBytes` for one request — call it
+  from the route's `middleware.go`, since form CSRF reads the body before the handler runs —
+  and going over the new limit is still a 413.
+- `ui.UploadTo(id)`, `ui.UploadBar()` and `ui.UploadScript(c)`: a file upload with a progress
+  bar, off until a form asks for it. The form is an ordinary
+  `multipart/form-data` form with a CSRF field; with JavaScript on, the kit sends it with
+  XHR, fills the `<progress>` from the browser's own progress event, fires `trilha:upload`,
+  and swaps the answer in through `Trilha-Fragment` — so the same handler answers the piece
+  or the whole page. A 5xx, a network error or a piece without the id submits the form for
+  real. The behavior ships as a separate `public/ui.upload.js` that `ui.Head` does not load.
+
+### Changed
+- `ui.Files` now lists five names; `trilha ui --js-only` writes all three `.js` files.
+
+### Notes
+- **WebSocket stays out of core, and that is the decision.** The protocol is transport: it
+  touches no route, no layout and no render, while fragmentation, control frames, the close
+  handshake, UTF-8 validation, masking, backpressure and `permessage-deflate` are a few
+  hundred lines the Autobahn suite tests in 500+ cases. Your app can add `coder/websocket` to
+  its own go.mod — principle II binds the framework, not the app — but it cannot take those
+  lines out of the framework. `Hijack` is the door, and a real handshake is covered end to
+  end in `hijack_test.go`.
+
 ## 0.14.0 — 2026-09-05
 
 ### Added

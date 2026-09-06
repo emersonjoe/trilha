@@ -12,8 +12,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` para `ui.theme.css` e `ui.css`, script inline (com nonce) que aplica o tema salvo, `<script defer src=ui.js>`; respeita `c.Base()` |
 | `ui.Body() h.Node` | classe `ui-body` para o `<body>` |
-| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js` ou `ui.nav.js` |
-| `ui.Files` | os quatro nomes, na ordem em que `trilha ui` os grava |
+| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js` ou `ui.upload.js` |
+| `ui.Files` | os cinco nomes, na ordem em que `trilha ui` os grava |
 
 ## Variantes e tamanhos
 
@@ -94,6 +94,29 @@ O comportamento é um arquivo separado para que um app que não use não o baixe
 não o carrega. Link marcado com `ui.Swap` continua sendo fragmento: ele pede um pedaço da
 página, não a próxima página.
 
+## Upload com progresso
+
+Um formulário que manda arquivo é um formulário: `method="post"`,
+`enctype="multipart/form-data"`, o campo de CSRF. Três símbolos põem a barra de progresso em
+cima disso, e ela fica desligada até você pedir:
+
+| Símbolo | Papel |
+|---|---|
+| `ui.UploadTo(id) h.Node` | no `<form>`: envia por XHR e troca o `#id` pelo que voltar |
+| `ui.UploadBar(attrs…) h.Node` | o `<progress>` que o kit preenche; escondido até o envio começar |
+| `ui.UploadScript(c) h.Node` | `<script defer src=ui.upload.js>`, uma vez por página que envia |
+
+A requisição leva `Trilha-Fragment: id`, então o handler responde o pedaço com o mesmo
+`c.Fragment()` de sempre. Enquanto sobe, a barra recebe `value`/`max` do evento de progresso
+do próprio navegador (e perde o `value` — barra indeterminada — quando o total é
+desconhecido), e um evento `trilha:upload` sobe com `detail: {loaded, total, form}`. Em 5xx,
+erro de rede ou pedaço sem o id, o formulário envia de verdade: o usuário vê a página
+recarregar, não um botão que não fez nada.
+
+O atributo é `data-trilha-upload`, e não `data-trilha-target`, para o tratador de fragmento
+do `ui.js` não enviar o mesmo formulário uma segunda vez. O limite de corpo é assunto do
+servidor — veja [`AllowBody`](/pt/referencia/ctx).
+
 ## Tema
 
 `ui.theme.css` define, em `:root` e `.dark`, exatamente as variáveis do shadcn/ui v4:
@@ -105,6 +128,7 @@ do sistema antes da primeira pintura).
 
 ## CLI
 
-`trilha ui [--force] [--css-only|--js-only]` grava os quatro arquivos em `public/`:
-`ui.theme.css` só é criado (nunca sobrescrito); `ui.css`, `ui.js` e `ui.nav.js` são
-atualizados quando iguais a uma versão anterior e, se você os editou, só com `--force`.
+`trilha ui [--force] [--css-only|--js-only]` grava os cinco arquivos em `public/`:
+`ui.theme.css` só é criado (nunca sobrescrito); `ui.css`, `ui.js`, `ui.nav.js` e
+`ui.upload.js` são atualizados quando iguais a uma versão anterior e, se você os editou, só
+com `--force`.

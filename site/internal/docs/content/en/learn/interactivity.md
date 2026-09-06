@@ -205,6 +205,71 @@ redirect or a page without that id gives up and navigates for real.
 The rule of thumb: **fragment** when a handler answers a piece, **navigation** when the
 answer is a page and the frame around it should stay.
 
+## The file, and the bar that says how far it got
+
+Sending a file is the one place where "the screen blinks" is not the problem — the problem is
+that nothing happens for thirty seconds. The browser knows how far the upload got; it just
+has no way to say so from a plain form submit.
+
+```go
+// app/anexos/page.go
+h.Form(h.Method("post"), h.Action("/anexos"), h.Enctype("multipart/form-data"),
+	ui.UploadTo("lista"),
+	trilha.CSRFInput(c),
+	ui.Field("arquivo", "File", ui.Input(h.ID("arquivo"), h.Name("arquivo"), h.Type("file"), h.Required())),
+	ui.UploadBar(),
+	ui.Submit(h.Text("Send")),
+)
+```
+
+`ui.UploadTo(id)` sends the form with XHR and swaps `#id` with the answer; `ui.UploadBar()`
+is the `<progress>` the kit fills in from the browser's own progress event; and
+`ui.UploadScript(c)` loads the behavior — its own file again, so a page without an upload
+does not download it. With JavaScript off, none of that exists and the form is what it always
+was: it posts, the server answers, the page reloads.
+
+On the server there is no new API. The request carries `Trilha-Fragment`, so the same handler
+that renders the page answers the piece:
+
+```go
+func POST(c *trilha.Ctx) error {
+	if err := c.FormErr(); err != nil {
+		return err
+	}
+	f, hdr, err := c.Request().FormFile("arquivo")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	anexos.Add(hdr.Filename, hdr.Size)
+	if c.Fragment() != "" {
+		return c.Render(200, lista()) // the piece, with the same id
+	}
+	return c.Redirect("/anexos") // no JavaScript: Post/Redirect/Get
+}
+```
+
+### The limit is the app's; the exception is the route's
+
+A body is capped at `Config.MaxBodyBytes` (1 MiB by default) — that cap is what keeps one
+request from eating the server's memory, and it should stay where it is for every route that
+receives a form. The route that receives files says so for itself, in its `middleware.go`:
+
+```go
+// app/anexos/middleware.go
+func Middleware(c *trilha.Ctx, next trilha.Next) error {
+	if c.Request().Method == "POST" {
+		c.AllowBody(8 << 20)
+		c.NoReadDeadline() // a slow connection is not an error
+	}
+	return next()
+}
+```
+
+In the middleware, not in the handler: CSRF parses the form before the handler runs, so by
+then the body has already been read under the old limit. Everything else in the app keeps the
+1 MiB, and going over 8 MiB is still a 413 with the usual message.
+
 ## What this is not
 
 It is not a SPA. There is no client router, no shared state, no component hydration and no
