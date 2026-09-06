@@ -152,3 +152,23 @@ struct is flattened, with the tag as prefix (`Billing Address `+"`form:\"bill_\"
 `bill_zip`…). Values that do not convert become `FieldErrors` (message `trilha.BindInvalid`,
 adjustable) after every field has been tried. The `validate:"..."` tag of each field is
 applied right after, in the same pass: see [Validation](/reference/validation).
+
+## File
+
+`File(field string, rules FileRules) (*Upload, error)` reads one file from a multipart form
+and only answers with it if it passes the rules.
+
+| Symbol | Role |
+|---|---|
+| `FileRules.MaxSize int64` | limit for this file, apart from `Config.MaxBodyBytes`; 0 leaves the body limit doing the work |
+| `FileRules.Accept []string` | media types allowed, matched against the **detected** type: `"image/png"`, `"image/*"`, `"*/*"`; empty accepts anything |
+| `FileRules.Optional bool` | an absent field returns `(nil, nil)` instead of an error |
+| `Upload.Name` | sanitised name: no directory, no separator, no control character, at most 100 characters, never empty |
+| `Upload.MIME` / `Upload.Ext` | type detected in the first 512 bytes, and the extension that matches it |
+| `Upload.Size` / `Upload.File` | size in bytes, and the file itself positioned at the start |
+| `up.Save(dir) (string, error)` | writes inside `dir` (mode 0600) under a free name and returns the path |
+| `up.Close() error` | closes the file |
+
+A rule that fails is `FieldErrors` under the field's name, like `Bind`; anything else (a
+broken body, a full disk) comes back as itself. Messages come from `ValidationMessages`
+(`required`, `filemax`, `filetype`) — see [Validation](/reference/validation).

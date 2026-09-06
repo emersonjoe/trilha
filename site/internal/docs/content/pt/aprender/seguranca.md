@@ -125,6 +125,53 @@ trilha audit
 Ele confere `TRILHA_SECRET`, proxies, `trilha_gen.go`, versão do Go, `go vet` e
 `govulncheck`, e sai com erro se houver item crítico.
 
+## Arquivo que chega de fora
+
+Upload é a única requisição em que o app grava o que outra pessoa mandou, com o nome que
+outra pessoa escolheu. O `c.File` só devolve o arquivo depois das três conferências que
+importam:
+
+```go
+func POST(c *trilha.Ctx) error {
+	c.AllowBody(8 << 20) // a requisição; o limite do arquivo, abaixo, é outro
+	up, err := c.File("arquivo", trilha.FileRules{
+		MaxSize: 4 << 20,
+		Accept:  []string{"image/*", "application/pdf"},
+	})
+	if err != nil {
+		if errs, ok := err.(trilha.FieldErrors); ok {
+			return c.Render(http.StatusUnprocessableEntity, pagina(c, errs))
+		}
+		return err
+	}
+	defer up.Close()
+	caminho, err := up.Save("uploads") // nunca sai de "uploads"
+	...
+}
+```
+
+- **Tamanho**: `MaxSize` é por arquivo, à parte do `Config.MaxBodyBytes`. A rota que aceita
+  um arquivo de 4 MB ainda precisa deixar passar um corpo um pouco maior (`c.AllowBody`),
+  porque o corpo leva também os outros campos.
+- **Tipo**: `Accept` é comparado com o tipo detectado nos primeiros 512 bytes do conteúdo,
+  nunca com a extensão e nunca com o `Content-Type` que o cliente anunciou — um PDF
+  renomeado para `foto.png` é um PDF. `up.MIME` é o que ele é de verdade e `up.Ext` é a
+  extensão correspondente. Atenção: a biblioteca padrão detecta o que conhece; formato que é
+  zip por dentro (`.docx`, `.xlsx`) volta como `application/zip`, e CSV como `text/plain`.
+  Onde a diferença importa, olhe o conteúdo você mesmo.
+- **Nome**: `up.Name` não tem diretório, nem separador de nenhuma das duas plataformas, nem
+  caractere de controle, tem no máximo 100 caracteres, e nunca é vazio nem `..`. O
+  `up.Save(dir)` grava dentro de `dir` com modo 0600 e um nome livre (`nota.pdf`, depois
+  `nota-1.pdf`), então o segundo envio não come o primeiro.
+
+Regra que falha vira `FieldErrors` no nome do campo — a mesma resposta do `Bind`, então o
+formulário mostra a mensagem onde a pessoa está olhando, em vez de o app responder 500.
+
+Duas coisas continuam sendo suas: **onde** o arquivo vai parar (um diretório fora do código,
+um bucket, um banco) e **quem** pode mandar. E arquivo que o app devolve sai por uma rota
+sua, com o tipo que você decidiu — nunca entregando o diretório de upload para o
+`http.FileServer`.
+
 ## O que continua sendo seu
 
 - **Autenticação e autorização**: quem é o usuário e o que pode fazer. O Trilha dá o

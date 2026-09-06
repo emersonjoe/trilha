@@ -5,6 +5,31 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.19.0 — 2026-09-05
+
+### Added
+- `c.File(field, trilha.FileRules{...})` ([#28](https://github.com/emersonjoe/trilha/issues/28)):
+  one file from a multipart form, answered only after the three checks an upload needs.
+  `MaxSize` is a limit per file, apart from `Config.MaxBodyBytes`; `Accept` is matched
+  against the media type detected in the first 512 bytes of the content, never the extension
+  and never what the client announced; `Optional` says whether an absent field is an error.
+- `trilha.Upload`: `Name` sanitised (no directory, no separator of either platform, no
+  control character, at most 100 characters, never empty or `..`), `MIME` and `Ext` from the
+  content, `Size`, and `File` positioned at the start. `up.Save(dir)` writes inside `dir`
+  with mode 0600 under a free name (`note.pdf`, then `note-1.pdf`), so a second upload never
+  overwrites the first, and the name cannot walk out of `dir`.
+- Two messages in `ValidationMessages`, `filemax` and `filetype`, translated by
+  `UseValidationPTBR` like the others.
+- `examples/blog` now receives the attachment through `c.File`, showing the message in the
+  form (422) instead of answering 500.
+
+### Notes
+- A rule that fails is `FieldErrors` under the field's name — the same answer `Bind` gives,
+  so the same 422 form flow works for uploads.
+- Type detection is `http.DetectContentType`: formats that are a zip inside (`.docx`,
+  `.xlsx`) come back as `application/zip` and a CSV as `text/plain`. Where the difference
+  matters, the app looks at the content itself.
+
 ## 0.18.0 — 2026-09-05
 
 ### Added

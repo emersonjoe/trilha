@@ -125,6 +125,52 @@ trilha audit
 It checks `TRILHA_SECRET`, proxies, `trilha_gen.go`, the Go version, `go vet` and
 `govulncheck`, and exits with an error when there is a critical item.
 
+## Files that arrive from outside
+
+An upload is the one request where the app writes what somebody else sent, under a name
+somebody else chose. `c.File` answers with the file only after the three checks that matter:
+
+```go
+func POST(c *trilha.Ctx) error {
+	c.AllowBody(8 << 20) // the request; the file limit below is another thing
+	up, err := c.File("file", trilha.FileRules{
+		MaxSize: 4 << 20,
+		Accept:  []string{"image/*", "application/pdf"},
+	})
+	if err != nil {
+		if errs, ok := err.(trilha.FieldErrors); ok {
+			return c.Render(http.StatusUnprocessableEntity, page(c, errs))
+		}
+		return err
+	}
+	defer up.Close()
+	path, err := up.Save("uploads") // never leaves "uploads"
+	...
+}
+```
+
+- **Size**: `MaxSize` is per file, apart from `Config.MaxBodyBytes`. A route that accepts a
+  4 MB file still needs to let a slightly larger body through (`c.AllowBody`), because the
+  body carries the other fields too.
+- **Type**: `Accept` is matched against the type detected in the first 512 bytes of the
+  content, never the extension and never the `Content-Type` the client announced — a PDF
+  renamed to `photo.png` is a PDF. `up.MIME` is what it really is and `up.Ext` is the
+  extension that matches. Careful: the standard library detects what it knows; formats that
+  are a zip inside (`.docx`, `.xlsx`) come back as `application/zip`, and a CSV as
+  `text/plain`. Where the difference matters, look at the content yourself.
+- **Name**: `up.Name` has no directory, no separator of either platform, no control
+  character, at most 100 characters, and is never empty or `..`. `up.Save(dir)` writes
+  inside `dir` with mode 0600 and a free name (`note.pdf`, then `note-1.pdf`), so a second
+  upload never eats the first.
+
+A rule that fails is `FieldErrors` under the field's name — the same answer `Bind` gives, so
+the form shows the message where the person is looking instead of the app answering 500.
+
+Two things stay yours: **where** the file goes (a directory outside the code, a bucket,
+a database) and **who** may send it. And a file the app serves back is served from a route
+of yours, with the type you decided — never by handing the upload directory to
+`http.FileServer`.
+
 ## What remains yours
 
 - **Authentication and authorization**: who the user is and what they may do. Trilha gives

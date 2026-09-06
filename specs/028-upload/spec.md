@@ -83,17 +83,17 @@ de controle, sem separador, sem `..`, limitado a 100 caracteres e nunca vazio.
 
 ## Tarefas
 
-- [ ] T001 Teste que falha em `file_test.go`: arquivo grande demais; tipo mentido (PDF com
+- [x] T001 Teste que falha em `file_test.go`: arquivo grande demais; tipo mentido (PDF com
       nome `.png`); nome com `../`, com `/` e com caractere de controle; campo ausente com e
       sem `Optional`; `Accept` com `image/*`; `Save` que não sobrescreve e não escapa do
       diretório; mensagens trocadas por `UseValidationPTBR`.
-- [ ] T002 `file.go`: `FileRules`, `Upload`, `Ctx.File`, `safeName`, `Save`, e as duas
+- [x] T002 `file.go`: `FileRules`, `Upload`, `Ctx.File`, `safeName`, `Save`, e as duas
       mensagens novas nos dois mapas.
-- [ ] T003 `examples/blog`: `POST /anexos` com `c.File`, mostrando a mensagem no formulário;
+- [x] T003 `examples/blog`: `POST /anexos` com `c.File`, mostrando a mensagem no formulário;
       teste de integração no `blog_test.go` com arquivo grande demais e tipo mentido.
-- [ ] T004 Documentação nas duas locales: seção no capítulo de segurança e a tabela em
+- [x] T004 Documentação nas duas locales: seção no capítulo de segurança e a tabela em
       `reference/ctx`.
-- [ ] T005 `CHANGELOG.md` (0.19.0), `version`, ROADMAP (Fase 2, item 9).
+- [x] T005 `CHANGELOG.md` (0.19.0), `version`, ROADMAP (Fase 2, item 9).
 - [ ] T006 `make test` verde e `make release VERSION=0.19.0 ISSUES="28"`.
 
 ## Aceitação

@@ -154,3 +154,23 @@ ausente). Struct aninhada é achatada, com a tag como prefixo (`Cobranca Enderec
 (mensagem `trilha.BindInvalid`, ajustável) depois de todos os campos serem tentados. A tag
 `validate:"..."` de cada campo é aplicada logo em seguida, na mesma passada: veja
 [Validação](/pt/referencia/validacao).
+
+## File
+
+`File(campo string, regras FileRules) (*Upload, error)` lê um arquivo do formulário
+multipart e só o devolve se ele passar pelas regras.
+
+| Símbolo | Papel |
+|---|---|
+| `FileRules.MaxSize int64` | limite deste arquivo, à parte do `Config.MaxBodyBytes`; 0 deixa o limite do corpo trabalhar |
+| `FileRules.Accept []string` | tipos aceitos, comparados com o tipo **detectado**: `"image/png"`, `"image/*"`, `"*/*"`; vazio aceita qualquer um |
+| `FileRules.Optional bool` | campo ausente devolve `(nil, nil)` em vez de erro |
+| `Upload.Name` | nome sanitizado: sem diretório, sem separador, sem caractere de controle, no máximo 100 caracteres, nunca vazio |
+| `Upload.MIME` / `Upload.Ext` | tipo detectado nos primeiros 512 bytes, e a extensão correspondente |
+| `Upload.Size` / `Upload.File` | tamanho em bytes, e o arquivo posicionado no começo |
+| `up.Save(dir) (string, error)` | grava dentro de `dir` (modo 0600) com um nome livre e devolve o caminho |
+| `up.Close() error` | fecha o arquivo |
+
+Regra que falha vira `FieldErrors` no nome do campo, como no `Bind`; qualquer outra coisa
+(corpo quebrado, disco cheio) volta como está. As mensagens saem do `ValidationMessages`
+(`required`, `filemax`, `filetype`) — veja [Validação](/pt/referencia/validacao).
