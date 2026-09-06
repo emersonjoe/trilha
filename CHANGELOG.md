@@ -18,6 +18,37 @@ versioning. This file is written in English only.
   on the untouched fixture without spending a token. Trilha before × Trilha after, never
   against another framework (#45).
 - Reference → Performance: section "Cost per feature for an agent", both locales.
+## 0.32.0 — 2026-09-06
+
+### Added
+- **The generated file takes the package the folder declares**
+  ([#51](https://github.com/emersonjoe/trilha/issues/51)). An app no longer has to be
+  `package main`: if the directory being generated already declares `package crm`,
+  `trilha gen` writes `trilha_gen.go` into that package and exports
+  `func NewApp() *trilha.App` instead of a `main` nobody asked for. The binary that already
+  exists mounts it in one line — `mux.Handle("/", crm.NewApp().Handler())` — and there is no
+  hand-written registration file to grow silently, because `gen --check` keeps catching the
+  folder someone added without generating. `--package <name>` forces the package for a first
+  run; after that the existing file remembers it. `trilha dev` and `trilha build` refuse a
+  package other than `main` and say why: the host binary is what runs.
+- **Middleware for a single method**
+  ([#56](https://github.com/emersonjoe/trilha/issues/56)). Besides `Middleware`,
+  `middleware.go` may now export `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`,
+  `MiddlewarePATCH` and `MiddlewareDELETE`. They are inherited down the subtree exactly like
+  `Middleware`, and the chain of a request is `Middleware` first, then the one for its
+  method, both outermost first — so the rule that guards a write stops living inside the
+  handler as an `if` next to the business logic, and a mixed page/API route stops paying for
+  it on reads. A method middleware that no route in the subtree serves is an error,
+  `E_UNUSED_METHOD_MIDDLEWARE`: a rule that guards nothing is worse than no rule. The route
+  inspector in `trilha dev` lists the per-method chains next to the route-wide ones.
+- **`app/error.go` answers every status, not only 500**
+  ([#53](https://github.com/emersonjoe/trilha/issues/53)). A 403, a 401, a 409 or a 422 that
+  reaches the framework now renders the app's own error page at its own status, wrapped by
+  the root layout, instead of the framework's plain page; 404 keeps going to `not_found.go`,
+  and an API route keeps answering `problem+json`. `trilha.StatusOf(err)` is exported for
+  the `switch` that page needs, since the page receives the error and not the code. The
+  internal page stays as the net underneath: with no `error.go`, or with one that fails, the
+  status is still the right one.
 
 ## 0.31.0 — 2026-09-06
 

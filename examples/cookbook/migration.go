@@ -5,6 +5,7 @@ import (
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/cookbook/before"
+	"github.com/emersonjoe/trilha/examples/cookbook/crm"
 	"github.com/emersonjoe/trilha/h"
 )
 
@@ -40,5 +41,14 @@ func GET(c *trilha.Ctx) error {
 // so nothing loses its headers halfway.
 func Front(mux *http.ServeMux, a *trilha.App) http.Handler {
 	mux.Handle("/", a.Handler())
+	return before.Secure(mux)
+}
+
+// Host is the same move when the app does not live in package main: crm is a
+// folder of the binary that already exists, `trilha gen` wrote NewApp into
+// the package that folder declares, and mounting it is one line. There is no
+// registration file to keep by hand.
+func Host(mux *http.ServeMux) http.Handler {
+	mux.Handle("/", crm.NewApp().Handler())
 	return before.Secure(mux)
 }

@@ -132,6 +132,40 @@ Mova as folhas primeiro — uma página sem dependências, uma rota de API que s
 depois de cada uma. Os dois sistemas dividem o mesmo processo, o mesmo pool e o mesmo logger;
 uma rota está num ou no outro, nunca metade nos dois.
 
+### Quando o app mora dentro do binário antigo
+
+O `Front` acima supõe que os dois vivem no mesmo `package main`. Muitas vezes não vivem: o
+que está sendo movido é uma área de um servidor maior e quer a pasta dele — `internal/crm/`,
+com o `app/` dele. Declare o pacote à mão lá dentro e o `trilha gen` acompanha, escrevendo o
+`NewApp` no mesmo pacote em vez de um `main` que ninguém pediu:
+
+```go
+// Package crm is one area of a server that already exists: it has its own
+// app/ folder and its own package name, written by hand in this file.
+// `trilha gen` follows the package it finds here and writes NewApp into the
+// same one, so the binary that hosts it mounts the app with no registration
+// file of its own.
+package crm
+```
+
+O binário que já existe monta o app como monta qualquer outro handler:
+
+```go
+// Host is the same move when the app does not live in package main: crm is a
+// folder of the binary that already exists, `trilha gen` wrote NewApp into
+// the package that folder declares, and mounting it is one line. There is no
+// registration file to keep by hand.
+func Host(mux *http.ServeMux) http.Handler {
+	mux.Handle("/", crm.NewApp().Handler())
+	return before.Secure(mux)
+}
+```
+
+Não existe arquivo de registro escrito à mão, e essa é a razão: o `trilha gen --check` do CI
+continua pegando a pasta que alguém criou sem gerar. O `trilha dev` e o `trilha build` não
+valem dentro de `internal/crm` — o binário é o hospedeiro — e eles dizem isso. Veja
+[CLI](/pt/referencia/cli#um-app-dentro-de-um-binario-que-ja-existe).
+
 Duas coisas precisam de decisão antes:
 
 - **Sessões.** Se o app antigo tem cookie próprio, continue lendo ele num middleware enquanto o

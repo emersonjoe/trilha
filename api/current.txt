@@ -27,6 +27,7 @@ pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
 pkg trilha, func RedirectCode(string, int) error
 pkg trilha, func Run(*App)
+pkg trilha, func StatusOf(error) int
 pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse
 pkg trilha, func TestRequest(TestingT, *App, string, string, ...TestOption) *TestResponse
 pkg trilha, func TestRoute(TestingT, Route, string, string, ...TestOption) *TestResponse
@@ -245,6 +246,7 @@ pkg trilha, type Route struct, Kind RouteKind
 pkg trilha, type Route struct, Layouts []LayoutFunc
 pkg trilha, type Route struct, Methods map[string]HandlerFunc
 pkg trilha, type Route struct, Middlewares []MiddlewareFunc
+pkg trilha, type Route struct, MiddlewaresByMethod map[string][]MiddlewareFunc
 pkg trilha, type Route struct, Page PageFunc
 pkg trilha, type Route struct, Pattern string
 pkg trilha, type RouteKind int

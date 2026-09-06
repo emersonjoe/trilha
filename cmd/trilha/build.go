@@ -19,6 +19,9 @@ func cmdBuild(args []string) error {
 	if err != nil {
 		return err
 	}
+	if pkg := embeddedPackage(p); pkg != "" {
+		return fmt.Errorf(t("embedded no binary"), pkg)
+	}
 	if _, err := generate(p); err != nil {
 		return err
 	}

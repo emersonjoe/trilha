@@ -579,3 +579,24 @@ func TestProblemJSONDaAPI(t *testing.T) {
 	// A validação continua respondendo fields, no mesmo corpo.
 	c.Request("POST", "/api/posts", trilha.WithBody("", `{"title":""}`)).WantStatus(422).WantContains(`"fields":{"title":"obrigatório"}`)
 }
+
+// #56 e #53 — a rota de papel misto do painel. A leitura é de quem chegou, a
+// escrita é de quem entrou, e a regra da escrita mora em middleware.go, não na
+// primeira linha do handler. A recusa sai com a cara do app.
+func TestPainelPOSTGuardadoPorMetodo(t *testing.T) {
+	c := newClient(t, "prod")
+	// O middleware do POST não toca no GET: a leitura segue aberta.
+	c.Get("/painel").WantStatus(200).WantContains(`<h1 class="ui-h1">Painel</h1>`, `name="meta"`)
+	// Sem sessão, o POST para na regra do grupo e o 403 é a página do app.
+	rec := c.postForm("/painel", "meta=20")
+	rec.WantStatus(403).WantContains("<h1>Sem acesso</h1>", "<title>Sem acesso · Trilha Blog</title>",
+		"só quem entrou pode mudar a meta do mês", `href="/login?next=/painel"`)
+	// Depois de entrar, o mesmo POST passa e o painel mostra a meta nova.
+	if rec := c.postForm("/login", "usuario=admin&senha=trilha"); rec.Code != 303 {
+		t.Fatalf("login: %d", rec.Code)
+	}
+	if rec := c.postForm("/painel", "meta=20"); rec.Code != 303 {
+		t.Fatalf("POST autorizado: %d %s", rec.Code, rec.Body.String())
+	}
+	c.Get("/painel").WantStatus(200).WantContains("de 20")
+}

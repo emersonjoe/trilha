@@ -44,6 +44,11 @@ func Errorf(code int, format string, a ...any) error {
 	return &HTTPError{Code: code, Message: fmt.Sprintf(format, a...)}
 }
 
+// StatusOf reports the HTTP status the framework will send for err. It is what
+// app/error.go asks when the page differs by status — a 403 with the app's own
+// wording, say — since the page receives the error, not the code.
+func StatusOf(err error) int { return statusOf(err) }
+
 // statusOf classifies an error into an HTTP status code.
 func statusOf(err error) int {
 	var he *HTTPError

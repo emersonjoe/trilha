@@ -256,3 +256,109 @@ func waitGet(t *testing.T, url string) string {
 	t.Fatalf("timeout waiting for %s", url)
 	return ""
 }
+
+// TestEmbeddedAppE2E is issue #51 end to end: an app that lives inside a binary
+// that already exists. What it proves is that the generated file needs no
+// hand-written copy — `gen --check`, the thing that catches a route added and
+// not generated, keeps working for a project shaped like this.
+func TestEmbeddedAppE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	cli := filepath.Join(tmp, "trilha-cli")
+	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+
+	host := filepath.Join(tmp, "farol")
+	crm := filepath.Join(host, "internal", "crm")
+	mustWrite(t, filepath.Join(host, "go.mod"), "module example.com/farol\n\ngo 1.22\n\nrequire github.com/emersonjoe/trilha v0.0.0\n\nreplace github.com/emersonjoe/trilha => "+repo+"\n")
+	mustWrite(t, filepath.Join(host, "main.go"), `package main
+
+import (
+	"net/http"
+	"os"
+
+	"example.com/farol/internal/crm"
+)
+
+func main() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/antigo", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("o roteador antigo")) })
+	mux.Handle("/", crm.NewApp().Handler())
+	http.ListenAndServe("127.0.0.1:"+os.Getenv("PORT"), mux)
+}
+`)
+	mustWrite(t, filepath.Join(crm, "crm.go"), "package crm\n\n// Nome is the module the host already had.\nconst Nome = \"crm\"\n")
+	mustWrite(t, filepath.Join(crm, "app", "contatos", "page.go"), `package contatos
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+)
+
+func Page(c *trilha.Ctx) (h.Node, error) { return h.P(h.Text("contatos do crm")), nil }
+`)
+
+	// gen adopts the package the directory declares: no flag, nothing to remember.
+	out := run(t, crm, cli, "gen")
+	if !strings.Contains(out, "trilha_gen.go") {
+		t.Fatal(out)
+	}
+	src, err := os.ReadFile(filepath.Join(crm, "trilha_gen.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(src), "package crm\n") || !strings.Contains(string(src), "func NewApp() *trilha.App") {
+		t.Fatalf("generated file is not importable by the host:\n%s", src)
+	}
+	if strings.Contains(string(src), "func main()") {
+		t.Fatalf("generated func main() inside a package the host imports:\n%s", src)
+	}
+	if out := run(t, crm, cli, "gen", "--check"); !strings.Contains(out, "up to date") {
+		t.Fatal(out)
+	}
+
+	// dev and build say what runs this app instead of failing at `go run`.
+	for _, cmd := range []string{"dev", "build"} {
+		c := exec.Command(cli, cmd)
+		c.Dir = crm
+		out, err := c.CombinedOutput()
+		if err == nil {
+			t.Fatalf("trilha %s accepted an embedded app:\n%s", cmd, out)
+		}
+		if !strings.Contains(string(out), "package crm") || !strings.Contains(string(out), "NewApp().Handler()") {
+			t.Fatalf("trilha %s does not say what runs the app:\n%s", cmd, out)
+		}
+	}
+
+	// The host binary compiles with the app inside it and serves both routers.
+	bin := filepath.Join(tmp, "farol-bin")
+	run(t, host, "go", "build", "-o", bin, ".")
+	port := freePort(t)
+	srv := exec.Command(bin)
+	srv.Dir = host
+	srv.Env = append(os.Environ(), "PORT="+strconv.Itoa(port), "TRILHA_ENV=dev")
+	if err := srv.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = srv.Process.Kill() }()
+	base := "http://127.0.0.1:" + strconv.Itoa(port)
+	if body := waitGet(t, base+"/antigo"); !strings.Contains(body, "o roteador antigo") {
+		t.Fatalf("host route: %s", body)
+	}
+	if body := waitGet(t, base+"/contatos"); !strings.Contains(body, "contatos do crm") {
+		t.Fatalf("embedded route: %s", body)
+	}
+}
+
+func mustWrite(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}

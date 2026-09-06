@@ -13,8 +13,9 @@ description: Tabela completa do que cada arquivo e nome de pasta em app/ signifi
 | `route.go` (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | como erros são renderizados e se há CSRF (veja [Erros](/pt/referencia/erros)) |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subárvore |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore |
+| `middleware.go` (opcional) | `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH`, `MiddlewareDELETE` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore, só naquele método |
 | `not_found.go` (só na raiz) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | 404 do app |
-| `error.go` (só na raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | 500 do app |
+| `error.go` (só na raiz) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | todo status de erro menos o 404 |
 | `setup.go` (só na raiz) | `Setup` | `func(a *trilha.App) error` | antes de servir |
 | `setup.go` (opcional) | `Config` | `func(cfg *trilha.Config)` ou `func(cfg *trilha.Config) error` | antes de `trilha.New`; o erro interrompe a subida |
 | `setup.go` (opcional) | `Shutdown` | `func(a *trilha.App) error` | depois de parar de aceitar requisições (fechar pool, fila, flush de log) |
@@ -46,16 +47,21 @@ erro. Duas pastas que gerem a mesma URL (via grupos) são erro.
 | Pasta | Papel |
 |---|---|
 | `public/` | arquivos estáticos servidos na raiz; embutidos no binário em produção |
-| `trilha_gen.go` | gerado; commitado; nunca editado à mão |
+| `trilha_gen.go` | gerado; commitado; nunca editado à mão; leva o pacote que a pasta declara (veja [CLI](/pt/referencia/cli)) |
 | `.trilha/` | binários temporários do `dev` e do `export`; ignorada pelo git |
 
 ## Ordem de execução de `GET /a/b`
 
 ```text
 middleware(app) → middleware(app/a) → middleware(app/a/b)
+  → middlewareGET(app) → middlewareGET(app/a) → middlewareGET(app/a/b)
   → Page (ou método)
   → layout(app/a/b) → layout(app/a) → layout(app)
 ```
+
+A cadeia do método roda por dentro da cadeia da rota: uma regra de um método só refina o que
+a rota já decidiu. Para `POST` é `MiddlewarePOST`, e assim por diante; um método sem cadeia
+própria roda só a da rota.
 
 ## Erros de geração
 
@@ -69,5 +75,6 @@ middleware(app) → middleware(app/a) → middleware(app/a/b)
 | `E_CATCHALL_NOT_LEAF` | rotas abaixo de uma pasta `x__` |
 | `E_BAD_SEGMENT` | nome de parâmetro inválido ou grupo dinâmico (`x_-`) |
 | `E_DUPLICATE_ROUTE` | duas pastas produzindo a mesma URL |
+| `E_UNUSED_METHOD_MIDDLEWARE` | `MiddlewareX` que não alcança nenhuma rota que sirva `X` |
 | `E_PARSE` | arquivo Go que não compila |
 | `E_NO_APP` | não há pasta `app/` |

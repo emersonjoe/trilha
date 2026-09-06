@@ -10,9 +10,9 @@ Handlers devolvem `error`. O Trilha traduz:
 | `nil` | resposta escrita pelo handler; 204 se nada foi escrito | idem |
 | `trilha.ErrNotFound` (ou erro que o embrulha) | 404 com `not_found.go` | 404 `problem+json`, `"title":"Not Found"` |
 | `*trilha.RedirectError` via `trilha.Redirect(url)` (303) ou `trilha.RedirectCode(url, code)` | redirecionamento | redirecionamento |
-| `*trilha.HTTPError` via `trilha.Errorf(code, fmt, a...)` | página simples com o status e a mensagem (4xx) | o status, com a mensagem em `detail` (4xx) |
+| `*trilha.HTTPError` via `trilha.Errorf(code, fmt, a...)` | o status, com o `error.go` (4xx) | o status, com a mensagem em `detail` (4xx) |
 | qualquer outro `error` | 500 com `error.go`; detalhe só em dev | 500, com `detail` só em dev |
-| `*trilha.Problem` | página simples com o status e o `Detail` | o problema, do jeito que foi escrito |
+| `*trilha.Problem` | o status, com o `error.go` | o problema, do jeito que foi escrito |
 | `panic` no handler | recuperado e tratado como 500; stack só em dev | idem |
 
 ### Página ou problem+json?
@@ -31,6 +31,33 @@ A coluna é decidida por rota; o desempate é o cabeçalho `Accept`, ranqueado p
   (`problem+json` sempre, diga o `Accept` o que disser).
 - Sem rota nenhuma (404) não há tipo para perguntar: decide o `Accept` e, quando ele está
   mudo, o prefixo `/api/` é o último recurso.
+
+### Uma página para todo status menos o 404
+
+O `app/error.go` responde **todo** status de erro, não só os 5xx: um 403 num app com papéis
+é a resposta mais comum depois do 200, e merece o menu, o texto e o layout do app. O
+`app/not_found.go` continua com o 404 — ele existe e é o lugar.
+
+A assinatura não muda; o status vem do erro:
+
+```go
+func Error(c *trilha.Ctx, err error) (h.Node, error) {
+	switch trilha.StatusOf(err) {
+	case http.StatusForbidden:
+		return painel.Negado(c), nil
+	default:
+		return painel.Erro(c), nil
+	}
+}
+```
+
+`trilha.StatusOf(err)` diz o status que o framework vai mandar — a mesma classificação da
+tabela acima. (`c.Status` é um setter; a página recebe o erro, não o código, e é por isso que
+a função existe.)
+
+A página do próprio framework continua como rede, com o texto de sempre: para o app que não
+tem `error.go` e para o `error.go` que falha. Rota de API (`KindAPI`) segue intocada:
+`problem+json` como antes.
 
 ### Responder por conta própria
 

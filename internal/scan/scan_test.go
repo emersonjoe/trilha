@@ -116,6 +116,7 @@ func TestErrors(t *testing.T) {
 		{"err_parse", ErrParse, "app/page.go"},
 		{"err_layout", ErrNoLayoutFunc, "app/layout.go"},
 		{"err_layout", ErrNoMiddlewareFunc, "app/middleware.go"},
+		{"err_unused_method_mw", ErrUnusedMethodMW, "app/middleware.go"},
 	}
 	for _, c := range cases {
 		_, errs := scanApp(t, c.app)
@@ -234,5 +235,43 @@ func TestDotFolders(t *testing.T) {
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("got\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// TestMethodMiddleware locks the inheritance of MiddlewareX: it follows the
+// subtree like Middleware, it lands only on the methods the route actually
+// serves, and it lands after the route-wide chain.
+func TestMethodMiddleware(t *testing.T) {
+	res, errs := scanApp(t, "methodmw")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	byPat := map[string]Route{}
+	for _, r := range res.Routes {
+		byPat[r.Pattern] = r
+	}
+	// The root page serves GET only: the root MiddlewarePOST does not reach it.
+	if got := byPat["/"]; len(got.MiddlewaresByMethod) != 0 {
+		t.Errorf("/: %v", got.MiddlewaresByMethod)
+	}
+	// A page with a POST form: root chain first, then the directory's own.
+	seg := byPat["/segmentos"]
+	if got := refs(seg.MiddlewaresByMethod["POST"]); got != "app.MiddlewarePOST app_segmentos.MiddlewarePOST" {
+		t.Errorf("/segmentos POST: %q", got)
+	}
+	if got := refs(seg.MiddlewaresByMethod["GET"]); got != "app_segmentos.MiddlewareGET" {
+		t.Errorf("/segmentos GET: %q", got)
+	}
+	if got := refs(seg.Middlewares); got != "app.Middleware" {
+		t.Errorf("/segmentos route chain: %q", got)
+	}
+	// An API route below the root inherits the root's POST chain, not the
+	// sibling directory's.
+	api := byPat["/api/funis"]
+	if got := refs(api.MiddlewaresByMethod["POST"]); got != "app.MiddlewarePOST" {
+		t.Errorf("/api/funis POST: %q", got)
+	}
+	if _, ok := api.MiddlewaresByMethod["GET"]; ok {
+		t.Errorf("/api/funis GET inherited a chain it was never given: %v", api.MiddlewaresByMethod)
 	}
 }

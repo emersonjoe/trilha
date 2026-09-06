@@ -191,6 +191,25 @@ func main() {
 
 `public/` é opcional: o `//go:embed` só é gerado quando a pasta tem arquivos.
 
+### Um app dentro de outro binário
+
+Quando a pasta declara um pacote diferente de `main`, o arquivo gerado acompanha e exporta o
+construtor:
+
+```go
+// internal/crm/trilha_gen.go → package crm, func NewApp() *trilha.App
+
+mux := http.NewServeMux()
+mux.HandleFunc("/legado", legado.Handler)
+mux.Handle("/", crm.NewApp().Handler())
+http.ListenAndServe(":8080", mux)
+```
+
+O `Handler()` devolve o `http.Handler` do app inteiro — roteamento, estáticos, middlewares e
+páginas de erro — então o hospedeiro monta como monta qualquer handler. O `trilha gen` não
+precisa de nada além do pacote que a pasta já declara; veja
+[CLI](/pt/referencia/cli#um-app-dentro-de-um-binario-que-ja-existe).
+
 ## Testar um app
 
 O arquivo gerado define `newApp()`, e o `package trilha` traz o cliente de teste, então um

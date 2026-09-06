@@ -13,7 +13,7 @@ import (
 var update = flag.Bool("update", false, "rewrite golden files")
 
 func TestGolden(t *testing.T) {
-	for _, app := range []string{"full", "minimal", "groups"} {
+	for _, app := range []string{"full", "minimal", "groups", "embedded", "methodmw"} {
 		t.Run(app, func(t *testing.T) {
 			res, err := scan.Scan(filepath.Join("..", "..", "testdata", "apps", app), "example.com/"+app)
 			if err != nil {
@@ -42,6 +42,66 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("golden mismatch for %s:\n%s", app, got)
 			}
 		})
+	}
+}
+
+// TestEmbeddedPackage locks the shape an app inside an existing binary needs:
+// the package the directory already declares, an exported constructor for the
+// host to call, and no func main() to collide with the host's own.
+func TestEmbeddedPackage(t *testing.T) {
+	res, err := scan.Scan(filepath.Join("..", "..", "testdata", "apps", "embedded"), "example.com/host/internal/crm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Package != "crm" {
+		t.Fatalf("package = %q, want crm (taken from the hand-written file)", res.Package)
+	}
+	got, err := Generate(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(got, []byte("package crm\n")) {
+		t.Fatalf("generated the wrong package clause:\n%s", got)
+	}
+	if !bytes.Contains(got, []byte("func NewApp() *trilha.App")) {
+		t.Fatalf("constructor is not exported, so the host cannot call it:\n%s", got)
+	}
+	if bytes.Contains(got, []byte("func main()")) {
+		t.Fatalf("generated func main() outside package main:\n%s", got)
+	}
+}
+
+// TestGeneratedFileRemembersPackage: the choice survives in the generated file,
+// so `trilha gen --check` in the CI agrees without repeating --package.
+func TestGeneratedFileRemembersPackage(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "app", "page.go"), []byte("package app\n\nfunc Page() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := scan.Scan(dir, "example.com/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Package != "main" {
+		t.Fatalf("package = %q, want main for a directory with nothing else in it", res.Package)
+	}
+	res.Package = "crm" // what --package does on the first run
+	src, err := Generate(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, FileName), src, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	again, err := scan.Scan(dir, "example.com/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Package != "crm" {
+		t.Fatalf("second scan lost the package: %q", again.Package)
 	}
 }
 

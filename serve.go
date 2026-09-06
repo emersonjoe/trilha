@@ -26,7 +26,7 @@ func (a *App) Register(r Route) {
 	a.pathMux.HandleFunc(muxPat, func(http.ResponseWriter, *http.Request) {})
 	kind := kindOf(&route)
 	if route.Page != nil {
-		a.mux.Handle("GET "+muxPat, a.wrap(&route, kind, func(c *Ctx) error { return a.renderPage(c, &route) }))
+		a.mux.Handle("GET "+muxPat, a.wrap(&route, kind, chainFor(&route, "GET"), func(c *Ctx) error { return a.renderPage(c, &route) }))
 	}
 	methods := make([]string, 0, len(route.Methods))
 	for m := range route.Methods {
@@ -35,7 +35,7 @@ func (a *App) Register(r Route) {
 	sort.Strings(methods)
 	for _, m := range methods {
 		fn := route.Methods[m]
-		a.mux.Handle(m+" "+muxPat, a.wrap(&route, kind, fn))
+		a.mux.Handle(m+" "+muxPat, a.wrap(&route, kind, chainFor(&route, m), fn))
 	}
 }
 
@@ -56,9 +56,21 @@ func (a *App) Routes() map[string][]string {
 	return out
 }
 
+// chainFor is the middleware chain of one method: the route's own chain first,
+// then whatever middleware.go declared for that method alone, outermost first.
+func chainFor(r *Route, method string) []MiddlewareFunc {
+	extra := r.MiddlewaresByMethod[method]
+	if len(extra) == 0 {
+		return r.Middlewares
+	}
+	out := make([]MiddlewareFunc, 0, len(r.Middlewares)+len(extra))
+	out = append(out, r.Middlewares...)
+	return append(out, extra...)
+}
+
 // wrap builds the http.Handler for one (route, method): middleware chain,
 // CSRF for form methods, error mapping, recover and logging.
-func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
+func (a *App) wrap(r *Route, kind routeKind, mws []MiddlewareFunc, final HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
@@ -81,7 +93,7 @@ func (a *App) wrap(r *Route, kind routeKind, final HandlerFunc) http.Handler {
 				return
 			}
 		}
-		err := a.run(c, r.Middlewares, func(c *Ctx) (err error) {
+		err := a.run(c, mws, func(c *Ctx) (err error) {
 			defer func() {
 				if v := recover(); v != nil {
 					if v == http.ErrAbortHandler {

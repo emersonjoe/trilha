@@ -122,10 +122,16 @@ func newApp() *trilha.App {
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{
-		Pattern:     "/painel",
-		Page:        app_painel__painel.Page,
+		Pattern: "/painel",
+		Page:    app_painel__painel.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_painel__painel.POST,
+		},
 		Layouts:     []trilha.LayoutFunc{app_painel_.Layout, app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_painel_.Middleware},
+		MiddlewaresByMethod: map[string][]trilha.MiddlewareFunc{
+			"POST": {app_painel_.MiddlewarePOST},
+		},
 	})
 	a.Register(trilha.Route{
 		Pattern:     "/precos",

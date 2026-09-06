@@ -120,6 +120,15 @@ rodada de verificação separada. A ordem abaixo é de retorno por esforço, e o
 27. [#49](https://github.com/emersonjoe/trilha/issues/49) **`trilha generate` com contrato.** `--methods`, `--bind Tipo`, `--form Tipo` e `generate test <url>`: o esqueleto já nasce com a assinatura certa, o `Bind`, a resposta e um teste verde.
 28. [#50](https://github.com/emersonjoe/trilha/issues/50) **`trilha mcp` e MCP de documentação.** Por último, de propósito: um servidor stdio que embrulha os comandos acima sobre o pacote `mcp` da spec 005, e um MCP hospedado só de leitura (`search_docs`, `get_recipe`) para agente sem shell, servido por um app Trilha.
 
+### Fase 6 — O que um app hospedeiro pediu
+
+Esta fase não saiu de uma avaliação, e sim de pôr o framework dentro de um binário que já
+existia. As issues 42–58 são o que doeu lá; a ordem aqui é a do que doeu mais.
+
+29. ~~[#51](https://github.com/emersonjoe/trilha/issues/51) `trilha gen` só escrevia `package main`.~~ **Entregue na 0.32.0** (spec 042): o arquivo gerado assume o pacote que a pasta declara e exporta `NewApp()`, então o hospedeiro monta com `mux.Handle("/", crm.NewApp().Handler())` e ninguém mantém arquivo de registro à mão — o `gen --check` continua pegando a pasta criada sem gerar.
+30. ~~[#56](https://github.com/emersonjoe/trilha/issues/56) `middleware.go` não distinguia método.~~ **Entregue na 0.32.0** (spec 042): `MiddlewareGET|POST|PUT|PATCH|DELETE` herdam pela subárvore como o `Middleware`, rodam depois dele, e um middleware de método que nenhuma rota serve é erro (`E_UNUSED_METHOD_MIDDLEWARE`).
+31. ~~[#53](https://github.com/emersonjoe/trilha/issues/53) `error.go` não era chamado para 4xx.~~ **Entregue na 0.32.0** (spec 042): todo status que não é 404 passa pela página do app, com o layout raiz e o status certo; `trilha.StatusOf(err)` dá o código para o `switch`, o `problem+json` da API fica intocado e a página interna segue de rede.
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |

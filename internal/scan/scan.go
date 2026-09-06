@@ -24,6 +24,7 @@ const (
 	ErrNoMethod         = "E_NO_METHOD"
 	ErrNoLayoutFunc     = "E_NO_LAYOUT_FUNC"
 	ErrNoMiddlewareFunc = "E_NO_MIDDLEWARE_FUNC"
+	ErrUnusedMethodMW   = "E_UNUSED_METHOD_MIDDLEWARE"
 	ErrNoNotFoundFunc   = "E_NO_NOT_FOUND_FUNC"
 	ErrNoErrorFunc      = "E_NO_ERROR_FUNC"
 	ErrNoSetupFunc      = "E_NO_SETUP_FUNC"
@@ -36,6 +37,10 @@ const (
 )
 
 var methods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+
+// GeneratedFileName is the file trilha gen writes at the project root. The
+// scanner skips it when reading what the author wrote by hand.
+const GeneratedFileName = "trilha_gen.go"
 
 // Error is one convention violation.
 type Error struct {
@@ -80,6 +85,21 @@ type Route struct {
 	HasKind     bool
 	Layouts     []Ref // innermost first
 	Middlewares []Ref // outermost first
+	// MiddlewaresByMethod holds the chains declared per method
+	// (MiddlewareGET, MiddlewarePOST, ...), inherited down the subtree the same
+	// way Middleware is. Only methods this route actually serves appear here;
+	// each chain runs after Middlewares, outermost first.
+	MiddlewaresByMethod map[string][]Ref
+}
+
+// Methods reports every method this route answers, GET included when a page
+// serves it. It is what decides whether a MiddlewareX above it guards anything.
+func (r Route) servedMethods() []string {
+	out := append([]string{}, r.Methods...)
+	if r.HasPage {
+		out = append(out, "GET")
+	}
+	return out
 }
 
 // Result is the scanned application.
@@ -101,7 +121,11 @@ type Result struct {
 	ShutdownFunc *Ref
 	// HasMain is true when a non-generated file of the root package already
 	// declares func main(); the generator then omits its own.
-	HasMain   bool
+	HasMain bool
+	// Package is the package clause the generated file must carry: the one the
+	// directory already declares, so an app embedded in an existing binary is a
+	// normal, importable package instead of a package main nobody can import.
+	Package   string
 	HasPublic bool
 	Imports   []Import // sorted by Alias
 }
@@ -120,13 +144,15 @@ func Scan(root, module string) (*Result, error) {
 		return nil, Errors{{File: "app", Code: ErrNoApp, Msg: "app/ directory not found"}}
 	}
 	s := &scanner{root: root, module: module, aliases: map[string]bool{}, imports: map[string]string{}}
-	s.walk(appDir, "app", nil, nil, nil)
+	s.walk(appDir, "app", nil, nil, nil, nil)
 	s.res.Module = module
 	s.res.AppDir = "app"
 	if st, err := os.Stat(filepath.Join(root, "public")); err == nil && st.IsDir() {
 		s.res.HasPublic = dirHasFiles(filepath.Join(root, "public"))
 	}
+	s.checkMethodMiddlewares()
 	s.res.HasMain = rootHasMain(root)
+	s.res.Package = RootPackage(root)
 	sort.SliceStable(s.res.Routes, func(i, j int) bool { return s.res.Routes[i].Pattern < s.res.Routes[j].Pattern })
 	for i := 1; i < len(s.res.Routes); i++ {
 		a, b := s.res.Routes[i-1], s.res.Routes[i]
@@ -152,6 +178,9 @@ type scanner struct {
 	errs    Errors
 	aliases map[string]bool
 	imports map[string]string
+	// methodMW records every MiddlewareX seen, to check afterwards that each
+	// one guards a route.
+	methodMW []methodMW
 }
 
 func (s *scanner) errf(file, code, format string, a ...any) {
@@ -205,7 +234,7 @@ func (seg segment) pattern() string {
 }
 
 // walk visits one directory. rel is slash-separated relative to root.
-func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
+func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMethod map[string][]Ref) {
 	files, err := os.ReadDir(abs)
 	if err != nil {
 		s.errf(rel, ErrParse, "%v", err)
@@ -253,11 +282,26 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 		}
 	}
 	if present["middleware.go"] {
+		found := false
 		if pkg.funcs["Middleware"] {
 			mws = append(append([]Ref{}, mws...), Ref{Alias: alias, ImportPath: importPath, Func: "Middleware"})
+			found = true
+		}
+		if !pkg.broken {
+			for _, m := range methods {
+				fn := "Middleware" + m
+				if !pkg.funcs[fn] {
+					continue
+				}
+				byMethod = withMethodRef(byMethod, m, Ref{Alias: alias, ImportPath: importPath, Func: fn})
+				s.methodMW = append(s.methodMW, methodMW{dir: rel, method: m})
+				found = true
+			}
+		}
+		if found {
 			s.use(alias, importPath)
 		} else {
-			s.errf(rel+"/middleware.go", ErrNoMiddlewareFunc, "middleware.go must export func Middleware(c *trilha.Ctx, next trilha.Next) error")
+			s.errf(rel+"/middleware.go", ErrNoMiddlewareFunc, "middleware.go must export func Middleware(c *trilha.Ctx, next trilha.Next) error, or MiddlewareGET|POST|PUT|PATCH|DELETE with the same signature for a single method")
 		}
 	}
 	if isRoot {
@@ -305,6 +349,16 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 			}
 		}
 		sort.Strings(r.Methods)
+		for _, m := range r.servedMethods() {
+			chain := byMethod[m]
+			if len(chain) == 0 {
+				continue
+			}
+			if r.MiddlewaresByMethod == nil {
+				r.MiddlewaresByMethod = map[string][]Ref{}
+			}
+			r.MiddlewaresByMethod[m] = chain
+		}
 		if len(r.Methods) > 0 || r.HasPage {
 			s.use(alias, importPath)
 			s.res.Routes = append(s.res.Routes, r)
@@ -329,10 +383,50 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref) {
 				continue
 			}
 		}
-		s.walk(filepath.Join(abs, d), rel+"/"+d, childSegs, layouts, mws)
+		s.walk(filepath.Join(abs, d), rel+"/"+d, childSegs, layouts, mws, byMethod)
 	}
 	if dynamic > 1 {
 		s.errf(rel, ErrAmbiguousSegment, "more than one dynamic directory (name_ or name__) at the same level is ambiguous")
+	}
+}
+
+// methodMW records where a per-method middleware was declared, so the scanner
+// can tell afterwards whether it ended up guarding any route at all.
+type methodMW struct {
+	dir    string
+	method string
+}
+
+// withMethodRef appends ref to the chain of method m without touching the map
+// the caller (an ancestor directory) still holds.
+func withMethodRef(byMethod map[string][]Ref, m string, ref Ref) map[string][]Ref {
+	out := make(map[string][]Ref, len(byMethod)+1)
+	for k, v := range byMethod {
+		out[k] = v
+	}
+	out[m] = append(append([]Ref{}, out[m]...), ref)
+	return out
+}
+
+// checkMethodMiddlewares reports a MiddlewareX that reaches no route serving
+// that method. A permission that guards nothing is the failure these
+// conventions exist to prevent, so it is an error and not a warning.
+func (s *scanner) checkMethodMiddlewares() {
+	for _, mw := range s.methodMW {
+		used := false
+		for _, r := range s.res.Routes {
+			if r.Dir != mw.dir && !strings.HasPrefix(r.Dir, mw.dir+"/") {
+				continue
+			}
+			for _, m := range r.servedMethods() {
+				if m == mw.method {
+					used = true
+				}
+			}
+		}
+		if !used {
+			s.errf(mw.dir+"/middleware.go", ErrUnusedMethodMW, "Middleware%s guards no %s route in %s or below it", mw.method, mw.method, mw.dir)
+		}
 	}
 }
 
@@ -464,7 +558,7 @@ func rootHasMain(root string) bool {
 	fset := token.NewFileSet()
 	for _, e := range entries {
 		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") || name == "trilha_gen.go" {
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") || name == GeneratedFileName {
 			continue
 		}
 		file, err := parser.ParseFile(fset, filepath.Join(root, name), nil, parser.SkipObjectResolution)
@@ -478,6 +572,38 @@ func rootHasMain(root string) bool {
 		}
 	}
 	return false
+}
+
+// RootPackage reports the package clause the generated file must carry. A
+// hand-written file in the root decides it; failing that, an existing
+// trilha_gen.go does, so `--package` is passed once and the CI's `gen --check`
+// keeps agreeing without repeating it. Default: main.
+func RootPackage(root string) string {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return "main"
+	}
+	fset := token.NewFileSet()
+	generated := ""
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, filepath.Join(root, name), nil, parser.PackageClauseOnly|parser.SkipObjectResolution)
+		if err != nil {
+			continue
+		}
+		if name == GeneratedFileName {
+			generated = file.Name.Name
+			continue
+		}
+		return file.Name.Name
+	}
+	if generated != "" {
+		return generated
+	}
+	return "main"
 }
 
 func stripPath(err error, abs string) error {

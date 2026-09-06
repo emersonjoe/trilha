@@ -38,6 +38,14 @@ needs `Page`; `route.go` needs at least one of `GET`, `POST`, `PUT`, `PATCH`, `D
 `layout.go` needs `Layout`; `middleware.go` needs `Middleware`. A wrong signature is a
 compile error in `trilha_gen.go`, pointing at the package.
 
+## `E_UNUSED_METHOD_MIDDLEWARE`
+
+A `MiddlewarePOST` (or `GET`, `PUT`, `PATCH`, `DELETE`) in a `middleware.go` that reaches no
+route serving that method in its folder or below it. Usually the method moved and the rule
+stayed, or the name has a typo. Either delete it, or give the route the method it is meant
+to guard — a permission that guards nothing is worse than no permission, because it reads
+like protection.
+
 ## `E_DUPLICATE_ROUTE`
 
 Two folders produce the same URL, almost always because of a route group. `app/events/` and
@@ -48,6 +56,15 @@ Two folders produce the same URL, almost always because of a route group. `app/e
 `trilha.CSRFInput(c)` is missing inside the `<form>`, or the form page was opened before the
 cookie existed (for instance, a `curl` straight to the `POST`). Open the page with `GET`
 first, as a browser would, or send the token in `X-CSRF-Token`.
+
+## `trilha dev` says there is no binary here
+
+The folder declares a package other than `main`, so `trilha gen` wrote an importable package
+with `NewApp()` and no `func main()` — an app meant to be mounted by a host binary
+(`mux.Handle("/", crm.NewApp().Handler())`). Run the host, not this folder. If the package
+clause was a mistake, fix it in the hand-written file and generate again; the generated file
+follows whatever the folder declares. See
+[CLI](/reference/cli#an-app-inside-a-binary-that-already-exists).
 
 ## Port 3000 is busy
 
