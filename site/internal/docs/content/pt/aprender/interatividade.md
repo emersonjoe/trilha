@@ -166,6 +166,46 @@ a virar componente, e o resto do projeto não fica sabendo da escolha.
 A CSP padrão é `script-src 'self'`, então módulo vindo de CDN é recusado até você abrir a
 mão — decisão, não acidente.
 
+## A página inteira, sem a recarga
+
+O fragmento troca um pedaço da página que um handler escolheu. A navegação é a outra
+metade: a próxima página é *outra* página, e o que não deveria piscar é tudo em volta — o
+cabeçalho, a barra lateral, a rolagem de uma lista longa.
+
+```go
+// app/painel-/layout.go
+return h.Section(h.Class("app"), ui.Navigate("conteudo"), ui.NavigateScript(c),
+    ui.Sidebar(ui.Nav(
+        ui.NavLink("/painel", "Painel", cur == "/painel"),
+        ui.NavLink("/relatorio", "Relatório", cur == "/relatorio"),
+    )),
+    h.Div(h.Class("app-content"), children),
+), nil
+```
+
+`ui.Navigate(id)` marca uma região: um clique em link da mesma origem dentro dela busca a
+próxima página e troca o `#id` pelo mesmo elemento dela. `ui.NavigateScript(c)` carrega o
+comportamento — arquivo separado do `ui.js`, para que um app que não navegue assim não o
+baixe. No servidor não muda nada: `/relatorio` é a mesma rota, respondendo o mesmo
+documento. Recarregar, abrir em outra aba ou chegar com o JavaScript desligado dá a mesma
+página.
+
+Desligada por padrão, e desligada por link:
+
+```go
+ui.ButtonLink("/relatorio.pdf", ui.NoNavigate(), h.Text("Baixar"))
+```
+
+O navegador mantém os costumes — Voltar e Avançar funcionam e restauram a rolagem da entrada
+para onde voltam, `Cmd`-clique abre aba, `target` e `download` passam intactos. O kit
+acrescenta `aria-busy` durante a espera, leva o foco para o que entrou e dispara
+`trilha:swap`, então uma ilha dentro da página nova monta. Um segundo clique cancela a
+primeira requisição; 5xx, redirecionamento ou página sem aquele id desiste e navega de
+verdade.
+
+A regra de bolso: **fragmento** quando um handler responde um pedaço, **navegação** quando a
+resposta é uma página e a moldura em volta deve ficar.
+
 ## O que isso não é
 
 Não é SPA. Não há roteador no cliente, estado compartilhado, hidratação de componente nem

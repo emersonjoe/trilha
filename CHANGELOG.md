@@ -5,6 +5,27 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.14.0 — 2026-09-05
+
+### Added
+- `ui.Navigate(id)`, `ui.NoNavigate()` and `ui.NavigateScript(c)`
+  ([#23](https://github.com/emersonjoe/trilha/issues/23)): client navigation, off until a
+  region asks for it. A click on a same-origin link inside a marked region fetches the next
+  page and replaces one element of the current one, so the header, the sidebar and the
+  scroll position around it do not blink. Nothing moves to the client: the address in the
+  bar is the one a normal navigation would use, the route answers the same whole document,
+  and without JavaScript the link is a link. Back and Forward work and restore the scroll
+  position of the entry they return to; `Cmd`-click, `target`, `download` and links to
+  another origin are untouched; the region gets `aria-busy` while it waits, focus moves to
+  what came in, and `trilha:swap` fires, which is how an island on the new page mounts. One
+  request at a time — a second click aborts the first — and a 5xx, a network error, a
+  redirect or a page without that id gives up and navigates for real. The behavior ships as
+  a separate `public/ui.nav.js` that `ui.Head` does not load, so an app that does not
+  navigate this way downloads nothing for it.
+
+### Changed
+- `ui.Files` now lists four names and `trilha ui --js-only` writes both `.js` files.
+
 ## 0.13.0 — 2026-09-05
 
 ### Added

@@ -283,7 +283,7 @@ func TestGroups_LayoutWithoutURLSegment(t *testing.T) {
 func TestGroups_MiddlewareOrder(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.get("/painel")
-	wantContains(t, rec, 200, `<section class="app" data-area="painel">`, `<h1 class="ui-h1">Painel</h1>`)
+	wantContains(t, rec, 200, `<section class="app" data-area="painel" data-trilha-nav="conteudo">`, `<h1 class="ui-h1">Painel</h1>`)
 	if rec.Header().Get("X-Area") != "painel" || rec.Header().Get("Server-Timing") == "" {
 		t.Fatalf("root and group middlewares must both run: %v", rec.Header())
 	}
@@ -292,12 +292,32 @@ func TestGroups_MiddlewareOrder(t *testing.T) {
 	}
 }
 
+// Issue #23: a área do app navega no cliente, mas o servidor continua
+// respondendo a página inteira — o link é um link, e o endereço é o mesmo.
+func TestNavegacaoNoClienteDegradaSemScript(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.get("/painel")
+	wantContains(t, rec, 200,
+		`data-trilha-nav="conteudo"`,
+		`<script src="/ui.nav.js`,
+		`<a href="/relatorio">Relatório</a>`,
+	)
+	// O mesmo endereço, pedido direto, devolve o documento inteiro: recarregar
+	// ou abrir em outra aba dá a mesma página.
+	direct := c.get("/relatorio")
+	wantContains(t, direct, 200, "<!doctype html>", `id="conteudo"`, "<title>Relatório · Trilha Blog</title>")
+	// O arquivo do comportamento é servido como qualquer estático do projeto.
+	if js := c.get("/ui.nav.js"); js.Code != 200 || !strings.Contains(js.Body.String(), "data-trilha-nav") {
+		t.Fatalf("ui.nav.js: %d", js.Code)
+	}
+}
+
 // ---- 002: html/template ---------------------------------------------------
 
 func TestTemplatePageInsideLayouts(t *testing.T) {
 	c := newClient(t, "prod")
 	rec := c.get("/relatorio")
-	wantContains(t, rec, 200, `<section class="app" data-area="painel">`, "<h1>Relatório &lt;de posts&gt;</h1>", `<a href="/blog/layouts">Layouts aninhados</a>`, "<title>Relatório · Trilha Blog</title>")
+	wantContains(t, rec, 200, `<section class="app" data-area="painel" data-trilha-nav="conteudo">`, "<h1>Relatório &lt;de posts&gt;</h1>", `<a href="/blog/layouts">Layouts aninhados</a>`, "<title>Relatório · Trilha Blog</title>")
 }
 
 func TestTemplateErrorIs500(t *testing.T) {

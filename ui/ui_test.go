@@ -145,3 +145,49 @@ func TestValidationHelpers(t *testing.T) {
 		t.Fatal("Checked")
 	}
 }
+
+// Issue #23: client navigation is opt-in — an attribute marks the region and a
+// separate file carries the behavior, so an app that does not want it does not
+// download it.
+func TestNavigateIsOptIn(t *testing.T) {
+	if got := render(t, h.Main(h.ID("conteudo"), Navigate(""))); !strings.Contains(got, `data-trilha-nav=""`) {
+		t.Fatalf("Navigate(\"\") = %s", got)
+	}
+	if got := render(t, h.Div(Navigate("conteudo"))); !strings.Contains(got, `data-trilha-nav="conteudo"`) {
+		t.Fatalf("Navigate = %s", got)
+	}
+	if got := render(t, h.A(h.Href("/relatorio.pdf"), NoNavigate())); !strings.Contains(got, `data-trilha-nav="false"`) {
+		t.Fatalf("NoNavigate = %s", got)
+	}
+	for _, name := range Files {
+		if name == "ui.nav.js" {
+			goto found
+		}
+	}
+	t.Fatal("ui.nav.js is not in Files: trilha ui would not write it")
+found:
+	if n := len(Asset("ui.nav.js")); n == 0 || n > 4<<10 {
+		t.Fatalf("ui.nav.js is %d bytes", n)
+	}
+	// The behavior does not ride in ui.js: an app without client navigation
+	// pays nothing for it.
+	if strings.Contains(string(Asset("ui.js")), "data-trilha-nav") {
+		t.Fatal("client navigation leaked into ui.js")
+	}
+}
+
+// The script goes through Asset, like the rest of the kit: the URL carries the
+// content hash, and BasePath is respected.
+func TestNavigateScript(t *testing.T) {
+	a := trilha.New(trilha.Config{BasePath: "/app", Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	var out string
+	a.Register(trilha.Route{Pattern: "/", Page: func(c *trilha.Ctx) (h.Node, error) {
+		out = render(t, NavigateScript(c))
+		return h.Div(), nil
+	}})
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	if want := `<script src="/app/ui.nav.js" defer></script>`; out != want {
+		t.Fatalf("NavigateScript = %s, want %s", out, want)
+	}
+}

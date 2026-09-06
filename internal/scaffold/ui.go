@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/emersonjoe/trilha/ui"
 )
@@ -66,7 +67,7 @@ func WriteUI(dir string, force, cssOnly, jsOnly bool) ([]UIResult, error) {
 	var out []UIResult
 	var modified bool
 	for _, name := range ui.Files {
-		if (cssOnly && name == "ui.js") || (jsOnly && name != "ui.js") {
+		if isJS := strings.HasSuffix(name, ".js"); (cssOnly && isJS) || (jsOnly && !isJS) {
 			continue
 		}
 		dst := filepath.Join(dir, "public", name)

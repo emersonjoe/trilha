@@ -12,8 +12,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` para `ui.theme.css` e `ui.css`, script inline (com nonce) que aplica o tema salvo, `<script defer src=ui.js>`; respeita `c.Base()` |
 | `ui.Body() h.Node` | classe `ui-body` para o `<body>` |
-| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css` ou `ui.js` |
-| `ui.Files` | os três nomes, na ordem em que `trilha ui` os grava |
+| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js` ou `ui.nav.js` |
+| `ui.Files` | os quatro nomes, na ordem em que `trilha ui` os grava |
 
 ## Variantes e tamanhos
 
@@ -72,6 +72,28 @@ voltam para o campo em uso; o que entrou é hidratado (`fade`, `show-when`) e di
 id, o kit desiste e navega/envia normalmente. `ui.swap(id, html, status)` e
 `ui.hydrate(el)` fazem a troca à mão. Veja [Interatividade](/pt/aprender/interatividade).
 
+## Navegação
+
+A navegação no cliente fica desligada até você pedir, em dois lugares:
+
+| Símbolo | Papel |
+|---|---|
+| `ui.Navigate(id) h.Node` | marca uma região: um clique em link da mesma origem dentro dela troca o elemento `#id` pelo mesmo elemento da próxima página. `id` vazio significa o próprio elemento marcado |
+| `ui.NoNavigate() h.Node` | deixa um link de fora (um download, outro app, uma rota que precisa recarregar) |
+| `ui.NavigateScript(c) h.Node` | `<script defer src=ui.nav.js>`; ponha uma vez, no layout da área que usa |
+
+O que o navegador continua fazendo: o endereço na barra é o mesmo de uma navegação normal,
+Voltar e Avançar funcionam (e restauram a rolagem da entrada para onde voltam),
+`Cmd`/`Ctrl`-clique e clique do meio abrem aba, e `target`, `download` e links para outra
+origem passam intactos. O que o kit acrescenta: `aria-busy` na região durante a espera, foco
+no que entrou, `ui.hydrate` e o evento `trilha:swap`, e uma requisição por vez — um segundo
+clique cancela a primeira. Em 5xx, erro de rede, redirecionamento ou página sem o id, ele
+desiste e navega de verdade.
+
+O comportamento é um arquivo separado para que um app que não use não o baixe, e o `ui.Head`
+não o carrega. Link marcado com `ui.Swap` continua sendo fragmento: ele pede um pedaço da
+página, não a próxima página.
+
 ## Tema
 
 `ui.theme.css` define, em `:root` e `.dark`, exatamente as variáveis do shadcn/ui v4:
@@ -83,6 +105,6 @@ do sistema antes da primeira pintura).
 
 ## CLI
 
-`trilha ui [--force] [--css-only|--js-only]` grava os três arquivos em `public/`:
-`ui.theme.css` só é criado (nunca sobrescrito); `ui.css` e `ui.js` são atualizados quando
-iguais a uma versão anterior e, se você os editou, só com `--force`.
+`trilha ui [--force] [--css-only|--js-only]` grava os quatro arquivos em `public/`:
+`ui.theme.css` só é criado (nunca sobrescrito); `ui.css`, `ui.js` e `ui.nav.js` são
+atualizados quando iguais a uma versão anterior e, se você os editou, só com `--force`.

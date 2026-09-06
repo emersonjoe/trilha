@@ -9,7 +9,11 @@ import (
 func TestWriteUIStamp(t *testing.T) {
 	dir := t.TempDir()
 	res, err := WriteUI(dir, false, false, false)
-	if err != nil || len(res) != 3 || res[1].Action != UICreated {
+	if err != nil || len(res) != 4 || res[1].Action != UICreated {
+		t.Fatal(err, res)
+	}
+	// Client navigation is a second .js file: --js must write both.
+	if res, err := WriteUI(dir, false, false, true); err != nil || len(res) != 2 || res[1].File != "ui.nav.js" {
 		t.Fatal(err, res)
 	}
 	css := filepath.Join(dir, "public", "ui.css")

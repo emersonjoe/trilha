@@ -13,7 +13,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 )
 
-//go:embed assets/ui.css assets/ui.theme.css assets/ui.js
+//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js
 var assets embed.FS
 
 // Asset returns the embedded file (ui.css, ui.theme.css or ui.js).
@@ -26,7 +26,7 @@ func Asset(name string) []byte {
 }
 
 // Files lists the kit files written to a project's public/ folder.
-var Files = []string{"ui.theme.css", "ui.css", "ui.js"}
+var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js"}
 
 // Head links the kit's stylesheets and script and applies the saved theme
 // before first paint (inline script with the request nonce, so the default
@@ -246,6 +246,29 @@ func With(nodes ...h.Node) FieldOpt { return func(f *fieldCfg) { f.extra = appen
 // Invalid marks a control invalid (red ring). Pass it to Input/Select when
 // there is an error for the field.
 func Invalid() h.Node { return h.Aria("invalid", "true") }
+
+// Navigate marks a region whose links navigate on the client: a click on a
+// same-origin link inside it fetches the next page and replaces the element
+// with the given id, instead of reloading the document. An empty id means the
+// marked element is itself the one to replace:
+//
+//	h.Main(h.ID("conteudo"), ui.Navigate(""), children)
+//
+// It is off until the region is marked and NavigateScript is on the page, and
+// it never changes what the server answers: the address in the bar is the one
+// a normal navigation would use, and reloading it renders the same page.
+func Navigate(id string) h.Node { return h.Data("trilha-nav", id) }
+
+// NoNavigate keeps one link out of it (a download, another app, a route that
+// must reload for real), inside a region marked with Navigate.
+func NoNavigate() h.Node { return h.Data("trilha-nav", "false") }
+
+// NavigateScript loads ui.nav.js, the behavior behind Navigate. Put it once,
+// in the layout of the area that uses it — the kit's Head does not load it, so
+// an app without client navigation does not download it.
+func NavigateScript(c *trilha.Ctx) h.Node {
+	return h.Script(h.Src(c.Asset("/ui.nav.js")), h.Defer())
+}
 
 // Swap marks a link or form as a fragment request: clicking or submitting it
 // asks the same route for the part of the page with the given id and replaces

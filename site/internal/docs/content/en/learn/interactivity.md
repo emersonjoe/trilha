@@ -166,6 +166,45 @@ about the choice.
 The default CSP is `script-src 'self'`, so a module from a CDN is refused until you widen
 it — a decision, not an accident.
 
+## The whole page, without the reload
+
+A fragment swaps a piece of the page a handler chose. Navigation is the other half: the
+next page is a *different* page, and what should not blink is everything around it — the
+header, the sidebar, the scroll position of a long list.
+
+```go
+// app/painel-/layout.go
+return h.Section(h.Class("app"), ui.Navigate("conteudo"), ui.NavigateScript(c),
+    ui.Sidebar(ui.Nav(
+        ui.NavLink("/painel", "Dashboard", cur == "/painel"),
+        ui.NavLink("/relatorio", "Report", cur == "/relatorio"),
+    )),
+    h.Div(h.Class("app-content"), children),
+), nil
+```
+
+`ui.Navigate(id)` marks a region: a click on a same-origin link inside it fetches the next
+page and replaces `#id` with the same element from it. `ui.NavigateScript(c)` loads the
+behavior — a separate file from `ui.js`, so an app that does not navigate this way does not
+download it. Nothing changes on the server: `/relatorio` is the same route, answering the
+same document. Reloading, opening in another tab, or arriving with JavaScript off gives the
+same page.
+
+Off by default, and off per link:
+
+```go
+ui.ButtonLink("/relatorio.pdf", ui.NoNavigate(), h.Text("Download"))
+```
+
+The browser keeps its habits — Back and Forward work and restore the scroll position of the
+entry they return to, `Cmd`-click opens a tab, `target` and `download` are untouched. The
+kit adds `aria-busy` while it waits, moves focus to what came in, and fires `trilha:swap`,
+so an island inside the new page mounts. A second click cancels the first request; a 5xx, a
+redirect or a page without that id gives up and navigates for real.
+
+The rule of thumb: **fragment** when a handler answers a piece, **navigation** when the
+answer is a page and the frame around it should stay.
+
 ## What this is not
 
 It is not a SPA. There is no client router, no shared state, no component hydration and no

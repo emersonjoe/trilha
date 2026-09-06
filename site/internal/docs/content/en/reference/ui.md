@@ -12,8 +12,8 @@ description: The kit's components, variants, assets and the theme contract.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` for `ui.theme.css` and `ui.css`, inline script (with nonce) that applies the saved theme, `<script defer src=ui.js>`; honors `c.Base()` |
 | `ui.Body() h.Node` | `ui-body` class for the `<body>` |
-| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css` or `ui.js` |
-| `ui.Files` | the three names, in the order `trilha ui` writes them |
+| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js` or `ui.nav.js` |
+| `ui.Files` | the four names, in the order `trilha ui` writes them |
 
 ## Variants and sizes
 
@@ -73,6 +73,28 @@ fragment without the id, the kit gives up and navigates/submits normally.
 `ui.swap(id, html, status)` and `ui.hydrate(el)` do the swap by hand. See
 [Interactivity](/learn/interactivity).
 
+## Navigation
+
+Client navigation is off until you ask for it, in two places:
+
+| Symbol | Role |
+|---|---|
+| `ui.Navigate(id) h.Node` | marks a region: a click on a same-origin link inside it replaces element `#id` with the same element from the next page. An empty `id` means the marked element itself |
+| `ui.NoNavigate() h.Node` | keeps one link out of it (a download, another app, a route that must reload) |
+| `ui.NavigateScript(c) h.Node` | `<script defer src=ui.nav.js>`; put it once, in the layout of the area that uses it |
+
+What the browser keeps doing: the address in the bar is the one a normal navigation would
+use, Back and Forward work (and restore the scroll position of the entry they return to),
+`Cmd`/`Ctrl`-click and middle click open a tab, `target`, `download` and links to another
+origin are untouched. What the kit adds: `aria-busy` on the region while it waits, focus
+moved to what came in, `ui.hydrate` and the `trilha:swap` event, and one request at a time —
+a second click aborts the first. On 5xx, a network error, a redirect or a page that does not
+contain the id, it gives up and navigates for real.
+
+The behavior is a separate file so an app that does not use it does not download it, and
+`ui.Head` does not load it. A link marked with `ui.Swap` stays with fragments: it asks for a
+piece of the page, not for the next page.
+
 ## Theme
 
 `ui.theme.css` defines, in `:root` and `.dark`, exactly the shadcn/ui v4 variables:
@@ -84,6 +106,6 @@ preference before the first paint).
 
 ## CLI
 
-`trilha ui [--force] [--css-only|--js-only]` writes the three files in `public/`:
-`ui.theme.css` is only created (never overwritten); `ui.css` and `ui.js` are updated when
-they equal a previous version and, if you edited them, only with `--force`.
+`trilha ui [--force] [--css-only|--js-only]` writes the four files in `public/`:
+`ui.theme.css` is only created (never overwritten); `ui.css`, `ui.js` and `ui.nav.js` are
+updated when they equal a previous version and, if you edited them, only with `--force`.

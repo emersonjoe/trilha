@@ -11,7 +11,11 @@ import (
 func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	area, _ := c.Get("area").(string)
 	cur := c.Request().URL.Path
-	return h.Section(h.Class("app"), h.Data("area", area),
+	// Navegação no cliente na área do app: um clique na barra lateral busca a
+	// próxima página e troca só o #conteudo, mantendo cabeçalho e rolagem. O
+	// endereço na barra é o mesmo de sempre; sem JavaScript, o link recarrega.
+	return h.Section(h.Class("app"), h.Data("area", area), ui.Navigate("conteudo"),
+		ui.NavigateScript(c),
 		ui.Sidebar(ui.Nav(
 			ui.NavLink("/painel", "Painel", cur == "/painel"),
 			ui.NavLink("/relatorio", "Relatório", cur == "/relatorio"),
