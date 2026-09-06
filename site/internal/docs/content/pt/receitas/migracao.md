@@ -259,3 +259,38 @@ Um símbolo público nunca desaparece numa versão menor sem antes ser marcado c
 uma. A superfície versionada mora em `api/current.txt`, e uma mudança nela que não foi
 intencional quebra a suíte de testes do próprio framework.
 :::
+
+### Ligar os arquivos de agente num projeto que já existe
+
+O `--agents` é flag do `trilha new`, então não serve para um projeto criado antes dele
+existir. O comando desse caso é o `trilha agents`, e ele faz exatamente a mesma coisa — nada
+precisa ser recriado:
+
+```bash
+go get -u github.com/emersonjoe/trilha@latest
+go install github.com/emersonjoe/trilha/cmd/trilha@latest
+trilha gen                 # o arquivo gerado tem que bater com a versão da CLI
+trilha agents --lang pt    # grava AGENTS.md e CLAUDE.md
+trilha check               # o portão único: gen, gofmt, vet, test, audit, openapi
+git add AGENTS.md CLAUDE.md trilha_gen.go
+```
+
+Os dois arquivos são para commitar: o agente os lê do repositório, não da sua máquina. O
+`trilha ctx` não precisa de nada instalado — rode uma vez para ver o mapa que o seu agente
+vai ler.
+
+O passo que é fácil esquecer é rodar `trilha agents` **depois de cada atualização da CLI**. O
+`AGENTS.md` descreve os comandos da CLI que o gravou: uma cópia da 0.36.0 manda o agente
+rodar `make test` e nunca menciona o `trilha check`, que chegou na 0.37.0. Uma cópia intocada
+é regravada em silêncio; uma que você editou faz o comando parar, e aí você escolhe:
+
+- `trilha agents --force` sobrescreve e você recoloca as suas regras, ou
+- você move as suas regras para o `CLAUDE.md`, que o comando nunca sobrescreve, e deixa o
+  `AGENTS.md` como arquivo do framework — que é para isso que a divisão existe.
+
+No CI, a linha para a qual os arquivos de agente apontam é a que substitui a lista de
+comandos:
+
+```yaml
+- run: trilha check
+```

@@ -5,6 +5,14 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+### Documentation
+
+- **How to turn on the agent files in a project that already exists**. `--agents` is a flag
+  of `trilha new`, so a project created before it needs `trilha agents` instead; the
+  [migration recipe](https://emersonjoe.github.io/trilha/cookbook/migration) now carries the
+  whole sequence, including the step that is easy to miss — running `trilha agents` again
+  after every CLI upgrade, since `AGENTS.md` names the commands of the version that wrote it.
+
 ## 0.38.0 — 2026-09-06
 
 ### Added

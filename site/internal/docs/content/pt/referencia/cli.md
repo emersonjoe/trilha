@@ -104,6 +104,11 @@ sobrescrito.
 
 `--lang en|pt` escolhe a língua dos dois arquivos e por padrão é a da CLI.
 
+Rode de novo depois de atualizar a CLI: o `AGENTS.md` nomeia os comandos da versão que o
+gravou, então uma cópia de uma release anterior continua mandando o agente para comandos que
+foram substituídos. A sequência inteira para um projeto vindo de versão anterior está na
+[receita de migração](/pt/receitas/migracao#ligar-os-arquivos-de-agente-num-projeto-que-ja-existe).
+
 ## trilha openapi
 
 Lê `app/`, deduz o documento a partir dos handlers e escreve `openapi.json`. `-o -` escreve na

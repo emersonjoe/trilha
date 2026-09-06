@@ -105,6 +105,11 @@ never overwritten.
 
 `--lang en|pt` picks the language of both files and defaults to the CLI's.
 
+Run it again after upgrading the CLI: `AGENTS.md` names the commands of the version that
+wrote it, so a copy from an older release keeps sending the agent to commands that were
+replaced. The whole sequence for a project coming from an older version is in
+[Migration](/cookbook/migration#turning-on-the-agent-files-in-a-project-that-already-exists).
+
 ## trilha openapi
 
 Reads `app/`, deduces the document from the handlers and writes `openapi.json`. `-o -` writes

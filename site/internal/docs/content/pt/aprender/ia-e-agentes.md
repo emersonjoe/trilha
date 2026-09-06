@@ -142,6 +142,10 @@ trilha agents             # num projeto que já existe
 trilha new loja --agents  # já na criação
 ```
 
+O `--agents` é flag do `new`; num projeto que já existe o comando é o `trilha agents`, e a
+atualização vinda de uma versão anterior tem cinco linhas na
+[receita de migração](/pt/receitas/migracao#ligar-os-arquivos-de-agente-num-projeto-que-ja-existe).
+
 Ele grava dois arquivos na raiz. O `AGENTS.md` é do framework: as três convenções, os comandos
 e o que cada um verifica, e o que não fazer (editar `trilha_gen.go`, acrescentar dependência,
 pôr segredo no código). O `CLAUDE.md` é seu: três linhas apontando para o `AGENTS.md` e espaço

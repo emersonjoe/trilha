@@ -138,9 +138,13 @@ The chapters above are about the agent your app runs. This section is about the 
 edits your app — Claude Code, Cursor, Copilot — and the file it reads first.
 
 ```bash
-trilha agents           # in an existing project
+trilha agents             # in a project that already exists
 trilha new loja --agents  # at creation time
 ```
+
+`--agents` is a flag of `new`; in a project that already exists the command is `trilha
+agents`, and the upgrade from an older version is five lines in
+[Migration](/cookbook/migration#turning-on-the-agent-files-in-a-project-that-already-exists).
 
 It writes two files at the root. `AGENTS.md` is the framework's: the three conventions, the
 commands and what each one checks, and what not to do (edit `trilha_gen.go`, add a dependency,

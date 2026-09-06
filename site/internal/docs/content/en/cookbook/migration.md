@@ -256,3 +256,37 @@ A public symbol never disappears in a minor version without being deprecated in 
 The versioned surface lives in `api/current.txt`, and a change to it that was not intended
 fails the framework's own test suite.
 :::
+
+### Turning on the agent files in a project that already exists
+
+`--agents` is a flag of `trilha new`, so it is of no use to a project that was created
+before it existed. The command for that case is `trilha agents`, and it does exactly the
+same thing — nothing has to be recreated:
+
+```bash
+go get -u github.com/emersonjoe/trilha@latest
+go install github.com/emersonjoe/trilha/cmd/trilha@latest
+trilha gen                 # the generated file must match the CLI's version
+trilha agents              # writes AGENTS.md and CLAUDE.md (--lang pt for Portuguese)
+trilha check               # the single gate: gen, gofmt, vet, test, audit, openapi
+git add AGENTS.md CLAUDE.md trilha_gen.go
+```
+
+Both files are meant to be committed: the agent reads them from the repository, not from
+your machine. `trilha ctx` needs nothing installed — run it once to see the map your agent
+will be reading.
+
+The step that is easy to miss is `trilha agents` **after every CLI upgrade**. `AGENTS.md`
+describes the commands of the CLI that wrote it: a copy from 0.36.0 tells the agent to run
+`make test` and never mentions `trilha check`, which arrived in 0.37.0. An untouched copy is
+refreshed in silence; one you edited stops the command, and then you choose:
+
+- `trilha agents --force` overwrites it and you add your rules back, or
+- you move your rules to `CLAUDE.md`, which the command never overwrites, and leave
+  `AGENTS.md` as the framework's file — which is what the split is for.
+
+In CI, the line the agent files point at is the one that replaces the list of commands:
+
+```yaml
+- run: trilha check
+```
