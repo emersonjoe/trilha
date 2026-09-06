@@ -36,10 +36,16 @@ git clone https://github.com/emersonjoe/trilha && cd trilha
 make test          # gofmt + vet + tests (includes the CLI e2e)
 make dev-example   # examples/blog with reload
 make golden        # rewrites the generator goldens (check the diff!)
+make api           # rewrites api/current.txt after an intentional API change
 make race          # go test -race ./... (TestConcorrencia is what gives it concurrency)
 make fuzz          # 20s on each fuzz target, same as CI; FUZZTIME=2m make fuzz for longer
 make fuzz-long     # 5 minutes per target, before a release
 ```
+
+`make test` fails when the exported surface differs from `api/current.txt`. If the change is
+intentional, run `make api` and let the diff of that file into the review: a removed line is a
+break for whoever uses the framework, and [`API.md`](API.md) says what has to happen before a
+symbol disappears.
 
 A failure found by fuzzing lands in `testdata/fuzz/<Target>/`. Commit that file with the
 fix: it is the regression that keeps the bug from coming back.

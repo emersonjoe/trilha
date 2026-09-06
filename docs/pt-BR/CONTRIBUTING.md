@@ -37,10 +37,16 @@ git clone https://github.com/emersonjoe/trilha && cd trilha
 make test          # gofmt + vet + testes (inclui e2e da CLI)
 make dev-example   # examples/blog com recarga
 make golden        # regrava goldens do gerador (confira o diff!)
+make api           # regrava api/current.txt depois de uma mudança intencional na API
 make race          # go test -race ./... (o TestConcorrencia é quem lhe dá concorrência)
 make fuzz          # 20s em cada alvo de fuzzing, igual ao CI; FUZZTIME=2m make fuzz para mais
 make fuzz-long     # 5 minutos por alvo, antes de uma release
 ```
+
+O `make test` falha quando a superfície exportada difere do `api/current.txt`. Se a mudança é
+intencional, rode `make api` e deixe o diff desse arquivo entrar na revisão: uma linha removida
+é quebra para quem usa o framework, e o [`API.md`](API.md) diz o que precisa acontecer antes de
+um símbolo sumir.
 
 Falha achada pelo fuzzing cai em `testdata/fuzz/<Alvo>/`. Commite esse arquivo junto com a
 correção: é a regressão que impede a volta do defeito.

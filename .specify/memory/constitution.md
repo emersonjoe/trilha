@@ -38,6 +38,15 @@ Erros são valores: `trilha.ErrNotFound` cai na página 404, `trilha.Redirect(..
 um redirecionamento, qualquer outro erro cai na página de erro (com stack em dev, opaco em
 produção). Nenhum handler chama `panic` para controle de fluxo; `recover` existe só na borda.
 
+A superfície pública é escrita e vigiada. O `API.md` diz quais pacotes têm garantia —
+`trilha`, `h`, `ui`, `tmpl`, `ai`, `ai/mcp`, `auth`, `cache` — e o que fica de fora
+(`internal/`, saída da CLI, HTML do `ui`, arquivo gerado); o `api/current.txt` lista os
+símbolos exportados desses pacotes e um teste falha quando a lista muda, para que a remoção
+apareça na revisão em vez de aparecer na compilação de quem usa. Símbolo coberto não some sem
+ciclo: marca `Deprecated:` no doc comment dizendo o substituto, linha em `Deprecated` no
+`CHANGELOG.md` e pelo menos uma versão menor de convivência — exceto correção de segurança que
+não dê para fazer compatível, anunciada como tal.
+
 ### V. Desenvolvimento com recarga em < 2 s, produção em um binário
 `trilha dev` observa `app/`, `public/` e `*.go`, regenera, recompila e reinicia o processo;
 o navegador recarrega sozinho via SSE sem proxy. Um ciclo editar→ver deve ficar abaixo de
@@ -118,4 +127,4 @@ registro da mudança neste arquivo com nova versão semântica, atualização do
 `.specify/templates/` que dependam do princípio alterado, e migração dos exemplos afetados.
 Revisões de código verificam aderência aos princípios I–VII antes de aprovar.
 
-**Version**: 1.3.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-05 (spec curta, issue como fonte do escopo, um dono da `main`, release por script)
+**Version**: 1.4.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-06 (fronteira da API pública e ciclo de depreciação no princípio IV)
