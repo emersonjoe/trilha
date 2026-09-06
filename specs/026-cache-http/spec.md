@@ -95,19 +95,19 @@ calcula para o `?v=` — `http.ServeFileFS` cuida da comparação e do `304` a p
 
 ## Tarefas
 
-- [ ] T001 Teste que falha em `httpcache_test.go`: `304` com `If-None-Match` (valor único,
+- [x] T001 Teste que falha em `httpcache_test.go`: `304` com `If-None-Match` (valor único,
       lista e `*`), `200` com etiqueta diferente, aspas adicionadas uma vez só, `Vary` no
       `304`, `POST` não vira `304`, `ETag("")` não escreve nada; `LastModified` responde
       `304` por `If-Modified-Since` e se cala quando há `If-None-Match`.
-- [ ] T002 `httpcache.go`: `Ctx.ETag`, `Ctx.LastModified`, `Ctx.CacheControl`.
-- [ ] T003 Teste que falha em `static_test.go`: estático responde `ETag` e devolve `304`
+- [x] T002 `httpcache.go`: `Ctx.ETag`, `Ctx.LastModified`, `Ctx.CacheControl`.
+- [x] T003 Teste que falha em `static_test.go`: estático responde `ETag` e devolve `304`
       para quem o repete; e teste em `export_test.go` provando que o `trilha export`
       continua escrevendo o arquivo.
-- [ ] T004 `ETag` em `serveStatic` a partir de `assetVersion`.
-- [ ] T005 Teste que falha em `examples/blog/blog_test.go` + uso na página do post.
-- [ ] T006 Documentação nas duas locales: seção nova em `learn/data` / `aprender/dados` e
+- [x] T004 `ETag` em `serveStatic` a partir de `assetVersion`.
+- [x] T005 Teste que falha em `examples/blog/blog_test.go` + uso na página do post.
+- [x] T006 Documentação nas duas locales: seção nova em `learn/data` / `aprender/dados` e
       os três métodos em `reference/ctx` / `referencia/ctx`.
-- [ ] T007 `CHANGELOG.md` (0.17.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 2,
+- [x] T007 `CHANGELOG.md` (0.17.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 2,
       item 7).
 - [ ] T008 `make test` verde e `make release VERSION=0.17.0 ISSUES="26"`.
 

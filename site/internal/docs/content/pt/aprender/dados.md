@@ -134,6 +134,43 @@ Acertos sobre acertos mais erros é a taxa de acerto — abaixo de 50 % o TTL es
 demais ou a chave carrega algo que não devia. Despejos subindo é teto baixo demais: o
 cache está jogando fora justamente o que iam lhe pedir.
 
+## O cache que o navegador guarda
+
+O cache de cima poupa ao servidor uma ida ao banco. Este poupa à rede uma resposta inteira: o
+navegador já tem a página e só pergunta se ela mudou.
+
+```go
+func Page(c *trilha.Ctx) (h.Node, error) {
+	p, ok := posts.Get(c.Param("slug"))
+	if !ok {
+		return nil, trilha.ErrNotFound
+	}
+	c.CacheControl("private, no-cache")
+	if c.ETag(p.Atualizado.UTC().Format(time.RFC3339Nano)) {
+		return nil, nil // a cópia do navegador está em dia: 304, sem corpo
+	}
+	c.SetTitle(p.Title)
+	return view(p), nil
+}
+```
+
+`ETag` escreve a etiqueta e diz se a requisição já a trazia. Quando diz que sim, o `304` já foi
+escrito: devolva `nil, nil` — um corpo ali seria jogado fora. `LastModified` faz o mesmo com uma
+data, e `CacheControl` escreve o cabeçalho como você digitou. `no-cache` não quer dizer "não
+guarde"; quer dizer "guarde, mas me pergunte antes de reusar", que é justamente o que provoca o
+`304`.
+
+A etiqueta é uma versão do dado, não um hash da página — e a Trilha não calcula uma por você.
+Toda resposta carrega um nonce novo de CSP, então um hash do HTML nunca bateria duas vezes. Serve
+qualquer coisa que se mexa quando o dado se mexe: `updated_at`, um número de revisão, os ids do
+que foi renderizado.
+
+> Uma etiqueta que esquece quem está lendo é o mesmo defeito de uma chave de cache que esquece o
+> usuário. Se a página muda com o visitante, ponha isso na etiqueta ou não mande nenhuma.
+
+Os arquivos em `static/` já fazem isso sozinhos: a impressão digital do `?v=` é a ETag deles, então
+a segunda visita custa um `304` e nenhum byte.
+
 ## Desafio
 
 A página de detalhe do evento vai ao banco a cada visita. Guarde-a por uma hora, com uma

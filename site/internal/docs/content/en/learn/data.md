@@ -133,6 +133,43 @@ Hits over hits plus misses is the hit ratio — under 50 % the TTL is too short 
 carries something it should not. Evictions climbing means the ceiling is too low: the
 cache is throwing away what it was about to be asked for.
 
+## The cache the browser keeps
+
+The cache above saves the server a trip to the database. This one saves the network a whole
+response: the browser already has the page and asks only whether it changed.
+
+```go
+func Page(c *trilha.Ctx) (h.Node, error) {
+	p, ok := posts.Get(c.Param("slug"))
+	if !ok {
+		return nil, trilha.ErrNotFound
+	}
+	c.CacheControl("private, no-cache")
+	if c.ETag(p.Updated.UTC().Format(time.RFC3339Nano)) {
+		return nil, nil // the copy in the browser is current: 304, no body
+	}
+	c.SetTitle(p.Title)
+	return view(p), nil
+}
+```
+
+`ETag` writes the tag and reports whether the request already carried it. When it says yes the
+`304` is already written, so return `nil, nil` — a body there would be thrown away. `LastModified`
+is the same deal for a date, and `CacheControl` writes the header as you typed it. `no-cache` does
+not mean "do not store"; it means "store it, but ask me before reusing it", which is exactly what
+makes the `304` happen.
+
+The tag is a version of the data, not a hash of the page — and Trilha will not compute one for
+you. Every response carries a fresh CSP nonce, so a hash of the HTML would never match twice.
+Anything that moves when the data moves works: `updated_at`, a revision number, the ids of what
+was rendered.
+
+> A tag that forgets who is reading is the same bug as a cache key that forgets the user. If the
+> page changes with the visitor, put that in the tag or do not send one.
+
+Files under `static/` already do this on their own: the fingerprint in `?v=` is their ETag, so the
+second visit costs a `304` and no bytes.
+
 ## Challenge
 
 The event detail page calls the database on every visit. Cache it for an hour, with a tag

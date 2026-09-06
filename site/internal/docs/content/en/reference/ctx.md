@@ -42,6 +42,20 @@ used by another goroutine after the handler returns.
 | `Writer() http.ResponseWriter` | direct access (long downloads, WebSocket) |
 | `Written() bool` | whether the response has started |
 
+## HTTP cache
+
+| Method | Description |
+|---|---|
+| `ETag(tag) bool` | writes `ETag` (quoting it if needed) and reports whether the request already had it |
+| `LastModified(t) bool` | writes `Last-Modified` and reports whether the copy is current |
+| `CacheControl(v)` | writes `Cache-Control` verbatim |
+
+`true` means the `304` is already written: return `nil, nil` and write nothing else. Only `GET` and
+`HEAD` answer `304`; on other methods the headers are written and the answer is always `false`. An
+empty tag or a zero date writes nothing. When both are declared, `If-None-Match` decides and the
+date stays as metadata, as RFC 9110 asks. Files under `static/` already carry an ETag: the content
+fingerprint that goes in `?v=`.
+
 ## Between page and layout
 
 | Method | Description |

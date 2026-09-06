@@ -42,6 +42,20 @@ usado por outra goroutine depois que o handler devolve.
 | `Writer() http.ResponseWriter` | acesso direto (downloads longos, WebSocket) |
 | `Written() bool` | se a resposta já começou |
 
+## Cache HTTP
+
+| Método | Descrição |
+|---|---|
+| `ETag(tag) bool` | escreve `ETag` (com aspas, se faltarem) e diz se a requisição já a tinha |
+| `LastModified(t) bool` | escreve `Last-Modified` e diz se a cópia está em dia |
+| `CacheControl(v)` | escreve `Cache-Control` como veio |
+
+`true` quer dizer que o `304` já foi escrito: devolva `nil, nil` e não escreva mais nada. Só `GET` e
+`HEAD` respondem `304`; nos outros métodos os cabeçalhos são escritos e a resposta é sempre
+`false`. Etiqueta vazia ou data zerada não escrevem nada. Quando os dois são declarados, quem
+decide é o `If-None-Match` e a data fica como metadado, como pede a RFC 9110. Os arquivos em
+`static/` já vêm com ETag: a impressão digital do conteúdo que vai no `?v=`.
+
 ## Entre página e layout
 
 | Método | Descrição |

@@ -1,6 +1,8 @@
 package slug
 
 import (
+	"time"
+
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
 	"github.com/emersonjoe/trilha/h"
@@ -15,6 +17,13 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	}
 	if p.Slug == "boom" {
 		return nil, trilha.Errorf(500, "post explodiu")
+	}
+	// O post é a única coisa nesta página que muda, então a data dele é a
+	// versão dela. Num app com edição seria o `updated_at`; o que não serve é
+	// o corpo renderizado, que traz um nonce novo a cada resposta.
+	c.CacheControl("private, no-cache")
+	if c.ETag(p.Created.UTC().Format(time.RFC3339Nano)) {
+		return nil, nil
 	}
 	c.SetTitle(p.Title)
 	return h.Article(h.Class("ui-stack"),

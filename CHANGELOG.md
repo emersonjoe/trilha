@@ -5,6 +5,27 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.17.0 — 2026-09-05
+
+### Added
+- HTTP cache on the `Ctx` ([#26](https://github.com/emersonjoe/trilha/issues/26)):
+  `c.ETag(tag)`, `c.LastModified(t)` and `c.CacheControl(v)`. The two first write their
+  header and report whether the request already had that version; `true` means the `304`
+  is written, so the handler returns `nil, nil` and the body never travels. Only `GET` and
+  `HEAD` answer `304`; `If-None-Match` accepts a list, `*` and weak tags (RFC 9110
+  §8.8.3.2), and when both are declared it is the one that decides, with the date left as
+  metadata.
+- Files under `static/` now carry an `ETag`: the same content fingerprint that goes in the
+  `?v=` of the URL, so a second visit costs a `304` and no bytes. Two deploys of the same
+  file keep the same tag.
+- The post page in `examples/blog` revalidates with the post's date, alongside
+  `Cache-Control: private, no-cache`.
+
+### Notes
+- Trilha does not compute an ETag from the rendered body: every response carries a fresh
+  CSP nonce, so such a tag would never match twice. The version is the data's, and the
+  handler is the one that knows it.
+
 ## 0.16.0 — 2026-09-05
 
 ### Added

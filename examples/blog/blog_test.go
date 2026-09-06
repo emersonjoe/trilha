@@ -517,3 +517,28 @@ func TestCacheDaListaDePosts(t *testing.T) {
 		}
 	}
 }
+
+// Issue #26: a página do post carrega a versão do dado, então um F5 devolve
+// 304 e o corpo não viaja de novo. Republicar muda a versão e a página volta.
+func TestPostRespondeComETag(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.get("/blog/ola-trilha")
+	tag := rec.Header().Get("ETag")
+	if rec.Code != 200 || tag == "" {
+		t.Fatalf("%d %q", rec.Code, tag)
+	}
+	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "private") {
+		t.Fatalf("página de post sem private: %q", cc)
+	}
+
+	again := c.do("GET", "/blog/ola-trilha", "", map[string]string{"If-None-Match": tag})
+	if again.Code != 304 || again.Body.Len() != 0 {
+		t.Fatalf("revalidação: %d, %d bytes", again.Code, again.Body.Len())
+	}
+
+	posts.Create("Ola Trilha", "outro corpo")
+	novo := c.do("GET", "/blog/ola-trilha", "", map[string]string{"If-None-Match": tag})
+	if novo.Code != 200 || !strings.Contains(novo.Body.String(), "outro corpo") {
+		t.Fatalf("depois de republicar: %d", novo.Code)
+	}
+}

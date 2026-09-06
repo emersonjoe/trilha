@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.16.0)
+## Onde o Trilha está (setembro de 2026, v0.17.0)
 
 | Área da avaliação | Estado | Onde |
 |---|---|---|
@@ -20,7 +20,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Coerência com Go | `http.ServeMux` 1.22, `context`, `log/slog`, `embed`, erros explícitos | princípio III |
 | DX | `new`, `gen` (com `--check`), `dev` (recarga ~1 s, erro de build na página), `build`, `routes`, `export`, `audit`, `ui` | specs 001, 003, 004, 006, 021 |
 | Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors`, fragmentos, ilhas, navegação no cliente e upload com progresso | specs 006, 009, 018, 022, 023, 024 |
-| Dados | funções Go comuns, sem loader mágico; `cache` com prazo, tags, invalidação, voo único e memo por requisição | por decisão, spec 025 |
+| Dados | funções Go comuns, sem loader mágico; `cache` com prazo, tags, invalidação, voo único e memo por requisição; `ETag`/`Last-Modified`/`304` no `Ctx` e no estático | por decisão, specs 025 e 026 |
 | Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak, Cognito) com PKCE, sessão, papéis e logout | specs 004, 016, 020 |
 | Segurança | CSP com nonce, HSTS, COOP, `Permissions-Policy`, proxies confiáveis, timeouts, limite de corpo (global e por rota), `trilha audit` | specs 004, 024 |
 | Observabilidade | sondas de vida e prontidão, métricas Prometheus, `traceparent`, eventos de segurança, log de requisição com filtro | specs 014, 021 |
@@ -32,7 +32,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Desempenho | módulo `bench/`, resultados publicados, metodologia | spec 011 |
 | Comunidade | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, GOVERNANCE, templates, CODEOWNERS | spec 004 |
 
-Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.16.0 — a
+Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.17.0 — a
 avaliação enxergou o projeto num ponto anterior. O que sobra, sobra de verdade.
 
 ## O que vamos fazer
@@ -69,7 +69,7 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 
 6. ~~[#25](https://github.com/emersonjoe/trilha/issues/25) Cache da aplicação com TTL, tags e invalidação explícita, mais deduplicação por
    requisição. Sem isso, "revalidação" não existe.~~ **Entregue na 0.16.0** (spec 025).
-7. [#26](https://github.com/emersonjoe/trilha/issues/26) Cache HTTP: `ETag`, `Last-Modified`, `304`.
+7. ~~[#26](https://github.com/emersonjoe/trilha/issues/26) Cache HTTP: `ETag`, `Last-Modified`, `304`.~~ **Entregue na 0.17.0** (spec 026).
 8. [#27](https://github.com/emersonjoe/trilha/issues/27) Validação declarativa no `Bind` (tags), com validadores próprios, mantendo
    `FieldErrors` como resposta.
 9. ~~[#40](https://github.com/emersonjoe/trilha/issues/40) Autenticação de verdade: sessão, rotação, logout, middleware de autorização, RBAC e
