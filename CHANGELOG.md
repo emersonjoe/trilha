@@ -3,6 +3,18 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.39.1 — 2026-09-06
+
+### Fixed
+
+- **`trilha audit` no longer reports metrics an app never exposes**. The item that guards
+  the monitoring endpoint used to turn on for any `Metrics:` in the project source, and
+  `cache.Options` has a field with that name that only picks the registry the counters go
+  to. The reference app uses it, so `trilha audit` — and therefore `trilha check` — failed
+  there with a critical that was never true. The item now looks at what actually opens the
+  endpoint: `Config.Observability.Metrics`, as an assignment or in the literal, or
+  `TRILHA_METRICS`.
+
 ## 0.39.0 — 2026-09-06
 
 ### Added

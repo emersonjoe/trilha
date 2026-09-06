@@ -171,3 +171,66 @@ func TestAuditoriaAvisaEscritaSemCSRF(t *testing.T) {
 		t.Errorf("app sem páginas é uma API: %v", got)
 	}
 }
+
+// The metrics item is about the endpoint Observability publishes, not about
+// every field named Metrics. cache.Options has one with the same name that
+// only picks the registry the counters go to, and it made the reference app
+// report a critical that was never true.
+func TestMetricsItemLooksAtTheEndpoint(t *testing.T) {
+	item := func(t *testing.T, cs []check) check {
+		t.Helper()
+		for _, c := range cs {
+			if strings.Contains(strings.ToLower(c.title), "metrics") {
+				return c
+			}
+		}
+		t.Fatal("the audit never looked at the metrics")
+		return check{}
+	}
+	proj := func(t *testing.T, src string) *project {
+		t.Helper()
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "main.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return &project{Root: root}
+	}
+	t.Setenv("TRILHA_METRICS", "")
+	t.Setenv("TRILHA_OBS_TOKEN", "")
+	t.Setenv("TRILHA_OBS_TRUSTED", "")
+
+	cases := []struct {
+		name  string
+		src   string
+		level string
+	}{
+		{"cache option", "package main\n\nvar c = cache.New(cache.Options{Name: \"posts\", MaxEntries: 500, Metrics: a.Metrics()})\n", "ok"},
+		{"assignment", "package main\n\nfunc f() { cfg.Observability.Metrics = \"/_trilha/metrics\" }\n", "critical"},
+		{"literal", "package main\n\nvar o = trilha.Observability{Metrics: \"/_trilha/metrics\"}\n", "critical"},
+		{"literal with the type elided", "package main\n\nvar c = trilha.Config{Observability: {Metrics: \"/_trilha/metrics\"}}\n", "critical"},
+		{"another observability field", "package main\n\nfunc f() { cfg.Observability.CacheFor = 2 * time.Second }\n", "ok"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := item(t, runAudit(proj(t, c.src), false))
+			if got.level != c.level {
+				t.Errorf("level %q (%s), want %q", got.level, got.title, c.level)
+			}
+		})
+	}
+
+	// The environment variable is what the runtime reads into the field, so
+	// it turns the item on even in a source that never mentions observability.
+	quiet := proj(t, "package main\n")
+	if got := item(t, runAudit(quiet, false)); got.level != "ok" {
+		t.Errorf("with no endpoint the level is %q", got.level)
+	}
+	t.Setenv("TRILHA_METRICS", "/_trilha/metrics")
+	if got := item(t, runAudit(quiet, false)); got.level != "critical" {
+		t.Errorf("with TRILHA_METRICS the level is %q", got.level)
+	}
+	t.Setenv("TRILHA_OBS_TOKEN", strings.Repeat("t", 32))
+	if got := item(t, runAudit(quiet, false)); got.level != "ok" {
+		t.Errorf("with a token the level is %q", got.level)
+	}
+}

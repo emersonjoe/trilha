@@ -85,7 +85,7 @@ func runAudit(p *project, vuln bool) []check {
 
 	// Observability (NIST SP 800-53 AU-9: audit information is protected;
 	// OWASP API Security 2023 API8: no unprotected monitoring endpoint).
-	metricsOn := os.Getenv("TRILHA_METRICS") != "" || strings.Contains(src, "Metrics:")
+	metricsOn := os.Getenv("TRILHA_METRICS") != "" || metricsConfigured(src)
 	tok := os.Getenv("TRILHA_OBS_TOKEN")
 	trusted := os.Getenv("TRILHA_OBS_TRUSTED") != "" || strings.Contains(src, "Trusted:")
 	switch {
@@ -252,6 +252,52 @@ func signsCookies(src string) bool {
 		}
 	}
 	return false
+}
+
+// metricsConfigured reports whether the source opens the metrics endpoint.
+// Only Config.Observability.Metrics does that — cache.Options has a field of
+// the same name that just picks the registry the counters go to, and matching
+// it made the reference app report an endpoint it never served. So the search
+// is anchored on the Observability field: the assignment
+// (Observability.Metrics = ...) and the literal (Observability{... Metrics: ...},
+// with the type written or elided).
+func metricsConfigured(src string) bool {
+	const field = "Observability"
+	for i := 0; ; {
+		j := strings.Index(src[i:], field)
+		if j < 0 {
+			return false
+		}
+		i += j + len(field)
+		rest := src[i:]
+		if strings.HasPrefix(rest, ".Metrics") {
+			return true
+		}
+		if strings.HasPrefix(rest, ":") { // Config{Observability: {...}}
+			rest = strings.TrimLeft(rest[1:], " \t\r\n")
+		}
+		if strings.HasPrefix(rest, "{") && strings.Contains(literalBody(rest), "Metrics:") {
+			return true
+		}
+	}
+}
+
+// literalBody returns what sits between the brace that opens s and its match,
+// so the search stops at the end of the literal instead of running into the
+// rest of the file.
+func literalBody(s string) string {
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '{':
+			depth++
+		case '}':
+			if depth--; depth == 0 {
+				return s[1:i]
+			}
+		}
+	}
+	return s
 }
 
 func projectSource(root string) string {
