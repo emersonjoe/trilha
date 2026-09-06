@@ -35,3 +35,15 @@ newer.
 
 Version 0.x: the API may change between minor versions. Breaking changes are listed in the
 repository's `CHANGELOG.md` with migration instructions.
+
+What "the API" means is written down. The exported symbols of the packages in the table above
+are covered by the promise; `internal/`, the exact output of the CLI and the HTML the `ui`
+components produce are not. Before a covered symbol disappears it gets a `Deprecated:` note
+saying what replaces it, a line in the CHANGELOG, and at least one minor version living
+alongside the replacement.
+
+The whole surface is versioned in
+[`api/current.txt`](https://github.com/emersonjoe/trilha/blob/main/api/current.txt), one line
+per symbol, and a test fails when it changes — so a removal shows up in the review instead of
+in your build. The rules are in
+[`API.md`](https://github.com/emersonjoe/trilha/blob/main/API.md).

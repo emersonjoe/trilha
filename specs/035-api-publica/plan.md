@@ -48,7 +48,7 @@ pkg trilha, const Dev Env
 pkg trilha, func New(cfg Config) *App
 pkg trilha, method (*App) Handler() http.Handler
 pkg trilha, type Config struct
-pkg trilha, field Config.AllowedHosts []string
+pkg trilha, type Config struct, AllowedHosts []string
 pkg trilha, type HandlerFunc func(*Ctx) error
 pkg h, func Text(s string) Node // deprecated
 ```
@@ -59,9 +59,9 @@ da linha quando o doc comment tem `Deprecated:`.
 ### Fase 2 — golden e `make api`
 
 `api/current.txt` versionado; `TestSuperficiePublica` compara e, na diferença, imprime as
-linhas que entraram (`+`) e saíram (`-`). `make api` regrava via `go run ./internal/apisurface/cmd`
-— não: sem binário novo. Regrava com `go test -run TestSuperficiePublica -update`, o mesmo
-padrão dos outros goldens do repo (`make golden`).
+linhas que entraram (`+`) e saíram (`-`). `make api` regrava com
+`go test . -run TestSuperficiePublica -update`, o mesmo padrão do `make golden`; nada de
+binário novo.
 
 ### Fase 3 — documentos
 

@@ -5,6 +5,29 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.26.0 — 2026-09-06
+
+### Added
+- **A written public API, and a test that guards it**
+  ([#35](https://github.com/emersonjoe/trilha/issues/35)). `API.md` (and
+  `docs/pt-BR/API.md`) says which packages the stability promise covers — `trilha`, `h`, `ui`,
+  `tmpl`, `ai`, `ai/mcp`, `auth`, `cache` — and what it does not: `internal/`, the exact output
+  of the CLI, the HTML the `ui` components emit, the generated `trilha_gen.go`. It also says
+  what counts as a breaking change, and the cycle a symbol goes through before it disappears:
+  a `Deprecated:` note naming the replacement, a line in this file, and at least one minor
+  version of coexistence.
+- **`api/current.txt`**: the exported surface of those eight packages, one line per symbol, in
+  the format of Go's own `api/go1.txt` — no parameter names, no documentation, sorted.
+  `TestSuperficiePublica` compares it on every `make test` and fails listing what came in and
+  what went out; `make api` rewrites it after an intentional change, and the diff of that file
+  is what makes a removal visible in review instead of in someone else's build. A symbol
+  carrying `Deprecated:` shows up marked. A second test refuses a public package that nobody
+  added to the list.
+- `GOVERNANCE.md`, the reference overview on the site and `CONTRIBUTING.md` point at the
+  document, in both languages; the constitution's principle IV now carries the boundary and the
+  deprecation cycle (version 1.4.0).
+
+
 ## 0.25.0 — 2026-09-06
 
 ### Added

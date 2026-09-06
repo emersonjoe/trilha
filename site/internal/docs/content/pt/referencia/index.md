@@ -34,3 +34,14 @@ Nenhum deles depende de nada fora da biblioteca padrão. Compatível com Go 1.22
 
 Versão 0.x: a API pode mudar entre versões menores. Mudanças incompatíveis são listadas no
 `CHANGELOG.md` do repositório com instruções de migração.
+
+O que é "a API" está escrito. Os símbolos exportados dos pacotes da tabela acima estão
+cobertos pela promessa; `internal/`, a saída exata da CLI e o HTML que os componentes do `ui`
+produzem, não. Antes de um símbolo coberto sumir, ele ganha uma nota `Deprecated:` dizendo o
+substituto, uma linha no CHANGELOG e pelo menos uma versão menor convivendo com ele.
+
+A superfície inteira é versionada em
+[`api/current.txt`](https://github.com/emersonjoe/trilha/blob/main/api/current.txt), uma linha
+por símbolo, e um teste falha quando ela muda — assim a remoção aparece na revisão em vez de
+aparecer na sua compilação. As regras estão no
+[`API.md`](https://github.com/emersonjoe/trilha/blob/main/docs/pt-BR/API.md).
