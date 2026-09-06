@@ -9,11 +9,19 @@ import (
 )
 
 // GET lists posts.
+//
+// Every /api route goes through the rate limit in app/api/middleware.go, and
+// a middleware is not something the generator can read: that 429 is only in
+// the document because this line puts it there.
+//
+// openapi:response 429
 func GET(c *trilha.Ctx) error {
 	return c.JSON(http.StatusOK, posts.All())
 }
 
 // POST creates a post from JSON {"title": "...", "body": "..."}.
+//
+// openapi:response 429
 func POST(c *trilha.Ctx) error {
 	var in struct {
 		Title string `json:"title" validate:"required,max=80"`

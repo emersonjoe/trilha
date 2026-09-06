@@ -108,6 +108,62 @@ Qual formato sai segue o tipo da rota, com o `Accept` como desempate: um `route.
 endereço recebe a página de erro, esteja a rota onde estiver. Veja
 [Erros](/pt/referencia/erros).
 
+## Documento OpenAPI
+
+`trilha openapi` escreve o documento OpenAPI 3.1 das suas rotas de API. Não há anotação para
+manter em dia: a fonte do documento é o código que responde à requisição.
+
+```bash
+trilha openapi                    # escreve openapi.json
+trilha openapi -o - | jq .paths   # na saída padrão
+trilha openapi --check            # no CI: falha quando o arquivo se descolou do código
+```
+
+O que ele lê sozinho:
+
+| No código | No documento |
+|---|---|
+| a pasta dentro de `app/api/` | o caminho, com `id_` virando parâmetro |
+| `GET`, `POST`, `PUT`, `PATCH`, `DELETE` exportados | uma operação para cada |
+| o comentário de doc | `summary` (primeira frase) e `description` |
+| `c.Bind(&in)` / `c.BindJSON(&in)` | `requestBody` com o schema de `in`, mais um 422 |
+| `c.JSON(status, v)` | aquele status com o schema de `v` |
+| `c.Writer().WriteHeader(204)` | aquele status sem corpo |
+| `c.Header("Content-Type", …)` | o media type da resposta |
+| `trilha.ErrNotFound`, `trilha.Errorf(status, …)`, `&trilha.Problem{Status: …}` | aquele status em `problem+json` |
+| tags `json` e `validate` | nomes das propriedades, `required`, `maxLength`, `enum`, `format` |
+
+O schema sai da mesma tag `validate` que o `Bind` lê, então o documento não promete o que a
+validação recusa. Toda operação leva também a resposta `default` com o schema
+[`Problem`](/pt/referencia/erros): desde a 0.21.0 é essa a forma de todo erro de API.
+
+Só rotas de `route.go` entram. Uma página responde HTML para um navegador; ali não há
+contrato que um cliente possa cobrar de você.
+
+### Quando a dedução não alcança
+
+Um middleware, um `c.Query` ou uma pasta com ponto no nome estão fora do que a leitura do
+handler conta. Escreva no comentário de doc:
+
+```go
+// GET escreve o mês em CSV.
+//
+// openapi:query mes string  mês a exportar, AAAA-MM (padrão: o atual)
+// openapi:response 429
+// openapi:tag relatorio
+func GET(c *trilha.Ctx) error { … }
+```
+
+| Diretiva | O que faz |
+|---|---|
+| `openapi:response <status> [tipo]` | acrescenta a resposta; sem tipo, `problem+json` |
+| `openapi:body <tipo>` | o corpo da requisição, quando não vem de um `Bind` |
+| `openapi:query <nome> <tipo> [descrição]` | um parâmetro de query |
+| `openapi:tag <nome>` | a tag da operação (padrão: o último segmento fixo do caminho) |
+
+Um tipo que ninguém declarou é erro apontando arquivo e handler, não schema vazio publicado
+como se estivesse certo.
+
 ## CSRF em APIs
 
 Por padrão, `route.go` **não** exige token CSRF: APIs costumam ser chamadas com token de

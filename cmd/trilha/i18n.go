@@ -49,6 +49,7 @@ Usage:
   trilha build [-o bin/<name>]                      generate + compile a single binary
   trilha routes                                     list the discovered routes
   trilha export [-o out] [--base /prefix]           export the static pages as HTML
+  trilha openapi [-o file] [--check]                write the OpenAPI document of the API routes
   trilha audit [--no-vuln]                          check the project's security and configuration
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
   trilha version
@@ -63,6 +64,7 @@ Uso:
   trilha build [-o bin/<nome>]                        gera + compila um binário único
   trilha routes                                       lista as rotas descobertas
   trilha export [-o out] [--base /prefixo]            exporta as páginas estáticas em HTML
+  trilha openapi [-o arquivo] [--check]               escreve o documento OpenAPI das rotas de API
   trilha audit [--no-vuln]                            verifica segurança e configuração do projeto
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
   trilha version
@@ -109,6 +111,17 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"ui kept":       {"kept", "mantido"},
 	"ui kept theme": {"kept (your theme)", "mantido (seu tema)"},
 	"ui local":      {"modified locally", "modificado localmente"},
+
+	// openapi
+	"flag openapi out":     {`output file ("-" writes to stdout)`, `arquivo de saída ("-" escreve na saída padrão)`},
+	"flag openapi title":   {"document title (default: the module name)", "título do documento (padrão: o nome do módulo)"},
+	"flag openapi version": {"API version (default: 0.0.0)", "versão da API (padrão: 0.0.0)"},
+	"flag openapi server":  {"base URL of the server", "URL base do servidor"},
+	"flag openapi check":   {"fail if the file on disk is out of date", "falha se o arquivo no disco estiver desatualizado"},
+	"openapi done":         {"✓ %s (%d operations)\n", "✓ %s (%d operações)\n"},
+	"openapi fresh":        {"the OpenAPI document is up to date", "o documento OpenAPI está atualizado"},
+	"openapi stale":        {"the OpenAPI document is out of date", "o documento OpenAPI está desatualizado"},
+	"openapi stale hint":   {"run `trilha openapi`", "rode `trilha openapi`"},
 
 	// audit
 	"flag no-vuln":        {"do not run govulncheck (no network)", "não rodar govulncheck (sem rede)"},

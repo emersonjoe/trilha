@@ -13,6 +13,12 @@ import (
 )
 
 // GET writes one line per account with budget, realized and variation.
+//
+// c.Query and the folder name are outside what the generator deduces: the
+// month is a parameter it cannot see, and "relatorio.csv" is an ugly tag.
+//
+// openapi:query mes string  month to export, AAAA-MM (default: the current one)
+// openapi:tag relatorio
 func GET(c *trilha.Ctx) error {
 	m := c.Query("mes")
 	if m == "" {

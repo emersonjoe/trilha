@@ -5,6 +5,31 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.22.0 — 2026-09-05
+
+### Added
+- **`trilha openapi`: the OpenAPI 3.1 document of the API routes, deduced from the code**
+  ([#31](https://github.com/emersonjoe/trilha/issues/31)). No annotation to keep in sync: the
+  folder gives the path and the path parameters, the exported `GET`/`POST`/`PUT`/`PATCH`/
+  `DELETE` give the operations, the doc comment gives `summary` and `description`,
+  `c.Bind`/`c.BindJSON` give the request body and a 422, `c.JSON(status, v)` gives the
+  response with the schema of `v`, `WriteHeader` gives a bare status, `c.Header("Content-Type", …)`
+  gives the media type, and `trilha.ErrNotFound`, `trilha.Errorf` and `&trilha.Problem{Status: …}`
+  give the `problem+json` responses. Page routes are not described.
+- The schema of a struct comes from the same `json` and `validate` tags `Bind` reads, so the
+  document cannot promise what the validation refuses: `required`, `maxLength`, `enum`,
+  `format` (`email`, `url`, `date-time`) and the numeric bounds. Every operation carries the
+  `default` response with the `Problem` schema, the shape of every API error since 0.21.0.
+- `openapi:` directives for what reading the handler cannot tell — a middleware, a `c.Query`,
+  a response built elsewhere: `openapi:response <status> [type]`, `openapi:body <type>`,
+  `openapi:query <name> <type> [description]` and `openapi:tag <name>`. A type nobody declares
+  is an error naming the file and the handler, not an empty schema.
+- `trilha openapi --check` compares the document with the file on disk and exits `1` when they
+  differ, the way `gen --check` does; `-o -` writes to stdout; `--title`, `--version` and
+  `--server` fill what the code cannot know.
+- `examples/orcamento` declares its `mes` parameter and its tag; `examples/blog` declares the
+  429 its rate-limit middleware answers.
+
 ## 0.21.0 — 2026-09-05
 
 ### Changed

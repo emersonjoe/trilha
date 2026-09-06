@@ -108,6 +108,62 @@ Which format comes out follows the kind of route, with `Accept` as the tie-break
 address bar gets the error page, wherever the route lives. See
 [Errors](/reference/errors).
 
+## The OpenAPI document
+
+`trilha openapi` writes the OpenAPI 3.1 document of your API routes. There is nothing to
+annotate and keep in sync: the source of the document is the code that answers the request.
+
+```bash
+trilha openapi                    # writes openapi.json
+trilha openapi -o - | jq .paths   # to stdout
+trilha openapi --check            # in the CI: fails when the file drifted from the code
+```
+
+What it reads by itself:
+
+| In the code | In the document |
+|---|---|
+| the folder under `app/api/` | the path, with `id_` as a path parameter |
+| exported `GET`, `POST`, `PUT`, `PATCH`, `DELETE` | one operation each |
+| the doc comment | `summary` (first sentence) and `description` |
+| `c.Bind(&in)` / `c.BindJSON(&in)` | `requestBody` with the schema of `in`, plus a 422 |
+| `c.JSON(status, v)` | that status with the schema of `v` |
+| `c.Writer().WriteHeader(204)` | that status with no body |
+| `c.Header("Content-Type", …)` | the media type of the response |
+| `trilha.ErrNotFound`, `trilha.Errorf(status, …)`, `&trilha.Problem{Status: …}` | that status as `problem+json` |
+| `json` and `validate` tags | property names, `required`, `maxLength`, `enum`, `format` |
+
+The schema comes out of the same `validate` tag `Bind` reads, so the document cannot promise
+something the validation refuses. Every operation also carries the `default` response with
+the [`Problem`](/reference/errors) schema: since 0.21.0 that is the shape of every API error.
+
+Only `route.go` routes are described. A page answers HTML to a browser; there is no contract
+there for a client to hold you to.
+
+### When the deduction does not reach
+
+A middleware, a `c.Query` or a folder with a dot in its name are outside what reading the
+handler can tell. Write it in the doc comment:
+
+```go
+// GET writes the month as CSV.
+//
+// openapi:query mes string  month to export, AAAA-MM (default: the current one)
+// openapi:response 429
+// openapi:tag report
+func GET(c *trilha.Ctx) error { … }
+```
+
+| Directive | What it does |
+|---|---|
+| `openapi:response <status> [type]` | adds the response; without a type, `problem+json` |
+| `openapi:body <type>` | the request body, when it is not a `Bind` |
+| `openapi:query <name> <type> [description]` | a query parameter |
+| `openapi:tag <name>` | the tag of the operation (default: the last fixed path segment) |
+
+A type nobody declares is an error naming the file and the handler, not an empty schema
+published as if it were right.
+
 ## CSRF in APIs
 
 By default `route.go` does **not** require a CSRF token: APIs are usually called with a

@@ -8,6 +8,8 @@ import (
 )
 
 // GET returns one post by slug.
+//
+// openapi:response 429
 func GET(c *trilha.Ctx) error {
 	p, ok := posts.Get(c.Param("id"))
 	if !ok {
@@ -17,6 +19,8 @@ func GET(c *trilha.Ctx) error {
 }
 
 // DELETE removes a post.
+//
+// openapi:response 429
 func DELETE(c *trilha.Ctx) error {
 	if !posts.Delete(c.Param("id")) {
 		return trilha.ErrNotFound

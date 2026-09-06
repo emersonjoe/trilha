@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -92,6 +93,38 @@ func TestE2E(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(proj, "out", "api")); err == nil {
 		t.Fatal("api must not be exported")
 	}
+
+	// #31: the document comes out of the routes, and --check is the line that
+	// keeps it from drifting from them.
+	doc := run(t, proj, cli, "openapi", "-o", "-")
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(doc), &parsed); err != nil {
+		t.Fatalf("openapi -o - must write JSON: %v\n%s", err, doc)
+	}
+	if parsed["openapi"] != "3.1.0" {
+		t.Fatal(doc)
+	}
+	if _, ok := parsed["paths"].(map[string]any)["/api/hello"]; !ok {
+		t.Fatal("the scaffolded API route is missing:", doc)
+	}
+	if out := run(t, proj, cli, "openapi"); !strings.Contains(out, "openapi.json") {
+		t.Fatal(out)
+	}
+	if out := run(t, proj, cli, "openapi", "--check"); !strings.Contains(out, "up to date") {
+		t.Fatal(out)
+	}
+	os.MkdirAll(filepath.Join(proj, "app", "api", "novo"), 0o755)
+	route := "package novo\n\nimport (\n\t\"net/http\"\n\n\t\"github.com/emersonjoe/trilha\"\n)\n\n// GET answers nothing useful.\nfunc GET(c *trilha.Ctx) error { return c.JSON(http.StatusOK, map[string]string{}) }\n"
+	os.WriteFile(filepath.Join(proj, "app", "api", "novo", "route.go"), []byte(route), 0o644)
+	staleCmd := exec.Command(cli, "openapi", "--check")
+	staleCmd.Dir = proj
+	if out, err := staleCmd.CombinedOutput(); err == nil {
+		t.Fatalf("a route missing from openapi.json must fail: %s", out)
+	} else if !strings.Contains(string(out), "out of date") {
+		t.Fatalf("%s", out)
+	}
+	os.RemoveAll(filepath.Join(proj, "app", "api", "novo"))
+	os.Remove(filepath.Join(proj, "openapi.json"))
 
 	// Boot the binary from a different directory: public/ must be embedded.
 	port := freePort(t)

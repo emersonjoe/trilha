@@ -9,6 +9,7 @@ trilha gen [--check]
 trilha dev [--addr :3000]
 trilha build [-o bin/<nome>]
 trilha export [-o out] [--base /prefixo]
+trilha openapi [-o arquivo] [--title T] [--version V] [--server URL] [--check]
 trilha routes
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
@@ -22,6 +23,7 @@ trilha version
 | `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` com `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + executa com `TRILHA_EXPORT` para gerar HTML estático |
+| `openapi` | escreve o documento OpenAPI 3.1 das rotas de API (`-o -` na saída padrão) |
 | `routes` | imprime `MÉTODOS PADRÃO ORIGEM` para cada rota |
 | `audit` | checklist de segurança antes de publicar (veja [Segurança](/pt/referencia/seguranca)) |
 
@@ -44,6 +46,19 @@ Grava ou atualiza o kit de interface em `public/`: `ui.theme.css` (só criado; �
 tema), `ui.css` e `ui.js` (atualizados; se editados localmente, só com `--force`).
 `--css-only` e `--js-only` limitam o que é tocado. `trilha new` roda o mesmo passo. Veja
 [Interface com ui](/pt/aprender/interface-com-ui).
+
+## trilha openapi
+
+Lê `app/`, deduz o documento a partir dos handlers e escreve `openapi.json`. `-o -` escreve na
+saída padrão; `--title`, `--version` e `--server` preenchem o que o código não tem como saber
+(o padrão é o nome do módulo, `0.0.0` e nenhum servidor). `--check` compara com o arquivo no
+disco e sai com `1` quando divergem — a mesma linha que o `gen --check` é, pelo mesmo motivo:
+
+```yaml
+- run: trilha openapi --check
+```
+
+O que é deduzido e as diretivas `openapi:` estão em [APIs](/pt/aprender/api#documento-openapi).
 
 ## trilha gen --check
 

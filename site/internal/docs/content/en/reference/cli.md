@@ -9,6 +9,7 @@ trilha gen [--check]
 trilha dev [--addr :3000]
 trilha build [-o bin/<name>]
 trilha export [-o out] [--base /prefix]
+trilha openapi [-o file] [--title T] [--version V] [--server URL] [--check]
 trilha routes
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
@@ -22,6 +23,7 @@ trilha version
 | `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + runs with `TRILHA_EXPORT` to produce static HTML |
+| `openapi` | writes the OpenAPI 3.1 document of the API routes (`-o -` to stdout) |
 | `routes` | prints `METHODS PATTERN SOURCE` for each route |
 | `audit` | security checklist before publishing (see [Security](/reference/security)) |
 
@@ -44,6 +46,19 @@ Writes or updates the UI kit in `public/`: `ui.theme.css` (only created; it is y
 `ui.css` and `ui.js` (updated; if edited locally, only with `--force`). `--css-only` and
 `--js-only` limit what is touched. `trilha new` runs the same step. See
 [UI kit](/learn/ui-kit).
+
+## trilha openapi
+
+Reads `app/`, deduces the document from the handlers and writes `openapi.json`. `-o -` writes
+to stdout; `--title`, `--version` and `--server` fill what the code cannot know (they default
+to the module name, `0.0.0` and no server). `--check` compares with the file on disk and exits
+`1` when they differ — the same line `gen --check` is, for the same reason:
+
+```yaml
+- run: trilha openapi --check
+```
+
+What is deduced and the `openapi:` directives are in [APIs](/learn/api#the-openapi-document).
 
 ## trilha gen --check
 
