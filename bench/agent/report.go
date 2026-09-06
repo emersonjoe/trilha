@@ -170,9 +170,15 @@ const methodology = `## Metodologia
 - **O que não conta.** Nada é descontado: um comando repetido, um arquivo aberto à toa e uma
   assinatura errada são exatamente o que a régua quer ver.
 - **Isolamento.** O agente roda com cwd numa cópia do exemplo em diretório temporário, com
-  ` + "`go.mod`" + ` próprio e ` + "`replace`" + ` para o repositório, a CLI ` + "`trilha`" + ` compilada no ` + "`PATH`" + `, sem
-  servidores MCP, sem plugins, sem memória do usuário (` + "`--setting-sources project`" + `): só o que
-  está dentro do projeto conta, que é o que a #46 (` + "`AGENTS.md`" + `) muda.
+  ` + "`go.mod`" + ` próprio e ` + "`replace`" + ` para uma cópia somente-leitura do repositório no mesmo
+  diretório (o agente lê o framework como leria o cache de módulos, mas não o altera), a CLI
+  ` + "`trilha`" + ` compilada no ` + "`PATH`" + `, sem servidores MCP, sem plugins, sem memória do usuário
+  (` + "`--setting-sources project`" + `): só o que está dentro do projeto conta, que é o que a #46
+  (` + "`AGENTS.md`" + `) muda.
+- **Negados.** A lista de comandos liberados cobre o que um ciclo Go precisa (` + "`go`" + `, ` + "`gofmt`" + `,
+  ` + "`trilha`" + `, ` + "`make`" + ` e utilitários de leitura). Uma recusa é o agente pedindo algo fora dela; a
+  coluna existe para que um vão na lista apareça em vez de virar custo do framework, e
+  ` + "`results.json`" + ` guarda o comando recusado.
 - **Passou.** Depois do agente, um teste escondido é copiado para a cópia e ` + "`go vet ./...`" + ` +
   ` + "`go test ./...`" + ` rodam. Verde é passou; o resto, não. O teste falha na fixture intocada, e
   ` + "`go test ./...`" + ` do módulo ` + "`bench`" + ` prova isso sem agente nenhum.

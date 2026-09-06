@@ -73,8 +73,16 @@ func TestBenchComments(t *testing.T) {
 		WantStatus(http.StatusNotFound)
 	var list []map[string]any
 	trilha.TestRequest(t, a, "GET", "/api/posts/ola-trilha/comments").WantStatus(http.StatusOK).JSON(&list)
-	if len(list) != 1 || list[0]["author"] != "Ana" {
-		t.Fatalf("GET after one POST = %v, want one comment by Ana", list)
+	// The store is shared by every test in the package, so the list may
+	// hold more than this test wrote: ours must be in it, that is all.
+	found := false
+	for _, c := range list {
+		if c["author"] == "Ana" && c["body"] == "Primeiro!" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("GET after POST = %v, want the comment by Ana in it", list)
 	}
 }
 `},

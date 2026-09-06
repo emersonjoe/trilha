@@ -21,7 +21,9 @@ Um programa em `bench/agent/` (pacote `main` dentro do módulo `bench`, que já 
 runtime) que:
 
 1. monta uma cópia de `examples/blog` ou `examples/sso` num diretório temporário, com
-   `go.mod` próprio e `replace` para o repositório, e a CLI `trilha` compilada no `PATH`;
+   `go.mod` próprio e `replace` para uma cópia somente-leitura do repositório no mesmo
+   diretório (liberada ao agente com `--add-dir`: ele lê o framework, não o altera), e a CLI
+   `trilha` compilada no `PATH`;
 2. roda um agente de linha de comando (`claude -p`, por padrão) com uma frase de tarefa, cwd
    na cópia, sem MCP, sem plugins, sem memória do usuário (`--setting-sources project`, para
    que só o que estiver **no projeto** — o futuro `AGENTS.md` da #46 — conte);
@@ -83,6 +85,12 @@ na fixture intocada (um teste que passa antes do agente não mede nada).
 - [x] T006 Docs: seção "Custo por feature para um agente" em `reference/performance` e
       `referencia/desempenho`.
 - [x] T007 `CHANGELOG.md`, `version` em `cmd/trilha/main.go`.
+- [x] T007b Rodada de fumaça (`comments`, 1 rodada): o teste escondido assumia loja vazia e
+      falhava com o teste do próprio agente no mesmo pacote (corrigido: "o comentário de Ana
+      está na lista"); 10 recusas, quase todas leituras do código do framework fora do cwd
+      (corrigido: cópia somente-leitura do repositório no workspace + `--add-dir`) e `echo`/
+      `command -v` fora da lista (acrescentados). `results.json` passa a guardar o comando
+      recusado.
 - [ ] T008 Primeira medição (exige `claude auth login` na máquina): `make bench-agent`, commit
       de `results.json` + `RESULTS.md`, item 23 do `ROADMAP.md`, `make release VERSION=0.33.0 ISSUES="45"`.
 

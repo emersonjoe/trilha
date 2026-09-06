@@ -67,6 +67,11 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 	}
 	if !keep {
 		defer os.RemoveAll(work)
+		defer Unlock(work)
+	}
+	trilhaVersion := version(repo)
+	if repo, err = Workspace(repo, work); err != nil {
+		return err
 	}
 	bin := filepath.Join(work, "bin")
 	if err := BuildCLI(repo, bin); err != nil {
@@ -98,7 +103,7 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 	if err != nil {
 		return err
 	}
-	results.Trilha = version(repo)
+	results.Trilha = trilhaVersion
 	results.Agent = agentVersion(agent)
 	results.Machine = machine()
 	results.Date = time.Now().UTC().Format("2006-01-02")
@@ -110,12 +115,15 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 			}
 			fmt.Printf("%-14s run %d/%d … ", s.Name, n, runs)
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			u, raw, err := RunAgent(ctx, dir, s.Prompt, AgentOptions{Command: agent, Model: model, MaxTurns: maxTurns, Path: bin})
+			u, raw, err := RunAgent(ctx, dir, s.Prompt, AgentOptions{Command: agent, Model: model, MaxTurns: maxTurns, Path: bin, Dirs: []string{repo}})
 			if err != nil {
 				cancel()
 				return err
 			}
 			r := Run{Scenario: s.Name, N: n, At: time.Now().UTC(), Usage: u, Summary: summary(raw)}
+			// The raw result lives next to the fixture: with -keep it is
+			// there to read, without it it goes with the rest.
+			_ = os.WriteFile(dir+".agent.json", raw, 0o644)
 			if u.Error == "" {
 				r.Passed, r.Verify = Verify(ctx, dir, s)
 			}

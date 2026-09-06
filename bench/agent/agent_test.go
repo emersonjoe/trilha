@@ -4,12 +4,13 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
 
-const successJSON = `{"type":"result","subtype":"success","is_error":false,"duration_ms":184000,"num_turns":23,"result":"Done.\nAdded the route.","total_cost_usd":0.42,"usage":{"input_tokens":1200,"cache_creation_input_tokens":30000,"cache_read_input_tokens":410000,"output_tokens":9800},"modelUsage":{"claude-sonnet-5":{}},"permission_denials":[{"tool_name":"Bash"}]}`
+const successJSON = `{"type":"result","subtype":"success","is_error":false,"duration_ms":184000,"num_turns":23,"result":"Done.\nAdded the route.","total_cost_usd":0.42,"usage":{"input_tokens":1200,"cache_creation_input_tokens":30000,"cache_read_input_tokens":410000,"output_tokens":9800},"modelUsage":{"claude-sonnet-5":{}},"permission_denials":[{"tool_name":"Bash","tool_input":{"command":"go install ./..."}}]}`
 
 const authErrorJSON = `{"type":"result","subtype":"success","is_error":true,"duration_ms":73,"num_turns":1,"result":"Failed to authenticate: OAuth session expired and could not be refreshed","total_cost_usd":0,"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0},"modelUsage":{},"permission_denials":[]}`
 
@@ -18,8 +19,8 @@ func TestParseResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Usage{Input: 31200, CacheRead: 410000, Output: 9800, Turns: 23, DurationMs: 184000, CostUSD: 0.42, Model: "claude-sonnet-5", Denials: 1}
-	if u != want {
+	want := Usage{Input: 31200, CacheRead: 410000, Output: 9800, Turns: 23, DurationMs: 184000, CostUSD: 0.42, Model: "claude-sonnet-5", Denials: 1, Denied: []string{"Bash: go install ./..."}}
+	if !reflect.DeepEqual(u, want) {
 		t.Fatalf("got %+v\nwant %+v", u, want)
 	}
 	u, err = ParseResult([]byte(authErrorJSON))

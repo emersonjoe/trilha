@@ -30,7 +30,10 @@ type Usage struct {
 	CostUSD    float64 `json:"cost_usd"`
 	Model      string  `json:"model"`
 	Denials    int     `json:"denials"`
-	Error      string  `json:"error,omitempty"`
+	// Denied names the tools the harness refused, so an allowlist gap is
+	// visible instead of being counted as the framework's cost.
+	Denied []string `json:"denied,omitempty"`
+	Error  string   `json:"error,omitempty"`
 }
 
 // claudeResult is the shape of `claude -p --output-format json`: one object,
@@ -49,7 +52,10 @@ type claudeResult struct {
 		Output      int `json:"output_tokens"`
 	} `json:"usage"`
 	ModelUsage        map[string]json.RawMessage `json:"modelUsage"`
-	PermissionDenials []json.RawMessage          `json:"permission_denials"`
+	PermissionDenials []struct {
+		Tool  string          `json:"tool_name"`
+		Input json.RawMessage `json:"tool_input"`
+	} `json:"permission_denials"`
 }
 
 // ParseResult reads the agent's JSON. An authentication failure is a result
@@ -72,6 +78,9 @@ func ParseResult(b []byte) (Usage, error) {
 		CostUSD:    r.TotalCost,
 		Denials:    len(r.PermissionDenials),
 	}
+	for _, d := range r.PermissionDenials {
+		u.Denied = append(u.Denied, deniedCall(d.Tool, d.Input))
+	}
 	models := make([]string, 0, len(r.ModelUsage))
 	for m := range r.ModelUsage {
 		models = append(models, m)
@@ -91,7 +100,8 @@ type AgentOptions struct {
 	Command  string // "claude" by default
 	Model    string // empty: the CLI's default; recorded from the result anyway
 	MaxTurns int
-	Path     string // prepended to PATH so `trilha` resolves
+	Path     string   // prepended to PATH so `trilha` resolves
+	Dirs     []string // extra directories the agent may read (--add-dir)
 }
 
 // allowedTools is what the agent may run without asking. In -p mode a tool
@@ -100,6 +110,9 @@ var allowedTools = []string{
 	"Bash(go:*)", "Bash(gofmt:*)", "Bash(trilha:*)", "Bash(make:*)",
 	"Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(sed:*)",
 	"Bash(grep:*)", "Bash(find:*)", "Bash(wc:*)", "Bash(tree:*)", "Bash(mkdir:*)",
+	"Bash(echo:*)", "Bash(command:*)", "Bash(which:*)", "Bash(env:*)", "Bash(pwd)",
+	"Bash(true)", "Bash(diff:*)", "Bash(awk:*)", "Bash(sort:*)", "Bash(cut:*)",
+	"Bash(xargs:*)", "Bash(test:*)", "Bash(rm:*)", "Bash(mv:*)", "Bash(cp:*)",
 }
 
 // RunAgent runs one task in dir and returns what it cost plus the raw JSON.
@@ -115,6 +128,9 @@ func RunAgent(ctx context.Context, dir, prompt string, o AgentOptions) (Usage, [
 		"--no-session-persistence",
 		"--setting-sources", "project",
 		"--max-turns", fmt.Sprint(orInt(o.MaxTurns, 80)),
+	}
+	for _, d := range o.Dirs {
+		args = append(args, "--add-dir", d)
 	}
 	if o.Model != "" {
 		args = append(args, "--model", o.Model)
@@ -157,4 +173,22 @@ func orInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// deniedCall is "Bash: go build ./..." or just the tool name: enough to
+// widen the allowlist, short enough for a results line.
+func deniedCall(tool string, input json.RawMessage) string {
+	var in struct {
+		Command string `json:"command"`
+		Path    string `json:"file_path"`
+	}
+	_ = json.Unmarshal(input, &in)
+	arg := or(in.Command, in.Path)
+	if arg == "" {
+		return tool
+	}
+	if len(arg) > 60 {
+		arg = arg[:60] + "…"
+	}
+	return tool + ": " + arg
 }

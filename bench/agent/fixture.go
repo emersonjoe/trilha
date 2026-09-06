@@ -95,6 +95,69 @@ func command(dir, name string, args ...string) *exec.Cmd {
 	return c
 }
 
+// Workspace copies the framework repository into work/trilha and makes the
+// copy read-only. The fixture's replace points there, so the agent can read
+// the framework the way it would read a module cache, and cannot change it:
+// what the ruler measures is the framework as committed, not as patched by
+// the agent to make a test pass.
+func Workspace(repo, work string) (string, error) {
+	dst := filepath.Join(work, "trilha")
+	skip := map[string]bool{".git": true, "bench": true, ".trilha": true, "bin": true}
+	err := filepath.WalkDir(repo, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(repo, path)
+		if d.IsDir() && rel != "." && skip[d.Name()] {
+			return filepath.SkipDir
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, b, 0o444)
+	})
+	if err != nil {
+		return "", err
+	}
+	return dst, lock(dst, true)
+}
+
+// lock makes every directory under dir read-only (or writable again, for
+// the cleanup): a read-only file in a writable directory can still be
+// replaced, which is what the agent would do.
+func lock(dir string, ro bool) error {
+	var dirs []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			dirs = append(dirs, path)
+		}
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	mode := os.FileMode(0o555)
+	if !ro {
+		mode = 0o755
+	}
+	// Deepest first when locking does not matter; unlocking must open the
+	// parent before walking into the child, which WalkDir's order gives.
+	for _, d := range dirs {
+		if err := os.Chmod(d, mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Unlock makes the workspace removable again.
+func Unlock(work string) { _ = lock(filepath.Join(work, "trilha"), false) }
+
 // copyTree copies src into dst, skipping what belongs to the repo and not to
 // the project (the dev cache, compiled binaries) and rewriting the module
 // path inside Go files.
