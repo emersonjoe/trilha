@@ -228,6 +228,64 @@ adding the framework to the existing tree. Comparing two directories is easier t
 untangling one.
 :::
 
+## Keeping the old shell
+
+Migrating a route at a time works until the shell gets in the way: the new page is written
+in `h`, but the header, the menu and the footer are a `layout.html` that the whole app still
+shares. Rewriting the shell first is the expensive way round. `tmpl.Wrap` puts the new
+inside the old:
+
+```go
+//go:embed casca.html
+var files embed.FS
+
+// The shell is prepared once, at package load: html/template only clones a set
+// that has not executed yet.
+var casca = tmpl.Wrap(tmpl.Must(files, "*.html"), "casca", "conteudo")
+
+type dados struct{ Titulo, Nonce, CSRF string }
+
+// pagina builds the template data from the *http.Request alone — which is all a
+// renderer that does not know the *Ctx receives.
+func pagina(r *http.Request) dados {
+	return dados{
+		Titulo: "Área migrada",
+		Nonce:  trilha.NonceFrom(r),
+		CSRF:   trilha.CSRFTokenFrom(r),
+	}
+}
+
+// Layout puts the h body inside the old shell.
+func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
+	return casca.Node(pagina(c.Request()), children), nil
+}
+```
+
+The template does not change shape — the slot is the `{{template "conteudo" .}}` it already
+had:
+
+```html
+{{define "casca"}}
+<section class="legado">
+  <nav class="sub ui-nav"><span>{{.Titulo}}</span></nav>
+  <meta name="csrf-token" content="{{.CSRF}}">
+  <main id="legado-conteudo">{{template "conteudo" .}}</main>
+  <script nonce="{{.Nonce}}">window.legado = { csrf: document.querySelector('meta[name=csrf-token]').content };</script>
+</section>
+{{end}}
+```
+
+Two details make this safe. The app converts nothing to `template.HTML`: what `h` rendered
+was escaped on the way in, and `tmpl` is the single place that says so. And the shell reaches
+the CSRF token and the CSP nonce through `trilha.CSRFTokenFrom(r)` and `trilha.NonceFrom(r)`,
+which answer from the `*http.Request` — the only thing a renderer that does not know the
+`*Ctx` ever receives, including `templ`, a handler of your own, or a template the app
+executes itself. Outside a Trilha request both answer `""`.
+
+A shell that never reaches the slot — a `{{if}}` that hid it, the wrong slot name — fails the
+render instead of quietly answering a page with no content. `examples/blog` has a working
+copy in `app/legado-`.
+
 ## Between minor versions
 
 The rule the project follows: before 1.0, a minor version may change what a new app looks

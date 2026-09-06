@@ -670,3 +670,43 @@ func TestWellKnownRespondePreflight(t *testing.T) {
 		t.Fatalf("a API do blog ganhou a política do documento: %q", got)
 	}
 }
+
+// A casca velha em html/template com o miolo novo em h: o nonce e o token de
+// CSRF chegam ao template só pelo *http.Request, sem middleware do app.
+func TestUS2_CascaAntigaComMioloNovo(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.Get("/legado").WantStatus(200)
+	body := rec.Body.String()
+	nonce := entre(t, body, `<script nonce="`, `"`)
+	if !strings.Contains(rec.Header().Get("Content-Security-Policy"), "'nonce-"+nonce+"'") {
+		t.Fatalf("nonce %q fora da CSP %q", nonce, rec.Header().Get("Content-Security-Policy"))
+	}
+	token := entre(t, body, `<meta name="csrf-token" content="`, `"`)
+	if ck := rec.Cookie(trilha.CSRFCookie); ck == nil || ck.Value != token {
+		t.Fatalf("o token do template não é o do cookie: %q", token)
+	}
+	// O miolo em h entrou no slot da casca, e a casca não vazou o marcador.
+	if !strings.Contains(body, `<main id="legado-conteudo">`) || !strings.Contains(body, "Tela nova, casca velha") {
+		t.Fatal(body)
+	}
+	if strings.Contains(body, "trilha-slot-") {
+		t.Fatal("o marcador do slot vazou para a página")
+	}
+	c.postForm("/legado", "nome=Ana").WantStatus(303)
+	c.Get("/legado").WantStatus(200).WantContains("Salvo Ana")
+}
+
+// entre devolve o que está entre dois pedaços de texto, ou falha o teste.
+func entre(t *testing.T, s, abre, fecha string) string {
+	t.Helper()
+	i := strings.Index(s, abre)
+	if i < 0 {
+		t.Fatalf("não achei %q", abre)
+	}
+	rest := s[i+len(abre):]
+	j := strings.Index(rest, fecha)
+	if j < 0 {
+		t.Fatalf("não achei %q depois de %q", fecha, abre)
+	}
+	return rest[:j]
+}

@@ -19,6 +19,8 @@ import (
 	app_blog_novo "github.com/emersonjoe/trilha/examples/blog/app/blog/novo"
 	app_blog_slug_ "github.com/emersonjoe/trilha/examples/blog/app/blog/slug_"
 	app_docs_path__ "github.com/emersonjoe/trilha/examples/blog/app/docs/path__"
+	app_legado_ "github.com/emersonjoe/trilha/examples/blog/app/legado-"
+	app_legado__legado "github.com/emersonjoe/trilha/examples/blog/app/legado-/legado"
 	app_login "github.com/emersonjoe/trilha/examples/blog/app/login"
 	app_marketing_ "github.com/emersonjoe/trilha/examples/blog/app/marketing-"
 	app_marketing__precos "github.com/emersonjoe/trilha/examples/blog/app/marketing-/precos"
@@ -119,6 +121,15 @@ func newApp() *trilha.App {
 		Pattern:     "/docs/{path...}",
 		Page:        app_docs_path__.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/legado",
+		Page:    app_legado__legado.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_legado__legado.POST,
+		},
+		Layouts:     []trilha.LayoutFunc{app_legado_.Layout, app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{

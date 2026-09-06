@@ -1,6 +1,7 @@
 package trilha
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -133,5 +134,52 @@ func TestCSRFNamesDefault(t *testing.T) {
 	a.Handler()
 	if got := a.Config().CSRF; got.Cookie != CSRFCookie || got.Field != CSRFField || got.Header != CSRFHeader {
 		t.Fatalf("%+v", got)
+	}
+}
+
+// Quem renderiza com html/template só recebe o *http.Request: os dois valores
+// que a Trilha sorteia têm de chegar lá sem middleware nenhum do app.
+func TestNonceECSRFPeloRequest(t *testing.T) {
+	a := New(Config{Logger: quiet()})
+	var nonce, token string
+	a.Register(Route{Pattern: "/velha",
+		Middlewares: []MiddlewareFunc{func(c *Ctx, next Next) error {
+			// Um middleware que empilha o seu contexto não pode derrubar os dois.
+			c.SetContext(context.WithValue(c.Context(), ctxKey{}, "ana"))
+			return next()
+		}},
+		Page: func(c *Ctx) (h.Node, error) {
+			r := c.Request()
+			nonce, token = NonceFrom(r), CSRFTokenFrom(r)
+			return h.Form(h.Method("post"),
+				h.Input(h.Type("hidden"), h.Name(CSRFField), h.Value(token))), nil
+		},
+		Methods: map[string]HandlerFunc{"POST": func(c *Ctx) error { return c.Text(200, "salvo") }},
+	})
+	rec := get(t, a, "GET", "/velha", "", nil)
+	if nonce == "" || !strings.Contains(rec.Header().Get("Content-Security-Policy"), "'nonce-"+nonce+"'") {
+		t.Fatalf("nonce %q não é o da CSP %q", nonce, rec.Header().Get("Content-Security-Policy"))
+	}
+	ck := rec.Result().Cookies()
+	if len(ck) != 1 || ck[0].Value != token {
+		t.Fatalf("token %q, cookie %+v", token, ck)
+	}
+	// O formulário montado só com o que veio do request passa na verificação.
+	post := get(t, a, "POST", "/velha", CSRFField+"="+token, map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+		"Cookie":       CSRFCookie + "=" + token,
+	})
+	if post.Code != 200 {
+		t.Fatalf("%d %s", post.Code, post.Body.String())
+	}
+}
+
+func TestNonceECSRFForaDaTrilha(t *testing.T) {
+	r := httptest.NewRequest("GET", "/", nil)
+	if NonceFrom(r) != "" || CSRFTokenFrom(r) != "" {
+		t.Fatal("uma requisição que não veio da Trilha não tem nem nonce nem token")
+	}
+	if NonceFrom(nil) != "" || CSRFTokenFrom(nil) != "" {
+		t.Fatal("nil não pode entrar em pânico")
 	}
 }

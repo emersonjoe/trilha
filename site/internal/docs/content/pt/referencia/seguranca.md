@@ -25,6 +25,9 @@ base-uri 'self'; form-action 'self'
 ```
 
 `c.Nonce()` devolve o nonce da requisição; `trilha.NonceAttr(c)` o coloca em um `h.Script`.
+`trilha.NonceFrom(r)` dá o mesmo valor para quem só tem o `*http.Request` —
+`html/template`, `templ`, um handler seu —, então a casca de um app em migração não
+precisa de um middleware próprio para alcançá-lo.
 Ajuste em `Setup` por `a.Security()`.
 
 ### Quando a resposta é do hospedeiro

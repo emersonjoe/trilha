@@ -160,6 +160,21 @@ func (c *Ctx) Nonce() string {
 	return c.nonce
 }
 
+// NonceFrom returns the CSP nonce of a request Trilha is serving, for a
+// renderer that only receives the *http.Request: html/template, templ, a
+// handler of your own. It is the same value c.Nonce() gives, and the same one
+// the Content-Security-Policy of this response announces. A request that did
+// not come through Trilha has no nonce, and the answer is "" — the same answer
+// as an app embedded in a host that owns the policy.
+//
+//	{{if .Nonce}}<script nonce="{{.Nonce}}">…</script>{{end}}
+func NonceFrom(r *http.Request) string {
+	if c := ctxOf(r); c != nil {
+		return c.Nonce()
+	}
+	return ""
+}
+
 // NonceAttr renders the nonce attribute for an inline <script>:
 // h.Script(trilha.NonceAttr(c), h.Raw(js)). It renders nothing when the
 // request has no nonce, because nonce="" is the same lie in another shape.

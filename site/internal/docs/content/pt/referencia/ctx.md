@@ -141,6 +141,8 @@ corpo nela, e o log de acesso registra 101.
 |---|---|
 | `CSRFToken() string` | token da requisição; cria o cookie na primeira chamada |
 | `trilha.CSRFInput(c) h.Node` | `<input type="hidden" name="_csrf">` para formulários |
+| `trilha.CSRFTokenFrom(r) string` | o mesmo token, para quem só recebe o `*http.Request` (`html/template`, `templ`, um handler seu); `""` fora de uma requisição da Trilha |
+| `trilha.NonceFrom(r) string` | o nonce da CSP daquela requisição, mesmo motivo e mesma regra ([Segurança](/pt/referencia/seguranca)) |
 
 O token é verificado automaticamente em `POST`, `PUT`, `PATCH` e `DELETE` de `page.go`
 (e de `route.go` se `Config.CSRFForAPI` estiver ligado), pelo campo `_csrf` ou pelo

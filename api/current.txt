@@ -14,6 +14,7 @@ pkg trilha, const StatusFail
 pkg trilha, const StatusPass
 pkg trilha, func AddRule(string, func(Field) bool)
 pkg trilha, func CSRFInput(*Ctx) h.Node
+pkg trilha, func CSRFTokenFrom(*http.Request) string
 pkg trilha, func CompileErrorPage(string) string
 pkg trilha, func ConfigFromEnv() Config
 pkg trilha, func Errorf(int, string, ...any) error
@@ -23,6 +24,7 @@ pkg trilha, func New(Config) *App
 pkg trilha, func NewSigner(...[]byte) *Signer
 pkg trilha, func NewTestClient(TestingT, *App) *TestClient
 pkg trilha, func NonceAttr(*Ctx) h.Node
+pkg trilha, func NonceFrom(*http.Request) string
 pkg trilha, func Provide[T any](*App, T)
 pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
@@ -741,8 +743,12 @@ pkg h, func Width(string) Node
 pkg h, type Node interface
 pkg h, type Node interface, Render(io.Writer) error
 pkg h, var Nil Node
+pkg tmpl, func HTML(h.Node) (template.HTML, error)
 pkg tmpl, func Must(fs.FS, ...string) *template.Template
 pkg tmpl, func Node(*template.Template, string, any) h.Node
+pkg tmpl, func Wrap(*template.Template, string, string) *Shell
+pkg tmpl, method (*Shell) Node(any, h.Node) h.Node
+pkg tmpl, type Shell struct
 pkg ui, const FlashError
 pkg ui, const FlashFadeMs
 pkg ui, const FlashInfo

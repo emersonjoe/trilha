@@ -80,6 +80,21 @@ func CSRFInput(c *Ctx) h.Node {
 	return h.Input(h.Type("hidden"), h.Name(c.app.cfg.CSRF.names().Field), h.Value(c.CSRFToken()))
 }
 
+// CSRFTokenFrom returns the CSRF token of a request Trilha is serving, for a
+// renderer that only receives the *http.Request. The hidden field is named
+// CSRFField unless the app renamed it in Config.CSRF:
+//
+//	<input type="hidden" name="_csrf" value="{{.CSRF}}">
+//
+// A request from outside Trilha answers "" rather than minting a token nobody
+// would be able to check.
+func CSRFTokenFrom(r *http.Request) string {
+	if c := ctxOf(r); c != nil {
+		return c.CSRFToken()
+	}
+	return ""
+}
+
 // checkCSRF validates the double-submit token on state-changing requests.
 func (a *App) checkCSRF(c *Ctx) error {
 	names := a.cfg.CSRF.names()

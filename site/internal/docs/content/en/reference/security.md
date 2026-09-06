@@ -25,6 +25,9 @@ base-uri 'self'; form-action 'self'
 ```
 
 `c.Nonce()` returns the request's nonce; `trilha.NonceAttr(c)` puts it on an `h.Script`.
+`trilha.NonceFrom(r)` answers the same value to a renderer that only has the
+`*http.Request` — `html/template`, `templ`, a handler of your own — so the shell of an app
+being migrated does not need a middleware of its own to reach it.
 Adjust in `Setup` through `a.Security()`.
 
 ### When the response belongs to a host

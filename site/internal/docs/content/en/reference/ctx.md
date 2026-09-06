@@ -140,6 +140,8 @@ body on it, and the access log records 101.
 |---|---|
 | `CSRFToken() string` | the request's token; creates the cookie on the first call |
 | `trilha.CSRFInput(c) h.Node` | `<input type="hidden" name="_csrf">` for forms |
+| `trilha.CSRFTokenFrom(r) string` | the same token, for a renderer that only receives the `*http.Request` (`html/template`, `templ`, a handler of your own); `""` outside a Trilha request |
+| `trilha.NonceFrom(r) string` | the CSP nonce of the request, same reason and same rule ([Security](/reference/security)) |
 
 The token is verified automatically on `POST`, `PUT`, `PATCH` and `DELETE` of `page.go` (and
 of `route.go` if `Config.CSRFForAPI` is on), through the `_csrf` field or the

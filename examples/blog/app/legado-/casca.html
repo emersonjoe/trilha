@@ -1,0 +1,8 @@
+{{define "casca"}}
+<section class="legado">
+  <nav class="sub ui-nav"><span>{{.Titulo}}</span></nav>
+  <meta name="csrf-token" content="{{.CSRF}}">
+  <main id="legado-conteudo">{{template "conteudo" .}}</main>
+  <script nonce="{{.Nonce}}">window.legado = { csrf: document.querySelector('meta[name=csrf-token]').content };</script>
+</section>
+{{end}}

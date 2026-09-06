@@ -62,7 +62,25 @@ func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
 		id = hex.EncodeToString(b[:])
 	}
 	c := &Ctx{w: w, r: r, app: a, kind: kind, values: map[string]any{}, requestID: id}
+	// The Ctx travels in the request context so that a renderer which only
+	// receives *http.Request — html/template, templ, a plain handler — can
+	// still reach the nonce and the CSRF token. What travels is the Ctx and
+	// not the two values because both are lazy: reading the token is what
+	// creates its cookie, and computing it up front would put a Set-Cookie on
+	// every response of the app.
+	c.r = r.WithContext(context.WithValue(r.Context(), reqCtxKey{}, c))
 	w.before = c.writeFlashes
+	return c
+}
+
+type reqCtxKey struct{}
+
+// ctxOf returns the Ctx of a request served by Trilha, or nil.
+func ctxOf(r *http.Request) *Ctx {
+	if r == nil {
+		return nil
+	}
+	c, _ := r.Context().Value(reqCtxKey{}).(*Ctx)
 	return c
 }
 

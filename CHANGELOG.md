@@ -55,6 +55,22 @@ versioning. This file is written in English only.
   attribute is a loose string, that string is the one nobody proofreads. **`h.Attrs(...)`**
   groups attributes into one node, for a component that sets more than one on the element it
   is placed in.
+- **`trilha.NonceFrom(r)` and `trilha.CSRFTokenFrom(r)`**
+  ([#44](https://github.com/emersonjoe/trilha/issues/44)). The nonce and the CSRF token used
+  to be reachable only through the `*Ctx`, which is to say only by whoever renders with `h`.
+  A renderer that receives the `*http.Request` and nothing else — `html/template`, `templ`, a
+  handler of your own — had to add a middleware of its own to see either. Both now answer from
+  the request, and `""` outside a Trilha request.
+- **`tmpl.Wrap`, `Shell.Node` and `tmpl.HTML`**
+  ([#57](https://github.com/emersonjoe/trilha/issues/57)). `tmpl.Node` put a template inside
+  a page; the way back did not exist, so an app migrating from `html/template` had to rewrite
+  its shell before it could write one new screen in `h`. `Wrap(t, name, slot)` prepares the
+  shell once, at package load, and `shell.Node(data, children)` renders it with the `h` node
+  in the slot — no `template.HTML` written by the app, because what `h` rendered was already
+  escaped and `tmpl` is the single place that says so. Preparing the shell up front instead
+  of cloning it per request costs 8.3× less on the same 21 templates. A shell that never
+  reaches the slot fails the render instead of quietly answering a page with no content.
+  `examples/blog` keeps a working copy in `app/legado-`.
 
 ### Changed
 
@@ -77,6 +93,11 @@ versioning. This file is written in English only.
   [migration recipe](https://emersonjoe.github.io/trilha/cookbook/migration) now carries the
   whole sequence, including the step that is easy to miss — running `trilha agents` again
   after every CLI upgrade, since `AGENTS.md` names the commands of the version that wrote it.
+- **How to keep the old shell while the inside is rewritten**. The
+  [migration recipe](https://emersonjoe.github.io/trilha/cookbook/migration) and the
+  [tmpl reference](https://emersonjoe.github.io/trilha/reference/tmpl) now show the halfway
+  state of a migration: the `layout.html` of the app that already exists, with the pages
+  under it written in `h`.
 
 ## 0.38.0 — 2026-09-06
 

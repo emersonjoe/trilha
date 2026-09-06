@@ -230,6 +230,62 @@ acrescentar o framework à árvore que já existe. Comparar dois diretórios é 
 desembaraçar um.
 :::
 
+## Ficar com a casca antiga
+
+Migrar uma rota por vez funciona até a casca atrapalhar: a página nova está escrita em `h`,
+mas o cabeçalho, o menu e o rodapé são um `layout.html` que o app inteiro ainda divide.
+Reescrever a casca primeiro é o caminho caro. O `tmpl.Wrap` põe o novo dentro do velho:
+
+```go
+//go:embed casca.html
+var files embed.FS
+
+// The shell is prepared once, at package load: html/template only clones a set
+// that has not executed yet.
+var casca = tmpl.Wrap(tmpl.Must(files, "*.html"), "casca", "conteudo")
+
+type dados struct{ Titulo, Nonce, CSRF string }
+
+// pagina builds the template data from the *http.Request alone — which is all a
+// renderer that does not know the *Ctx receives.
+func pagina(r *http.Request) dados {
+	return dados{
+		Titulo: "Área migrada",
+		Nonce:  trilha.NonceFrom(r),
+		CSRF:   trilha.CSRFTokenFrom(r),
+	}
+}
+
+// Layout puts the h body inside the old shell.
+func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
+	return casca.Node(pagina(c.Request()), children), nil
+}
+```
+
+O template não muda de forma — o slot é o `{{template "conteudo" .}}` que já estava lá:
+
+```html
+{{define "casca"}}
+<section class="legado">
+  <nav class="sub ui-nav"><span>{{.Titulo}}</span></nav>
+  <meta name="csrf-token" content="{{.CSRF}}">
+  <main id="legado-conteudo">{{template "conteudo" .}}</main>
+  <script nonce="{{.Nonce}}">window.legado = { csrf: document.querySelector('meta[name=csrf-token]').content };</script>
+</section>
+{{end}}
+```
+
+Dois detalhes tornam isso seguro. O app não converte nada para `template.HTML`: o que o `h`
+renderizou foi escapado na entrada, e o `tmpl` é o único lugar que afirma isso. E a casca
+alcança o token de CSRF e o nonce do CSP pelo `trilha.CSRFTokenFrom(r)` e pelo
+`trilha.NonceFrom(r)`, que respondem a partir do `*http.Request` — a única coisa que um
+renderizador sem `*Ctx` recebe, inclusive o `templ`, um handler seu ou um template que o
+próprio app executa. Fora de uma requisição da Trilha os dois devolvem `""`.
+
+Uma casca que nunca chega ao slot — um `{{if}}` que o escondeu, o nome errado — quebra o
+render em vez de responder calada uma página sem conteúdo. O `examples/blog` tem uma cópia
+funcionando em `app/legado-`.
+
 ## Entre versões menores
 
 A regra que o projeto segue: antes do 1.0, uma versão menor pode mudar como um app novo se
