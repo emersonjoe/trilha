@@ -5,7 +5,6 @@ import (
 	"io"
 	"log/slog"
 	multipartlib "mime/multipart"
-	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -16,9 +15,8 @@ import (
 )
 
 type client struct {
-	t   *testing.T
-	h   http.Handler
-	jar map[string]string
+	*trilha.TestClient
+	app *trilha.App
 }
 
 func newClient(t *testing.T, env string) *client {
@@ -26,65 +24,30 @@ func newClient(t *testing.T, env string) *client {
 	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	posts.Seed()
-	return &client{t: t, h: newApp().Handler(), jar: map[string]string{}}
+	a := newApp()
+	return &client{trilha.NewTestClient(t, a), a}
 }
 
-func (c *client) do(method, path, body string, hdr map[string]string) *httptest.ResponseRecorder {
-	c.t.Helper()
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
-	for k, v := range hdr {
-		req.Header.Set(k, v)
-	}
-	for k, v := range c.jar {
-		req.AddCookie(&http.Cookie{Name: k, Value: v})
-	}
-	rec := httptest.NewRecorder()
-	c.h.ServeHTTP(rec, req)
-	for _, ck := range rec.Result().Cookies() {
-		if ck.MaxAge < 0 {
-			delete(c.jar, ck.Name)
-		} else {
-			c.jar[ck.Name] = ck.Value
-		}
-	}
-	return rec
-}
-
-func (c *client) get(path string) *httptest.ResponseRecorder { return c.do("GET", path, "", nil) }
-
-func (c *client) postForm(path, form string) *httptest.ResponseRecorder {
-	c.t.Helper()
-	if tok, ok := c.jar[trilha.CSRFCookie]; ok {
-		form += "&_csrf=" + tok
-	}
-	return c.do("POST", path, form, map[string]string{"Content-Type": "application/x-www-form-urlencoded"})
-}
-
-func wantContains(t *testing.T, rec *httptest.ResponseRecorder, code int, parts ...string) {
-	t.Helper()
-	if rec.Code != code {
-		t.Fatalf("status %d want %d\n%s", rec.Code, code, rec.Body.String())
-	}
-	for _, p := range parts {
-		if !strings.Contains(rec.Body.String(), p) {
-			t.Fatalf("body lacks %q:\n%s", p, rec.Body.String())
-		}
-	}
+// postForm manda o formulário no formato cru dos testes daqui; o token do CSRF
+// vai junto sozinho, como no navegador.
+func (c *client) postForm(path, form string, opts ...trilha.TestOption) *trilha.TestResponse {
+	return c.Request("POST", path, append([]trilha.TestOption{
+		trilha.WithBody("application/x-www-form-urlencoded", form)}, opts...)...)
 }
 
 // #17 — o ícone mora em internal/icones e é servido em /icones/ por
 // Config.Mounts; public/ continua servindo a raiz.
 func TestMontagemServeArvoreForaDePublic(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/icones/favicon.svg")
-	wantContains(t, rec, 200, "<svg")
+	rec := c.Get("/icones/favicon.svg")
+	rec.WantStatus(200).WantContains("<svg")
 	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "image/svg") {
 		t.Errorf("content-type %q", ct)
 	}
-	if rec := c.get("/style.css"); rec.Code != 200 {
+	if rec := c.Get("/style.css"); rec.Code != 200 {
 		t.Errorf("public/ continua na raiz: %d", rec.Code)
 	}
-	if rec := c.get("/icones/nao-existe.svg"); rec.Code != 404 {
+	if rec := c.Get("/icones/nao-existe.svg"); rec.Code != 404 {
 		t.Errorf("arquivo ausente na montagem: %d", rec.Code)
 	}
 }
@@ -93,8 +56,8 @@ func TestMontagemServeArvoreForaDePublic(t *testing.T) {
 
 func TestUS1_HomeInsideRootLayout(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/")
-	wantContains(t, rec, 200, "<!doctype html><html lang=\"pt-BR\">", "<title>Início · Trilha Blog</title>", `<h1 class="ui-h1">Trilha</h1>`, `href="/ui.css?v=`, `href="/style.css?v=`)
+	rec := c.Get("/")
+	rec.WantStatus(200).WantContains("<!doctype html><html lang=\"pt-BR\">", "<title>Início · Trilha Blog</title>", `<h1 class="ui-h1">Trilha</h1>`, `href="/ui.css?v=`, `href="/style.css?v=`)
 	if rec.Header().Get("Content-Type") != "text/html; charset=utf-8" || rec.Header().Get("Server-Timing") == "" {
 		t.Fatal(rec.Header())
 	}
@@ -105,30 +68,30 @@ func TestUS1_HomeInsideRootLayout(t *testing.T) {
 
 func TestUS1_DynamicSegmentWithNestedLayouts(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/blog/ola-trilha")
-	wantContains(t, rec, 200, "<title>Olá, Trilha · Trilha Blog</title>", `<main id="conteudo"><div class="ui-container"><section class="blog"><aside>`, `<h1 class="ui-h1">Olá, Trilha</h1>`)
-	wantContains(t, c.get("/blog"), 200, `<ul class="posts">`, `href="/blog/layouts"`)
+	rec := c.Get("/blog/ola-trilha")
+	rec.WantStatus(200).WantContains("<title>Olá, Trilha · Trilha Blog</title>", `<main id="conteudo"><div class="ui-container"><section class="blog"><aside>`, `<h1 class="ui-h1">Olá, Trilha</h1>`)
+	c.Get("/blog").WantStatus(200).WantContains(`<ul class="posts">`, `href="/blog/layouts"`)
 }
 
 func TestUS1_CatchAll(t *testing.T) {
 	c := newClient(t, "prod")
-	wantContains(t, c.get("/docs/guia/rotas/dinamicas"), 200, "<li><code>guia</code></li><li><code>rotas</code></li><li><code>dinamicas</code></li>", "<title>Docs: dinamicas")
+	c.Get("/docs/guia/rotas/dinamicas").WantStatus(200).WantContains("<li><code>guia</code></li><li><code>rotas</code></li><li><code>dinamicas</code></li>", "<title>Docs: dinamicas")
 }
 
 func TestUS1_NotFoundPageInsideLayout(t *testing.T) {
 	c := newClient(t, "prod")
-	wantContains(t, c.get("/nada"), 404, "<title>Não encontrado · Trilha Blog</title>", "Nada em /nada.")
-	wantContains(t, c.get("/blog/inexistente"), 404, "<h1>404</h1>")
+	c.Get("/nada").WantStatus(404).WantContains("<title>Não encontrado · Trilha Blog</title>", "Nada em /nada.")
+	c.Get("/blog/inexistente").WantStatus(404).WantContains("<h1>404</h1>")
 }
 
 func TestUS1_ErrorPageStackOnlyInDev(t *testing.T) {
 	dev := newClient(t, "dev")
 	posts.Create("boom", "x")
-	wantContains(t, dev.get("/blog/boom"), 500, "<h1>Algo deu errado</h1>", "post explodiu", "_trilha/events")
+	dev.Get("/blog/boom").WantStatus(500).WantContains("<h1>Algo deu errado</h1>", "post explodiu", "_trilha/events")
 	prod := newClient(t, "prod")
 	posts.Create("boom", "x")
-	rec := prod.get("/blog/boom")
-	wantContains(t, rec, 500, "<h1>Algo deu errado</h1>")
+	rec := prod.Get("/blog/boom")
+	rec.WantStatus(500).WantContains("<h1>Algo deu errado</h1>")
 	if strings.Contains(rec.Body.String(), "post explodiu") {
 		t.Fatal("prod leaked the error")
 	}
@@ -136,36 +99,36 @@ func TestUS1_ErrorPageStackOnlyInDev(t *testing.T) {
 
 func TestUS1_StaticRouteBeatsDynamic(t *testing.T) {
 	c := newClient(t, "prod")
-	wantContains(t, c.get("/blog/novo"), 200, `<h1 class="ui-card-title">Novo post</h1>`)
+	c.Get("/blog/novo").WantStatus(200).WantContains(`<h1 class="ui-card-title">Novo post</h1>`)
 }
 
 // ---- US2: API e formulários -----------------------------------------------
 
 func TestUS2_APIGetPostDelete(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/api/posts")
-	wantContains(t, rec, 200, `"slug":"layouts"`)
+	rec := c.Get("/api/posts")
+	rec.WantStatus(200).WantContains(`"slug":"layouts"`)
 	if !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/json") {
 		t.Fatal(rec.Header().Get("Content-Type"))
 	}
-	rec = c.do("POST", "/api/posts", `{"title":"Via API","body":"b"}`, map[string]string{"Content-Type": "application/json"})
-	wantContains(t, rec, 201, `"slug":"via-api"`)
+	rec = c.PostJSON("/api/posts", map[string]string{"title": "Via API", "body": "b"})
+	rec.WantStatus(201).WantContains(`"slug":"via-api"`)
 	if rec.Header().Get("Location") != "/api/posts/via-api" {
 		t.Fatal(rec.Header().Get("Location"))
 	}
-	wantContains(t, c.get("/api/posts/via-api"), 200, `"title":"Via API"`)
-	wantContains(t, c.do("POST", "/api/posts", `{"title":""}`, nil), 422, `"title":"obrigatório"`)
-	wantContains(t, c.do("POST", "/api/posts", `{"nope":1}`, nil), 400, "invalid JSON")
-	if rec := c.do("DELETE", "/api/posts/via-api", "", nil); rec.Code != 204 {
+	c.Get("/api/posts/via-api").WantStatus(200).WantContains(`"title":"Via API"`)
+	c.Request("POST", "/api/posts", trilha.WithBody("", `{"title":""}`)).WantStatus(422).WantContains(`"title":"obrigatório"`)
+	c.Request("POST", "/api/posts", trilha.WithBody("", `{"nope":1}`)).WantStatus(400).WantContains("invalid JSON")
+	if rec := c.Request("DELETE", "/api/posts/via-api"); rec.Code != 204 {
 		t.Fatal(rec.Code)
 	}
-	wantContains(t, c.do("DELETE", "/api/posts/via-api", "", nil), 404, `"title":"Not Found"`)
-	wantContains(t, c.get("/api/nada"), 404, `"status":404`)
+	c.Request("DELETE", "/api/posts/via-api").WantStatus(404).WantContains(`"title":"Not Found"`)
+	c.Get("/api/nada").WantStatus(404).WantContains(`"status":404`)
 }
 
 func TestUS2_MethodNotAllowed(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.do("PUT", "/api/posts", "", nil)
+	rec := c.Request("PUT", "/api/posts")
 	if rec.Code != 405 || rec.Header().Get("Allow") != "GET, POST" {
 		t.Fatalf("%d %q", rec.Code, rec.Header().Get("Allow"))
 	}
@@ -173,32 +136,34 @@ func TestUS2_MethodNotAllowed(t *testing.T) {
 
 func TestUS2_FormPostRedirectGetWithCSRF(t *testing.T) {
 	c := newClient(t, "prod")
-	if rec := c.postForm("/blog/novo", "titulo=Sem+token"); rec.Code != 403 {
+	if rec := c.postForm("/blog/novo", "titulo=Sem+token", trilha.WithoutCSRF()); rec.Code != 403 {
 		t.Fatal(rec.Code)
 	}
 	if _, ok := posts.Get("sem-token"); ok {
 		t.Fatal("handler ran without CSRF")
 	}
-	wantContains(t, c.get("/blog/novo"), 200, `name="_csrf"`)
+	c.Get("/blog/novo").WantStatus(200).WantContains(`name="_csrf"`)
 	rec := c.postForm("/blog/novo", "titulo=Meu+Post&corpo=Texto")
 	if rec.Code != 303 || rec.Header().Get("Location") != "/blog/meu-post" {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	wantContains(t, c.get("/blog/meu-post"), 200, `<h1 class="ui-h1">Meu Post</h1>`, "<p>Texto</p>")
-	rec = c.do("POST", "/blog/novo", "titulo=x&_csrf=errado", map[string]string{"Content-Type": "application/x-www-form-urlencoded"})
+	c.Get("/blog/meu-post").WantStatus(200).WantContains(`<h1 class="ui-h1">Meu Post</h1>`, "<p>Texto</p>")
+	// Cookie de um lado, campo de outro: o par não bate e a rota recusa.
+	rec = c.postForm("/blog/novo", "titulo=x&_csrf=errado",
+		trilha.WithoutCSRF(), trilha.WithCookie(trilha.CSRFCookie, strings.Repeat("t", 32)))
 	if rec.Code != 403 {
 		t.Fatal(rec.Code)
 	}
 	// Issue #27: o formulário volta com a mensagem ao lado do campo, no lugar
 	// de um redirecionamento carregando o erro na URL.
 	semTitulo := c.postForm("/blog/novo", "titulo=+&corpo=Texto")
-	wantContains(t, semTitulo, 422, `role="alert">obrigatório<`, `aria-invalid="true"`, `name="titulo"`)
+	semTitulo.WantStatus(422).WantContains(`role="alert">obrigatório<`, `aria-invalid="true"`, `name="titulo"`)
 	curto := c.postForm("/blog/novo", "titulo=ab&corpo=Texto")
-	wantContains(t, curto, 422, "precisa ter ao menos 3 caracteres", `value="ab"`)
+	curto.WantStatus(422).WantContains("precisa ter ao menos 3 caracteres", `value="ab"`)
 	if rec := c.postForm("/blog/meu-post", ""); rec.Code != 303 || rec.Header().Get("Location") != "/blog" {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	if rec := c.get("/blog/meu-post"); rec.Code != 404 {
+	if rec := c.Get("/blog/meu-post"); rec.Code != 404 {
 		t.Fatal(rec.Code)
 	}
 }
@@ -206,7 +171,7 @@ func TestUS2_FormPostRedirectGetWithCSRF(t *testing.T) {
 func TestUS2_BodyTooLarge(t *testing.T) {
 	c := newClient(t, "prod")
 	big := `{"title":"` + strings.Repeat("x", 2<<20) + `"}`
-	if rec := c.do("POST", "/api/posts", big, nil); rec.Code != 413 {
+	if rec := c.Request("POST", "/api/posts", trilha.WithBody("", big)); rec.Code != 413 {
 		t.Fatal(rec.Code)
 	}
 }
@@ -215,26 +180,29 @@ func TestUS2_BodyTooLarge(t *testing.T) {
 
 func TestUS3_AdminGuard(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/admin")
+	rec := c.Get("/admin")
 	if rec.Code != 302 || rec.Header().Get("Location") != "/login?next=/admin" {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
 	}
 	if rec.Header().Get("Server-Timing") == "" {
 		t.Fatal("root middleware should still run")
 	}
-	wantContains(t, c.get("/login"), 200, `name="_csrf"`)
+	c.Get("/login").WantStatus(200).WantContains(`name="_csrf"`)
 	if rec := c.postForm("/login", "usuario=admin&senha=errada"); rec.Code != 401 {
 		t.Fatal(rec.Code)
 	}
 	rec = c.postForm("/login", "usuario=admin&senha=trilha&next=/admin")
-	if rec.Code != 303 || rec.Header().Get("Location") != "/admin" || !strings.Contains(c.jar["sessao"], "|") {
-		t.Fatalf("%d %s %v", rec.Code, rec.Header().Get("Location"), c.jar)
+	if rec.Code != 303 || rec.Header().Get("Location") != "/admin" || rec.Cookie("sessao") == nil {
+		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	wantContains(t, c.get("/admin"), 200, `<h1 class="ui-h1">Olá, admin</h1>`, "2 posts publicados.")
+	if !strings.Contains(rec.Cookie("sessao").Value, "|") {
+		t.Fatalf("sessão sem assinatura: %q", rec.Cookie("sessao").Value)
+	}
+	c.Get("/admin").WantStatus(200).WantContains(`<h1 class="ui-h1">Olá, admin</h1>`, "2 posts publicados.")
 	if rec := c.postForm("/login", "sair=1"); rec.Code != 303 {
 		t.Fatal(rec.Code)
 	}
-	if rec := c.get("/admin"); rec.Code != 302 {
+	if rec := c.Get("/admin"); rec.Code != 302 {
 		t.Fatal("logout should revoke access")
 	}
 }
@@ -242,7 +210,7 @@ func TestUS3_AdminGuard(t *testing.T) {
 func TestSetupSeededValues(t *testing.T) {
 	c := newClient(t, "prod")
 	var list []posts.Post
-	_ = json.Unmarshal(c.get("/api/posts").Body.Bytes(), &list)
+	_ = json.Unmarshal(c.Get("/api/posts").Body.Bytes(), &list)
 	if len(list) != 2 {
 		t.Fatal(len(list))
 	}
@@ -250,25 +218,27 @@ func TestSetupSeededValues(t *testing.T) {
 
 func TestPublicAndTraversal(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/style.css")
+	rec := c.Get("/style.css")
 	if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/css") {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
 	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=31536000, immutable" {
 		t.Fatal("Config() in setup.go not applied:", cc)
 	}
+	// Um caminho sujo não passa por httptest.NewRequest: ele é montado aqui e
+	// entregue direto ao handler.
 	req := httptest.NewRequest("GET", "/x", nil)
 	req.URL.Path = "/../go.mod"
-	rec = httptest.NewRecorder()
-	c.h.ServeHTTP(rec, req)
-	if rec.Code == 200 {
+	cru := httptest.NewRecorder()
+	c.app.Handler().ServeHTTP(cru, req)
+	if cru.Code == 200 {
 		t.Fatal("traversal")
 	}
 }
 
 func TestTrailingSlash(t *testing.T) {
 	c := newClient(t, "prod")
-	if rec := c.get("/blog/"); rec.Code != 301 || rec.Header().Get("Location") != "/blog" {
+	if rec := c.Get("/blog/"); rec.Code != 301 || rec.Header().Get("Location") != "/blog" {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
 	}
 }
@@ -277,21 +247,21 @@ func TestTrailingSlash(t *testing.T) {
 
 func TestGroups_LayoutWithoutURLSegment(t *testing.T) {
 	c := newClient(t, "prod")
-	wantContains(t, c.get("/precos"), 200, `<main id="conteudo"><div class="ui-container"><section class="marketing"><nav class="sub ui-nav">`, `<h1 class="ui-h1">Preços</h1>`, "<title>Preços · Trilha Blog</title>")
-	wantContains(t, c.get("/sobre"), 200, `<section class="marketing">`, `<h1 class="ui-h1">Sobre</h1>`)
-	if rec := c.get("/marketing-/precos"); rec.Code != 404 {
+	c.Get("/precos").WantStatus(200).WantContains(`<main id="conteudo"><div class="ui-container"><section class="marketing"><nav class="sub ui-nav">`, `<h1 class="ui-h1">Preços</h1>`, "<title>Preços · Trilha Blog</title>")
+	c.Get("/sobre").WantStatus(200).WantContains(`<section class="marketing">`, `<h1 class="ui-h1">Sobre</h1>`)
+	if rec := c.Get("/marketing-/precos"); rec.Code != 404 {
 		t.Fatalf("group name must not be a URL segment: %d", rec.Code)
 	}
 }
 
 func TestGroups_MiddlewareOrder(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/painel")
-	wantContains(t, rec, 200, `<section class="app" data-area="painel" data-trilha-nav="conteudo">`, `<h1 class="ui-h1">Painel</h1>`)
+	rec := c.Get("/painel")
+	rec.WantStatus(200).WantContains(`<section class="app" data-area="painel" data-trilha-nav="conteudo">`, `<h1 class="ui-h1">Painel</h1>`)
 	if rec.Header().Get("X-Area") != "painel" || rec.Header().Get("Server-Timing") == "" {
 		t.Fatalf("root and group middlewares must both run: %v", rec.Header())
 	}
-	if rec := c.get("/precos"); rec.Header().Get("X-Area") != "" {
+	if rec := c.Get("/precos"); rec.Header().Get("X-Area") != "" {
 		t.Fatal("painel middleware leaked into marketing group")
 	}
 }
@@ -300,18 +270,14 @@ func TestGroups_MiddlewareOrder(t *testing.T) {
 // respondendo a página inteira — o link é um link, e o endereço é o mesmo.
 func TestNavegacaoNoClienteDegradaSemScript(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/painel")
-	wantContains(t, rec, 200,
-		`data-trilha-nav="conteudo"`,
-		`<script src="/ui.nav.js`,
-		`<a href="/relatorio">Relatório</a>`,
-	)
+	rec := c.Get("/painel")
+	rec.WantStatus(200).WantContains(`data-trilha-nav="conteudo"`, `<script src="/ui.nav.js`, `<a href="/relatorio">Relatório</a>`)
 	// O mesmo endereço, pedido direto, devolve o documento inteiro: recarregar
 	// ou abrir em outra aba dá a mesma página.
-	direct := c.get("/relatorio")
-	wantContains(t, direct, 200, "<!doctype html>", `id="conteudo"`, "<title>Relatório · Trilha Blog</title>")
+	direct := c.Get("/relatorio")
+	direct.WantStatus(200).WantContains("<!doctype html>", `id="conteudo"`, "<title>Relatório · Trilha Blog</title>")
 	// O arquivo do comportamento é servido como qualquer estático do projeto.
-	if js := c.get("/ui.nav.js"); js.Code != 200 || !strings.Contains(js.Body.String(), "data-trilha-nav") {
+	if js := c.Get("/ui.nav.js"); js.Code != 200 || !strings.Contains(js.Body.String(), "data-trilha-nav") {
 		t.Fatalf("ui.nav.js: %d", js.Code)
 	}
 }
@@ -320,27 +286,27 @@ func TestNavegacaoNoClienteDegradaSemScript(t *testing.T) {
 // dela, e a mesma rota responde fragmento ou página conforme quem pergunta.
 func TestUploadComProgressoDegradaSemScript(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/anexos")
-	wantContains(t, rec, 200, `data-trilha-upload="anexos"`, "<progress", `id="anexos"`, `id="lista"`, `<script src="/ui.upload.js`)
+	rec := c.Get("/anexos")
+	rec.WantStatus(200).WantContains(`data-trilha-upload="anexos"`, "<progress", `id="anexos"`, `id="lista"`, `<script src="/ui.upload.js`)
 
 	// 2 MiB: acima do MaxBodyBytes padrão, dentro do que a rota permitiu.
-	body, ct := multipart(c, "planilha.csv", strings.Repeat("a", 2<<20))
-	frag := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct, "Trilha-Fragment": "anexos"})
-	wantContains(t, frag, 200, `id="anexos"`, "planilha.csv", "2,0 MB", "text/plain")
+	body, ct := multipart(t, "planilha.csv", strings.Repeat("a", 2<<20))
+	frag := c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento)
+	frag.WantStatus(200).WantContains(`id="anexos"`, "planilha.csv", "2,0 MB", "text/plain")
 	if strings.Contains(frag.Body.String(), "<!doctype") {
 		t.Fatal("o fragmento não pode vir com o documento inteiro")
 	}
 
 	// O mesmo envio sem JavaScript (sem o cabeçalho) volta para a página.
-	body, ct = multipart(c, "sem-js.txt", "oi")
-	plain := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct})
+	body, ct = multipart(t, "sem-js.txt", "oi")
+	plain := c.Request("POST", "/anexos", trilha.WithBody(ct, body))
 	if plain.Code != 303 || plain.Header().Get("Location") != "/anexos" {
 		t.Fatalf("envio normal deve redirecionar: %d %s", plain.Code, plain.Header().Get("Location"))
 	}
-	wantContains(t, c.get("/anexos"), 200, "sem-js.txt")
+	c.Get("/anexos").WantStatus(200).WantContains("sem-js.txt")
 
 	// O limite continua valendo para o resto do app.
-	huge := c.do("POST", "/blog/novo", strings.Repeat("x", 2<<20), map[string]string{"Content-Type": "application/x-www-form-urlencoded"})
+	huge := c.postForm("/blog/novo", strings.Repeat("x", 2<<20))
 	if huge.Code == 200 {
 		t.Fatal("o limite global tem de continuar de pé fora da rota de anexos")
 	}
@@ -350,32 +316,34 @@ func TestUploadComProgressoDegradaSemScript(t *testing.T) {
 // mensagem no campo e em português — não em 500 nem na lista.
 func TestUploadRecusaTamanhoETipo(t *testing.T) {
 	c := newClient(t, "prod")
-	c.get("/anexos")
+	c.Get("/anexos")
 
-	body, ct := multipart(c, "grande.txt", strings.Repeat("a", 5<<20))
-	grande := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct, "Trilha-Fragment": "anexos"})
-	wantContains(t, grande, 422, "no máximo 4 MB", `aria-invalid="true"`, `id="anexos"`)
+	body, ct := multipart(t, "grande.txt", strings.Repeat("a", 5<<20))
+	grande := c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento)
+	grande.WantStatus(422).WantContains("no máximo 4 MB", `aria-invalid="true"`, `id="anexos"`)
 
 	// Um binário qualquer com nome de imagem: o tipo sai do conteúdo.
-	body, ct = multipart(c, "foto.png", "\x00\x01\x02\x03rmnop\x00\xff")
-	mentido := c.do("POST", "/anexos", body, map[string]string{"Content-Type": ct, "Trilha-Fragment": "anexos"})
-	wantContains(t, mentido, 422, "tipo de arquivo não permitido", `aria-invalid="true"`)
+	body, ct = multipart(t, "foto.png", "\x00\x01\x02\x03rmnop\x00\xff")
+	mentido := c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento)
+	mentido.WantStatus(422).WantContains("tipo de arquivo não permitido", `aria-invalid="true"`)
 
-	if strings.Contains(c.get("/anexos").Body.String(), "grande.txt") {
+	if strings.Contains(c.Get("/anexos").Body.String(), "grande.txt") {
 		t.Fatal("arquivo recusado não pode entrar na lista")
 	}
 }
 
-// multipart monta um corpo multipart/form-data com o token CSRF do cliente.
-func multipart(c *client, name, content string) (body, contentType string) {
+// fragmento pede só o pedaço da página, como o script do upload faz.
+var fragmento = trilha.WithHeader("Trilha-Fragment", "anexos")
+
+// multipart monta um corpo multipart/form-data com um arquivo dentro. O token
+// do CSRF vai no cabeçalho, posto pelo cliente.
+func multipart(t *testing.T, name, content string) (body, contentType string) {
+	t.Helper()
 	var sb strings.Builder
 	w := multipartlib.NewWriter(&sb)
-	if tok, ok := c.jar[trilha.CSRFCookie]; ok {
-		w.WriteField("_csrf", tok)
-	}
 	f, err := w.CreateFormFile("arquivo", name)
 	if err != nil {
-		c.t.Fatal(err)
+		t.Fatal(err)
 	}
 	io.WriteString(f, content)
 	w.Close()
@@ -386,20 +354,20 @@ func multipart(c *client, name, content string) (body, contentType string) {
 
 func TestTemplatePageInsideLayouts(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/relatorio")
-	wantContains(t, rec, 200, `<section class="app" data-area="painel" data-trilha-nav="conteudo">`, "<h1>Relatório &lt;de posts&gt;</h1>", `<a href="/blog/layouts">Layouts aninhados</a>`, "<title>Relatório · Trilha Blog</title>")
+	rec := c.Get("/relatorio")
+	rec.WantStatus(200).WantContains(`<section class="app" data-area="painel" data-trilha-nav="conteudo">`, "<h1>Relatório &lt;de posts&gt;</h1>", `<a href="/blog/layouts">Layouts aninhados</a>`, "<title>Relatório · Trilha Blog</title>")
 }
 
 func TestTemplateErrorIs500(t *testing.T) {
 	c := newClient(t, "dev")
-	wantContains(t, c.get("/relatorio?t=nao-existe"), 500, "<h1>Algo deu errado</h1>", "nao-existe")
+	c.Get("/relatorio?t=nao-existe").WantStatus(500).WantContains("<h1>Algo deu errado</h1>", "nao-existe")
 }
 
 // ---- 004: segurança -------------------------------------------------------
 
 func TestSecurityHeadersOnExample(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/")
+	rec := c.Get("/")
 	csp := rec.Header().Get("Content-Security-Policy")
 	if !strings.Contains(csp, "img-src 'self' data: https:") || rec.Header().Get("Permissions-Policy") == "" {
 		t.Fatalf("csp=%q", csp)
@@ -408,8 +376,8 @@ func TestSecurityHeadersOnExample(t *testing.T) {
 
 func TestSignedSessionCannotBeForged(t *testing.T) {
 	c := newClient(t, "prod")
-	c.jar["sessao"] = "admin|9999999999|assinatura-falsa"
-	if rec := c.get("/admin"); rec.Code != 302 {
+	forjada := trilha.WithCookie("sessao", "admin|9999999999|assinatura-falsa")
+	if rec := c.Get("/admin", forjada); rec.Code != 302 {
 		t.Fatalf("forged session accepted: %d", rec.Code)
 	}
 }
@@ -418,7 +386,7 @@ func TestAPIRateLimit(t *testing.T) {
 	c := newClient(t, "prod")
 	var last int
 	for i := 0; i < 25; i++ {
-		last = c.get("/api/posts").Code
+		last = c.Get("/api/posts").Code
 	}
 	if last != 429 {
 		t.Fatalf("expected 429 after burst, got %d", last)
@@ -428,11 +396,11 @@ func TestAPIRateLimit(t *testing.T) {
 // Spec 014: as sondas e o endereço de métricas no app de exemplo.
 func TestHealthProbesOnExample(t *testing.T) {
 	c := newClient(t, "prod")
-	live := c.get("/_trilha/health/live")
+	live := c.Get("/_trilha/health/live")
 	if live.Code != 200 || live.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("%d %v", live.Code, live.Header())
 	}
-	ready := c.get("/_trilha/health/ready")
+	ready := c.Get("/_trilha/health/ready")
 	if ready.Code != 200 || !strings.Contains(ready.Body.String(), `"status":"pass"`) {
 		t.Fatalf("%d %s", ready.Code, ready.Body.String())
 	}
@@ -444,10 +412,10 @@ func TestHealthProbesOnExample(t *testing.T) {
 	posts.Delete("ola-trilha")
 	posts.Delete("layouts")
 	time.Sleep(2100 * time.Millisecond) // o resultado fica em cache por 2s
-	if rec := c.get("/_trilha/health/ready"); rec.Code != 503 {
+	if rec := c.Get("/_trilha/health/ready"); rec.Code != 503 {
 		t.Fatalf("prontidão deveria falhar sem posts: %d %s", rec.Code, rec.Body.String())
 	}
-	if rec := c.get("/_trilha/health/live"); rec.Code != 200 {
+	if rec := c.Get("/_trilha/health/live"); rec.Code != 200 {
 		t.Fatal("vivacidade não pode cair junto com uma dependência")
 	}
 }
@@ -456,13 +424,13 @@ func TestMetricsOnExample(t *testing.T) {
 	t.Setenv("TRILHA_METRICS", "/_trilha/metrics")
 	t.Setenv("TRILHA_OBS_TOKEN", "0123456789abcdef0123456789abcdef")
 	c := newClient(t, "prod")
-	c.get("/")
-	c.get("/blog")
+	c.Get("/")
+	c.Get("/blog")
 	posts.Create("Métrica de domínio", "corpo")
-	if rec := c.get("/_trilha/metrics"); rec.Code != 401 {
+	if rec := c.Get("/_trilha/metrics"); rec.Code != 401 {
 		t.Fatalf("raspagem anônima: %d", rec.Code)
 	}
-	rec := c.do("GET", "/_trilha/metrics", "", map[string]string{"Authorization": "Bearer 0123456789abcdef0123456789abcdef"})
+	rec := c.Get("/_trilha/metrics", trilha.WithHeader("Authorization", "Bearer 0123456789abcdef0123456789abcdef"))
 	body := rec.Body.String()
 	if rec.Code != 200 {
 		t.Fatal(rec.Code)
@@ -485,7 +453,7 @@ func TestMetricsOnExample(t *testing.T) {
 // tudo, servido pelo servidor.
 func TestIlhaDoEditorDegradaSemScript(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/blog/novo")
+	rec := c.Get("/blog/novo")
 	body := rec.Body.String()
 	for _, want := range []string{
 		`data-trilha-island="/ilha-editor.js`,
@@ -517,16 +485,16 @@ func TestCacheDaListaDePosts(t *testing.T) {
 	t.Setenv("TRILHA_METRICS", "/_trilha/metrics")
 	t.Setenv("TRILHA_OBS_TOKEN", "0123456789abcdef0123456789abcdef")
 	c := newClient(t, "prod")
-	wantContains(t, c.get("/blog"), 200, `href="/blog/layouts"`, "2 posts")
-	wantContains(t, c.get("/blog"), 200, `href="/blog/layouts"`)
+	c.Get("/blog").WantStatus(200).WantContains(`href="/blog/layouts"`, "2 posts")
+	c.Get("/blog").WantStatus(200).WantContains(`href="/blog/layouts"`)
 
-	c.get("/blog/novo")
+	c.Get("/blog/novo")
 	if rec := c.postForm("/blog/novo", "titulo=Cache+quente&corpo=x"); rec.Code != 303 {
 		t.Fatalf("publicar: %d", rec.Code)
 	}
-	wantContains(t, c.get("/blog"), 200, `href="/blog/cache-quente"`, "3 posts")
+	c.Get("/blog").WantStatus(200).WantContains(`href="/blog/cache-quente"`, "3 posts")
 
-	rec := c.do("GET", "/_trilha/metrics", "", map[string]string{"Authorization": "Bearer 0123456789abcdef0123456789abcdef"})
+	rec := c.Get("/_trilha/metrics", trilha.WithHeader("Authorization", "Bearer 0123456789abcdef0123456789abcdef"))
 	if rec.Code != 200 {
 		t.Fatal(rec.Code)
 	}
@@ -545,7 +513,7 @@ func TestCacheDaListaDePosts(t *testing.T) {
 // 304 e o corpo não viaja de novo. Republicar muda a versão e a página volta.
 func TestPostRespondeComETag(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.get("/blog/ola-trilha")
+	rec := c.Get("/blog/ola-trilha")
 	tag := rec.Header().Get("ETag")
 	if rec.Code != 200 || tag == "" {
 		t.Fatalf("%d %q", rec.Code, tag)
@@ -554,13 +522,13 @@ func TestPostRespondeComETag(t *testing.T) {
 		t.Fatalf("página de post sem private: %q", cc)
 	}
 
-	again := c.do("GET", "/blog/ola-trilha", "", map[string]string{"If-None-Match": tag})
+	again := c.Get("/blog/ola-trilha", trilha.WithHeader("If-None-Match", tag))
 	if again.Code != 304 || again.Body.Len() != 0 {
 		t.Fatalf("revalidação: %d, %d bytes", again.Code, again.Body.Len())
 	}
 
 	posts.Create("Ola Trilha", "outro corpo")
-	novo := c.do("GET", "/blog/ola-trilha", "", map[string]string{"If-None-Match": tag})
+	novo := c.Get("/blog/ola-trilha", trilha.WithHeader("If-None-Match", tag))
 	if novo.Code != 200 || !strings.Contains(novo.Body.String(), "outro corpo") {
 		t.Fatalf("depois de republicar: %d", novo.Code)
 	}
@@ -570,9 +538,9 @@ func TestPostRespondeComETag(t *testing.T) {
 // quem não está na lista não passa dele.
 func TestCORSDoPainel(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.do("OPTIONS", "/api/posts", "", map[string]string{
-		"Origin": "https://painel.exemplo.com", "Access-Control-Request-Method": "POST",
-	})
+	rec := c.Request("OPTIONS", "/api/posts",
+		trilha.WithHeader("Origin", "https://painel.exemplo.com"),
+		trilha.WithHeader("Access-Control-Request-Method", "POST"))
 	if rec.Code != 204 {
 		t.Fatalf("preflight = %d, quero 204", rec.Code)
 	}
@@ -582,14 +550,14 @@ func TestCORSDoPainel(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Max-Age"); got != "600" {
 		t.Errorf("max-age = %q", got)
 	}
-	rec = c.do("OPTIONS", "/api/posts", "", map[string]string{
-		"Origin": "https://atacante.net", "Access-Control-Request-Method": "POST",
-	})
+	rec = c.Request("OPTIONS", "/api/posts",
+		trilha.WithHeader("Origin", "https://atacante.net"),
+		trilha.WithHeader("Access-Control-Request-Method", "POST"))
 	if rec.Code != 403 || rec.Header().Get("Access-Control-Allow-Origin") != "" {
 		t.Errorf("origem de fora: %d %q", rec.Code, rec.Header().Get("Access-Control-Allow-Origin"))
 	}
 	// A leitura simples do painel continua funcionando, agora com o cabeçalho.
-	rec = c.do("GET", "/api/posts", "", map[string]string{"Origin": "https://painel.exemplo.com"})
+	rec = c.Get("/api/posts", trilha.WithHeader("Origin", "https://painel.exemplo.com"))
 	if rec.Code != 200 || rec.Header().Get("Access-Control-Allow-Origin") == "" {
 		t.Errorf("GET do painel: %d sem allow-origin", rec.Code)
 	}
@@ -599,16 +567,15 @@ func TestCORSDoPainel(t *testing.T) {
 // handler escolheu.
 func TestProblemJSONDaAPI(t *testing.T) {
 	c := newClient(t, "prod")
-	rec := c.do("POST", "/api/posts", `{"title":"Repetido","body":"b"}`, map[string]string{"Content-Type": "application/json"})
+	rec := c.PostJSON("/api/posts", map[string]string{"title": "Repetido", "body": "b"})
 	if rec.Code != 201 {
 		t.Fatalf("primeiro POST = %d", rec.Code)
 	}
-	rec = c.do("POST", "/api/posts", `{"title":"Repetido","body":"b"}`, map[string]string{"Content-Type": "application/json"})
+	rec = c.PostJSON("/api/posts", map[string]string{"title": "Repetido", "body": "b"})
 	if !strings.HasPrefix(rec.Header().Get("Content-Type"), trilha.ProblemMediaType) {
 		t.Fatalf("content-type = %q", rec.Header().Get("Content-Type"))
 	}
-	wantContains(t, rec, 409, `"type":"https://trilha.dev/probs/slug-em-uso"`, `"slug":"repetido"`,
-		`"instance":"/api/posts"`)
+	rec.WantStatus(409).WantContains(`"type":"https://trilha.dev/probs/slug-em-uso"`, `"slug":"repetido"`, `"instance":"/api/posts"`)
 	// A validação continua respondendo fields, no mesmo corpo.
-	wantContains(t, c.do("POST", "/api/posts", `{"title":""}`, nil), 422, `"fields":{"title":"obrigatório"}`)
+	c.Request("POST", "/api/posts", trilha.WithBody("", `{"title":""}`)).WantStatus(422).WantContains(`"fields":{"title":"obrigatório"}`)
 }

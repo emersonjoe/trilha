@@ -4,18 +4,18 @@
 
 ## Bloco 1 — núcleo (SC-002, SC-003, SC-004)
 
-- [ ] T001 Teste que falha em `testing_test.go` (raiz): `TestRequest` num app com página e
+- [x] T001 Teste que falha em `testing_test.go` (raiz): `TestRequest` num app com página e
       API; `POST` de página passa no CSRF sozinho e dá 403 com `WithoutCSRF()`; `WithSigned`
       abre rota protegida; `TestPage` devolve `Node` com layout aplicado; `TestRoute` resolve
       `{id}`; `TestClient` guarda o cookie que o handler põe; `WithJSON`/`JSON(&v)`.
-- [ ] T002 `testing.go`: `TestingT`, `TestOption`, `TestResponse`, `TestClient`,
+- [x] T002 `testing.go`: `TestingT`, `TestOption`, `TestResponse`, `TestClient`,
       `TestRequest`, `TestRoute`, `TestPage` e as oito opções.
 
 ## Bloco 2 — exemplos (SC-001)
 
-- [ ] T003 `examples/orcamento` e `examples/cadastro` (os dois menores) passam a usar os
+- [x] T003 `examples/orcamento` e `examples/cadastro` (os dois menores) passam a usar os
       auxiliares; some o `client` local.
-- [ ] T004 `examples/assistente`, `examples/sso` e `examples/blog` idem; conferir que a soma
+- [x] T004 `examples/assistente`, `examples/sso` e `examples/blog` idem; conferir que a soma
       das suítes encolheu.
 
 ## Bloco 3 — documentação e fechamento

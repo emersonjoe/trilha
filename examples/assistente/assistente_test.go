@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/ai"
 	"github.com/emersonjoe/trilha/examples/assistente/internal/ferramentas"
 )
@@ -44,7 +45,7 @@ func fakeModel(t *testing.T) *httptest.Server {
 	}))
 }
 
-func newHandler(t *testing.T) http.Handler {
+func newClient(t *testing.T) *trilha.TestClient {
 	t.Helper()
 	t.Setenv("TRILHA_ENV", "dev")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -53,86 +54,57 @@ func newHandler(t *testing.T) http.Handler {
 	ferramentas.Client = &ai.Client{BaseURL: fm.URL, Model: "fake"}
 	ferramentas.Reset()
 	ferramentas.Now = func() time.Time { return time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC) }
-	return newApp().Handler()
+	return trilha.NewTestClient(t, newApp())
 }
 
 func TestPageRenders(t *testing.T) {
-	h := newHandler(t)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
-	body := rec.Body.String()
-	if rec.Code != 200 || !strings.Contains(body, `id="mensagens"`) || !strings.Contains(body, "calcular") {
-		t.Fatal(rec.Code, body)
-	}
-	if csp := rec.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "script-src 'self'") {
+	res := newClient(t).Get("/").WantStatus(200).WantContains(`id="mensagens"`, "calcular")
+	if csp := res.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "script-src 'self'") {
 		t.Fatal(csp)
 	}
 }
 
 func TestChatStreams(t *testing.T) {
-	h := newHandler(t)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/chat", strings.NewReader(`{"message":"quanto é (2+3)*4?"}`))
-	req.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(rec, req)
-	body := rec.Body.String()
-	if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/event-stream") {
-		t.Fatal(rec.Code, rec.Header())
+	c := newClient(t)
+	res := c.PostJSON("/api/chat", map[string]string{"message": "quanto é (2+3)*4?"}).WantStatus(200)
+	if !strings.HasPrefix(res.Header().Get("Content-Type"), "text/event-stream") {
+		t.Fatal(res.Header())
 	}
-	for _, want := range []string{
+	res.WantContains(
 		"event: tool_call\ndata: {\"agent\":\"Assistente\",\"arguments\":\"{\\\"expressao\\\":\\\"(2+3)*4\\\"}\"",
 		"event: tool_result\ndata: {\"agent\":\"Assistente\",\"arguments\":\"{\\\"expressao\\\":\\\"(2+3)*4\\\"}\",\"output\":\"20\"",
 		"event: text\ndata: O resultado \n\n",
 		"event: text\ndata: é 20.\n\n",
 		"event: done\ndata: {\"agent\":\"Assistente\",\"history\":[",
 		`"total_tokens":15`,
-	} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("missing %q in:\n%s", want, body)
-		}
-	}
+	)
 	// Validation.
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest("POST", "/api/chat", strings.NewReader(`{"message":"  "}`))
-	req.Header.Set("Content-Type", "application/json")
-	h.ServeHTTP(rec, req)
-	if rec.Code != 422 {
-		t.Fatal(rec.Code)
-	}
+	c.PostJSON("/api/chat", map[string]string{"message": "  "}).WantStatus(422)
 }
 
 func TestMCPEndpoint(t *testing.T) {
-	h := newHandler(t)
-	post := func(body, session string) *httptest.ResponseRecorder {
-		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/mcp", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
+	c := newClient(t)
+	post := func(body, session string) *trilha.TestResponse {
+		opts := []trilha.TestOption{trilha.WithBody("application/json", body)}
 		if session != "" {
-			req.Header.Set("Mcp-Session-Id", session)
+			opts = append(opts, trilha.WithHeader("Mcp-Session-Id", session))
 		}
-		h.ServeHTTP(rec, req)
-		return rec
+		return c.Request("POST", "/mcp", opts...)
 	}
-	rec := post(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`, "")
-	sid := rec.Header().Get("Mcp-Session-Id")
-	if rec.Code != 200 || sid == "" || !strings.Contains(rec.Body.String(), `"trilha-assistente"`) {
-		t.Fatal(rec.Code, rec.Body.String())
+	res := post(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`, "")
+	res.WantStatus(200).WantContains(`"trilha-assistente"`)
+	sid := res.Header().Get("Mcp-Session-Id")
+	if sid == "" {
+		t.Fatal("sem sessão o cliente não consegue seguir")
 	}
-	rec = post(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"salvar_nota","arguments":{"titulo":"compras","texto":"leite"}}}`, sid)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "nota salva: compras") {
-		t.Fatal(rec.Body.String())
-	}
-	rec = post(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"listar_notas"}}`, sid)
-	if !strings.Contains(rec.Body.String(), "compras: leite") {
-		t.Fatal(rec.Body.String())
-	}
-	rec = post(`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"hora_atual","arguments":{"fuso":"UTC"}}}`, sid)
-	if !strings.Contains(rec.Body.String(), "05/09/2026 12:00 (UTC)") {
-		t.Fatal(rec.Body.String())
-	}
-	if rec := post(`{"jsonrpc":"2.0","id":5,"method":"tools/list"}`, ""); rec.Code != 404 {
-		t.Fatal("session required:", rec.Code)
-	}
+	post(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"salvar_nota","arguments":{"titulo":"compras","texto":"leite"}}}`, sid).
+		WantStatus(200).WantContains("nota salva: compras")
+	post(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"listar_notas"}}`, sid).
+		WantContains("compras: leite")
+	post(`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"hora_atual","arguments":{"fuso":"UTC"}}}`, sid).
+		WantContains("05/09/2026 12:00 (UTC)")
+	// Sem sessão não há endpoint.
+	post(`{"jsonrpc":"2.0","id":5,"method":"tools/list"}`, "").WantStatus(404)
 }
 
 func TestCalcular(t *testing.T) {
