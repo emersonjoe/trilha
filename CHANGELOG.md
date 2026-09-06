@@ -5,6 +5,20 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.33.0 — 2026-09-06
+
+### Added
+
+- `bench/agent`: the ruler of Fase 5. `make bench-agent` copies `examples/blog` or
+  `examples/sso` into a module of its own, runs a coding agent (`claude -p`) on four fixed
+  tasks — an API route with `Bind`, a page with a `ui` form, switching the login provider to
+  Cognito, paginating the post list — and records tokens in and out, turns, denied tool
+  calls, time and cost, then decides pass/fail with a hidden test. Three runs per scenario,
+  median in `bench/agent/RESULTS.md`; `make bench-agent-dry` proves every hidden test fails
+  on the untouched fixture without spending a token. Trilha before × Trilha after, never
+  against another framework (#45).
+- Reference → Performance: section "Cost per feature for an agent", both locales.
+
 ## 0.31.0 — 2026-09-06
 
 ### Added

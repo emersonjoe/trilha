@@ -80,3 +80,28 @@ real-time dashboards with complex state) are better served by React/Next or by a
 projects that already have a Go router and mature templates gain little by switching. Trilha
 shines in server-rendered business apps, content sites and APIs with a dashboard, where a
 dependency-free binary and strong conventions weigh more than fine-grained interactivity.
+
+## Cost per feature for an agent
+
+The numbers above are what the framework costs per request. There is a second cost, paid
+by whoever writes the app with an AI tool: the tokens an agent spends discovering what the
+project already has, getting a signature wrong, running five checks one at a time. That is
+what `bench/agent` measures.
+
+`make bench-agent` copies `examples/blog` or `examples/sso` into a module of its own, runs a
+coding agent (`claude -p`, with no MCP servers, plugins or user memory: only what is inside
+the project counts) on four fixed tasks, and decides pass or fail with a hidden test:
+
+| Scenario | Task |
+|---|---|
+| `comments` | `POST`/`GET /api/posts/{id}/comments` with `Bind`, validation, 404 |
+| `contact-form` | a `/contato` page inside the root layout with a `ui` form |
+| `cognito` | switch the login provider of the SSO example from Keycloak to Cognito |
+| `pagination` | five posts per page at `/blog`, with `?page=N` and prev/next |
+
+Each scenario runs three times; `bench/agent/RESULTS.md` shows the median of tokens in
+(fresh and read from cache), tokens out, turns, denied tool calls, time and cost, and how
+many runs passed. The comparison is always Trilha before against Trilha after — same task,
+same agent, same model — never against another framework. `make bench-agent-dry` builds
+the fixtures and proves the hidden tests fail without an agent, spending nothing; the CI
+never runs the agent.

@@ -81,3 +81,29 @@ ou por um SPA; e projetos que já têm um roteador Go e templates maduros ganham
 trocar. O Trilha brilha em apps de negócio renderizados no servidor, sites de conteúdo e
 APIs com painel, onde um binário sem dependências e convenções fortes pesam mais que
 interatividade fina.
+
+## Custo por feature para um agente
+
+Os números acima são o que o framework custa por requisição. Há um segundo custo, pago por
+quem escreve o app com uma ferramenta de IA: os tokens que um agente gasta descobrindo o
+que o projeto já tem, errando uma assinatura, rodando cinco verificações uma de cada vez. É
+isso que o `bench/agent` mede.
+
+`make bench-agent` copia `examples/blog` ou `examples/sso` para um módulo próprio, roda um
+agente de código (`claude -p`, sem servidores MCP, plugins ou memória do usuário: só o que
+está dentro do projeto conta) em quatro tarefas fixas e decide passou ou não com um teste
+escondido:
+
+| Cenário | Tarefa |
+|---|---|
+| `comments` | `POST`/`GET /api/posts/{id}/comments` com `Bind`, validação, 404 |
+| `contact-form` | página `/contato` dentro do layout raiz com formulário do kit `ui` |
+| `cognito` | trocar o provedor de login do exemplo SSO de Keycloak para Cognito |
+| `pagination` | cinco posts por página em `/blog`, com `?page=N` e anterior/próxima |
+
+Cada cenário roda três vezes; `bench/agent/RESULTS.md` mostra a mediana de tokens de
+entrada (novos e lidos do cache), de saída, rodadas, chamadas recusadas, tempo e custo, e
+quantas execuções passaram. A comparação é sempre Trilha antes contra Trilha depois — mesma
+tarefa, mesmo agente, mesmo modelo — nunca contra outro framework. `make bench-agent-dry`
+monta as fixtures e prova que os testes escondidos falham sem agente, sem gastar nada; o CI
+nunca roda o agente.

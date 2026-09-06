@@ -100,9 +100,9 @@ func TestPacotesPublicosNaLista(t *testing.T) {
 		listados[p.Dir] = true
 	}
 	fora := map[string]bool{
-		"api": true, "cmd": true, "docs": true, "examples": true,
-		"internal": true, "scripts": true, "site": true, "specs": true,
-		"testdata": true,
+		"api": true, "bench": true, "cmd": true, "docs": true,
+		"examples": true, "internal": true, "scripts": true, "site": true,
+		"specs": true, "testdata": true,
 	}
 	err := filepath.WalkDir(".", func(caminho string, d fs.DirEntry, err error) error {
 		if err != nil {
