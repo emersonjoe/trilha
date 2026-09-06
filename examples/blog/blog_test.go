@@ -367,6 +367,35 @@ func TestUploadRecusaTamanhoETipo(t *testing.T) {
 	}
 }
 
+// Issue #71: o anexo volta com nome seguro, tipo do conteúdo e nosniff — e o
+// que o navegador rodaria em vez de mostrar não abre no visor.
+func TestAnexoBaixaEAbre(t *testing.T) {
+	c := newClient(t, "prod")
+	body, ct := multipart(t, "relatório \"final\".txt", "linha um\n")
+	c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento).WantStatus(200)
+
+	// A lista oferece baixar e, para o que abre, ver.
+	c.Get("/anexos").WantStatus(200).WantContains(`href="/anexos/relat%C3%B3rio%20%22final%22.txt"`, "?ver=1")
+
+	const url = "/anexos/relat%C3%B3rio%20%22final%22.txt"
+	baixa := c.Get(url)
+	baixa.WantStatus(200).WantContains("linha um")
+	d := baixa.Header().Get("Content-Disposition")
+	if !strings.HasPrefix(d, `attachment; filename="relat_rio _final_.txt"`) || !strings.Contains(d, "filename*=UTF-8''") {
+		t.Fatalf("Content-Disposition %q", d)
+	}
+	if baixa.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatal("download sem nosniff")
+	}
+
+	ver := c.Get(url + "?ver=1")
+	if !strings.HasPrefix(ver.Header().Get("Content-Disposition"), "inline; ") {
+		t.Fatalf("?ver devia abrir no visor: %q", ver.Header().Get("Content-Disposition"))
+	}
+
+	c.Get("/anexos/nao-existe.txt").WantStatus(404)
+}
+
 // fragmento pede só o pedaço da página, como a fila do upload faz.
 var fragmento = trilha.WithHeader("Trilha-Fragment", "lista")
 

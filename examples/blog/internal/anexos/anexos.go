@@ -10,12 +10,15 @@ import (
 	"time"
 )
 
-// Anexo é um arquivo recebido.
+// Anexo é um arquivo recebido. O conteúdo mora aqui porque isto é memória;
+// num app de verdade ele estaria em disco ou num bucket, e o que muda é a
+// linha do handler que abre — c.AttachmentFile no lugar de c.Attachment.
 type Anexo struct {
-	Nome   string
-	Bytes  int64
-	Tipo   string // o tipo lido no conteúdo pelo c.File, não a extensão
-	Quando time.Time
+	Nome     string
+	Bytes    int64
+	Tipo     string // o tipo lido no conteúdo pelo c.File, não a extensão
+	Quando   time.Time
+	Conteudo []byte
 }
 
 var (
@@ -24,10 +27,10 @@ var (
 )
 
 // Add registra um anexo recebido.
-func Add(nome string, n int64, tipo string) Anexo {
+func Add(nome string, n int64, tipo string, conteudo []byte) Anexo {
 	mu.Lock()
 	defer mu.Unlock()
-	a := Anexo{Nome: nome, Bytes: n, Tipo: tipo, Quando: time.Now()}
+	a := Anexo{Nome: nome, Bytes: n, Tipo: tipo, Quando: time.Now(), Conteudo: conteudo}
 	lista = append(lista, a)
 	sort.SliceStable(lista, func(i, j int) bool { return lista[i].Quando.After(lista[j].Quando) })
 	return a
@@ -38,6 +41,19 @@ func All() []Anexo {
 	mu.Lock()
 	defer mu.Unlock()
 	return append([]Anexo(nil), lista...)
+}
+
+// Por devolve o anexo com este nome, se houver. O nome veio do c.File, que
+// já o saneou: não é caminho, e não vira caminho aqui.
+func Por(nome string) (Anexo, bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	for _, a := range lista {
+		if a.Nome == nome {
+			return a, true
+		}
+	}
+	return Anexo{}, false
 }
 
 // Reset limpa a lista (usado pelos testes).

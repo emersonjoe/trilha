@@ -86,6 +86,9 @@ the [security reference](https://emersonjoe.github.io/trilha/reference/security)
 | Inline script injected into a page | CSP with a per-request nonce; `base-uri`, `form-action` and `frame-ancestors` locked down. |
 | Upload that is not what it says | The media type is sniffed from the content, never from the name or the announced type (`FileRules.Accept`). |
 | Path traversal, on the way in or out | `fs.FS` for static files; `Upload.Save` refuses a name that escapes the directory, and writes with mode 0600. |
+| A download that the browser runs instead of saving | `Attachment` and `Inline` set the type from the content, always send `X-Content-Type-Options: nosniff`, and `Inline` refuses HTML, SVG and XML outright — a document with script served from the app's own origin is stored XSS with extra steps. |
+| A filename that writes a header of its own | The name of a download goes through the same sanitiser as an upload's, then out as a percent-encoded `filename*` plus a quoted ASCII `filename`: a quote, a separator or a newline in the name cannot add a parameter or a line. |
+| Another service's headers landing on this app's session | `Pipe` copies a closed list of response headers and never `Set-Cookie`; the same is true of `Config.Upstreams`. |
 
 ### Repudiation
 

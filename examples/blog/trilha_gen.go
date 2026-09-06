@@ -12,6 +12,7 @@ import (
 	app__well_known_security_txt "github.com/emersonjoe/trilha/examples/blog/app/.well-known/security.txt"
 	app_admin "github.com/emersonjoe/trilha/examples/blog/app/admin"
 	app_anexos "github.com/emersonjoe/trilha/examples/blog/app/anexos"
+	app_anexos_nome_ "github.com/emersonjoe/trilha/examples/blog/app/anexos/nome_"
 	app_api "github.com/emersonjoe/trilha/examples/blog/app/api"
 	app_api_posts "github.com/emersonjoe/trilha/examples/blog/app/api/posts"
 	app_api_posts_id_ "github.com/emersonjoe/trilha/examples/blog/app/api/posts/id_"
@@ -77,6 +78,13 @@ func newApp() *trilha.App {
 			"POST": app_anexos.POST,
 		},
 		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_anexos.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/anexos/{nome}",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_anexos_nome_.GET,
+		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_anexos.Middleware},
 	})
 	a.Register(trilha.Route{

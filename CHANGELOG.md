@@ -7,6 +7,23 @@ versioning. This file is written in English only.
 
 ### Added
 
+- **Sending a file back: `c.Attachment`, `c.Inline`, `c.AttachmentFile`, `c.InlineFile` and
+  `c.Pipe`** ([#71](https://github.com/emersonjoe/trilha/issues/71)). `Ctx` could receive a
+  file and had no way to send one, so every download was the same six lines of header written
+  again, and one of them was always the one that matters. The name is sanitised like an
+  upload's and goes out twice — percent-encoded `filename*=UTF-8''` and a quoted ASCII
+  `filename` — so an accent survives and a quote or a newline cannot add a parameter of its
+  own. An empty type is detected from the first 512 bytes, with the extension allowed to
+  sharpen it inside the same family and never to overrule it, and `nosniff` always goes out.
+  `Inline` accepts only what a viewer renders — PDF, image (not SVG), audio, video, plain text
+  and CSV — and refuses HTML, SVG and XML as a programming error rather than serving a
+  document with script from the app's own origin; the `<iframe>` still needs `frame-src
+  'self'` in `Security.CSPExtra`, which `Inline` will not add from below. An `io.ReadSeeker`
+  gets `Range`, `If-Range`, `304` and `HEAD` through `http.ServeContent`; anything else
+  streams and promises nothing. Every send clears the write deadline. `c.Pipe(res)` hands
+  another service's answer to the browser: the status, a closed list of headers and the body
+  in stream — never `Set-Cookie`.
+
 - **A field that searches, and an area that takes several files at once**
   ([#67](https://github.com/emersonjoe/trilha/issues/67)). `ui.Combobox` is a text field over
   a list: the person types, the server searches, and what the form sends is a hidden field
@@ -142,6 +159,9 @@ versioning. This file is written in English only.
 
 ### Documentation
 
+- The `ctx` reference gained **Sending a file** in both languages, and `SECURITY-MODEL.md`
+  gained the three rows a download is: a type the browser may re-interpret, a name that writes
+  a header, and another service's headers landing on this app's session.
 - The `ui` reference gained a **Combobox** section and the dropzone next to the progress bar,
   the `ctx` reference gained `Files` and `FileRules.MaxFiles`, and the uploads recipe gained
   **Several at once** — all in both languages.

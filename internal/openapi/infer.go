@@ -328,6 +328,19 @@ func (g *generator) call(h *handler, call *ast.CallExpr, sc *fileScope, locals m
 		if v, ok := stringOf(call.Args[1]); ok {
 			h.media = strings.TrimSpace(strings.SplitN(v, ";", 2)[0])
 		}
+	case "Attachment", "Inline", "AttachmentFile", "InlineFile":
+		// Sending a file is a 200 whose body no Go type describes. What can
+		// be read from the call is the media type, when the caller named
+		// one — the last argument of all four.
+		if _, seen := h.ok[http.StatusOK]; !seen {
+			h.ok[http.StatusOK] = nil
+		}
+		if h.media != "" || len(call.Args) == 0 {
+			return
+		}
+		if v, ok := stringOf(call.Args[len(call.Args)-1]); ok && v != "" {
+			h.media = strings.TrimSpace(strings.SplitN(v, ";", 2)[0])
+		}
 	case "Errorf":
 		q, ok := sel.X.(*ast.Ident)
 		if !ok || q.Name != "trilha" || len(call.Args) == 0 {

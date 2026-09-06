@@ -96,6 +96,11 @@ that resolves it — read that line instead of guessing.
   its queue sends one file per request. On the server, `c.Files(field, rules)` applies the
   rules of `c.File` to every file and names a failure by position — `files[2]` — so the
   message lands on the line that earned it.
+- **Do not hand-write the headers of a download.** `c.Attachment(name, body, ctype)` sends a
+  file and `c.Inline` opens it in the browser; both sanitise the name, write it in the two
+  forms browsers actually read, detect the type from the content and send `nosniff`. `Inline`
+  refuses HTML, SVG and XML — that is the point of it being a second function. `c.Pipe(res)`
+  hands another service's answer through, with a closed list of headers and no `Set-Cookie`.
 - **Do not invent a flash cookie or an `onclick="return confirm()"`.** After a `POST`, say what
   happened with `c.Flash(ui.FlashSuccess, "…")` — the layout's `ui.Flashes(c)` shows it on the
   page the redirect lands on — and ask before destroying with `ui.Confirm(title, description)`

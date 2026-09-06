@@ -75,6 +75,8 @@ pkg trilha, method (*Ctx) Accepts(...string) string
 pkg trilha, method (*Ctx) AllowBody(int64)
 pkg trilha, method (*Ctx) App() *App
 pkg trilha, method (*Ctx) Asset(string) string
+pkg trilha, method (*Ctx) Attachment(string, io.Reader, string) error
+pkg trilha, method (*Ctx) AttachmentFile(string, string) error
 pkg trilha, method (*Ctx) Base() string
 pkg trilha, method (*Ctx) Bind(any) error
 pkg trilha, method (*Ctx) BindJSON(any) error
@@ -97,6 +99,8 @@ pkg trilha, method (*Ctx) Get(string) any
 pkg trilha, method (*Ctx) HTML(int, h.Node) error
 pkg trilha, method (*Ctx) Header(string, string)
 pkg trilha, method (*Ctx) Hijack() (net.Conn, *bufio.ReadWriter, error)
+pkg trilha, method (*Ctx) Inline(string, io.Reader, string) error
+pkg trilha, method (*Ctx) InlineFile(string, string) error
 pkg trilha, method (*Ctx) Island(string, any, ...h.Node) h.Node
 pkg trilha, method (*Ctx) JSON(int, any) error
 pkg trilha, method (*Ctx) LastModified(time.Time) bool
@@ -106,6 +110,7 @@ pkg trilha, method (*Ctx) NoWriteDeadline() error
 pkg trilha, method (*Ctx) Nonce() string
 pkg trilha, method (*Ctx) Param(string) string
 pkg trilha, method (*Ctx) Pattern() string
+pkg trilha, method (*Ctx) Pipe(*http.Response) error
 pkg trilha, method (*Ctx) PollEvery(time.Duration)
 pkg trilha, method (*Ctx) PollStop()
 pkg trilha, method (*Ctx) Query(string) string

@@ -96,6 +96,11 @@ leia essa frase em vez de adivinhar.
   manda um arquivo por requisição. No servidor, o `c.Files(campo, regras)` aplica as regras do
   `c.File` a cada arquivo e nomeia a falha pela posição — `arquivos[2]` — então a mensagem cai
   na linha que a mereceu.
+- **Não escreva na mão os cabeçalhos de um download.** O `c.Attachment(nome, corpo, tipo)`
+  manda um arquivo e o `c.Inline` abre no navegador; os dois saneiam o nome, escrevem nas duas
+  formas que os navegadores leem de verdade, detectam o tipo no conteúdo e mandam `nosniff`. O
+  `Inline` recusa HTML, SVG e XML — é para isso que ele é uma segunda função. O `c.Pipe(res)`
+  repassa a resposta de outro serviço, com lista fechada de cabeçalhos e sem `Set-Cookie`.
 - **Não invente um cookie de flash nem um `onclick="return confirm()"`.** Depois de um `POST`,
   conte o que aconteceu com `c.Flash(ui.FlashSuccess, "…")` — o `ui.Flashes(c)` do layout mostra
   na página onde o redirect cai — e pergunte antes de destruir com `ui.Confirm(título,

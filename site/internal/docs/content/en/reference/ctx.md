@@ -187,3 +187,49 @@ A file that fails names its own position — `files[2]`, not `files` — so a fo
 per file can put the message on the right line; the files that passed come back in the slice,
 and closing them is the caller's job. Over `MaxFiles` the whole request is refused under the
 field's own name, before a single byte is read.
+
+## Sending a file
+
+`File` receives; these five send. The name, the type and the two headers that keep a download
+from becoming a page of your origin are the whole of it.
+
+| Symbol | Role |
+|---|---|
+| `Attachment(name string, body io.Reader, ctype string) error` | download: `Content-Disposition: attachment` |
+| `Inline(name string, body io.Reader, ctype string) error` | the browser opens it in place (a PDF in an `<iframe>`, an image) |
+| `AttachmentFile(path, ctype string) error` | opens the file, sends it and closes it; absent is 404, a directory is an error |
+| `InlineFile(path, ctype string) error` | the same, opened in place |
+| `Pipe(res *http.Response) error` | hands another service's answer to the browser and closes its body |
+
+The name is sanitised by the same function an upload's is: a path never becomes a filename,
+and nothing in it can add a second line to the header. It goes out twice — `filename*=UTF-8''`
+percent-encoded for a browser that reads RFC 5987, and a quoted ASCII `filename` for one that
+does not — because a name with an accent breaks in half the browsers when it goes out once.
+
+An empty `ctype` is detected from the first 512 bytes, the way `File` sniffs an upload, with
+the extension allowed to sharpen it inside the same family (`text/plain` to `text/csv`) and
+never to overrule it. `X-Content-Type-Options: nosniff` always goes out: a download the browser
+is free to re-interpret is a download that can become a page of this origin.
+
+`Inline` only accepts what a viewer renders — `application/pdf`, `image/*` (not SVG),
+`audio/*`, `video/*`, `text/plain`, `text/csv`. HTML, SVG and XML come back as a programming
+error, not as a response: they are documents with script, served from your own origin. The
+`<iframe>` also needs the app to say so, because the default policy is `frame-ancestors 'none'`:
+
+```go
+cfg.Security.CSPExtra = map[string][]string{"frame-src": {"'self'"}}
+```
+
+`Inline` does not loosen that from below.
+
+A `body` that is an `io.ReadSeeker` — a `bytes.Reader`, an `os.File` — is written by
+`http.ServeContent`, so `Range`, `If-Range`, `304` and `HEAD` come for free and
+`Accept-Ranges: bytes` is promised. Anything else is copied as a stream and promises nothing.
+Every send clears the write deadline: a 50 MB file on a bad link is not a slow handler.
+
+`Pipe` copies the status and a closed list of headers — `Content-Type`,
+`Content-Disposition`, `Content-Length`, `Content-Encoding`, `Content-Range`, `Accept-Ranges`,
+`Cache-Control`, `ETag`, `Last-Modified`, `Expires`, `Vary`, `Age` — and nothing else.
+`Set-Cookie` in particular does not travel: the body of another service does not get to sit on
+this one's session. For a whole prefix forwarded to another service, see
+[Upstreams](/reference/upstreams); `Pipe` is the one response you fetched yourself.

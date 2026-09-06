@@ -4,8 +4,11 @@
 package anexos
 
 import (
+	"io"
 	"net/http"
+	"net/url"
 	"sort"
+	"strings"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/blog/internal/anexos"
@@ -49,8 +52,12 @@ func POST(c *trilha.Ctx) error {
 		return c.Render(http.StatusUnprocessableEntity, pagina(c, errs))
 	}
 	for _, up := range ups {
-		anexos.Add(up.Name, up.Size, up.MIME)
+		conteudo, err := io.ReadAll(up.File)
 		up.Close()
+		if err != nil {
+			return err
+		}
+		anexos.Add(up.Name, up.Size, up.MIME, conteudo)
 	}
 	if c.Fragment() != "" {
 		return c.Render(http.StatusOK, lista())
@@ -121,6 +128,18 @@ func mensagens(errs trilha.FieldErrors) []h.Node {
 	return out
 }
 
+// abrivel repete, do lado do desenho, a lista que o c.Inline aplica do lado do
+// servidor: PDF, imagem e texto simples abrem; o resto se baixa.
+func abrivel(tipo string) bool {
+	switch {
+	case tipo == "application/pdf", tipo == "text/plain":
+		return true
+	case strings.HasPrefix(tipo, "image/") && tipo != "image/svg+xml":
+		return true
+	}
+	return false
+}
+
 // lista é a lista de anexos, dentro do bloco trocado.
 func lista() h.Node {
 	itens := anexos.All()
@@ -129,11 +148,18 @@ func lista() h.Node {
 	}
 	rows := make([]h.Node, 0, len(itens))
 	for _, a := range itens {
-		rows = append(rows, h.Li(
-			h.Strong(h.Text(a.Nome)),
+		href := "/anexos/" + url.PathEscape(a.Nome)
+		linhas := []h.Node{
+			h.A(h.Href(href), h.Strong(h.Text(a.Nome))),
 			h.Text(" — "),
 			h.Span(h.Class("ui-muted"), h.Text(a.Tamanho()+" · "+a.Tipo)),
-		))
+		}
+		// O link de ver só aparece para o que o c.Inline aceita: oferecer um
+		// "abrir" que o servidor vai recusar é oferecer um erro.
+		if abrivel(a.Tipo) {
+			linhas = append(linhas, h.Text(" "), h.A(h.Href(href+"?ver=1"), h.Class("ui-muted"), h.Text("ver")))
+		}
+		rows = append(rows, h.Li(linhas...))
 	}
 	return h.Ul(append([]h.Node{h.ID("lista"), h.Class("ui-list")}, rows...)...)
 }

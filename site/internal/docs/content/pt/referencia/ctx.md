@@ -189,3 +189,50 @@ dizer "ninguém escolheu nada". O arquivo que falha nomeia a própria posição 
 `files` — então um formulário com uma linha por arquivo põe a mensagem na linha certa; os que
 passaram voltam na fatia, e fechá-los é com quem chamou. Acima do `MaxFiles` a requisição
 inteira é recusada no nome do campo, antes de um byte ser lido.
+
+## Mandando um arquivo
+
+O `File` recebe; estes cinco mandam. O nome, o tipo e os dois cabeçalhos que impedem um
+download de virar uma página da sua origem são tudo o que há.
+
+| Símbolo | Papel |
+|---|---|
+| `Attachment(nome string, corpo io.Reader, tipo string) error` | download: `Content-Disposition: attachment` |
+| `Inline(nome string, corpo io.Reader, tipo string) error` | o navegador abre ali mesmo (um PDF num `<iframe>`, uma imagem) |
+| `AttachmentFile(caminho, tipo string) error` | abre o arquivo, manda e fecha; ausente é 404, diretório é erro |
+| `InlineFile(caminho, tipo string) error` | o mesmo, aberto no visor |
+| `Pipe(res *http.Response) error` | entrega ao navegador a resposta de outro serviço e fecha o corpo dela |
+
+O nome passa pela mesma função que saneia o de um upload: um caminho nunca vira nome de
+arquivo, e nada dentro dele acrescenta uma segunda linha ao cabeçalho. Ele sai duas vezes —
+`filename*=UTF-8''` percent-encoded para quem lê a RFC 5987 e um `filename` ASCII entre aspas
+para quem não lê — porque nome com acento quebra em metade dos navegadores quando sai uma vez.
+
+Um `tipo` vazio é detectado nos primeiros 512 bytes, como o `File` fareja um upload, com a
+extensão podendo afinar dentro da mesma família (`text/plain` para `text/csv`) e nunca
+contrariar. O `X-Content-Type-Options: nosniff` sai sempre: um download que o navegador pode
+reinterpretar é um download que vira página desta origem.
+
+O `Inline` só aceita o que um visor mostra — `application/pdf`, `image/*` (SVG não),
+`audio/*`, `video/*`, `text/plain`, `text/csv`. HTML, SVG e XML voltam como erro de
+programação, não como resposta: são documentos com script, servidos da sua própria origem. O
+`<iframe>` também precisa que o app diga, porque a política padrão é `frame-ancestors 'none'`:
+
+```go
+cfg.Security.CSPExtra = map[string][]string{"frame-src": {"'self'"}}
+```
+
+O `Inline` não afrouxa isso por baixo.
+
+Um `corpo` que é `io.ReadSeeker` — um `bytes.Reader`, um `os.File` — sai pelo
+`http.ServeContent`, então `Range`, `If-Range`, `304` e `HEAD` vêm de graça e o
+`Accept-Ranges: bytes` é prometido. Qualquer outro é copiado em stream e não promete nada.
+Todo envio desliga o write deadline: um arquivo de 50 MB numa linha ruim não é um handler
+lento.
+
+O `Pipe` copia o status e uma lista fechada de cabeçalhos — `Content-Type`,
+`Content-Disposition`, `Content-Length`, `Content-Encoding`, `Content-Range`, `Accept-Ranges`,
+`Cache-Control`, `ETag`, `Last-Modified`, `Expires`, `Vary`, `Age` — e mais nada. O
+`Set-Cookie`, em especial, não viaja: o corpo de outro serviço não senta na sessão deste. Para
+um prefixo inteiro encaminhado a outro serviço, veja [Upstreams](/pt/referencia/upstreams); o
+`Pipe` é a resposta que você mesmo foi buscar.

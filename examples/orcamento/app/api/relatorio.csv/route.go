@@ -3,6 +3,7 @@
 package relatoriocsv
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"net/http"
@@ -27,10 +28,11 @@ func GET(c *trilha.Ctx) error {
 	if _, err := time.Parse("2006-01", m); err != nil {
 		return trilha.Errorf(http.StatusBadRequest, "mes inválido (use AAAA-MM)")
 	}
-	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", `attachment; filename="orcamento-`+m+`.csv"`)
-	c.Writer().WriteHeader(http.StatusOK)
-	w := csv.NewWriter(c.Writer())
+	// The report is small and the browser is going to save it whole, so it
+	// is built in memory: c.Attachment writes the name, the type and the
+	// nosniff, which is the part that was six lines of header before.
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
 	_ = w.Write([]string{"codigo", "conta", "tipo", "nivel", "orcado", "realizado", "variacao_pct"})
 	var walk func(cs []*plano.Conta)
 	walk = func(cs []*plano.Conta) {
@@ -42,7 +44,10 @@ func GET(c *trilha.Ctx) error {
 	}
 	walk(plano.Raizes())
 	w.Flush()
-	return w.Error()
+	if err := w.Error(); err != nil {
+		return err
+	}
+	return c.Attachment("orcamento-"+m+".csv", bytes.NewReader(buf.Bytes()), "text/csv; charset=utf-8")
 }
 
 func cents(v int64) string { return fmt.Sprintf("%d.%02d", v/100, v%100) }
