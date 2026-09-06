@@ -124,10 +124,15 @@ func TestEntryValidationAndPost(t *testing.T) {
 		t.Fatal(rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"conta analítica", "maior que zero", "Informe a data", "Descreva o lançamento", `value="-5"`} {
+	for _, want := range []string{"conta analítica", "maior que zero", "obrigatório", `value="-5"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("missing %q", want)
 		}
+	}
+	// Issue #27: as regras de forma vêm da tag, em português, e a regra de
+	// negócio (conta analítica) continua em Go — as duas na mesma resposta.
+	if body := rec.Body.String(); strings.Contains(body, "required") || strings.Contains(body, "must ") {
+		t.Fatal("mensagem em inglês num app em português")
 	}
 	// Bind conversion error (bad date) surfaces as a field error too.
 	f.Set("data", "ontem")

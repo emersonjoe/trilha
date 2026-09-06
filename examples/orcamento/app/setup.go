@@ -7,6 +7,8 @@ import (
 
 // Setup seeds the chart of accounts, budgets and entries.
 func Setup(a *trilha.App) error {
+	// O app fala português; as mensagens de validação também.
+	trilha.UseValidationPTBR()
 	plano.Seed()
 	return nil
 }

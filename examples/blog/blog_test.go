@@ -154,7 +154,7 @@ func TestUS2_APIGetPostDelete(t *testing.T) {
 		t.Fatal(rec.Header().Get("Location"))
 	}
 	wantContains(t, c.get("/api/posts/via-api"), 200, `"title":"Via API"`)
-	wantContains(t, c.do("POST", "/api/posts", `{"title":""}`, nil), 422, "title is required")
+	wantContains(t, c.do("POST", "/api/posts", `{"title":""}`, nil), 422, `"title":"obrigatório"`)
 	wantContains(t, c.do("POST", "/api/posts", `{"nope":1}`, nil), 400, "invalid JSON")
 	if rec := c.do("DELETE", "/api/posts/via-api", "", nil); rec.Code != 204 {
 		t.Fatal(rec.Code)
@@ -189,9 +189,12 @@ func TestUS2_FormPostRedirectGetWithCSRF(t *testing.T) {
 	if rec.Code != 403 {
 		t.Fatal(rec.Code)
 	}
-	if rec := c.postForm("/blog/novo", "titulo=+"); rec.Code != 303 || !strings.Contains(rec.Header().Get("Location"), "erro=") {
-		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
-	}
+	// Issue #27: o formulário volta com a mensagem ao lado do campo, no lugar
+	// de um redirecionamento carregando o erro na URL.
+	semTitulo := c.postForm("/blog/novo", "titulo=+&corpo=Texto")
+	wantContains(t, semTitulo, 422, `role="alert">obrigatório<`, `aria-invalid="true"`, `name="titulo"`)
+	curto := c.postForm("/blog/novo", "titulo=ab&corpo=Texto")
+	wantContains(t, curto, 422, "precisa ter ao menos 3 caracteres", `value="ab"`)
 	if rec := c.postForm("/blog/meu-post", ""); rec.Code != 303 || rec.Header().Get("Location") != "/blog" {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Location"))
 	}

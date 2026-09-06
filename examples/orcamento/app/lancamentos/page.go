@@ -22,13 +22,20 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 // messages (422), on success it redirects to where the form was opened.
 func POST(c *trilha.Ctx) error {
 	var in plano.Lancamento
+	errs := trilha.FieldErrors{}
 	if err := c.Bind(&in); err != nil {
-		if fe, ok := err.(trilha.FieldErrors); ok {
-			return c.Render(http.StatusUnprocessableEntity, pagina(c, in, fe, c.Form("voltar")))
+		fe, ok := err.(trilha.FieldErrors)
+		if !ok {
+			return err
 		}
-		return err
+		errs = fe
 	}
-	if errs := plano.Validar(&in); errs.Any() {
+	// A regra de negócio roda junto com as da tag: quem errou dois campos vê
+	// os dois de uma vez, em vez de um a cada envio.
+	for campo, msg := range plano.Validar(&in) {
+		errs.Add(campo, msg)
+	}
+	if errs.Any() {
 		return c.Render(http.StatusUnprocessableEntity, pagina(c, in, errs, c.Form("voltar")))
 	}
 	plano.Lancar(in)

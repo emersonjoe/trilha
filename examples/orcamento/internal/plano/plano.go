@@ -4,6 +4,7 @@
 package plano
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -41,11 +42,24 @@ func (c *Conta) Caminho() []*Conta {
 // Lancamento is one posted entry (cents, positive).
 type Lancamento struct {
 	ID        int
-	Conta     string    `form:"conta"`
-	Data      time.Time `form:"data"`
-	Valor     int64     `form:"-"` // cents; parsed from ValorTexto
-	ValorTxt  string    `form:"valor"`
-	Descricao string    `form:"descricao"`
+	Conta     string    `form:"conta" validate:"required"`
+	Data      time.Time `form:"data" validate:"required"`
+	Valor     int64     `form:"-"` // cents; parsed from ValorTxt
+	ValorTxt  Dinheiro  `form:"valor" validate:"required"`
+	Descricao string    `form:"descricao" validate:"required,min=3"`
+}
+
+// Dinheiro is what the person typed in the money field. The rule of what
+// counts as money belongs to the type, so every form that takes a value gets
+// it — the framework does not need to know that "1.234,56" is a number here.
+type Dinheiro string
+
+// Validate is called by Bind, right after the field is filled in.
+func (d Dinheiro) Validate() error {
+	if v, err := ParseMoney(string(d)); err != nil || v <= 0 {
+		return errors.New("valor deve ser maior que zero (ex.: 1.234,56)")
+	}
+	return nil
 }
 
 // Mes is the month key used everywhere ("2026-09").
@@ -250,7 +264,9 @@ func Lancamentos(codigo, mes string) []Lancamento {
 	return out
 }
 
-// Validar checks an entry from the form and fills Valor from ValorTxt.
+// Validar is what the tags cannot know: whether this account exists in this
+// plan and takes entries. Presence, size and format came from the validate
+// tags in Bind, which is why this function is only about the business.
 func Validar(l *Lancamento) trilha.FieldErrors {
 	e := trilha.FieldErrors{}
 	c, ok := porCodSafe(l.Conta)
@@ -260,17 +276,7 @@ func Validar(l *Lancamento) trilha.FieldErrors {
 	case !c.Analitica():
 		e.Add("conta", "Lance numa conta analítica (sem filhos)")
 	}
-	if l.Data.IsZero() {
-		e.Add("data", "Informe a data")
-	}
-	v, err := ParseMoney(l.ValorTxt)
-	if err != nil || v <= 0 {
-		e.Add("valor", "Valor deve ser maior que zero (ex.: 1.234,56)")
-	}
-	l.Valor = v
-	if strings.TrimSpace(l.Descricao) == "" {
-		e.Add("descricao", "Descreva o lançamento")
-	}
+	l.Valor, _ = ParseMoney(string(l.ValorTxt))
 	return e
 }
 

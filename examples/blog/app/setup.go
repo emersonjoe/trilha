@@ -51,6 +51,8 @@ func Config(cfg *trilha.Config) error {
 
 // Setup runs once before the server starts.
 func Setup(a *trilha.App) error {
+	// O app fala português; as mensagens de validação também.
+	trilha.UseValidationPTBR()
 	// O cache é do app, não do framework: quem o cria decide o teto, o nome
 	// que aparece em /metrics e quem enxerga a variável. Aqui ele vive no
 	// pacote que produz as listas, ao lado das escritas que o derrubam.
