@@ -249,3 +249,67 @@ func FuzzBindJSON(f *testing.F) {
 		bindFuzzPost(t, handler, "application/json", corpo)
 	})
 }
+
+// listEntry is a form with a list of rows and a key/value matrix: the two
+// shapes whose name carries an index or a key the client wrote.
+type listEntry struct {
+	Rows []fuzzRow      `form:"rows" json:"rows" validate:"maxitems=3"`
+	Perm map[string]int `form:"perm" json:"perm" validate:"maxitems=3"`
+	Nome string         `form:"nome" json:"nome"`
+}
+
+type fuzzRow struct {
+	Nome string `form:"nome" json:"nome" validate:"max=10"`
+	Qtd  int    `form:"qtd" json:"qtd" validate:"min=0,max=100"`
+}
+
+// FuzzBindList: the index and the key inside a field name come from whoever
+// filled the form. Whatever they write, the answer is never a 500, and what
+// Bind hands over is never bigger than the ceiling — an index of a billion
+// costs one row, not a billion.
+func FuzzBindList(f *testing.F) {
+	a := New(Config{Logger: quiet()})
+	a.Register(Route{Pattern: "/api/x", Methods: map[string]HandlerFunc{
+		"POST": func(c *Ctx) error {
+			var in listEntry
+			if err := c.Bind(&in); err != nil {
+				return err
+			}
+			return c.JSON(http.StatusOK, in)
+		},
+	}})
+	handler := a.Handler()
+	for _, corpo := range []string{
+		"", "rows[0].nome=a&rows[0].qtd=1", "rows[2].nome=a&rows[0].nome=b",
+		"rows[-1].nome=a", "rows[9999999999].nome=a", "rows[0][0].nome=a",
+		"rows[].nome=a", "rows[0].=a", "rows[0]=a", "rows[00000000000000001].nome=a",
+		"perm[docs]=1&perm[a.b]=2", "perm[]=1", "perm[a]b]=1", "perm[docs]=x",
+		"perm[" + strings.Repeat("k", 300) + "]=1", "rows[0].nome=" + strings.Repeat("a", 40),
+	} {
+		f.Add(corpo)
+	}
+	f.Fuzz(func(t *testing.T, corpo string) {
+		req := httptest.NewRequest(http.MethodPost, "/api/x", strings.NewReader(corpo))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code >= 500 {
+			t.Fatalf("%q: status = %d\n%s", corpo, rec.Code, rec.Body.String())
+		}
+		if rec.Code != http.StatusOK {
+			return
+		}
+		var out listEntry
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatalf("%q: unreadable answer: %v", corpo, err)
+		}
+		if len(out.Rows) > 3 || len(out.Perm) > 3 {
+			t.Fatalf("%q: %d rows and %d keys got past maxitems", corpo, len(out.Rows), len(out.Perm))
+		}
+		for i, r := range out.Rows {
+			if utf8.RuneCountInString(r.Nome) > 10 || r.Qtd < 0 || r.Qtd > 100 {
+				t.Fatalf("%q: row %d got past the rules: %+v", corpo, i, r)
+			}
+		}
+	})
+}

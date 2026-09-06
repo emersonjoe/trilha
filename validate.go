@@ -61,6 +61,9 @@ var (
 		"url":      ruleURL,
 		"oneof":    ruleOneOf,
 		"eqfield":  ruleEqField,
+		"minitems": func(f Field) (bool, string) { return ruleItems(f, true) },
+		"maxitems": func(f Field) (bool, string) { return ruleItems(f, false) },
+		"lenitems": ruleLen,
 	}
 )
 
@@ -190,8 +193,11 @@ func (v *validation) run(errs FieldErrors) {
 				continue
 			}
 			name, param, _ := strings.Cut(part, "=")
-			if name != "required" && empty {
-				continue // an optional field only answers for what was filled in
+			// An optional field only answers for what was filled in; a rule
+			// that counts a collection is the exception, because "at least
+			// one row" is exactly a sentence about the empty case.
+			if empty && name != "required" && !strings.HasSuffix(name, "items") {
+				continue
 			}
 			fl.Param = param
 			if ok, key := lookupRule(name)(fl); !ok {
@@ -247,6 +253,12 @@ func minmax(f Field, isMin bool) (bool, string) {
 			return len(v) >= n, "minitems"
 		}
 		return len(v) <= n, "maxitems"
+	case items:
+		n := intParam(f)
+		if isMin {
+			return int(v) >= n, "minitems"
+		}
+		return int(v) <= n, "maxitems"
 	case int64:
 		n := int64(intParam(f))
 		if isMin {
@@ -269,12 +281,33 @@ func minmax(f Field, isMin bool) (bool, string) {
 	return true, ""
 }
 
+// ruleItems counts a collection and says nothing about anything else, so
+// minitems on a list of rows and min on a number stay two different sentences.
+func ruleItems(f Field, isMin bool) (bool, string) {
+	n := -1
+	switch v := f.Value.(type) {
+	case []string:
+		n = len(v)
+	case items:
+		n = int(v)
+	}
+	if n < 0 {
+		return true, ""
+	}
+	if isMin {
+		return n >= intParam(f), "minitems"
+	}
+	return n <= intParam(f), "maxitems"
+}
+
 func ruleLen(f Field) (bool, string) {
 	switch v := f.Value.(type) {
 	case string:
 		return utf8.RuneCountInString(v) == intParam(f), "len"
 	case []string:
 		return len(v) == intParam(f), "lenitems"
+	case items:
+		return int(v) == intParam(f), "lenitems"
 	}
 	return true, ""
 }
@@ -354,6 +387,8 @@ func emptyValue(v any) bool {
 		return t.IsZero()
 	case []string:
 		return len(t) == 0
+	case items:
+		return t == 0
 	}
 	return false
 }
@@ -372,6 +407,8 @@ func textOf(v any) string {
 		return t.Format("2006-01-02")
 	case []string:
 		return strings.Join(t, ",")
+	case items:
+		return strconv.Itoa(int(t))
 	}
 	return ""
 }

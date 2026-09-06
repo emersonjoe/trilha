@@ -40,6 +40,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `SelectOptions([]Option{{Value, Label}}, selecionado)` | `<option>`s marcando o selecionado; `Value: ""` é placeholder (desabilitado) e fica selecionado quando nada casa |
 | `Checked(bool)` | `checked` condicional (ida e volta de checkbox/switch/radio) |
 | `ShowWhen(campo, valores...)` | `data-ui-show-when`: mostra o elemento só com o valor (ou qualquer valor não vazio); controles escondidos são desabilitados |
+| `SchemaForm(esquema, values, errs, ...)` | formulário definido por dado: um campo por `trilha.SchemaField` — veja [Validação](/pt/referencia/validacao) |
 | `Badge`, `Alert(título, ...)`, `AlertDescription(...)` | selo e aviso (`role=alert`) |
 | `Toaster(...)`, `Toast(tipo, texto, fadeMs)` | pilha de avisos; `tipo` = `""`, `success`, `error`; `fadeMs > 0` some sozinho |
 | `Flashes(c)` | o toaster com os avisos do [`c.Flash`](/pt/referencia/ctx) — ponha no layout; `FlashInfo`, `FlashSuccess` e `FlashError` são os tipos |

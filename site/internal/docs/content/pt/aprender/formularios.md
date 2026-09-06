@@ -139,6 +139,50 @@ A fronteira é esta: a tag diz o que um **valor** aceita, não o que o **sistema
 ficam no seu pacote. Rode depois do `Bind` e junte o resultado no mesmo `FieldErrors`, para
 os dois tipos de mensagem chegarem na mesma resposta.
 
+## Quando o formulário cresce
+
+Três dependentes, cinco linhas de pedido, uma permissão por módulo: a quantidade de campos
+não é conhecida na hora de escrever a página. O nome do input carrega a posição, e o `Bind`
+preenche uma fatia de struct a partir dele — `itens[0].nome`, `itens[1].nome`, na ordem:
+
+```go
+type Linha struct {
+	Nome string `form:"nome" validate:"required,max=40"`
+	Qtd  int    `form:"qtd" validate:"min=1"`
+}
+
+var in struct {
+	Itens []Linha `form:"itens" validate:"minitems=1,maxitems=50"`
+}
+```
+
+Desenhe as linhas que existem mais uma em branco no fim, e a pessoa ganha a próxima linha
+sem JavaScript nenhum; linha em branco não é item, então descarte antes de salvar. Chave no
+lugar de índice dá um mapa — `perm[docs]=2` preenche um `map[string]int`. O nome do input é
+também a chave da mensagem: `ui.Errors(errs, "itens[1].qtd")` põe a mensagem ao lado do campo
+errado, e o `BindJSON` produz exatamente a mesma chave.
+
+Às vezes o formulário inteiro é desconhecido — o passo de um fluxo, a configuração de um
+cliente, um formulário público que alguém montou numa tela de administração. Aí o formulário
+é dado:
+
+```go
+values, err := trilha.BindSchema(c, esquema)
+errs, ok := err.(trilha.FieldErrors)
+if err != nil && !ok {
+	return err
+}
+if ok {
+	return c.Render(http.StatusUnprocessableEntity, pagina(c, values, errs))
+}
+```
+
+`esquema` é um `trilha.Schema`, que é uma lista de `SchemaField` — ele decodifica direto de
+JSON, então pode morar numa tabela. Os valores voltam como texto, as mensagens voltam no
+mesmo `FieldErrors` de qualquer formulário, e o `ui.SchemaForm(esquema, values, errs)`
+desenha os campos dentro de um `<form>` que continua sendo seu. O `examples/cadastro` tem os
+dois: uma lista de dependentes e uma tela cujo esquema é JSON.
+
 ## Métodos que o navegador não manda
 
 Formulários HTML só enviam GET e POST. Para "apagar", exporte `DELETE` para clientes de API

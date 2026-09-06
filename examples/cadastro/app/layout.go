@@ -22,7 +22,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Script(h.Src(c.Asset("/app.js")), h.Defer()),
 		),
 		h.Body(ui.Body(),
-			ui.Header(ui.Brand("/", "Cadastro"), ui.Nav(h.A(h.Href("/api/cidades?uf=SP"), h.Text("API"))), ui.Spacer(), ui.ThemeToggle()),
+			ui.Header(ui.Brand("/", "Cadastro"), ui.Nav(h.A(h.Href("/ficha"), h.Text("Ficha")), h.A(h.Href("/api/cidades?uf=SP"), h.Text("API"))), ui.Spacer(), ui.ThemeToggle()),
 			h.Main(ui.Container(children)),
 			ui.Toaster(h.If(c.Query("ok") == "1", ui.Toast("success", "Cadastro salvo!", 4000))),
 		),

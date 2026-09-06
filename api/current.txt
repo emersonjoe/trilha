@@ -15,6 +15,7 @@ pkg trilha, const Prod Env
 pkg trilha, const StatusFail
 pkg trilha, const StatusPass
 pkg trilha, func AddRule(string, func(Field) bool)
+pkg trilha, func BindSchema(*Ctx, Schema) (map[string]string, error)
 pkg trilha, func CSRFInput(*Ctx) h.Node
 pkg trilha, func CSRFTokenFrom(*http.Request) string
 pkg trilha, func CompileErrorPage(string) string
@@ -172,6 +173,7 @@ pkg trilha, method (ListParams) Limit() int
 pkg trilha, method (ListParams) Offset() int
 pkg trilha, method (ListParams) PageHref(int) string
 pkg trilha, method (ListParams) TotalPages(int) int
+pkg trilha, method (Schema) Check() error
 pkg trilha, type App struct
 pkg trilha, type Bag interface
 pkg trilha, type CORS struct
@@ -286,6 +288,22 @@ pkg trilha, type Route struct, MiddlewaresByMethod map[string][]MiddlewareFunc
 pkg trilha, type Route struct, Page PageFunc
 pkg trilha, type Route struct, Pattern string
 pkg trilha, type RouteKind int
+pkg trilha, type Schema []SchemaField
+pkg trilha, type SchemaField struct
+pkg trilha, type SchemaField struct, Help string
+pkg trilha, type SchemaField struct, Label string
+pkg trilha, type SchemaField struct, Max string
+pkg trilha, type SchemaField struct, Min string
+pkg trilha, type SchemaField struct, Name string
+pkg trilha, type SchemaField struct, Options []SchemaOption
+pkg trilha, type SchemaField struct, Pattern string
+pkg trilha, type SchemaField struct, Required bool
+pkg trilha, type SchemaField struct, Rows int
+pkg trilha, type SchemaField struct, Text string
+pkg trilha, type SchemaField struct, Type string
+pkg trilha, type SchemaOption struct
+pkg trilha, type SchemaOption struct, Label string
+pkg trilha, type SchemaOption struct, Value string
 pkg trilha, type Security struct
 pkg trilha, type Security struct, COOP string
 pkg trilha, type Security struct, CSP string
@@ -339,7 +357,9 @@ pkg trilha, var BindInvalid
 pkg trilha, var ErrNoSecret
 pkg trilha, var ErrNotFound
 pkg trilha, var ErrRateLimited
+pkg trilha, var MaxItems
 pkg trilha, var ProblemType func(int) string
+pkg trilha, var SchemaTypes
 pkg trilha, var ValidationMessages
 pkg ai, const DefaultBaseURL
 pkg ai, func Assistant(string) Message
@@ -870,6 +890,7 @@ pkg ui, func Poll(string, string) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func Radio(...h.Node) h.Node
 pkg ui, func Row(...h.Node) h.Node
+pkg ui, func SchemaForm(trilha.Schema, map[string]string, map[string]string, ...h.Node) h.Node
 pkg ui, func Secondary() h.Node
 pkg ui, func Select(...h.Node) h.Node
 pkg ui, func SelectOptions([]Option, string) h.Node

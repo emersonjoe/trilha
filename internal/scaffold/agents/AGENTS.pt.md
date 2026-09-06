@@ -83,6 +83,12 @@ leia essa frase em vez de adivinhar.
   `ui.Stat`, `ui.Bars`, `ui.Sparkline` e `ui.Donut` desenham um painel em SVG no servidor,
   com uma tabela invisível dos mesmos números para o leitor de tela. Esconder item de menu
   é enfeite: quem mantém alguém do lado de fora é o middleware na raiz da pasta.
+- **Não numere na mão os inputs de uma linha que se repete, nem escreva um motor de
+  formulário.** Uma lista de sub-registros é lida de `itens[0].nome`, `itens[1].nome`… para
+  um `[]Linha`, uma matriz de `perm[docs]` para um mapa, e o nome do input é a chave da
+  mensagem, então `ui.Errors(errs, "itens[1].qtd")` já aponta para a linha certa. Quando o
+  formulário em si vem de dado, o `trilha.Schema` decodifica de JSON, o `trilha.BindSchema`
+  valida como qualquer outro formulário e o `ui.SchemaForm` desenha.
 - **Não invente um cookie de flash nem um `onclick="return confirm()"`.** Depois de um `POST`,
   conte o que aconteceu com `c.Flash(ui.FlashSuccess, "…")` — o `ui.Flashes(c)` do layout mostra
   na página onde o redirect cai — e pergunte antes de destruir com `ui.Confirm(título,

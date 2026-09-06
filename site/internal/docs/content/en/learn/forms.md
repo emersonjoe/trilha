@@ -139,6 +139,49 @@ accepts. "This account exists" and "this room is free that night" are questions 
 data, and they stay in your package. Run them after `Bind` and merge the result into the
 same `FieldErrors`, so both kinds of message reach the person in the same response.
 
+## When the form grows
+
+Three dependants, five order rows, one permission per module: the number of fields is not
+known when you write the page. The name of the input carries the position, and `Bind` fills
+a slice of structs from it — `items[0].name`, `items[1].name`, in order:
+
+```go
+type Row struct {
+	Name string `form:"name" validate:"required,max=40"`
+	Qty  int    `form:"qty" validate:"min=1"`
+}
+
+var in struct {
+	Items []Row `form:"items" validate:"minitems=1,maxitems=50"`
+}
+```
+
+Draw the rows you have plus one empty one at the end, and the person gets the next row
+without any JavaScript; an empty row is not an item, so drop it before saving. A key instead
+of an index gives a map — `perm[docs]=2` fills a `map[string]int`. The name of the input is
+also the key of the message: `ui.Errors(errs, "items[1].qty")` puts it next to the field that
+is wrong, and `BindJSON` produces the very same key.
+
+Sometimes the whole form is unknown — the step of a workflow, the settings of a tenant, a
+public form somebody built in an admin screen. Then the form is data:
+
+```go
+values, err := trilha.BindSchema(c, schema)
+errs, ok := err.(trilha.FieldErrors)
+if err != nil && !ok {
+	return err
+}
+if ok {
+	return c.Render(http.StatusUnprocessableEntity, page(c, values, errs))
+}
+```
+
+`schema` is a `trilha.Schema`, which is a list of `SchemaField` — it decodes straight from
+JSON, so it can live in a table. The values come back as text, the messages come back in the
+same `FieldErrors` as any other form, and `ui.SchemaForm(schema, values, errs)` draws the
+fields inside a `<form>` that is still yours. `examples/cadastro` has both: a list of
+dependants and a screen whose schema is JSON.
+
 ## Methods the browser does not send
 
 HTML forms only send GET and POST. For "delete", export `DELETE` for API clients and make the

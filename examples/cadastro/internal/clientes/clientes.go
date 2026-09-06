@@ -5,6 +5,7 @@ package clientes
 import (
 	"net/mail"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,14 @@ type Endereco struct {
 	Cidade string `form:"cidade"`
 }
 
+// Dependente is one row of the dependants list. It is read from
+// dependentes[0].nome, dependentes[1].nome…, and the message of a row comes
+// back under the very name the input had.
+type Dependente struct {
+	Nome       string `form:"nome"`
+	Nascimento string `form:"nascimento"`
+}
+
 // Cliente is the form model. Tags map form fields; conditional fields are
 // simply empty when hidden (ui.ShowWhen disables them in the browser and the
 // rules below ignore them by Tipo on the server).
@@ -34,10 +43,11 @@ type Cliente struct {
 	CNPJ        string `form:"cnpj"`
 	RazaoSocial string `form:"razao_social"`
 	Endereco    Endereco
-	CobrancaDif bool     `form:"cobranca_diferente"`
-	Cobranca    Endereco `form:"cob_"` // bound as cob_cep, cob_rua...
-	Novidades   bool     `form:"novidades"`
-	Frequencia  string   `form:"frequencia"` // semanal | mensal
+	CobrancaDif bool         `form:"cobranca_diferente"`
+	Cobranca    Endereco     `form:"cob_"` // bound as cob_cep, cob_rua...
+	Dependentes []Dependente `form:"dependentes" validate:"maxitems=10"`
+	Novidades   bool         `form:"novidades"`
+	Frequencia  string       `form:"frequencia"` // semanal | mensal
 	Criado      time.Time
 }
 
@@ -67,6 +77,18 @@ func Normalizar(c *Cliente) {
 	if !c.Novidades {
 		c.Frequencia = ""
 	}
+	// The form always shows one spare row; a row nobody typed into is not a
+	// dependant, and dropping it here keeps the indexes of the messages equal
+	// to the indexes the form is about to draw.
+	deps := c.Dependentes[:0]
+	for _, d := range c.Dependentes {
+		d.Nome, d.Nascimento = strings.TrimSpace(d.Nome), strings.TrimSpace(d.Nascimento)
+		if d.Nome == "" && d.Nascimento == "" {
+			continue
+		}
+		deps = append(deps, d)
+	}
+	c.Dependentes = deps
 }
 
 // Validar applies the business rules and returns one message per field.
@@ -97,6 +119,15 @@ func Validar(c Cliente) trilha.FieldErrors {
 		}
 		if len(c.RazaoSocial) < 3 {
 			e.Add("razao_social", "Informe a razão social")
+		}
+	}
+	for i, d := range c.Dependentes {
+		row := "dependentes[" + strconv.Itoa(i) + "]."
+		if len(d.Nome) < 3 {
+			e.Add(row+"nome", "Informe o nome do dependente")
+		}
+		if _, err := time.Parse("2006-01-02", d.Nascimento); err != nil {
+			e.Add(row+"nascimento", "Data inválida")
 		}
 	}
 	validarEndereco(e, "", c.Endereco)

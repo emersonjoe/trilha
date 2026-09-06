@@ -76,6 +76,26 @@ func bindStruct(sv reflect.Value, prefix string, form map[string][]string, errs 
 		if name == "-" {
 			continue
 		}
+		// A list of sub-records and a key/value matrix are read by a name
+		// with an index or a key in it, which is also the key of the error:
+		// itens[1].qtd is the input, the message and what ui.Errors looks
+		// for — the same key whether the values came as a form or as JSON.
+		isRow := fv.Kind() == reflect.Slice && fv.Type().Elem().Kind() == reflect.Struct && fv.Type().Elem() != reflect.TypeOf(time.Time{})
+		if isRow || fv.Kind() == reflect.Map {
+			n := name
+			if n == "" {
+				n = f.Name
+			}
+			switch {
+			case form == nil:
+				bindDecoded(fv, prefix+n, f, errs, vn)
+			case isRow:
+				bindSlice(fv, prefix+n, f, form, errs, vn)
+			default:
+				bindMap(fv, prefix+n, f, form, errs, vn)
+			}
+			continue
+		}
 		if fv.Kind() == reflect.Struct && fv.Type() != reflect.TypeOf(time.Time{}) {
 			inner := prefix + name
 			if form == nil && name != "" {

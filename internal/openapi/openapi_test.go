@@ -332,3 +332,28 @@ func POST(c *trilha.Ctx) error {
 		t.Errorf("método sobre chamada genérica = %v", got)
 	}
 }
+
+// TestListaEMapaNoCorpo: a lista de sub-registros e a matriz chave/valor que o
+// Bind lê por índice e por chave saem descritas como array e como objeto de
+// propriedades adicionais, com o limite vindo da mesma tag.
+func TestListaEMapaNoCorpo(t *testing.T) {
+	doc := decode(t, gen(t, filepath.Join("..", "..", "testdata", "apps", "openapi"), "example.com/openapi", Options{}))
+	body := at(t, doc, "paths", "/api/orders", "post", "requestBody", "content", "application/json", "schema", "properties").(map[string]any)
+	items := body["items"].(map[string]any)
+	if items["type"] != "array" {
+		t.Errorf("items.type = %v", items["type"])
+	}
+	if got := at(t, items, "items", "$ref"); got != "#/components/schemas/orders.Row" {
+		t.Errorf("items.items.$ref = %v", got)
+	}
+	if items["minItems"] != float64(1) || items["maxItems"] != float64(50) {
+		t.Errorf("minitems/maxitems não viraram limite do array: %v", items)
+	}
+	perm := body["perm"].(map[string]any)
+	if perm["type"] != "object" {
+		t.Errorf("perm.type = %v", perm["type"])
+	}
+	if got := at(t, perm, "additionalProperties", "type"); got != "integer" {
+		t.Errorf("perm.additionalProperties.type = %v", got)
+	}
+}

@@ -135,6 +135,32 @@
       ]
     },
     {
+      "pattern": "/api/orders",
+      "kind": "api",
+      "file": "app/api/orders/route.go",
+      "methods": [
+        "POST"
+      ],
+      "api": [
+        {
+          "method": "POST",
+          "summary": "POST creates an order.",
+          "request": "object{items, perm}",
+          "responses": [
+            {
+              "status": 201,
+              "type": "object{items, perm}"
+            },
+            {
+              "status": 422,
+              "type": "Problem",
+              "media": "application/problem+json"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "pattern": "/api/report.csv",
       "kind": "api",
       "file": "app/api/report.csv/route.go",

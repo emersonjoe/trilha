@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/cadastro/internal/clientes"
@@ -19,11 +20,22 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 // to the fields and every value preserved; on success it redirects (PRG).
 func POST(c *trilha.Ctx) error {
 	var in clientes.Cliente
+	lidos := trilha.FieldErrors{}
 	if err := c.Bind(&in); err != nil {
-		return err
+		// Uma linha de dependente acima do teto da tag volta como FieldErrors,
+		// com a chave do item; o resto é erro de verdade.
+		fe, ok := err.(trilha.FieldErrors)
+		if !ok {
+			return err
+		}
+		lidos = fe
 	}
 	clientes.Normalizar(&in)
-	if errs := clientes.Validar(in); errs.Any() {
+	errs := clientes.Validar(in)
+	for campo, msg := range lidos {
+		errs.Add(campo, msg)
+	}
+	if errs.Any() {
 		return c.Render(http.StatusUnprocessableEntity, tela(c, in, errs, ""))
 	}
 	clientes.Salvar(in)
@@ -70,6 +82,26 @@ func endereco(prefix string, a clientes.Endereco, errs trilha.FieldErrors) h.Nod
 	)
 }
 
+// dependentes desenha a lista de sub-registros: cada linha é
+// dependentes[i].nome, que é o nome do input, a chave da mensagem e o que o
+// Bind lê de volta. A linha vazia do fim é a próxima — sem JavaScript nenhum.
+func dependentes(in clientes.Cliente, errs trilha.FieldErrors) h.Node {
+	linhas := append(append([]clientes.Dependente{}, in.Dependentes...), clientes.Dependente{})
+	rows := make([]h.Node, 0, len(linhas))
+	for i, d := range linhas {
+		row := "dependentes[" + strconv.Itoa(i) + "]."
+		rows = append(rows, h.Div(h.Class("ui-grid"),
+			campo(row+"nome", "Nome do dependente", d.Nome, errs),
+			campo(row+"nascimento", "Nascimento", d.Nascimento, errs, h.Type("date")),
+		))
+	}
+	return h.Div(h.Class("ui-stack"),
+		ui.H3(h.Text("Dependentes")),
+		ui.Muted(h.Text("Cada linha vira um item da lista; a linha em branco é ignorada.")),
+		h.Group(rows...),
+	)
+}
+
 func formulario(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors) h.Node {
 	return ui.Card(
 		ui.CardHeader(h.H1(h.Class("ui-card-title"), h.Text("Novo cliente")), ui.CardDescription("Os campos mudam conforme o tipo; a validação acontece no servidor e volta para o campo certo.")),
@@ -99,6 +131,7 @@ func formulario(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors) h.N
 			),
 			ui.H3(h.Text("Endereço")),
 			endereco("", in.Endereco, errs),
+			dependentes(in, errs),
 			ui.CheckRow(ui.Switch(h.ID("cobranca_diferente"), h.Name("cobranca_diferente"), ui.Checked(in.CobrancaDif)), "Endereço de cobrança diferente", "cobranca_diferente"),
 			h.Div(h.Class("ui-stack"), ui.ShowWhen("cobranca_diferente"),
 				ui.H3(h.Text("Endereço de cobrança")),

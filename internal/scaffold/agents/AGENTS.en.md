@@ -83,6 +83,12 @@ that resolves it — read that line instead of guessing.
   it. `ui.Stat`, `ui.Bars`, `ui.Sparkline` and `ui.Donut` draw a dashboard as server-side
   SVG, with an invisible table of the same numbers for a screen reader. Hiding a menu item
   is cosmetics: what keeps somebody out is a middleware at the root of the folder.
+- **Do not number the inputs of a repeating row by hand, and do not build a form engine.**
+  A list of sub-records is read from `items[0].name`, `items[1].name`… into a `[]Row`, a
+  matrix from `perm[docs]` into a map, and the name of the input is the key of the message,
+  so `ui.Errors(errs, "items[1].qty")` already points at the right row. When the form itself
+  comes from data, `trilha.Schema` decodes from JSON, `trilha.BindSchema` validates it like
+  any other form and `ui.SchemaForm` draws it.
 - **Do not invent a flash cookie or an `onclick="return confirm()"`.** After a `POST`, say what
   happened with `c.Flash(ui.FlashSuccess, "…")` — the layout's `ui.Flashes(c)` shows it on the
   page the redirect lands on — and ask before destroying with `ui.Confirm(title, description)`

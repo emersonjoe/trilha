@@ -40,6 +40,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `SelectOptions([]Option{{Value, Label}}, selected)` | `<option>`s marking the selected one; `Value: ""` is a placeholder (disabled) and is selected when nothing matches |
 | `Checked(bool)` | conditional `checked` (round trip of checkbox/switch/radio) |
 | `ShowWhen(field, values...)` | `data-ui-show-when`: shows the element only with the value (or any non-empty value); hidden controls are disabled |
+| `SchemaForm(schema, values, errs, ...)` | a form defined by data: one field per `trilha.SchemaField` — see [Validation](/reference/validation) |
 | `Badge`, `Alert(title, ...)`, `AlertDescription(...)` | badge and alert (`role=alert`) |
 | `Toaster(...)`, `Toast(kind, text, fadeMs)` | toast stack; `kind` = `""`, `success`, `error`; `fadeMs > 0` disappears on its own |
 | `Flashes(c)` | the toaster with the messages of [`c.Flash`](/reference/ctx) — put it in the layout; `FlashInfo`, `FlashSuccess` and `FlashError` are the kinds |

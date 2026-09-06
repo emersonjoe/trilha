@@ -167,3 +167,75 @@ func TestBuscaTemIndicadorDeEspera(t *testing.T) {
 		t.Fatal("o servidor não deve mandar nada já em espera")
 	}
 }
+
+// TestDependentes: a lista de sub-registros vai e volta pelo nome indexado, e
+// a linha em branco do fim não vira dependente.
+func TestDependentes(t *testing.T) {
+	c := newClient(t)
+	c.Get("/").WantStatus(200).WantContains(`name="dependentes[0].nome"`, `name="dependentes[0].nascimento"`)
+
+	f := valido()
+	f.Set("dependentes[0].nome", "Ana")
+	f.Set("dependentes[0].nascimento", "2015-04-02")
+	f.Set("dependentes[1].nome", "")
+	f.Set("dependentes[1].nascimento", "")
+	c.PostForm("/", f).WantStatus(303)
+
+	todos := clientes.Todos()
+	if len(todos) == 0 || len(todos[0].Dependentes) != 1 || todos[0].Dependentes[0].Nome != "Ana" {
+		t.Fatalf("dependentes = %+v", todos[0].Dependentes)
+	}
+}
+
+// TestDependenteInvalidoVoltaNaLinha: a mensagem chega com a chave do item, e
+// o formulário volta com a linha preenchida.
+func TestDependenteInvalidoVoltaNaLinha(t *testing.T) {
+	c := newClient(t)
+	f := valido()
+	f.Set("dependentes[0].nome", "Jo")
+	f.Set("dependentes[0].nascimento", "ontem")
+	c.PostForm("/", f).WantStatus(422).WantContains(
+		"Informe o nome do dependente", "Data inválida",
+		`name="dependentes[0].nome" value="Jo"`)
+}
+
+// TestFichaComEsquemaDeJSON: o formulário vem de um JSON e valida pelo mesmo
+// motor — a mensagem sai com o nome do campo do esquema.
+func TestFichaComEsquemaDeJSON(t *testing.T) {
+	c := newClient(t)
+	c.Get("/ficha").WantStatus(200).WantContains(
+		`name="assunto"`, `name="canal"`, `name="relato"`, `name="retornar"`,
+		"Preencha com o que o cliente relatou")
+
+	f := url.Values{}
+	f.Set("assunto", "x")
+	f.Set("canal", "pombo")
+	f.Set("quando", "2026-02-01")
+	f.Set("relato", "curto")
+	f.Set("protocolo", "1234")
+	c.PostForm("/ficha", f).WantStatus(422).WantContains(`aria-invalid="true"`, `name="assunto"`, `value="x"`)
+
+	f.Set("assunto", "Cobrança em duplicidade")
+	f.Set("canal", "telefone")
+	f.Set("relato", "O cliente foi cobrado duas vezes na mesma fatura.")
+	f.Set("protocolo", "2026-0001")
+	f.Set("retornar", "on")
+	c.PostForm("/ficha", f).WantStatus(200).WantContains("Ficha recebida!")
+}
+
+// valido é um cadastro que passa em todas as regras, para o teste mexer só no
+// que ele quer provar.
+func valido() url.Values {
+	f := url.Values{}
+	f.Set("tipo", "pf")
+	f.Set("nome", "Grace Hopper")
+	f.Set("email", "grace@example.com")
+	f.Set("cpf", "529.982.247-25")
+	f.Set("nascimento", "1906-12-09")
+	f.Set("cep", "20040-020")
+	f.Set("rua", "Av. Rio Branco")
+	f.Set("numero", "1")
+	f.Set("uf", "RJ")
+	f.Set("cidade", "Rio de Janeiro")
+	return f
+}

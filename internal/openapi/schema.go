@@ -546,6 +546,17 @@ func applyValidate(s *schema, tag string) bool {
 				}
 				s.Enum = append(s.Enum, opt)
 			}
+		case "minitems", "maxitems", "lenitems":
+			n, err := strconv.Atoi(param)
+			if err != nil || s.Type != "array" {
+				continue
+			}
+			if name != "maxitems" {
+				s.MinItems = &n
+			}
+			if name != "minitems" {
+				s.MaxItems = &n
+			}
 		case "min", "max", "len":
 			n, err := strconv.ParseFloat(param, 64)
 			if err != nil {

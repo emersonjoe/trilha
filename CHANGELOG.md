@@ -7,6 +7,23 @@ versioning. This file is written in English only.
 
 ### Added
 
+- **A form that grows: lists of sub-records, key/value matrices and a schema that comes as
+  data** ([#69](https://github.com/emersonjoe/trilha/issues/69)). `Bind` fills a `[]Row` from
+  `items[0].name`, `items[1].name`… and a `map[string]int` from `perm[docs]=2`, and the name
+  of the input is also the key of the message, so `ui.Errors(errs, "items[1].qty")` reaches
+  the field the person is looking at — `BindJSON` produces the very same key. An index nobody
+  sent is not a row: sparse indices are compacted in numeric order and the message names the
+  position the form is about to draw again; nothing is allocated by index, so
+  `items[9999999999]` costs one row, with `maxitems` as the ceiling when the tag has one and
+  `trilha.MaxItems` (1000) when it does not. Three rules count a collection — `minitems`,
+  `maxitems`, `lenitems` — and they are the exception to "an empty value skips the rule". For
+  the form that is not in the code at all, `trilha.Schema` is a list of `SchemaField` that
+  decodes straight from JSON, `trilha.BindSchema` reads it through the same validation and
+  answers the same `FieldErrors`, and `ui.SchemaForm` draws `text`, `textarea`, `number`,
+  `date`, `datetime`, `select`, `checkbox`, `file`, `signature` and `display` inside a
+  `<form>` that stays the app's. A schema with an unknown type or a pattern that does not
+  compile is a plain error, never a 422.
+
 - **`Config.Upstreams`: an app in front of an API that already exists**
   ([#60](https://github.com/emersonjoe/trilha/issues/60)). A URL prefix is forwarded to
   another service — the `rewrites` of a Next.js app — plus the two things a rewrite has no
@@ -117,6 +134,9 @@ versioning. This file is written in English only.
   the two things not to hand-write — a listing screen and a `setInterval`.
 - New reference pages **Shell** and **Charts**, and the `--template` section of the CLI
   reference, in both languages.
+- The validation reference gained **Lists and matrices** and **A form that comes as data**,
+  the forms chapter gained **When the form grows**, and `examples/cadastro` gained a list of
+  dependants and a screen whose schema is JSON — all in both languages.
 
 ## 0.40.1 — 2026-09-08
 

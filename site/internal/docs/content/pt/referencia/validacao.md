@@ -41,6 +41,75 @@ responde pelo que alguém digitou. Valor que nem converte (`abc` num `int`) rece
 resposta de verdade, declare o campo como ponteiro: um `*int` que chegou com `0` está
 presente, e só o campo ausente falha.
 
+## Listas e matrizes
+
+Formulário cresce: três dependentes, cinco linhas de pedido, uma permissão por módulo. O
+nome carrega a posição — `itens[0].nome`, `itens[1].nome` — ou a chave — `perm[docs]` — e o
+`Bind` preenche uma fatia de struct ou um mapa a partir dele:
+
+```go
+type Linha struct {
+	Nome string `form:"nome" validate:"required,max=40"`
+	Qtd  int    `form:"qtd" validate:"min=1"`
+}
+
+var in struct {
+	Itens []Linha        `form:"itens" validate:"minitems=1,maxitems=50"`
+	Perm  map[string]int `form:"perm"`
+}
+```
+
+| Regra | O que conta |
+|---|---|
+| `minitems=n` | ao menos `n` linhas ou chaves |
+| `maxitems=n` | no máximo `n` linhas ou chaves |
+| `lenitems=n` | exatamente `n` linhas ou chaves |
+
+Essas três são a exceção ao "valor vazio pula a regra": "ao menos uma linha" é justamente
+uma frase sobre o caso vazio.
+
+O nome do input é também a chave da mensagem, então `ui.Errors(errs, "itens[1].qtd")` acha o
+campo que a pessoa está olhando. Índice que ninguém mandou não é linha: `itens[0]` e
+`itens[7]` chegam como duas linhas, nessa ordem, e a mensagem da segunda diz `itens[1].qtd`
+— a posição depois de compactar, que é a posição que o formulário vai desenhar de novo. Nada
+é alocado por índice, então `itens[9999999999]` custa uma linha e não dez bilhões; o teto é
+`maxitems` quando a tag tem um e `trilha.MaxItems` (1000) quando não tem. Chave de mapa vale
+inteira, com espaço e ponto, e chave com colchete é recusada.
+
+O `BindJSON` fala a mesma chave: `{"itens":[…]}` erra com `itens[1].qtd`, a mesma string que
+o formulário HTML produz, então uma tela só serve aos dois.
+
+## Formulário que vem como dado
+
+Tem formulário que não está no código: o passo de um fluxo, o formulário público atrás de um
+token, a configuração de um cliente. `trilha.Schema` é esse formulário como dado, e
+`trilha.BindSchema` lê pelo motor de cima — as mesmas regras, as mesmas mensagens, o mesmo
+`FieldErrors`:
+
+```go
+values, err := trilha.BindSchema(c, esquema)
+errs, ok := err.(trilha.FieldErrors)
+if err != nil && !ok {
+	return err
+}
+if ok {
+	return c.Render(http.StatusUnprocessableEntity, pagina(c, values, errs))
+}
+```
+
+Os valores voltam como texto: esquema que veio de uma tabela não tem tipo Go para preencher,
+e converter para `any` só mudaria a conversão de lugar. O `SchemaField` diz o que uma tag
+diria — `Required`, `Min`, `Max`, `Pattern`, `Options` — e o `Type` diz qual controle
+desenha: `text`, `textarea`, `number`, `date`, `datetime`, `select`, `checkbox`, `file`,
+`signature`, `display`. Campo `display` é um parágrafo no meio do formulário: não é lido e
+nunca recebe mensagem. Arquivo se lê com `c.File`, como qualquer arquivo.
+
+Esquema com tipo desconhecido, campo sem nome ou padrão que não compila é defeito do app, e
+não coisa que a pessoa fez ao preencher: o `schema.Check()`, que o `BindSchema` chama antes
+de tudo, responde com erro comum e nunca com 422. O `ui.SchemaForm(esquema, values, errs)`
+desenha os campos; o `<form>`, o input de CSRF e o botão continuam seus, porque para onde o
+formulário posta não está no esquema.
+
 ## Regras suas
 
 | Símbolo | Papel |

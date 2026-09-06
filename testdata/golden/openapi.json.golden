@@ -284,6 +284,90 @@
         }
       }
     },
+    "/api/orders": {
+      "post": {
+        "tags": [
+          "orders"
+        ],
+        "summary": "POST creates an order.",
+        "description": "The rows arrive as items[0].name, items[1].name…, and\nthe permissions as perm[docs]: a list and a map, described as such.",
+        "operationId": "postApiOrders",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "items": {
+                      "$ref": "#/components/schemas/orders.Row"
+                    }
+                  },
+                  "perm": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 50,
+                      "items": {
+                        "$ref": "#/components/schemas/orders.Row"
+                      }
+                    },
+                    "perm": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/report.csv": {
       "get": {
         "tags": [
@@ -372,6 +456,22 @@
         "required": [
           "status",
           "title"
+        ]
+      },
+      "orders.Row": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "qty": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "name"
         ]
       },
       "store.Item": {
