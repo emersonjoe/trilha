@@ -38,6 +38,14 @@ precisa de `Page`; `route.go` precisa de pelo menos um de `GET`, `POST`, `PUT`, 
 `DELETE`; `layout.go` de `Layout`; `middleware.go` de `Middleware`. Assinatura errada é
 erro de compilação no `trilha_gen.go`, apontando o pacote.
 
+## `E_UNUSED_METHOD_MIDDLEWARE`
+
+Um `MiddlewarePOST` (ou `GET`, `PUT`, `PATCH`, `DELETE`) num `middleware.go` que não alcança
+nenhuma rota com aquele método na sua pasta ou abaixo dela. Em geral o método mudou de lugar
+e a regra ficou, ou o nome tem um erro de digitação. Apague ou dê à rota o método que ela
+deveria guardar — uma permissão que não guarda nada é pior que permissão nenhuma, porque
+parece proteção.
+
 ## `E_DUPLICATE_ROUTE`
 
 Duas pastas geram a mesma URL, quase sempre por causa de um grupo de rota. `app/eventos/`
@@ -48,6 +56,15 @@ e `app/organizador-/eventos/` respondem os dois em `/eventos`. Renomeie uma.
 Faltou `trilha.CSRFInput(c)` dentro do `<form>`, ou a página do formulário foi aberta antes
 de o cookie existir (por exemplo, um `curl` direto no `POST`). Abra a página com `GET`
 primeiro, como um navegador faria, ou mande o token em `X-CSRF-Token`.
+
+## O `trilha dev` diz que não há binário aqui
+
+A pasta declara um pacote diferente de `main`, então o `trilha gen` escreveu um pacote
+importável, com `NewApp()` e sem `func main()` — um app feito para ser montado por um binário
+hospedeiro (`mux.Handle("/", crm.NewApp().Handler())`). Rode o hospedeiro, não esta pasta. Se
+o pacote foi engano, corrija no arquivo escrito à mão e gere de novo; o arquivo gerado segue
+o que a pasta declara. Veja
+[CLI](/pt/referencia/cli#um-app-dentro-de-um-binario-que-ja-existe).
 
 ## A porta 3000 está ocupada
 

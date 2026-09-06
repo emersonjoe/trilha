@@ -13,8 +13,9 @@ description: Complete table of what each file and folder name in app/ means.
 | `route.go` (optional) | `Kind` | `var Kind = trilha.KindPage` or `KindAPI` | how errors are rendered and whether CSRF applies (see [Errors](/reference/errors)) |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subtree |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree |
+| `middleware.go` (optional) | `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH`, `MiddlewareDELETE` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree, that method only |
 | `not_found.go` (root only) | `NotFound` | `func(c *trilha.Ctx) (h.Node, error)` | the app's 404 |
-| `error.go` (root only) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | the app's 500 |
+| `error.go` (root only) | `Error` | `func(c *trilha.Ctx, err error) (h.Node, error)` | every error status but 404 |
 | `setup.go` (root only) | `Setup` | `func(a *trilha.App) error` | before serving |
 | `setup.go` (optional) | `Config` | `func(cfg *trilha.Config)` or `func(cfg *trilha.Config) error` | before `trilha.New`; an error stops the boot |
 | `setup.go` (optional) | `Shutdown` | `func(a *trilha.App) error` | after the app stops accepting requests (close pool, queue, flush logs) |
@@ -46,16 +47,21 @@ an error. Two folders producing the same URL (through groups) are an error.
 | Folder | Role |
 |---|---|
 | `public/` | static files served at the root; embedded in the binary in production |
-| `trilha_gen.go` | generated; committed; never edited by hand |
+| `trilha_gen.go` | generated; committed; never edited by hand; carries the package the folder declares (see [CLI](/reference/cli)) |
 | `.trilha/` | temporary binaries of `dev` and `export`; ignored by git |
 
 ## Execution order for `GET /a/b`
 
 ```text
 middleware(app) → middleware(app/a) → middleware(app/a/b)
+  → middlewareGET(app) → middlewareGET(app/a) → middlewareGET(app/a/b)
   → Page (or method)
   → layout(app/a/b) → layout(app/a) → layout(app)
 ```
+
+The per-method chain runs inside the route-wide one: a rule for a single method refines what
+the route already decided. For `POST` it is `MiddlewarePOST`, and so on; a method with no
+chain of its own just runs the route's.
 
 ## Generation errors
 
@@ -69,5 +75,6 @@ middleware(app) → middleware(app/a) → middleware(app/a/b)
 | `E_CATCHALL_NOT_LEAF` | routes below an `x__` folder |
 | `E_BAD_SEGMENT` | invalid parameter name or dynamic group (`x_-`) |
 | `E_DUPLICATE_ROUTE` | two folders producing the same URL |
+| `E_UNUSED_METHOD_MIDDLEWARE` | `MiddlewareX` that reaches no route serving `X` |
 | `E_PARSE` | Go file that does not compile |
 | `E_NO_APP` | there is no `app/` folder |

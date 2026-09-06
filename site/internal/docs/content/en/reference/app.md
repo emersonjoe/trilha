@@ -193,6 +193,25 @@ func main() {
 
 `public/` is optional: the `//go:embed` is only generated when the folder has files.
 
+### An app inside another binary
+
+When the folder declares a package other than `main`, the generated file follows it and
+exports the constructor:
+
+```go
+// internal/crm/trilha_gen.go → package crm, func NewApp() *trilha.App
+
+mux := http.NewServeMux()
+mux.HandleFunc("/legacy", legacy.Handler)
+mux.Handle("/", crm.NewApp().Handler())
+http.ListenAndServe(":8080", mux)
+```
+
+`Handler()` returns the `http.Handler` of the whole app — routing, static files, middlewares
+and error pages — so the host mounts it like any other handler. `trilha gen` needs nothing
+beyond the package the folder already declares; see
+[CLI](/reference/cli#an-app-inside-a-binary-that-already-exists).
+
 ## Testing an app
 
 The generated file defines `newApp()`, and `package trilha` ships the test client, so a test

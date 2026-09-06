@@ -132,6 +132,40 @@ Move the leaves first — a page with no dependencies, an API route that only re
 after each one. The two systems share the same process, the same pool and the same logger; a
 route is either in one or the other, never half in both.
 
+### When the app lives inside the old binary
+
+`Front` above assumes the two live in the same `package main`. Often they do not: what is
+being moved is one area of a larger server, and it wants its own folder — `internal/crm/`,
+with its own `app/`. Declare the package by hand there and `trilha gen` follows it, writing
+`NewApp` into the same package instead of a `main` nobody asked for:
+
+```go
+// Package crm is one area of a server that already exists: it has its own
+// app/ folder and its own package name, written by hand in this file.
+// `trilha gen` follows the package it finds here and writes NewApp into the
+// same one, so the binary that hosts it mounts the app with no registration
+// file of its own.
+package crm
+```
+
+The binary that already exists mounts it like any other handler:
+
+```go
+// Host is the same move when the app does not live in package main: crm is a
+// folder of the binary that already exists, `trilha gen` wrote NewApp into
+// the package that folder declares, and mounting it is one line. There is no
+// registration file to keep by hand.
+func Host(mux *http.ServeMux) http.Handler {
+	mux.Handle("/", crm.NewApp().Handler())
+	return before.Secure(mux)
+}
+```
+
+There is no hand-written registration file, which is the point: `trilha gen --check` in the
+CI keeps catching the folder someone added without generating. `trilha dev` and `trilha
+build` do not apply inside `internal/crm` — the binary is the host — and they say so. See
+[CLI](/reference/cli#an-app-inside-a-binary-that-already-exists).
+
 Two things do need a decision up front:
 
 - **Sessions.** If the old app has its own cookie, keep reading it in a middleware while the

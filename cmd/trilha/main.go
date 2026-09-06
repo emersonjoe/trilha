@@ -19,7 +19,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.31.0"
+const version = "0.32.0"
 
 func main() {
 	if len(os.Args) < 2 {

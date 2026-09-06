@@ -66,15 +66,55 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 
 Na página, `c.Get("usuario")` devolve o valor. Valores vivem só durante a requisição.
 
+## Uma regra para um método só
+
+Uma pasta costuma ter dois papéis: um `GET` que qualquer um da área lê e um `POST` que só um
+editor manda. Colocar a permissão na primeira linha do handler funciona — até a décima
+primeira rota, onde alguém esquece. O `middleware.go` aceita o método no nome:
+
+```go
+package organizador
+
+import (
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+)
+
+// Quem chegou até aqui lê.
+func Middleware(c *trilha.Ctx, next trilha.Next) error {
+	c.Set("area", "organizador")
+	return next()
+}
+
+// Só editor escreve, nesta pasta e nas de baixo.
+func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
+	if c.Get("papel") != "editor" {
+		return trilha.Errorf(http.StatusForbidden, "só editores mudam a meta")
+	}
+	return next()
+}
+```
+
+Valem `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH` e
+`MiddlewareDELETE`. Eles herdam pela subárvore igual ao `Middleware`, e rodam por dentro
+dele — a rota decide primeiro, o método refina depois. Um `MiddlewareX` que não alcança
+nenhuma rota com aquele método é erro de geração (`E_UNUSED_METHOD_MIDDLEWARE`): uma
+permissão que não guarda nada é exatamente a falha que esta convenção existe para evitar.
+
+O 403 acima sai pelo `app/error.go`, com o layout do app; veja [Erros](/pt/referencia/erros).
+
 ## Ordem
 
 Para `GET /painel`:
 
 ```text
-middleware(app) → middleware(app/organizador-) → Page → layouts
+middleware(app) → middleware(app/organizador-)
+  → middlewareGET(app) → middlewareGET(app/organizador-)
+  → Page → layouts
 ```
 
-De fora para dentro. Se um middleware não chamar `next()`, os de dentro e a página não rodam,
+De fora para dentro, a cadeia da rota antes da cadeia do método. Se um middleware não chamar `next()`, os de dentro e a página não rodam,
 mas os de fora terminam normalmente (o de medição acima ainda escreve o cabeçalho).
 
 ## Curto-circuito com resposta própria

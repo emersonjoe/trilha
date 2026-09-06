@@ -5,7 +5,7 @@ description: The trilha commands and their options.
 
 ```text
 trilha new <dir> [--module path] [--lang en|pt] [--trilha-dir ../trilha] [--no-tidy]
-trilha gen [--check]
+trilha gen [--check] [--package name]
 trilha generate page|route <url> | component <Name> [--force] [--dir path]
 trilha dev [--addr :3000]
 trilha build [-o bin/<name>]
@@ -116,6 +116,28 @@ the error then shows up inside generated code — the worst place to look for it
 without the CLI installed. It defines `newApp() *trilha.App` and `main()`; if another file
 in the package already has `func main()`, the generator omits its own (see
 [App](/reference/app)).
+
+### An app inside a binary that already exists
+
+The generated file takes the package the folder declares, so a Trilha app can be a normal,
+importable package inside a `net/http` server you already run:
+
+```go
+// internal/crm/crm.go — package crm, written by hand
+// internal/crm/app/…    — the routes
+// internal/crm/trilha_gen.go — package crm, func NewApp() *trilha.App
+
+mux.Handle("/", crm.NewApp().Handler())
+```
+
+Precedence, most explicit first: `--package <name>`; the package the hand-written `.go` files
+of the folder declare; the package an existing `trilha_gen.go` declares; `main`. The third
+step is what makes the flag a one-off — the generated file remembers the choice, so
+`trilha gen --check` in the CI needs no flag of its own.
+
+Outside `package main` the constructor is exported (`NewApp`, since the caller lives in
+another package) and no `func main()` is written. `trilha dev` and `trilha build` refuse such
+an app and say what runs it: there is no binary here, the host has one.
 
 ## Exit codes
 

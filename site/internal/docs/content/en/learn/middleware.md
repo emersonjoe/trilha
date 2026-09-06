@@ -66,15 +66,56 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 
 In the page, `c.Get("user")` returns the value. Values live only during the request.
 
+## A rule for one method
+
+A folder often serves two roles: a `GET` anyone in the area may read, and a `POST` only an
+editor may send. Putting the permission in the first line of the handler works — until the
+eleventh route, where someone forgets it. `middleware.go` takes the method in the name:
+
+```go
+package organizer
+
+import (
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+)
+
+// Everybody who got here may read.
+func Middleware(c *trilha.Ctx, next trilha.Next) error {
+	c.Set("area", "organizer")
+	return next()
+}
+
+// Only an editor may write, in this folder and below it.
+func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
+	if c.Get("role") != "editor" {
+		return trilha.Errorf(http.StatusForbidden, "only editors may change the goal")
+	}
+	return next()
+}
+```
+
+`MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH` and `MiddlewareDELETE`
+are recognised. They inherit down the subtree exactly like `Middleware`, and they run inside
+it — the route decides first, then the method refines. A `MiddlewareX` that reaches no route
+serving `X` is a generation error (`E_UNUSED_METHOD_MIDDLEWARE`): a permission that guards
+nothing is the failure this convention exists to prevent.
+
+The 403 above renders through `app/error.go`, with the app's layout; see
+[Errors](/reference/errors).
+
 ## Order
 
 For `GET /dashboard`:
 
 ```text
-middleware(app) → middleware(app/organizer-) → Page → layouts
+middleware(app) → middleware(app/organizer-)
+  → middlewareGET(app) → middlewareGET(app/organizer-)
+  → Page → layouts
 ```
 
-Outside in. If a middleware does not call `next()`, the inner ones and the page do not run,
+Outside in, route-wide chain before the method's own. If a middleware does not call `next()`, the inner ones and the page do not run,
 but the outer ones finish normally (the timing one above still writes its header).
 
 ## Short-circuit with your own response

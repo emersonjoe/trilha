@@ -5,7 +5,7 @@ description: Os comandos de trilha e suas opções.
 
 ```text
 trilha new <dir> [--module caminho] [--lang en|pt] [--trilha-dir ../trilha] [--no-tidy]
-trilha gen [--check]
+trilha gen [--check] [--package nome]
 trilha generate page|route <url> | component <Nome> [--force] [--dir caminho]
 trilha dev [--addr :3000]
 trilha build [-o bin/<nome>]
@@ -115,6 +115,28 @@ e o erro aparece dentro de código gerado — o pior lugar para procurar.
 ser commitado: `go build ./...` funciona
 sem a CLI instalada. Ele define `newApp() *trilha.App` e `main()`; se outro arquivo do
 pacote já tem `func main()`, o gerador omite o dele (veja [App](/pt/referencia/app)).
+
+### Um app dentro de um binário que já existe
+
+O arquivo gerado adota o pacote que a pasta declara, então um app Trilha pode ser um pacote
+comum, importável, dentro de um servidor `net/http` que você já roda:
+
+```go
+// internal/crm/crm.go — package crm, escrito à mão
+// internal/crm/app/…    — as rotas
+// internal/crm/trilha_gen.go — package crm, func NewApp() *trilha.App
+
+mux.Handle("/", crm.NewApp().Handler())
+```
+
+A precedência, do mais explícito ao menos: `--package <nome>`; o pacote declarado pelos `.go`
+escritos à mão da pasta; o pacote declarado por um `trilha_gen.go` que já esteja lá; `main`.
+O terceiro passo é o que faz a bandeira valer uma vez só — o arquivo gerado lembra a escolha,
+e o `trilha gen --check` do CI não precisa dela.
+
+Fora do `package main` o construtor é exportado (`NewApp`, porque quem chama mora em outro
+pacote) e nenhum `func main()` é escrito. O `trilha dev` e o `trilha build` recusam um app
+assim e dizem quem o roda: não há binário aqui, o hospedeiro é que tem um.
 
 ## Códigos de saída
 
