@@ -104,6 +104,13 @@ func {{.Ctor}}() *trilha.App {
 {{- if .Middlewares}}
 		Middlewares: []trilha.MiddlewareFunc{ {{refs .Middlewares}} },
 {{- end}}
+{{- if .MiddlewaresByMethod}}
+		MiddlewaresByMethod: map[string][]trilha.MiddlewareFunc{
+{{- range .MethodChains}}
+			{{quote .Method}}: { {{refs .Refs}} },
+{{- end}}
+		},
+{{- end}}
 	})
 {{- end}}
 	return a
@@ -127,6 +134,23 @@ func refList(rs []scan.Ref) string {
 type routeView struct {
 	scan.Route
 	Alias string
+}
+
+// methodChain is one entry of MiddlewaresByMethod, in a fixed order so the
+// generated file does not churn between runs.
+type methodChain struct {
+	Method string
+	Refs   []scan.Ref
+}
+
+// MethodChains lists the per-method chains sorted by method.
+func (r routeView) MethodChains() []methodChain {
+	out := make([]methodChain, 0, len(r.MiddlewaresByMethod))
+	for m, refs := range r.MiddlewaresByMethod {
+		out = append(out, methodChain{Method: m, Refs: refs})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Method < out[j].Method })
+	return out
 }
 
 type view struct {

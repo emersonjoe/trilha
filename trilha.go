@@ -190,6 +190,10 @@ type Route struct {
 	Layouts []LayoutFunc
 	// Middlewares run before the handler, outermost first.
 	Middlewares []MiddlewareFunc
+	// MiddlewaresByMethod holds chains that guard a single method
+	// (MiddlewareGET, MiddlewarePOST, ... in middleware.go). The chain of a
+	// method is Middlewares followed by MiddlewaresByMethod[method].
+	MiddlewaresByMethod map[string][]MiddlewareFunc
 	// Kind decides how errors are rendered (HTML page or JSON) and whether
 	// CSRF applies. KindAuto: page.go routes are pages; route.go routes are
 	// APIs, except that a browser navigation (Accept: text/html, outside

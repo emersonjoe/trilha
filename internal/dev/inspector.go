@@ -85,6 +85,14 @@ func renderInspector(root, module, path string) ([]byte, error) {
 		for i := range r.Middlewares {
 			line.Middlewares = append(line.Middlewares, refFile(res.Module, &r.Middlewares[i], "middleware.go"))
 		}
+		// A chain that guards a single method is listed under that method, so
+		// the panel answers "what runs on POST?" without reading the files.
+		for _, m := range methods {
+			chain := r.MiddlewaresByMethod[m]
+			for i := range chain {
+				line.Middlewares = append(line.Middlewares, m+": "+refFile(res.Module, &chain[i], "middleware.go"))
+			}
+		}
 		data.Routes = append(data.Routes, line)
 	}
 	if path != "" {

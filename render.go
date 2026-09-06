@@ -153,19 +153,11 @@ func (a *App) handleError(c *Ctx, err error) {
 		c.writeProblem(a.problemFor(c, err, code))
 		return
 	}
-	switch {
-	case code == http.StatusNotFound:
+	if code == http.StatusNotFound {
 		a.renderNotFound(c)
-	case code >= 500:
-		a.renderErrorPage(c, err)
-	default:
-		msg := http.StatusText(code)
-		var he *HTTPError
-		if errors.As(err, &he) && he.Message != "" {
-			msg = he.Message
-		}
-		_ = a.writeHTML(c, code, simplePage(fmt.Sprintf("%d %s", code, http.StatusText(code)), msg, ""))
+		return
 	}
+	a.renderErrorPage(c, err, code)
 }
 
 func (a *App) renderNotFound(c *Ctx) {
@@ -191,8 +183,12 @@ func (a *App) renderNotFound(c *Ctx) {
 	_ = a.writeHTML(c, http.StatusNotFound, simplePage("404 Not Found", "Page not found.", c.r.URL.Path))
 }
 
-func (a *App) renderErrorPage(c *Ctx, cause error) {
-	c.status = http.StatusInternalServerError
+// renderErrorPage answers with app/error.go for every status that is not 404 —
+// a 403 in an app with roles deserves the app's menu and wording as much as a
+// 500 does. The framework's own page stays as the net, for an app without
+// error.go and for an error.go that itself fails.
+func (a *App) renderErrorPage(c *Ctx, cause error, code int) {
+	c.status = code
 	if a.errorPage != nil {
 		node, err := a.errorPage(c, cause)
 		if err == nil && node == nil {
@@ -205,20 +201,30 @@ func (a *App) renderErrorPage(c *Ctx, cause error) {
 			node, err = a.wrapRoot(c, node)
 		}
 		if err == nil {
-			if werr := a.writeHTML(c, http.StatusInternalServerError, node); werr == nil {
+			if werr := a.writeHTML(c, code, node); werr == nil {
 				return
 			}
 		}
-		a.log.Error("error page failed", "err", err)
+		a.log.Error("error page failed", "err", err, "status", code)
 	}
-	detail := ""
-	if a.cfg.Env == Dev {
-		detail = cause.Error()
-		if st, ok := cause.(interface{ Stack() string }); ok {
-			detail += "\n\n" + st.Stack()
+	title := fmt.Sprintf("%d %s", code, http.StatusText(code))
+	if code >= 500 {
+		detail := ""
+		if a.cfg.Env == Dev {
+			detail = cause.Error()
+			if st, ok := cause.(interface{ Stack() string }); ok {
+				detail += "\n\n" + st.Stack()
+			}
 		}
+		_ = a.writeHTML(c, code, simplePage(title, "Something went wrong.", detail))
+		return
 	}
-	_ = a.writeHTML(c, http.StatusInternalServerError, simplePage("500 Internal Server Error", "Something went wrong.", detail))
+	msg := http.StatusText(code)
+	var he *HTTPError
+	if errors.As(cause, &he) && he.Message != "" {
+		msg = he.Message
+	}
+	_ = a.writeHTML(c, code, simplePage(title, msg, ""))
 }
 
 // simplePage is the framework's fallback page for 404/500.

@@ -160,6 +160,65 @@ func TestCustomNotFoundUsesRootLayout(t *testing.T) {
 	}
 }
 
+// TestErrorPageHandlesEveryStatus is issue #53: a 403 in an app with roles is
+// the second most common answer after 200, and it used to leave the app —
+// white page, framework signature, no menu. Now every status but 404 goes to
+// app/error.go, which reads the status from the error it already receives.
+func TestErrorPageHandlesEveryStatus(t *testing.T) {
+	deny := func(c *Ctx) (h.Node, error) { return nil, Errorf(http.StatusForbidden, "só editores") }
+	newApp := func(page ErrorPageFunc) *App {
+		a := New(Config{Logger: quiet(), Env: Prod})
+		a.SetRootLayout(func(c *Ctx, children h.Node) (h.Node, error) {
+			return h.Html(h.Body(h.Nav(h.Text("menu do painel")), h.Div(h.ID("root"), children))), nil
+		})
+		if page != nil {
+			a.SetErrorPage(page)
+		}
+		a.Register(Route{Pattern: "/painel", Page: deny})
+		a.Register(Route{Pattern: "/api/painel", Methods: map[string]HandlerFunc{
+			"GET": func(c *Ctx) error { return Errorf(http.StatusForbidden, "só editores") },
+		}})
+		return a
+	}
+
+	// The app's page, with its layout, and the status it asked for.
+	var seen int
+	a := newApp(func(c *Ctx, err error) (h.Node, error) {
+		seen = StatusOf(err)
+		if seen == http.StatusForbidden {
+			return h.P(h.Text("você não tem acesso a este funil")), nil
+		}
+		return h.P(h.Text("algo deu errado")), nil
+	})
+	rec := get(t, a, "GET", "/painel", "", nil)
+	body := rec.Body.String()
+	if rec.Code != 403 || seen != 403 {
+		t.Fatalf("status %d, error.go saw %d", rec.Code, seen)
+	}
+	if !strings.Contains(body, "menu do painel") || !strings.Contains(body, "não tem acesso") {
+		t.Fatalf("403 left the app: %s", body)
+	}
+
+	// An API route is untouched: problem+json, no HTML.
+	rec = get(t, a, "GET", "/api/painel", "", nil)
+	if rec.Code != 403 || !strings.HasPrefix(rec.Header().Get("Content-Type"), ProblemMediaType) {
+		t.Fatalf("api 403: %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	}
+
+	// Without error.go the framework page stays as the net, with the message
+	// the handler wrote and no leak of anything else.
+	rec = get(t, newApp(nil), "GET", "/painel", "", nil)
+	if rec.Code != 403 || !strings.Contains(rec.Body.String(), "403 Forbidden") || !strings.Contains(rec.Body.String(), "só editores") {
+		t.Fatalf("fallback 403: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// An error.go that itself fails falls back too, keeping the status.
+	rec = get(t, newApp(func(c *Ctx, err error) (h.Node, error) { return nil, errors.New("a página de erro quebrou") }), "GET", "/painel", "", nil)
+	if rec.Code != 403 || !strings.Contains(rec.Body.String(), "403 Forbidden") {
+		t.Fatalf("broken error.go: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAPIRoutes(t *testing.T) {
 	a := testApp(Prod, nil)
 	rec := get(t, a, "GET", "/api/posts", "", nil)
@@ -265,6 +324,66 @@ func TestMiddlewareChain(t *testing.T) {
 	}
 	if rec := get(t, a, "GET", "/z", "", nil); rec.Code != 303 || rec.Header().Get("Location") != "/login" {
 		t.Fatal(rec.Code)
+	}
+}
+
+// TestMethodMiddlewareChain locks issue #56's runtime half: a chain declared
+// for one method runs only for that method, and it runs inside the route-wide
+// chain — a per-method rule refines what the route already decided.
+func TestMethodMiddlewareChain(t *testing.T) {
+	var order []string
+	mw := func(name string) MiddlewareFunc {
+		return func(c *Ctx, next Next) error {
+			order = append(order, name)
+			return next()
+		}
+	}
+	a := New(Config{Logger: quiet()})
+	a.Register(Route{
+		Pattern:     "/painel",
+		Middlewares: []MiddlewareFunc{mw("route")},
+		MiddlewaresByMethod: map[string][]MiddlewareFunc{
+			"POST": {mw("post-outer"), mw("post-inner")},
+			"GET":  {mw("get")},
+		},
+		Page:    func(c *Ctx) (h.Node, error) { return h.Text("lido"), nil },
+		Methods: map[string]HandlerFunc{"POST": func(c *Ctx) error { return c.Text(200, "gravado") }},
+	})
+	if rec := get(t, a, "GET", "/painel", "", nil); rec.Code != 200 {
+		t.Fatal(rec.Code)
+	}
+	if got := strings.Join(order, " "); got != "route get" {
+		t.Fatalf("GET chain: %q", got)
+	}
+	order = nil
+	tok := "abcdefghijklmnopqrstuvwxyz0123456789ABCDEF"
+	hdr := map[string]string{"Cookie": CSRFCookie + "=" + tok, CSRFHeader: tok}
+	if rec := get(t, a, "POST", "/painel", "", hdr); rec.Code != 200 {
+		t.Fatal(rec.Code, rec.Body.String())
+	}
+	if got := strings.Join(order, " "); got != "route post-outer post-inner" {
+		t.Fatalf("POST chain: %q", got)
+	}
+	// The method chain runs before CSRF: a POST that fails the token check has
+	// already passed the permission the app declared for it.
+	order = nil
+	if rec := get(t, a, "POST", "/painel", "", nil); rec.Code != 403 {
+		t.Fatal(rec.Code)
+	}
+	if got := strings.Join(order, " "); got != "route post-outer post-inner" {
+		t.Fatalf("chain before CSRF: %q", got)
+	}
+	// A method with no chain of its own still runs the route's.
+	order = nil
+	a.Register(Route{
+		Pattern:             "/outra",
+		Middlewares:         []MiddlewareFunc{mw("route")},
+		MiddlewaresByMethod: map[string][]MiddlewareFunc{"DELETE": {mw("delete")}},
+		Page:                func(c *Ctx) (h.Node, error) { return h.Text("ok"), nil },
+	})
+	get(t, a, "GET", "/outra", "", nil)
+	if got := strings.Join(order, " "); got != "route" {
+		t.Fatalf("unrelated method: %q", got)
 	}
 }
 
