@@ -58,10 +58,19 @@ func Configure() {
 		// O Cognito não publica end_session_endpoint: sem o domínio de managed
 		// login o /sair apaga a sessão local e para por aí.
 		p.LogoutDomain = os.Getenv("SSO_LOGOUT_DOMAIN")
+	case "clerk":
+		frontend := os.Getenv("SSO_FRONTEND_API")
+		if frontend == "" {
+			motivo = "SSO_PROVIDER=clerk exige SSO_FRONTEND_API (a Frontend API URL do painel)"
+			return
+		}
+		// O Clerk não publica end_session_endpoint nem tem endereço equivalente:
+		// o /sair apaga a sessão local e o log diz que a do Clerk ficou de pé.
+		p = auth.Clerk(frontend, id, secret, redirect)
 	default:
 		issuer := os.Getenv("SSO_ISSUER")
 		if issuer == "" {
-			motivo = "defina SSO_PROVIDER (entra|keycloak|cognito) ou SSO_ISSUER"
+			motivo = "defina SSO_PROVIDER (entra|keycloak|cognito|clerk) ou SSO_ISSUER"
 			return
 		}
 		p = auth.OIDC(issuer, id, secret, redirect)

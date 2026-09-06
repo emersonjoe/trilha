@@ -48,13 +48,23 @@ export SSO_PROVIDER=cognito SSO_REGION=us-east-1 SSO_USER_POOL_ID=us-east-1_ABC1
 export SSO_LOGOUT_DOMAIN=exemplo.auth.us-east-1.amazoncognito.com
 ```
 
+Com o Clerk, uma OAuth application no painel e a *Frontend API URL*:
+
+```bash
+export SSO_PROVIDER=clerk SSO_FRONTEND_API=verb-noun-00.clerk.accounts.dev
+```
+
+O Clerk não manda papel no `id_token` (manda `org_id`, a organização) e não tem endpoint de
+encerramento: o `/sair` apaga a sessão local e avisa no log. Papel configurado na instância
+entra por `SSO_ROLE_CLAIMS`.
+
 `SSO_LOGOUT_DOMAIN` é opcional e é o domínio de managed login: o Cognito não publica
 `end_session_endpoint`, então sem ele o `/sair` apaga só a sessão local. A URL de retorno
 do logout precisa estar nas *Allowed sign-out URLs* do app client.
 
-Variáveis aceitas: `SSO_PROVIDER` (`entra` | `keycloak` | `cognito` | vazio para
+Variáveis aceitas: `SSO_PROVIDER` (`entra` | `keycloak` | `cognito` | `clerk` | vazio para
 `SSO_ISSUER`), `SSO_TENANT`, `SSO_URL`, `SSO_REALM`, `SSO_REGION`, `SSO_USER_POOL_ID`,
-`SSO_LOGOUT_DOMAIN`, `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`,
+`SSO_LOGOUT_DOMAIN`, `SSO_FRONTEND_API`, `SSO_ISSUER`, `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`,
 `SSO_REDIRECT_URL`, `SSO_ADMIN_ROLE` (padrão `admin`), `SSO_ROLE_CLAIMS`.
 
 Teste: `go test ./examples/sso/`.

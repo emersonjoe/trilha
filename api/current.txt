@@ -452,6 +452,7 @@ pkg ai/mcp, type Transport interface
 pkg ai/mcp, type Transport interface, Close() error
 pkg ai/mcp, type Transport interface, Recv(context.Context) ([]byte, error)
 pkg ai/mcp, type Transport interface, Send(context.Context, []byte) error
+pkg auth, func Clerk(string, string, string, string) *Provider
 pkg auth, func Cognito(string, string, string, string, string) *Provider
 pkg auth, func EntraID(string, string, string, string) *Provider
 pkg auth, func Keycloak(string, string, string, string, string) *Provider

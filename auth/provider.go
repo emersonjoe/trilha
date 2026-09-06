@@ -47,6 +47,7 @@ const (
 	entraProvider
 	keycloakProvider
 	cognitoProvider
+	clerkProvider
 )
 
 // discovery is the subset of the provider metadata we use.
@@ -94,6 +95,27 @@ func Cognito(region, userPoolID, clientID, clientSecret, redirectURL string) *Pr
 	return p
 }
 
+// Clerk configures a Clerk instance: frontendAPI is the Frontend API URL from
+// the dashboard ("verb-noun-00.clerk.accounts.dev" in development,
+// "clerk.example.com" in production), with or without the scheme and the
+// trailing slash. Clerk publishes a complete discovery document, so login and
+// token exchange are the ordinary ones.
+//
+// Two things it does not have, and the shortcut says so instead of pretending:
+// the id_token carries the organization (org_id) but no role, so roles fall
+// back to the generic roles/groups pair and a configured claim goes in
+// Options.RoleClaims; and there is no end_session_endpoint, so Logout clears
+// the local session and logs that the Clerk session is still open.
+func Clerk(frontendAPI, clientID, clientSecret, redirectURL string) *Provider {
+	host := strings.TrimSuffix(strings.TrimSpace(frontendAPI), "/")
+	if !strings.HasPrefix(host, "https://") && !strings.HasPrefix(host, "http://") {
+		host = "https://" + host
+	}
+	p := OIDC(host, clientID, clientSecret, redirectURL)
+	p.kind = clerkProvider
+	return p
+}
+
 // endSession builds the URL that ends the session at the provider, plus the
 // reason to log when there is none but there should be. Both empty is the
 // ordinary case: the provider has no logout endpoint and clearing the local
@@ -114,6 +136,12 @@ func (p *Provider) endSession(doc *discovery, postLogout string) (string, string
 		return host + "/logout?" + q.Encode(), ""
 	}
 	if doc.EndSession == "" {
+		if p.kind == clerkProvider {
+			// Clerk announces neither end_session_endpoint nor backchannel or
+			// frontchannel logout: the cookie here is gone, the Clerk session
+			// is not, and saying so beats a silent half logout.
+			return "", "Clerk publishes no end_session_endpoint; the local session was cleared and the Clerk session was left open"
+		}
 		return "", ""
 	}
 	q := url.Values{"client_id": {p.ClientID}, "post_logout_redirect_uri": {postLogout}}

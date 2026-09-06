@@ -70,17 +70,17 @@ a pessoa erra.
 
 ## Tarefas
 
-- [ ] T001 Teste que falha em `auth/auth_test.go`: `TestClerkIssuer` (quatro grafias, mesmo
+- [x] T001 Teste que falha em `auth/auth_test.go`: `TestClerkIssuer` (quatro grafias, mesmo
       emissor), caso do Clerk em `TestRolesPerProvider` (sem claim de papel; `RoleClaims`
       resolve) e `TestClerkLogout` (sem `end_session_endpoint` o destino é local e o motivo
       cita o Clerk).
-- [ ] T002 `auth/provider.go`: `Clerk`, `clerkProvider`, motivo no `endSession`.
-- [ ] T003 `cmd/trilha/audit.go`: `Clerk` na lista de `authCalls` (o índice do segredo já é o
+- [x] T002 `auth/provider.go`: `Clerk`, `clerkProvider`, motivo no `endSession`.
+- [x] T003 `cmd/trilha/audit.go`: `Clerk` na lista de `authCalls` (o índice do segredo já é o
       padrão, 2) e teste do audit com um `auth.Clerk` de segredo literal.
-- [ ] T004 Documentação nas duas locales: linha na tabela de `reference/auth` e
+- [x] T004 Documentação nas duas locales: linha na tabela de `reference/auth` e
       `referencia/auth`; no capítulo, a seção "Other providers"/"Outros provedores" troca o
       parágrafo do que ficou em aberto pela seção do Clerk, com o passo a passo do painel.
-- [ ] T005 `CHANGELOG.md` (0.31.0), `version` em `cmd/trilha/main.go`, item do `ROADMAP.md`.
+- [x] T005 `CHANGELOG.md` (0.31.0), `version` em `cmd/trilha/main.go`, item do `ROADMAP.md`.
 - [ ] T006 `make test` verde e `make release VERSION=0.31.0 ISSUES="41"`.
 
 ## Aceitação

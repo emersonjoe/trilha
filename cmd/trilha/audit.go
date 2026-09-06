@@ -241,7 +241,7 @@ type authCall struct {
 // top level, so that os.Getenv("X") stays one argument.
 func authCalls(src string) []authCall {
 	var out []authCall
-	for _, name := range []string{"OIDC", "EntraID", "Keycloak", "Cognito"} {
+	for _, name := range []string{"OIDC", "EntraID", "Keycloak", "Cognito", "Clerk"} {
 		needle := "auth." + name + "("
 		for i := 0; ; {
 			j := strings.Index(src[i:], needle)
@@ -293,7 +293,9 @@ func secretArg(name string) int {
 		// Cognito: region, userPoolID, clientID, clientSecret, redirectURL
 		return 3
 	}
-	return 2 // issuer|tenant, clientID, clientSecret, redirectURL
+	// OIDC, EntraID and Clerk: issuer|tenant|frontendAPI, clientID,
+	// clientSecret, redirectURL.
+	return 2
 }
 
 // libVersion reads the version of the trilha library required by go.mod.

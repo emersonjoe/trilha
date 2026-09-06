@@ -5,6 +5,31 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.31.0 — 2026-09-06
+
+### Added
+- **`auth.Clerk(frontendAPI, clientID, clientSecret, redirectURL)`**
+  ([#41](https://github.com/emersonjoe/trilha/issues/41)), the last of the provider
+  shortcuts. It takes the Frontend API URL from the dashboard —
+  `verb-noun-00.clerk.accounts.dev` in development, `clerk.your-domain.com` in production,
+  with or without the scheme and the trailing slash — and produces the one issuer Clerk's
+  discovery document declares, which is where people get it wrong.
+- The shortcut is deliberately half of what the other three are, because that is all Clerk
+  offers, and it says so instead of pretending parity: Clerk's `id_token` carries the
+  organization (`org_id`) and no role, so roles fall back to the generic `roles`/`groups`
+  pair and a configured claim goes in `Options.RoleClaims`; and Clerk publishes no
+  `end_session_endpoint` (backchannel and frontchannel logout are both off), so `Logout`
+  clears the local session and writes in the log that the Clerk session was left open.
+- The three questions that had kept this open were answered against a real discovery
+  document rather than the documentation, and the answers are recorded on the issue:
+  discovery exists and is complete, the issuer has no trailing slash, and there is neither a
+  role claim nor an end-session endpoint.
+- `examples/sso` accepts `SSO_PROVIDER=clerk` with `SSO_FRONTEND_API`; `trilha audit` now
+  looks for a hard-coded secret in `auth.Clerk` too, which it did not do for a constructor
+  it did not know. The authentication chapter and the `auth` reference cover Clerk in both
+  languages, and the role table in the chapter — which had been missing Cognito since
+  0.11.0 — lists every shortcut.
+
 ## 0.30.0 — 2026-09-06
 
 ### Added

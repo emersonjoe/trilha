@@ -1,5 +1,5 @@
 ---
-title: Autenticação com Entra ID, Keycloak e Cognito
+title: Autenticação com Entra ID, Keycloak, Cognito e Clerk
 description: Login OpenID Connect com PKCE, sessão assinada, papéis e logout federado, sem dependência externa e sem senha no seu banco.
 ---
 
@@ -78,19 +78,42 @@ Sem `LogoutDomain`, o `Logout` apaga o cookie, escreve no log que só deu para f
 local e volta para `AfterLogout` — não inventa uma federação que não existe. A URL de retorno
 precisa estar nas *Allowed sign-out URLs* do app client, senão o Cognito recusa.
 
+## Clerk, e a metade de atalho que ele pode ser
+
+O `auth.Clerk` recebe a *Frontend API URL* do painel — `verb-noun-00.clerk.accounts.dev` em
+desenvolvimento, `clerk.seu-dominio.com` em produção — com ou sem o esquema e a barra final, e
+transforma as quatro grafias no único emissor que o documento de descoberta do Clerk declara:
+
+```go
+p := auth.Clerk("verb-noun-00.clerk.accounts.dev", id, secret, redirect)
+```
+
+No painel a aplicação é uma **OAuth application** (Configure → OAuth applications): o callback
+é o seu `RedirectURL` e o segredo aparece uma vez só. Descoberta, PKCE e troca de código são
+os de sempre daí em diante.
+
+Duas coisas o Clerk não tem, e o atalho diz isso em vez de fingir paridade:
+
+- **Não há claim de papel.** O `id_token` do Clerk traz a organização (`org_id`), não o papel
+  da pessoa nela. Os papéis caem no par genérico `roles`/`groups` — se a sua instância estiver
+  configurada para mandar alguma claim, aponte o nome em `Options.RoleClaims`.
+- **Não há `end_session_endpoint`**, nem endereço equivalente como o do Cognito, e o
+  documento traz backchannel e frontchannel logout desligados. O `Logout` apaga o cookie,
+  volta para o `AfterLogout` e escreve no log que a sessão do Clerk ficou de pé.
+
+:::nota
+Tudo acima foi lido de um documento de descoberta real, não da documentação:
+`https://clerk.clerk.com/.well-known/openid-configuration` é a instância de produção da
+própria Clerk. Se a sua anunciar mais que isso — uma claim de papel, um endpoint de
+encerramento —, o `Options.RoleClaims` cobre a primeira e o segundo é usado sozinho.
+:::
+
 ## Outros provedores
 
 Qualquer coisa que fale OIDC funciona pelo `auth.OIDC`, apontando o emissor: os papéis saem
 de `roles`/`groups`, e um nome diferente de claim entra em `Options.RoleClaims`. É assim que
 o Google entra. O atalho só evita que você erre o emissor e sabe onde aquele provedor guarda
 os papéis — é comodidade, não capacidade.
-
-O Clerk é o caso que não fechamos. A documentação dele descreve o `/.well-known/jwks.json` e
-um `id_token` com `org_id`, mas não um `/.well-known/openid-configuration` — que é de onde o
-`auth` tira todos os endereços — nem uma claim com o papel da pessoa na organização. Enquanto
-isso não for confirmado contra uma instância real não há atalho honesto a escrever, e a mesma
-dúvida vale para o `auth.OIDC` puro: veja a
-[issue #41](https://github.com/emersonjoe/trilha/issues/41).
 
 ## Proteger uma parte do app
 
@@ -123,6 +146,8 @@ Cada provedor guarda em um lugar, e o `auth` já sabe onde procurar:
 |---|---|
 | Entra ID | `roles` (app roles), `groups`, `wids` |
 | Keycloak | `realm_access.roles` e `resource_access[seu-cliente].roles` |
+| Cognito | `cognito:groups` (os grupos do user pool) |
+| Clerk | nada próprio: o `id_token` tem `org_id`, não o papel |
 | Genérico | `roles`, `groups` |
 
 Papéis do Keycloak que pertencem a **outro** cliente não entram: quem é `admin` no cliente

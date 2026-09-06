@@ -15,9 +15,10 @@ func TestAuthCallsSeparaArgumentos(t *testing.T) {
 	q := auth.Keycloak(base, realm, os.Getenv("ID"), os.Getenv("SEGREDO"), "http://app/cb")
 	r := auth.OIDC(iss, id, secret, "http://localhost:3000/cb")
 	s := auth.Cognito(regiao, pool, id, "s3cret", "https://app/cb")
+	u := auth.Clerk(frontend, id, "s3cret", "https://app/cb")
 	`
 	calls := authCalls(src)
-	if len(calls) != 4 {
+	if len(calls) != 5 {
 		t.Fatalf("achou %d chamadas: %+v", len(calls), calls)
 	}
 	byName := map[string]authCall{}
@@ -41,6 +42,9 @@ func TestAuthCallsSeparaArgumentos(t *testing.T) {
 	// authCalls não procurava a chamada: a checagem nunca rodava.
 	if got := byName["Cognito"].args[secretArg("Cognito")]; got != `"s3cret"` {
 		t.Errorf("posição do segredo do Cognito: %q", got)
+	}
+	if got := byName["Clerk"].args[secretArg("Clerk")]; got != `"s3cret"` {
+		t.Errorf("posição do segredo do Clerk: %q", got)
 	}
 }
 

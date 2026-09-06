@@ -1,5 +1,5 @@
 ---
-title: Authentication with Entra ID, Keycloak and Cognito
+title: Authentication with Entra ID, Keycloak, Cognito and Clerk
 description: OpenID Connect login with PKCE, signed session, roles and federated logout, with no external dependency and no password in your database.
 ---
 
@@ -46,6 +46,8 @@ p := auth.EntraID(os.Getenv("SSO_TENANT"), id, secret, "https://app.example/logi
 p := auth.Keycloak("https://kc.example", "production", id, secret, redirect)
 // or
 p := auth.Cognito("us-east-1", "us-east-1_ABC123", id, secret, redirect)
+// or
+p := auth.Clerk("verb-noun-00.clerk.accounts.dev", id, secret, redirect)
 // or any conforming provider, by issuer:
 p := auth.OIDC("https://accounts.example/", id, secret, redirect)
 
@@ -80,19 +82,43 @@ all it could do, and returns to `AfterLogout` — it does not invent a federatio
 there. The return URL has to be in the app client's *Allowed sign-out URLs*, or Cognito
 refuses it.
 
+## Clerk, and the half of a shortcut it can be
+
+`auth.Clerk` takes the *Frontend API URL* from the dashboard —
+`verb-noun-00.clerk.accounts.dev` in development, `clerk.your-domain.com` in production — with
+or without the scheme and the trailing slash, and turns all four spellings into the one issuer
+Clerk's discovery document declares:
+
+```go
+p := auth.Clerk("verb-noun-00.clerk.accounts.dev", id, secret, redirect)
+```
+
+In the dashboard the application is an **OAuth application** (Configure → OAuth
+applications): the callback is your `RedirectURL`, and the client secret is shown once.
+Discovery, PKCE and the code exchange are the ordinary ones from there on.
+
+Two things Clerk does not have, and the shortcut says so rather than pretending parity:
+
+- **No role claim.** Clerk's `id_token` carries the organization (`org_id`), not the person's
+  role in it. So roles fall back to the generic `roles`/`groups` pair — if your instance is
+  configured to send a claim, name it in `Options.RoleClaims`.
+- **No `end_session_endpoint`**, and no equivalent address the way Cognito has one, with
+  backchannel and frontchannel logout both off. `Logout` clears the cookie, returns to
+  `AfterLogout`, and writes in the log that the Clerk session was left open.
+
+:::note
+Everything above was read from a real discovery document, not from the documentation:
+`https://clerk.clerk.com/.well-known/openid-configuration` is Clerk's own production
+instance. If yours announces more than that — a role claim, an end-session endpoint —
+`Options.RoleClaims` covers the first, and the second is used automatically.
+:::
+
 ## Other providers
 
 Anything that speaks OIDC works through `auth.OIDC`, pointed at the issuer: roles come from
 `roles`/`groups`, and a different claim name goes in `Options.RoleClaims`. Google enters that
 way. A shortcut only saves you from getting the issuer wrong and knows where that provider
 keeps its roles — it is convenience, not capability.
-
-Clerk is the case we did not close. Its documentation describes `/.well-known/jwks.json` and
-an `id_token` carrying `org_id`, but neither a `/.well-known/openid-configuration` — which is
-where `auth` gets every endpoint — nor a claim with the person's role in the organization.
-Until that is confirmed against a real instance there is no honest shortcut to write, and
-the same doubt applies to plain `auth.OIDC`: see
-[issue #41](https://github.com/emersonjoe/trilha/issues/41).
 
 ## Protecting part of the app
 
@@ -125,6 +151,8 @@ Each provider keeps them in one place, and `auth` already knows where to look:
 |---|---|
 | Entra ID | `roles` (app roles), `groups`, `wids` |
 | Keycloak | `realm_access.roles` and `resource_access[your-client].roles` |
+| Cognito | `cognito:groups` (the user pool groups) |
+| Clerk | nothing of its own: the `id_token` has `org_id`, not the role |
 | Generic | `roles`, `groups` |
 
 Keycloak roles that belong to **another** client do not count: whoever is `admin` in the

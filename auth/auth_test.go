@@ -246,6 +246,17 @@ func TestRolesPerProvider(t *testing.T) {
 	if strings.Join(got, ",") != "admin,user" {
 		t.Fatalf("cognito: %v", got)
 	}
+	// O id_token do Clerk traz a organização, não o papel nela: o atalho não
+	// inventa uma claim, cai no par genérico e quem tiver uma configurada aponta
+	// com Options.RoleClaims.
+	clerk := Clerk("verb-noun-00.clerk.accounts.dev", "app", "s", "https://app/cb")
+	if got = clerk.roles(&Claims{All: map[string]any{"org_id": "org_123", "org_slug": "acme"}}, nil); len(got) != 0 {
+		t.Fatalf("clerk: organização não é papel, veio %v", got)
+	}
+	if got = clerk.roles(&Claims{All: map[string]any{"papel": "admin"}}, []string{"papel"}); strings.Join(got, ",") != "admin" {
+		t.Fatalf("clerk com RoleClaims: %v", got)
+	}
+
 	gen := OIDC("https://i", "app", "s", "https://app/cb")
 	got = gen.roles(&Claims{All: map[string]any{"grupos": "editor"}}, []string{"grupos"})
 	if strings.Join(got, ",") != "editor" {
@@ -487,5 +498,59 @@ func TestCognitoLogoutIsLocalWithoutDomain(t *testing.T) {
 	}
 	if _, ok := b.cookies["trilha_session"]; ok {
 		t.Fatal("cookie de sessão sobreviveu ao logout")
+	}
+}
+
+// A Frontend API URL do painel do Clerk aparece de quatro jeitos; o emissor é
+// um só, e é o que o documento de descoberta declara (sem barra final).
+func TestClerkIssuer(t *testing.T) {
+	const want = "https://verb-noun-00.clerk.accounts.dev"
+	for _, in := range []string{
+		"verb-noun-00.clerk.accounts.dev",
+		"verb-noun-00.clerk.accounts.dev/",
+		"https://verb-noun-00.clerk.accounts.dev",
+		"https://verb-noun-00.clerk.accounts.dev/",
+	} {
+		if got := Clerk(in, "app", "s", "https://app/cb").Issuer; got != want {
+			t.Fatalf("Clerk(%q).Issuer = %q", in, got)
+		}
+	}
+}
+
+// O Clerk não publica end_session_endpoint (o documento traz
+// backchannel_logout_supported e frontchannel_logout_supported em false). O
+// logout é local, e o log diz que a sessão do Clerk continua de pé.
+func TestClerkLogout(t *testing.T) {
+	p := Clerk("verb-noun-00.clerk.accounts.dev", "app", "s3cret", "https://app.exemplo/entrar/retorno")
+	u, why := p.endSession(&discovery{}, "https://app.exemplo/")
+	if u != "" {
+		t.Fatalf("logout do Clerk é local, veio %q", u)
+	}
+	if !strings.Contains(why, "Clerk") {
+		t.Fatalf("motivo não diz de quem é a sessão que sobrou: %q", why)
+	}
+
+	// Uma instância que passe a anunciar o endpoint é usada como qualquer outra.
+	doc := &discovery{EndSession: "https://verb-noun-00.clerk.accounts.dev/oauth/logout"}
+	if u, why = p.endSession(doc, "https://app.exemplo/"); !strings.HasPrefix(u, doc.EndSession+"?") || why != "" {
+		t.Fatalf("federado: %q %q", u, why)
+	}
+}
+
+// Ponta a ponta: o logout de um Clerk volta para o app e avisa no log.
+func TestClerkLogoutIsLocal(t *testing.T) {
+	idp := newIDP(t)
+	idp.endSession = false
+	p := idp.provider()
+	p.kind = clerkProvider
+	var log bytes.Buffer
+	a := New(p, Options{AfterLogout: "/tchau"})
+	b := newBrowser(t, authAppLog(t, a, &log))
+	b.login(idp, "")
+	if got := b.get("/sair", nil).Header().Get("Location"); got != "/tchau" {
+		t.Fatalf("destino %q", got)
+	}
+	if !strings.Contains(log.String(), "Clerk") {
+		t.Fatalf("log não explica o logout local: %s", log.String())
 	}
 }

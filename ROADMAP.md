@@ -95,13 +95,15 @@ um modal com dados ou uma tabela paginada obrigam a escrever JavaScript à mão.
 19. ~~[#37](https://github.com/emersonjoe/trilha/issues/37) Inspetor de rotas no `trilha dev`.~~ **Entregue na 0.28.0** (spec 037): `/_trilha/routes` com a tabela em ordem de precedência, layouts e middlewares por rota, e a caixa que diz quem atende um caminho; servido pelo supervisor, fora do binário.
 20. ~~[#38](https://github.com/emersonjoe/trilha/issues/38) Cookbook, checklist de produção e guia de migração.~~ **Entregue na 0.29.0** (spec 038): terceira seção do site com nove receitas, checklist de produção e guia de migração; todo bloco Go vem de `examples/cookbook`, que o `go vet` compila e um teste do site confere caractere por caractere.
 21. ~~[#39](https://github.com/emersonjoe/trilha/issues/39) `Pagination` e `Tooltip` no kit `ui` (o resto da lista da avaliação já existe).~~ **Entregue na 0.30.0** (spec 039): paginação em links de verdade (página atual em `<span>` com `aria-current`, janela de sete casas com reticências) e dica que nasce no `title` e vira bolha com `role=tooltip`, foco, toque e Escape.
-22. [#41](https://github.com/emersonjoe/trilha/issues/41) Atalhos de provedor no `auth` para **AWS Cognito** e **Clerk**. O Cognito foi
-    **entregue na 0.11.0** (spec 020): `auth.Cognito` monta o emissor, lê os papéis de
-    `cognito:groups` e `LogoutDomain` resolve o logout que a AWS implementa fora do padrão.
-    O **Clerk continua aberto**: a documentação pública dele não descreve
-    `/.well-known/openid-configuration`, de onde o `auth` tira todos os endereços, nem uma
-    claim com o papel na organização. Falta confirmar contra uma instância real — atalho
-    escrito em cima de suposição é pior que atalho nenhum.
+22. ~~[#41](https://github.com/emersonjoe/trilha/issues/41) Atalhos de provedor no `auth` para **AWS Cognito** e **Clerk**.~~ **Entregue
+    em duas partes**: o Cognito na 0.11.0 (spec 020) — `auth.Cognito` monta o emissor, lê os
+    papéis de `cognito:groups` e `LogoutDomain` resolve o logout que a AWS implementa fora do
+    padrão — e o Clerk na 0.31.0 (spec 041). As três dúvidas que seguravam o Clerk foram
+    conferidas contra um documento de descoberta real: ele **tem**
+    `/.well-known/openid-configuration` completo, o `issuer` **não** tem barra final, e **não
+    há** claim de papel nem `end_session_endpoint`. Por isso o `auth.Clerk` monta o emissor a
+    partir da Frontend API URL e diz a verdade sobre o resto: papéis caem no par genérico e o
+    `Logout` avisa no log que a sessão do Clerk ficou de pé.
 
 ## O que não vamos fazer, e por quê
 

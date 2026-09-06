@@ -13,6 +13,7 @@ func OIDC(issuer, clientID, clientSecret, redirectURL string) *Provider
 func EntraID(tenant, clientID, clientSecret, redirectURL string) *Provider
 func Keycloak(baseURL, realm, clientID, clientSecret, redirectURL string) *Provider
 func Cognito(region, userPoolID, clientID, clientSecret, redirectURL string) *Provider
+func Clerk(frontendAPI, clientID, clientSecret, redirectURL string) *Provider
 ```
 
 | Constructor | Resulting issuer | Roles read from |
@@ -21,13 +22,15 @@ func Cognito(region, userPoolID, clientID, clientSecret, redirectURL string) *Pr
 | `EntraID` | `https://login.microsoftonline.com/<tenant>/v2.0` | `roles`, `groups`, `wids` |
 | `Keycloak` | `<baseURL>/realms/<realm>` | `realm_access.roles`, `resource_access[clientID].roles` |
 | `Cognito` | `https://cognito-idp.<region>.amazonaws.com/<userPoolID>` | `cognito:groups` |
+| `Clerk` | the Frontend API URL, normalized (`https://<slug>.clerk.accounts.dev`) | `roles`, `groups` — Clerk's `id_token` carries the organization (`org_id`), not the role in it; a configured claim goes in `Options.RoleClaims` |
 
-`Provider.LogoutDomain` exists for Cognito, the one provider here that publishes no
-`end_session_endpoint`: set it to the managed login domain
+`Provider.LogoutDomain` exists for Cognito: set it to the managed login domain
 (`<prefix>.auth.<region>.amazoncognito.com`, or your own) and `Logout` redirects to
 `/logout?client_id=…&logout_uri=…` there; the return URL must be in the app client's
 *Allowed sign-out URLs*. Left empty, `Logout` clears the local session, says so in the log
-and does not pretend it federated. Other providers ignore the field.
+and does not pretend it federated. Other providers ignore the field. Clerk publishes no
+`end_session_endpoint` either, and has no equivalent address: there `Logout` is always local,
+and the log says the Clerk session was left open.
 
 `Provider.HTTPClient` swaps the HTTP client (default: 10 s timeout). Discovery happens on
 first use and is valid for one hour; an issuer that differs between the configuration and
