@@ -133,6 +133,8 @@ existia. As issues 42–58 são o que doeu lá; a ordem aqui é a do que doeu ma
 33. ~~[#54](https://github.com/emersonjoe/trilha/issues/54) os nomes do CSRF eram constantes.~~ **Entregue na 0.35.0** (spec 046): `Config.CSRF` troca cookie, campo e cabeçalho, com as constantes como padrão; dois `_csrf` na mesma página deixa de ser possível sem querer.
 34. ~~[#55](https://github.com/emersonjoe/trilha/issues/55) dependências só chegavam por `map[string]any`.~~ **Entregue na 0.35.0** (spec 046): `trilha.Provide`/`trilha.Use[T]` guardam e leem por tipo, do `*Ctx` ou do `*App`, e o exemplo do blog saiu das variáveis de pacote — que é o que quebra com dois apps no mesmo processo.
 
+35. ~~[#75](https://github.com/emersonjoe/trilha/issues/75) pasta com ponto no começo do nome sumia em silêncio.~~ **Entregue na 0.38.0** (spec 048): `/.well-known/` virou a única exceção do ponto — é onde as RFCs mandam publicar documento — e qualquer `page.go` ou `route.go` escondido em outra pasta com ponto agora é `E_HIDDEN_ROUTE` na hora do `gen`, em vez de 404 sem explicação.
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |

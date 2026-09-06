@@ -5,6 +5,29 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+## 0.38.0 — 2026-09-06
+
+### Added
+
+- **`/.well-known/` is a route** ([#75](https://github.com/emersonjoe/trilha/issues/75)).
+  `app/.well-known/security.txt/route.go` answers `/.well-known/security.txt`. It is the
+  single exception to the rule that a folder whose name starts with a dot is skipped — the
+  place where RFC 8414, RFC 9728, RFC 8555, RFC 9116 and OpenID Discovery publish their
+  documents. Inside it the conventions are the usual ones, and since `.well-known` is not a
+  Go identifier the file declares another package name, as `app.css` already did. The
+  exception is honored by the three scans of the project: the router, the type index behind
+  `trilha openapi`, and the `trilha dev` watcher.
+
+### Fixed
+
+- **A route inside a dot folder no longer disappears in silence**
+  ([#75](https://github.com/emersonjoe/trilha/issues/75)). A `page.go` or a `route.go` under
+  a skipped folder used to leave `trilha gen` successful, the route absent and the app
+  answering 404 with nothing to read. It is now `E_HIDDEN_ROUTE`, at generation time, naming
+  the file and offering the fix: rename the folder, or start its name with `_` if it is
+  parked on purpose. Only the dot is loud — `_x` and `testdata` are the documented way to
+  keep a folder out of the routing.
+
 ## 0.37.0 — 2026-09-06
 
 ### Added

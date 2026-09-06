@@ -32,12 +32,24 @@ pacote; o nome do arquivo é o que liga a convenção.
 | `caminho__` | catch-all `{caminho...}`; precisa ser folha | `/docs/{caminho...}` |
 | `organizador-` | grupo de rota; não entra na URL | layout/middleware para a subárvore |
 | `app.css`, `robots.txt` | caminho fixo com extensão (ponto no meio do nome) | `/app.css`, `/manifest.webmanifest`, `/sw.js` |
+| `.well-known` | a única pasta com ponto no começo que é rota | `/.well-known/security.txt` |
 | `_x`, `.x`, `testdata` | ignoradas | — |
 
 Uma pasta com ponto no nome serve um caminho fixo com extensão. Como `app.css` não é um
 identificador Go, declare outro nome de pacote no arquivo (`package appcss`); o gerador
-importa tudo com alias, então o nome do pacote não importa. Pastas que **começam** com
-ponto continuam ignoradas.
+importa tudo com alias, então o nome do pacote não importa.
+
+Pastas que **começam** com ponto continuam ignoradas, com uma exceção: `.well-known`, onde
+a RFC 8414, a RFC 9728, a RFC 8555, a RFC 9116 e o OpenID Discovery mandam publicar
+documento. Dentro dela valem as convenções de sempre —
+`app/.well-known/security.txt/route.go` responde `/.well-known/security.txt`. Um `page.go`
+ou `route.go` dentro de **qualquer outra** pasta com ponto agora é erro `E_HIDDEN_ROUTE`, em
+vez de um 404 que ninguém explica; para tirar uma pasta do roteamento de propósito, comece o
+nome com `_`.
+
+A ferramenta Go não casa caminho com ponto no padrão `./...`, então `go vet ./...` e `go
+test ./...` não pegam esse pacote como alvo. Ele compila do mesmo jeito: o `trilha_gen.go` o
+importa pelo caminho explícito.
 
 Precedência: literal vence parâmetro, que vence catch-all. Duas pastas dinâmicas irmãs são
 erro. Duas pastas que gerem a mesma URL (via grupos) são erro.
@@ -78,3 +90,4 @@ própria roda só a da rota.
 | `E_UNUSED_METHOD_MIDDLEWARE` | `MiddlewareX` que não alcança nenhuma rota que sirva `X` |
 | `E_PARSE` | arquivo Go que não compila |
 | `E_NO_APP` | não há pasta `app/` |
+| `E_HIDDEN_ROUTE` | `page.go` ou `route.go` dentro de pasta cujo nome começa com ponto |

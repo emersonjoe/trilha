@@ -32,12 +32,23 @@ the package; the file name is what binds the convention.
 | `path__` | catch-all `{path...}`; must be a leaf | `/docs/{path...}` |
 | `organizer-` | route group; not part of the URL | layout/middleware for the subtree |
 | `app.css`, `robots.txt` | fixed path with an extension (dot in the middle of the name) | `/app.css`, `/manifest.webmanifest`, `/sw.js` |
+| `.well-known` | the one dot folder that is a route | `/.well-known/security.txt` |
 | `_x`, `.x`, `testdata` | ignored | — |
 
 A folder with a dot in its name serves a fixed path with an extension. Since `app.css` is
 not a Go identifier, declare another package name in the file (`package appcss`); the
-generator imports everything with an alias, so the package name does not matter. Folders
-that **start** with a dot stay ignored.
+generator imports everything with an alias, so the package name does not matter.
+
+Folders that **start** with a dot stay ignored, with a single exception: `.well-known`,
+where RFC 8414, RFC 9728, RFC 8555, RFC 9116 and OpenID Discovery publish their documents.
+Inside it the conventions are the usual ones — `app/.well-known/security.txt/route.go`
+answers `/.well-known/security.txt`. A `page.go` or `route.go` inside any *other* dot folder
+is now an `E_HIDDEN_ROUTE` error instead of a 404 nobody can explain; to park a folder out
+of the routing on purpose, start its name with `_`.
+
+The Go tool does not match a path with a dot in `./...`, so `go vet ./...` and `go test
+./...` skip that package as a target. It still compiles: `trilha_gen.go` imports it by its
+explicit path.
 
 Precedence: literal beats parameter, which beats catch-all. Two sibling dynamic folders are
 an error. Two folders producing the same URL (through groups) are an error.
@@ -78,3 +89,4 @@ chain of its own just runs the route's.
 | `E_UNUSED_METHOD_MIDDLEWARE` | `MiddlewareX` that reaches no route serving `X` |
 | `E_PARSE` | Go file that does not compile |
 | `E_NO_APP` | there is no `app/` folder |
+| `E_HIDDEN_ROUTE` | `page.go` or `route.go` inside a folder whose name starts with a dot |

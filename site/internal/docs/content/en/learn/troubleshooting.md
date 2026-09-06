@@ -51,6 +51,14 @@ like protection.
 Two folders produce the same URL, almost always because of a route group. `app/events/` and
 `app/organizer-/events/` both answer at `/events`. Rename one of them.
 
+## `E_HIDDEN_ROUTE`
+
+A `page.go` or a `route.go` inside a folder whose name starts with a dot. The scanner skips
+those folders, so the route would never answer — it used to disappear without a word, and
+the only symptom was a 404. Rename the folder without the leading dot, or, if the folder is
+meant to stay out of the routing, start its name with `_`. The single dot folder that *is*
+routed is `.well-known` (see [conventions](/reference/conventions#folders)).
+
 ## The form answers 403
 
 `trilha.CSRFInput(c)` is missing inside the `<form>`, or the form page was opened before the

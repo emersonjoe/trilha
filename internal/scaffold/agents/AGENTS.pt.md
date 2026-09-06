@@ -13,7 +13,9 @@ sem dependências externas.
   abaixo dele.
 - **Uma pasta chamada `slug_` é um parâmetro.** `app/blog/slug_/page.go` responde
   `/blog/{slug}`, lido com `c.Param("slug")`. Já uma pasta com ponto no nome é caminho fixo
-  (`app/api/relatorio.csv/route.go` responde `/api/relatorio.csv`).
+  (`app/api/relatorio.csv/route.go` responde `/api/relatorio.csv`). Pasta cujo nome
+  *começa* com ponto é ignorada, menos a `.well-known`
+  (`app/.well-known/security.txt/route.go` responde `/.well-known/security.txt`).
 
 O HTML é escrito em Go com o pacote `h`, não com template:
 `h.Div(h.Class("card"), h.H1(nil, h.Text(titulo)))`. Tudo que ele renderiza sai escapado.

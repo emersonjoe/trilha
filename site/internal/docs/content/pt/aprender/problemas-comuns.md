@@ -51,6 +51,14 @@ parece proteção.
 Duas pastas geram a mesma URL, quase sempre por causa de um grupo de rota. `app/eventos/`
 e `app/organizador-/eventos/` respondem os dois em `/eventos`. Renomeie uma.
 
+## `E_HIDDEN_ROUTE`
+
+Um `page.go` ou um `route.go` dentro de pasta cujo nome começa com ponto. O scanner pula
+essas pastas, então a rota nunca responderia — antes ela sumia sem uma palavra, e o único
+sintoma era um 404. Renomeie a pasta sem o ponto na frente ou, se ela deve mesmo ficar fora
+do roteamento, comece o nome com `_`. A única pasta com ponto que **é** roteada é a
+`.well-known` (veja [convenções](/pt/referencia/convencoes#pastas)).
+
 ## Formulário responde 403
 
 Faltou `trilha.CSRFInput(c)` dentro do `<form>`, ou a página do formulário foi aberta antes
