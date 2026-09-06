@@ -14,6 +14,7 @@ type Config struct {
 	Public       fs.FS        // arquivos estáticos; nil desliga
 	Mounts       map[string]fs.FS // árvores estáticas por prefixo de URL, antes de Public
 	CSRFForAPI   bool         // exigir CSRF também em route.go
+	CSRF         CSRF         // nomes do cookie, do campo e do cabeçalho do token
 	BasePath     string       // prefixo de URL; TRILHA_BASE_PATH
 	Security     Security     // cabeçalhos (veja Segurança)
 	TrustedProxies []string   // CIDRs; TRILHA_TRUSTED_PROXIES
@@ -51,6 +52,26 @@ só *quando* o valor é lido:
 
 Use `Config` quando quiser montar a configuração a partir do seu próprio pacote (arquivo,
 Vault, flags) em vez do ambiente.
+
+### Nomes do CSRF
+
+O token anda com três nomes, e cada um deles é um padrão, não uma regra:
+
+| Campo | Padrão |
+|---|---|
+| `CSRF.Cookie` | `trilha_csrf` |
+| `CSRF.Field` | `_csrf` |
+| `CSRF.Header` | `X-CSRF-Token` |
+
+```go
+cfg.CSRF = trilha.CSRF{Cookie: "billing_csrf", Field: "_billing_csrf", Header: "X-Billing-CSRF"}
+```
+
+Troque quando o app não estiver sozinho na página: montado dentro de um servidor que já
+escreve `_csrf`, dois campos escondidos com o mesmo nome chegam ao handler e o navegador
+manda o cookie que quiser. Campo vazio fica com o padrão, então trocar um é uma linha. O nome
+posto aqui é o que `CSRFInput`, `CSRFToken`, a verificação, a lista do CORS e o cliente de
+teste usam — não existe um segundo lugar para manter em dia.
 
 ### CORS
 
@@ -157,7 +178,9 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 | `New(cfg) *App` | cria a aplicação |
 | `Register(Route)` | registra uma rota (chamado pelo arquivo gerado) |
 | `SetRootLayout`, `SetNotFound`, `SetErrorPage` | ligam os arquivos da raiz |
-| `Values() map[string]any` | valores globais definidos em `Setup` |
+| `trilha.Provide[T](a, v)` | guarda uma dependência sob o tipo dela (veja "Dependências") |
+| `trilha.Use[T](b) T` | lê de volta, a partir de um `*Ctx` ou do `*App` |
+| `Values() map[string]any` | valores globais definidos em `Setup`, por nome e sem tipo |
 | `Logger() *slog.Logger` | o logger |
 | `Env() Env` | ambiente |
 | `Handler() http.Handler` | o mux raiz, para testes e para embutir em outro servidor |
@@ -173,6 +196,42 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 
 `trilha.Run(a)` é o que o `main` gerado chama: exporta se `TRILHA_EXPORT` estiver definido,
 senão serve. `trilha.Fatal(err)` registra e encerra, ignorando `http.ErrServerClosed`.
+
+### Dependências
+
+Uma página precisa do store, do pool, do mailer. Guardar isso em variáveis de pacote funciona
+até o dia em que existem dois apps no mesmo processo — um hospedeiro que monta dois, ou um
+teste que constrói o segundo — e aí os dois leem as mesmas globais, e o segundo teste a rodar
+enxerga os dados do primeiro.
+
+```go
+func Setup(a *trilha.App) error {
+	store := posts.New()
+	trilha.Provide(a, store)
+	return nil
+}
+```
+
+```go
+func Page(c *trilha.Ctx) (h.Node, error) {
+	store := trilha.Use[*posts.Store](c)
+	...
+}
+```
+
+`Provide` guarda o valor sob o tipo dele; `Use[T]` lê de volta, e aceita tanto o `*Ctx` de um
+handler quanto o próprio `*App` — que é o que `Setup` e um teste têm na mão. Um tipo que
+ninguém proveu estoura na chamada, dizendo qual tipo é, em vez de aparecer depois como um nil
+em outro lugar.
+
+O tipo é a chave, então uma costura se declara escrevendo o tipo: `trilha.Provide[Mailer](a,
+SMTPMailer{...})` guarda uma interface, e o handler que pede `Use[Mailer](c)` nunca fica
+sabendo qual implementação recebeu. Sem o argumento de tipo a chave seria `SMTPMailer`, e o
+handler estaria pedindo outra coisa.
+
+`Values()` continua ali para cola por nome, e `c.Get`/`c.Set` são os valores por requisição
+que um middleware deixa para trás — outra pergunta, respondida em
+[Middleware](/pt/aprender/middleware).
 
 ### `main` próprio
 

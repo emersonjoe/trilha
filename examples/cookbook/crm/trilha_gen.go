@@ -6,6 +6,7 @@ package crm
 
 import (
 	trilha "github.com/emersonjoe/trilha"
+	app "github.com/emersonjoe/trilha/examples/cookbook/crm/app"
 	app_contacts "github.com/emersonjoe/trilha/examples/cookbook/crm/app/contacts"
 )
 
@@ -14,7 +15,11 @@ import (
 func NewApp() *trilha.App {
 	cfg := trilha.ConfigFromEnv()
 	cfg.Public = trilha.PublicFS(nil, "public")
+	app.Config(&cfg)
 	a := trilha.New(cfg)
+	if err := app.Setup(a); err != nil {
+		trilha.Fatal(err)
+	}
 	a.Register(trilha.Route{
 		Pattern: "/contacts",
 		Page:    app_contacts.Page,

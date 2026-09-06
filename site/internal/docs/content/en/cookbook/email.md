@@ -26,7 +26,7 @@ mail to a real address.
 // silently sends nothing.
 func SetupMailer(a *trilha.App) error {
 	if a.Env() == trilha.Dev {
-		a.Values()["mailer"] = LogMailer{Log: a.Logger()}
+		trilha.Provide[Mailer](a, LogMailer{Log: a.Logger()})
 		return nil
 	}
 	addr, from := os.Getenv("SMTP_ADDR"), os.Getenv("SMTP_FROM")
@@ -34,14 +34,28 @@ func SetupMailer(a *trilha.App) error {
 		return errors.New("SMTP_ADDR and SMTP_FROM are required outside dev")
 	}
 	host, _, _ := strings.Cut(addr, ":")
-	a.Values()["mailer"] = SMTPMailer{
+	trilha.Provide[Mailer](a, SMTPMailer{
 		Addr: addr,
 		From: from,
 		Auth: smtp.PlainAuth("", os.Getenv("SMTP_USER"), os.Getenv("SMTP_PASSWORD"), host),
-	}
+	})
 	return nil
 }
 ```
+
+```go
+// SendWelcome is the other end of the seam: a handler asks for the interface,
+// never for the implementation behind it. The type argument is what Provide
+// filed the value under, which is why it is written out here — LogMailer and
+// SMTPMailer are two answers to the same question.
+func SendWelcome(c *trilha.Ctx, name, email, link string) error {
+	return Welcome(c.Context(), trilha.Use[Mailer](c), name, email, link)
+}
+```
+
+`Provide` files the mailer under `Mailer`, the interface, and not under the struct that
+happens to be behind it today — that is what the type argument is for. A handler that asks
+for `Mailer` gets the log in dev and SMTP in production, and never learns the difference.
 
 Production without an address configured refuses to start. That is deliberate: a sign-up that
 silently sends nothing is discovered by a customer, and a process that will not boot is

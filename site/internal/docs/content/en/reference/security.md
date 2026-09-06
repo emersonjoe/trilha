@@ -27,6 +27,30 @@ base-uri 'self'; form-action 'self'
 `c.Nonce()` returns the request's nonce; `trilha.NonceAttr(c)` puts it on an `h.Script`.
 Adjust in `Setup` through `a.Security()`.
 
+### When the response belongs to a host
+
+An app mounted inside a server that already answers for its own responses has two headers
+too many, not one: the host wrote the policy, and the app writes it again.
+
+| Field | Effect |
+|---|---|
+| `Delegated bool` | writes none of the headers — not the six that have an `Off`, and not the `nosniff` that has none |
+| `Nonce func(*http.Request) string` | the nonce comes from the host, one call per request that asks for it |
+
+```go
+a.Security().Delegated = true
+a.Security().Nonce = func(r *http.Request) string { return host.NonceOf(r) }
+```
+
+`Delegated` is a decision, not a default: the zero value writes the headers, so a
+hand-written `Security{...}` never turns them off by omission. Boot records the delegation
+once in the log, because a response with no headers should be visible somewhere.
+
+Without `Nonce`, `c.Nonce()` invents a value per request, which is right for an app that
+publishes its own CSP and wrong for one that does not: the host's policy never heard of that
+nonce, and the browser refuses the script. With `Nonce` returning an empty string,
+`trilha.NonceAttr(c)` renders no attribute at all instead of `nonce=""`.
+
 ## Trusted proxies
 
 `Config.TrustedProxies []string` (CIDR or IP) or `TRILHA_TRUSTED_PROXIES=a,b`. Effects when

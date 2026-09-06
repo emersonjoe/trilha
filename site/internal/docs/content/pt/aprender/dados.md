@@ -141,7 +141,7 @@ navegador já tem a página e só pergunta se ela mudou.
 
 ```go
 func Page(c *trilha.Ctx) (h.Node, error) {
-	p, ok := posts.Get(c.Param("slug"))
+	p, ok := trilha.Use[*posts.Store](c).Get(c.Param("slug"))
 	if !ok {
 		return nil, trilha.ErrNotFound
 	}

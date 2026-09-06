@@ -154,10 +154,60 @@ O binário que já existe monta o app como monta qualquer outro handler:
 // Host is the same move when the app does not live in package main: crm is a
 // folder of the binary that already exists, `trilha gen` wrote NewApp into
 // the package that folder declares, and mounting it is one line. There is no
-// registration file to keep by hand.
-func Host(mux *http.ServeMux) http.Handler {
+// registration file to keep by hand. The nonce goes in on the way past,
+// because the app renders its scripts under the host's policy.
+func Host(mux *http.ServeMux, nonce func(*http.Request) string) http.Handler {
 	mux.Handle("/", crm.NewApp().Handler())
-	return before.Secure(mux)
+	return before.Secure(withNonce(mux, nonce))
+}
+```
+
+```go
+// withNonce hands the app the nonce the host already published. Without it
+// the app invents one per request, and the policy the browser is enforcing —
+// the host's — has never heard of that one.
+func withNonce(next http.Handler, nonce func(*http.Request) string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, host.WithNonce(r, nonce(r)))
+	})
+}
+```
+
+Três coisas deixam de ser do app enquanto ele está montado ali dentro, e as três são uma
+linha no `app/setup.go`:
+
+```go
+// Config is where an embedded app says what is not its to answer for. The
+// host already wrote the response headers and already published a policy with
+// a nonce in it, so the app writes neither: Delegated sends none of the seven,
+// and Nonce hands c.Nonce() the value the host's own policy names. The CSRF
+// names move out of the way of the host's, because two hidden fields called
+// _csrf on one page is a bug nobody sees until a form silently posts the wrong
+// token.
+func Config(cfg *trilha.Config) {
+	cfg.Security.Delegated = true
+	cfg.Security.Nonce = func(r *http.Request) string { return host.Nonce(r) }
+	cfg.CSRF = trilha.CSRF{Cookie: "crm_csrf", Field: "_crm_csrf", Header: "X-CRM-CSRF"}
+}
+```
+
+O `Security.Delegated` não escreve nenhum dos sete cabeçalhos — o hospedeiro já escreveu, e
+dois `Content-Security-Policy` na mesma resposta é uma política que ninguém consegue explicar.
+O `Security.Nonce` é a outra metade: os scripts do app têm que levar o nonce que está na
+política do hospedeiro, e não um que ele inventou para si. E o cookie, o campo e o cabeçalho do
+CSRF ganham nomes próprios, para que o `_csrf` escondido do app e o do hospedeiro não sejam o
+mesmo campo na mesma página.
+
+A quarta é o store. Variável de pacote é compartilhada por todos os apps do processo, e agora
+tem mais de um ali dentro:
+
+```go
+// Setup provides what the pages need. The store is a value, not a package
+// variable: this app is one of several in the process, and Use gives each one
+// back its own.
+func Setup(a *trilha.App) error {
+	trilha.Provide(a, contacts.New())
+	return nil
 }
 ```
 

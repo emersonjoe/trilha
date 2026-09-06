@@ -95,12 +95,20 @@ func Welcome(ctx context.Context, m Mailer, name, email, link string) error {
 	return m.Send(ctx, []string{email}, "Welcome", b.String())
 }
 
+// SendWelcome is the other end of the seam: a handler asks for the interface,
+// never for the implementation behind it. The type argument is what Provide
+// filed the value under, which is why it is written out here — LogMailer and
+// SMTPMailer are two answers to the same question.
+func SendWelcome(c *trilha.Ctx, name, email, link string) error {
+	return Welcome(c.Context(), trilha.Use[Mailer](c), name, email, link)
+}
+
 // SetupMailer makes the choice once, at startup. Production without an
 // address configured fails to start, which is better than a sign-up that
 // silently sends nothing.
 func SetupMailer(a *trilha.App) error {
 	if a.Env() == trilha.Dev {
-		a.Values()["mailer"] = LogMailer{Log: a.Logger()}
+		trilha.Provide[Mailer](a, LogMailer{Log: a.Logger()})
 		return nil
 	}
 	addr, from := os.Getenv("SMTP_ADDR"), os.Getenv("SMTP_FROM")
@@ -108,10 +116,10 @@ func SetupMailer(a *trilha.App) error {
 		return errors.New("SMTP_ADDR and SMTP_FROM are required outside dev")
 	}
 	host, _, _ := strings.Cut(addr, ":")
-	a.Values()["mailer"] = SMTPMailer{
+	trilha.Provide[Mailer](a, SMTPMailer{
 		Addr: addr,
 		From: from,
 		Auth: smtp.PlainAuth("", os.Getenv("SMTP_USER"), os.Getenv("SMTP_PASSWORD"), host),
-	}
+	})
 	return nil
 }

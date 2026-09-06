@@ -83,13 +83,15 @@ func Setup(a *trilha.App) error {
 	if err != nil {
 		return err // aborts startup with the message in the terminal
 	}
-	a.Values()["db"] = db
+	trilha.Provide(a, db)
 	return nil
 }
 ```
 
-The idiomatic Go way is to keep the pool in a variable of your own package
-(`internal/db`), imported by the pages. `a.Values()` exists for quick glue.
+A page reads it back by the same type: `db := trilha.Use[*sql.DB](c)`. Do not keep the pool
+in a package variable — it works until a second app exists in the same process (a host that
+mounts two, a test that builds another one) and then both share it. `Values()` is still there
+for glue by name. See [Dependencies](/reference/app#dependencies).
 
 ## `trilha export`
 

@@ -14,6 +14,7 @@ type Config struct {
 	Public       fs.FS        // static files; nil turns them off
 	Mounts       map[string]fs.FS // static trees by URL prefix, before Public
 	CSRFForAPI   bool         // require CSRF in route.go too
+	CSRF         CSRF         // cookie, field and header names of the token
 	BasePath     string       // URL prefix; TRILHA_BASE_PATH
 	Security     Security     // headers (see Security)
 	TrustedProxies []string   // CIDRs; TRILHA_TRUSTED_PROXIES
@@ -51,6 +52,26 @@ value is read:
 
 Use `Config` when you want to build the configuration from your own package (file, Vault,
 flags) instead of the environment.
+
+### CSRF names
+
+The token travels under three names, and every one of them is a default, not a rule:
+
+| Field | Default |
+|---|---|
+| `CSRF.Cookie` | `trilha_csrf` |
+| `CSRF.Field` | `_csrf` |
+| `CSRF.Header` | `X-CSRF-Token` |
+
+```go
+cfg.CSRF = trilha.CSRF{Cookie: "billing_csrf", Field: "_billing_csrf", Header: "X-Billing-CSRF"}
+```
+
+Rename them when the app is not alone on the page: mounted inside a server that already
+writes `_csrf`, two hidden fields with the same name reach the handler and the browser sends
+whichever cookie it likes. An empty field keeps its default, so renaming one is one line. The
+name given here is the one `CSRFInput`, `CSRFToken`, the check, the CORS allow-list and the
+test client all use — there is no second place to keep in step.
 
 ### CORS
 
@@ -159,7 +180,9 @@ typo in the layout does not take the page down. `ui.Head` and the examples alrea
 | `New(cfg) *App` | creates the application |
 | `Register(Route)` | registers a route (called by the generated file) |
 | `SetRootLayout`, `SetNotFound`, `SetErrorPage` | wire the root files |
-| `Values() map[string]any` | global values set in `Setup` |
+| `trilha.Provide[T](a, v)` | files a dependency under its type (see "Dependencies") |
+| `trilha.Use[T](b) T` | reads it back, from a `*Ctx` or from the `*App` |
+| `Values() map[string]any` | global values set in `Setup`, by name and untyped |
 | `Logger() *slog.Logger` | the logger |
 | `Env() Env` | environment |
 | `Handler() http.Handler` | the root mux, for tests and for embedding in another server |
@@ -175,6 +198,42 @@ typo in the layout does not take the page down. `ui.Head` and the examples alrea
 
 `trilha.Run(a)` is what the generated `main` calls: it exports if `TRILHA_EXPORT` is set,
 otherwise it serves. `trilha.Fatal(err)` logs and exits, ignoring `http.ErrServerClosed`.
+
+### Dependencies
+
+A page needs the store, the pool, the mailer. Keeping them in package variables works right
+up to the day there are two apps in one process — a host that mounts two of them, or a test
+that builds a second one — and then both read the same globals and the second test to run
+sees the first one's data.
+
+```go
+func Setup(a *trilha.App) error {
+	store := posts.New()
+	trilha.Provide(a, store)
+	return nil
+}
+```
+
+```go
+func Page(c *trilha.Ctx) (h.Node, error) {
+	store := trilha.Use[*posts.Store](c)
+	...
+}
+```
+
+`Provide` files the value under its type; `Use[T]` reads it back, and takes either the `*Ctx`
+of a handler or the `*App` itself — which is what `Setup` and a test have in hand. A type
+nobody provided panics at the call, naming the type, instead of turning up later as a nil
+somewhere else.
+
+The type is the key, so a seam is declared by writing it out: `trilha.Provide[Mailer](a,
+SMTPMailer{...})` files an interface, and the handler asking `Use[Mailer](c)` never learns
+which implementation it got. Without the type argument the key would be `SMTPMailer`, and the
+handler would be asking for something else.
+
+`Values()` is still there for glue by name, and `c.Get`/`c.Set` are the per-request values a
+middleware leaves behind — a different question, answered in
+[Middleware](/learn/middleware).
 
 ### Your own `main`
 

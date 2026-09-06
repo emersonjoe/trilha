@@ -27,6 +27,30 @@ base-uri 'self'; form-action 'self'
 `c.Nonce()` devolve o nonce da requisição; `trilha.NonceAttr(c)` o coloca em um `h.Script`.
 Ajuste em `Setup` por `a.Security()`.
 
+### Quando a resposta é do hospedeiro
+
+Um app montado dentro de um servidor que já responde pelas próprias respostas tem dois
+cabeçalhos a mais, não um: o hospedeiro escreveu a política, e o app escreve de novo.
+
+| Campo | Efeito |
+|---|---|
+| `Delegated bool` | não escreve cabeçalho nenhum — nem os seis que têm `Off`, nem o `nosniff` que não tem |
+| `Nonce func(*http.Request) string` | o nonce vem do hospedeiro, uma chamada por requisição que pedir |
+
+```go
+a.Security().Delegated = true
+a.Security().Nonce = func(r *http.Request) string { return host.NonceOf(r) }
+```
+
+`Delegated` é uma decisão, não um padrão: o valor zero escreve os cabeçalhos, então um
+`Security{...}` escrito à mão nunca os desliga por omissão. O boot registra a delegação uma
+vez no log, porque resposta sem cabeçalho precisa aparecer em algum lugar.
+
+Sem `Nonce`, `c.Nonce()` inventa um valor por requisição — o que está certo para um app que
+publica a própria CSP e errado para um que não publica: a política do hospedeiro nunca ouviu
+falar daquele nonce, e o navegador recusa o script. Com `Nonce` devolvendo string vazia,
+`trilha.NonceAttr(c)` não renderiza atributo nenhum em vez de `nonce=""`.
+
 ## Proxies confiáveis
 
 `Config.TrustedProxies []string` (CIDR ou IP) ou `TRILHA_TRUSTED_PROXIES=a,b`. Efeitos quando

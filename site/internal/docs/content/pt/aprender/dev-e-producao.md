@@ -82,13 +82,15 @@ func Setup(a *trilha.App) error {
 	if err != nil {
 		return err // aborta a subida com a mensagem no terminal
 	}
-	a.Values()["db"] = db
+	trilha.Provide(a, db)
 	return nil
 }
 ```
 
-O idiomático em Go é guardar o pool em uma variável do seu próprio pacote
-(`internal/banco`), importado pelas páginas. `a.Values()` existe para colagem rápida.
+A página lê de volta pelo mesmo tipo: `db := trilha.Use[*sql.DB](c)`. Não guarde o pool em
+variável de pacote — funciona até existir um segundo app no mesmo processo (um hospedeiro que
+monta dois, um teste que constrói outro), e aí os dois passam a dividir o mesmo. `Values()`
+continua ali para cola por nome. Veja [Dependências](/pt/referencia/app#dependencias).
 
 ## `trilha export`
 

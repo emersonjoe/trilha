@@ -6,6 +6,7 @@ import (
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/cookbook/before"
 	"github.com/emersonjoe/trilha/examples/cookbook/crm"
+	"github.com/emersonjoe/trilha/examples/cookbook/host"
 	"github.com/emersonjoe/trilha/h"
 )
 
@@ -47,8 +48,18 @@ func Front(mux *http.ServeMux, a *trilha.App) http.Handler {
 // Host is the same move when the app does not live in package main: crm is a
 // folder of the binary that already exists, `trilha gen` wrote NewApp into
 // the package that folder declares, and mounting it is one line. There is no
-// registration file to keep by hand.
-func Host(mux *http.ServeMux) http.Handler {
+// registration file to keep by hand. The nonce goes in on the way past,
+// because the app renders its scripts under the host's policy.
+func Host(mux *http.ServeMux, nonce func(*http.Request) string) http.Handler {
 	mux.Handle("/", crm.NewApp().Handler())
-	return before.Secure(mux)
+	return before.Secure(withNonce(mux, nonce))
+}
+
+// withNonce hands the app the nonce the host already published. Without it
+// the app invents one per request, and the policy the browser is enforcing —
+// the host's — has never heard of that one.
+func withNonce(next http.Handler, nonce func(*http.Request) string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, host.WithNonce(r, nonce(r)))
+	})
 }

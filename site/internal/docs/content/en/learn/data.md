@@ -140,7 +140,7 @@ response: the browser already has the page and asks only whether it changed.
 
 ```go
 func Page(c *trilha.Ctx) (h.Node, error) {
-	p, ok := posts.Get(c.Param("slug"))
+	p, ok := trilha.Use[*posts.Store](c).Get(c.Param("slug"))
 	if !ok {
 		return nil, trilha.ErrNotFound
 	}

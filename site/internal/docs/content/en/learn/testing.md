@@ -117,7 +117,8 @@ page returned. Asserting on the node survives a change of layout, which is usual
 want.
 
 Both build the app for you; `trilha.WithApp(a)` uses yours instead, when the route depends on
-something `Setup` puts in `a.Values()`.
+something `Setup` provided with `trilha.Provide` — `trilha.Use[T](a)` reads it back in the
+test itself.
 
 ## The options
 

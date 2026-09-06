@@ -117,7 +117,8 @@ O `res.Body` tem o documento inteiro, com o layout em volta; o `res.Node` é só
 devolveu. Asserção no nó sobrevive a uma troca de layout, que costuma ser o que você quer.
 
 Os dois montam o app para você; `trilha.WithApp(a)` usa o seu, quando a rota depende de algo
-que o `Setup` põe no `a.Values()`.
+que o `Setup` proveu com `trilha.Provide` — `trilha.Use[T](a)` lê de volta no próprio
+teste.
 
 ## As opções
 
