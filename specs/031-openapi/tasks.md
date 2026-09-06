@@ -43,4 +43,4 @@
       escrever diretiva).
 - [x] T010 `reference/cli` nas duas locales: o comando, as flags e a tabela de diretivas.
 - [x] T011 `CHANGELOG.md` (0.22.0), `version` em `cmd/trilha/main.go`, ROADMAP (Fase 3, item 13).
-- [ ] T012 `make test` verde e `make release VERSION=0.22.0 ISSUES="31"`.
+- [x] T012 `make test` verde e `make release VERSION=0.22.0 ISSUES="31"`.
