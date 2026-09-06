@@ -12,8 +12,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` para `ui.theme.css` e `ui.css`, script inline (com nonce) que aplica o tema salvo, `<script defer src=ui.js>`; respeita `c.Base()` |
 | `ui.Body() h.Node` | classe `ui-body` para o `<body>` |
-| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js` ou `ui.upload.js` |
-| `ui.Files` | os cinco nomes, na ordem em que `trilha ui` os grava |
+| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js` ou `ui.live.js` |
+| `ui.Files` | os seis nomes, na ordem em que `trilha ui` os grava |
 
 ## Variantes e tamanhos
 
@@ -48,11 +48,13 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Dialog(id, título, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | `<dialog>` nativo com `showModal` |
 | `Confirm(título, descrição)` | atributos para um `<form>`: o `ui.js` pergunta num diálogo antes de enviar, inclusive em formulário de fragmento. O botão que confirma repete o rótulo do botão apertado; o outro diz `Cancel`, ou o que estiver em `h.Data("ui-confirm-cancel", "…")`. Sem JavaScript o formulário envia direto |
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu com o atributo `popover` nativo |
-| `Pagination(Pages{Page, Total, Href, Prev, Next, Label})` | navegação de páginas em links; a página atual é um `<span>` com `aria-current`, as pontas somem em vez de virarem link desabilitado, e uma janela de sete casas guarda a primeira e a última página com `…` sobre cada buraco; uma página só não desenha nada |
+| `Pagination(Pages{Page, Total, Href, Prev, Next, Label, Attrs})` | navegação de páginas em links; a página atual é um `<span>` com `aria-current`, as pontas somem em vez de virarem link desabilitado, e uma janela de sete casas guarda a primeira e a última página com `…` sobre cada buraco; uma página só não desenha nada |
 | `Tooltip(texto, ...)` | dica no que ele embrulha: `title` mais `data-ui-tooltip`, promovido pelo `ui.js` a uma bolha com `role=tooltip` e `aria-describedby` |
 | `Separator, Skeleton, Progress(valor, máx), Breadcrumb(Crumb{Label, Href}...), Avatar(iniciais, src), Collapsible(resumo, ...)` | diversos |
 | `ThemeToggle()` | botão que alterna claro/escuro (`localStorage["ui-theme"]`) |
+| `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) |
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
+| `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) |
 | `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação) |
 
@@ -150,7 +152,7 @@ do sistema antes da primeira pintura).
 
 ## CLI
 
-`trilha ui [--force] [--css-only|--js-only]` grava os cinco arquivos em `public/`:
-`ui.theme.css` só é criado (nunca sobrescrito); `ui.css`, `ui.js`, `ui.nav.js` e
-`ui.upload.js` são atualizados quando iguais a uma versão anterior e, se você os editou, só
+`trilha ui [--force] [--css-only|--js-only]` grava os seis arquivos em `public/`:
+`ui.theme.css` só é criado (nunca sobrescrito); `ui.css`, `ui.js`, `ui.nav.js`,
+`ui.upload.js` e `ui.live.js` são atualizados quando iguais a uma versão anterior e, se você os editou, só
 com `--force`.

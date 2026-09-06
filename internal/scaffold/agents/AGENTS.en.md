@@ -66,6 +66,17 @@ that resolves it — read that line instead of guessing.
   `*Auth` without a provider: check the password with `auth.CheckPBKDF2` and call
   `Login(c, u)`. Everything else — `Require`, `RequireRole`, the `Store`, the idle window —
   is already written.
+- **Do not hand-write a listing screen.** Page, ordering, filter and search live in the
+  URL with `trilha.ListParams` (embedded in the struct `c.Bind` fills) and are rendered by
+  `ui.DataTable` — sortable headers as real links, the filter as a `<form method=get>`,
+  pagination, empty state, and the whole thing swapped as a fragment when it has an `ID`.
+  `Restrict` is what makes a `sort` from the address a column name, so no repository ever
+  sees one nobody declared.
+- **Do not write a `setInterval` to refresh a piece of the page.** `ui.Poll("6s", src)`
+  refreshes a fragment on a clock — pausing on a hidden tab, backing off on errors,
+  stopping when the route answers `c.PollStop()` — and `ui.Live`/`ui.On` do the same on a
+  Server-Sent Event that carries only the name of what changed. Load `ui.LiveScript(c)`
+  once on the page that watches something.
 - **Do not invent a flash cookie or an `onclick="return confirm()"`.** After a `POST`, say what
   happened with `c.Flash(ui.FlashSuccess, "…")` — the layout's `ui.Flashes(c)` shows it on the
   page the redirect lands on — and ask before destroying with `ui.Confirm(title, description)`

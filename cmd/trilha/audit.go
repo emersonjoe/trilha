@@ -200,6 +200,10 @@ func runAudit(p *project, vuln bool) []check {
 		}
 	}
 
+	if liveWithoutAuth(src) {
+		add("warn", t("live no auth"), t("live no auth hint"))
+	}
+
 	// Login without a rate limit is a password guessing machine with the
 	// app's own uptime (OWASP ASVS 2.2.1).
 	if loginWithoutLimit(src, os.Getenv("TRILHA_RATE_LIMIT") != "") {
@@ -287,6 +291,21 @@ func upstreamWithoutCredential(src string) bool {
 		return false
 	}
 	return strings.Contains(src, ".Require()") || strings.Contains(src, ".RequireRole(") || strings.Contains(src, ".RequireFunc(")
+}
+
+// liveWithoutAuth reports a stream nobody guards. ui.Live opens an EventSource
+// that stays open for as long as the page does, and a route answering it
+// without a session is a connection anyone can hold and read.
+func liveWithoutAuth(src string) bool {
+	if !strings.Contains(src, "ui.Live(") {
+		return false
+	}
+	for _, s := range []string{".Require()", ".RequireRole(", ".RequireFunc("} {
+		if strings.Contains(src, s) {
+			return false
+		}
+	}
+	return true
 }
 
 // loginWithoutLimit reports a login nobody limits (OWASP ASVS 2.2.1).

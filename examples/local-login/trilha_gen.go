@@ -11,6 +11,7 @@ import (
 	app "github.com/emersonjoe/trilha/examples/local-login/app"
 	app_entrar "github.com/emersonjoe/trilha/examples/local-login/app/entrar"
 	app_painel "github.com/emersonjoe/trilha/examples/local-login/app/painel"
+	app_painel_eventos "github.com/emersonjoe/trilha/examples/local-login/app/painel/eventos"
 	app_sair "github.com/emersonjoe/trilha/examples/local-login/app/sair"
 )
 
@@ -44,6 +45,14 @@ func newApp() *trilha.App {
 		Pattern:     "/painel",
 		Page:        app_painel.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app_painel.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/painel/eventos",
+		Kind:    app.Kind,
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_painel_eventos.GET,
+		},
 		Middlewares: []trilha.MiddlewareFunc{app_painel.Middleware},
 	})
 	a.Register(trilha.Route{

@@ -1,10 +1,12 @@
 pkg trilha, const CSRFCookie
 pkg trilha, const CSRFField
 pkg trilha, const CSRFHeader
+pkg trilha, const DefaultPerPage
 pkg trilha, const Dev Env
 pkg trilha, const KindAPI RouteKind
 pkg trilha, const KindAuto RouteKind
 pkg trilha, const KindPage RouteKind
+pkg trilha, const MaxPerPage
 pkg trilha, const MinSecretLen
 pkg trilha, const NoTimeout time.Duration
 pkg trilha, const Off
@@ -102,6 +104,8 @@ pkg trilha, method (*Ctx) NoWriteDeadline() error
 pkg trilha, method (*Ctx) Nonce() string
 pkg trilha, method (*Ctx) Param(string) string
 pkg trilha, method (*Ctx) Pattern() string
+pkg trilha, method (*Ctx) PollEvery(time.Duration)
+pkg trilha, method (*Ctx) PollStop()
 pkg trilha, method (*Ctx) Query(string) string
 pkg trilha, method (*Ctx) Redirect(string) error
 pkg trilha, method (*Ctx) Render(int, h.Node) error
@@ -129,6 +133,7 @@ pkg trilha, method (*Gauge) With(...string) *Gauge
 pkg trilha, method (*HTTPError) Error() string
 pkg trilha, method (*Histogram) Observe(float64)
 pkg trilha, method (*Histogram) With(...string) *Histogram
+pkg trilha, method (*ListParams) Restrict(...string) bool
 pkg trilha, method (*Metrics) Counter(string, string, ...string) *Counter
 pkg trilha, method (*Metrics) Gauge(string, string, ...string) *Gauge
 pkg trilha, method (*Metrics) Histogram(string, string, []float64, ...string) *Histogram
@@ -141,6 +146,7 @@ pkg trilha, method (*Stream) Comment(string) error
 pkg trilha, method (*Stream) Done() <-chan struct{}
 pkg trilha, method (*Stream) Flush()
 pkg trilha, method (*Stream) JSON(string, any) error
+pkg trilha, method (*Stream) Notify(string) error
 pkg trilha, method (*Stream) Send(string, string) error
 pkg trilha, method (*TestClient) Get(string, ...TestOption) *TestResponse
 pkg trilha, method (*TestClient) PostForm(string, url.Values, ...TestOption) *TestResponse
@@ -160,6 +166,12 @@ pkg trilha, method (FieldErrors) Error() string
 pkg trilha, method (FieldErrors) Get(string) string
 pkg trilha, method (FieldErrors) Has(string) bool
 pkg trilha, method (FieldErrors) OrNil() error
+pkg trilha, method (ListParams) Asc() bool
+pkg trilha, method (ListParams) Href(...string) string
+pkg trilha, method (ListParams) Limit() int
+pkg trilha, method (ListParams) Offset() int
+pkg trilha, method (ListParams) PageHref(int) string
+pkg trilha, method (ListParams) TotalPages(int) int
 pkg trilha, type App struct
 pkg trilha, type Bag interface
 pkg trilha, type CORS struct
@@ -231,6 +243,12 @@ pkg trilha, type HealthReport struct, Status string
 pkg trilha, type HealthReport struct, UptimeSeconds float64
 pkg trilha, type Histogram struct
 pkg trilha, type LayoutFunc func(*Ctx, h.Node) (h.Node, error)
+pkg trilha, type ListParams struct
+pkg trilha, type ListParams struct, Dir string
+pkg trilha, type ListParams struct, Page int
+pkg trilha, type ListParams struct, PerPage int
+pkg trilha, type ListParams struct, Q string
+pkg trilha, type ListParams struct, Sort string
 pkg trilha, type Metrics struct
 pkg trilha, type Metrics struct, MaxSeries int
 pkg trilha, type MiddlewareFunc func(*Ctx, Next) error
@@ -793,6 +811,7 @@ pkg ui, func Code(string) h.Node
 pkg ui, func Collapsible(string, ...h.Node) h.Node
 pkg ui, func Confirm(string, string) h.Node
 pkg ui, func Container(...h.Node) h.Node
+pkg ui, func DataTable[T any](*trilha.Ctx, Columns[T], []T, ListState) h.Node
 pkg ui, func Depth(int) h.Node
 pkg ui, func Destructive() h.Node
 pkg ui, func Dialog(string, string, ...h.Node) h.Node
@@ -824,6 +843,8 @@ pkg ui, func Label(...h.Node) h.Node
 pkg ui, func Lead(...h.Node) h.Node
 pkg ui, func Lg() h.Node
 pkg ui, func LinkStyle() h.Node
+pkg ui, func Live(string) h.Node
+pkg ui, func LiveScript(*trilha.Ctx) h.Node
 pkg ui, func Menu(string, ...h.Node) h.Node
 pkg ui, func MenuItem(...h.Node) h.Node
 pkg ui, func MenuLink(string, ...h.Node) h.Node
@@ -837,9 +858,11 @@ pkg ui, func NoNavigate() h.Node
 pkg ui, func NoPush() h.Node
 pkg ui, func NoTransition() h.Node
 pkg ui, func Num() h.Node
+pkg ui, func On(string, string) h.Node
 pkg ui, func Outline() h.Node
 pkg ui, func Pagination(Pages) h.Node
 pkg ui, func PendingAfter(int) h.Node
+pkg ui, func Poll(string, string) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func Radio(...h.Node) h.Node
 pkg ui, func Row(...h.Node) h.Node
@@ -868,14 +891,38 @@ pkg ui, func UploadBar(...h.Node) h.Node
 pkg ui, func UploadScript(*trilha.Ctx) h.Node
 pkg ui, func UploadTo(string) h.Node
 pkg ui, func With(...h.Node) FieldOpt
+pkg ui, type Column struct, Cell func(T) h.Node
+pkg ui, type Column struct, Key string
+pkg ui, type Column struct, Label string
+pkg ui, type Column struct, Num bool
+pkg ui, type Column struct, Sort bool
+pkg ui, type Column[T any] struct
+pkg ui, type Columns[T any] []Column[T]
 pkg ui, type Crumb struct
 pkg ui, type Crumb struct, Href string
 pkg ui, type Crumb struct, Label string
 pkg ui, type FieldOpt func(*fieldCfg)
+pkg ui, type ListSelect struct
+pkg ui, type ListSelect struct, Action string
+pkg ui, type ListSelect struct, Bar h.Node
+pkg ui, type ListSelect struct, Label string
+pkg ui, type ListSelect struct, Name string
+pkg ui, type ListSelect struct, Value func(int) string
+pkg ui, type ListState struct
+pkg ui, type ListState struct, Caption string
+pkg ui, type ListState struct, Empty h.Node
+pkg ui, type ListState struct, Filters h.Node
+pkg ui, type ListState struct, ID string
+pkg ui, type ListState struct, Params trilha.ListParams
+pkg ui, type ListState struct, RowHref func(int) string
+pkg ui, type ListState struct, Search string
+pkg ui, type ListState struct, Select *ListSelect
+pkg ui, type ListState struct, Total int
 pkg ui, type Option struct
 pkg ui, type Option struct, Label string
 pkg ui, type Option struct, Value string
 pkg ui, type Pages struct
+pkg ui, type Pages struct, Attrs h.Node
 pkg ui, type Pages struct, Href func(int) string
 pkg ui, type Pages struct, Label string
 pkg ui, type Pages struct, Next string

@@ -66,6 +66,17 @@ leia essa frase em vez de adivinhar.
 - **Não copie uma receita de sessão para um app com usuários próprios.** O `auth.Sessions` é o
   mesmo `*Auth` sem provedor: confira a senha com `auth.CheckPBKDF2` e chame `Login(c, u)`. O
   resto — `Require`, `RequireRole`, a `Store`, a janela de ociosidade — já está escrito.
+- **Não escreva uma tela de listagem na mão.** Página, ordem, filtro e busca moram na URL
+  com a `trilha.ListParams` (embutida na struct que o `c.Bind` preenche) e são desenhados
+  pelo `ui.DataTable` — cabeçalho ordenável em links de verdade, filtro em
+  `<form method=get>`, paginação, estado vazio, e tudo isso trocado como fragmento quando
+  tem `ID`. O `Restrict` é o que transforma o `sort` do endereço em nome de coluna, então
+  nenhum repositório recebe uma que ninguém declarou.
+- **Não escreva um `setInterval` para atualizar um pedaço da página.** O
+  `ui.Poll("6s", src)` atualiza um fragmento pelo relógio — pausando na aba escondida,
+  recuando no erro, parando quando a rota responde `c.PollStop()` — e o `ui.Live`/`ui.On`
+  fazem o mesmo por um Server-Sent Event que carrega só o nome do que mudou. Carregue o
+  `ui.LiveScript(c)` uma vez na página que observa alguma coisa.
 - **Não invente um cookie de flash nem um `onclick="return confirm()"`.** Depois de um `POST`,
   conte o que aconteceu com `c.Flash(ui.FlashSuccess, "…")` — o `ui.Flashes(c)` do layout mostra
   na página onde o redirect cai — e pergunte antes de destruir com `ui.Confirm(título,

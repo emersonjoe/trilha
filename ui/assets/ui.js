@@ -180,6 +180,10 @@
   // the whole page, because nobody sent the header.
   const hydrate = (root) => { armFades(root); evalShowWhen(root); initTooltips(root); mountIslands(root); };
 
+  // A fragment swapped by another file of the kit (ui.live.js) asks for the
+  // same hydration here, so the components inside it keep working.
+  document.addEventListener("trilha:hydrate", (e) => { if (e.detail?.target) hydrate(e.detail.target); });
+
   // Spec 057. A spinner for the 40 ms answer is the flash people complain about,
   // not a courtesy: nothing is marked until the threshold passes, so a request
   // that settles first leaves no trace on the page.

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/examples/blog/internal/documentos"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
 )
 
@@ -770,5 +771,55 @@ func TestOrdemDosPostsAtravessaOTeto(t *testing.T) {
 	}
 	if n := len(c.posts().All()); n != len(padrao) {
 		t.Fatalf("a lista mudou de tamanho: %d, queria %d", n, len(padrao))
+	}
+}
+
+// A listagem é uma convenção nova (spec 057): o estado inteiro vive na URL, a
+// ordem só aceita coluna declarada e o fragmento troca sem recarregar.
+func TestListagemComDataTable(t *testing.T) {
+	documentos.Reset()
+	c := newClient(t, "prod")
+	c.Get("/documentos").WantStatus(200).WantContains(`class="ui-list" id="lista"`,
+		"23 results", `data-trilha-target="lista"`, "Documentos recebidos")
+
+	// Ordenar por uma coluna declarada marca a coluna e inverte o link; a
+	// página volta para a primeira, senão a ordem nova cai numa página que
+	// não existe mais.
+	ord := c.Get("/documentos?sort=tamanho&dir=desc&tipo=nota")
+	ord.WantStatus(200).WantContains(`aria-sort="descending"`, `href="?dir=asc&amp;sort=tamanho&amp;tipo=nota"`)
+	if strings.Contains(ord.Body.String(), "page=") {
+		t.Fatal("o link de ordenação levou a página junto")
+	}
+
+	// Coluna que ninguém declarou não é 500: é uma URL torta, e a lista
+	// responde sem ordem nenhuma.
+	if b := c.Get("/documentos?sort=senha").WantStatus(200).Body.String(); strings.Contains(b, "aria-sort") {
+		t.Fatal("ordenou por uma coluna que a tela não declarou")
+	}
+
+	// O fragmento é só a tabela — a mesma rota, o mesmo handler.
+	frag := c.Get("/documentos?per_page=5&page=2", trilha.WithHeader("Trilha-Fragment", "lista"))
+	frag.WantStatus(200).WantContains(`class="ui-list" id="lista"`, `<span aria-current="page">2</span>`)
+	if b := frag.Body.String(); strings.Contains(b, "<html") || strings.Contains(b, "ui-h1") {
+		t.Fatal("o fragmento veio com a página em volta")
+	}
+}
+
+// O fragmento vivo: o ui.Poll pede o mesmo pedaço, e o servidor manda parar
+// quando não há mais o que esperar.
+func TestFilaViva(t *testing.T) {
+	documentos.Reset()
+	c := newClient(t, "prod")
+	c.Get("/documentos").WantStatus(200).WantContains(`id="fila" data-trilha-poll="2s"`, `src="/ui.live.js?v=`)
+
+	var res *trilha.TestResponse
+	for i := 0; i < 40 && (res == nil || res.Header().Get("Trilha-Poll") != "stop"); i++ {
+		res = c.Get("/documentos", trilha.WithHeader("Trilha-Fragment", "fila")).WantStatus(200)
+	}
+	if res.Header().Get("Trilha-Poll") != "stop" {
+		t.Fatal("a fila nunca acabou; o polling ia ficar pedindo para sempre")
+	}
+	if b := res.Body.String(); !strings.Contains(b, "Fila vazia") || strings.Contains(b, "<html") {
+		t.Fatalf("último fragmento: %s", b)
 	}
 }

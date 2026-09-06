@@ -40,6 +40,32 @@ versioning. This file is written in English only.
   express. Anonymous never reaches the predicate.
 - **`examples/local-login`**: the two of them together, which is the shape of most
   migrations — own users, own login, and `/api/` forwarded with what that login stored.
+- **`trilha.ListParams`: page, ordering, filter and search live in the URL**
+  ([#63](https://github.com/emersonjoe/trilha/issues/63)). Embedded in the struct `c.Bind`
+  fills, it comes out with `Page` and `PerPage` already clamped (`DefaultPerPage` 20,
+  `MaxPerPage` 200), `Dir` normalized to `asc`/`desc`, and the rest of the query kept, so
+  `Href("page", "3")` and `PageHref(3)` write the next address without losing the filter that
+  was already there. `Offset()`, `Limit()` and `Asc()` are what the repository asks for, and
+  `Restrict(cols...)` turns a `sort` from the address into a column name someone declared —
+  a crooked URL answers unordered instead of reaching the query.
+- **`ui.DataTable(c, cols, rows, state)`** draws the whole screen from that: sortable headers
+  as real links (with `aria-sort` on the one in force), the filter as a `<form method=get>`,
+  pagination, the count, an empty state, an optional bulk-action bar, and rows that are
+  clickable in CSS alone. With `ListState.ID` set, every link and the form are already
+  `ui.Swap` targets, so ordering a column swaps the table and nothing else. It ships no
+  JavaScript of its own.
+- **`ui.Poll`, `ui.Live` and `ui.On`, with `ui.live.js`**
+  ([#64](https://github.com/emersonjoe/trilha/issues/64)). `ui.Poll("6s", src)` refreshes a
+  fragment on a clock the server owns: `c.PollEvery(d)` changes the interval and
+  `c.PollStop()` ends it, both in the answer's own header, and the script pauses on a hidden
+  tab, refreshes at once when the tab comes back, refuses to replace a fragment holding the
+  focus, honours `Retry-After` and backs off to a minute on errors. `ui.Live(src)` opens one
+  `EventSource` per page and `ui.On(name, src)` refreshes the fragment when an event by that
+  name arrives — `Stream.Notify(name)` sends it, carrying the name of what changed and never
+  the HTML, so the fragment is fetched with the session and the permissions of whoever is
+  watching. A page that polls or listens loads `ui.LiveScript(c)` once.
+- **`Pages.Attrs`** puts the same attributes on every page link, which is how `ui.DataTable`
+  paginates inside a fragment.
 
 ### Changed
 
@@ -47,12 +73,20 @@ versioning. This file is written in English only.
   host that is not this machine is critical (the session credential crossing a network in
   the clear); an upstream with no `Headers` in an app that requires a login, and a `Login`
   with no rate limit, are warnings.
+- **`trilha audit` looks at the open stream**: a `ui.Live` in an app with no `Require`,
+  `RequireRole` or `RequireFunc` anywhere is a warning — a stream open to anonymous is a
+  channel that says when something happened to whoever is listening.
+- **`trilha ui` writes six files**: `ui.live.js` joins `ui.theme.css`, `ui.css`, `ui.js`,
+  `ui.nav.js` and `ui.upload.js` in `public/`.
 
 ### Documentation
 
 - New reference page **Upstreams** and the recipe **An app in front of an existing API**, in
   both languages; the auth reference gained the session-without-OIDC section, and
   `SECURITY-MODEL.md` says what changes when the credential lives inside the app.
+- New reference pages **Listings** and **Live**, the recipe **A listing that filters, orders
+  and paginates**, and the `ui` reference updated, all in both languages; `AGENTS.md` gained
+  the two things not to hand-write — a listing screen and a `setInterval`.
 
 ## 0.40.1 — 2026-09-08
 

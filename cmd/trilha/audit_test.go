@@ -309,3 +309,21 @@ func TestAuditoriaOlhaOsUpstreams(t *testing.T) {
 		}
 	}
 }
+
+func TestAuditoriaOlhaOStreamAberto(t *testing.T) {
+	casos := []struct {
+		nome string
+		src  string
+		quer bool
+	}{
+		{"sem live", `h.Div(ui.Poll("6s", "/status"))`, false},
+		{"live sem sessão", `h.Body(ui.Live("/events"))`, true},
+		{"live com rota protegida", `h.Body(ui.Live("/events"))` + "\n" + `func Middleware(c *trilha.Ctx, next trilha.Next) error { return flow.Require()(c, next) }`, false},
+		{"live com papel", `ui.Live("/events")` + "\n" + `flow.RequireRole("admin")`, false},
+	}
+	for _, c := range casos {
+		if got := liveWithoutAuth(c.src); got != c.quer {
+			t.Errorf("%s: liveWithoutAuth = %v", c.nome, got)
+		}
+	}
+}

@@ -82,6 +82,11 @@ func bindStruct(sv reflect.Value, prefix string, form map[string][]string, errs 
 				inner += "."
 			}
 			bindStruct(fv, inner, form, errs, vn)
+			// A listing reads more than its own fields: the limits, and the
+			// rest of the query it has to preserve in every link.
+			if lp, ok := fv.Addr().Interface().(*ListParams); ok {
+				lp.after(form)
+			}
 			continue
 		}
 		if name == "" {

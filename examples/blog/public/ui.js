@@ -1,4 +1,4 @@
-/* trilha ui a2dd205e36b3d7d4 */
+/* trilha ui 8e140c6b3f78e5ac */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -180,6 +180,10 @@
   // the same link navigates and the same form submits — the server answers with
   // the whole page, because nobody sent the header.
   const hydrate = (root) => { armFades(root); evalShowWhen(root); initTooltips(root); mountIslands(root); };
+
+  // A fragment swapped by another file of the kit (ui.live.js) asks for the
+  // same hydration here, so the components inside it keep working.
+  document.addEventListener("trilha:hydrate", (e) => { if (e.detail?.target) hydrate(e.detail.target); });
 
   // Spec 057. A spinner for the 40 ms answer is the flash people complain about,
   // not a courtesy: nothing is marked until the threshold passes, so a request

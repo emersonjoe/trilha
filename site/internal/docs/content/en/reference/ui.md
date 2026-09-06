@@ -12,8 +12,8 @@ description: The kit's components, variants, assets and the theme contract.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` for `ui.theme.css` and `ui.css`, inline script (with nonce) that applies the saved theme, `<script defer src=ui.js>`; honors `c.Base()` |
 | `ui.Body() h.Node` | `ui-body` class for the `<body>` |
-| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js` or `ui.upload.js` |
-| `ui.Files` | the five names, in the order `trilha ui` writes them |
+| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js` or `ui.live.js` |
+| `ui.Files` | the six names, in the order `trilha ui` writes them |
 
 ## Variants and sizes
 
@@ -48,11 +48,13 @@ description: The kit's components, variants, assets and the theme contract.
 | `Dialog(id, title, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | native `<dialog>` with `showModal` |
 | `Confirm(title, description)` | attributes for a `<form>`: `ui.js` asks in a dialog before submitting, fragment forms included. The confirming button repeats the pressed button's label; the other says `Cancel`, or what `h.Data("ui-confirm-cancel", "…")` says. Without JavaScript the form submits straight away |
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu with the native `popover` attribute |
-| `Pagination(Pages{Page, Total, Href, Prev, Next, Label})` | page navigation as links; the current page is a `<span>` with `aria-current`, the edges are absent instead of disabled, and a window of seven slots keeps the first and last page with `…` over each gap; one page renders nothing |
+| `Pagination(Pages{Page, Total, Href, Prev, Next, Label, Attrs})` | page navigation as links; the current page is a `<span>` with `aria-current`, the edges are absent instead of disabled, and a window of seven slots keeps the first and last page with `…` over each gap; one page renders nothing |
 | `Tooltip(text, ...)` | hint on what it wraps: `title` plus `data-ui-tooltip`, upgraded by `ui.js` into a bubble with `role=tooltip` and `aria-describedby` |
 | `Separator, Skeleton, Progress(value, max), Breadcrumb(Crumb{Label, Href}...), Avatar(initials, src), Collapsible(summary, ...)` | miscellaneous |
 | `ThemeToggle()` | button that switches light/dark (`localStorage["ui-theme"]`) |
+| `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) |
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
+| `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) |
 | `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error) |
 
@@ -149,7 +151,7 @@ preference before the first paint).
 
 ## CLI
 
-`trilha ui [--force] [--css-only|--js-only]` writes the five files in `public/`:
-`ui.theme.css` is only created (never overwritten); `ui.css`, `ui.js`, `ui.nav.js` and
-`ui.upload.js` are updated when they equal a previous version and, if you edited them, only
+`trilha ui [--force] [--css-only|--js-only]` writes the six files in `public/`:
+`ui.theme.css` is only created (never overwritten); `ui.css`, `ui.js`, `ui.nav.js`,
+`ui.upload.js` and `ui.live.js` are updated when they equal a previous version and, if you edited them, only
 with `--force`.

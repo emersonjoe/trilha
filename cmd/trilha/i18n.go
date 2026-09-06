@@ -199,6 +199,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"upstream no credential hint": {"the proxy does not forward the browser's Authorization: without Upstream.Headers reading the session, the API is called anonymously — which is either a forgotten credential or worth a comment saying it is on purpose", "o proxy não repassa o Authorization do navegador: sem Upstream.Headers lendo a sessão, a API é chamada como anônima — o que é uma credencial esquecida ou merece um comentário dizendo que é de propósito"},
 	"login no limit":              {"Login without a rate limit", "Login sem limite de taxa"},
 	"login no limit hint":         {"a login nobody limits is a password guessing machine with this app's uptime: set Config.RateLimit or TRILHA_RATE_LIMIT", "um login que ninguém limita é uma máquina de adivinhar senha com o uptime deste app: defina Config.RateLimit ou TRILHA_RATE_LIMIT"},
+	"live no auth":                {"ui.Live in an app with no session", "ui.Live num app sem sessão"},
+	"live no auth hint":           {"the stream stays open and anyone can hold it: guard the route that answers it with auth.Require, or say in the route why it is public", "o stream fica aberto e qualquer um o segura: proteja a rota que responde com auth.Require, ou escreva na rota por que ela é pública"},
 	"gen stale":                   {"trilha_gen.go out of date", "trilha_gen.go desatualizado"},
 	"gen stale hint":              {"run: trilha gen", "rode: trilha gen"},
 	"gen fresh":                   {"trilha_gen.go up to date", "trilha_gen.go atualizado"},

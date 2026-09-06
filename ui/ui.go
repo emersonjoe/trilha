@@ -13,7 +13,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 )
 
-//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js
+//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js assets/ui.live.js
 var assets embed.FS
 
 // Asset returns the embedded file (ui.css, ui.theme.css or ui.js).
@@ -26,7 +26,7 @@ func Asset(name string) []byte {
 }
 
 // Files lists the kit files written to a project's public/ folder.
-var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js"}
+var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js", "ui.live.js"}
 
 // Head links the kit's stylesheets and script and applies the saved theme
 // before first paint (inline script with the request nonce, so the default
@@ -582,6 +582,7 @@ type Pages struct {
 	Href        func(int) string // address of a page
 	Prev, Next  string           // labels; "Previous" and "Next" when empty
 	Label       string           // aria-label of the <nav>; "Pagination" when empty
+	Attrs       h.Node           // extra attributes for every page link (ui.Swap, for one)
 }
 
 // Pagination renders page navigation as real links, so a page can be shared,
@@ -606,7 +607,7 @@ func Pagination(p Pages) h.Node {
 	}
 	var items []h.Node
 	if page > 1 {
-		items = append(items, h.Li(h.A(h.Rel("prev"), h.Href(p.Href(page-1)), h.Text(label(p.Prev, "Previous")))))
+		items = append(items, h.Li(h.A(h.Rel("prev"), h.Href(p.Href(page-1)), attrs(p.Attrs), h.Text(label(p.Prev, "Previous")))))
 	}
 	for _, n := range pageWindow(page, p.Total) {
 		switch {
@@ -615,13 +616,21 @@ func Pagination(p Pages) h.Node {
 		case n == page:
 			items = append(items, h.Li(h.Span(h.Aria("current", "page"), h.Text(strconv.Itoa(n)))))
 		default:
-			items = append(items, h.Li(h.A(h.Href(p.Href(n)), h.Text(strconv.Itoa(n)))))
+			items = append(items, h.Li(h.A(h.Href(p.Href(n)), attrs(p.Attrs), h.Text(strconv.Itoa(n)))))
 		}
 	}
 	if page < p.Total {
-		items = append(items, h.Li(h.A(h.Rel("next"), h.Href(p.Href(page+1)), h.Text(label(p.Next, "Next")))))
+		items = append(items, h.Li(h.A(h.Rel("next"), h.Href(p.Href(page+1)), attrs(p.Attrs), h.Text(label(p.Next, "Next")))))
 	}
 	return h.Nav(h.Class("ui-pagination"), h.Aria("label", label(p.Label, "Pagination")), h.Ul(items...))
+}
+
+// attrs is the optional extra attribute of a link, or nothing.
+func attrs(n h.Node) h.Node {
+	if n == nil {
+		return h.Group()
+	}
+	return n
 }
 
 // pageWindow returns the page numbers to show, with 0 standing for a gap.

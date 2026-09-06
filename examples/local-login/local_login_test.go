@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/ui"
 )
 
 // api is the service that already exists: it answers with what it saw, so the
@@ -92,4 +95,46 @@ func TestUpstreamLevaOTokenDaSessao(t *testing.T) {
 // Without API_URL there is no proxy: the example runs alone and /api/ is a 404.
 func TestSemAPIURLNaoHaProxy(t *testing.T) {
 	cliente(t, "").Get("/api/documentos").WantStatus(404)
+}
+
+// O fragmento vivo do painel: uma conexão por página (ui.Live), o pedaço que
+// escuta pelo nome (ui.On) e a rota do stream atrás do mesmo middleware.
+func TestPainelTemFragmentoVivo(t *testing.T) {
+	c := cliente(t, "")
+	entrar(t, c, "ana@exemplo.com", "segredo-da-ana")
+
+	c.Get("/painel").WantStatus(200).WantContains(
+		`data-trilha-live="/painel/eventos"`,
+		`id="agora" data-trilha-on="painel:agora"`,
+		`src="/ui.live.js?v=`)
+
+	// O mesmo handler responde só o pedaço quando quem pergunta é o script.
+	frag := c.Get("/painel", trilha.WithHeader("Trilha-Fragment", "agora")).WantStatus(200)
+	if b := frag.Body.String(); strings.Contains(b, "<html") || !strings.Contains(b, `id="agora"`) {
+		t.Fatalf("fragmento = %s", b)
+	}
+
+	// O stream diz o nome do que mudou e nada mais: o HTML vem do refetch, e a
+	// conexão nunca vira canal de dados.
+	ev := c.Get("/painel/eventos").WantStatus(200)
+	if ct := ev.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/event-stream") {
+		t.Fatalf("content-type = %q", ct)
+	}
+	if b := ev.Body.String(); !strings.Contains(b, "event: painel:agora\ndata: \n\n") {
+		t.Fatalf("stream = %q", b)
+	}
+}
+
+// A cópia do kit em public/ é o que o browser baixa; se ela ficar para trás do
+// que o pacote embute, o atributo existe e o comportamento não.
+func TestUiLiveJSEstaAtualizado(t *testing.T) {
+	b, err := os.ReadFile("public/ui.live.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A cópia sai com um cabeçalho de versão do `trilha ui` na frente; o que
+	// tem de bater é o corpo.
+	if !bytes.Contains(b, ui.Asset("ui.live.js")) {
+		t.Fatal("public/ui.live.js está desatualizado: rode `trilha ui --force`")
+	}
 }

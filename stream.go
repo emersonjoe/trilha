@@ -74,6 +74,16 @@ func (s *Stream) JSON(event string, v any) error {
 	return s.Send(event, string(b))
 }
 
+// Notify sends an event with a name and no data — the shape ui.On listens for.
+// The name says what changed and the client asks the route for the fragment
+// again, so the authorization and the rendering stay where they already are
+// and the stream never becomes a channel for data.
+//
+//	for ev := range bus.Subscribe(c.Context(), user) {
+//		if err := s.Notify(ev.Name); err != nil { return err }
+//	}
+func (s *Stream) Notify(name string) error { return s.Send(name, "") }
+
 // Comment sends a comment line (keeps proxies from timing out the stream).
 func (s *Stream) Comment(text string) error {
 	_, err := fmt.Fprintf(s.c.w, ": %s\n\n", text)
