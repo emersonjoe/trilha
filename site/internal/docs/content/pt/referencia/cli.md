@@ -162,6 +162,36 @@ Nome desconhecido sai com status diferente de zero e a lista dos nomes mais pró
 `--json` é para o agente que escreve a tela: uma chamada e ele sabe o que existe e como cada
 coisa se chama, em vez de chutar um nome e descobrir na hora de compilar.
 
+## trilha migrate
+
+Lê um projeto Next.js e grava as duas coisas mecânicas de uma migração: a árvore de pastas do
+`app/`, com um arquivo Go por tela, e um relatório de tudo o que não é mecânico.
+
+```bash
+trilha migrate next ../web --dry-run   # imprime o relatório e não grava nada
+trilha migrate next ../web             # grava o app/ e o MIGRATION.md
+trilha migrate next ../web --out app --report MIGRATION.md --force
+```
+
+O que ele grava compila: cada página é uma função `Page` com título e os parâmetros da rota,
+cada `route.ts` vira os handlers que exportava devolvendo `501`, e um `trilha gen` na sequência
+deixa o projeto verde. Nada é sobrescrito sem `--force`, então rodar em um projeto que já tem
+telas acrescenta o que falta e mantém o que está lá — a contagem no fim diz quantos foram
+gravados e quantos foram mantidos.
+
+O comentário acima de cada função é a parte que importa: diz de qual arquivo veio, quantas
+linhas tinha, quais hooks usava, quais endpoints chamava e qual dos três formatos a tela
+provavelmente é — **A** formulário ou lista sem ilha, **B** página com uma ilha, **C** app que
+é cliente de verdade. É uma sugestão impressa com o motivo, não um veredito. O `MIGRATION.md`
+junta isso numa tabela só, mais a lista do que não tem equivalente aqui: estados de
+carregamento, templates, rotas paralelas e interceptadoras, middleware e rewrites, cada um com
+a frase que explica o que ocupa o lugar.
+
+As telas em si não são traduzidas. O corpo de uma página é regra de negócio, e máquina
+chutando isso custa mais para revisar do que para escrever — o guia
+[Do Next.js para a Trilha](/pt/receitas/do-next) tem o padrão de React ao lado da linha que
+toma o lugar dele.
+
 ## trilha agents
 
 Grava dois arquivos na raiz do projeto, e só quando é pedido: suporte a agentes de código é

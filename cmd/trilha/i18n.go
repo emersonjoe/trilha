@@ -58,6 +58,7 @@ Usage:
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
   trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
   trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
+  trilha migrate next <next-dir> [--out app]        skeleton of app/ and MIGRATION.md from a Next.js project
   trilha version
 
 Language: TRILHA_LANG=en|pt (falls back to LC_ALL, LC_MESSAGES, LANG).
@@ -79,6 +80,7 @@ Uso:
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
   trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
   trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
+  trilha migrate next <dir-do-next> [--out app]       esqueleto do app/ e MIGRATION.md a partir de um projeto Next.js
   trilha version
 
 Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
@@ -160,6 +162,16 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"ui kept theme": {"kept (your theme)", "mantido (seu tema)"},
 	"ui local":      {"modified locally", "modificado localmente"},
 	"ui kept own":   {"kept (yours)", "mantido (seu)"},
+
+	// migrate
+	"migrate what":         {"say what to migrate: trilha migrate next <next-dir>", "diga o que migrar: trilha migrate next <dir-do-next>"},
+	"migrate needs a dir":  {"give the Next.js project directory: trilha migrate next ../web", "informe a pasta do projeto Next.js: trilha migrate next ../web"},
+	"flag migrate out":     {"where to write the skeleton", "onde gravar o esqueleto"},
+	"flag migrate report":  {"where to write the report", "onde gravar o relatório"},
+	"flag migrate dry-run": {"print the report and write nothing", "imprime o relatório e não grava nada"},
+	"flag migrate force":   {"overwrite files that are already there", "sobrescrever arquivos que já existem"},
+	"migrate dry":          {"%d files would be written to %s/, plus %s.", "%d arquivos seriam gravados em %s/, mais o %s."},
+	"migrate done":         {"%d written, %d kept, %d lines in the report with no equivalent here.", "%d gravados, %d mantidos, %d linhas do relatório sem equivalente aqui."},
 
 	// ui describe
 	"flag describe json": {"print the catalogue (or the component) as JSON", "imprime o catálogo (ou o componente) em JSON"},

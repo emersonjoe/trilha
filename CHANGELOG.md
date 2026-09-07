@@ -7,6 +7,26 @@ versioning. This file is written in English only.
 
 ### Added
 
+- **The first day of a migration is one command: `trilha migrate next`**
+  ([#59](https://github.com/emersonjoe/trilha/issues/59)). Moving a Next.js app used to start
+  with a week of folder archaeology — which routes exist, which pages are really client, what
+  each one calls — before a single screen could be ported. The command reads the project and
+  writes the two mechanical halves: the tree of `app/`, one Go file per screen with the names
+  Trilha expects (`[id]` → `id_`, `[...path]` → `path__`, `(group)` → `group-`, `not-found` →
+  `not_found.go`), and a `MIGRATION.md` with a row per screen — source file and its line
+  count, where it landed, the URL, whether it was `'use client'` and with which hooks, the
+  endpoints it called, and which of three shapes it probably is: **A** a form or list with no
+  island, **B** a page with one island, **C** an app that really is a client. The suggestion is
+  printed with the reason that produced it, and the same reason is a doc comment above the
+  function, so whoever ports the screen reads it where the work happens. What has no
+  equivalent here is a report line rather than a file that lies: loading states, templates,
+  parallel and intercepting routes, `middleware.ts` and the rewrites in `next.config`, each
+  with the sentence saying what takes its place. The skeleton compiles as it is — `trilha
+  gen`, `go build` and `go vet` pass on it with no edits — nothing is overwritten without
+  `--force`, and `--dry-run` prints the report without touching the disk. The screens
+  themselves are not translated: the body of a page is business logic, and the cookbook page
+  *From Next.js to Trilha* is the reference for porting it by hand.
+
 - **The kit answers what it has: `trilha ui describe`, and the guide for whoever comes from
   Next.js** ([#73](https://github.com/emersonjoe/trilha/issues/73)). Writing a screen with the
   kit meant knowing 137 names by heart or opening `ui/` and reading. `trilha ui describe`

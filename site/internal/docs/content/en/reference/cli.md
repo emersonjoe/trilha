@@ -163,6 +163,36 @@ unknown name exits non-zero with the closest names. `--json` is there for the ag
 the screen: one call and it knows what exists and how each thing is spelled, instead of
 guessing at a name and finding out at compile time.
 
+## trilha migrate
+
+Reads a Next.js project and writes the two things that are mechanical about a migration: the
+folder tree of `app/`, with one Go file per screen, and a report of everything that is not.
+
+```bash
+trilha migrate next ../web --dry-run   # prints the report, writes nothing
+trilha migrate next ../web             # writes app/ and MIGRATION.md
+trilha migrate next ../web --out app --report MIGRATION.md --force
+```
+
+What it writes compiles: each page is a `Page` function with a title and the route's
+parameters, each `route.ts` becomes the handlers it exported returning `501`, and `trilha gen`
+right after leaves the project green. Nothing is overwritten without `--force`, so running it
+on a project that already has screens adds what is missing and keeps what is there — the count
+at the end says how many were written and how many were kept.
+
+The doc comment above each function is the part that matters: it says which file it came from,
+how many lines it had, which hooks it used, which endpoints it called, and which of three
+shapes the screen probably is — **A** a form or a list with no island, **B** a page with one
+island, **C** an app that really is a client. That is a suggestion printed with its reason, not
+a verdict. `MIGRATION.md` gathers the same thing in one table, plus the list of what has no
+equivalent here: loading states, templates, parallel and intercepting routes, middleware and
+rewrites, each with the sentence explaining what takes its place.
+
+The screens themselves are not translated. A page's body is business logic, and a machine
+guessing at it would cost more to review than to write — the guide
+[From Next.js to Trilha](/cookbook/from-next) has the React pattern beside the line that
+replaces it.
+
 ## trilha agents
 
 Writes two files at the root of the project, and only when asked: support for coding agents is

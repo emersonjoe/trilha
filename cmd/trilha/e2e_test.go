@@ -626,3 +626,63 @@ func TestTemplateAppE2E(t *testing.T) {
 		t.Fatalf("expected a complaint about --template, got %v\n%s", err, b)
 	}
 }
+
+// TestMigrateNextE2E is issue #59 end to end: the skeleton the migration writes
+// has to compile in a real project, not only match a golden. What it proves is
+// that a team can run the command on day one, run `trilha gen`, and still have
+// something that builds — the port then happens screen by screen, on green.
+func TestMigrateNextE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	cli := filepath.Join(tmp, "trilha-cli")
+	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+
+	proj := filepath.Join(tmp, "portado")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/portado", "--trilha-dir", repo)
+
+	next := filepath.Join(repo, "testdata", "next")
+	out := run(t, proj, cli, "migrate", "next", next, "--dry-run")
+	if !strings.Contains(out, "would be written") {
+		t.Fatal(out)
+	}
+	if _, err := os.Stat(filepath.Join(proj, "MIGRATION.md")); err == nil {
+		t.Fatal("--dry-run must write nothing")
+	}
+	out = run(t, proj, cli, "migrate", "next", next)
+	// The page trilha new wrote is kept: the migration adds, it does not take over.
+	if !regexp.MustCompile(`app/page\.go\s+kept`).MatchString(out) {
+		t.Fatal(out)
+	}
+	if !strings.Contains(out, "no equivalent here") {
+		t.Fatal(out)
+	}
+	report, err := os.ReadFile(filepath.Join(proj, "MIGRATION.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"| `app/documents/[id]/page.tsx`", "B — polling", "root layout", "trilha ui describe"} {
+		if !strings.Contains(string(report), want) {
+			t.Fatalf("MIGRATION.md missing %q:\n%s", want, report)
+		}
+	}
+	// The routes are new, so the generated file is stale until `gen` runs.
+	checkCmd := exec.Command(cli, "gen", "--check")
+	checkCmd.Dir = proj
+	if _, err := checkCmd.CombinedOutput(); err == nil {
+		t.Fatal("gen --check must fail before gen")
+	}
+	run(t, proj, cli, "gen")
+	run(t, proj, cli, "gen", "--check")
+	run(t, proj, "go", "build", "./...")
+	run(t, proj, "go", "vet", "./...")
+	out = run(t, proj, cli, "routes")
+	for _, want := range []string{"/documents/{id}", "/files/{path...}", "/api/documents"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("routes missing %s:\n%s", want, out)
+		}
+	}
+}

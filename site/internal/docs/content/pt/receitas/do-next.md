@@ -26,6 +26,12 @@ servidor**, e o que sobra no browser é o pouco que o kit já traz pronto.
 | uma biblioteca de gráfico no cliente | `c.Island` |
 | `next.config.js` | `app/setup.go` e `Config` |
 
+Antes da primeira linha de Go, `trilha migrate next ../web` grava a árvore de pastas do `app/`
+e um `MIGRATION.md` dizendo, tela por tela, de qual arquivo veio, o que chamava e qual dos
+formatos abaixo ela provavelmente é. O esqueleto compila; o porte é o que sobra, e esta página
+é a referência dele. Veja
+[o comando](/pt/referencia/cli#trilha-migrate).
+
 ## A tela que busca
 
 O painel em React: um efeito, três estados e um render que precisa dizer algo sensato em cada

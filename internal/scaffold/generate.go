@@ -453,6 +453,12 @@ func packageClause(src string) string {
 
 // packageName derives a package name from a folder name: the conventions put
 // suffixes and dots in folders that an identifier cannot carry.
+// PackageName is the package clause of a folder: the parameter and group
+// marks come off, what is left is lowercased and cleaned, and a name that
+// would not compile gets a prefix. It is exported because the migration
+// writes files into the same folders and has to agree with the generator.
+func PackageName(dir string) string { return packageName(dir) }
+
 func packageName(dir string) string {
 	dir = strings.TrimSuffix(strings.TrimSuffix(dir, "-"), "__")
 	dir = strings.TrimSuffix(dir, "_")

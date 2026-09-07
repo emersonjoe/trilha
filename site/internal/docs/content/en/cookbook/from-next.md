@@ -26,6 +26,12 @@ or on the server**, and what is left in the browser is the little the kit alread
 | a chart library on the client | `c.Island` |
 | `next.config.js` | `app/setup.go` and `Config` |
 
+Before the first line of Go, `trilha migrate next ../web` writes the folder tree of `app/` and
+a `MIGRATION.md` saying, screen by screen, which file it came from, what it called and which
+of the shapes below it probably is. The skeleton compiles; the port is what is left, and this
+page is the reference for it. See
+[the command](/reference/cli#trilha-migrate).
+
 ## The screen that fetches
 
 The React dashboard: an effect, three states, and a render that has to say something
