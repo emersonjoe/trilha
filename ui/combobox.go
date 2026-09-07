@@ -103,6 +103,10 @@ func Combobox(o ComboboxOpts, attrs ...h.Node) h.Node {
 
 // ComboboxOptions is the answer of a search route: the options themselves, as
 // HTML, because the browser has nothing to decide about them.
+//
+//	return c.HTML(http.StatusOK, ui.ComboboxOptions(cities, func(c City) (string, string) {
+//		return strconv.Itoa(c.ID), c.Name
+//	}))
 func ComboboxOptions[T any](items []T, of func(T) (value, label string)) h.Node {
 	opts := make([]Option, 0, len(items))
 	for _, it := range items {

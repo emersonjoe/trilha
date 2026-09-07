@@ -62,6 +62,33 @@ func TestE2E(t *testing.T) {
 	if b, _ := os.ReadFile(theme); string(b) != ":root{--primary:red}" {
 		t.Fatal("theme must be preserved")
 	}
+	// trilha ui describe: the catalogue ships with the CLI, so it answers from
+	// tmp — outside any project — and the name is read as it is typed.
+	out = run(t, tmp, cli, "ui", "describe")
+	if !strings.Contains(out, "forms") || !strings.Contains(out, "Field") || !strings.Contains(out, "components.") {
+		t.Fatal(out)
+	}
+	for _, name := range []string{"Field", "field", "ui.Field"} {
+		out = run(t, tmp, cli, "ui", "describe", name)
+		if !strings.Contains(out, "ui.Field(id, label string") || !strings.Contains(out, "example:") || !strings.Contains(out, "see:") {
+			t.Fatalf("describe %s = %s", name, out)
+		}
+	}
+	out = run(t, tmp, cli, "ui", "describe", "Field", "--json")
+	var comp struct{ Name, Signature, Summary string }
+	if err := json.Unmarshal([]byte(out), &comp); err != nil || comp.Name != "Field" || comp.Summary == "" {
+		t.Fatalf("describe --json = %s (%v)", out, err)
+	}
+	out = run(t, tmp, cli, "ui", "describe", "--json")
+	var all []struct{ Name, Kind, Group string }
+	if err := json.Unmarshal([]byte(out), &all); err != nil || len(all) < 50 {
+		t.Fatalf("catalog = %d components (%v)", len(all), err)
+	}
+	descCmd := exec.Command(cli, "ui", "describe", "Fild")
+	descCmd.Dir = tmp
+	if out, err := descCmd.CombinedOutput(); err == nil || !strings.Contains(string(out), "did you mean: Field") {
+		t.Fatal(string(out), err)
+	}
 	// trilha agents: opt-in, so `trilha new` above left nothing behind.
 	agents := filepath.Join(proj, "AGENTS.md")
 	if _, err := os.Stat(agents); err == nil {

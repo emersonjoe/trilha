@@ -38,6 +38,7 @@ O HTML é escrito em Go com o pacote `h`, não com template:
 | `trilha export` | grava as páginas estáticas em HTML |
 | `trilha openapi` | escreve o documento OpenAPI das rotas de API |
 | `trilha ui` | regrava o kit ui em `public/` |
+| `trilha ui describe [Nome]` | o catálogo do ui: todos os componentes, ou um com assinatura e exemplo; `--json` para ferramenta. Leia antes de escrever uma tela, em vez de chutar um nome |
 | `trilha agents` | regrava este arquivo |
 | `trilha new` | cria outro projeto |
 | `trilha version` | a versão do framework |

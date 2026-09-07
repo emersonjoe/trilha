@@ -37,6 +37,7 @@ HTML is written in Go with the `h` package, not with templates:
 | `trilha export` | writes the static pages as HTML |
 | `trilha openapi` | writes the OpenAPI document of the API routes |
 | `trilha ui` | rewrites the ui kit in `public/` |
+| `trilha ui describe [Name]` | the ui catalogue: every component, or one with its signature and an example; `--json` for a tool. Read it before writing a screen instead of guessing at a name |
 | `trilha agents` | rewrites this file |
 | `trilha new` | creates another project |
 | `trilha version` | the version of the framework |

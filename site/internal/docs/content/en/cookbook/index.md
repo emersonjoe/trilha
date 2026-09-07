@@ -22,6 +22,7 @@ what it has is a place for yours, and this is where the placing is written down.
 | [Docker](/cookbook/docker) | a small image, the variables, the health probe |
 | [Production checklist](/cookbook/production-checklist) | what to check before publishing, in order |
 | [Migration](/cookbook/migration) | plain `net/http` to Trilha, and between minor versions |
+| [From Next.js](/cookbook/from-next) | the React pattern you know, and what replaces it here |
 
 ## Where the code comes from
 

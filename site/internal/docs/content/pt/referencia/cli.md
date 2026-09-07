@@ -18,6 +18,7 @@ trilha check [--json] [--fix]
 trilha ctx [--json] [--routes|--types|--all]
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
+trilha ui describe [Nome] [--json]
 trilha agents [--force] [--lang en|pt]
 trilha version
 ```
@@ -141,6 +142,25 @@ Grava ou atualiza o kit de interface em `public/`: `ui.theme.css` (só criado; �
 tema), `ui.css` e `ui.js` (atualizados; se editados localmente, só com `--force`).
 `--css-only` e `--js-only` limitam o que é tocado. `trilha new` roda o mesmo passo. Veja
 [Interface com ui](/pt/aprender/interface-com-ui).
+
+### trilha ui describe
+
+Imprime o catálogo do kit: sem argumento, todos os componentes agrupados e resumidos em uma
+linha cada; com um nome, a assinatura, para que serve, os campos da struct de opções, um
+exemplo e os símbolos que a documentação cita.
+
+```bash
+trilha ui describe            # tudo, agrupado
+trilha ui describe Field      # um componente
+trilha ui describe ui.field   # o mesmo: o prefixo e a caixa são opcionais
+trilha ui describe --json     # o catálogo inteiro em JSON
+```
+
+O catálogo é montado a partir dos próprios comentários do kit e viaja dentro do binário,
+então responde com ou sem projeto por perto e não tem como divergir do código que descreve.
+Nome desconhecido sai com status diferente de zero e a lista dos nomes mais próximos. O
+`--json` é para o agente que escreve a tela: uma chamada e ele sabe o que existe e como cada
+coisa se chama, em vez de chutar um nome e descobrir na hora de compilar.
 
 ## trilha agents
 

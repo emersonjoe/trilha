@@ -97,6 +97,12 @@ func classOf(n h.Node) (string, bool) {
 // Body returns the class for <body>: base font and theme colors.
 func Body() h.Node { return h.Class("ui-body") }
 
+// Container, Stack, Row, Grid and Spacer are the layout boxes: Container
+// centers the page at a readable width, Stack piles children vertically, Row
+// puts them side by side, Grid wraps them into columns and Spacer pushes what
+// comes after it to the far end of a Row.
+//
+//	ui.Container(ui.Stack(ui.H1(h.Text("Invoices")), ui.Row(filters, ui.Spacer(), newButton)))
 func Container(children ...h.Node) h.Node {
 	return h.Div(append([]h.Node{h.Class("ui-container")}, children...)...)
 }
@@ -121,6 +127,8 @@ func Nav(children ...h.Node) h.Node {
 }
 
 // NavLink marks the current page with aria-current when current is true.
+//
+//	ui.Nav(ui.NavLink("/invoices", "Invoices", c.Pattern() == "/invoices"))
 func NavLink(href, label string, current bool) h.Node {
 	n := []h.Node{h.Href(href), h.Text(label)}
 	if current {
@@ -134,7 +142,9 @@ func Sidebar(children ...h.Node) h.Node {
 	return h.Aside(append([]h.Node{h.Class("ui-sidebar")}, children...)...)
 }
 
-// H1, H2, H3, Lead and Muted are typographic helpers.
+// H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three
+// headings, the opening paragraph, secondary text, a snippet inline and a key
+// on the keyboard.
 func H1(children ...h.Node) h.Node { return h.H1(append([]h.Node{h.Class("ui-h1")}, children...)...) }
 func H2(children ...h.Node) h.Node { return h.H2(append([]h.Node{h.Class("ui-h2")}, children...)...) }
 func H3(children ...h.Node) h.Node { return h.H3(append([]h.Node{h.Class("ui-h3")}, children...)...) }
@@ -167,6 +177,15 @@ func ButtonLink(href string, children ...h.Node) h.Node {
 
 // ---- card ------------------------------------------------------------------
 
+// Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are
+// the panel and its parts. Only Card is required; the rest are there so the
+// spacing inside is not repeated in every screen.
+//
+//	ui.Card(
+//		ui.CardHeader(ui.CardTitle("Invoice 42"), ui.CardDescription("Due in 3 days")),
+//		ui.CardContent(body),
+//		ui.CardFooter(ui.Button(h.Text("Pay"))),
+//	)
 func Card(children ...h.Node) h.Node {
 	return h.Div(append([]h.Node{h.Class("ui-card")}, children...)...)
 }
@@ -184,6 +203,11 @@ func CardFooter(children ...h.Node) h.Node {
 
 // ---- forms -----------------------------------------------------------------
 
+// Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form
+// controls, styled and nothing else: they take the attributes of the element
+// they are, so h.Name, h.Required and h.Value work as they always did.
+//
+//	ui.Input(h.Type("email"), h.Name("email"), h.Required())
 func Input(attrs ...h.Node) h.Node {
 	return h.Input(append([]h.Node{h.Class("ui-input")}, attrs...)...)
 }
@@ -206,13 +230,21 @@ func Label(children ...h.Node) h.Node {
 	return h.Label(append([]h.Node{h.Class("ui-label")}, children...)...)
 }
 
-// CheckRow puts a checkbox/switch/radio beside its label.
+// CheckRow puts a checkbox/switch/radio beside its label. forID is the
+// control's id: without it the label is decoration and the click area is the
+// box alone.
+//
+//	ui.CheckRow(ui.Checkbox(h.ID("terms"), h.Name("terms")), "I agree", "terms")
 func CheckRow(control h.Node, label string, forID string) h.Node {
 	return h.Div(h.Class("ui-check-row"), control, Label(h.For(forID), h.Text(label)))
 }
 
 // Field is label + control + optional help/error. id must match the control's id.
 // An error marks the control invalid via aria-describedby on the wrapper.
+//
+//	ui.Field("email", "E-mail",
+//		ui.Input(h.ID("email"), h.Type("email"), h.Name("email"), ui.InvalidIf(errs, "email")),
+//		ui.Errors(errs, "email"))
 func Field(id, label string, control h.Node, opts ...FieldOpt) h.Node {
 	f := fieldCfg{}
 	for _, o := range opts {
@@ -237,6 +269,9 @@ type fieldCfg struct {
 // FieldOpt configures Field.
 type FieldOpt func(*fieldCfg)
 
+// Help, Error, Errors and With are the FieldOpt options: a hint under the
+// control, one message, the messages a FieldErrors carries for that name, and
+// anything else to put inside the field.
 func Help(s string) FieldOpt  { return func(f *fieldCfg) { f.help = s } }
 func Error(s string) FieldOpt { return func(f *fieldCfg) { f.err = s } }
 
@@ -361,6 +396,9 @@ func ShowWhen(field string, values ...string) h.Node {
 
 // ---- badge, alert, toast ---------------------------------------------------
 
+// Badge is a small label for a status; the variants apply.
+//
+//	ui.Badge(ui.Secondary(), h.Text("draft"))
 func Badge(children ...h.Node) h.Node { return h.Span(variant("ui-badge", children)...) }
 
 // Alert renders a titled notice; add Destructive() for errors and an Icon first.
@@ -382,6 +420,8 @@ func Toaster(children ...h.Node) h.Node {
 
 // Toast is a message that fades out after fadeMs (0 = stays). kind: "",
 // "success" or "error". Render it inside Toaster (e.g. after a form post).
+//
+//	ui.Toaster(ui.Toast("success", "Invoice sent.", 4000))
 func Toast(kind, text string, fadeMs int) h.Node {
 	n := []h.Node{h.Class("ui-toast"), h.Role("status")}
 	if kind != "" {
@@ -490,12 +530,20 @@ func Tabs(id string, tabs ...Tab) h.Node {
 // ---- dialog ----------------------------------------------------------------
 
 // Dialog renders a native <dialog>; open it with DialogTrigger(id, ...).
+//
+//	ui.DialogTrigger("confirm", h.Text("Delete"))
+//	ui.Dialog("confirm", "Delete the invoice?",
+//		ui.DialogDescription("This cannot be undone."),
+//		ui.DialogFooter(ui.DialogClose(ui.Outline(), h.Text("Cancel")), deleteForm))
 func Dialog(id, title string, children ...h.Node) h.Node {
 	n := []h.Node{h.Class("ui-dialog"), h.ID(id), h.Aria("labelledby", id+"-title"),
 		h.Button(h.Class("ui-btn ui-btn-ghost ui-btn-icon ui-btn-sm ui-dialog-close"), h.Type("button"), h.Data("ui-dialog-close", ""), h.Aria("label", "Fechar"), Icon("x")),
 		h.H2(h.Class("ui-dialog-title"), h.ID(id+"-title"), h.Text(title))}
 	return h.Dialog(append(n, children...)...)
 }
+
+// DialogDescription is the line under a Dialog title, and DialogFooter is the
+// row of buttons at the bottom.
 func DialogDescription(s string) h.Node { return h.P(h.Class("ui-dialog-description"), h.Text(s)) }
 func DialogFooter(children ...h.Node) h.Node {
 	return h.Div(append([]h.Node{h.Class("ui-dialog-footer")}, children...)...)
@@ -522,6 +570,9 @@ func MenuTrigger(id string, children ...h.Node) h.Node {
 func Menu(id string, children ...h.Node) h.Node {
 	return h.Div(append([]h.Node{h.Class("ui-menu"), h.ID(id), h.Attr("popover", "auto"), h.Role("menu")}, children...)...)
 }
+
+// MenuItem is an entry that does something (a button) and MenuLink is one that
+// goes somewhere (a link). Both belong inside a Menu.
 func MenuItem(children ...h.Node) h.Node {
 	return h.Button(append([]h.Node{h.Type("button"), h.Role("menuitem")}, children...)...)
 }
@@ -531,6 +582,7 @@ func MenuLink(href string, children ...h.Node) h.Node {
 
 // ---- misc ------------------------------------------------------------------
 
+// Separator is a horizontal rule between sections.
 func Separator() h.Node { return h.Hr(h.Class("ui-separator")) }
 
 // Skeleton is a loading placeholder; pass StyleAttr for size.

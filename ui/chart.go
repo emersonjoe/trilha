@@ -174,12 +174,16 @@ type SparkOpts struct {
 //
 // One point alone, or a series where every value is the same, is a straight
 // line through the middle; an empty series draws nothing.
+//
+//	ui.Stat("Signups", "1,204", ui.Sparkline(weekly, ui.SparkOpts{}))
 func Sparkline(values []float64, o SparkOpts) h.Node {
 	return sparkline(values, o, nil)
 }
 
 // SparklineTitle is Sparkline with a name and the numbers in a hidden table,
 // for a line that stands on its own instead of inside a Stat.
+//
+//	ui.SparklineTitle(weekly, ui.SparkOpts{Width: 240}, ui.ChartTitle("Signups per week"))
 func SparklineTitle(values []float64, o SparkOpts, attrs ...h.Node) h.Node {
 	return sparkline(values, o, attrs)
 }

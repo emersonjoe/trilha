@@ -1,0 +1,1848 @@
+[
+  {
+    "name": "Datum",
+    "kind": "type",
+    "group": "chart",
+    "signature": "type Datum struct",
+    "doc": "Datum is one labelled value of a chart. The label is what a person reads;\nthe value is only used to work out a proportion, so the app is free to keep\ncounting in whatever unit it counts.",
+    "summary": "Datum is one labelled value of a chart.",
+    "fields": [
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Value",
+        "type": "float64"
+      },
+      {
+        "name": "Text",
+        "type": "string",
+        "doc": "Text is the value as a person reads it — \"R$ 1.204,50\", \"38 %\", \"1.2k\"."
+      }
+    ]
+  },
+  {
+    "name": "Stat",
+    "kind": "func",
+    "group": "chart",
+    "signature": "Stat(label, value string, children ...h.Node) h.Node",
+    "doc": "Stat is the counter of a dashboard: a label, a value and an optional hint.\nThe value arrives already formatted — the framework has no locale, and the\napp is the one that knows whether a thousand is 1,204 or 1.204.",
+    "summary": "Stat is the counter of a dashboard: a label, a value and an optional hint.",
+    "example": "ui.Stat(\"Documents\", \"1.204\", ui.StatHint(\"+38 this week\"))",
+    "see": [
+      "ui.StatHint"
+    ]
+  },
+  {
+    "name": "StatHint",
+    "kind": "func",
+    "group": "chart",
+    "signature": "StatHint(s string, attrs ...h.Node) h.Node",
+    "doc": "StatHint is the second line of a Stat: a variation, a period, a total.",
+    "summary": "StatHint is the second line of a Stat: a variation, a period, a total."
+  },
+  {
+    "name": "ChartTitle",
+    "kind": "func",
+    "group": "chart",
+    "signature": "ChartTitle(s string) h.Node",
+    "doc": "ChartTitle names a chart for whoever cannot see it. With a title the drawing\nis an image with a name (role=\"img\" plus \u003ctitle\u003e); without one the drawing is\ndecoration (aria-hidden) and the table beside it — hidden from the eye, not\nfrom the reader — is what says the numbers.",
+    "summary": "ChartTitle names a chart for whoever cannot see it."
+  },
+  {
+    "name": "Bars",
+    "kind": "func",
+    "group": "chart",
+    "signature": "Bars(data []Datum, attrs ...h.Node) h.Node",
+    "doc": "Bars draws one horizontal bar per Datum, proportional to the largest value,\nwith the label to the left and the value at the end of the bar. It is the\n`\u003cdiv style=\"width:37%\"\u003e` of every dashboard, with the numbers still readable\nwhen the CSS does not arrive.\n\nA negative value draws no bar and keeps its label; a series whose largest\nvalue is zero or less draws every bar empty.",
+    "summary": "Bars draws one horizontal bar per Datum, proportional to the largest value, with the label to the left and the value at the end of the bar."
+  },
+  {
+    "name": "SparkOpts",
+    "kind": "type",
+    "group": "chart",
+    "signature": "type SparkOpts struct",
+    "doc": "SparkOpts is the size of a Sparkline in the same units its points are drawn\nin; zero means 120 by 32.",
+    "summary": "SparkOpts is the size of a Sparkline in the same units its points are drawn in; zero means 120 by 32.",
+    "fields": [
+      {
+        "name": "Width",
+        "type": "int"
+      },
+      {
+        "name": "Height",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "name": "Sparkline",
+    "kind": "func",
+    "group": "chart",
+    "signature": "Sparkline(values []float64, o SparkOpts) h.Node",
+    "doc": "Sparkline draws the series as one line, with no axis and no scale — the\nshape of the last few weeks inside a Stat, not a chart to read values off.\n\nOne point alone, or a series where every value is the same, is a straight\nline through the middle; an empty series draws nothing.",
+    "summary": "Sparkline draws the series as one line, with no axis and no scale — the shape of the last few weeks inside a Stat, not a chart to read values off.",
+    "example": "ui.Stat(\"Signups\", \"1,204\", ui.Sparkline(weekly, ui.SparkOpts{}))",
+    "see": [
+      "ui.SparkOpts",
+      "ui.Stat"
+    ]
+  },
+  {
+    "name": "SparklineTitle",
+    "kind": "func",
+    "group": "chart",
+    "signature": "SparklineTitle(values []float64, o SparkOpts, attrs ...h.Node) h.Node",
+    "doc": "SparklineTitle is Sparkline with a name and the numbers in a hidden table,\nfor a line that stands on its own instead of inside a Stat.",
+    "summary": "SparklineTitle is Sparkline with a name and the numbers in a hidden table, for a line that stands on its own instead of inside a Stat.",
+    "example": "ui.SparklineTitle(weekly, ui.SparkOpts{Width: 240}, ui.ChartTitle(\"Signups per week\"))",
+    "see": [
+      "ui.ChartTitle",
+      "ui.SparkOpts"
+    ]
+  },
+  {
+    "name": "Donut",
+    "kind": "func",
+    "group": "chart",
+    "signature": "Donut(data []Datum, attrs ...h.Node) h.Node",
+    "doc": "Donut draws the share of each Datum in the total as a ring, with the legend\nas a list beside the drawing and not inside the SVG — a legend is text, and\ntext inside an SVG neither wraps nor is selected.\n\nThe ring is drawn with a dashed circle instead of arcs: no trigonometry, so\nthe same series always writes the same file. Negative values are ignored and\na total of zero draws the empty track.",
+    "summary": "Donut draws the share of each Datum in the total as a ring, with the legend as a list beside the drawing and not inside the SVG — a legend is text, and text inside an SVG neither wraps nor is selected."
+  },
+  {
+    "name": "ChatMessage",
+    "kind": "type",
+    "group": "chat",
+    "signature": "type ChatMessage struct",
+    "doc": "ChatMessage is one turn already on the page. The assistant's text is\nMarkdown and goes through Markdown; the visitor's is plain text and stays\nplain text — what someone typed is never markup.",
+    "summary": "ChatMessage is one turn already on the page.",
+    "fields": [
+      {
+        "name": "Role",
+        "type": "string",
+        "doc": "Role is \"user\" or \"assistant\"."
+      },
+      {
+        "name": "Text",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "ChatOpts",
+    "kind": "type",
+    "group": "chat",
+    "signature": "type ChatOpts struct",
+    "doc": "ChatOpts describes the conversation. Action is the only field that has to\nbe filled in.",
+    "summary": "ChatOpts describes the conversation.",
+    "fields": [
+      {
+        "name": "ID",
+        "type": "string",
+        "doc": "ID is the element id, and the prefix of the ids inside it."
+      },
+      {
+        "name": "Action",
+        "type": "string",
+        "doc": "Action is the route that answers, the one running ai.Serve."
+      },
+      {
+        "name": "History",
+        "type": "[]ChatMessage",
+        "doc": "History is what was said before, oldest first."
+      },
+      {
+        "name": "Greeting",
+        "type": "string",
+        "doc": "Greeting is the Markdown shown when the history is empty."
+      },
+      {
+        "name": "Placeholder",
+        "type": "string",
+        "doc": "Placeholder, Submit and Label are the words on the screen."
+      },
+      {
+        "name": "Submit",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "MaxLength",
+        "type": "int",
+        "doc": "MaxLength caps the field."
+      },
+      {
+        "name": "Steps",
+        "type": "bool",
+        "doc": "Steps shows what the agent did — the tool it called and what came back."
+      },
+      {
+        "name": "Markdown",
+        "type": "MarkdownOpts",
+        "doc": "Markdown is how the answers are rendered."
+      }
+    ]
+  },
+  {
+    "name": "Chat",
+    "kind": "func",
+    "group": "chat",
+    "signature": "Chat(c *trilha.Ctx, o ChatOpts) h.Node",
+    "doc": "Chat renders a conversation with an agent: the messages, the field and the\nbutton. The route on the other side is ai.Serve.\n\nWith the script, the answer arrives word by word and the Markdown is\nrendered when the message ends. Without it the form still submits: the\nroute answers the whole thing at once, and the page comes back with the\nanswer in the history. Nothing on the screen depends on the script running.",
+    "summary": "Chat renders a conversation with an agent: the messages, the field and the button.",
+    "example": "ui.Chat(c, ui.ChatOpts{Action: \"/api/chat\", History: msgs})\nui.ChatScript(c)",
+    "see": [
+      "ai.Serve",
+      "ui.ChatOpts",
+      "ui.ChatScript"
+    ]
+  },
+  {
+    "name": "ChatScript",
+    "kind": "func",
+    "group": "chat",
+    "signature": "ChatScript(c *trilha.Ctx) h.Node",
+    "doc": "ChatScript loads ui.chat.js, the behavior behind Chat: it sends the message,\nreads the events and renders the answer as it arrives. Put it once, in the\nlayout of the area with the chat — Head does not load it, so a page without\na chat does not download it.",
+    "summary": "ChatScript loads ui.chat.js, the behavior behind Chat: it sends the message, reads the events and renders the answer as it arrives."
+  },
+  {
+    "name": "ChatHTML",
+    "kind": "func",
+    "group": "chat",
+    "signature": "ChatHTML(text string) string",
+    "doc": "ChatHTML renders one answer the way Chat renders the history. It is the\nadapter for ai.ServeOpts.HTML:\n\nThe done event then carries the rendered answer and the bubble stops being\nplain text. The HTML is this package's — escaped by construction — which is\nwhy handing it to the browser as HTML is safe and handing over a string from\nanywhere else is not.",
+    "summary": "ChatHTML renders one answer the way Chat renders the history.",
+    "example": "ai.ServeOpts{HTML: ui.ChatHTML}.Serve(c, client, agent)",
+    "see": [
+      "ai.ServeOpts"
+    ]
+  },
+  {
+    "name": "ComboboxOpts",
+    "kind": "type",
+    "group": "combobox",
+    "signature": "type ComboboxOpts struct",
+    "doc": "ComboboxOpts describes the field. Name is the name the form posts and the\nkey of its message; Value and Label are what is already chosen — the value\nthe app stores and the text a person reads — so a form that came back with\nmessages comes back showing the choice instead of an identifier.",
+    "summary": "ComboboxOpts describes the field.",
+    "fields": [
+      {
+        "name": "Name",
+        "type": "string"
+      },
+      {
+        "name": "Value",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Source",
+        "type": "string",
+        "doc": "Source is a GET route that answers ui.ComboboxOptions for ?q=."
+      },
+      {
+        "name": "Options",
+        "type": "[]Option",
+        "doc": "Options is a short list, filtered without a round trip."
+      },
+      {
+        "name": "With",
+        "type": "[]string",
+        "doc": "With names other fields of the same form whose values travel with the search (?q=…\u0026uf=SP), which is what makes a dependent picker stop being twenty lines of JavaScript in the app."
+      },
+      {
+        "name": "MinChars",
+        "type": "int",
+        "doc": "MinChars is how much has to be typed before the first search (1 when zero); Debounce is how long the field waits for the typing to stop (250ms when zero)."
+      },
+      {
+        "name": "Debounce",
+        "type": "time.Duration"
+      },
+      {
+        "name": "Placeholder",
+        "type": "string",
+        "doc": "Placeholder, Required and Attrs go on the text input."
+      },
+      {
+        "name": "Required",
+        "type": "bool"
+      },
+      {
+        "name": "Attrs",
+        "type": "[]h.Node"
+      }
+    ]
+  },
+  {
+    "name": "Combobox",
+    "kind": "func",
+    "group": "combobox",
+    "signature": "Combobox(o ComboboxOpts, attrs ...h.Node) h.Node",
+    "doc": "Combobox is a text field that searches: the server does the searching and\nanswers a list of options, the browser only shows it. It is the picker of a\nclassification among hundreds, of a city among thousands.\n\nThe value the form posts is the hidden input, so the app reads Name as any\nother field. With this script off, or before anything was picked, the hidden\ninput is empty and what the person typed arrives as Name+\"_q\" — the route\nresolves that text or answers 422, and the Label brings the field back the\nway it was.",
+    "summary": "Combobox is a text field that searches: the server does the searching and answers a list of options, the browser only shows it.",
+    "example": "ui.Field(\"city\", \"City\", ui.Combobox(ui.ComboboxOpts{\n\tName: \"city_id\", Value: doc.CityID, Label: doc.CityName,\n\tSource: \"/city/search\", MinChars: 2,\n}, ui.InvalidIf(errs, \"city_id\")))\n\n// app/city/search/route.go\nfunc GET(c *trilha.Ctx) error {\n\treturn c.HTML(200, ui.ComboboxOptions(find(c.Query(\"q\")), func(ci City) (string, string) {\n\t\treturn ci.ID, ci.Name\n\t}))\n}",
+    "see": [
+      "trilha.Ctx",
+      "ui.ComboboxOptions",
+      "ui.ComboboxOpts",
+      "ui.Field",
+      "ui.InvalidIf"
+    ]
+  },
+  {
+    "name": "ComboboxOptions",
+    "kind": "func",
+    "group": "combobox",
+    "signature": "ComboboxOptions[T any](items []T, of func(T) (value, label string)) h.Node",
+    "doc": "ComboboxOptions is the answer of a search route: the options themselves, as\nHTML, because the browser has nothing to decide about them.",
+    "summary": "ComboboxOptions is the answer of a search route: the options themselves, as HTML, because the browser has nothing to decide about them.",
+    "example": "return c.HTML(http.StatusOK, ui.ComboboxOptions(cities, func(c City) (string, string) {\n\treturn strconv.Itoa(c.ID), c.Name\n}))"
+  },
+  {
+    "name": "DropzoneOpts",
+    "kind": "type",
+    "group": "dropzone",
+    "signature": "type DropzoneOpts struct",
+    "doc": "DropzoneOpts describes the area. Name is the form field, and it is the name\nthe route reads with c.Files.",
+    "summary": "DropzoneOpts describes the area.",
+    "fields": [
+      {
+        "name": "Name",
+        "type": "string"
+      },
+      {
+        "name": "Accept",
+        "type": "string",
+        "doc": "Accept and MaxSize are the courtesy check in the browser: they keep the obvious mistake from crossing the network."
+      },
+      {
+        "name": "MaxSize",
+        "type": "int64"
+      },
+      {
+        "name": "Single",
+        "type": "bool",
+        "doc": "Single turns off multiple selection; the area takes one file at a time."
+      },
+      {
+        "name": "Attrs",
+        "type": "[]h.Node"
+      }
+    ]
+  },
+  {
+    "name": "Dropzone",
+    "kind": "func",
+    "group": "dropzone",
+    "signature": "Dropzone(o DropzoneOpts, children ...h.Node) h.Node",
+    "doc": "Dropzone is an area that takes files by dragging or by clicking, inside the\nform that says where they go. With ui.UploadScript on the page the files are\nsent one request each — one line of the queue, one progress bar, one message\neach — and every answer swaps the element ui.UploadTo names. With the script\noff it is an \u003cinput type=file multiple\u003e and the form's own button sends them\nall at once, which is why the route is written once, against c.Files.\n\nA file the route refuses answers 4xx, and the queue shows the answer's text\non that file's line: the message belongs to the file, not to the form.",
+    "summary": "Dropzone is an area that takes files by dragging or by clicking, inside the form that says where they go.",
+    "example": "h.Form(h.Method(\"post\"), h.Action(\"/files\"), h.EncType(\"multipart/form-data\"),\n\tui.UploadTo(\"list\"), trilha.CSRFInput(c),\n\tui.Dropzone(ui.DropzoneOpts{Name: \"files\", Accept: \"application/pdf\", MaxSize: 50 \u003c\u003c 20},\n\t\th.P(h.Text(\"Drop the PDFs here, or click to choose\"))),\n\tui.Submit(h.Text(\"Send\")))",
+    "see": [
+      "h.Action",
+      "h.EncType",
+      "h.Form",
+      "h.Method",
+      "h.P",
+      "h.Text",
+      "trilha.CSRFInput",
+      "ui.DropzoneOpts",
+      "ui.Submit",
+      "ui.UploadScript",
+      "ui.UploadTo"
+    ]
+  },
+  {
+    "name": "Column",
+    "kind": "type",
+    "group": "list",
+    "signature": "type Column struct",
+    "doc": "Column is one column of DataTable. Key is the name the URL uses to order by\nit, Cell renders the value of one row.",
+    "summary": "Column is one column of DataTable.",
+    "fields": [
+      {
+        "name": "Key",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Sort",
+        "type": "bool"
+      },
+      {
+        "name": "Num",
+        "type": "bool"
+      },
+      {
+        "name": "Cell",
+        "type": "func(T) h.Node"
+      }
+    ]
+  },
+  {
+    "name": "Columns",
+    "kind": "type",
+    "group": "list",
+    "signature": "type Columns []Column[T]",
+    "doc": "Columns is the columns of a listing, in the order they appear.",
+    "summary": "Columns is the columns of a listing, in the order they appear."
+  },
+  {
+    "name": "ListSelect",
+    "kind": "type",
+    "group": "list",
+    "signature": "type ListSelect struct",
+    "doc": "ListSelect adds a checkbox to each row and a bar with the actions that take\nthe selection. The form is a POST with the CSRF token, so the action is a\nroute like any other.",
+    "summary": "ListSelect adds a checkbox to each row and a bar with the actions that take the selection.",
+    "fields": [
+      {
+        "name": "Name",
+        "type": "string"
+      },
+      {
+        "name": "Value",
+        "type": "func(int) string"
+      },
+      {
+        "name": "Action",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Bar",
+        "type": "h.Node"
+      }
+    ]
+  },
+  {
+    "name": "ListState",
+    "kind": "type",
+    "group": "list",
+    "signature": "type ListState struct",
+    "doc": "ListState is the listing minus the rows: where it is, how big it is, what it\nshows when it is empty, and which id the fragment swaps.",
+    "summary": "ListState is the listing minus the rows: where it is, how big it is, what it shows when it is empty, and which id the fragment swaps.",
+    "fields": [
+      {
+        "name": "Params",
+        "type": "trilha.ListParams"
+      },
+      {
+        "name": "Total",
+        "type": "int"
+      },
+      {
+        "name": "ID",
+        "type": "string"
+      },
+      {
+        "name": "Search",
+        "type": "string"
+      },
+      {
+        "name": "Filters",
+        "type": "h.Node"
+      },
+      {
+        "name": "Empty",
+        "type": "h.Node"
+      },
+      {
+        "name": "Caption",
+        "type": "string"
+      },
+      {
+        "name": "RowHref",
+        "type": "func(int) string"
+      },
+      {
+        "name": "Select",
+        "type": "*ListSelect"
+      }
+    ]
+  },
+  {
+    "name": "DataTable",
+    "kind": "func",
+    "group": "list",
+    "signature": "DataTable[T any](c *trilha.Ctx, cols Columns[T], rows []T, st ListState) h.Node",
+    "doc": "DataTable renders the screen every management app has: filter on top, table\nin the middle, pagination at the foot, and all of it in the address — a page\nthat can be shared, reloaded and used with the back button.\n\nWith ID set, the ordering links, the filter form and the pagination ask for\nthe fragment and swap it in place; with JavaScript off the same links and the\nsame form navigate, and the route answers the whole page. There is no new\nscript here either way.\nA Sort that is not one of the columns marked Sort is dropped before anything\nis rendered, and reported in the request's log: the repository never receives\na column name that nobody declared.",
+    "summary": "DataTable renders the screen every management app has: filter on top, table in the middle, pagination at the foot, and all of it in the address — a page that can be shared, reloaded and used with the back button.",
+    "example": "return ui.DataTable(c, ui.Columns[Doc]{\n\t{Key: \"name\", Label: \"File\", Sort: true, Cell: func(d Doc) h.Node { return h.Text(d.Name) }},\n\t{Key: \"size\", Label: \"Size\", Sort: true, Num: true, Cell: func(d Doc) h.Node { return h.Text(d.Size) }},\n}, docs, ui.ListState{Params: q.ListParams, Total: total, ID: \"list\", Search: \"Search\"}), nil",
+    "see": [
+      "h.Node",
+      "h.Text",
+      "ui.Columns",
+      "ui.ListState"
+    ]
+  },
+  {
+    "name": "Poll",
+    "kind": "func",
+    "group": "live",
+    "signature": "Poll(every, src string) h.Node",
+    "doc": "Poll asks the route for this fragment again every so often, and swaps it —\nthe screen of a job that runs on the server without anybody clicking. The\nelement needs an id: it is the id the fragment is asked for.\n\nThe interval is \"6s\", \"500ms\" or \"2m\". src is where to ask; the address of\nthe page itself when it is empty. The client pauses while the tab is hidden\nand asks again as soon as it comes back, backs off to a minute after an\nerror and returns to the interval on the first answer, and obeys what the\nroute says: Ctx.PollStop ends it, Ctx.PollEvery changes the rhythm.\nThe first render of the fragment is already on the page, so a visitor with\nno JavaScript sees the state as it was when the page loaded — old, never\nbroken. Load the behavior with LiveScript.",
+    "summary": "Poll asks the route for this fragment again every so often, and swaps it — the screen of a job that runs on the server without anybody clicking.",
+    "example": "h.Div(h.ID(\"status\"), ui.Poll(\"6s\", \"/docs/42/status\"), status(doc))",
+    "see": [
+      "h.Div",
+      "h.ID"
+    ]
+  },
+  {
+    "name": "Live",
+    "kind": "func",
+    "group": "live",
+    "signature": "Live(src string) h.Node",
+    "doc": "Live opens one Server-Sent Events connection for the page, to the route that\nsays what changed. Put it once, in the layout or at the top of the page:\n\nThe connection carries names, never HTML: each name wakes up the fragments\nmarked with On, which ask their route again. The route is an ordinary GET\nthat calls Ctx.Stream and Stream.Notify.",
+    "summary": "Live opens one Server-Sent Events connection for the page, to the route that says what changed.",
+    "example": "h.Body(ui.Live(\"/events\"), ...)",
+    "see": [
+      "h.Body"
+    ]
+  },
+  {
+    "name": "On",
+    "kind": "func",
+    "group": "live",
+    "signature": "On(event, src string) h.Node",
+    "doc": "On swaps this fragment when the stream announces that name. The element\nneeds an id, like Poll, and Poll is the fallback: a fragment with both waits\nfor the event while the connection is up and goes back to the clock when it\nis down.",
+    "summary": "On swaps this fragment when the stream announces that name.",
+    "example": "h.Div(h.ID(\"status\"), ui.On(\"doc:42\", \"/docs/42/status\"), ui.Poll(\"30s\", \"\"), status(doc))",
+    "see": [
+      "h.Div",
+      "h.ID",
+      "ui.Poll"
+    ]
+  },
+  {
+    "name": "LiveScript",
+    "kind": "func",
+    "group": "live",
+    "signature": "LiveScript(c *trilha.Ctx) h.Node",
+    "doc": "LiveScript loads ui.live.js, the behavior behind Poll, Live and On. Put it\nonce, in the layout of the area that uses them — the kit's Head does not\nload it, so a page with nothing to watch does not download it.",
+    "summary": "LiveScript loads ui.live.js, the behavior behind Poll, Live and On."
+  },
+  {
+    "name": "MarkdownOpts",
+    "kind": "type",
+    "group": "markdown",
+    "signature": "type MarkdownOpts struct",
+    "doc": "MarkdownOpts tunes Markdown. The zero value is the safe one: headings\ndemoted to \u003ch3\u003e, no images, no raw HTML.",
+    "summary": "MarkdownOpts tunes Markdown.",
+    "fields": [
+      {
+        "name": "HeadingBase",
+        "type": "int",
+        "doc": "HeadingBase is the level a single \"#\" becomes."
+      },
+      {
+        "name": "Images",
+        "type": "bool",
+        "doc": "Images turns ![alt](url) into an \u003cimg\u003e."
+      },
+      {
+        "name": "Class",
+        "type": "string",
+        "doc": "Class is added to the wrapping \u003cdiv\u003e, on top of \"ui-md\"."
+      }
+    ]
+  },
+  {
+    "name": "Markdown",
+    "kind": "func",
+    "group": "markdown",
+    "signature": "Markdown(src string, opt MarkdownOpts) h.Node",
+    "doc": "Markdown renders a subset of CommonMark as a tree of nodes: paragraphs,\nheadings, lists, blockquotes, fenced and inline code, GFM tables, links,\nemphasis and hard breaks.\n\nIt is written for text that came from a language model or from a person, so\nthe rule that matters is the one with no exception: there is no raw HTML.\nA tag in the source is text in the output, because the output is a tree the\nh package escapes by construction — never a string somebody could hand to\nh.Raw.",
+    "summary": "Markdown renders a subset of CommonMark as a tree of nodes: paragraphs, headings, lists, blockquotes, fenced and inline code, GFM tables, links, emphasis and hard breaks.",
+    "example": "ui.Markdown(answer, ui.MarkdownOpts{})",
+    "see": [
+      "h.Raw",
+      "ui.MarkdownOpts"
+    ]
+  },
+  {
+    "name": "SchemaForm",
+    "kind": "func",
+    "group": "schema",
+    "signature": "SchemaForm(schema trilha.Schema, values map[string]string, errs map[string]string, children ...h.Node) h.Node",
+    "doc": "SchemaForm renders a form the product defined at runtime: the step of a\nworkflow, the public form behind a token, the settings of a tenant. It draws\nthe fields and nothing else — the \u003cform\u003e, the CSRF input and the button are\nthe app's, as in every other form of the kit, because where the form posts\nand what the button says are not in the schema.\n\nvalues and errs are what BindSchema returned, so a form that came back with\nmessages comes back filled in.",
+    "summary": "SchemaForm renders a form the product defined at runtime: the step of a workflow, the public form behind a token, the settings of a tenant.",
+    "example": "values, err := trilha.BindSchema(c, schema)\nerrs, _ := err.(trilha.FieldErrors)\nreturn h.Form(h.Method(\"post\"), trilha.CSRFInput(c),\n\tui.SchemaForm(schema, values, errs),\n\tui.Button(h.Text(\"Save\")))",
+    "see": [
+      "h.Form",
+      "h.Method",
+      "h.Text",
+      "trilha.BindSchema",
+      "trilha.CSRFInput",
+      "trilha.FieldErrors",
+      "ui.Button"
+    ]
+  },
+  {
+    "name": "NavItem",
+    "kind": "type",
+    "group": "shell",
+    "signature": "type NavItem struct",
+    "doc": "NavItem is one link of the sidebar. Icon is a name from Icons(); Badge is a\ncount or a word beside the label. Hide takes the entry out of the HTML —\nand hiding a link is cosmetics: what keeps somebody out of the route is the\nmiddleware.go of that branch, never the menu.",
+    "summary": "NavItem is one link of the sidebar.",
+    "fields": [
+      {
+        "name": "Href",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Icon",
+        "type": "string"
+      },
+      {
+        "name": "Badge",
+        "type": "string"
+      },
+      {
+        "name": "Hide",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "name": "NavGroup",
+    "kind": "type",
+    "group": "shell",
+    "signature": "type NavGroup struct",
+    "doc": "NavGroup is a titled block of the sidebar. Hiding the group hides its items.",
+    "summary": "NavGroup is a titled block of the sidebar.",
+    "fields": [
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Items",
+        "type": "[]NavItem"
+      },
+      {
+        "name": "Hide",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "name": "UserMenu",
+    "kind": "type",
+    "group": "shell",
+    "signature": "type UserMenu struct",
+    "doc": "UserMenu is the corner of the top bar: who is logged in and what they can do\nabout it. Items are Menu children — MenuLink, MenuItem, a logout form.",
+    "summary": "UserMenu is the corner of the top bar: who is logged in and what they can do about it.",
+    "fields": [
+      {
+        "name": "Name",
+        "type": "string"
+      },
+      {
+        "name": "Detail",
+        "type": "string"
+      },
+      {
+        "name": "Items",
+        "type": "[]h.Node"
+      }
+    ]
+  },
+  {
+    "name": "ShellOpts",
+    "kind": "type",
+    "group": "shell",
+    "signature": "type ShellOpts struct",
+    "doc": "ShellOpts is what changes from app to app in the frame of a management app.",
+    "summary": "ShellOpts is what changes from app to app in the frame of a management app.",
+    "fields": [
+      {
+        "name": "Brand",
+        "type": "h.Node"
+      },
+      {
+        "name": "Nav",
+        "type": "[]NavGroup"
+      },
+      {
+        "name": "User",
+        "type": "UserMenu"
+      },
+      {
+        "name": "Header",
+        "type": "[]h.Node"
+      },
+      {
+        "name": "Current",
+        "type": "string",
+        "doc": "Current is the path the active item is worked out from."
+      }
+    ]
+  },
+  {
+    "name": "Shell",
+    "kind": "func",
+    "group": "shell",
+    "signature": "Shell(c *trilha.Ctx, o ShellOpts, children ...h.Node) h.Node",
+    "doc": "Shell is the frame every management app writes in its first week: sidebar\nwith groups, active item, top bar with the user's menu, and the page in the\nmiddle. It is a composition of the kit's pieces — Sidebar, Nav, NavLink,\nHeader, Brand, Menu — which stay exported for whoever wants another\narrangement.\n\nThe collapse is a class on \u003chtml\u003e, applied by the same inline script of the\ntheme before the first paint, so the sidebar does not open and close in front\nof whoever asked for it closed. On a narrow screen the same class is what\nslides the drawer.",
+    "summary": "Shell is the frame every management app writes in its first week: sidebar with groups, active item, top bar with the user's menu, and the page in the middle.",
+    "example": "func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {\n\tu := sessions.User(c)\n\treturn ui.Shell(c, ui.ShellOpts{\n\t\tBrand: ui.Brand(\"/\", \"Acervo\"),\n\t\tNav: []ui.NavGroup{{Label: \"Documents\", Items: []ui.NavItem{\n\t\t\t{Href: \"/docs\", Label: \"Documents\", Icon: \"file\"},\n\t\t}}},\n\t\tUser: ui.UserMenu{Name: u.Name, Items: []h.Node{ui.MenuLink(\"/profile\", h.Text(\"Profile\"))}},\n\t}, children), nil\n}",
+    "see": [
+      "h.Node",
+      "h.Text",
+      "trilha.Ctx",
+      "ui.Brand",
+      "ui.MenuLink",
+      "ui.NavGroup",
+      "ui.NavItem",
+      "ui.ShellOpts",
+      "ui.UserMenu"
+    ]
+  },
+  {
+    "name": "Back",
+    "kind": "type",
+    "group": "shell",
+    "signature": "type Back struct",
+    "doc": "Back is the \"up one level\" link of a PageHeader. It is written among the\nheader's children and PageHeader puts it where it belongs, above the title.",
+    "summary": "Back is the \"up one level\" link of a PageHeader.",
+    "fields": [
+      {
+        "name": "Href",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "PageHeader",
+    "kind": "func",
+    "group": "shell",
+    "signature": "PageHeader(title string, children ...h.Node) h.Node",
+    "doc": "PageHeader is the top of a screen: the way back, the title and the actions\non the right.",
+    "summary": "PageHeader is the top of a screen: the way back, the title and the actions on the right.",
+    "example": "ui.PageHeader(\"Contract 41\", ui.Back{Href: \"/docs\", Label: \"Documents\"},\n\tui.ButtonLink(\"/docs/41/edit\", h.Text(\"Edit\")))",
+    "see": [
+      "h.Text",
+      "ui.Back",
+      "ui.ButtonLink"
+    ]
+  },
+  {
+    "name": "Asset",
+    "kind": "func",
+    "group": "ui",
+    "signature": "Asset(name string) []byte",
+    "doc": "Asset returns the embedded file (ui.css, ui.theme.css or ui.js).",
+    "summary": "Asset returns the embedded file (ui.css, ui.theme.css or ui.js)."
+  },
+  {
+    "name": "Head",
+    "kind": "func",
+    "group": "ui",
+    "signature": "Head(c *trilha.Ctx) h.Node",
+    "doc": "Head links the kit's stylesheets and script and applies the saved theme\nbefore first paint (inline script with the request nonce, so the default\nCSP accepts it). Put it inside \u003chead\u003e.",
+    "summary": "Head links the kit's stylesheets and script and applies the saved theme before first paint (inline script with the request nonce, so the default CSP accepts it)."
+  },
+  {
+    "name": "Secondary",
+    "kind": "func",
+    "group": "variants (extra class attributes, composable like any h attribute)",
+    "signature": "Secondary() h.Node",
+    "doc": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants.",
+    "summary": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants."
+  },
+  {
+    "name": "Outline",
+    "kind": "func",
+    "group": "variants (extra class attributes, composable like any h attribute)",
+    "signature": "Outline() h.Node",
+    "doc": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants.",
+    "summary": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants."
+  },
+  {
+    "name": "Ghost",
+    "kind": "func",
+    "group": "variants (extra class attributes, composable like any h attribute)",
+    "signature": "Ghost() h.Node",
+    "doc": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants.",
+    "summary": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants."
+  },
+  {
+    "name": "Destructive",
+    "kind": "func",
+    "group": "variants (extra class attributes, composable like any h attribute)",
+    "signature": "Destructive() h.Node",
+    "doc": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants.",
+    "summary": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants."
+  },
+  {
+    "name": "LinkStyle",
+    "kind": "func",
+    "group": "variants (extra class attributes, composable like any h attribute)",
+    "signature": "LinkStyle() h.Node",
+    "doc": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants.",
+    "summary": "Secondary, Outline, Ghost, Destructive and LinkStyle are button/badge variants."
+  },
+  {
+    "name": "Sm",
+    "kind": "func",
+    "group": "variants (extra class attributes, composable like any h attribute)",
+    "signature": "Sm() h.Node",
+    "doc": "Sm, Lg and IconSize are button sizes.",
+    "summary": "Sm, Lg and IconSize are button sizes."
+  },
+  {
+    "name": "Lg",
+    "kind": "func",
+    "group": "variants (extra class attributes, composable like any h attribute)",
+    "signature": "Lg() h.Node",
+    "doc": "Sm, Lg and IconSize are button sizes.",
+    "summary": "Sm, Lg and IconSize are button sizes."
+  },
+  {
+    "name": "IconSize",
+    "kind": "func",
+    "group": "variants (extra class attributes, composable like any h attribute)",
+    "signature": "IconSize() h.Node",
+    "doc": "Sm, Lg and IconSize are button sizes.",
+    "summary": "Sm, Lg and IconSize are button sizes."
+  },
+  {
+    "name": "Body",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Body() h.Node",
+    "doc": "Body returns the class for \u003cbody\u003e: base font and theme colors.",
+    "summary": "Body returns the class for \u003cbody\u003e: base font and theme colors."
+  },
+  {
+    "name": "Container",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Container(children ...h.Node) h.Node",
+    "doc": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container\ncenters the page at a readable width, Stack piles children vertically, Row\nputs them side by side, Grid wraps them into columns and Spacer pushes what\ncomes after it to the far end of a Row.",
+    "summary": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container centers the page at a readable width, Stack piles children vertically, Row puts them side by side, Grid wraps them into columns and Spacer pushes what comes after it to the far end of a Row.",
+    "example": "ui.Container(ui.Stack(ui.H1(h.Text(\"Invoices\")), ui.Row(filters, ui.Spacer(), newButton)))",
+    "see": [
+      "h.Text",
+      "ui.H1",
+      "ui.Row",
+      "ui.Spacer",
+      "ui.Stack"
+    ]
+  },
+  {
+    "name": "Stack",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Stack(children ...h.Node) h.Node",
+    "doc": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container\ncenters the page at a readable width, Stack piles children vertically, Row\nputs them side by side, Grid wraps them into columns and Spacer pushes what\ncomes after it to the far end of a Row.",
+    "summary": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container centers the page at a readable width, Stack piles children vertically, Row puts them side by side, Grid wraps them into columns and Spacer pushes what comes after it to the far end of a Row.",
+    "example": "ui.Container(ui.Stack(ui.H1(h.Text(\"Invoices\")), ui.Row(filters, ui.Spacer(), newButton)))",
+    "see": [
+      "h.Text",
+      "ui.Container",
+      "ui.H1",
+      "ui.Row",
+      "ui.Spacer"
+    ]
+  },
+  {
+    "name": "Row",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Row(children ...h.Node) h.Node",
+    "doc": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container\ncenters the page at a readable width, Stack piles children vertically, Row\nputs them side by side, Grid wraps them into columns and Spacer pushes what\ncomes after it to the far end of a Row.",
+    "summary": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container centers the page at a readable width, Stack piles children vertically, Row puts them side by side, Grid wraps them into columns and Spacer pushes what comes after it to the far end of a Row.",
+    "example": "ui.Container(ui.Stack(ui.H1(h.Text(\"Invoices\")), ui.Row(filters, ui.Spacer(), newButton)))",
+    "see": [
+      "h.Text",
+      "ui.Container",
+      "ui.H1",
+      "ui.Spacer",
+      "ui.Stack"
+    ]
+  },
+  {
+    "name": "Grid",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Grid(children ...h.Node) h.Node",
+    "doc": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container\ncenters the page at a readable width, Stack piles children vertically, Row\nputs them side by side, Grid wraps them into columns and Spacer pushes what\ncomes after it to the far end of a Row.",
+    "summary": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container centers the page at a readable width, Stack piles children vertically, Row puts them side by side, Grid wraps them into columns and Spacer pushes what comes after it to the far end of a Row.",
+    "example": "ui.Container(ui.Stack(ui.H1(h.Text(\"Invoices\")), ui.Row(filters, ui.Spacer(), newButton)))",
+    "see": [
+      "h.Text",
+      "ui.Container",
+      "ui.H1",
+      "ui.Row",
+      "ui.Spacer",
+      "ui.Stack"
+    ]
+  },
+  {
+    "name": "Spacer",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Spacer() h.Node",
+    "doc": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container\ncenters the page at a readable width, Stack piles children vertically, Row\nputs them side by side, Grid wraps them into columns and Spacer pushes what\ncomes after it to the far end of a Row.",
+    "summary": "Container, Stack, Row, Grid and Spacer are the layout boxes: Container centers the page at a readable width, Stack piles children vertically, Row puts them side by side, Grid wraps them into columns and Spacer pushes what comes after it to the far end of a Row.",
+    "example": "ui.Container(ui.Stack(ui.H1(h.Text(\"Invoices\")), ui.Row(filters, ui.Spacer(), newButton)))",
+    "see": [
+      "h.Text",
+      "ui.Container",
+      "ui.H1",
+      "ui.Row",
+      "ui.Stack"
+    ]
+  },
+  {
+    "name": "Header",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Header(children ...h.Node) h.Node",
+    "doc": "Header is a sticky top bar; Brand is the app name link; Nav holds links.",
+    "summary": "Header is a sticky top bar; Brand is the app name link; Nav holds links."
+  },
+  {
+    "name": "Brand",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Brand(href, name string) h.Node",
+    "doc": "Header is a sticky top bar; Brand is the app name link; Nav holds links.",
+    "summary": "Header is a sticky top bar; Brand is the app name link; Nav holds links."
+  },
+  {
+    "name": "Nav",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Nav(children ...h.Node) h.Node",
+    "doc": "Header is a sticky top bar; Brand is the app name link; Nav holds links.",
+    "summary": "Header is a sticky top bar; Brand is the app name link; Nav holds links."
+  },
+  {
+    "name": "NavLink",
+    "kind": "func",
+    "group": "layout",
+    "signature": "NavLink(href, label string, current bool) h.Node",
+    "doc": "NavLink marks the current page with aria-current when current is true.",
+    "summary": "NavLink marks the current page with aria-current when current is true.",
+    "example": "ui.Nav(ui.NavLink(\"/invoices\", \"Invoices\", c.Pattern() == \"/invoices\"))",
+    "see": [
+      "ui.Nav"
+    ]
+  },
+  {
+    "name": "Sidebar",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Sidebar(children ...h.Node) h.Node",
+    "doc": "Sidebar is a vertical navigation column.",
+    "summary": "Sidebar is a vertical navigation column."
+  },
+  {
+    "name": "H1",
+    "kind": "func",
+    "group": "layout",
+    "signature": "H1(children ...h.Node) h.Node",
+    "doc": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three\nheadings, the opening paragraph, secondary text, a snippet inline and a key\non the keyboard.",
+    "summary": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three headings, the opening paragraph, secondary text, a snippet inline and a key on the keyboard."
+  },
+  {
+    "name": "H2",
+    "kind": "func",
+    "group": "layout",
+    "signature": "H2(children ...h.Node) h.Node",
+    "doc": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three\nheadings, the opening paragraph, secondary text, a snippet inline and a key\non the keyboard.",
+    "summary": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three headings, the opening paragraph, secondary text, a snippet inline and a key on the keyboard."
+  },
+  {
+    "name": "H3",
+    "kind": "func",
+    "group": "layout",
+    "signature": "H3(children ...h.Node) h.Node",
+    "doc": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three\nheadings, the opening paragraph, secondary text, a snippet inline and a key\non the keyboard.",
+    "summary": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three headings, the opening paragraph, secondary text, a snippet inline and a key on the keyboard."
+  },
+  {
+    "name": "Lead",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Lead(children ...h.Node) h.Node",
+    "doc": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three\nheadings, the opening paragraph, secondary text, a snippet inline and a key\non the keyboard.",
+    "summary": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three headings, the opening paragraph, secondary text, a snippet inline and a key on the keyboard."
+  },
+  {
+    "name": "Muted",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Muted(children ...h.Node) h.Node",
+    "doc": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three\nheadings, the opening paragraph, secondary text, a snippet inline and a key\non the keyboard.",
+    "summary": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three headings, the opening paragraph, secondary text, a snippet inline and a key on the keyboard."
+  },
+  {
+    "name": "Code",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Code(s string) h.Node",
+    "doc": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three\nheadings, the opening paragraph, secondary text, a snippet inline and a key\non the keyboard.",
+    "summary": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three headings, the opening paragraph, secondary text, a snippet inline and a key on the keyboard."
+  },
+  {
+    "name": "Kbd",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Kbd(s string) h.Node",
+    "doc": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three\nheadings, the opening paragraph, secondary text, a snippet inline and a key\non the keyboard.",
+    "summary": "H1, H2, H3, Lead, Muted, Code and Kbd are the typographic helpers: the three headings, the opening paragraph, secondary text, a snippet inline and a key on the keyboard."
+  },
+  {
+    "name": "Button",
+    "kind": "func",
+    "group": "button",
+    "signature": "Button(children ...h.Node) h.Node",
+    "doc": "Button renders \u003cbutton class=\"ui-btn\"\u003e; add Secondary(), Outline(), Ghost(),\nDestructive(), LinkStyle(), Sm(), Lg(), IconSize() and any h attribute.",
+    "summary": "Button renders \u003cbutton class=\"ui-btn\"\u003e; add Secondary(), Outline(), Ghost(), Destructive(), LinkStyle(), Sm(), Lg(), IconSize() and any h attribute."
+  },
+  {
+    "name": "Submit",
+    "kind": "func",
+    "group": "button",
+    "signature": "Submit(children ...h.Node) h.Node",
+    "doc": "Submit is a Button of type submit.",
+    "summary": "Submit is a Button of type submit."
+  },
+  {
+    "name": "ButtonLink",
+    "kind": "func",
+    "group": "button",
+    "signature": "ButtonLink(href string, children ...h.Node) h.Node",
+    "doc": "ButtonLink renders an \u003ca\u003e styled as a button.",
+    "summary": "ButtonLink renders an \u003ca\u003e styled as a button."
+  },
+  {
+    "name": "Card",
+    "kind": "func",
+    "group": "card",
+    "signature": "Card(children ...h.Node) h.Node",
+    "doc": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are\nthe panel and its parts. Only Card is required; the rest are there so the\nspacing inside is not repeated in every screen.",
+    "summary": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are the panel and its parts.",
+    "example": "ui.Card(\n\tui.CardHeader(ui.CardTitle(\"Invoice 42\"), ui.CardDescription(\"Due in 3 days\")),\n\tui.CardContent(body),\n\tui.CardFooter(ui.Button(h.Text(\"Pay\"))),\n)",
+    "see": [
+      "h.Text",
+      "ui.Button",
+      "ui.CardContent",
+      "ui.CardDescription",
+      "ui.CardFooter",
+      "ui.CardHeader",
+      "ui.CardTitle"
+    ]
+  },
+  {
+    "name": "CardHeader",
+    "kind": "func",
+    "group": "card",
+    "signature": "CardHeader(children ...h.Node) h.Node",
+    "doc": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are\nthe panel and its parts. Only Card is required; the rest are there so the\nspacing inside is not repeated in every screen.",
+    "summary": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are the panel and its parts.",
+    "example": "ui.Card(\n\tui.CardHeader(ui.CardTitle(\"Invoice 42\"), ui.CardDescription(\"Due in 3 days\")),\n\tui.CardContent(body),\n\tui.CardFooter(ui.Button(h.Text(\"Pay\"))),\n)",
+    "see": [
+      "h.Text",
+      "ui.Button",
+      "ui.Card",
+      "ui.CardContent",
+      "ui.CardDescription",
+      "ui.CardFooter",
+      "ui.CardTitle"
+    ]
+  },
+  {
+    "name": "CardTitle",
+    "kind": "func",
+    "group": "card",
+    "signature": "CardTitle(s string) h.Node",
+    "doc": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are\nthe panel and its parts. Only Card is required; the rest are there so the\nspacing inside is not repeated in every screen.",
+    "summary": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are the panel and its parts.",
+    "example": "ui.Card(\n\tui.CardHeader(ui.CardTitle(\"Invoice 42\"), ui.CardDescription(\"Due in 3 days\")),\n\tui.CardContent(body),\n\tui.CardFooter(ui.Button(h.Text(\"Pay\"))),\n)",
+    "see": [
+      "h.Text",
+      "ui.Button",
+      "ui.Card",
+      "ui.CardContent",
+      "ui.CardDescription",
+      "ui.CardFooter",
+      "ui.CardHeader"
+    ]
+  },
+  {
+    "name": "CardDescription",
+    "kind": "func",
+    "group": "card",
+    "signature": "CardDescription(s string) h.Node",
+    "doc": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are\nthe panel and its parts. Only Card is required; the rest are there so the\nspacing inside is not repeated in every screen.",
+    "summary": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are the panel and its parts.",
+    "example": "ui.Card(\n\tui.CardHeader(ui.CardTitle(\"Invoice 42\"), ui.CardDescription(\"Due in 3 days\")),\n\tui.CardContent(body),\n\tui.CardFooter(ui.Button(h.Text(\"Pay\"))),\n)",
+    "see": [
+      "h.Text",
+      "ui.Button",
+      "ui.Card",
+      "ui.CardContent",
+      "ui.CardFooter",
+      "ui.CardHeader",
+      "ui.CardTitle"
+    ]
+  },
+  {
+    "name": "CardContent",
+    "kind": "func",
+    "group": "card",
+    "signature": "CardContent(children ...h.Node) h.Node",
+    "doc": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are\nthe panel and its parts. Only Card is required; the rest are there so the\nspacing inside is not repeated in every screen.",
+    "summary": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are the panel and its parts.",
+    "example": "ui.Card(\n\tui.CardHeader(ui.CardTitle(\"Invoice 42\"), ui.CardDescription(\"Due in 3 days\")),\n\tui.CardContent(body),\n\tui.CardFooter(ui.Button(h.Text(\"Pay\"))),\n)",
+    "see": [
+      "h.Text",
+      "ui.Button",
+      "ui.Card",
+      "ui.CardDescription",
+      "ui.CardFooter",
+      "ui.CardHeader",
+      "ui.CardTitle"
+    ]
+  },
+  {
+    "name": "CardFooter",
+    "kind": "func",
+    "group": "card",
+    "signature": "CardFooter(children ...h.Node) h.Node",
+    "doc": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are\nthe panel and its parts. Only Card is required; the rest are there so the\nspacing inside is not repeated in every screen.",
+    "summary": "Card, CardHeader, CardTitle, CardDescription, CardContent and CardFooter are the panel and its parts.",
+    "example": "ui.Card(\n\tui.CardHeader(ui.CardTitle(\"Invoice 42\"), ui.CardDescription(\"Due in 3 days\")),\n\tui.CardContent(body),\n\tui.CardFooter(ui.Button(h.Text(\"Pay\"))),\n)",
+    "see": [
+      "h.Text",
+      "ui.Button",
+      "ui.Card",
+      "ui.CardContent",
+      "ui.CardDescription",
+      "ui.CardHeader",
+      "ui.CardTitle"
+    ]
+  },
+  {
+    "name": "Input",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Input(attrs ...h.Node) h.Node",
+    "doc": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form\ncontrols, styled and nothing else: they take the attributes of the element\nthey are, so h.Name, h.Required and h.Value work as they always did.",
+    "summary": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form controls, styled and nothing else: they take the attributes of the element they are, so h.Name, h.Required and h.Value work as they always did.",
+    "example": "ui.Input(h.Type(\"email\"), h.Name(\"email\"), h.Required())",
+    "see": [
+      "h.Name",
+      "h.Required",
+      "h.Type",
+      "h.Value"
+    ]
+  },
+  {
+    "name": "Textarea",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Textarea(attrs ...h.Node) h.Node",
+    "doc": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form\ncontrols, styled and nothing else: they take the attributes of the element\nthey are, so h.Name, h.Required and h.Value work as they always did.",
+    "summary": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form controls, styled and nothing else: they take the attributes of the element they are, so h.Name, h.Required and h.Value work as they always did.",
+    "example": "ui.Input(h.Type(\"email\"), h.Name(\"email\"), h.Required())",
+    "see": [
+      "h.Name",
+      "h.Required",
+      "h.Type",
+      "h.Value",
+      "ui.Input"
+    ]
+  },
+  {
+    "name": "Select",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Select(children ...h.Node) h.Node",
+    "doc": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form\ncontrols, styled and nothing else: they take the attributes of the element\nthey are, so h.Name, h.Required and h.Value work as they always did.",
+    "summary": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form controls, styled and nothing else: they take the attributes of the element they are, so h.Name, h.Required and h.Value work as they always did.",
+    "example": "ui.Input(h.Type(\"email\"), h.Name(\"email\"), h.Required())",
+    "see": [
+      "h.Name",
+      "h.Required",
+      "h.Type",
+      "h.Value",
+      "ui.Input"
+    ]
+  },
+  {
+    "name": "Checkbox",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Checkbox(attrs ...h.Node) h.Node",
+    "doc": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form\ncontrols, styled and nothing else: they take the attributes of the element\nthey are, so h.Name, h.Required and h.Value work as they always did.",
+    "summary": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form controls, styled and nothing else: they take the attributes of the element they are, so h.Name, h.Required and h.Value work as they always did.",
+    "example": "ui.Input(h.Type(\"email\"), h.Name(\"email\"), h.Required())",
+    "see": [
+      "h.Name",
+      "h.Required",
+      "h.Type",
+      "h.Value",
+      "ui.Input"
+    ]
+  },
+  {
+    "name": "Radio",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Radio(attrs ...h.Node) h.Node",
+    "doc": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form\ncontrols, styled and nothing else: they take the attributes of the element\nthey are, so h.Name, h.Required and h.Value work as they always did.",
+    "summary": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form controls, styled and nothing else: they take the attributes of the element they are, so h.Name, h.Required and h.Value work as they always did.",
+    "example": "ui.Input(h.Type(\"email\"), h.Name(\"email\"), h.Required())",
+    "see": [
+      "h.Name",
+      "h.Required",
+      "h.Type",
+      "h.Value",
+      "ui.Input"
+    ]
+  },
+  {
+    "name": "Switch",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Switch(attrs ...h.Node) h.Node",
+    "doc": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form\ncontrols, styled and nothing else: they take the attributes of the element\nthey are, so h.Name, h.Required and h.Value work as they always did.",
+    "summary": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form controls, styled and nothing else: they take the attributes of the element they are, so h.Name, h.Required and h.Value work as they always did.",
+    "example": "ui.Input(h.Type(\"email\"), h.Name(\"email\"), h.Required())",
+    "see": [
+      "h.Name",
+      "h.Required",
+      "h.Type",
+      "h.Value",
+      "ui.Input"
+    ]
+  },
+  {
+    "name": "Label",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Label(children ...h.Node) h.Node",
+    "doc": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form\ncontrols, styled and nothing else: they take the attributes of the element\nthey are, so h.Name, h.Required and h.Value work as they always did.",
+    "summary": "Input, Textarea, Select, Checkbox, Radio, Switch and Label are the form controls, styled and nothing else: they take the attributes of the element they are, so h.Name, h.Required and h.Value work as they always did.",
+    "example": "ui.Input(h.Type(\"email\"), h.Name(\"email\"), h.Required())",
+    "see": [
+      "h.Name",
+      "h.Required",
+      "h.Type",
+      "h.Value",
+      "ui.Input"
+    ]
+  },
+  {
+    "name": "CheckRow",
+    "kind": "func",
+    "group": "forms",
+    "signature": "CheckRow(control h.Node, label string, forID string) h.Node",
+    "doc": "CheckRow puts a checkbox/switch/radio beside its label. forID is the\ncontrol's id: without it the label is decoration and the click area is the\nbox alone.",
+    "summary": "CheckRow puts a checkbox/switch/radio beside its label.",
+    "example": "ui.CheckRow(ui.Checkbox(h.ID(\"terms\"), h.Name(\"terms\")), \"I agree\", \"terms\")",
+    "see": [
+      "h.ID",
+      "h.Name",
+      "ui.Checkbox"
+    ]
+  },
+  {
+    "name": "Field",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Field(id, label string, control h.Node, opts ...FieldOpt) h.Node",
+    "doc": "Field is label + control + optional help/error. id must match the control's id.\nAn error marks the control invalid via aria-describedby on the wrapper.",
+    "summary": "Field is label + control + optional help/error.",
+    "example": "ui.Field(\"email\", \"E-mail\",\n\tui.Input(h.ID(\"email\"), h.Type(\"email\"), h.Name(\"email\"), ui.InvalidIf(errs, \"email\")),\n\tui.Errors(errs, \"email\"))",
+    "see": [
+      "h.ID",
+      "h.Name",
+      "h.Type",
+      "ui.Errors",
+      "ui.Input",
+      "ui.InvalidIf"
+    ]
+  },
+  {
+    "name": "FieldOpt",
+    "kind": "type",
+    "group": "forms",
+    "signature": "type FieldOpt func(*fieldCfg)",
+    "doc": "FieldOpt configures Field.",
+    "summary": "FieldOpt configures Field."
+  },
+  {
+    "name": "Help",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Help(s string) FieldOpt",
+    "doc": "Help, Error, Errors and With are the FieldOpt options: a hint under the\ncontrol, one message, the messages a FieldErrors carries for that name, and\nanything else to put inside the field.",
+    "summary": "Help, Error, Errors and With are the FieldOpt options: a hint under the control, one message, the messages a FieldErrors carries for that name, and anything else to put inside the field."
+  },
+  {
+    "name": "Error",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Error(s string) FieldOpt",
+    "doc": "Help, Error, Errors and With are the FieldOpt options: a hint under the\ncontrol, one message, the messages a FieldErrors carries for that name, and\nanything else to put inside the field.",
+    "summary": "Help, Error, Errors and With are the FieldOpt options: a hint under the control, one message, the messages a FieldErrors carries for that name, and anything else to put inside the field."
+  },
+  {
+    "name": "With",
+    "kind": "func",
+    "group": "forms",
+    "signature": "With(nodes ...h.Node) FieldOpt",
+    "doc": "With adds attributes to the field wrapper (e.g. ShowWhen).",
+    "summary": "With adds attributes to the field wrapper (e.g."
+  },
+  {
+    "name": "Invalid",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Invalid() h.Node",
+    "doc": "Invalid marks a control invalid (red ring). Pass it to Input/Select when\nthere is an error for the field.",
+    "summary": "Invalid marks a control invalid (red ring)."
+  },
+  {
+    "name": "Navigate",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Navigate(id string) h.Node",
+    "doc": "Navigate marks a region whose links navigate on the client: a click on a\nsame-origin link inside it fetches the next page and replaces the element\nwith the given id, instead of reloading the document. An empty id means the\nmarked element is itself the one to replace:\n\nIt is off until the region is marked and NavigateScript is on the page, and\nit never changes what the server answers: the address in the bar is the one\na normal navigation would use, and reloading it renders the same page.",
+    "summary": "Navigate marks a region whose links navigate on the client: a click on a same-origin link inside it fetches the next page and replaces the element with the given id, instead of reloading the document.",
+    "example": "h.Main(h.ID(\"conteudo\"), ui.Navigate(\"\"), children)",
+    "see": [
+      "h.ID",
+      "h.Main"
+    ]
+  },
+  {
+    "name": "NoNavigate",
+    "kind": "func",
+    "group": "forms",
+    "signature": "NoNavigate() h.Node",
+    "doc": "NoNavigate keeps one link out of it (a download, another app, a route that\nmust reload for real), inside a region marked with Navigate.",
+    "summary": "NoNavigate keeps one link out of it (a download, another app, a route that must reload for real), inside a region marked with Navigate."
+  },
+  {
+    "name": "NavigateScript",
+    "kind": "func",
+    "group": "forms",
+    "signature": "NavigateScript(c *trilha.Ctx) h.Node",
+    "doc": "NavigateScript loads ui.nav.js, the behavior behind Navigate. Put it once,\nin the layout of the area that uses it — the kit's Head does not load it, so\nan app without client navigation does not download it.",
+    "summary": "NavigateScript loads ui.nav.js, the behavior behind Navigate."
+  },
+  {
+    "name": "UploadTo",
+    "kind": "func",
+    "group": "forms",
+    "signature": "UploadTo(id string) h.Node",
+    "doc": "UploadTo marks a form that sends a file: the kit sends it with XHR, shows how\nmuch has gone out and swaps element id with what comes back — the same\nfragment the route already answers. Without JavaScript the form submits\nnormally and the route answers the whole page.\n\nIt is a different attribute from Swap on purpose: a form carrying both would\nbe sent twice.",
+    "summary": "UploadTo marks a form that sends a file: the kit sends it with XHR, shows how much has gone out and swaps element id with what comes back — the same fragment the route already answers.",
+    "example": "h.Form(h.Method(\"post\"), h.Action(\"/anexos\"), h.EncType(\"multipart/form-data\"),\n\tui.UploadTo(\"lista\"), trilha.CSRFInput(c),\n\tui.Input(h.Type(\"file\"), h.Name(\"arquivo\")), ui.UploadBar(),\n\tui.Submit(h.Text(\"Send\")))",
+    "see": [
+      "h.Action",
+      "h.EncType",
+      "h.Form",
+      "h.Method",
+      "h.Name",
+      "h.Text",
+      "h.Type",
+      "trilha.CSRFInput",
+      "ui.Input",
+      "ui.Submit",
+      "ui.UploadBar"
+    ]
+  },
+  {
+    "name": "UploadBar",
+    "kind": "func",
+    "group": "forms",
+    "signature": "UploadBar(attrs ...h.Node) h.Node",
+    "doc": "UploadBar is the progress element UploadTo fills in. It starts hidden and is\nonly shown while sending; style it through the progress selector.",
+    "summary": "UploadBar is the progress element UploadTo fills in."
+  },
+  {
+    "name": "UploadScript",
+    "kind": "func",
+    "group": "forms",
+    "signature": "UploadScript(c *trilha.Ctx) h.Node",
+    "doc": "UploadScript loads ui.upload.js, the behavior behind UploadTo. Put it once,\nin the layout or page that has the form; ui.Head does not load it.",
+    "summary": "UploadScript loads ui.upload.js, the behavior behind UploadTo.",
+    "see": [
+      "ui.Head"
+    ]
+  },
+  {
+    "name": "Swap",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Swap(id string) h.Node",
+    "doc": "Swap marks a link or form as a fragment request: clicking or submitting it\nasks the same route for the part of the page with the given id and replaces\nthat element, without reloading.\n\nWith JavaScript off nothing here applies: the link navigates and the form\nsubmits as usual, and the route answers with the whole page. On the server,\nCtx.Fragment reports the requested id.",
+    "summary": "Swap marks a link or form as a fragment request: clicking or submitting it asks the same route for the part of the page with the given id and replaces that element, without reloading.",
+    "example": "h.Form(h.Method(\"get\"), ui.Swap(\"lista\"), busca())\nh.Div(h.ID(\"lista\"), ...)",
+    "see": [
+      "h.Div",
+      "h.Form",
+      "h.ID",
+      "h.Method"
+    ]
+  },
+  {
+    "name": "NoPush",
+    "kind": "func",
+    "group": "forms",
+    "signature": "NoPush() h.Node",
+    "doc": "NoPush turns off the history entry a fragment link would create.",
+    "summary": "NoPush turns off the history entry a fragment link would create."
+  },
+  {
+    "name": "ShowWhen",
+    "kind": "func",
+    "group": "forms",
+    "signature": "ShowWhen(field string, values ...string) h.Node",
+    "doc": "ShowWhen shows the element only while the named form field has one of the\ngiven values (\"a|b\"); with no values, while the field is non-empty. Hidden\ngroups have their controls disabled, so they are not submitted.",
+    "summary": "ShowWhen shows the element only while the named form field has one of the given values (\"a|b\"); with no values, while the field is non-empty."
+  },
+  {
+    "name": "Badge",
+    "kind": "func",
+    "group": "badge, alert, toast",
+    "signature": "Badge(children ...h.Node) h.Node",
+    "doc": "Badge is a small label for a status; the variants apply.",
+    "summary": "Badge is a small label for a status; the variants apply.",
+    "example": "ui.Badge(ui.Secondary(), h.Text(\"draft\"))",
+    "see": [
+      "h.Text",
+      "ui.Secondary"
+    ]
+  },
+  {
+    "name": "Alert",
+    "kind": "func",
+    "group": "badge, alert, toast",
+    "signature": "Alert(title string, children ...h.Node) h.Node",
+    "doc": "Alert renders a titled notice; add Destructive() for errors and an Icon first.",
+    "summary": "Alert renders a titled notice; add Destructive() for errors and an Icon first."
+  },
+  {
+    "name": "AlertDescription",
+    "kind": "func",
+    "group": "badge, alert, toast",
+    "signature": "AlertDescription(children ...h.Node) h.Node",
+    "doc": "AlertDescription is the body of an Alert.",
+    "summary": "AlertDescription is the body of an Alert."
+  },
+  {
+    "name": "Toaster",
+    "kind": "func",
+    "group": "badge, alert, toast",
+    "signature": "Toaster(children ...h.Node) h.Node",
+    "doc": "Toaster is the container toasts stack into; place it once in the layout.",
+    "summary": "Toaster is the container toasts stack into; place it once in the layout."
+  },
+  {
+    "name": "Toast",
+    "kind": "func",
+    "group": "badge, alert, toast",
+    "signature": "Toast(kind, text string, fadeMs int) h.Node",
+    "doc": "Toast is a message that fades out after fadeMs (0 = stays). kind: \"\",\n\"success\" or \"error\". Render it inside Toaster (e.g. after a form post).",
+    "summary": "Toast is a message that fades out after fadeMs (0 = stays).",
+    "example": "ui.Toaster(ui.Toast(\"success\", \"Invoice sent.\", 4000))",
+    "see": [
+      "ui.Toaster"
+    ]
+  },
+  {
+    "name": "Flashes",
+    "kind": "func",
+    "group": "badge, alert, toast",
+    "signature": "Flashes(c *trilha.Ctx) h.Node",
+    "doc": "Flashes renders the messages left by c.Flash on the request before, inside\nthe toaster. It replaces Toaster() in the layout:\n\nAn empty toaster is still rendered, because ui.js appends live toasts to it.",
+    "summary": "Flashes renders the messages left by c.Flash on the request before, inside the toaster.",
+    "example": "h.Body(..., ui.Flashes(c))",
+    "see": [
+      "h.Body"
+    ]
+  },
+  {
+    "name": "Confirm",
+    "kind": "func",
+    "group": "badge, alert, toast",
+    "signature": "Confirm(title, description string) h.Node",
+    "doc": "Confirm asks before the form it sits in is submitted. Put it in the form,\nnext to the CSRF input:\n\nui.js holds the submit, opens the kit's dialog and only then lets it\nthrough, fragment forms included. The confirming button repeats the label of\nthe button that was pressed; the other one says \"Cancel\", or whatever\nh.Data(\"ui-confirm-cancel\", \"…\") says on the same form. Without JavaScript\nthe form submits straight away — when that is not good enough, ask on a page\nof its own, which works either way.",
+    "summary": "Confirm asks before the form it sits in is submitted.",
+    "example": "h.Form(h.Method(\"post\"), h.Action(\"/blog/\"+p.Slug), trilha.CSRFInput(c),\n\tui.Confirm(\"Delete this post?\", \"There is no undo.\"),\n\tui.Submit(Destructive(), h.Text(\"Delete\")))",
+    "see": [
+      "h.Action",
+      "h.Data",
+      "h.Form",
+      "h.Method",
+      "h.Text",
+      "trilha.CSRFInput",
+      "ui.Submit"
+    ]
+  },
+  {
+    "name": "Table",
+    "kind": "func",
+    "group": "table",
+    "signature": "Table(children ...h.Node) h.Node",
+    "doc": "Table wraps a \u003ctable class=\"ui-table\"\u003e in a horizontally scrollable box.",
+    "summary": "Table wraps a \u003ctable class=\"ui-table\"\u003e in a horizontally scrollable box."
+  },
+  {
+    "name": "Num",
+    "kind": "func",
+    "group": "table",
+    "signature": "Num() h.Node",
+    "doc": "Num right-aligns numeric cells.",
+    "summary": "Num right-aligns numeric cells."
+  },
+  {
+    "name": "Depth",
+    "kind": "func",
+    "group": "table",
+    "signature": "Depth(d int) h.Node",
+    "doc": "Depth indents the first cell of a row (tree tables, drill-down).",
+    "summary": "Depth indents the first cell of a row (tree tables, drill-down)."
+  },
+  {
+    "name": "Tab",
+    "kind": "type",
+    "group": "tabs",
+    "signature": "type Tab struct",
+    "doc": "Tab is one tab of Tabs.",
+    "summary": "Tab is one tab of Tabs.",
+    "fields": [
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Content",
+        "type": "h.Node"
+      }
+    ]
+  },
+  {
+    "name": "Tabs",
+    "kind": "func",
+    "group": "tabs",
+    "signature": "Tabs(id string, tabs ...Tab) h.Node",
+    "doc": "Tabs renders an accessible tab list; the first tab starts selected.",
+    "summary": "Tabs renders an accessible tab list; the first tab starts selected."
+  },
+  {
+    "name": "Dialog",
+    "kind": "func",
+    "group": "dialog",
+    "signature": "Dialog(id, title string, children ...h.Node) h.Node",
+    "doc": "Dialog renders a native \u003cdialog\u003e; open it with DialogTrigger(id, ...).",
+    "summary": "Dialog renders a native \u003cdialog\u003e; open it with DialogTrigger(id, ...).",
+    "example": "ui.DialogTrigger(\"confirm\", h.Text(\"Delete\"))\nui.Dialog(\"confirm\", \"Delete the invoice?\",\n\tui.DialogDescription(\"This cannot be undone.\"),\n\tui.DialogFooter(ui.DialogClose(ui.Outline(), h.Text(\"Cancel\")), deleteForm))",
+    "see": [
+      "h.Text",
+      "ui.DialogClose",
+      "ui.DialogDescription",
+      "ui.DialogFooter",
+      "ui.DialogTrigger",
+      "ui.Outline"
+    ]
+  },
+  {
+    "name": "DialogDescription",
+    "kind": "func",
+    "group": "dialog",
+    "signature": "DialogDescription(s string) h.Node",
+    "doc": "DialogDescription is the line under a Dialog title, and DialogFooter is the\nrow of buttons at the bottom.",
+    "summary": "DialogDescription is the line under a Dialog title, and DialogFooter is the row of buttons at the bottom."
+  },
+  {
+    "name": "DialogFooter",
+    "kind": "func",
+    "group": "dialog",
+    "signature": "DialogFooter(children ...h.Node) h.Node",
+    "doc": "DialogDescription is the line under a Dialog title, and DialogFooter is the\nrow of buttons at the bottom.",
+    "summary": "DialogDescription is the line under a Dialog title, and DialogFooter is the row of buttons at the bottom."
+  },
+  {
+    "name": "DialogTrigger",
+    "kind": "func",
+    "group": "dialog",
+    "signature": "DialogTrigger(id string, children ...h.Node) h.Node",
+    "doc": "DialogTrigger is a Button that opens the dialog with the given id.",
+    "summary": "DialogTrigger is a Button that opens the dialog with the given id."
+  },
+  {
+    "name": "DialogClose",
+    "kind": "func",
+    "group": "dialog",
+    "signature": "DialogClose(children ...h.Node) h.Node",
+    "doc": "DialogClose is a Button that closes the enclosing dialog.",
+    "summary": "DialogClose is a Button that closes the enclosing dialog."
+  },
+  {
+    "name": "MenuTrigger",
+    "kind": "func",
+    "group": "menu (native popover)",
+    "signature": "MenuTrigger(id string, children ...h.Node) h.Node",
+    "doc": "MenuTrigger toggles the popover menu with the given id.",
+    "summary": "MenuTrigger toggles the popover menu with the given id."
+  },
+  {
+    "name": "Menu",
+    "kind": "func",
+    "group": "menu (native popover)",
+    "signature": "Menu(id string, children ...h.Node) h.Node",
+    "doc": "Menu is a popover list of MenuItem/MenuLink.",
+    "summary": "Menu is a popover list of MenuItem/MenuLink."
+  },
+  {
+    "name": "MenuItem",
+    "kind": "func",
+    "group": "menu (native popover)",
+    "signature": "MenuItem(children ...h.Node) h.Node",
+    "doc": "MenuItem is an entry that does something (a button) and MenuLink is one that\ngoes somewhere (a link). Both belong inside a Menu.",
+    "summary": "MenuItem is an entry that does something (a button) and MenuLink is one that goes somewhere (a link)."
+  },
+  {
+    "name": "MenuLink",
+    "kind": "func",
+    "group": "menu (native popover)",
+    "signature": "MenuLink(href string, children ...h.Node) h.Node",
+    "doc": "MenuItem is an entry that does something (a button) and MenuLink is one that\ngoes somewhere (a link). Both belong inside a Menu.",
+    "summary": "MenuItem is an entry that does something (a button) and MenuLink is one that goes somewhere (a link)."
+  },
+  {
+    "name": "Separator",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Separator() h.Node",
+    "doc": "Separator is a horizontal rule between sections.",
+    "summary": "Separator is a horizontal rule between sections."
+  },
+  {
+    "name": "Skeleton",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Skeleton(attrs ...h.Node) h.Node",
+    "doc": "Skeleton is a loading placeholder; pass StyleAttr for size.",
+    "summary": "Skeleton is a loading placeholder; pass StyleAttr for size."
+  },
+  {
+    "name": "Progress",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Progress(value, max int) h.Node",
+    "doc": "Progress renders a bar at value/max.",
+    "summary": "Progress renders a bar at value/max."
+  },
+  {
+    "name": "Crumb",
+    "kind": "type",
+    "group": "misc",
+    "signature": "type Crumb struct",
+    "doc": "Crumb is one breadcrumb item; the last one is the current page.",
+    "summary": "Crumb is one breadcrumb item; the last one is the current page.",
+    "fields": [
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Href",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "Breadcrumb",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Breadcrumb(items ...Crumb) h.Node",
+    "doc": "Breadcrumb renders a navigation trail.",
+    "summary": "Breadcrumb renders a navigation trail."
+  },
+  {
+    "name": "Pages",
+    "kind": "type",
+    "group": "misc",
+    "signature": "type Pages struct",
+    "doc": "Pages describes the page navigation Pagination renders.",
+    "summary": "Pages describes the page navigation Pagination renders.",
+    "fields": [
+      {
+        "name": "Page",
+        "type": "int"
+      },
+      {
+        "name": "Total",
+        "type": "int"
+      },
+      {
+        "name": "Href",
+        "type": "func(int) string"
+      },
+      {
+        "name": "Prev",
+        "type": "string"
+      },
+      {
+        "name": "Next",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Attrs",
+        "type": "h.Node"
+      }
+    ]
+  },
+  {
+    "name": "Pagination",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Pagination(p Pages) h.Node",
+    "doc": "Pagination renders page navigation as real links, so a page can be shared,\nreloaded and indexed. The current page is a \u003cspan\u003e with aria-current: it is\nwhere the visitor already is, and a link to here is a link to nowhere. The\nedges are not disabled links either — the first page has no previous, so\nnothing is rendered for it. A list with one page renders nothing at all.\n\nThe window keeps the first and last page and the ones around the current\none, with an ellipsis over each gap, so the footer does not grow with the\ntable.",
+    "summary": "Pagination renders page navigation as real links, so a page can be shared, reloaded and indexed."
+  },
+  {
+    "name": "Tooltip",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Tooltip(text string, children ...h.Node) h.Node",
+    "doc": "Tooltip attaches a hint to what it wraps. The text is in title, so the hint\nworks with ui.js off — that is the browser's own tooltip. With the script on\nthe page, title is removed (two tooltips is worse than none), a bubble with\nrole=tooltip takes its place and the target gets aria-describedby, so the\nhint is reachable by keyboard focus and by touch, and closes with Escape.\n\nThe text is a string on purpose: a hint with a link inside is a popover, and\nthat is what Menu is for.",
+    "summary": "Tooltip attaches a hint to what it wraps."
+  },
+  {
+    "name": "Avatar",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Avatar(initials, src string) h.Node",
+    "doc": "Avatar shows an image or the initials as fallback.",
+    "summary": "Avatar shows an image or the initials as fallback."
+  },
+  {
+    "name": "Collapsible",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Collapsible(summary string, children ...h.Node) h.Node",
+    "doc": "Collapsible is a \u003cdetails\u003e with a styled summary; pass h.Open() to start open.",
+    "summary": "Collapsible is a \u003cdetails\u003e with a styled summary; pass h.Open() to start open.",
+    "see": [
+      "h.Open"
+    ]
+  },
+  {
+    "name": "ThemeToggle",
+    "kind": "func",
+    "group": "misc",
+    "signature": "ThemeToggle() h.Node",
+    "doc": "ThemeToggle switches light/dark and remembers the choice.",
+    "summary": "ThemeToggle switches light/dark and remembers the choice."
+  },
+  {
+    "name": "Icon",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Icon(name string, attrs ...h.Node) h.Node",
+    "doc": "Icon renders an embedded Lucide icon (ISC). It panics on unknown names,\nwhich is a programming error caught at first render. See Icons.",
+    "summary": "Icon renders an embedded Lucide icon (ISC)."
+  },
+  {
+    "name": "Icons",
+    "kind": "func",
+    "group": "misc",
+    "signature": "Icons() []string",
+    "doc": "Icons lists the available icon names.",
+    "summary": "Icons lists the available icon names."
+  },
+  {
+    "name": "Errors",
+    "kind": "func",
+    "group": "form helpers for validation round-trips",
+    "signature": "Errors(errs map[string]string, field string) FieldOpt",
+    "doc": "Errors is a Field option that shows the message for field from errs (a\ntrilha.FieldErrors or any map); no-op when the field has no error.",
+    "summary": "Errors is a Field option that shows the message for field from errs (a trilha.FieldErrors or any map); no-op when the field has no error.",
+    "see": [
+      "trilha.FieldErrors"
+    ]
+  },
+  {
+    "name": "InvalidIf",
+    "kind": "func",
+    "group": "form helpers for validation round-trips",
+    "signature": "InvalidIf(errs map[string]string, field string) h.Node",
+    "doc": "InvalidIf marks a control invalid when errs has a message for field.",
+    "summary": "InvalidIf marks a control invalid when errs has a message for field."
+  },
+  {
+    "name": "Option",
+    "kind": "type",
+    "group": "form helpers for validation round-trips",
+    "signature": "type Option struct",
+    "doc": "Option is one \u003coption\u003e of SelectOptions.",
+    "summary": "Option is one \u003coption\u003e of SelectOptions.",
+    "fields": [
+      {
+        "name": "Value",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "SelectOptions",
+    "kind": "func",
+    "group": "form helpers for validation round-trips",
+    "signature": "SelectOptions(opts []Option, selected string) h.Node",
+    "doc": "SelectOptions renders \u003coption\u003es, marking the one equal to selected. A\nleading placeholder can be given as Option{\"\", \"Escolha…\"}.",
+    "summary": "SelectOptions renders \u003coption\u003es, marking the one equal to selected."
+  },
+  {
+    "name": "Checked",
+    "kind": "func",
+    "group": "form helpers for validation round-trips",
+    "signature": "Checked(v bool) h.Node",
+    "doc": "Checked returns h.Checked() when v is true (checkbox/switch round-trips).",
+    "summary": "Checked returns h.Checked() when v is true (checkbox/switch round-trips).",
+    "see": [
+      "h.Checked"
+    ]
+  }
+]

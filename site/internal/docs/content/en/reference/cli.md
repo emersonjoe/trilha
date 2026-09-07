@@ -18,6 +18,7 @@ trilha check [--json] [--fix]
 trilha ctx [--json] [--routes|--types|--all]
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
+trilha ui describe [Name] [--json]
 trilha agents [--force] [--lang en|pt]
 trilha version
 ```
@@ -142,6 +143,25 @@ Writes or updates the UI kit in `public/`: `ui.theme.css` (only created; it is y
 `ui.css` and `ui.js` (updated; if edited locally, only with `--force`). `--css-only` and
 `--js-only` limit what is touched. `trilha new` runs the same step. See
 [UI kit](/learn/ui-kit).
+
+### trilha ui describe
+
+Prints the catalogue of the kit: with no argument, every component grouped and summarised in
+one line each; with a name, its signature, what it is for, the fields of an options struct, an
+example and the symbols the documentation cites.
+
+```bash
+trilha ui describe            # everything, grouped
+trilha ui describe Field      # one component
+trilha ui describe ui.field   # the same one: the prefix and the case are optional
+trilha ui describe --json     # the whole catalogue as JSON
+```
+
+The catalogue is built from the kit's own doc comments and ships inside the binary, so it
+answers with or without a project around it and cannot drift from the code it describes. An
+unknown name exits non-zero with the closest names. `--json` is there for the agent writing
+the screen: one call and it knows what exists and how each thing is spelled, instead of
+guessing at a name and finding out at compile time.
 
 ## trilha agents
 

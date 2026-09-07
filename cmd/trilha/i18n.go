@@ -56,6 +56,7 @@ Usage:
   trilha openapi [-o file] [--check]                write the OpenAPI document of the API routes
   trilha audit [--no-vuln]                          check the project's security and configuration
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
+  trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
   trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
   trilha version
 
@@ -76,6 +77,7 @@ Uso:
   trilha openapi [-o arquivo] [--check]               escreve o documento OpenAPI das rotas de API
   trilha audit [--no-vuln]                            verifica segurança e configuração do projeto
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
+  trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
   trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
   trilha version
 
@@ -158,6 +160,15 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"ui kept theme": {"kept (your theme)", "mantido (seu tema)"},
 	"ui local":      {"modified locally", "modificado localmente"},
 	"ui kept own":   {"kept (yours)", "mantido (seu)"},
+
+	// ui describe
+	"flag describe json": {"print the catalogue (or the component) as JSON", "imprime o catálogo (ou o componente) em JSON"},
+	"no such component":  {"no ui component named %q", "não há componente ui chamado %q"},
+	"did you mean":       {"did you mean: %s", "você quis dizer: %s"},
+	"describe hint":      {"%d components. `trilha ui describe <Name>` describes one of them.", "%d componentes. `trilha ui describe <Nome>` descreve um deles."},
+	"fields:":            {"fields:", "campos:"},
+	"example:":           {"example:", "exemplo:"},
+	"see:":               {"see:", "veja:"},
 
 	// agents
 	"flag agents":       {"also write AGENTS.md and CLAUDE.md for coding agents", "também gravar AGENTS.md e CLAUDE.md para agentes de código"},

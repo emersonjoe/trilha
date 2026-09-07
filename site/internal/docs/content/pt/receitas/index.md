@@ -22,6 +22,7 @@ mailer — o que ele tem é um lugar para os seus, e é aqui que esse lugar est�
 | [Docker](/pt/receitas/docker) | uma imagem pequena, as variáveis, a sonda de saúde |
 | [Checklist de produção](/pt/receitas/checklist-de-producao) | o que conferir antes de publicar, em ordem |
 | [Migração](/pt/receitas/migracao) | de `net/http` puro para Trilha, e entre versões menores |
+| [Do Next.js](/pt/receitas/do-next) | o padrão de React que você conhece, e o que ocupa o lugar dele |
 
 ## De onde vem o código
 
