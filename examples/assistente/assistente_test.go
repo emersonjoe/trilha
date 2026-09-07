@@ -25,6 +25,14 @@ func fakeModel(t *testing.T) *httptest.Server {
 		var req ai.Request
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		calls++
+		if !req.Stream {
+			// The request that did not ask for a stream: one answer, whole.
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(ai.Response{ID: "1", Model: "fake",
+				Choices: []ai.Choice{{Message: ai.Message{Role: "assistant", Content: "O resultado é 20."}, FinishReason: "stop"}},
+				Usage:   ai.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15}})
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		chunk := func(delta string) {
 			fmt.Fprintf(w, "data: %s\n\n", delta)
@@ -58,7 +66,7 @@ func newClient(t *testing.T) *trilha.TestClient {
 }
 
 func TestPageRenders(t *testing.T) {
-	res := newClient(t).Get("/").WantStatus(200).WantContains(`id="mensagens"`, "calcular")
+	res := newClient(t).Get("/").WantStatus(200).WantContains(`class="ui-chat"`, `data-trilha-chat="/api/chat"`, "calcular")
 	if csp := res.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "script-src 'self'") {
 		t.Fatal(csp)
 	}
@@ -66,18 +74,29 @@ func TestPageRenders(t *testing.T) {
 
 func TestChatStreams(t *testing.T) {
 	c := newClient(t)
-	res := c.PostJSON("/api/chat", map[string]string{"message": "quanto é (2+3)*4?"}).WantStatus(200)
+	res := c.Request("POST", "/api/chat",
+		trilha.WithHeader("Accept", "text/event-stream"),
+		trilha.WithJSON(map[string]string{"message": "quanto é (2+3)*4?"}),
+	).WantStatus(200)
 	if !strings.HasPrefix(res.Header().Get("Content-Type"), "text/event-stream") {
 		t.Fatal(res.Header())
 	}
 	res.WantContains(
-		"event: tool_call\ndata: {\"agent\":\"Assistente\",\"arguments\":\"{\\\"expressao\\\":\\\"(2+3)*4\\\"}\"",
-		"event: tool_result\ndata: {\"agent\":\"Assistente\",\"arguments\":\"{\\\"expressao\\\":\\\"(2+3)*4\\\"}\",\"output\":\"20\"",
+		`event: tool_call`,
+		`"tool":"calcular"`,
+		`event: tool_result`,
+		`"output":"20"`,
 		"event: text\ndata: O resultado \n\n",
 		"event: text\ndata: é 20.\n\n",
-		"event: done\ndata: {\"agent\":\"Assistente\",\"history\":[",
+		"event: done",
 		`"total_tokens":15`,
+		// The finished answer comes rendered: ui.ChatHTML is wired in the route.
+		`\u003cp\u003eO resultado é 20.\u003c/p\u003e`,
 	)
+	// Without the header the same route answers the whole thing at once — the
+	// request that arrives when the script is not there.
+	c.PostJSON("/api/chat", map[string]string{"message": "quanto é (2+3)*4?"}).
+		WantStatus(200).WantContains(`"output":"O resultado é 20."`)
 	// Validation.
 	c.PostJSON("/api/chat", map[string]string{"message": "  "}).WantStatus(422)
 }

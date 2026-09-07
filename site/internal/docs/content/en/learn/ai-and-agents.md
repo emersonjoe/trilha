@@ -101,8 +101,33 @@ func POST(c *trilha.Ctx) error {
 ```
 
 On the client, a `fetch` with `POST` and reading the body through `ReadableStream` is enough
-(the browser's `EventSource` only does `GET`). The `examples/assistente` app ships the
-complete `chat.js` in 60 lines.
+(the browser's `EventSource` only does `GET`). That is the loop written by hand — worth reading
+once, and then not writing again.
+
+## A chat, ready-made
+
+Every app with an assistant ends up writing that route and that script. `ai.Serve` and
+`ui.Chat` are the two halves already written:
+
+```go
+// app/api/chat/route.go
+func POST(c *trilha.Ctx) error {
+    return ai.ServeOpts{HTML: ui.ChatHTML}.Serve(c, cli, assistant)
+}
+
+// the page
+ui.Chat(c, ui.ChatOpts{Action: "/api/chat", History: msgs, Steps: true})
+ui.ChatScript(c)
+```
+
+`ai.Serve` reads the message, runs the agent and emits the events with the names above;
+`ui.Chat` renders the bubbles, the field and the `aria-live`, and `ui.chat.js` reads the
+stream. Without JavaScript the form still submits and the same route answers the whole thing
+at once — the screen never depends on the script running.
+
+Model text is Markdown, and `ui.Markdown` is what puts it on the screen: a `<script>` in the
+answer is text on the page, not a tag in the document. The history belongs to the app; the
+framework keeps no chat session.
 
 ## MCP: use and expose tools
 

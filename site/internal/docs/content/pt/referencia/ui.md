@@ -59,6 +59,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
 | `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) |
 | `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |
+| `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
+| `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação) |
 
 ## ui.js
@@ -189,6 +191,72 @@ func GET(c *trilha.Ctx) error {
 Sem JavaScript nada quebra: o campo visível é um texto comum, então o formulário chega com
 `cidade_q` preenchido e `cidade` vazio. Resolver o texto digitado contra a lista é trabalho do
 servidor — a mesma lista que a rota de busca lê.
+
+## Markdown
+
+```go
+func Markdown(src string, opt MarkdownOpts) h.Node
+```
+
+Modelo escreve Markdown, e quem digita num formulário também. O `Markdown` transforma isso em
+nós: parágrafos, ênfase, títulos, listas, citação, código inline e cercado, tabelas GFM, links e
+quebras.
+
+```go
+h.Div(ui.Markdown(doc.Resumo, ui.MarkdownOpts{}))
+```
+
+**Não existe HTML cru, e não há como ligar.** Um `<script>` no texto é um `<script>` na tela,
+como texto — o retorno é uma árvore, não uma string, então o escape não é uma regra que alguém
+precise lembrar. É por isso que isto existe em vez de um `h.Raw` em volta de um conversor.
+
+| Campo de `MarkdownOpts` | O que faz |
+|---|---|
+| `HeadingBase` | o nível em que `#` cai (padrão 3, para não competir com o `<h1>` da página); `######` nunca passa de `<h6>` |
+| `Images` | `![alt](url)` vira `<img>`; desligado por padrão, e a URL é validada nos dois casos |
+| `Class` | uma classe a mais no envelope, que é sempre `ui-md` |
+
+Link só continua link quando o endereço é `http`, `https`, `mailto` ou relativo (`/`, `#`,
+`./`); o resto — `javascript:`, `data:` — fica como o texto que era. Link externo leva
+`rel="noopener nofollow ugc"`.
+
+As páginas do próprio site usam outro conversor (`site/internal/md`): outro dialeto, sobre texto
+deste repositório. O `ui.Markdown` é para texto que ninguém daqui escreveu.
+
+## Chat
+
+```go
+func Chat(c *trilha.Ctx, o ChatOpts) h.Node
+func ChatScript(c *trilha.Ctx) h.Node
+func ChatHTML(texto string) string
+```
+
+A conversa com um agente: as bolhas, o campo e o botão. A rota do outro lado é o
+[`ai.Serve`](/pt/referencia/ai#chat-por-http).
+
+```go
+ui.Chat(c, ui.ChatOpts{Action: "/api/chat", History: msgs, Greeting: "Pergunte o que quiser."})
+ui.ChatScript(c)   // uma vez, no layout
+```
+
+| Campo de `ChatOpts` | O que faz |
+|---|---|
+| `Action` | a rota que responde — o único que precisa ser preenchido |
+| `History` | o que já foi dito, do mais antigo para o mais novo. É do app: o framework não guarda sessão |
+| `Greeting` | Markdown mostrado enquanto o histórico está vazio |
+| `ID` | o id do elemento e o prefixo dos ids de dentro (padrão `chat`) |
+| `Placeholder`, `Submit`, `Label` | as palavras na tela |
+| `MaxLength` | limita o campo (padrão 4000; negativo tira o limite) |
+| `Steps` | mostra a ferramenta que o agente chamou e o que voltou |
+| `Markdown` | o `MarkdownOpts` das respostas |
+
+`ChatMessage{Role, Text}` é um turno. `Role: "assistant"` sai como Markdown; `Role: "user"` sai
+como texto — o que alguém digitou nunca é marcação.
+
+Com o `ChatScript` a resposta chega palavra por palavra e o Markdown é renderizado no fim da
+mensagem: passe `ui.ChatHTML` para o `ai.ServeOpts.HTML` e a bolha pronta fica igual à de uma
+página recarregada. Sem o script o formulário submete do mesmo jeito e a rota responde tudo de
+uma vez, então nada na tela depende do script rodar.
 
 ## Tema
 

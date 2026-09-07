@@ -96,6 +96,13 @@ leia essa frase em vez de adivinhar.
   manda um arquivo por requisição. No servidor, o `c.Files(campo, regras)` aplica as regras do
   `c.File` a cada arquivo e nomeia a falha pela posição — `arquivos[2]` — então a mensagem cai
   na linha que a mereceu.
+- **Não jogue texto de modelo na página com `h.Raw`, nem escreva um chat na mão.** O
+  `ui.Markdown(texto, ui.MarkdownOpts{})` devolve nós, não string: uma tag no texto sai como
+  texto, e não há como desligar isso. O `ai.Serve(c, cliente, agente)` é a rota de chat
+  inteira — lê `{message, history}`, transmite `text`, `tool_call`, `tool_result`, `done` e
+  `error`, e responde de uma vez quando ninguém pediu fluxo — e o `ui.Chat(c,
+  ui.ChatOpts{Action: "/api/chat"})` com o `ui.ChatScript(c)` é a tela. O histórico é seu; o
+  framework não guarda nenhum.
 - **Não escreva na mão os cabeçalhos de um download.** O `c.Attachment(nome, corpo, tipo)`
   manda um arquivo e o `c.Inline` abre no navegador; os dois saneiam o nome, escrevem nas duas
   formas que os navegadores leem de verdade, detectam o tipo no conteúdo e mandam `nosniff`. O

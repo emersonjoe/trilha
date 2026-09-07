@@ -1,0 +1,56 @@
+<div class="ui-md">
+<h3>Executive summary</h3>
+<p>The contract is <strong>valid</strong> and <em>renewable</em>, with one clause that needs attention. See the <a href="https://example.com/doc?a=1&amp;b=2" rel="noopener nofollow ugc">full text</a> or write to <a href="mailto:legal@example.com">us</a>.</p>
+<h4>Findings</h4>
+<ul class="ui-md-list">
+<li>Clause 4.2 fixes the price for <code class="ui-code">24 months</code>
+</li>
+<li>Clause 7 allows termination<ul class="ui-md-list">
+<li>with 30 days&#39; notice</li>
+<li>in writing</li>
+</ul>
+</li>
+<li>Clause 9 is <del>void</del> superseded</li>
+</ul>
+<ol class="ui-md-list">
+<li>Read clause 4.2</li>
+<li>Compare with the previous version</li>
+<li>Decide</li>
+</ol>
+<blockquote class="ui-quote">
+<p>The party may terminate at any time. Notice must be in writing.</p>
+</blockquote>
+<div class="ui-table-wrap">
+<table class="ui-table">
+<thead>
+<tr>
+<th>Clause</th>
+<th>Risk</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4.2</td>
+<td>low</td>
+<td>fixed price</td>
+</tr>
+<tr>
+<td>7</td>
+<td>medium</td>
+<td>30 days</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Here is the check:</p>
+<pre class="ui-pre">
+<code class="ui-code language-go" data-lang="go">if c.Query(&#34;ver&#34;) != &#34;&#34; {
+	return c.Inline(a.Nome, corpo, a.Tipo)
+}</code>
+</pre>
+<p>And an inline snippet: <code class="ui-code">ui.Markdown(text, ui.MarkdownOpts{})</code>.</p>
+<p>A hard break comes next.<br>This line is after it.</p>
+<hr>
+<p>Anything else is text: &lt;script&gt;alert(1)&lt;/script&gt; and &lt;b&gt;bold&lt;/b&gt;.</p>
+</div>

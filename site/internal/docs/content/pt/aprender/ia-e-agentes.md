@@ -101,8 +101,33 @@ func POST(c *trilha.Ctx) error {
 ```
 
 No cliente, um `fetch` com `POST` e leitura do corpo com `ReadableStream` basta (o
-`EventSource` do navegador só faz `GET`). O exemplo `examples/assistente` traz o `chat.js`
-completo em 60 linhas.
+`EventSource` do navegador só faz `GET`). Esse é o laço escrito à mão — vale ler uma vez, e
+depois não escrever de novo.
+
+## Um chat pronto
+
+Todo app com assistente acaba escrevendo aquela rota e aquele script. O `ai.Serve` e o
+`ui.Chat` são as duas metades já escritas:
+
+```go
+// app/api/chat/route.go
+func POST(c *trilha.Ctx) error {
+    return ai.ServeOpts{HTML: ui.ChatHTML}.Serve(c, cli, assistente)
+}
+
+// a página
+ui.Chat(c, ui.ChatOpts{Action: "/api/chat", History: msgs, Steps: true})
+ui.ChatScript(c)
+```
+
+O `ai.Serve` lê a mensagem, roda o agente e emite os eventos com os nomes acima; o `ui.Chat`
+desenha as bolhas, o campo e o `aria-live`, e o `ui.chat.js` lê o fluxo. Sem JavaScript o
+formulário submete do mesmo jeito e a mesma rota responde tudo de uma vez — a tela nunca
+depende do script rodar.
+
+Texto de modelo é Markdown, e quem põe isso na tela é o `ui.Markdown`: um `<script>` na
+resposta é texto na página, não uma tag no documento. O histórico é do app; o framework não
+guarda sessão de conversa.
 
 ## MCP: usar e expor ferramentas
 

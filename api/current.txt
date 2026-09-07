@@ -369,6 +369,8 @@ pkg trilha, var ProblemType func(int) string
 pkg trilha, var SchemaTypes
 pkg trilha, var ValidationMessages
 pkg ai, const DefaultBaseURL
+pkg ai, const DefaultServeHistory
+pkg ai, const DefaultServeInput
 pkg ai, func Assistant(string) Message
 pkg ai, func Chain(context.Context, *Client, string, ...*Agent) ([]*Result, error)
 pkg ai, func NewFromEnv() *Client
@@ -377,6 +379,7 @@ pkg ai, func Parallel(context.Context, *Client, string, ...*Agent) ([]*Result, e
 pkg ai, func Run(context.Context, *Client, *Agent, string, ...Message) (*Result, error)
 pkg ai, func RunStream(context.Context, *Client, *Agent, string, func(Event), ...Message) (*Result, error)
 pkg ai, func Schema(string) json.RawMessage
+pkg ai, func Serve(*trilha.Ctx, *Client, *Agent) error
 pkg ai, func System(string) Message
 pkg ai, func ToolResult(string, string) Message
 pkg ai, func Typed[T any](func(context.Context, T) (string, error)) ToolFunc
@@ -390,6 +393,7 @@ pkg ai, method (*Response) ToolCalls() []ToolCall
 pkg ai, method (*Tool) Def() ToolDef
 pkg ai, method (*Usage) Add(Usage)
 pkg ai, method (Request) MarshalJSON() ([]byte, error)
+pkg ai, method (ServeOpts) Serve(*trilha.Ctx, *Client, *Agent) error
 pkg ai, type Agent struct
 pkg ai, type Agent struct, Handoffs []*Agent
 pkg ai, type Agent struct, Instructions string
@@ -464,6 +468,11 @@ pkg ai, type Result struct, Output string
 pkg ai, type Result struct, Steps []Step
 pkg ai, type Result struct, Turns int
 pkg ai, type Result struct, Usage Usage
+pkg ai, type ServeOpts struct
+pkg ai, type ServeOpts struct, HTML func(string) string
+pkg ai, type ServeOpts struct, MaxHistory int
+pkg ai, type ServeOpts struct, MaxInput int64
+pkg ai, type ServeOpts struct, Page func(*trilha.Ctx, *Result) error
 pkg ai, type Step struct
 pkg ai, type Step struct, Agent string
 pkg ai, type Step struct, Arguments string
@@ -833,6 +842,9 @@ pkg ui, func CardFooter(...h.Node) h.Node
 pkg ui, func CardHeader(...h.Node) h.Node
 pkg ui, func CardTitle(string) h.Node
 pkg ui, func ChartTitle(string) h.Node
+pkg ui, func Chat(*trilha.Ctx, ChatOpts) h.Node
+pkg ui, func ChatHTML(string) string
+pkg ui, func ChatScript(*trilha.Ctx) h.Node
 pkg ui, func CheckRow(h.Node, string, string) h.Node
 pkg ui, func Checkbox(...h.Node) h.Node
 pkg ui, func Checked(bool) h.Node
@@ -878,6 +890,7 @@ pkg ui, func Lg() h.Node
 pkg ui, func LinkStyle() h.Node
 pkg ui, func Live(string) h.Node
 pkg ui, func LiveScript(*trilha.Ctx) h.Node
+pkg ui, func Markdown(string, MarkdownOpts) h.Node
 pkg ui, func Menu(string, ...h.Node) h.Node
 pkg ui, func MenuItem(...h.Node) h.Node
 pkg ui, func MenuLink(string, ...h.Node) h.Node
@@ -935,6 +948,20 @@ pkg ui, method (Back) Render(io.Writer) error
 pkg ui, type Back struct
 pkg ui, type Back struct, Href string
 pkg ui, type Back struct, Label string
+pkg ui, type ChatMessage struct
+pkg ui, type ChatMessage struct, Role string
+pkg ui, type ChatMessage struct, Text string
+pkg ui, type ChatOpts struct
+pkg ui, type ChatOpts struct, Action string
+pkg ui, type ChatOpts struct, Greeting string
+pkg ui, type ChatOpts struct, History []ChatMessage
+pkg ui, type ChatOpts struct, ID string
+pkg ui, type ChatOpts struct, Label string
+pkg ui, type ChatOpts struct, Markdown MarkdownOpts
+pkg ui, type ChatOpts struct, MaxLength int
+pkg ui, type ChatOpts struct, Placeholder string
+pkg ui, type ChatOpts struct, Steps bool
+pkg ui, type ChatOpts struct, Submit string
 pkg ui, type Column struct, Cell func(T) h.Node
 pkg ui, type Column struct, Key string
 pkg ui, type Column struct, Label string
@@ -984,6 +1011,10 @@ pkg ui, type ListState struct, RowHref func(int) string
 pkg ui, type ListState struct, Search string
 pkg ui, type ListState struct, Select *ListSelect
 pkg ui, type ListState struct, Total int
+pkg ui, type MarkdownOpts struct
+pkg ui, type MarkdownOpts struct, Class string
+pkg ui, type MarkdownOpts struct, HeadingBase int
+pkg ui, type MarkdownOpts struct, Images bool
 pkg ui, type NavGroup struct
 pkg ui, type NavGroup struct, Hide bool
 pkg ui, type NavGroup struct, Items []NavItem

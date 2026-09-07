@@ -19,7 +19,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			h.Title(h.Text(title)),
 			ui.Head(c),
 			h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))),
-			h.Script(h.Src("/chat.js"), h.Defer()),
+			ui.ChatScript(c),
 		),
 		h.Body(ui.Body(),
 			ui.Header(

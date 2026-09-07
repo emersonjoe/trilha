@@ -75,3 +75,50 @@ func Chain(ctx, cli, input string, agents ...*Agent) (*Result, error)
 
 `Parallel` returns in the agents' order and propagates the first error; `Chain` passes one's
 `Output` as the next one's `input`.
+
+## Chat over HTTP
+
+```go
+func Serve(c *trilha.Ctx, cli *Client, agent *Agent) error
+func (o ServeOpts) Serve(c *trilha.Ctx, cli *Client, agent *Agent) error
+```
+
+`Serve` is the route half of [`ui.Chat`](/reference/ui#chat): it reads the message, runs the
+agent and answers the request.
+
+```go
+// app/api/chat/route.go
+func POST(c *trilha.Ctx) error {
+	return ai.ServeOpts{HTML: ui.ChatHTML}.Serve(c, client, assistant)
+}
+```
+
+The request carries `{"message": "…", "history": [...]}` as JSON, or a `message` form field.
+A `{"messages": [...]}` list is also read: the last `user` turn is the message and everything
+before it is the history.
+
+When the client asks for `Accept: text/event-stream`, the answer is a stream of named events —
+the [`Stream`](/reference/ctx) of the framework, with the contract fixed:
+
+| Event | Data |
+|---|---|
+| `text` | the piece of text, as it is |
+| `tool_call`, `tool_result`, `handoff` | `{agent, tool, call_id, arguments, output, to, error}` |
+| `done` | `{agent, output, html, history, usage}` |
+| `error` | `{message}` |
+
+Without the header the whole answer comes at once — the request that arrives when JavaScript is
+not there. That is the `done` payload as a JSON body, or whatever `ServeOpts.Page` renders.
+
+| Field of `ServeOpts` | What it does |
+|---|---|
+| `MaxHistory` | how many past messages travel back into the model (default 40; negative keeps none). The history comes from the browser, so the ceiling is the server's |
+| `MaxInput` | the largest request body accepted (default 256 KB) |
+| `HTML` | renders the finished answer for the browser; `ui.ChatHTML` is the one that matches `ui.Chat`. Without it the answer stays text |
+| `Page` | answers a request that did not ask for a stream, so the app can render the page with the message in it |
+
+A failure before the first byte is an ordinary error (a [problem](/reference/errors) with its
+status). After it, the status line is gone: the failure travels as an `error` event and the
+stream closes.
+
+The history is the app's — the framework keeps no chat session.

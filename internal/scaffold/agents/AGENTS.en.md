@@ -96,6 +96,13 @@ that resolves it — read that line instead of guessing.
   its queue sends one file per request. On the server, `c.Files(field, rules)` applies the
   rules of `c.File` to every file and names a failure by position — `files[2]` — so the
   message lands on the line that earned it.
+- **Do not put model text on the page with `h.Raw`, and do not write a chat by hand.**
+  `ui.Markdown(text, ui.MarkdownOpts{})` returns nodes, not a string: a tag in the text comes
+  out as text, and there is no way to turn that off. `ai.Serve(c, client, agent)` is the whole
+  chat route — it reads `{message, history}`, streams `text`, `tool_call`, `tool_result`,
+  `done` and `error`, and answers at once when nobody asked for a stream — and `ui.Chat(c,
+  ui.ChatOpts{Action: "/api/chat"})` with `ui.ChatScript(c)` is the screen. The history is
+  yours to keep; the framework keeps none.
 - **Do not hand-write the headers of a download.** `c.Attachment(name, body, ctype)` sends a
   file and `c.Inline` opens it in the browser; both sanitise the name, write it in the two
   forms browsers actually read, detect the type from the content and send `nosniff`. `Inline`

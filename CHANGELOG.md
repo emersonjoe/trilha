@@ -7,6 +7,28 @@ versioning. This file is written in English only.
 
 ### Added
 
+- **Markdown that cannot become markup, and a chat that is two calls: `ui.Markdown`,
+  `ui.Chat` and `ai.Serve`** ([#72](https://github.com/emersonjoe/trilha/issues/72)). A model
+  writes Markdown, and until now the app had two choices: `h.Pre`, which is ugly, or `h.Raw`
+  around a converter, which hands the page to whoever wrote the text. `ui.Markdown` returns
+  `h.Node`, not a string — paragraphs, emphasis, headings (demoted to `<h3>` so they do not
+  compete with the page), lists, quotes, inline and fenced code, GFM tables, links and breaks
+  — so the escaping is structural and not a rule somebody has to remember. There is no raw
+  HTML and no way to turn it on; a link only stays a link for `http`, `https`, `mailto` and
+  relative addresses, an external one carries `rel="noopener nofollow ugc"`, and images are
+  opt-in with the URL validated either way. A golden over a fixed corpus and a fuzz target
+  hold the line: no input produces a tag this package did not write.
+  `ai.Serve(c, client, agent)` is the route half of a chat — it reads `{message, history}`,
+  runs the agent and emits `text`, `tool_call`, `tool_result`, `handoff`, `done` and `error`
+  with those names, and answers the whole thing at once when the client did not ask for
+  `text/event-stream`, which is the request that arrives when JavaScript is not there. The
+  history stays with the app: the framework keeps no chat session, and `MaxHistory` caps what
+  the browser can send back. `ui.Chat` renders the bubbles, the field and the `aria-live`, and
+  `ui.chat.js` (opt-in, like the other kit scripts) reads the stream; what the visitor typed
+  is always text, and the assistant's answer is rendered when the message ends, which is what
+  `ui.ChatHTML` is for. `examples/assistente` has no JavaScript of its own any more and its
+  chat route is one call.
+
 - **Sending a file back: `c.Attachment`, `c.Inline`, `c.AttachmentFile`, `c.InlineFile` and
   `c.Pipe`** ([#71](https://github.com/emersonjoe/trilha/issues/71)). `Ctx` could receive a
   file and had no way to send one, so every download was the same six lines of header written

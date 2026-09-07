@@ -75,3 +75,49 @@ func Chain(ctx, cli, input string, agents ...*Agent) (*Result, error)
 
 `Parallel` devolve na ordem dos agentes e propaga o primeiro erro; `Chain` passa `Output` de um
 como `input` do próximo.
+
+## Chat por HTTP
+
+```go
+func Serve(c *trilha.Ctx, cli *Client, agent *Agent) error
+func (o ServeOpts) Serve(c *trilha.Ctx, cli *Client, agent *Agent) error
+```
+
+`Serve` é a metade de rota do [`ui.Chat`](/pt/referencia/ui#chat): lê a mensagem, roda o agente
+e responde ao pedido.
+
+```go
+// app/api/chat/route.go
+func POST(c *trilha.Ctx) error {
+	return ai.ServeOpts{HTML: ui.ChatHTML}.Serve(c, cliente, assistente)
+}
+```
+
+O pedido traz `{"message": "…", "history": [...]}` em JSON, ou um campo `message` de formulário.
+Uma lista `{"messages": [...]}` também é lida: o último turno `user` é a mensagem e o que vem
+antes é o histórico.
+
+Quando o cliente pede `Accept: text/event-stream`, a resposta é um fluxo de eventos com nome —
+o [`Stream`](/pt/referencia/ctx) do framework, com o contrato fixo:
+
+| Evento | Dado |
+|---|---|
+| `text` | o pedaço de texto, como está |
+| `tool_call`, `tool_result`, `handoff` | `{agent, tool, call_id, arguments, output, to, error}` |
+| `done` | `{agent, output, html, history, usage}` |
+| `error` | `{message}` |
+
+Sem o cabeçalho a resposta inteira vem de uma vez — o pedido que chega quando o JavaScript não
+está lá. É o mesmo conteúdo do `done` como corpo JSON, ou o que o `ServeOpts.Page` renderizar.
+
+| Campo de `ServeOpts` | O que faz |
+|---|---|
+| `MaxHistory` | quantas mensagens antigas voltam para o modelo (padrão 40; negativo não guarda nenhuma). O histórico vem do navegador, então o teto é do servidor |
+| `MaxInput` | maior corpo de pedido aceito (padrão 256 KB) |
+| `HTML` | renderiza a resposta pronta para o navegador; `ui.ChatHTML` é o que combina com `ui.Chat`. Sem ele a resposta fica em texto |
+| `Page` | responde ao pedido que não pediu fluxo, para o app desenhar a página com a mensagem dentro |
+
+Falha antes do primeiro byte é erro comum (um [problema](/pt/referencia/erros) com o status
+dele). Depois dele a linha de status já foi: a falha viaja como evento `error` e o fluxo fecha.
+
+O histórico é do app — o framework não guarda sessão de conversa.

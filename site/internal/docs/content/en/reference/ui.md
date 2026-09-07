@@ -59,6 +59,8 @@ description: The kit's components, variants, assets and the theme contract.
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
 | `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) |
 | `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |
+| `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
+| `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error) |
 
 ## ui.js
@@ -188,6 +190,72 @@ func GET(c *trilha.Ctx) error {
 Without JavaScript nothing breaks: the visible field is a normal text input, so the form still
 arrives with `cidade_q` filled in and `cidade` empty. Resolving the typed text against the
 list is the server's job — the same list the search route reads.
+
+## Markdown
+
+```go
+func Markdown(src string, opt MarkdownOpts) h.Node
+```
+
+A model writes Markdown, and so does whoever types in a form. `Markdown` turns it into nodes:
+paragraphs, emphasis, headings, lists, quotes, inline and fenced code, GFM tables, links and
+line breaks.
+
+```go
+h.Div(ui.Markdown(doc.Summary, ui.MarkdownOpts{}))
+```
+
+**There is no raw HTML, and no way to turn it on.** A `<script>` in the text is a `<script>` on
+the screen, as text — the return is a tree, not a string, so the escaping is not a rule anybody
+has to remember. That is the whole reason this exists instead of an `h.Raw` around a converter.
+
+| Field of `MarkdownOpts` | What it does |
+|---|---|
+| `HeadingBase` | the level `#` becomes (default 3, so it does not compete with the page's `<h1>`); `######` never goes past `<h6>` |
+| `Images` | `![alt](url)` renders an `<img>`; off by default, and the URL is validated either way |
+| `Class` | an extra class on the wrapper, which is always `ui-md` |
+
+Links only survive as links when the address is `http`, `https`, `mailto`, or relative (`/`,
+`#`, `./`); anything else — `javascript:`, `data:` — stays as the text it was. An external link
+gets `rel="noopener nofollow ugc"`.
+
+The site's own pages use a different renderer (`site/internal/md`): another dialect, over text
+from this repository. `ui.Markdown` is for text nobody in this repository wrote.
+
+## Chat
+
+```go
+func Chat(c *trilha.Ctx, o ChatOpts) h.Node
+func ChatScript(c *trilha.Ctx) h.Node
+func ChatHTML(text string) string
+```
+
+The conversation with an agent: the bubbles, the field and the button. The route on the other
+side is [`ai.Serve`](/reference/ai#chat-over-http).
+
+```go
+ui.Chat(c, ui.ChatOpts{Action: "/api/chat", History: msgs, Greeting: "Ask me anything."})
+ui.ChatScript(c)   // once, in the layout
+```
+
+| Field of `ChatOpts` | What it does |
+|---|---|
+| `Action` | the route that answers — the only one that has to be filled in |
+| `History` | what was said before, oldest first. It is the app's: the framework keeps no session |
+| `Greeting` | Markdown shown while the history is empty |
+| `ID` | the element id and the prefix of the ids inside (default `chat`) |
+| `Placeholder`, `Submit`, `Label` | the words on the screen |
+| `MaxLength` | caps the field (default 4000; negative lifts it) |
+| `Steps` | shows the tool the agent called and what came back |
+| `Markdown` | the `MarkdownOpts` for the answers |
+
+`ChatMessage{Role, Text}` is one turn. `Role: "assistant"` is rendered as Markdown;
+`Role: "user"` is rendered as text — what somebody typed is never markup.
+
+With `ChatScript` the answer arrives word by word and the Markdown is rendered when the message
+ends: pass `ui.ChatHTML` to `ai.ServeOpts.HTML` and the finished bubble looks exactly like a
+reloaded page. Without the script the form still submits and the route answers the whole thing
+at once, so nothing on the screen depends on the script running.
 
 ## Theme
 
