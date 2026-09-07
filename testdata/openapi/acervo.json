@@ -1,0 +1,159 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Acervo API", "version": "2.4.0" },
+  "paths": {
+    "/api/documents": {
+      "get": {
+        "tags": ["documents"],
+        "operationId": "list_documents_api_documents_get",
+        "summary": "List documents, newest first.",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1, "minimum": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "maximum": 200 } },
+          { "name": "q", "in": "query", "description": "Full text search.", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/Status" } },
+          { "name": "tag", "in": "query", "schema": { "type": "array", "items": { "type": "string" } } },
+          { "name": "archived", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "description": "A page of documents.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedDocument" } } } }
+        }
+      },
+      "post": {
+        "tags": ["documents"],
+        "operationId": "create_document_api_documents_post",
+        "summary": "Create a document from metadata only.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DocumentIn" } } } },
+        "responses": {
+          "201": { "description": "Created.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } },
+          "422": { "description": "Validation error." }
+        }
+      }
+    },
+    "/api/documents/{document_id}": {
+      "parameters": [ { "name": "document_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } } ],
+      "get": {
+        "tags": ["documents"],
+        "operationId": "get_document_api_documents__document_id__get",
+        "responses": { "200": { "description": "One document.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } } }
+      },
+      "delete": {
+        "tags": ["documents"],
+        "operationId": "delete_document_api_documents__document_id__delete",
+        "responses": { "204": { "description": "Gone." } }
+      }
+    },
+    "/api/documents/{document_id}/file": {
+      "get": {
+        "tags": ["documents"],
+        "operationId": "download_api_documents__document_id__file_get",
+        "summary": "The bytes of the document.",
+        "parameters": [ { "name": "document_id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "200": { "description": "The file.", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } } }
+      }
+    },
+    "/api/documents/upload": {
+      "post": {
+        "tags": ["documents"],
+        "operationId": "upload_api_documents_upload_post",
+        "summary": "Send a file and let the API read it.",
+        "requestBody": {
+          "required": true,
+          "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "upload": { "type": "string", "format": "binary" }, "folder": { "type": "string" } }, "required": ["upload"] } } }
+        },
+        "responses": { "202": { "description": "Queued.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } } }
+      }
+    },
+    "/api/folders/{folder_id}/tree": {
+      "get": {
+        "tags": ["folders"],
+        "responses": { "200": { "description": "The tree.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Folder" } } } } },
+        "parameters": [ { "name": "folder_id", "in": "path", "required": true, "schema": { "type": "string" } } ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": { "200": { "description": "ok", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "checks": { "type": "object", "additionalProperties": { "type": "string" } } } } } } } }
+      }
+    },
+    "/api/users": {
+      "put": {
+        "tags": ["users"],
+        "operationId": "upsert_user_api_users_put",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+        "responses": { "200": { "description": "Saved.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Status": { "type": "string", "title": "Status of a document in the pipeline.", "enum": ["pending", "processing", "ready", "failed"] },
+      "Base": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } },
+        "required": ["id"]
+      },
+      "Document": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Base" },
+          {
+            "type": "object",
+            "description": "A document the API stores.",
+            "properties": {
+              "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+              "status": { "$ref": "#/components/schemas/Status" },
+              "pages": { "type": "integer", "format": "int32" },
+              "size_bytes": { "type": "integer" },
+              "score": { "type": "number" },
+              "archived": { "type": "boolean" },
+              "tags": { "type": "array", "items": { "type": "string" } },
+              "metadata": { "type": "object", "additionalProperties": true },
+              "payload": { "oneOf": [ { "type": "string" }, { "type": "object" } ] }
+            },
+            "required": ["filename", "status"]
+          }
+        ]
+      },
+      "DocumentIn": {
+        "type": "object",
+        "properties": { "filename": { "type": "string", "minLength": 1 }, "folder": { "type": "string" } },
+        "required": ["filename"]
+      },
+      "PagedDocument": {
+        "type": "object",
+        "description": "A page of documents.",
+        "properties": {
+          "total": { "type": "integer" },
+          "page": { "type": "integer" },
+          "page_size": { "type": "integer" },
+          "pages": { "type": "integer" },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Document" } }
+        },
+        "required": ["total", "page", "items"]
+      },
+      "Folder": {
+        "type": "object",
+        "description": "A folder, which contains folders.",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "parent": { "$ref": "#/components/schemas/Folder" },
+          "children": { "type": "array", "items": { "$ref": "#/components/schemas/Folder" } }
+        },
+        "required": ["id", "name"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string", "minLength": 2 },
+          "site": { "type": "string", "format": "uri" },
+          "role": { "type": "string", "enum": ["admin", "member"] }
+        },
+        "required": ["email", "name"]
+      },
+      "Tags": { "type": "array", "items": { "type": "string" } }
+    }
+  }
+}

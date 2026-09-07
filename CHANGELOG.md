@@ -7,6 +7,27 @@ versioning. This file is written in English only.
 
 ### Added
 
+- **The API that stayed where it is becomes Go types: `trilha client`**
+  ([#61](https://github.com/emersonjoe/trilha/issues/61)). Trilha wrote the OpenAPI document
+  of its own routes; it could not read anybody else's. A migration in phases — the front
+  becomes Trilha, the API stays put — meant the page had `map[string]any` where the shape of
+  the answer should be, and the only source of truth for that shape was somebody's Python.
+  `trilha client openapi.json` (a URL works too) writes one deterministic file, committed like
+  `trilha_gen.go` and checked in CI with `--check`: a struct per schema with `json` tags and
+  the `validate` tags of spec 027, so the same type is the answer of the API and the `Bind` of
+  a form; a method per operation grouped by tag, with path parameters in the signature, query
+  parameters in a struct, an upload as `io.Reader` that streams instead of buffering, and a
+  binary answer as the `*http.Response`, which is what `c.Pipe` wants. A status outside 2xx is
+  an `*Error` carrying the `Detail` of `problem+json` or of the `{"detail": ...}` a FastAPI
+  writes, and `New(base, WithHeader(...))` is the only place a credential appears — the client
+  keeps none of its own. `allOf` is flattened, a `$ref` that closes a cycle becomes a pointer,
+  and what the generator will not guess at — `oneOf`, a schema with no type, an operation with
+  no `operationId` — comes through as `json.RawMessage` or an invented name, each one a line
+  of the report rather than a silent decision. The generated file imports the standard library
+  and nothing else, not even Trilha, so it also runs in a job and in a test. The recipe *An app
+  in front of an existing API* now has both halves side by side: the page reading through the
+  client, the islands reading through `Config.Upstreams`, one session token for both.
+
 - **The first day of a migration is one command: `trilha migrate next`**
   ([#59](https://github.com/emersonjoe/trilha/issues/59)). Moving a Next.js app used to start
   with a week of folder archaeology — which routes exist, which pages are really client, what

@@ -59,6 +59,7 @@ Usage:
   trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
   trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
   trilha migrate next <next-dir> [--out app]        skeleton of app/ and MIGRATION.md from a Next.js project
+  trilha client <openapi.json|URL> [--check]       generate the Go client of an API that already exists
   trilha version
 
 Language: TRILHA_LANG=en|pt (falls back to LC_ALL, LC_MESSAGES, LANG).
@@ -81,6 +82,7 @@ Uso:
   trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
   trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
   trilha migrate next <dir-do-next> [--out app]       esqueleto do app/ e MIGRATION.md a partir de um projeto Next.js
+  trilha client <openapi.json|URL> [--check]          gera o cliente Go de uma API que já existe
   trilha version
 
 Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
@@ -162,6 +164,17 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"ui kept theme": {"kept (your theme)", "mantido (seu tema)"},
 	"ui local":      {"modified locally", "modificado localmente"},
 	"ui kept own":   {"kept (yours)", "mantido (seu)"},
+
+	// client
+	"client needs a doc":  {"give the OpenAPI document: trilha client openapi.json", "informe o documento OpenAPI: trilha client openapi.json"},
+	"flag client out":     {"folder of the generated client", "pasta do cliente gerado"},
+	"flag client package": {"package clause of the generated file (default: the folder name)", "cláusula package do arquivo gerado (padrão: o nome da pasta)"},
+	"flag client check":   {"fail if the file on disk is out of date", "falha se o arquivo no disco estiver desatualizado"},
+	"client fresh":        {"%s is up to date", "%s está em dia"},
+	"client stale":        {"%s is out of date; run trilha client again", "%s está desatualizado; rode trilha client de novo"},
+	"client done":         {"%s written, package %s.", "%s gravado, pacote %s."},
+	"client bad scheme":   {"%s:// is not a scheme this reads; give a file or an http(s) URL", "%s:// não é um esquema que dá para ler; informe um arquivo ou uma URL http(s)"},
+	"client fetch failed": {"%s answered %d", "%s respondeu %d"},
 
 	// migrate
 	"migrate what":         {"say what to migrate: trilha migrate next <next-dir>", "diga o que migrar: trilha migrate next <dir-do-next>"},

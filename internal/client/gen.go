@@ -1,0 +1,365 @@
+package client
+
+import (
+	"bytes"
+	"fmt"
+	"go/format"
+	"sort"
+	"strings"
+)
+
+// Options are what the CLI passes down: where the file goes and what it is
+// called from the inside.
+type Options struct {
+	Package string // package clause of the generated file (default "api")
+	Source  string // what the header says the document was (a path or a URL)
+}
+
+// Result is what Generate produced: the file and the lines of the report.
+type Result struct {
+	Source []byte
+	Notes  []Note
+}
+
+// method is one generated method: everything the template needs, already
+// resolved, so the emission below is only text.
+type method struct {
+	Name     string
+	Doc      string
+	HTTP     string
+	Path     string
+	PathVars []pathVar
+	Query    []queryParam
+	Params   string // name of the params struct, "" when there is none
+	Body     string // Go type of the JSON body, "" when there is none
+	Upload   string // multipart field name, "" when it is not an upload
+	Return   string // Go type of the answer, "" when there is none
+	Binary   bool
+}
+
+type pathVar struct {
+	Name string // Go argument
+	Raw  string // {name} in the path
+}
+
+type queryParam struct {
+	Wire     string
+	Field    string
+	Type     string
+	Required bool
+}
+
+// group is a tag: the methods of one part of the API, on one struct.
+type group struct {
+	Name    string
+	Doc     string
+	Methods []*method
+}
+
+// Generate reads the document and writes the client. It is deterministic: the
+// same bytes in, the same bytes out, which is what lets --check mean anything.
+func Generate(data []byte, opt Options) (*Result, error) {
+	d, ops, err := Read(data)
+	if err != nil {
+		return nil, err
+	}
+	if opt.Package == "" {
+		opt.Package = "api"
+	}
+	b := newBuilder(d)
+	b.components()
+
+	groups := map[string]*group{}
+	var order []string
+	used := map[string]bool{}
+	for _, op := range ops {
+		gName := "Default"
+		if len(op.Tags) > 0 && strings.TrimSpace(op.Tags[0]) != "" {
+			gName = exportName(op.Tags[0])
+		}
+		g := groups[gName]
+		if g == nil {
+			g = &group{Name: gName}
+			groups[gName] = g
+			order = append(order, gName)
+		}
+		m, err := b.method(op, gName, used)
+		if err != nil {
+			return nil, err
+		}
+		g.Methods = append(g.Methods, m)
+	}
+	sort.Strings(order)
+	for _, n := range order {
+		sort.SliceStable(groups[n].Methods, func(i, j int) bool {
+			return groups[n].Methods[i].Name < groups[n].Methods[j].Name
+		})
+	}
+
+	src := b.emit(d, opt, order, groups)
+	out, err := format.Source(src)
+	if err != nil {
+		return nil, fmtErr("the generated file does not parse: %w", err)
+	}
+	return &Result{Source: out, Notes: b.sortedNotes()}, nil
+}
+
+// method resolves one operation into everything the emission needs.
+func (b *builder) method(op *Operation, gName string, used map[string]bool) (*method, error) {
+	where := op.Method + " " + op.Path
+	m := &method{HTTP: op.Method, Path: op.Path, Doc: firstSentence(op.Summary, op.Description)}
+	m.Name = uniqueName(methodName(op, gName), gName, op, used)
+
+	// Path parameters are positional by nature, so they go in the signature.
+	for _, seg := range strings.Split(op.Path, "/") {
+		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
+			raw := strings.TrimSuffix(strings.TrimPrefix(seg, "{"), "}")
+			m.PathVars = append(m.PathVars, pathVar{Name: argName(raw), Raw: seg})
+		}
+	}
+	// Query parameters are a struct: ten optional arguments in a signature is
+	// unreadable, and the struct is also the Bind of a form.
+	var qs []*Param
+	for _, p := range op.Parameters {
+		if p != nil && p.In == "query" {
+			qs = append(qs, p)
+		}
+	}
+	if len(qs) > 0 {
+		sort.SliceStable(qs, func(i, j int) bool { return qs[i].Name < qs[j].Name })
+		name := gName + m.Name + "Params"
+		st := &Struct{Name: name, Doc: "Query of " + where + "."}
+		for _, p := range qs {
+			t := b.goType(p.Schema, name+exportName(p.Name), where+"?"+p.Name)
+			tag := "json:\"" + p.Name
+			if !p.Required {
+				tag += ",omitempty"
+			}
+			tag += "\""
+			if v := validateTag(p.Schema, p.Required); v != "" {
+				tag += " validate:\"" + v + "\""
+			}
+			st.Fields = append(st.Fields, Field{Name: exportName(p.Name), Type: t, Tag: tag, Doc: doc(p.Schema)})
+			m.Query = append(m.Query, queryParam{Wire: p.Name, Field: exportName(p.Name), Type: t, Required: p.Required})
+		}
+		b.byName[name] = st
+		b.order = append(b.order, name)
+		m.Params = name
+	}
+	// The body: JSON becomes the schema's type, multipart becomes a reader and
+	// a filename, anything else is a line in the report.
+	if op.RequestBody != nil {
+		switch ct, mt := pickBody(op.RequestBody.Content); ct {
+		case "":
+		case "multipart/form-data":
+			m.Upload = uploadField(mt)
+		default:
+			if strings.Contains(ct, "json") {
+				m.Body = b.goType(mt.Schema, gName+m.Name+"Body", where+" body")
+			} else {
+				b.note(where, "request body is "+ct+" — send it with the raw client")
+			}
+		}
+	}
+	// The answer: the first 2xx that carries content.
+	if ct, mt := pickResponse(op.Responses); ct != "" {
+		switch {
+		case strings.Contains(ct, "json"):
+			m.Return = b.goType(mt.Schema, gName+m.Name+"Response", where+" response")
+		default:
+			m.Binary = true
+		}
+	}
+	if op.OperationID == "" {
+		b.note(where, "no operationId — the name came from the method and the path")
+	}
+	return m, nil
+}
+
+// methodName is decision 6: the operationId when it exists, minus the part of
+// it that only repeats the path and the method (FastAPI writes
+// list_documents_api_documents_get), minus the group's own name.
+func methodName(op *Operation, gName string) string {
+	if op.OperationID == "" {
+		return fallbackName(op)
+	}
+	name := exportName(op.OperationID)
+	if tail := exportName(op.Path + "_" + strings.ToLower(op.Method)); tail != "" && len(name) > len(tail) {
+		name = strings.TrimSuffix(name, tail)
+	}
+	// What is left often repeats the tag: Documents.ListDocuments reads worse
+	// than Documents.List, and the singular is the spelling APIs actually use.
+	for _, word := range []string{gName, singular(gName)} {
+		for _, cut := range []func(string) string{
+			func(s string) string { return strings.TrimSuffix(s, word) },
+			func(s string) string { return strings.TrimPrefix(s, word) },
+		} {
+			if trimmed := cut(name); trimmed != "" && trimmed != name {
+				name = trimmed
+			}
+		}
+	}
+	return name
+}
+
+// verbs name an operation that has no operationId.
+var verbs = map[string]string{
+	"GET": "Get", "POST": "Create", "PUT": "Update", "PATCH": "Update", "DELETE": "Delete",
+}
+
+// fallbackName is method plus the last static segment: GET /api/documents is
+// List, GET /api/documents/{id} is GetDocument.
+func fallbackName(op *Operation) string {
+	segs := strings.Split(strings.Trim(op.Path, "/"), "/")
+	last, tail := "", ""
+	for _, s := range segs {
+		if strings.HasPrefix(s, "{") {
+			continue
+		}
+		last = s
+	}
+	tail = exportName(last)
+	if op.Method == "GET" && !strings.HasSuffix(op.Path, "}") {
+		return "List" + tail
+	}
+	return verbs[op.Method] + singular(tail)
+}
+
+// uniqueName keeps two operations of one group from colliding.
+func uniqueName(name, gName string, op *Operation, used map[string]bool) string {
+	key := gName + "." + name
+	if !used[key] {
+		used[key] = true
+		return name
+	}
+	for _, seg := range strings.Split(strings.Trim(op.Path, "/"), "/") {
+		if strings.HasPrefix(seg, "{") {
+			continue
+		}
+		cand := name + exportName(seg)
+		if !used[gName+"."+cand] {
+			used[gName+"."+cand] = true
+			return cand
+		}
+	}
+	for i := 2; ; i++ {
+		cand := fmt.Sprintf("%s%d", name, i)
+		if !used[gName+"."+cand] {
+			used[gName+"."+cand] = true
+			return cand
+		}
+	}
+}
+
+// pickBody chooses the media type to send: JSON first, then multipart, then
+// whatever came, so the report can name it.
+func pickBody(content map[string]*MediaType) (string, *MediaType) {
+	for _, want := range []string{"application/json", "multipart/form-data"} {
+		if mt, ok := content[want]; ok {
+			return want, mt
+		}
+	}
+	keys := make([]string, 0, len(content))
+	for k := range content {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if strings.Contains(k, "json") {
+			return k, content[k]
+		}
+	}
+	if len(keys) > 0 {
+		return keys[0], content[keys[0]]
+	}
+	return "", nil
+}
+
+// uploadField is the name of the multipart part that carries the file.
+func uploadField(mt *MediaType) string {
+	if mt != nil && mt.Schema != nil {
+		names := make([]string, 0, len(mt.Schema.Properties))
+		for n := range mt.Schema.Properties {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			if s := mt.Schema.Properties[n]; s != nil && s.Format == "binary" {
+				return n
+			}
+		}
+	}
+	return "file"
+}
+
+// pickResponse is the first 2xx that carries content.
+func pickResponse(resp map[string]*Response) (string, *MediaType) {
+	codes := make([]string, 0, len(resp))
+	for c := range resp {
+		codes = append(codes, c)
+	}
+	sort.Strings(codes)
+	for _, c := range codes {
+		if !strings.HasPrefix(c, "2") {
+			continue
+		}
+		r := resp[c]
+		if r == nil || len(r.Content) == 0 {
+			continue
+		}
+		if mt, ok := r.Content["application/json"]; ok {
+			return "application/json", mt
+		}
+		types := make([]string, 0, len(r.Content))
+		for t := range r.Content {
+			types = append(types, t)
+		}
+		sort.Strings(types)
+		for _, t := range types {
+			if strings.Contains(t, "json") {
+				return t, r.Content[t]
+			}
+		}
+		return types[0], r.Content[types[0]]
+	}
+	return "", nil
+}
+
+// firstSentence is the doc comment of a method.
+func firstSentence(summary, description string) string {
+	s := summary
+	if s == "" {
+		s = description
+	}
+	s = strings.TrimSpace(strings.ReplaceAll(s, "\n", " "))
+	if len(s) > 110 {
+		s = s[:107] + "..."
+	}
+	return s
+}
+
+// argName is a path parameter as a Go argument.
+func argName(raw string) string {
+	n := exportName(raw)
+	if n == "" {
+		return "arg"
+	}
+	lower := strings.ToLower(n[:1]) + n[1:]
+	switch lower {
+	case "type", "range", "func", "map", "len", "cap", "new", "make", "select", "go", "chan", "var", "const", "package", "import", "return", "interface", "default", "case", "if", "for", "switch", "string", "int", "error", "ctx":
+		return lower + "_"
+	}
+	return lower
+}
+
+// buf is a tiny helper so the emission below reads as text, not as calls.
+type buf struct{ bytes.Buffer }
+
+func (b *buf) p(format string, args ...any) {
+	if len(args) == 0 {
+		b.WriteString(format)
+	} else {
+		fmt.Fprintf(&b.Buffer, format, args...)
+	}
+	b.WriteByte('\n')
+}

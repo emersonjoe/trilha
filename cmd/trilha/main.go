@@ -1,5 +1,5 @@
 // Command trilha is the CLI: new, gen, generate, dev, build, check, ctx,
-// routes, export, openapi, audit, ui, migrate.
+// routes, export, openapi, audit, ui, migrate, client.
 // Messages follow TRILHA_LANG / LANG (see i18n.go).
 package main
 
@@ -62,6 +62,8 @@ func main() {
 		err = cmdOpenAPI(os.Args[2:])
 	case "ui":
 		err = cmdUI(os.Args[2:])
+	case "client":
+		err = cmdClient(os.Args[2:])
 	case "migrate":
 		err = cmdMigrate(os.Args[2:])
 	case "agents":

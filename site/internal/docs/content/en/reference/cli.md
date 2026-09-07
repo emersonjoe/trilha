@@ -163,6 +163,43 @@ unknown name exits non-zero with the closest names. `--json` is there for the ag
 the screen: one call and it knows what exists and how each thing is spelled, instead of
 guessing at a name and finding out at compile time.
 
+## trilha client
+
+Generates the Go client of an API that already exists, from the OpenAPI document that API
+publishes. It is the other direction of `trilha openapi`, which writes the document of *your*
+routes.
+
+```bash
+trilha client openapi.json                       # writes internal/api/client.go
+trilha client https://api.example.com/openapi.json --out internal/acervo
+trilha client openapi.json --check               # fails when the file is out of date
+```
+
+One file, deterministic, committed like `trilha_gen.go`. Inside it: a struct per schema of
+`components/schemas`, with `json` tags and — where the document says `required`, `minLength`,
+`format: email`, `enum` — the `validate` tags of [Validation](/reference/validation), so the
+same type is the answer of the API and the `Bind` of a form. A method per operation, grouped
+by tag: path parameters in the signature, query parameters in a struct, a JSON body as the
+schema's type, an upload as `io.Reader` plus a filename, and a binary answer as the
+`*http.Response`, so it streams into `c.Pipe`.
+
+`New(base, WithHeader(...), WithClient(...))` is the whole surface of the constructor: the
+client holds no credential of its own, and `WithHeader` runs per request, which is where the
+session's token goes. A status outside 2xx is an `*Error` with `Status`, `Body` and the
+`Detail` pulled out of `problem+json` or of the `{"detail": ...}` a FastAPI writes. The
+generated file imports the standard library and nothing else — not even Trilha — so it also
+works in a job, in a test, in a binary that is not a web app.
+
+What it will not guess at, it says out loud: `oneOf` and `anyOf` and a schema with no type
+come through as `json.RawMessage`, and each one is a line of the report the command prints.
+`allOf` is flattened into one struct, a `$ref` that closes a cycle becomes a pointer, and an
+operation with no `operationId` gets its name from the method and the path — also a line of
+the report.
+
+The recipe [An app in front of an existing API](/cookbook/existing-api) has the two halves
+side by side: the page reading the API through this client, the islands reading it through
+`Config.Upstreams`, one session token for both.
+
 ## trilha migrate
 
 Reads a Next.js project and writes the two things that are mechanical about a migration: the

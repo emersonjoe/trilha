@@ -162,6 +162,41 @@ Nome desconhecido sai com status diferente de zero e a lista dos nomes mais pró
 `--json` é para o agente que escreve a tela: uma chamada e ele sabe o que existe e como cada
 coisa se chama, em vez de chutar um nome e descobrir na hora de compilar.
 
+## trilha client
+
+Gera o cliente Go de uma API que já existe, a partir do documento OpenAPI que essa API
+publica. É o sentido contrário do `trilha openapi`, que escreve o documento das *suas* rotas.
+
+```bash
+trilha client openapi.json                       # grava internal/api/client.go
+trilha client https://api.example.com/openapi.json --out internal/acervo
+trilha client openapi.json --check               # falha quando o arquivo está desatualizado
+```
+
+Um arquivo só, determinístico, commitado como o `trilha_gen.go`. Dentro dele: uma struct por
+esquema de `components/schemas`, com tags `json` e — onde o documento diz `required`,
+`minLength`, `format: email`, `enum` — as tags `validate` da [Validação](/pt/referencia/validacao),
+para o mesmo tipo ser a resposta da API e o `Bind` de um formulário. Um método por operação,
+agrupado por tag: parâmetro de caminho na assinatura, parâmetros de query numa struct, corpo
+JSON com o tipo do esquema, upload como `io.Reader` mais o nome do arquivo, e resposta binária
+como o `*http.Response`, que passa em stream para o `c.Pipe`.
+
+`New(base, WithHeader(...), WithClient(...))` é toda a superfície do construtor: o cliente não
+guarda credencial nenhuma, e o `WithHeader` roda por requisição, que é onde o token da sessão
+entra. Status fora de 2xx vira um `*Error` com `Status`, `Body` e o `Detail` tirado do
+`problem+json` ou do `{"detail": ...}` que uma FastAPI escreve. O arquivo gerado importa a
+biblioteca padrão e mais nada — nem a Trilha — então serve também num job, num teste, num
+binário que não é web.
+
+O que ele não vai adivinhar, ele diz: `oneOf`, `anyOf` e esquema sem tipo chegam como
+`json.RawMessage`, e cada um é uma linha do relatório que o comando imprime. `allOf` é achatado
+numa struct só, um `$ref` que fecha ciclo vira ponteiro, e operação sem `operationId` ganha o
+nome do método e do caminho — também uma linha do relatório.
+
+A receita [Um app na frente de uma API que já existe](/pt/receitas/api-existente) tem as duas
+metades lado a lado: a página lendo a API por este cliente, as ilhas lendo pelo
+`Config.Upstreams`, um token de sessão para as duas.
+
 ## trilha migrate
 
 Lê um projeto Next.js e grava as duas coisas mecânicas de uma migração: a árvore de pastas do

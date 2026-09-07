@@ -685,4 +685,29 @@ func TestMigrateNextE2E(t *testing.T) {
 			t.Fatalf("routes missing %s:\n%s", want, out)
 		}
 	}
+
+	// The other half of the same migration (issue #59 writes the screens, #61
+	// writes the types they read): the client of the API that stayed where it
+	// was has to compile inside the project that just appeared.
+	doc := filepath.Join(repo, "testdata", "openapi", "acervo.json")
+	out = run(t, proj, cli, "client", doc)
+	if !strings.Contains(out, "internal/api/client.go") || !strings.Contains(out, "oneOf/anyOf") {
+		t.Fatal(out)
+	}
+	gen := filepath.Join(proj, "internal", "api", "client.go")
+	if b, _ := os.ReadFile(gen); !strings.Contains(string(b), "func (g *Documents) List(") {
+		t.Fatalf("client.go = %.400s", b)
+	}
+	run(t, proj, "go", "build", "./...")
+	if out := run(t, proj, cli, "client", doc, "--check"); !strings.Contains(out, "up to date") {
+		t.Fatal(out)
+	}
+	// The document moved and nobody regenerated: that is what --check is for.
+	b, _ := os.ReadFile(gen)
+	os.WriteFile(gen, append(b, []byte("\n// touched\n")...), 0o644)
+	stale := exec.Command(cli, "client", doc, "--check")
+	stale.Dir = proj
+	if out, err := stale.CombinedOutput(); err == nil || !strings.Contains(string(out), "out of date") {
+		t.Fatal(string(out), err)
+	}
 }
