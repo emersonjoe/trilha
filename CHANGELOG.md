@@ -3,7 +3,15 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
-## Unreleased
+## 0.41.0 — 2026-09-08
+
+The release of the app that already exists somewhere else. An API in another language keeps
+answering behind `Config.Upstreams` while Go takes it over one endpoint at a time; the users
+table that is already there logs people in without OIDC; `trilha migrate next` writes the
+`app/` skeleton of a Next.js project and `trilha client` turns the API that stayed where it
+is into Go types. The other half is the screens an internal app is made of — a listing whose
+whole state lives in the URL, a fragment that refreshes itself, a shell, a dashboard, forms
+that grow — and the island, which can now talk back to the server.
 
 ### Added
 

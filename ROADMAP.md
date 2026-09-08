@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.21.0)
+## Onde o Trilha está (setembro de 2026, v0.41.0)
 
 | Área da avaliação | Estado | Onde |
 |---|---|---|
