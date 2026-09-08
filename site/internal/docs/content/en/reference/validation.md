@@ -30,6 +30,7 @@ type entry struct {
 | `email` | one `@`, a domain with a dot | — | — | — |
 | `url` | absolute `http`/`https` | — | — | — |
 | `oneof=a b c` | value is one of the options, separated by spaces | same, as text | — | — |
+| `enum=<name>` | one of a registered `trilha.Enum`; the message lists the labels |
 | `eqfield=other` | equal to the other field's value, by form name | same | same | — |
 
 Rules are separated by commas and applied in order; the first one to fail is the message for
@@ -109,6 +110,76 @@ bug in the app, not something the person filling the form did: `schema.Check()`,
 `BindSchema` calls first, answers with a plain error and never a 422. `ui.SchemaForm(schema,
 values, errs)` draws the fields; the `<form>`, the CSRF input and the button stay yours,
 because where the form posts is not in the schema.
+
+## Enum — a domain list declared once
+
+A status, a document type, a pipeline stage. Written by hand it exists in four places — the
+badge on the table, the options of a select, the validation of the form, and a comment on the
+tag — and the fourth one is where the label is wrong.
+
+```go
+// internal/docs/status.go
+var Status = trilha.Enum{
+	{Value: "queued",     Label: "Queued"},
+	{Value: "processing", Label: "Processing", Tone: "info"},
+	{Value: "processed",  Label: "Processed",  Tone: "success"},
+	{Value: "error",      Label: "Error",      Tone: "danger"},
+}
+```
+
+`Tone` is one of `muted`, `info`, `success`, `warning`, `danger` and `accent` — a name from the
+theme and never a CSS class. Whoever declares a status picks a meaning; picking a colour is how
+two screens end up with two different greens. Empty means `muted`.
+
+| Symbol | What it does |
+|---|---|
+| `Enum.Label(v)` | what a person reads, or the raw value when the list does not know it |
+| `Enum.Tone(v)` | the tone, `muted` for an unknown value |
+| `Enum.Has(v)` | is this one of the list |
+| `Enum.Options(current, placeholder…)` | the `<option>` list, current value marked |
+| `Enum.Values()`, `Enum.Labels()` | both, in declaration order |
+| `ui.Status(e, v)` | the badge: the label, in the tone |
+
+### The four uses
+
+```go
+ui.Status(docs.Status, doc.Status)                       // badge
+{Key: "status", Cell: func(d Doc) h.Node {               // DataTable column
+	return ui.Status(docs.Status, d.Status)
+}}
+ui.Field("status", "Status", ui.Select(docs.Status.Options(form.Status)))   // select
+type Form struct {                                       // validation
+	Status string `validate:"required,enum=docs.Status"`
+}
+```
+
+The tag cites the enum by the name it was registered under:
+
+```go
+func Setup(a *trilha.App) error {
+	trilha.RegisterEnum("docs.Status", docs.Status)
+	return nil
+}
+```
+
+Registering the same list again is fine — `Setup` is where this belongs, and a test suite boots
+the app once per test. Two *different* lists behind one name panics: the form would validate
+against one and the select would draw the other.
+
+The message lists the labels, not the values: `invalid option; accepts Queued, Processing,
+Processed, Error`. The person filling the form read labels.
+
+### A value the list does not know
+
+It renders raw, in the muted tone, and `Has` says no. A row written before somebody retired
+that value must not take the screen down — showing `legacy` in grey is a screen you can act
+on; a panic is not.
+
+### What is not here
+
+Translation of the labels. `Label` is a string, and an application with two languages passes
+two enums or builds one from its own table. A translation table inside this would be a second,
+worse i18n.
 
 ## Your own rules
 

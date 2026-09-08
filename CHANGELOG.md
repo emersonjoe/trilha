@@ -3,6 +3,41 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.46.0 — 2026-09-08
+
+Spec 064.
+
+### Added
+
+- **`trilha.Enum` — a domain list declared once**
+  ([#96](https://github.com/emersonjoe/trilha/issues/96)). A status, a document type, a
+  pipeline stage: written by hand it lives in four places — the badge on the table, the
+  options of a select, the validation of the form and a comment on the tag — and the fourth
+  one is where the label is wrong. `examples/cadastro` had exactly that before this: two
+  radios with the values typed in, a badge that printed the raw value, so somebody who chose
+  *Mensal* saw `mensal` in the list.
+
+  One declaration now answers all four. `Tone` is one of six names from the theme and never a
+  CSS class — whoever declares a status picks a meaning, and picking a colour is how two
+  screens end up with two different greens.
+
+- **`ui.Status(enum, value)`** — the badge: the label, in the tone the enum declared. A value
+  the list does not know renders raw and muted, because a row written before somebody retired
+  that value must not take the screen down.
+
+- **`enum=<name>` in the validate tag**, with `trilha.RegisterEnum` naming the list in `Setup`.
+  The message lists the labels and not the values: the person filling the form read labels.
+  Registering the same list again is fine — `Setup` is where this belongs and a test suite
+  boots the app once per test — while two *different* lists behind one name panic, because the
+  form would validate against one and the select would draw the other.
+
+### Note
+
+The issue also asked for `trilha ctx` to list the registered enums. It is not here: the
+registry is filled at run time and `ctx` reads code, so telling an agent which values exist is
+scanner work. That, and the same pending item spec 063 left behind, are being tracked
+separately.
+
 ## 0.45.0 — 2026-09-08
 
 Spec 063.

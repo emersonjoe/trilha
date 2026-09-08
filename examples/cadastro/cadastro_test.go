@@ -271,3 +271,38 @@ func TestComboboxDeCidade(t *testing.T) {
 	f.Set("cidade_q", "Atlântida")
 	c.PostForm("/", f).WantStatus(422).WantContains("Escolha a cidade", `value="Atlântida"`)
 }
+
+// #96 — the same declaration answers three places. Before it, the badge printed
+// the raw value: somebody who chose "Mensal" saw "mensal" in the list.
+func TestFrequenciaVemDeUmaDeclaracaoSo(t *testing.T) {
+	c := newClient(t)
+
+	// The radios are built from the enum, so they carry its labels.
+	c.Get("/").WantStatus(200).WantContains(
+		`value="semanal"`, "Semanal", `value="mensal"`, "Mensal")
+
+	f := valido()
+	f.Set("novidades", "on")
+	f.Set("frequencia", "mensal")
+	c.PostForm("/", f).WantStatus(303)
+
+	// The list shows the label and the tone the enum declared, not the value.
+	body := c.Get("/").WantStatus(200).Body.String()
+	if !strings.Contains(body, `ui-badge-accent">Mensal<`) {
+		t.Fatalf("a badge não veio do enum: %s", body[max(0, strings.Index(body, "ui-badge")-80):])
+	}
+
+	// A value that is not on the list is refused by the tag, and the message
+	// lists the labels — the person filling the form read labels.
+	f2 := valido()
+	f2.Set("email", "outro@example.com")
+	f2.Set("novidades", "on")
+	f2.Set("frequencia", "trimestral")
+	rec := c.PostForm("/", f2)
+	if rec.Code != 422 {
+		t.Fatalf("valor fora da lista → %d, queria 422", rec.Code)
+	}
+	if b := rec.Body.String(); !strings.Contains(b, "Semanal") || !strings.Contains(b, "Mensal") {
+		t.Fatalf("a mensagem não cita os rótulos: %s", b)
+	}
+}

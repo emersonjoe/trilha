@@ -51,8 +51,17 @@ type Cliente struct {
 	Cobranca    Endereco     `form:"cob_"` // bound as cob_cep, cob_rua...
 	Dependentes []Dependente `form:"dependentes" validate:"maxitems=10"`
 	Novidades   bool         `form:"novidades"`
-	Frequencia  string       `form:"frequencia"` // semanal | mensal
+	Frequencia  string       `form:"frequencia" validate:"enum=cadastro.Frequencia"`
 	Criado      time.Time
+}
+
+// Frequencias is the newsletter cadence, declared once. Before this it was
+// written four times — two radios, a badge that printed the raw value, a
+// comment on the tag and a hand-written check — and the badge was the one that
+// showed "mensal" to somebody who had chosen "Mensal".
+var Frequencias = trilha.Enum{
+	{Value: "semanal", Label: "Semanal", Tone: "info"},
+	{Value: "mensal", Label: "Mensal", Tone: "accent"},
 }
 
 // Documento returns the identifier shown in lists.
@@ -140,7 +149,9 @@ func Validar(c Cliente) trilha.FieldErrors {
 	if c.CobrancaDif {
 		validarEndereco(e, "cob_", c.Cobranca)
 	}
-	if c.Novidades && c.Frequencia != "semanal" && c.Frequencia != "mensal" {
+	// The enum tag already refuses a value that is not on the list; what it
+	// cannot know is that this field is required only when the box is ticked.
+	if c.Novidades && c.Frequencia == "" {
 		e.Add("frequencia", "Escolha a frequência")
 	}
 	return e

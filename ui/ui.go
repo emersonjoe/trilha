@@ -828,3 +828,19 @@ func Checked(v bool) h.Node {
 	}
 	return h.Nil
 }
+
+// Status renders the badge of an enum value: the label a person reads, in the
+// tone the enum declared.
+//
+//	ui.Status(docs.Status, doc.Status)   // <span class="ui-badge ui-badge-success">Processed</span>
+//
+// A value the enum does not know renders raw, in the muted tone: a row written
+// before somebody retired that value must not take the screen down.
+//
+//	see: trilha.Enum, ui.Badge
+func Status(e trilha.Enum, value string) h.Node {
+	if value == "" {
+		return h.Fragment()
+	}
+	return h.Span(h.Class("ui-badge ui-badge-"+e.Tone(value)), h.Text(e.Label(value)))
+}

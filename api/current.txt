@@ -33,6 +33,7 @@ pkg trilha, func Provide[T any](*App, T)
 pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
 pkg trilha, func RedirectCode(string, int) error
+pkg trilha, func RegisterEnum(string, Enum)
 pkg trilha, func RequireCSRF(*Ctx, Next) error
 pkg trilha, func Run(*App)
 pkg trilha, func StatusOf(error) int
@@ -168,6 +169,12 @@ pkg trilha, method (*TestResponse) WantHeader(string, string) *TestResponse
 pkg trilha, method (*TestResponse) WantStatus(int) *TestResponse
 pkg trilha, method (*Upload) Close() error
 pkg trilha, method (*Upload) Save(string) (string, error)
+pkg trilha, method (Enum) Has(string) bool
+pkg trilha, method (Enum) Label(string) string
+pkg trilha, method (Enum) Labels() []string
+pkg trilha, method (Enum) Options(string, ...string) h.Node
+pkg trilha, method (Enum) Tone(string) string
+pkg trilha, method (Enum) Values() []string
 pkg trilha, method (Field) Other(string) string
 pkg trilha, method (FieldErrors) Add(string, string)
 pkg trilha, method (FieldErrors) Any() bool
@@ -227,6 +234,11 @@ pkg trilha, type Config struct, TrustedProxies []string
 pkg trilha, type Config struct, Upstreams map[string]Upstream
 pkg trilha, type Counter struct
 pkg trilha, type Ctx struct
+pkg trilha, type Enum []EnumValue
+pkg trilha, type EnumValue struct
+pkg trilha, type EnumValue struct, Label string
+pkg trilha, type EnumValue struct, Tone string
+pkg trilha, type EnumValue struct, Value string
 pkg trilha, type Env string
 pkg trilha, type ErrorPageFunc func(*Ctx, error) (h.Node, error)
 pkg trilha, type Field struct
@@ -953,6 +965,7 @@ pkg ui, func Spinner(...h.Node) h.Node
 pkg ui, func Stack(...h.Node) h.Node
 pkg ui, func Stat(string, string, ...h.Node) h.Node
 pkg ui, func StatHint(string, ...h.Node) h.Node
+pkg ui, func Status(trilha.Enum, string) h.Node
 pkg ui, func Submit(...h.Node) h.Node
 pkg ui, func Swap(string) h.Node
 pkg ui, func Switch(...h.Node) h.Node

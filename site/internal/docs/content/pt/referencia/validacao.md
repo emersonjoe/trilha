@@ -30,6 +30,7 @@ type entrada struct {
 | `email` | um `@`, domínio com ponto | — | — | — |
 | `url` | `http`/`https` absoluta | — | — | — |
 | `oneof=a b c` | valor é uma das opções, separadas por espaço | igual, como texto | — | — |
+| `enum=<nome>` | um valor de um `trilha.Enum` registrado; a mensagem lista os rótulos |
 | `eqfield=outro` | igual ao valor do outro campo, pelo nome de formulário | igual | igual | — |
 
 As regras são separadas por vírgula e aplicadas em ordem; a primeira que falha é a mensagem
@@ -109,6 +110,75 @@ não coisa que a pessoa fez ao preencher: o `schema.Check()`, que o `BindSchema`
 de tudo, responde com erro comum e nunca com 422. O `ui.SchemaForm(esquema, values, errs)`
 desenha os campos; o `<form>`, o input de CSRF e o botão continuam seus, porque para onde o
 formulário posta não está no esquema.
+
+## Enum — uma lista de domínio declarada uma vez
+
+Um status, um tipo de documento, um estágio de pipeline. Escrito à mão, ele existe em quatro
+lugares — a badge da tabela, as opções de um select, a validação do formulário e um comentário
+na tag — e o quarto é onde o rótulo fica errado.
+
+```go
+// internal/docs/status.go
+var Status = trilha.Enum{
+	{Value: "na-fila",    Label: "Na fila"},
+	{Value: "processando", Label: "Processando", Tone: "info"},
+	{Value: "processado",  Label: "Processado",  Tone: "success"},
+	{Value: "erro",        Label: "Erro",        Tone: "danger"},
+}
+```
+
+`Tone` é um entre `muted`, `info`, `success`, `warning`, `danger` e `accent` — um nome do tema,
+nunca uma classe CSS. Quem declara um status escolhe um significado; escolher uma cor é como
+duas telas acabam com dois verdes diferentes. Vazio é `muted`.
+
+| Símbolo | O que faz |
+|---|---|
+| `Enum.Label(v)` | o que a pessoa lê, ou o valor cru quando a lista não o conhece |
+| `Enum.Tone(v)` | o tom, `muted` para valor desconhecido |
+| `Enum.Has(v)` | está na lista |
+| `Enum.Options(atual, placeholder…)` | a lista de `<option>`, com o atual marcado |
+| `Enum.Values()`, `Enum.Labels()` | os dois, na ordem da declaração |
+| `ui.Status(e, v)` | a badge: o rótulo, no tom |
+
+### Os quatro usos
+
+```go
+ui.Status(docs.Status, doc.Status)                       // badge
+{Key: "status", Cell: func(d Doc) h.Node {               // coluna do DataTable
+	return ui.Status(docs.Status, d.Status)
+}}
+ui.Field("status", "Situação", ui.Select(docs.Status.Options(form.Status)))  // select
+type Form struct {                                       // validação
+	Status string `validate:"required,enum=docs.Status"`
+}
+```
+
+A tag cita o enum pelo nome com que ele foi registrado:
+
+```go
+func Setup(a *trilha.App) error {
+	trilha.RegisterEnum("docs.Status", docs.Status)
+	return nil
+}
+```
+
+Registrar a mesma lista de novo pode — `Setup` é onde isto mora, e uma suíte de testes sobe o
+app uma vez por teste. Duas listas **diferentes** sob um nome só entram em pânico: o formulário
+validaria contra uma e o select desenharia a outra.
+
+A mensagem lista os rótulos, não os valores: `valor inválido; aceita Na fila, Processando,
+Processado, Erro`. Quem preencheu o formulário leu rótulos.
+
+### Valor que a lista não conhece
+
+Renderiza cru, no tom `muted`, e o `Has` diz não. Uma linha gravada antes de alguém aposentar
+aquele valor não pode derrubar a tela — mostrar `legado` em cinza é uma tela em que dá para
+agir; um pânico não é.
+
+### O que não está aqui
+
+Tradução dos rótulos. `Label` é uma string, e um app com duas línguas passa dois enums ou monta
+um a partir da própria tabela. Uma tabela de tradução aqui dentro seria uma segunda i18n, pior.
 
 ## Regras suas
 

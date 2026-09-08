@@ -153,8 +153,13 @@ func formulario(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors) h.N
 			h.Div(h.Class("ui-field"), ui.ShowWhen("novidades"),
 				ui.Label(h.Text("Frequência")),
 				ui.Row(
-					ui.CheckRow(ui.Radio(h.ID("freq-semanal"), h.Name("frequencia"), h.Value("semanal"), ui.Checked(in.Frequencia == "semanal")), "Semanal", "freq-semanal"),
-					ui.CheckRow(ui.Radio(h.ID("freq-mensal"), h.Name("frequencia"), h.Value("mensal"), ui.Checked(in.Frequencia == "mensal")), "Mensal", "freq-mensal"),
+					// The radios come out of the same declaration as the badge and
+					// the validation: three uses, one list.
+					h.Map(clientes.Frequencias, func(f trilha.EnumValue) h.Node {
+						id := "freq-" + f.Value
+						return ui.CheckRow(ui.Radio(h.ID(id), h.Name("frequencia"), h.Value(f.Value),
+							ui.Checked(in.Frequencia == f.Value)), clientes.Frequencias.Label(f.Value), id)
+					}),
 				),
 				h.If(errs.Has("frequencia"), h.P(h.Class("ui-field-error"), h.Text(errs.Get("frequencia")))),
 			),
@@ -190,7 +195,7 @@ func lista(q string) h.Node {
 						h.Td(h.Text(c.Nome), h.Br(), ui.Muted(h.Text(c.Email))),
 						h.Td(h.Text(c.Documento())),
 						h.Td(h.Textf("%s/%s", c.Endereco.Cidade, c.Endereco.UF)),
-						h.Td(h.IfElse(c.Novidades, ui.Badge(h.Text(c.Frequencia)), ui.Badge(ui.Outline(), h.Text("não")))),
+						h.Td(h.IfElse(c.Novidades, ui.Status(clientes.Frequencias, c.Frequencia), ui.Badge(ui.Outline(), h.Text("não")))),
 					)
 				})),
 			),
