@@ -18,6 +18,17 @@ jobs:
       - run: cd bench && go test ./... && go test -run XXX -bench . -benchtime=50ms
       - run: go vet ./...
       - run: go test ./...
+  # The CLI builds a binary and then runs it, which is where Windows differs:
+  # no job here for a long time meant `trilha dev` was broken on it and green here.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - run: go vet ./...
+      - run: go test ./...
   race:
     runs-on: ubuntu-latest
     steps:
