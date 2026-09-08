@@ -3,6 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.40.1 — 2026-09-08
+
+### Fixed
+
+- **The `fuzz` job no longer fails by accident**
+  ([#86](https://github.com/emersonjoe/trilha/issues/86)). Twice, on different targets, it
+  reported `context deadline exceeded`: the `-fuzztime` deadline landing inside an iteration,
+  which `go test` reports as a failure of the target. Nothing had been found — the target
+  changing between the two is what says the problem was the arrangement and not the code
+  under test. `scripts/fuzz.sh` now tells the two apart, and they are tellable apart: a real
+  finding writes a file into `testdata/fuzz/<Target>/` and says where it wrote it. With all
+  three signals pointing at the deadline the target runs a second time; failing the same way
+  twice is reported as what it is, because a genuine hang repeats. A job that fails at random
+  teaches people to re-run without reading, and this one is the only barrier the repository
+  has against malformed input.
+
+Nothing in the framework changed: there is no reason to upgrade an application for this
+release.
+
 ## 0.40.0 — 2026-09-08
 
 Spec 057, from a field report: someone who came from years of React, ran Go + templ + htmx in
