@@ -76,11 +76,61 @@ func (c *Ctx) Island(src string, props any, children ...h.Node) h.Node
 Renderiza `<div data-trilha-island="…" data-trilha-props="…">` com os filhos como conteúdo
 de origem, vindo do servidor. `src` é um módulo em `public/` (endereçado pelo `Asset`, então
 leva o hash do conteúdo) cuja **exportação padrão** é a função de montagem, chamada uma vez
-com `(el, props)`. `props` é qualquer coisa que o `encoding/json` serialize, ou `nil`; viaja
+com `(el, props, island)`. `props` é qualquer coisa que o `encoding/json` serialize, ou `nil`; viaja
 como atributo escapado e volta pelo `JSON.parse`, então é dado, nunca marcação. Props que
 não serializam avisam uma vez e deixam o conteúdo de origem em paz. O carregador é um único
 script inline com o nonce da requisição, emitido junto da primeira ilha da resposta
 ([Interatividade](/pt/aprender/interatividade)).
+
+### O caminho de volta: o objeto `island`
+
+O terceiro argumento é o canal para o servidor. Ele existe para a ilha não ter que
+redescobrir o token, os cabeçalhos e o formato de erro que o resto do framework já combinou:
+
+| Membro | O que faz |
+|---|---|
+| `island.csrf()` | o token desta resposta — o mesmo que o `CSRFInput` põe em todo formulário |
+| `island.signal` | um `AbortSignal`, abortado quando o elemento sai da página |
+| `island.get(url)` | lê JSON |
+| `island.post(url, dados)` | manda JSON com o token junto e devolve o que a rota respondeu |
+| `island.send(metodo, url, dados)` | o mesmo, para `PUT`, `PATCH` e `DELETE` |
+| `island.swap(url, id)` | troca um fragmento, como um link com alvo faz |
+
+Uma rota que responde `422` volta como `IslandInvalid`, e o `.fields` dela é o mesmo objeto
+que o formulário mostraria; qualquer outra falha é um `IslandError` com `.status` e
+`.detail`. Um `Trilha-Location` na resposta é seguido como navegação, então
+POST → redirect → GET também funciona de dentro de uma ilha.
+
+O cookie de dupla submissão é `HttpOnly`, então o token chega à ilha escrito no elemento,
+como `data-trilha-csrf`. É ele que o `island.post` manda no `X-CSRF-Token`.
+
+Um `route.go` é API, e API não confere o token — o cliente dela leva um bearer, não um
+cookie. A ilha é a exceção, porque o cliente dela é a página:
+
+```go
+// app/blog/novo/rascunho/middleware.go
+func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
+	return trilha.RequireCSRF(c, next)
+}
+```
+
+A rota continua sendo API, então os erros dela continuam em problem+json — que é o que a
+ilha consegue ler.
+
+### Os tipos que o módulo enxerga
+
+O `trilha gen` grava `public/islands.d.ts` a partir das chamadas `c.Island` que acha em
+`app/`: uma interface por struct de props, mais o objeto `island` e a assinatura da função de
+montagem. Aponte o módulo para lá e o editor confere os dois lados da fronteira:
+
+```js
+/** @type {import("/islands.d.ts").IslandMount<"/editor.js">} */
+export default function (el, props, island) { … }
+```
+
+Props escritas como literal de mapa ou como variável não têm nome onde pendurar um tipo: a
+ilha continua declarada, com tipo `unknown`, e o `trilha gen` avisa. O `gen --check` compara
+o arquivo como compara o `trilha_gen.go`, e o app que perdeu a última ilha perde o arquivo.
 
 ## Conexão longa e corpo grande
 

@@ -200,6 +200,31 @@ The recipe [An app in front of an existing API](/cookbook/existing-api) has the 
 side by side: the page reading the API through this client, the islands reading it through
 `Config.Upstreams`, one session token for both.
 
+## trilha vendor
+
+Puts one JavaScript module in the repository. An island that needs a helper — a template
+library, a chart, a component runtime — gets it as a file under `public/vendor/`, downloaded
+once and pinned:
+
+```bash
+trilha vendor preact@10.19.3           # public/vendor/preact.js + a line in vendor.lock
+trilha vendor htm@3.1.1
+trilha vendor                          # what is pinned
+trilha vendor --check                  # re-hash the files against vendor.lock
+trilha vendor preact@10.19.3 --from https://cdn.example.com
+```
+
+It downloads exactly what was asked for and resolves nothing: there is no dependency tree, no
+`node_modules`, no install step, and a module that needs a resolver is the wrong module for an
+island. `vendor.lock` holds the name, the version, the sha256 and the URL, and it is committed
+— so a version bump is a diff, and a file that changed under a version that did not is what
+`--check` catches. `trilha audit` says the same thing about a file in `public/vendor/` that
+`vendor.lock` does not name.
+
+The default source is `https://esm.sh`, which serves npm packages as ES modules; `--from` or
+`TRILHA_VENDOR_BASE` points anywhere else. Nothing about this is a framework dependency: the
+file is served like any other asset, and the island imports it by path.
+
 ## trilha migrate
 
 Reads a Next.js project and writes the two things that are mechanical about a migration: the

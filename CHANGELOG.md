@@ -7,6 +7,50 @@ versioning. This file is written in English only.
 
 ### Added
 
+- **The island talks back: `island.post`, typed props and vendored modules**
+  ([#70](https://github.com/emersonjoe/trilha/issues/70)). An island could render and it could
+  read its props, and that was the end of it: writing back meant rediscovering the CSRF token
+  the framework already mints, the headers it already agreed on and the error shape it already
+  answers with — in every island, by hand. The mount function now takes a third argument:
+  `export default function (el, props, island)`. `island.post(url, data)` sends JSON with the
+  token on it and gives back what the route answered, `island.get` reads, `island.send` covers
+  the other methods, `island.swap(url, id)` replaces a fragment the way a link with a target
+  does, `island.csrf()` is the token and `island.signal` is an `AbortSignal` aborted when the
+  element leaves the page, so an island swapped out of a fragment stops writing to what is no
+  longer there. A `422` arrives as an `IslandInvalid` whose `.fields` is the same object a form
+  would have shown, anything else as an `IslandError` with `.status` and `.detail`, and a
+  `Trilha-Location` is followed as a navigation — POST → redirect → GET from an island too. All
+  of it lives in the loader that already ships with the first island of a response: no second
+  module to download, and `ui.js` did not grow. The double-submit cookie is `HttpOnly` on
+  purpose, so the token reaches the island written into the element as `data-trilha-csrf` — the
+  same token `CSRFInput` puts in every form of that response.
+- **`trilha gen` writes `public/islands.d.ts`**
+  ([#70](https://github.com/emersonjoe/trilha/issues/70)). The generator reads the `c.Island`
+  calls in `app/` and writes one TypeScript interface per props struct, the map from module
+  path to props, and the `island` object itself, so an editor checks both sides of the boundary
+  without anybody writing the types twice. Field names come from the `json` tags, a pointer or
+  an `omitempty` is optional, an embedded struct is flattened the way `encoding/json` flattens
+  it, a struct that points at itself stays a name. Props given as a map literal or a variable
+  have no name to hang a type on: the island is still declared, typed `unknown`, and the
+  command says so out loud. `gen --check` compares the file like it compares `trilha_gen.go`,
+  and an app whose last island is gone loses the file.
+- **`trilha vendor`: one JavaScript module, downloaded once and pinned**
+  ([#70](https://github.com/emersonjoe/trilha/issues/70)). `trilha vendor preact@10.19.3`
+  writes `public/vendor/preact.js` and records the name, the version, the sha256 and the URL in
+  `vendor.lock`, which is committed. It resolves nothing — no dependency tree, no
+  `node_modules`, no install step — because a module that needs a resolver is the wrong module
+  for an island. `--check` re-hashes the files in CI, `--from` and `TRILHA_VENDOR_BASE` point
+  the download somewhere other than the default `https://esm.sh`, and `trilha audit` warns
+  about a file under `public/vendor/` that `vendor.lock` does not name. None of this is a
+  dependency of the framework: the file is served like any other asset and the island imports
+  it by path. New recipe, in both languages: *A React component as an island*.
+- **`trilha.RequireCSRF`**, the middleware for the route that answers an island. A `route.go`
+  is an API and an API does not check the token, because its client carries a bearer token
+  rather than a cookie; an island is the exception, because its client is the page. Putting it
+  in the route's `middleware.go` asks for the token without turning the route into a page — the
+  errors stay `problem+json`, which is what the island can read — and `trilha audit` reads it
+  as the answer to its open-writes warning instead of one more case of it.
+
 - **The API that stayed where it is becomes Go types: `trilha client`**
   ([#61](https://github.com/emersonjoe/trilha/issues/61)). Trilha wrote the OpenAPI document
   of its own routes; it could not read anybody else's. A migration in phases — the front

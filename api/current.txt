@@ -32,6 +32,7 @@ pkg trilha, func Provide[T any](*App, T)
 pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
 pkg trilha, func RedirectCode(string, int) error
+pkg trilha, func RequireCSRF(*Ctx, Next) error
 pkg trilha, func Run(*App)
 pkg trilha, func StatusOf(error) int
 pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse

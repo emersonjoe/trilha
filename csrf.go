@@ -119,3 +119,28 @@ func (a *App) checkCSRF(c *Ctx) error {
 	}
 	return nil
 }
+
+// RequireCSRF checks the double-submit token on a route that would not check it
+// on its own. A route.go is an API, and an API is exempt because its client
+// carries a bearer token, not a cookie; an island is the exception, because its
+// client is the page, with the page's cookies. Put it on the route that answers
+// the island:
+//
+//	// app/blog/novo/rascunho/middleware.go
+//	func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
+//		return trilha.RequireCSRF(c, next)
+//	}
+//
+// The token c.Island writes into the element is the one island.post sends, so
+// nothing else has to change. Errors stay problem+json, which is what the
+// island can read; Config.CSRFForAPI is the same check for every API route at
+// once, when the whole API is browser-driven.
+func RequireCSRF(c *Ctx, next Next) error {
+	if !bodyMethods[c.r.Method] || c.app.cfg.CSRFForAPI || c.kind == kindPage {
+		return next() // already checked upstream, or nothing to check
+	}
+	if err := c.app.checkCSRF(c); err != nil {
+		return err
+	}
+	return next()
+}

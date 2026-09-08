@@ -40,6 +40,7 @@ HTML is written in Go with the `h` package, not with templates:
 | `trilha ui describe [Name]` | the ui catalogue: every component, or one with its signature and an example; `--json` for a tool. Read it before writing a screen instead of guessing at a name |
 | `trilha migrate next <dir>` | reads a Next.js project and writes the tree of `app/` plus a `MIGRATION.md` saying, screen by screen, what it called and what has no equivalent here; `--dry-run` writes nothing |
 | `trilha client <doc>` | generates the Go client of an API that already exists, from its OpenAPI document; `--check` in CI |
+| `trilha vendor <pkg@version>` | downloads one JavaScript module into `public/vendor` and pins its sha256 in `vendor.lock`; `--check` in CI |
 | `trilha agents` | rewrites this file |
 | `trilha new` | creates another project |
 | `trilha version` | the version of the framework |

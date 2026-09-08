@@ -129,7 +129,7 @@ func TestAuditoriaDoSegredoOlhaOCodigo(t *testing.T) {
 // formulário, movido de page.go para route.go, passa a aceitar POST de outro
 // site sem que nada avise. A auditoria avisa; a herança do Kind cala.
 func TestAuditoriaAvisaEscritaSemCSRF(t *testing.T) {
-	escreve := func(t *testing.T, arquivos map[string]string) *scan.Result {
+	escreve := func(t *testing.T, arquivos map[string]string) (*project, *scan.Result) {
 		t.Helper()
 		dir := t.TempDir()
 		for nome, src := range arquivos {
@@ -145,30 +145,38 @@ func TestAuditoriaAvisaEscritaSemCSRF(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return res
+		return &project{Root: dir, Module: "exemplo.com/x"}, res
 	}
 	const pagina = "package app\n\nimport (\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n)\n\nfunc Page(c *trilha.Ctx) (h.Node, error) { return h.Div(), nil }\n"
 	const escrita = "package acoes\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc POST(c *trilha.Ctx) error { return c.Text(200, \"ok\") }\n"
 	const leitura = "package leitura\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc GET(c *trilha.Ctx) error { return c.JSON(200, nil) }\n"
 	const kind = "package app\n\nimport \"github.com/emersonjoe/trilha\"\n\nvar Kind = trilha.KindPage\n"
 
-	aberto := escreve(t, map[string]string{"app/page.go": pagina, "app/acoes/route.go": escrita})
-	if got := openWrites(aberto); len(got) != 1 || got[0] != "/acoes" {
+	p, aberto := escreve(t, map[string]string{"app/page.go": pagina, "app/acoes/route.go": escrita})
+	if got := openWrites(p, aberto); len(got) != 1 || got[0] != "/acoes" {
 		t.Errorf("escrita aberta não apontada: %v", got)
 	}
-	coberto := escreve(t, map[string]string{"app/page.go": pagina, "app/kind.go": kind, "app/acoes/route.go": escrita})
-	if got := openWrites(coberto); got != nil {
+	p, coberto := escreve(t, map[string]string{"app/page.go": pagina, "app/kind.go": kind, "app/acoes/route.go": escrita})
+	if got := openWrites(p, coberto); got != nil {
 		t.Errorf("o kind.go acima devia calar o aviso: %v", got)
 	}
 	// Leitura não escreve nada, e um app que não serve página nenhuma é uma
 	// API de verdade: nos dois casos o aviso seria ruído.
-	so := escreve(t, map[string]string{"app/page.go": pagina, "app/coisas/route.go": leitura})
-	if got := openWrites(so); got != nil {
+	p, so := escreve(t, map[string]string{"app/page.go": pagina, "app/coisas/route.go": leitura})
+	if got := openWrites(p, so); got != nil {
 		t.Errorf("GET não é escrita: %v", got)
 	}
-	api := escreve(t, map[string]string{"app/route.go": strings.Replace(escrita, "package acoes", "package app", 1)})
-	if got := openWrites(api); got != nil {
+	p, api := escreve(t, map[string]string{"app/route.go": strings.Replace(escrita, "package acoes", "package app", 1)})
+	if got := openWrites(p, api); got != nil {
 		t.Errorf("app sem páginas é uma API: %v", got)
+	}
+	// Spec 066: a rota que responde a uma ilha continua sendo API — os erros
+	// dela são problem+json — mas pede o token na mão, e isso é uma resposta
+	// ao aviso, não um caso a mais dele.
+	const guarda = "package acoes\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error { return trilha.RequireCSRF(c, next) }\n"
+	p, ilha := escreve(t, map[string]string{"app/page.go": pagina, "app/acoes/route.go": escrita, "app/acoes/middleware.go": guarda})
+	if got := openWrites(p, ilha); got != nil {
+		t.Errorf("RequireCSRF é a resposta ao aviso: %v", got)
 	}
 }
 
@@ -325,5 +333,37 @@ func TestAuditoriaOlhaOStreamAberto(t *testing.T) {
 		if got := liveWithoutAuth(c.src); got != c.quer {
 			t.Errorf("%s: liveWithoutAuth = %v", c.nome, got)
 		}
+	}
+}
+
+// Spec 066: JavaScript that came from outside and nobody recorded. The file is
+// served to every visitor, so where it came from is a fact the repository
+// should hold, not a thing to remember.
+func TestAuditoriaOlhaOVendorSemLock(t *testing.T) {
+	root := t.TempDir()
+	p := &project{Root: root, Module: "example.com/x"}
+	if got := unpinnedVendor(p); got != nil {
+		t.Fatalf("a project without public/vendor has no finding: %v", got)
+	}
+	dir := filepath.Join(root, "public", "vendor")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"preact.js", "htm.js"} {
+		if err := os.WriteFile(filepath.Join(dir, f), []byte("//\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := unpinnedVendor(p)
+	if len(got) != 2 || got[0] != "public/vendor/htm.js" {
+		t.Fatalf("both files are unpinned, in order: %v", got)
+	}
+	lock := "# trilha vendor. name version sha256 file url\npreact 10.19.3 abc public/vendor/preact.js https://esm.sh/preact@10.19.3\n"
+	if err := os.WriteFile(filepath.Join(root, vendorLock), []byte(lock), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got = unpinnedVendor(p)
+	if len(got) != 1 || got[0] != "public/vendor/htm.js" {
+		t.Fatalf("only the one nobody pinned: %v", got)
 	}
 }

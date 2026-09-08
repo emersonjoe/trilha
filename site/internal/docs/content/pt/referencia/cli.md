@@ -197,6 +197,31 @@ A receita [Um app na frente de uma API que já existe](/pt/receitas/api-existent
 metades lado a lado: a página lendo a API por este cliente, as ilhas lendo pelo
 `Config.Upstreams`, um token de sessão para as duas.
 
+## trilha vendor
+
+Põe um módulo JavaScript no repositório. A ilha que precisa de um ajudante — uma biblioteca de
+template, um gráfico, o runtime de um componente — recebe ele como arquivo em `public/vendor/`,
+baixado uma vez e fixado:
+
+```bash
+trilha vendor preact@10.19.3           # public/vendor/preact.js + uma linha no vendor.lock
+trilha vendor htm@3.1.1
+trilha vendor                          # o que está fixado
+trilha vendor --check                  # confere o hash dos arquivos com o vendor.lock
+trilha vendor preact@10.19.3 --from https://cdn.exemplo.com
+```
+
+Ele baixa exatamente o que foi pedido e não resolve nada: não há árvore de dependências, não há
+`node_modules`, não há passo de instalação, e um módulo que precisa de resolvedor é o módulo
+errado para uma ilha. O `vendor.lock` guarda nome, versão, sha256 e URL, e é commitado — então
+subir de versão é um diff, e arquivo que mudou sob uma versão que não mudou é o que o `--check`
+pega. O `trilha audit` diz a mesma coisa de um arquivo em `public/vendor/` que o `vendor.lock`
+não nomeia.
+
+A origem padrão é o `https://esm.sh`, que serve pacotes npm como módulos ES; `--from` ou
+`TRILHA_VENDOR_BASE` aponta para qualquer outro lugar. Nada disso é dependência do framework: o
+arquivo é servido como qualquer outro estático, e a ilha importa ele pelo caminho.
+
 ## trilha migrate
 
 Lê um projeto Next.js e grava as duas coisas mecânicas de uma migração: a árvore de pastas do

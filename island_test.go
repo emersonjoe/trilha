@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"html"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"strings"
@@ -129,5 +130,91 @@ func TestIslandBadPropsKeepsFallback(t *testing.T) {
 	}
 	if n := strings.Count(buf.String(), "/x.js"); n != 1 {
 		t.Fatalf("warned %d times, want 1: %s", n, buf.String())
+	}
+}
+
+// Issue #70: the island reaches the server. The token of the double-submit
+// cookie is HttpOnly, so it travels in the element — the same token every form
+// of the response already carries.
+func TestIslandCarriesTheCSRFToken(t *testing.T) {
+	a := islandApp(t, nil, func(c *Ctx) (h.Node, error) {
+		return h.Div(c.Island("/editor.js", nil), CSRFInput(c)), nil
+	})
+	rec := islandGet(t, a)
+	body := rec.Body.String()
+	m := regexp.MustCompile(`data-trilha-csrf="([^"]+)"`).FindStringSubmatch(body)
+	if m == nil {
+		t.Fatalf("no token on the island:\n%s", body)
+	}
+	form := regexp.MustCompile(`name="_csrf" value="([^"]+)"`).FindStringSubmatch(body)
+	if form == nil || form[1] != m[1] {
+		t.Fatalf("island token %q, form token %v", m[1], form)
+	}
+	if ck := rec.Result().Cookies(); len(ck) == 0 || ck[0].Value != html.UnescapeString(m[1]) {
+		t.Fatalf("the token in the page is not the one in the cookie: %v", ck)
+	}
+}
+
+// The mount function receives a third argument, and what it can do with it is
+// the contract this test pins: the code lives in the loader, so nobody has to
+// download a second module before the island can save.
+func TestIslandLoaderCarriesTheChannel(t *testing.T) {
+	for _, want := range []string{
+		"f(el,p,api(el,ac))",                 // the third argument
+		`h["X-CSRF-Token"]=t`,                // the token goes on every write
+		`credentials:"same-origin"`,          // and so does the session
+		"IslandInvalid",                      // 422 is not an error like the others
+		"body.fields",                        // the same fields a form would get
+		`res.headers.get("Trilha-Location")`, // a redirect is a redirect
+		`headers:{"Trilha-Fragment":target}`, // swap speaks the fragment protocol
+		`new CustomEvent("trilha:swap"`,      // and tells the page, like ui.js does
+		"new AbortController()",              // signal
+		"if(!el.isConnected){ac.abort()",     // aborted when the element is gone
+	} {
+		if !strings.Contains(islandLoader, want) {
+			t.Fatalf("the island loader does not carry %q", want)
+		}
+	}
+	if strings.Contains(islandLoader, "import(") && !strings.Contains(islandLoader, "/*trilha-islands*/") {
+		t.Fatal("the loader lost its mark")
+	}
+}
+
+// The server side of island.post is a route.go like any other: BindJSON reads
+// the body, FieldErrors answers 422, and what comes back is the object the
+// island turns into IslandInvalid.fields.
+func TestIslandPostGetsTheSameFieldsAsAForm(t *testing.T) {
+	a := New(Config{Env: Prod, Logger: quiet(), Secret: []byte("0123456789abcdef0123456789abcdef")})
+	a.Register(Route{Pattern: "/api/save", Kind: KindAPI, Methods: map[string]HandlerFunc{
+		"POST": func(c *Ctx) error {
+			var in struct {
+				Title string `json:"title" validate:"required"`
+			}
+			if err := c.BindJSON(&in); err != nil {
+				return err
+			}
+			return c.JSON(200, map[string]string{"title": in.Title})
+		},
+	}})
+
+	body := strings.NewReader(`{"title":""}`)
+	req := httptest.NewRequest("POST", "/api/save", body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(CSRFHeader, "0123456789abcdef0123456789abcdef")
+	req.AddCookie(&http.Cookie{Name: CSRFCookie, Value: "0123456789abcdef0123456789abcdef"})
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, req)
+	if rec.Code != 422 {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var problem struct {
+		Detail string            `json:"detail"`
+		Fields map[string]string `json:"fields"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &problem); err != nil {
+		t.Fatal(err)
+	}
+	if problem.Fields["title"] == "" {
+		t.Fatalf("no field error: %s", rec.Body)
 	}
 }

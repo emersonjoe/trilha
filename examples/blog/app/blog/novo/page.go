@@ -16,6 +16,16 @@ type entrada struct {
 	Corpo  string `form:"corpo" validate:"required"`
 }
 
+// EditorProps is what the editor island gets. It is a struct, not a map, so
+// `trilha gen` can write public/islands.d.ts and the editor on the JavaScript
+// side knows the same names the page does.
+type EditorProps struct {
+	// PalavrasPorMinuto is the reading speed the counter divides by.
+	PalavrasPorMinuto int `json:"palavrasPorMinuto"`
+	// Rascunho is where the island saves without leaving the page.
+	Rascunho string `json:"rascunho"`
+}
+
 // Page renders the form at GET /blog/novo.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	return formulario(c, entrada{}, nil), nil
@@ -49,12 +59,13 @@ func formulario(c *trilha.Ctx, in entrada, errs trilha.FieldErrors) h.Node {
 			// formulário pronto e os dados da ilha; o módulo em public/
 			// assume no cliente. Sem script, o campo continua sendo um
 			// campo — a contagem e a prévia é que não aparecem.
-			c.Island("/ilha-editor.js", map[string]any{"palavrasPorMinuto": 200},
+			c.Island("/ilha-editor.js", EditorProps{PalavrasPorMinuto: 200, Rascunho: "/blog/novo/rascunho"},
 				h.Class("ui-stack"),
 				ui.Field("corpo", "Texto",
 					ui.Textarea(h.ID("corpo"), h.Name("corpo"), h.Rows("6"), ui.InvalidIf(errs, "corpo"), h.Text(in.Corpo)),
 					ui.Help("Markdown não é interpretado neste exemplo."), ui.Errors(errs, "corpo")),
 				h.P(h.Data("info", ""), h.Class("ui-muted"), h.Hidden()),
+				h.P(h.Data("rascunho", ""), h.Class("ui-muted"), h.Hidden()),
 				h.Div(h.Data("previa", ""), h.Class("ui-prose"), h.Hidden()),
 			),
 			h.Div(ui.Submit(h.Text("Publicar")), h.Text(" "), ui.ButtonLink("/blog", ui.Ghost(), h.Text("Cancelar"))),

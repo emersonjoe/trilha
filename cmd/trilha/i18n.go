@@ -60,6 +60,7 @@ Usage:
   trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
   trilha migrate next <next-dir> [--out app]        skeleton of app/ and MIGRATION.md from a Next.js project
   trilha client <openapi.json|URL> [--check]       generate the Go client of an API that already exists
+  trilha vendor [<pkg@version>] [--check] [--from URL]  pin a JavaScript module in public/vendor
   trilha version
 
 Language: TRILHA_LANG=en|pt (falls back to LC_ALL, LC_MESSAGES, LANG).
@@ -83,6 +84,7 @@ Uso:
   trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
   trilha migrate next <dir-do-next> [--out app]       esqueleto do app/ e MIGRATION.md a partir de um projeto Next.js
   trilha client <openapi.json|URL> [--check]          gera o cliente Go de uma API que já existe
+  trilha vendor [<pkg@versão>] [--check] [--from URL]  fixa um módulo JavaScript em public/vendor
   trilha version
 
 Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
@@ -109,6 +111,22 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"no go.mod":         {"go.mod not found above %s", "go.mod não encontrado acima de %s"},
 	"no module line":    {"%s: `module` line not found", "%s: linha `module` não encontrada"},
 	"gen done":          {"✓ %s (%d routes)\n", "✓ %s (%d rotas)\n"},
+	"islands done":      {"✓ %s (%d islands)\n", "✓ %s (%d ilhas)\n"},
+	"flag vendor check": {"re-hash what is in public/vendor against vendor.lock", "confere o hash do que está em public/vendor com o vendor.lock"},
+	"flag vendor from":  {"base URL to download from (default https://esm.sh)", "URL base de onde baixar (padrão https://esm.sh)"},
+	"vendor done":       {"✓ %s@%s → %s (%d bytes)\n", "✓ %s@%s → %s (%d bytes)\n"},
+	"vendor hint":       {"import it from the island: import x from \"/vendor/<name>.js\"", "importe da ilha: import x from \"/vendor/<nome>.js\""},
+	"vendor ok":         {"✓ %d vendored modules match vendor.lock\n", "✓ %d módulos fixados batem com o vendor.lock\n"},
+	"vendor scheme":     {"vendor downloads over http or https, not %q", "vendor baixa por http ou https, não %q"},
+	"vendor http":       {"HTTP %d from %s", "HTTP %d de %s"},
+	"vendor too big":    {"the module is over %d bytes", "o módulo passa de %d bytes"},
+	"vendor missing":    {"%s is in vendor.lock (%s) but not on disk", "%s está no vendor.lock (%s) mas não em disco"},
+	"vendor changed":    {"%s changed since it was pinned (%s@%s)", "%s mudou desde que foi fixado (%s@%s)"},
+	"vendor unpinned":   {"%s is not in vendor.lock", "%s não está no vendor.lock"},
+	"vendor lock line":  {"%s:%d: expected: name version sha256 file url", "%s:%d: esperado: nome versão sha256 arquivo url"},
+	"MODULE":            {"MODULE", "MÓDULO"},
+	"VERSION":           {"VERSION", "VERSÃO"},
+	"FILE":              {"FILE", "ARQUIVO"},
 	"unknown flag":      {"unknown flag %q; usage: %s", "bandeira desconhecida %q; uso: %s"},
 	"bad package name":  {"%q is not a valid package name", "%q não é um nome de pacote válido"},
 	"embedded no binary": {
@@ -242,6 +260,12 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"gen stale":                   {"trilha_gen.go out of date", "trilha_gen.go desatualizado"},
 	"gen stale hint":              {"run: trilha gen", "rode: trilha gen"},
 	"gen fresh":                   {"trilha_gen.go up to date", "trilha_gen.go atualizado"},
+	"islands stale":               {"%s out of date", "%s desatualizado"},
+	"vendor usage":                {"usage: trilha vendor <pkg@version> [--from URL]", "uso: trilha vendor <pacote@versão> [--from URL]"},
+	"vendor failed":               {"vendor.lock does not match public/vendor", "vendor.lock não bate com public/vendor"},
+	"vendor empty":                {"nothing vendored yet", "nada fixado ainda"},
+	"vendor unpinned hint":        {"run trilha vendor <pkg@version> so the file has a version and a sha256 in vendor.lock, or delete it", "rode trilha vendor <pacote@versão> para o arquivo ter versão e sha256 no vendor.lock, ou apague o arquivo"},
+	"islands stale hint":          {"the island props changed; run: trilha gen", "as props das ilhas mudaram; rode: trilha gen"},
 	"cli skew":                    {"trilha CLI %s, library %s in go.mod", "CLI do trilha %s, biblioteca %s no go.mod"},
 	"cli skew hint":               {"generated code may use what the library does not have yet: install the matching CLI or update go.mod", "o código gerado pode usar o que a biblioteca ainda não tem: instale a CLI da mesma versão ou atualize o go.mod"},
 	"cli match":                   {"CLI and library at the same version", "CLI e biblioteca na mesma versão"},

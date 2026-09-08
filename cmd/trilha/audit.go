@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/emersonjoe/trilha/internal/gen"
@@ -148,7 +149,7 @@ func runAudit(p *project, vuln bool) []check {
 		// that also serves pages, a POST route with no Kind above it and no
 		// CSRFForAPI accepts a form posted from another site — and it does so
 		// in silence, which is why it is worth saying out loud here.
-		if open := openWrites(res); len(open) > 0 && !strings.Contains(src, "CSRFForAPI") {
+		if open := openWrites(p, res); len(open) > 0 && !strings.Contains(src, "CSRFForAPI") {
 			add("warn", fmt.Sprintf(t("csrf open writes"), len(open)),
 				fmt.Sprintf(t("csrf open writes hint"), strings.Join(open, ", ")))
 		}
@@ -204,6 +205,14 @@ func runAudit(p *project, vuln bool) []check {
 		add("warn", t("live no auth"), t("live no auth hint"))
 	}
 
+	// Vendored JavaScript (spec 066). A file under public/vendor that
+	// vendor.lock does not name is third-party code the repository accepted
+	// without recording where it came from: nobody can tell a version bump
+	// from a tampered file (NIST SP 800-161 supply chain; OWASP A08).
+	for _, f := range unpinnedVendor(p) {
+		add("warn", fmt.Sprintf(t("vendor unpinned"), f), t("vendor unpinned hint"))
+	}
+
 	// Login without a rate limit is a password guessing machine with the
 	// app's own uptime (OWASP ASVS 2.2.1).
 	if loginWithoutLimit(src, os.Getenv("TRILHA_RATE_LIMIT") != "") {
@@ -233,11 +242,60 @@ func runAudit(p *project, vuln bool) []check {
 	return out
 }
 
+// unpinnedVendor lists the modules in public/vendor that vendor.lock does not
+// account for. A project that vendored nothing has no directory and no finding.
+func unpinnedVendor(p *project) []string {
+	files, err := filepath.Glob(filepath.Join(p.Root, vendorDir, "*.js"))
+	if err != nil || len(files) == 0 {
+		return nil
+	}
+	locked, err := readLock(p)
+	if err != nil {
+		return nil
+	}
+	known := map[string]bool{}
+	for _, l := range locked {
+		known[l.File] = true
+	}
+	var out []string
+	for _, f := range files {
+		rel := filepath.ToSlash(filepath.Join(vendorDir, filepath.Base(f)))
+		if !known[rel] {
+			out = append(out, rel)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 // openWrites lists the route.go routes that take a body method with no Kind
 // deciding them, in an app that also serves pages. A page.go route enforces
 // CSRF; the same form action moved into a route.go does not, and the two look
 // identical from the outside.
-func openWrites(res *scan.Result) []string {
+// guardsCSRF says the route puts trilha.RequireCSRF in front of this method,
+// through its own middleware.go or one above it.
+func guardsCSRF(p *project, r scan.Route, method string) bool {
+	chain := append(append([]scan.Ref{}, r.Middlewares...), r.MiddlewaresByMethod[method]...)
+	for _, ref := range chain {
+		if strings.Contains(middlewareSource(p, ref), "RequireCSRF") {
+			return true
+		}
+	}
+	return false
+}
+
+// middlewareSource reads the file the middleware came from. The audit already
+// reads the project's source; this narrows it to the one package that decides.
+func middlewareSource(p *project, ref scan.Ref) string {
+	dir := strings.TrimPrefix(ref.ImportPath, p.Module+"/")
+	data, err := os.ReadFile(filepath.Join(p.Root, filepath.FromSlash(dir), "middleware.go"))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func openWrites(p *project, res *scan.Result) []string {
 	pages := false
 	for _, r := range res.Routes {
 		if r.Kind == "page" {
@@ -254,10 +312,16 @@ func openWrites(res *scan.Result) []string {
 			continue
 		}
 		for _, m := range r.Methods {
-			if m == "POST" || m == "PUT" || m == "PATCH" || m == "DELETE" {
-				out = append(out, r.Pattern)
-				break
+			if m != "POST" && m != "PUT" && m != "PATCH" && m != "DELETE" {
+				continue
 			}
+			// A route that asks for the token with trilha.RequireCSRF is
+			// answering the page, and it already said so.
+			if guardsCSRF(p, r, m) {
+				continue
+			}
+			out = append(out, r.Pattern)
+			break
 		}
 	}
 	return out

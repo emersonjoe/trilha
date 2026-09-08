@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/emersonjoe/trilha/internal/gen"
+	"github.com/emersonjoe/trilha/internal/islands"
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
@@ -66,6 +67,8 @@ func main() {
 		err = cmdClient(os.Args[2:])
 	case "migrate":
 		err = cmdMigrate(os.Args[2:])
+	case "vendor":
+		err = cmdVendor(os.Args[2:])
 	case "agents":
 		err = cmdAgents(os.Args[2:])
 	case "audit":
@@ -215,6 +218,16 @@ func cmdGen(args []string) error {
 		return err
 	}
 	fmt.Printf(t("gen done"), gen.FileName, len(res.Routes))
+	// The island modules live on the other side of the boundary, and this is
+	// the only thing the generator can tell their editor about them.
+	isl, wrote, err := writeIslandTypes(p)
+	if err != nil {
+		return err
+	}
+	islandNotes(isl)
+	if wrote {
+		fmt.Printf(t("islands done"), islands.FileName, len(isl.Islands))
+	}
 	return nil
 }
 
@@ -232,7 +245,7 @@ func checkGen(p *project, pkg string) error {
 	}
 	if string(cur) == string(src) {
 		fmt.Println("✓", t("gen fresh"))
-		return nil
+		return checkIslandTypes(p)
 	}
 	fmt.Fprint(os.Stderr, t("gen diff"), genDiff(string(cur), string(src)))
 	return errors.New(t("gen stale") + "; " + t("gen stale hint"))

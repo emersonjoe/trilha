@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -709,5 +712,169 @@ func TestMigrateNextE2E(t *testing.T) {
 	stale.Dir = proj
 	if out, err := stale.CombinedOutput(); err == nil || !strings.Contains(string(out), "out of date") {
 		t.Fatal(string(out), err)
+	}
+}
+
+// Issue #70: the types of the islands come out of the same command that keeps
+// trilha_gen.go honest, so nobody has to remember a second one.
+func TestIslandTypesE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	cli := filepath.Join(tmp, "trilha-cli")
+	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+
+	proj := filepath.Join(tmp, "ilhas")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/ilhas", "--trilha-dir", repo)
+	dts := filepath.Join(proj, "public", "islands.d.ts")
+
+	// An app with no island gets no declaration file.
+	run(t, proj, cli, "gen")
+	if _, err := os.Stat(dts); err == nil {
+		t.Fatal("an app without islands should not get islands.d.ts")
+	}
+
+	page := filepath.Join(proj, "app", "page.go")
+	src := `package app
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+)
+
+// CounterProps is what the counter starts from.
+type CounterProps struct {
+	Start int      ` + "`json:\"start\"`" + `
+	Tags  []string ` + "`json:\"tags,omitempty\"`" + `
+}
+
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return h.Div(c.Island("/counter.js", CounterProps{Start: 1})), nil
+}
+`
+	if err := os.WriteFile(page, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := run(t, proj, cli, "gen")
+	if !strings.Contains(out, "islands.d.ts") {
+		t.Fatal(out)
+	}
+	got, err := os.ReadFile(dts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`"/counter.js": CounterProps;`,
+		"start: number;",
+		"tags?: string[];",
+		"export interface TrilhaIsland {",
+	} {
+		if !strings.Contains(string(got), want) {
+			t.Fatalf("islands.d.ts missing %q:\n%s", want, got)
+		}
+	}
+	run(t, proj, cli, "gen", "--check")
+
+	// A prop that changed and a file nobody regenerated: --check is the line in
+	// the CI that says so.
+	if err := os.WriteFile(dts, append(got, []byte("// stale\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stale := exec.Command(cli, "gen", "--check")
+	stale.Dir = proj
+	if out, err := stale.CombinedOutput(); err == nil {
+		t.Fatalf("gen --check accepted a stale islands.d.ts:\n%s", out)
+	}
+
+	// The last island gone takes the generated file with it.
+	run(t, proj, cli, "gen")
+	if err := os.WriteFile(page, []byte(strings.Replace(src,
+		`c.Island("/counter.js", CounterProps{Start: 1})`, `h.Text("nada")`, 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run(t, proj, cli, "gen")
+	if _, err := os.Stat(dts); err == nil {
+		t.Fatal("the declaration outlived the last island")
+	}
+}
+
+// Issue #70: a JavaScript module an island needs comes down once, lands in the
+// repository and is pinned. There is no resolver, no manifest and no install
+// step — the file is the dependency, and vendor.lock is the proof.
+func TestVendorE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	const module = "export const h = () => {};\n"
+	cdn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/preact@10.19.3" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/javascript")
+		io.WriteString(w, module)
+	}))
+	defer cdn.Close()
+
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	cli := filepath.Join(tmp, "trilha-cli")
+	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	proj := filepath.Join(tmp, "ilhas")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/ilhas", "--trilha-dir", repo)
+
+	out := run(t, proj, cli, "vendor", "preact@10.19.3", "--from", cdn.URL)
+	if !strings.Contains(out, "public/vendor/preact.js") {
+		t.Fatal(out)
+	}
+	got, err := os.ReadFile(filepath.Join(proj, "public", "vendor", "preact.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != module {
+		t.Fatalf("what came down is not what was served: %q", got)
+	}
+	lock, err := os.ReadFile(filepath.Join(proj, "vendor.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte(module))
+	for _, want := range []string{"preact 10.19.3", hex.EncodeToString(sum[:]), "public/vendor/preact.js", cdn.URL} {
+		if !strings.Contains(string(lock), want) {
+			t.Fatalf("vendor.lock missing %q:\n%s", want, lock)
+		}
+	}
+	run(t, proj, cli, "vendor", "--check")
+	if out := run(t, proj, cli, "vendor"); !strings.Contains(out, "preact") {
+		t.Fatal(out)
+	}
+
+	// A file that changed under a version that did not is exactly what the lock
+	// is for.
+	if err := os.WriteFile(filepath.Join(proj, "public", "vendor", "preact.js"),
+		[]byte(module+"// and something else\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bad := exec.Command(cli, "vendor", "--check")
+	bad.Dir = proj
+	outb, err := bad.CombinedOutput()
+	if err == nil || !strings.Contains(string(outb), "changed since it was pinned") {
+		t.Fatalf("--check accepted a changed module: %v\n%s", err, outb)
+	}
+
+	// And a module somebody dropped in by hand is not vendored, it is just there.
+	run(t, proj, cli, "vendor", "preact@10.19.3", "--from", cdn.URL)
+	if err := os.WriteFile(filepath.Join(proj, "public", "vendor", "htm.js"), []byte("//\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loose := exec.Command(cli, "vendor", "--check")
+	loose.Dir = proj
+	outl, err := loose.CombinedOutput()
+	if err == nil || !strings.Contains(string(outl), "not in vendor.lock") {
+		t.Fatalf("--check accepted an unpinned module: %v\n%s", err, outl)
 	}
 }

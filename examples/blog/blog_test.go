@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"html"
 	"io"
 	"log/slog"
 	multipartlib "mime/multipart"
+	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -538,7 +541,8 @@ func TestIlhaDoEditorDegradaSemScript(t *testing.T) {
 	body := rec.Body.String()
 	for _, want := range []string{
 		`data-trilha-island="/ilha-editor.js`,
-		`data-trilha-props="{&#34;palavrasPorMinuto&#34;:200}"`,
+		`data-trilha-props="{&#34;palavrasPorMinuto&#34;:200,&#34;rascunho&#34;:&#34;/blog/novo/rascunho&#34;}"`,
+		`data-trilha-csrf="`,
 		`<textarea class="ui-textarea" id="corpo" name="corpo" rows="6"></textarea>`,
 		`data-info=""`,
 	} {
@@ -881,5 +885,69 @@ func TestFilaViva(t *testing.T) {
 	}
 	if b := res.Body.String(); !strings.Contains(b, "Fila vazia") || strings.Contains(b, "<html") {
 		t.Fatalf("último fragmento: %s", b)
+	}
+}
+
+// Spec 066: a ilha fala com o servidor pelo island.post, e o que ela ouve de
+// volta é o que o formulário ouviria: 422 com os erros por campo, 200 com a
+// resposta da rota. O token vai no cabeçalho porque o cookie é HttpOnly.
+func TestRascunhoDaIlhaResponde(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.Get("/blog/novo")
+	body := rec.Body.String()
+	tok := regexp.MustCompile(`data-trilha-csrf="([^"]+)"`).FindStringSubmatch(body)
+	if tok == nil {
+		t.Fatalf("a ilha não levou o token:\n%s", body)
+	}
+	token := html.UnescapeString(tok[1])
+
+	post := func(payload string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/blog/novo/rascunho", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-CSRF-Token", token)
+		for _, ck := range rec.Result().Cookies() {
+			req.AddCookie(ck)
+		}
+		out := httptest.NewRecorder()
+		c.app.Handler().ServeHTTP(out, req)
+		return out
+	}
+
+	// Sem o token, a rota nem chega ao handler.
+	sem := httptest.NewRequest("POST", "/blog/novo/rascunho", strings.NewReader(`{"titulo":"Um título","corpo":"ok"}`))
+	sem.Header.Set("Content-Type", "application/json")
+	semRec := httptest.NewRecorder()
+	c.app.Handler().ServeHTTP(semRec, sem)
+	if semRec.Code != http.StatusForbidden {
+		t.Fatalf("rascunho sem CSRF: %d", semRec.Code)
+	}
+
+	ruim := post(`{"titulo":"ab","corpo":""}`)
+	if ruim.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status %d: %s", ruim.Code, ruim.Body)
+	}
+	var problema struct {
+		Fields map[string]string `json:"fields"`
+	}
+	if err := json.Unmarshal(ruim.Body.Bytes(), &problema); err != nil {
+		t.Fatal(err)
+	}
+	if problema.Fields["titulo"] == "" || problema.Fields["corpo"] == "" {
+		t.Fatalf("os erros por campo são o que a ilha mostra: %s", ruim.Body)
+	}
+
+	bom := post(`{"titulo":"Um título","corpo":"duas palavras aqui"}`)
+	if bom.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", bom.Code, bom.Body)
+	}
+	var salvo struct {
+		Palavras int    `json:"palavras"`
+		SalvoEm  string `json:"salvoEm"`
+	}
+	if err := json.Unmarshal(bom.Body.Bytes(), &salvo); err != nil {
+		t.Fatal(err)
+	}
+	if salvo.Palavras != 3 || salvo.SalvoEm == "" {
+		t.Fatalf("resposta do rascunho: %+v", salvo)
 	}
 }
