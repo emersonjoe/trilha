@@ -101,7 +101,14 @@ func lista(c *trilha.Ctx, q consulta) h.Node {
 		Filters: filtro(q.Tipo),
 		Caption: "Documentos recebidos",
 		RowHref: func(i int) string { return "/documentos?q=" + docs[i].Nome },
-		Empty:   ui.Muted(h.Text("Nenhum documento com esse filtro.")),
+		// Without this the DataTable already draws a sensible empty state, and
+		// it tells "no documents" from "no results for that term". This one is
+		// here because the app speaks Portuguese and the kit's default does not.
+		Empty: ui.Empty(ui.EmptyOpts{
+			Icon:  "info",
+			Title: "Nenhum documento com esse filtro",
+			Hint:  "Tente outro termo, ou limpe a busca.",
+		}),
 	})
 }
 ```

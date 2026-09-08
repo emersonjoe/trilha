@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -454,5 +455,66 @@ func TestKitRunsTheIslandRuntimeItDoesNotMount(t *testing.T) {
 	}
 	if strings.Contains(js, "data-trilha-mounted") {
 		t.Error("ui.js mounts islands again: that belongs to ui.island.js alone")
+	}
+}
+
+// Spec 065 (#97): the empty state is a component so that thirty-five screens do
+// not each invent one. What it must never do is fail on the screen that is
+// already empty.
+func TestEmptyDrawsWhatItWasGivenAndNothingElse(t *testing.T) {
+	full := render(t, Empty(EmptyOpts{
+		Icon: "info", Title: "Nenhum documento ainda",
+		Hint:   "Envie o primeiro PDF.",
+		Action: ButtonLink("/upload", h.Text("Enviar")),
+	}))
+	for _, want := range []string{"ui-empty-icon", "Nenhum documento ainda", "Envie o primeiro PDF.", `href="/upload"`} {
+		if !strings.Contains(full, want) {
+			t.Errorf("faltou %q em %s", want, full)
+		}
+	}
+
+	// Only Title is required, and the rest simply does not appear.
+	bare := render(t, Empty(EmptyOpts{Title: "Vazio"}))
+	for _, gone := range []string{"ui-empty-icon", "ui-empty-hint", "ui-empty-action"} {
+		if strings.Contains(bare, gone) {
+			t.Errorf("desenhou %q sem ter recebido nada: %s", gone, bare)
+		}
+	}
+
+	// An icon the kit does not carry would panic inside Icon. Panicking on the
+	// screen that is already empty is the worst place for it: no icon is a fine
+	// empty state, a 500 is not.
+	safe := render(t, Empty(EmptyOpts{Icon: "nao-existe", Title: "Vazio"}))
+	if strings.Contains(safe, "ui-empty-icon") {
+		t.Errorf("desenhou um ícone que não existe: %s", safe)
+	}
+}
+
+// The real error belongs in development and nowhere else: a driver's sentence
+// on a production page is an information leak with a friendly font.
+func TestEmptyErrorHidesTheErrorOutsideDevelopment(t *testing.T) {
+	boom := errors.New(`pq: relation "documentos" does not exist`)
+
+	renderIn := func(env trilha.Env) string {
+		t.Helper()
+		a := trilha.New(trilha.Config{Env: env, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+		var out string
+		a.Register(trilha.Route{Pattern: "/", Page: func(c *trilha.Ctx) (h.Node, error) {
+			out = render(t, EmptyError(c, "Não deu para carregar", boom, nil))
+			return h.Div(), nil
+		}})
+		a.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+		return out
+	}
+
+	if got := renderIn(trilha.Dev); !strings.Contains(got, "relation") {
+		t.Errorf("em desenvolvimento o erro real tem que aparecer: %s", got)
+	}
+	got := renderIn(trilha.Prod)
+	if strings.Contains(got, "relation") {
+		t.Errorf("o erro real vazou em produção: %s", got)
+	}
+	if !strings.Contains(got, "Não deu para carregar") || !strings.Contains(got, `role="alert"`) {
+		t.Errorf("a mensagem da pessoa sumiu junto: %s", got)
 	}
 }

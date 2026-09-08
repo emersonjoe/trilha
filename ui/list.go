@@ -186,7 +186,7 @@ func bodyRows[T any](cols Columns[T], rows []T, st ListState) []h.Node {
 	if len(rows) == 0 {
 		empty := st.Empty
 		if empty == nil {
-			empty = Muted(h.Text("Nothing here."))
+			empty = emptyFor(st)
 		}
 		return []h.Node{h.Tr(h.Td(h.Class("ui-list-empty"), h.Attr("colspan", strconv.Itoa(span)), empty))}
 	}

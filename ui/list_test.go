@@ -129,12 +129,35 @@ func TestDataTableCountsAndPaginates(t *testing.T) {
 
 func TestDataTableEmptyStateFillsTheTable(t *testing.T) {
 	got := listing(t, "", nil, func(st *ListState) { st.Caption = "Documents" })
-	has(t, got, `<caption>Documents</caption>`, `colspan="3"`, "Nothing here.", "0 results")
+	has(t, got, `<caption>Documents</caption>`, `colspan="3"`, "Nothing here yet", "0 results")
 	if strings.Contains(got, "<tbody><tr><td>") {
 		t.Fatalf("a row was rendered with no rows: %s", got)
 	}
 	mine := listing(t, "", nil, func(st *ListState) { st.Empty = h.P(h.Text("No document yet")) })
 	has(t, mine, "No document yet")
+}
+
+// Spec 065 (#97): a list that is empty and a list that was filtered down to
+// empty are two different screens. Saying "nothing here" to somebody who just
+// searched for "xyz" tells them the application is empty, when what happened is
+// that their term matched nothing — and the way out is one link away.
+func TestDataTableTellsEmptyFromFilteredToEmpty(t *testing.T) {
+	empty := listing(t, "", nil, nil)
+	has(t, empty, "Nothing here yet")
+	if strings.Contains(empty, "Clear the search") {
+		t.Fatalf("an empty list offered to clear a search nobody made: %s", empty)
+	}
+
+	filtered := listing(t, "?q=xyz&page=2", nil, func(st *ListState) { st.Search = "Search" })
+	has(t, filtered, "No results for", "xyz", "Clear the search")
+	// The way out drops the term and goes back to the first page: keeping
+	// page=2 would clear the search into another empty screen.
+	if !strings.Contains(filtered, `href="?"`) && !strings.Contains(filtered, `<a href=""`) {
+		t.Fatalf("the way out keeps the query it was supposed to clear: %s", filtered)
+	}
+	if strings.Contains(filtered, "q=xyz&amp;page=2\" class=\"ui-btn") {
+		t.Fatalf("the clear link kept the term: %s", filtered)
+	}
 }
 
 func TestDataTableLinksTheRowAndSelectsIt(t *testing.T) {

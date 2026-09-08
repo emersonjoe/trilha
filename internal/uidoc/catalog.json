@@ -360,6 +360,66 @@
     ]
   },
   {
+    "name": "EmptyOpts",
+    "kind": "type",
+    "group": "empty",
+    "signature": "type EmptyOpts struct",
+    "doc": "EmptyOpts is what an empty state says. Only Title is required.",
+    "summary": "EmptyOpts is what an empty state says.",
+    "fields": [
+      {
+        "name": "Icon",
+        "type": "string",
+        "doc": "Icon is a name from the kit's set."
+      },
+      {
+        "name": "Title",
+        "type": "string",
+        "doc": "Title is the sentence in bold: \"No documents yet\"."
+      },
+      {
+        "name": "Hint",
+        "type": "string",
+        "doc": "Hint is the smaller line under it, and it is the one that earns its place: \"Send the first PDF and classification starts on its own\" tells somebody what to do, where \"no results\" only tells them to leave."
+      },
+      {
+        "name": "Action",
+        "type": "h.Node",
+        "doc": "Action is the way out — a link, a button, a form."
+      }
+    ]
+  },
+  {
+    "name": "Empty",
+    "kind": "func",
+    "group": "empty",
+    "signature": "Empty(opts EmptyOpts) h.Node",
+    "doc": "Empty is the state of a screen with nothing on it: centred icon, a title, a\nhint and a way out.\n\nIt exists because the alternative is what every application actually has: one\nhand-written \u003cp\u003e per screen, none of them alike, and none of them saying what\nto do next.",
+    "summary": "Empty is the state of a screen with nothing on it: centred icon, a title, a hint and a way out.",
+    "example": "ui.Empty(ui.EmptyOpts{\n\tIcon:   \"info\",\n\tTitle:  \"No documents yet\",\n\tHint:   \"Send the first PDF and classification starts on its own.\",\n\tAction: ui.ButtonLink(\"/upload\", h.Text(\"Send a document\")),\n})\n\n\nsee: ui.EmptyError, ui.DataTable",
+    "see": [
+      "h.Text",
+      "ui.ButtonLink",
+      "ui.DataTable",
+      "ui.EmptyError",
+      "ui.EmptyOpts"
+    ]
+  },
+  {
+    "name": "EmptyError",
+    "kind": "func",
+    "group": "empty",
+    "signature": "EmptyError(c *trilha.Ctx, title string, err error, action h.Node) h.Node",
+    "doc": "EmptyError is the state of a screen that could not load. The message is what\nthe person reads; the error itself is shown only in development, because a\nstack or a driver's sentence on a production page is an information leak with\na friendly font.",
+    "summary": "EmptyError is the state of a screen that could not load.",
+    "example": "return ui.EmptyError(c, \"Could not load the documents\", err,\n\tui.ButtonLink(c.Request().URL.String(), h.Text(\"Try again\")))\n\nsee: ui.Empty",
+    "see": [
+      "h.Text",
+      "ui.ButtonLink",
+      "ui.Empty"
+    ]
+  },
+  {
     "name": "Column",
     "kind": "type",
     "group": "list",

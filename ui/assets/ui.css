@@ -150,6 +150,16 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-list-bulk { display: flex; align-items: center; gap: .5rem; }
 .ui-list-bulk:empty { display: none; }
 .ui-list-check { width: 1px; white-space: nowrap; }
+/* The empty state (spec 065). The minimum height is so a fragment that comes
+   back empty does not make the page jump. */
+.ui-empty { display: grid; gap: .5rem; justify-items: center; text-align: center; padding: 2.5rem 1rem; min-height: 8rem; align-content: center; }
+.ui-empty-icon { color: var(--muted-foreground); opacity: .7; }
+.ui-empty-icon .ui-icon { width: 2rem; height: 2rem; }
+.ui-empty-title { margin: 0; font-weight: 500; }
+.ui-empty-hint { margin: 0; font-size: .875rem; color: var(--muted-foreground); max-width: 42ch; }
+.ui-empty-action { margin-top: .25rem; }
+.ui-empty-error .ui-empty-icon { color: var(--destructive); opacity: 1; }
+.ui-empty-error .ui-empty-hint { font: .8125rem var(--ui-mono); text-align: left; overflow-wrap: anywhere; }
 .ui-list-empty { padding: 2rem .5rem; text-align: center; }
 .ui-list-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
 .ui-table th .ui-sort { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: .25rem; }

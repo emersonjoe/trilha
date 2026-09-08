@@ -112,3 +112,37 @@ como o `RowHref`: a linha de índice `i`.
 O que os `Params` guardam e o formulário não manda viaja em campos escondidos — a ordem e
 o tamanho da página, para a busca não jogar a ordenação fora. A página não vai junto:
 filtro novo começa na página 1, a única que com certeza existe.
+
+## O estado vazio
+
+Uma lista sem nada e uma lista filtrada até o nada são duas telas diferentes. Dizer "nada por
+aqui" para quem acabou de buscar *xyz* informa que a aplicação está vazia, quando o que
+aconteceu é que o termo não casou com nada — e a saída está a um link de distância. O
+`ui.DataTable` faz essa distinção sozinho, então a tela acerta sem ninguém pensar nisso:
+
+| Situação | O que mostra |
+|---|---|
+| sem linhas, sem busca | um ícone e "Nothing here yet" |
+| sem linhas, com `?q=xyz` | "No results for *xyz*", e um link que limpa o termo e volta à primeira página |
+
+O `ListState.Empty` substitui os dois quando a aplicação tem algo melhor a dizer — um app em
+português, por exemplo, já que os textos do kit são em inglês.
+
+O componente por trás disso vale sozinho:
+
+```go
+ui.Empty(ui.EmptyOpts{
+	Icon:   "info",                        // um nome do kit; um desconhecido não desenha nada
+	Title:  "Nenhum documento ainda",      // o único campo obrigatório
+	Hint:   "Envie o primeiro PDF e a classificação começa sozinha.",
+	Action: ui.ButtonLink("/upload", h.Text("Enviar documento")),
+})
+```
+
+O `Hint` é o campo que se paga: é a diferença entre dizer que a tela está vazia e dizer o que
+fazer a respeito.
+
+Para uma tela que não carregou, o `ui.EmptyError(c, título, err, ação)` mostra o título, o
+caminho de tentar de novo, e o erro real **só em desenvolvimento** — a frase de um driver numa
+página de produção é vazamento de informação com fonte amigável.
+

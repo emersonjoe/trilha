@@ -3,6 +3,37 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.47.0 — 2026-09-08
+
+Spec 065.
+
+### Added
+
+- **`ui.Empty` and `ui.EmptyError` — the empty state, and the one that failed**
+  ([#97](https://github.com/emersonjoe/trilha/issues/97)). Thirty-five screens of the measured
+  application have an empty state written by hand and no two are alike; whoever starts writes
+  a `<p>` and leaves it there, and a `<p>` says the screen is empty without saying what to do
+  about it. `Hint` is the field that earns its place — "Send the first PDF and classification
+  starts on its own" is the difference between a dead end and a next step.
+
+  An icon the kit does not carry draws nothing instead of panicking: `ui.Icon` panics on an
+  unknown name, which is right for a page somebody is writing and wrong for a component that
+  draws whatever an option happens to hold — and the screen that is already empty is the worst
+  place for a 500.
+
+  `ui.EmptyError(c, title, err, action)` shows the real error **only in development**. A
+  driver's sentence on a production page is an information leak with a friendly font.
+
+### Changed
+
+- **`ui.DataTable` tells an empty list from a list filtered down to empty.** Saying "nothing
+  here" to somebody who just searched for *xyz* tells them the application is empty, when what
+  happened is that their term matched nothing — nine screens of the measured app get this
+  wrong. With no search it draws "Nothing here yet"; with `?q=xyz` it names the term and
+  offers a link that clears it **and goes back to the first page**, because clearing the
+  search while keeping `page=2` only leads to another empty screen. `ListState.Empty` still
+  replaces both, which is what an application that does not speak English wants.
+
 ## 0.46.0 — 2026-09-08
 
 Spec 064.

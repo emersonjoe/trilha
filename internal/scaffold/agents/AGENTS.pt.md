@@ -55,6 +55,10 @@ um protocolo na frente.
 Rota que responde 404 quase sempre é `trilha gen` que faltou; o `trilha check` pega isso antes
 do navegador. Todo problema que ele reporta vem com a linha em que está e a frase que resolve —
 leia essa frase em vez de adivinhar.
+- Lista vazia é `ui.Empty`, não um `<p>`: ela diz o que fazer em seguida, e o `ui.DataTable`
+  desenha sozinho — distinguindo "ainda não há nada" de "nenhum resultado para esse termo",
+  que são duas telas diferentes.
+
 
 ## O que não fazer
 

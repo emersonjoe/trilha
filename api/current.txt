@@ -898,6 +898,8 @@ pkg ui, func DialogFooter(...h.Node) h.Node
 pkg ui, func DialogTrigger(string, ...h.Node) h.Node
 pkg ui, func Donut([]Datum, ...h.Node) h.Node
 pkg ui, func Dropzone(DropzoneOpts, ...h.Node) h.Node
+pkg ui, func Empty(EmptyOpts) h.Node
+pkg ui, func EmptyError(*trilha.Ctx, string, error, h.Node) h.Node
 pkg ui, func Error(string) FieldOpt
 pkg ui, func Errors(map[string]string, string) FieldOpt
 pkg ui, func Field(string, string, h.Node, ...FieldOpt) h.Node
@@ -1030,6 +1032,11 @@ pkg ui, type DropzoneOpts struct, Attrs []h.Node
 pkg ui, type DropzoneOpts struct, MaxSize int64
 pkg ui, type DropzoneOpts struct, Name string
 pkg ui, type DropzoneOpts struct, Single bool
+pkg ui, type EmptyOpts struct
+pkg ui, type EmptyOpts struct, Action h.Node
+pkg ui, type EmptyOpts struct, Hint string
+pkg ui, type EmptyOpts struct, Icon string
+pkg ui, type EmptyOpts struct, Title string
 pkg ui, type FieldOpt func(*fieldCfg)
 pkg ui, type ListSelect struct
 pkg ui, type ListSelect struct, Action string

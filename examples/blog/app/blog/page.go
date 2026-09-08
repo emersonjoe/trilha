@@ -16,7 +16,15 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	}
 	return ui.Stack(
 		ui.H1(h.Text("Blog")),
-		h.If(len(all) == 0, ui.Muted(h.Text("Nenhum post ainda."))),
+		// The empty state is a component so that thirty-five screens do not
+		// each invent one — and so that it says what to do next, which a bare
+		// "nothing here" never does.
+		h.If(len(all) == 0, ui.Empty(ui.EmptyOpts{
+			Icon:   "info",
+			Title:  "Nenhum post ainda",
+			Hint:   "Escreva o primeiro e ele aparece aqui.",
+			Action: ui.ButtonLink("/blog/novo", h.Text("Escrever post")),
+		})),
 		h.Ul(h.Class("posts"), h.Map(all, func(p posts.Post) h.Node {
 			return h.Li(ui.Card(ui.CardHeader(
 				h.A(h.Href("/blog/"+p.Slug), ui.CardTitle(p.Title)),

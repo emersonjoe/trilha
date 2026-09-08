@@ -113,3 +113,38 @@ Whatever `Params` holds and the form does not send travels in hidden inputs — 
 ordering and the page size, so searching does not throw the ordering away. The page
 itself is not carried: a new filter starts on page 1, which is the only page that is
 certain to exist.
+
+## The empty state
+
+A list with nothing in it and a list filtered down to nothing are two different screens.
+Saying "nothing here" to somebody who just searched for *xyz* tells them the application is
+empty, when what happened is that their term matched nothing — and the way out is one link
+away. `ui.DataTable` draws that distinction on its own, so a screen gets it right without
+anybody thinking about it:
+
+| Situation | What it shows |
+|---|---|
+| no rows, no search | an icon, "Nothing here yet" |
+| no rows, `?q=xyz` | "No results for *xyz*", and a link that clears the term and goes back to page one |
+
+`ListState.Empty` replaces both when the application has something better to say — a
+Portuguese app, for one, since the kit's own strings are English.
+
+The component behind it stands on its own:
+
+```go
+ui.Empty(ui.EmptyOpts{
+	Icon:   "info",                        // a name from the kit; an unknown one draws nothing
+	Title:  "No documents yet",            // the only required field
+	Hint:   "Send the first PDF and classification starts on its own.",
+	Action: ui.ButtonLink("/upload", h.Text("Send a document")),
+})
+```
+
+`Hint` is the field that earns its place: it is the difference between telling somebody the
+screen is empty and telling them what to do about it.
+
+For a screen that could not load, `ui.EmptyError(c, title, err, action)` shows the title, the
+way to retry, and the real error **only in development** — a driver's sentence on a production
+page is an information leak with a friendly font.
+

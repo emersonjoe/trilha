@@ -55,6 +55,10 @@ A route that answers 404 is almost always a missing `trilha gen`; `trilha check`
 before the browser does. Every problem it reports comes with the line it is on and the sentence
 that resolves it — read that line instead of guessing.
 
+- An empty list is `ui.Empty`, not a `<p>`: it says what to do next, and `ui.DataTable` draws
+  it for you — telling "nothing yet" from "no results for that term", which are two different
+  screens.
+
 ## Do not
 
 - **Do not edit `trilha_gen.go`.** It is generated and committed, and the next `trilha gen`
