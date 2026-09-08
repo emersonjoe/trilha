@@ -1,0 +1,5 @@
+# LF in the working tree on every system. The golden files are compared byte for
+# byte, so a checkout with CRLF — Git's default on Windows, and the one
+# actions/checkout uses on windows-latest — fails every golden test before any
+# real change is even read.
+* text=auto eol=lf
