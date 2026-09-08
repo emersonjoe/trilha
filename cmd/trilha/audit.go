@@ -132,6 +132,14 @@ func runAudit(p *project, vuln bool) []check {
 		}
 	}
 
+	// A layout string in a page (spec 066). time.Format("02/01/2006") is the
+	// line every application writes four times and gets subtly different each
+	// time — and it ignores the app's zone, so a date shown to somebody in
+	// another country is simply wrong.
+	if n := len(timeFormatRe.FindAllString(src, -1)); n > 0 {
+		add("warn", fmt.Sprintf(t("time format"), n), t("time format hint"))
+	}
+
 	// The island runtime (spec 060) is a file of the kit, linked by Ctx.Island.
 	// A project that uses an island without it renders the fallback and nothing
 	// else, silently — which is the failure this check exists to name.
@@ -627,3 +635,8 @@ var (
 	policyRequireRe = regexp.MustCompile(`RequirePolicy\([^,]+,\s*"([^"]+)"`)
 	quotedRe        = regexp.MustCompile(`"([^"]*)"`)
 )
+
+// timeFormatRe finds a call that formats a moment with a layout of its own. The
+// reference layout is unmistakable — 2006, 01, 02, 15:04 — so this does not
+// have to guess.
+var timeFormatRe = regexp.MustCompile(`\.Format\(\s*"[^"]*(2006|15:04|Jan)`)

@@ -60,6 +60,17 @@ type Config struct {
 	// BasePath is the URL prefix the app is served under (e.g. "/docs" on
 	// GitHub Pages). Read it with Ctx.Base when building links.
 	BasePath string
+	// Locale is the language the kit's formatters write in: "en" (the zero
+	// value) or "pt-BR". It is not an i18n system and does not try to be —
+	// it decides a decimal separator and three date layouts, which is what a
+	// date, a size and a count need and what every application otherwise
+	// rewrites by hand.
+	Locale string
+	// TimeZone is the zone a date is shown in, by IANA name
+	// ("America/Sao_Paulo"). Empty means UTC, because a server whose clock
+	// happens to be local is not a decision anybody made. A name the machine
+	// does not carry falls back to UTC and says so in the log, once.
+	TimeZone string
 	// Security tunes the hardening headers (zero value = defaults).
 	Security Security
 	// TrustedProxies lists CIDRs whose X-Forwarded-For/Proto are honoured.
@@ -234,6 +245,8 @@ const (
 // App is a configured Trilha application.
 type App struct {
 	shutdown    []func(*App) error
+	tzOnce      sync.Once
+	tz          *time.Location
 	cfg         Config
 	log         *slog.Logger
 	mux         *http.ServeMux
@@ -555,3 +568,24 @@ func Fatal(err error) {
 // and Timeouts are read by ListenAndServe. To build the Config before New,
 // export func Config(cfg *trilha.Config) in app/setup.go.
 func (a *App) Config() *Config { return &a.cfg }
+
+// location resolves Config.TimeZone once and remembers it, including the
+// failure: loading a zone reads the filesystem, and a page that shows fifty
+// dates would otherwise read it fifty times.
+func (a *App) location() *time.Location {
+	a.tzOnce.Do(func() {
+		a.tz = time.UTC
+		name := strings.TrimSpace(a.cfg.TimeZone)
+		if name == "" {
+			return
+		}
+		loc, err := time.LoadLocation(name)
+		if err != nil {
+			a.warnOnce("timezone:"+name, "trilha: unknown time zone, showing dates in UTC",
+				"timezone", name, "error", err)
+			return
+		}
+		a.tz = loc
+	})
+	return a.tz
+}

@@ -31,8 +31,8 @@ type PolicyGridOpts struct {
 	ReadOnly bool
 	// CSRF is the hidden token field, and a form that changes permissions has
 	// to carry one: pass trilha.CSRFInput(c). It is an option and not a Ctx
-	// argument because no other component of the kit takes a Ctx, and the one
-	// that quietly did would be the odd one out.
+	// argument so that the grid can be rendered — read-only, in a test, in a
+	// preview — without one.
 	CSRF h.Node
 }
 

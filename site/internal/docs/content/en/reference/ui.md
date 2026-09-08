@@ -257,6 +257,66 @@ ends: pass `ui.ChatHTML` to `ai.ServeOpts.HTML` and the finished bubble looks ex
 reloaded page. Without the script the form still submits and the route answers the whole thing
 at once, so nothing on the screen depends on the script running.
 
+## Formatting
+
+A date, a size, a duration and a count are not domain: they are the same in every
+application, and every application writes them again — usually four times, slightly differently
+each time, and usually ignoring the time zone.
+
+```go
+// app/setup.go
+func Config(cfg *trilha.Config) {
+	cfg.Locale = "pt-BR"                  // "en" is the zero value
+	cfg.TimeZone = "America/Sao_Paulo"    // empty means UTC
+}
+```
+
+```go
+ui.Date(c, doc.CreatedAt)                 // <time datetime="…">Sep 8, 2026 3:04 PM</time>
+ui.Date(c, doc.CreatedAt, ui.Relative())  // 3min ago, absolute in the title
+ui.Date(c, doc.CreatedAt, ui.DateOnly())  // Sep 8, 2026
+ui.Bytes(c, doc.Size)                     // 1.4 MB      (pt-BR: 1,4 MB)
+ui.Duration(c, job.Elapsed)               // 2 min 13 s
+ui.Number(c, total)                       // 12,345      (pt-BR: 12.345)
+ui.Number(c, price, ui.Decimals(2))       // 1,234.56
+```
+
+### The rules worth knowing
+
+**A missing value is a dash.** The zero `time.Time`, a nil `*time.Time`, a zero size: all
+render `—` in muted text. A zero date printing as `01/01/0001` is the bug this removes.
+
+**`datetime` is always the instant.** The text is local and translated; the machine-readable
+attribute is RFC 3339 in UTC, so a copy-paste, a sort or a screen reader gets the fact and not
+the presentation.
+
+**`Relative` does not move.** It writes "3min ago" and keeps the absolute time in the `title`.
+Nothing updates it: the kit has no clock and does not want one. A screen that needs the number
+to keep moving puts the piece in a `ui.Poll` — a decision the page makes and pays for, once.
+
+**`Bytes` is base 10.** kB, MB, GB: what the file manager of whoever is reading already shows
+them. The exact byte count stays in the `title`.
+
+**An unknown time zone falls back to UTC and says so in the log.** Falling back in silence
+would shift every timestamp on the screen and nothing would look broken.
+
+### They take a Ctx, and that is on purpose
+
+`ui.Date(c, t)` and not `ui.Date(t)`. A package-level language would be shared by two
+applications running in one process — which is exactly what `trilha.Provide` and the embedded
+app exist to support — and the second one to boot would silently change the first. `ui.Head`,
+`ui.Flashes` and `ui.DataTable` take a `Ctx` for the same kind of reason.
+
+### Money is not here
+
+The currency, where the symbol goes, how a negative reads: those are the application's to
+decide, and a framework that guessed would be wrong in somebody's country.
+`ui.Number(c, v, ui.Decimals(2))` with the symbol written beside it is the whole recipe.
+
+`trilha audit` warns about a `time.Format("02/01/2006")` inside `app/`: a layout in the page
+ignores `Config.TimeZone`, which is how a date shown to somebody in another country ends up
+simply wrong.
+
 ## Theme
 
 `ui.theme.css` defines, in `:root` and `.dark`, exactly the shadcn/ui v4 variables:

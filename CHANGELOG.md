@@ -3,6 +3,48 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.48.0 — 2026-09-08
+
+Spec 066.
+
+### Added
+
+- **`ui.Date`, `ui.Bytes`, `ui.Duration`, `ui.Number`, with `Config.Locale` and
+  `Config.TimeZone`** ([#99](https://github.com/emersonjoe/trilha/issues/99)). The framework
+  says, rightly, that it has no locale and that money belongs to the application. But a date, a
+  size, a duration and a count are not domain: they are the same everywhere, and every
+  application writes them again — fifteen screens with a hand-rolled date formatter in the
+  measured app, all of them with the same beginner's bug, which is no time zone, no
+  `<time datetime>`, and no answer for null.
+
+  A missing value renders `—` and never `01/01/0001`. The text is local and translated while
+  the `datetime` attribute is always the instant in RFC 3339 UTC, so a sort, a copy-paste or a
+  screen reader gets the fact and not the presentation. `Bytes` is base 10, which is what the
+  reader's own file manager shows them, with the exact count in the title.
+
+  `Relative()` writes "3min ago" and does not move: the kit has no clock and does not want one
+  — a screen that needs the number to keep changing puts the piece in a `ui.Poll`, which is a
+  decision the page makes and pays for once.
+
+  An unknown `TimeZone` falls back to UTC **and says so in the log**. Falling back in silence
+  would shift every timestamp on the screen with nothing looking broken. The zone is resolved
+  once and remembered, failure included: loading one reads the filesystem, and a page with
+  fifty dates would otherwise read it fifty times.
+
+  Money stays out. The currency, where the symbol goes and how a negative reads are the
+  application's to decide, and a framework that guessed would be wrong in somebody's country.
+
+- **`trilha audit` warns about a `time.Format("02/01/2006")` inside `app/`** — a layout in the
+  page ignores `Config.TimeZone`, which is how a date shown to somebody in another country ends
+  up simply wrong.
+
+### Note on the signature
+
+The issue proposed `ui.Date(t)`; these take a `*Ctx`. A package-level language would be shared
+by two applications in one process — which `trilha.Provide` and the embedded app exist to
+support — and the second one to boot would silently change the first. Spec 046 moved the
+reference app off package state for that exact reason.
+
 ## 0.47.0 — 2026-09-08
 
 Spec 065.

@@ -420,6 +420,96 @@
     ]
   },
   {
+    "name": "FormatOpt",
+    "kind": "type",
+    "group": "format",
+    "signature": "type FormatOpt func(*formatOpts)",
+    "doc": "FormatOpt tunes a formatter.",
+    "summary": "FormatOpt tunes a formatter."
+  },
+  {
+    "name": "Relative",
+    "kind": "func",
+    "group": "format",
+    "signature": "Relative() FormatOpt",
+    "doc": "Relative writes \"3 min ago\" and keeps the absolute time in the title and in\nthe datetime attribute.\n\nNothing here keeps it up to date: the kit has no clock and does not want one.\nA screen that needs the number to keep moving puts the piece in a ui.Poll,\nwhich is a decision the page makes and pays for, once.",
+    "summary": "Relative writes \"3 min ago\" and keeps the absolute time in the title and in the datetime attribute.",
+    "see": [
+      "ui.Poll"
+    ]
+  },
+  {
+    "name": "DateOnly",
+    "kind": "func",
+    "group": "format",
+    "signature": "DateOnly() FormatOpt",
+    "doc": "DateOnly drops the time of day.",
+    "summary": "DateOnly drops the time of day."
+  },
+  {
+    "name": "TimeOnly",
+    "kind": "func",
+    "group": "format",
+    "signature": "TimeOnly() FormatOpt",
+    "doc": "TimeOnly keeps only the time of day.",
+    "summary": "TimeOnly keeps only the time of day."
+  },
+  {
+    "name": "Decimals",
+    "kind": "func",
+    "group": "format",
+    "signature": "Decimals(n int) FormatOpt",
+    "doc": "Decimals fixes how many decimal places a number shows.",
+    "summary": "Decimals fixes how many decimal places a number shows."
+  },
+  {
+    "name": "Date",
+    "kind": "func",
+    "group": "format",
+    "signature": "Date(c *trilha.Ctx, v any, options ...FormatOpt) h.Node",
+    "doc": "Date renders a moment as \u003ctime\u003e, in the app's zone and language.\n\nThe zero time and a nil *time.Time render as a dash: a row with no date is a\nrow with no date, not the first day of year one.",
+    "summary": "Date renders a moment as \u003ctime\u003e, in the app's zone and language.",
+    "example": "ui.Date(c, doc.CreatedAt)                // 08/09/2026 12:04\nui.Date(c, doc.CreatedAt, ui.Relative()) // 3 min ago, absolute in the title\nui.Date(c, doc.CreatedAt, ui.DateOnly()) // 08/09/2026\n\n\nsee: ui.Bytes, ui.Duration, ui.Number",
+    "see": [
+      "ui.Bytes",
+      "ui.DateOnly",
+      "ui.Duration",
+      "ui.Number",
+      "ui.Relative"
+    ]
+  },
+  {
+    "name": "Bytes",
+    "kind": "func",
+    "group": "format",
+    "signature": "Bytes(c *trilha.Ctx, n int64) h.Node",
+    "doc": "Bytes renders a size in base 10 — kB, MB, GB — which is what the file manager\nof whoever is reading already shows them. The exact number stays in the\ntitle, because \"1.4 MB\" is the answer to \"how big\" and not to \"how many\nbytes\".",
+    "summary": "Bytes renders a size in base 10 — kB, MB, GB — which is what the file manager of whoever is reading already shows them."
+  },
+  {
+    "name": "Duration",
+    "kind": "func",
+    "group": "format",
+    "signature": "Duration(c *trilha.Ctx, d time.Duration) h.Node",
+    "doc": "Duration renders an elapsed time the way a person says it: \"2 min 13 s\",\n\"1 h 5 min\", \"340 ms\".",
+    "summary": "Duration renders an elapsed time the way a person says it: \"2 min 13 s\", \"1 h 5 min\", \"340 ms\"."
+  },
+  {
+    "name": "Number",
+    "kind": "func",
+    "group": "format",
+    "signature": "Number(c *trilha.Ctx, v any, options ...FormatOpt) h.Node",
+    "doc": "Number renders a count or a measure with the thousands separator of the\nlanguage: 12.345 in pt-BR, 12,345 in English.\n\nMoney is not here. The currency, where the symbol goes and how a negative\nreads are the application's to decide; ui.Number(c, v, ui.Decimals(2)) with\nthe symbol written beside it is the whole recipe.",
+    "summary": "Number renders a count or a measure with the thousands separator of the language: 12.345 in pt-BR, 12,345 in English.",
+    "example": "ui.Number(c, total)                   // 12,345\nui.Number(c, price, ui.Decimals(2))   // 1,234.56\n\n\nsee: ui.Date, ui.Bytes, ui.Duration",
+    "see": [
+      "ui.Bytes",
+      "ui.Date",
+      "ui.Decimals",
+      "ui.Duration"
+    ]
+  },
+  {
     "name": "Column",
     "kind": "type",
     "group": "list",

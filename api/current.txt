@@ -107,6 +107,8 @@ pkg trilha, method (*Ctx) InlineFile(string, string) error
 pkg trilha, method (*Ctx) Island(string, any, ...h.Node) h.Node
 pkg trilha, method (*Ctx) JSON(int, any) error
 pkg trilha, method (*Ctx) LastModified(time.Time) bool
+pkg trilha, method (*Ctx) Locale() string
+pkg trilha, method (*Ctx) Location() *time.Location
 pkg trilha, method (*Ctx) Log() *slog.Logger
 pkg trilha, method (*Ctx) NoReadDeadline() error
 pkg trilha, method (*Ctx) NoWriteDeadline() error
@@ -216,6 +218,7 @@ pkg trilha, type Config struct, CSRF CSRF
 pkg trilha, type Config struct, CSRFForAPI bool
 pkg trilha, type Config struct, DevReload string
 pkg trilha, type Config struct, Env Env
+pkg trilha, type Config struct, Locale string
 pkg trilha, type Config struct, LogRequest func(*Ctx, int, time.Duration) bool
 pkg trilha, type Config struct, Logger *slog.Logger
 pkg trilha, type Config struct, MaxBodyBytes int64
@@ -229,6 +232,7 @@ pkg trilha, type Config struct, Secret []byte
 pkg trilha, type Config struct, Security Security
 pkg trilha, type Config struct, StaticCacheControl string
 pkg trilha, type Config struct, StaticHeaders func(string, http.Header)
+pkg trilha, type Config struct, TimeZone string
 pkg trilha, type Config struct, Timeouts Timeouts
 pkg trilha, type Config struct, TrustedProxies []string
 pkg trilha, type Config struct, Upstreams map[string]Upstream
@@ -869,6 +873,7 @@ pkg ui, func Brand(string, string) h.Node
 pkg ui, func Breadcrumb(...Crumb) h.Node
 pkg ui, func Button(...h.Node) h.Node
 pkg ui, func ButtonLink(string, ...h.Node) h.Node
+pkg ui, func Bytes(*trilha.Ctx, int64) h.Node
 pkg ui, func Card(...h.Node) h.Node
 pkg ui, func CardContent(...h.Node) h.Node
 pkg ui, func CardDescription(string) h.Node
@@ -889,6 +894,9 @@ pkg ui, func ComboboxOptions[T any]([]T, func(T) (string, string)) h.Node
 pkg ui, func Confirm(string, string) h.Node
 pkg ui, func Container(...h.Node) h.Node
 pkg ui, func DataTable[T any](*trilha.Ctx, Columns[T], []T, ListState) h.Node
+pkg ui, func Date(*trilha.Ctx, any, ...FormatOpt) h.Node
+pkg ui, func DateOnly() FormatOpt
+pkg ui, func Decimals(int) FormatOpt
 pkg ui, func Depth(int) h.Node
 pkg ui, func Destructive() h.Node
 pkg ui, func Dialog(string, string, ...h.Node) h.Node
@@ -898,6 +906,7 @@ pkg ui, func DialogFooter(...h.Node) h.Node
 pkg ui, func DialogTrigger(string, ...h.Node) h.Node
 pkg ui, func Donut([]Datum, ...h.Node) h.Node
 pkg ui, func Dropzone(DropzoneOpts, ...h.Node) h.Node
+pkg ui, func Duration(*trilha.Ctx, time.Duration) h.Node
 pkg ui, func Empty(EmptyOpts) h.Node
 pkg ui, func EmptyError(*trilha.Ctx, string, error, h.Node) h.Node
 pkg ui, func Error(string) FieldOpt
@@ -940,6 +949,7 @@ pkg ui, func NoNavigate() h.Node
 pkg ui, func NoPush() h.Node
 pkg ui, func NoTransition() h.Node
 pkg ui, func Num() h.Node
+pkg ui, func Number(*trilha.Ctx, any, ...FormatOpt) h.Node
 pkg ui, func On(string, string) h.Node
 pkg ui, func Outline() h.Node
 pkg ui, func PageHeader(string, ...h.Node) h.Node
@@ -949,6 +959,7 @@ pkg ui, func PolicyGrid(Policy, PolicyGridOpts) h.Node
 pkg ui, func Poll(string, string) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func Radio(...h.Node) h.Node
+pkg ui, func Relative() FormatOpt
 pkg ui, func Row(...h.Node) h.Node
 pkg ui, func SchemaForm(trilha.Schema, map[string]string, map[string]string, ...h.Node) h.Node
 pkg ui, func Secondary() h.Node
@@ -975,6 +986,7 @@ pkg ui, func Table(...h.Node) h.Node
 pkg ui, func Tabs(string, ...Tab) h.Node
 pkg ui, func Textarea(...h.Node) h.Node
 pkg ui, func ThemeToggle() h.Node
+pkg ui, func TimeOnly() FormatOpt
 pkg ui, func Toast(string, string, int) h.Node
 pkg ui, func Toaster(...h.Node) h.Node
 pkg ui, func Tooltip(string, ...h.Node) h.Node
@@ -1038,6 +1050,7 @@ pkg ui, type EmptyOpts struct, Hint string
 pkg ui, type EmptyOpts struct, Icon string
 pkg ui, type EmptyOpts struct, Title string
 pkg ui, type FieldOpt func(*fieldCfg)
+pkg ui, type FormatOpt func(*formatOpts)
 pkg ui, type ListSelect struct
 pkg ui, type ListSelect struct, Action string
 pkg ui, type ListSelect struct, Bar h.Node

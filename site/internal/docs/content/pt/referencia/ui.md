@@ -258,6 +258,66 @@ mensagem: passe `ui.ChatHTML` para o `ai.ServeOpts.HTML` e a bolha pronta fica i
 página recarregada. Sem o script o formulário submete do mesmo jeito e a rota responde tudo de
 uma vez, então nada na tela depende do script rodar.
 
+## Formatação
+
+Data, tamanho, duração e contagem não são domínio: são iguais em toda aplicação, e toda
+aplicação escreve de novo — normalmente quatro vezes, um pouco diferente em cada uma, e quase
+sempre ignorando o fuso.
+
+```go
+// app/setup.go
+func Config(cfg *trilha.Config) {
+	cfg.Locale = "pt-BR"                  // "en" é o valor zero
+	cfg.TimeZone = "America/Sao_Paulo"    // vazio significa UTC
+}
+```
+
+```go
+ui.Date(c, doc.CriadoEm)                  // <time datetime="…">08/09/2026 12:04</time>
+ui.Date(c, doc.CriadoEm, ui.Relative())   // há 3 min, com o absoluto no title
+ui.Date(c, doc.CriadoEm, ui.DateOnly())   // 08/09/2026
+ui.Bytes(c, doc.Tamanho)                  // 1,4 MB      (en: 1.4 MB)
+ui.Duration(c, tarefa.Levou)              // 2 min 13 s
+ui.Number(c, total)                       // 12.345      (en: 12,345)
+ui.Number(c, preco, ui.Decimals(2))       // 1.234,56
+```
+
+### As regras que valem saber
+
+**Valor ausente é um travessão.** `time.Time` zero, `*time.Time` nil, tamanho zero: todos
+renderizam `—` em texto apagado. Data zero saindo como `01/01/0001` é o bug que isto remove.
+
+**O `datetime` é sempre o instante.** O texto é local e traduzido; o atributo que a máquina lê
+é RFC 3339 em UTC — então um copiar-colar, uma ordenação ou um leitor de tela recebe o fato, e
+não a apresentação.
+
+**O `Relative` não anda.** Ele escreve "há 3 min" e guarda o absoluto no `title`. Nada o
+atualiza: o kit não tem relógio e não quer um. Tela que precisa do número se mexendo põe o
+pedaço num `ui.Poll` — uma decisão que a página toma e paga, uma vez.
+
+**`Bytes` é base 10.** kB, MB, GB: o que o gerenciador de arquivos de quem está lendo já
+mostra. A contagem exata fica no `title`.
+
+**Fuso desconhecido cai para UTC e avisa no log.** Cair em silêncio deslocaria todo horário da
+tela sem nada parecer quebrado.
+
+### Eles recebem um Ctx, e isso é de propósito
+
+`ui.Date(c, t)` e não `ui.Date(t)`. Um idioma de pacote seria compartilhado por duas aplicações
+rodando num processo — que é exatamente o que o `trilha.Provide` e o app embutido existem para
+permitir —, e a segunda a subir mudaria a primeira em silêncio. O `ui.Head`, o `ui.Flashes` e o
+`ui.DataTable` recebem um `Ctx` pelo mesmo tipo de razão.
+
+### Dinheiro não está aqui
+
+A moeda, onde fica o símbolo, como um negativo se lê: são decisões da aplicação, e um framework
+que chutasse estaria errado no país de alguém. `ui.Number(c, v, ui.Decimals(2))` com o símbolo
+escrito ao lado é a receita inteira.
+
+O `trilha audit` avisa sobre `time.Format("02/01/2006")` dentro de `app/`: layout na página
+ignora o `Config.TimeZone`, que é como uma data mostrada a alguém de outro país acaba
+simplesmente errada.
+
 ## Tema
 
 `ui.theme.css` define, em `:root` e `.dark`, exatamente as variáveis do shadcn/ui v4:

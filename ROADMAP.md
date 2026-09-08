@@ -192,6 +192,24 @@ segunda passada.
 62. ~~[#70](https://github.com/emersonjoe/trilha/issues/70) Ilhas de segunda geração: props tipadas, canal ilha→servidor, `trilha vendor`.~~ **Entregue na 0.41.0**, e endireitado na **0.42.0** (spec 060): o canal tinha nascido duplicado — uma cópia no script inline, outra no `ui.js` —, e as duas já divergiam no `swap`. Virou um arquivo do kit, alcançável pelos dois casos.
 63. ~~[#73](https://github.com/emersonjoe/trilha/issues/73) `trilha ui describe` e o guia "de Next.js para o Trilha".~~ **Entregue na 0.41.0.**
 
+### Fase 9 — O que o iniciante não faz sozinho
+
+O épico é a [#119](https://github.com/emersonjoe/trilha/issues/119). A tese da fase não é
+"faltam componentes": é que existe um conjunto de coisas que toda aplicação de gestão precisa,
+que quem começa **não sabe que precisa** até doer, e que hoje cada projeto reinventa pior —
+permissão por módulo, o estado vazio que diz o que fazer, o enum escrito em quatro lugares, a
+data formatada à mão em quinze telas.
+
+Cada item tem uma medição por trás, tirada do mesmo app real da Fase 7. A ordem aqui é a do
+que destrava mais, e não a dos números.
+
+64. ~~[#100](https://github.com/emersonjoe/trilha/issues/100) A permissão vivia em quatro lugares e o `RequireFunc` entregava uma folha em branco.~~ **Entregue na 0.45.0** (spec 063): `auth.Policy` é a matriz declarada uma vez, e ela responde no middleware, no botão, no 403 que diz o que faltou e na `ui.PolicyGrid` que edita. Achado no caminho: o `var Middleware = RequirePolicy(...)` que a issue propunha não passa no scanner, que exige função — o idioma que funciona está documentado.
+65. ~~[#96](https://github.com/emersonjoe/trilha/issues/96) Um status era escrito quatro vezes e a badge imprimia o valor cru.~~ **Entregue na 0.46.0** (spec 064): `trilha.Enum` com `ui.Status`, `Options` e a tag `enum=`, cuja mensagem cita rótulos e não valores. O pânico em registro duplicado, herdado do `AddRule`, tornava o `RegisterEnum` inutilizável no `Setup` — agora a mesma lista pode, listas diferentes sob um nome não.
+66. ~~[#97](https://github.com/emersonjoe/trilha/issues/97) Trinta e cinco estados vazios escritos à mão, e nove telas confundindo lista vazia com lista filtrada até o vazio.~~ **Entregue na 0.47.0** (spec 065): `ui.Empty`, `ui.EmptyError` e o `DataTable` distinguindo os dois casos — com um link que limpa o termo **e** volta à primeira página.
+
+Os demais itens da fase estão nas issues #98 a #118, com a dívida de scanner que duas specs
+deixaram registrada na [#124](https://github.com/emersonjoe/trilha/issues/124).
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |
