@@ -87,3 +87,26 @@ func SalvarMatriz(papeis map[string]auth.Grants) {
 }
 
 var mu sync.Mutex
+
+// trilhaMu guards the in-memory audit trail below.
+var (
+	trilhaMu  sync.Mutex
+	trilhaLog []trilha.AuditRecord
+)
+
+// Auditoria is this app's audit sink. In memory because this is an example; a
+// real one writes a row, and the interface is one method precisely so that the
+// decision left to make is "which table" and not "which shape".
+var Auditoria = trilha.AuditFunc(func(r trilha.AuditRecord) error {
+	trilhaMu.Lock()
+	defer trilhaMu.Unlock()
+	trilhaLog = append(trilhaLog, r)
+	return nil
+})
+
+// Trilha is what was recorded, newest last.
+func Trilha() []trilha.AuditRecord {
+	trilhaMu.Lock()
+	defer trilhaMu.Unlock()
+	return append([]trilha.AuditRecord(nil), trilhaLog...)
+}

@@ -24,6 +24,9 @@ func POST(c *trilha.Ctx) error {
 		return err
 	}
 	sessao.SalvarMatriz(papeis)
+	// One line, and the trail knows who did it, from where and on which route:
+	// changing who may do what is exactly the action somebody asks about later.
+	c.Audit("permissao.alterou", "matriz", trilha.Fields{"papeis": len(papeis)})
 	c.Flash("success", "Permissões salvas.")
 	return c.Redirect("/permissoes")
 }

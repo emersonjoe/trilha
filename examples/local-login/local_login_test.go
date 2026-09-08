@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"github.com/emersonjoe/trilha/examples/local-login/internal/sessao"
 	"io"
 	"log/slog"
 	"net/http"
@@ -166,4 +167,29 @@ func TestPoliticaGuardaExplicaEEdita(t *testing.T) {
 	entrar(t, c2, "bia@exemplo.com", "segredo-da-bia").WantStatus(303)
 	c2.Get("/permissoes", navegador()).WantStatus(200).
 		WantContains(`name="grant.analista.relatorios"`, `name="grant.leitor.usuarios"`, "Relatórios")
+}
+
+// #104 — mudar quem pode o quê é exatamente a ação que alguém pergunta depois.
+// A app escreve uma linha; o ator, o IP e a rota vêm da sessão.
+func TestAuditoriaRegistraQuemMudouAPermissao(t *testing.T) {
+	c := cliente(t, api(t).URL)
+	entrar(t, c, "bia@exemplo.com", "segredo-da-bia").WantStatus(303)
+
+	c.Request("POST", "/permissoes", trilha.WithBody("application/x-www-form-urlencoded",
+		"grant.admin.usuarios=administrar&grant.admin.relatorios=administrar")).WantStatus(303)
+
+	recs := sessao.Trilha()
+	if len(recs) == 0 {
+		t.Fatal("nada foi auditado")
+	}
+	r := recs[len(recs)-1]
+	if r.Action != "permissao.alterou" {
+		t.Fatalf("ação = %q", r.Action)
+	}
+	if r.Actor.Email != "bia@exemplo.com" || r.Actor.Via != "session" {
+		t.Fatalf("o ator não veio da sessão: %+v", r.Actor)
+	}
+	if r.Route != "/permissoes" {
+		t.Fatalf("rota = %q", r.Route)
+	}
 }

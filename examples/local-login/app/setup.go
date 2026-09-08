@@ -16,6 +16,9 @@ import (
 // service lives; with the variable empty there is no proxy and /api/ is a 404,
 // so the example still runs alone.
 func Config(cfg *trilha.Config) {
+	// Where the trail of who did what goes. Without this it would go to the
+	// log, which is enough to grep and enough to ship with.
+	cfg.Audit = sessao.Auditoria
 	if api := os.Getenv("API_URL"); api != "" {
 		cfg.Upstreams = map[string]trilha.Upstream{
 			"/api/": {

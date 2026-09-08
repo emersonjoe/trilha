@@ -207,6 +207,9 @@ que destrava mais, e não a dos números.
 65. ~~[#96](https://github.com/emersonjoe/trilha/issues/96) Um status era escrito quatro vezes e a badge imprimia o valor cru.~~ **Entregue na 0.46.0** (spec 064): `trilha.Enum` com `ui.Status`, `Options` e a tag `enum=`, cuja mensagem cita rótulos e não valores. O pânico em registro duplicado, herdado do `AddRule`, tornava o `RegisterEnum` inutilizável no `Setup` — agora a mesma lista pode, listas diferentes sob um nome não.
 66. ~~[#97](https://github.com/emersonjoe/trilha/issues/97) Trinta e cinco estados vazios escritos à mão, e nove telas confundindo lista vazia com lista filtrada até o vazio.~~ **Entregue na 0.47.0** (spec 065): `ui.Empty`, `ui.EmptyError` e o `DataTable` distinguindo os dois casos — com um link que limpa o termo **e** volta à primeira página.
 
+67. ~~[#99](https://github.com/emersonjoe/trilha/issues/99) Data, tamanho, duração e contagem escritos à mão em quinze telas, sem fuso e sem tratar nulo.~~ **Entregue na 0.48.0** (spec 066): , ,  e  com  e . Recebem um  — a issue propunha sem, e idioma em estado de pacote seria compartilhado por duas aplicações num processo.
+68. ~~[#104](https://github.com/emersonjoe/trilha/issues/104) "Quem fez o quê" existia pela metade: o framework tinha o request id, o IP e a sessão, e faltava a frase.~~ **Entregue na 0.49.0** (spec 067):  em uma linha, com  de um método. Sink que falha não derruba a resposta — o documento foi excluído de qualquer jeito.
+
 Os demais itens da fase estão nas issues #98 a #118, com a dívida de scanner que duas specs
 deixaram registrada na [#124](https://github.com/emersonjoe/trilha/issues/124).
 

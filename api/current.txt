@@ -75,11 +75,13 @@ pkg trilha, method (*Counter) Add(float64)
 pkg trilha, method (*Counter) Inc()
 pkg trilha, method (*Counter) With(...string) *Counter
 pkg trilha, method (*Ctx) Accepts(...string) string
+pkg trilha, method (*Ctx) Actor() Actor
 pkg trilha, method (*Ctx) AllowBody(int64)
 pkg trilha, method (*Ctx) App() *App
 pkg trilha, method (*Ctx) Asset(string) string
 pkg trilha, method (*Ctx) Attachment(string, io.Reader, string) error
 pkg trilha, method (*Ctx) AttachmentFile(string, string) error
+pkg trilha, method (*Ctx) Audit(string, string, ...Fields)
 pkg trilha, method (*Ctx) Base() string
 pkg trilha, method (*Ctx) Bind(any) error
 pkg trilha, method (*Ctx) BindJSON(any) error
@@ -124,6 +126,7 @@ pkg trilha, method (*Ctx) Render(int, h.Node) error
 pkg trilha, method (*Ctx) Request() *http.Request
 pkg trilha, method (*Ctx) RequestID() string
 pkg trilha, method (*Ctx) Set(string, any)
+pkg trilha, method (*Ctx) SetActor(Actor)
 pkg trilha, method (*Ctx) SetContext(context.Context)
 pkg trilha, method (*Ctx) SetCookie(*http.Cookie)
 pkg trilha, method (*Ctx) SetRequest(*http.Request)
@@ -171,6 +174,7 @@ pkg trilha, method (*TestResponse) WantHeader(string, string) *TestResponse
 pkg trilha, method (*TestResponse) WantStatus(int) *TestResponse
 pkg trilha, method (*Upload) Close() error
 pkg trilha, method (*Upload) Save(string) (string, error)
+pkg trilha, method (AuditFunc) Write(AuditRecord) error
 pkg trilha, method (Enum) Has(string) bool
 pkg trilha, method (Enum) Label(string) string
 pkg trilha, method (Enum) Labels() []string
@@ -191,7 +195,24 @@ pkg trilha, method (ListParams) Offset() int
 pkg trilha, method (ListParams) PageHref(int) string
 pkg trilha, method (ListParams) TotalPages(int) int
 pkg trilha, method (Schema) Check() error
+pkg trilha, type Actor struct
+pkg trilha, type Actor struct, Email string
+pkg trilha, type Actor struct, Name string
+pkg trilha, type Actor struct, Subject string
+pkg trilha, type Actor struct, Via string
 pkg trilha, type App struct
+pkg trilha, type AuditFunc func(AuditRecord) error
+pkg trilha, type AuditRecord struct
+pkg trilha, type AuditRecord struct, Action string
+pkg trilha, type AuditRecord struct, Actor Actor
+pkg trilha, type AuditRecord struct, At time.Time
+pkg trilha, type AuditRecord struct, Fields Fields
+pkg trilha, type AuditRecord struct, IP string
+pkg trilha, type AuditRecord struct, RequestID string
+pkg trilha, type AuditRecord struct, Route string
+pkg trilha, type AuditRecord struct, Target string
+pkg trilha, type AuditSink interface
+pkg trilha, type AuditSink interface, Write(AuditRecord) error
 pkg trilha, type Bag interface
 pkg trilha, type CORS struct
 pkg trilha, type CORS struct, Credentials bool
@@ -212,6 +233,7 @@ pkg trilha, type CheckResult struct, Status string
 pkg trilha, type Config struct
 pkg trilha, type Config struct, Addr string
 pkg trilha, type Config struct, AllowedHosts []string
+pkg trilha, type Config struct, Audit AuditSink
 pkg trilha, type Config struct, BasePath string
 pkg trilha, type Config struct, CORS CORS
 pkg trilha, type Config struct, CSRF CSRF
@@ -251,6 +273,7 @@ pkg trilha, type Field struct, Param string
 pkg trilha, type Field struct, Text string
 pkg trilha, type Field struct, Value any
 pkg trilha, type FieldErrors map[string]string
+pkg trilha, type Fields map[string]any
 pkg trilha, type FileRules struct
 pkg trilha, type FileRules struct, Accept []string
 pkg trilha, type FileRules struct, MaxFiles int

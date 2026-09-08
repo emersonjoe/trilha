@@ -118,3 +118,76 @@ entra no log como se fosse traço legítimo.
 `trilha audit` acrescenta três itens: token curto demais (crítico), métricas configuradas
 sem token nem rede confiável (crítico), `0.0.0.0/0` em `Trusted` (aviso) e ausência de
 qualquer `a.Check(` no projeto (aviso).
+
+## A trilha de auditoria
+
+Toda aplicação interna acaba precisando de "quem fez o quê": quem excluiu o documento, quem
+mudou a permissão, quem exportou a lista. O framework já tem metade — o request id, o IP do
+cliente atrás de `TrustedProxies`, a sessão, o gabarito da rota. Falta a frase, e um lugar para
+ela.
+
+```go
+func DELETE(c *trilha.Ctx) error {
+	if err := docs.Excluir(c, c.Param("id")); err != nil {
+		return err
+	}
+	c.Audit("documento.excluiu", c.Param("id"))
+	return c.Redirect("/documentos")
+}
+
+c.Audit("permissao.alterou", papel, trilha.Fields{"modulo": "docs", "de": "ver", "para": "editar"})
+```
+
+O registro que sai, sem a aplicação montar mais nada:
+
+```json
+{"at":"2026-09-08T15:04:05Z","action":"documento.excluiu","target":"42",
+ "actor":{"subject":"u_17","email":"ana@org.br","via":"session"},
+ "ip":"10.0.0.7","request_id":"…","route":"/documentos/{id}"}
+```
+
+É por isso que cabe em uma linha: o ator, o endereço, o request id e a rota já são conhecidos —
+e escrevê-los à mão é o que toda aplicação faz e o que toda aplicação esquece em metade dos
+handlers.
+
+### Para onde vai
+
+`Config.Audit` é uma interface de um método — `Write(AuditRecord) error` — porque a decisão que
+a aplicação de fato toma é *qual tabela*, não *qual formato*.
+
+```go
+cfg.Audit = trilha.AuditFunc(func(r trilha.AuditRecord) error {
+	_, err := db.Exec(`INSERT INTO auditoria (at, action, target, actor, ip) VALUES (?,?,?,?,?)`,
+		r.At, r.Action, r.Target, r.Actor.Subject, r.IP)
+	return err
+})
+```
+
+Deixe nil e o registro vai para o logger da app com `kind=audit`, o que basta para um `grep` e
+basta para publicar uma primeira versão.
+
+**Sink que falha não derruba a resposta.** O erro vai para o log e a requisição segue. É
+deliberado: o documento foi excluído de qualquer forma, e recusar-se a responder agora perderia
+a trilha **e** confundiria quem fez — duas falhas em vez de uma.
+
+### Quem é o ator
+
+O `auth` marca: qualquer rota atrás de `Require`, `RequireRole` ou `RequirePolicy` atribui a
+trilha sem a aplicação escrever uma linha, com `via: "session"`.
+
+Aplicação que autentica do seu jeito chama `c.SetActor` uma vez no middleware, e tudo abaixo
+fica atribuído:
+
+```go
+c.SetActor(trilha.Actor{Subject: chave.ID, Name: chave.Rotulo, Via: "api_key"})
+```
+
+Ninguém reconhecido é registrado como `anonymous` — e é registrado: trilha que descarta em
+silêncio a ação anônima tem um buraco exatamente onde alguém iria procurar. O `trilha audit`
+avisa quando o `c.Audit` é chamado num projeto em que nenhuma rota exige sessão.
+
+### `Route` é o gabarito
+
+`/documentos/{id}`, não `/documentos/42`. O id concreto já está no `Target`; o gabarito é o que
+permite a uma consulta agrupar mil exclusões numa linha.
+

@@ -140,6 +140,13 @@ func runAudit(p *project, vuln bool) []check {
 		add("warn", fmt.Sprintf(t("time format"), n), t("time format hint"))
 	}
 
+	// c.Audit on a route nobody guards (spec 067). The trail would record
+	// "anonymous did it", which is the one answer an audit trail exists to
+	// never have to give.
+	if strings.Contains(src, ".Audit(") && !strings.Contains(src, ".Require") {
+		add("warn", t("audit anon"), t("audit anon hint"))
+	}
+
 	// The island runtime (spec 060) is a file of the kit, linked by Ctx.Island.
 	// A project that uses an island without it renders the fallback and nothing
 	// else, silently — which is the failure this check exists to name.

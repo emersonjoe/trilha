@@ -71,7 +71,7 @@ func (a *Auth) RequireFunc(pred func(*User, *trilha.Ctx) bool) trilha.Middleware
 		if pred == nil || !pred(u, c) {
 			return trilha.Errorf(403, "forbidden")
 		}
-		c.Set(ctxKey, u)
+		remember(c, u)
 		return next()
 	}
 }

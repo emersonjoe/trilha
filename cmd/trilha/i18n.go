@@ -303,6 +303,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"policy loose hint":           {"add auth.RequirePolicy(Policy, module, level) to the middleware.go of that area, or take the module out of the policy", "ponha auth.RequirePolicy(Policy, módulo, nível) no middleware.go daquela área, ou tire o módulo da política"},
 	"time format":                 {"%d date(s) formatted with a layout of their own", "%d data(s) formatada(s) com layout próprio"},
 	"time format hint":            {"ui.Date(c, t) writes the date in the app language and zone; a layout in the page ignores Config.TimeZone", "ui.Date(c, t) escreve a data no idioma e no fuso do app; layout na página ignora o Config.TimeZone"},
+	"audit anon":                  {"c.Audit is called and no route requires a session", "c.Audit é chamado e nenhuma rota exige sessão"},
+	"audit anon hint":             {"the trail would say anonymous did it; guard the route with auth.Require or set the actor with c.SetActor", "a trilha diria que foi anônimo; guarde a rota com auth.Require ou marque o ator com c.SetActor"},
 	"no checks":                   {"no readiness check registered", "nenhuma verificação de prontidão registrada"},
 	"no checks hint":              {"/_trilha/health/ready always answers 200; register a.Check(\"db\", ...) in app/setup.go", "/_trilha/health/ready sempre responde 200; registre a.Check(\"banco\", ...) em app/setup.go"},
 	"checks ok":                   {"readiness checks registered", "verificações de prontidão registradas"},

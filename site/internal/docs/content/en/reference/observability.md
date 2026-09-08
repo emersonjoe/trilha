@@ -118,3 +118,76 @@ the log as if it were a legitimate trace.
 `trilha audit` adds these items: token too short (critical), metrics configured without a
 token or a trusted network (critical), `0.0.0.0/0` in `Trusted` (warning) and no `a.Check(`
 anywhere in the project (warning).
+
+## The audit trail
+
+Every internal application ends up needing "who did what": who deleted the document, who
+changed the permission, who exported the list. The framework already holds half of it — the
+request id, the client IP behind `TrustedProxies`, the session, the route pattern. What is
+missing is the sentence, and a place for it.
+
+```go
+func DELETE(c *trilha.Ctx) error {
+	if err := docs.Delete(c, c.Param("id")); err != nil {
+		return err
+	}
+	c.Audit("document.deleted", c.Param("id"))
+	return c.Redirect("/documents")
+}
+
+c.Audit("permission.changed", role, trilha.Fields{"module": "docs", "from": "view", "to": "edit"})
+```
+
+The record that comes out, with nothing else written by the application:
+
+```json
+{"at":"2026-09-08T15:04:05Z","action":"document.deleted","target":"42",
+ "actor":{"subject":"u_17","email":"ana@org.br","via":"session"},
+ "ip":"10.0.0.7","request_id":"…","route":"/documents/{id}"}
+```
+
+That is the whole point of it being one line: the actor, the address, the request id and the
+route are already known, and writing them by hand is what every application does and what
+every application forgets in half its handlers.
+
+### Where it goes
+
+`Config.Audit` is an interface with one method — `Write(AuditRecord) error` — because the
+decision an application actually makes is *which table*, not *which shape*.
+
+```go
+cfg.Audit = trilha.AuditFunc(func(r trilha.AuditRecord) error {
+	_, err := db.Exec(`INSERT INTO audit_log (at, action, target, actor, ip) VALUES (?,?,?,?,?)`,
+		r.At, r.Action, r.Target, r.Actor.Subject, r.IP)
+	return err
+})
+```
+
+Leave it nil and the record goes to the app's logger with `kind=audit`, which is enough to
+grep and enough to ship a first version with.
+
+**A sink that fails does not take the response with it.** The error is logged and the request
+carries on. That is deliberate: the document was deleted either way, and refusing to answer now
+would lose the trail *and* confuse the person who did it — two failures instead of one.
+
+### Who is acting
+
+`auth` sets it: any route behind `Require`, `RequireRole` or `RequirePolicy` attributes the
+trail without the application writing a line, with `via: "session"`.
+
+An application that authenticates its own way calls `c.SetActor` once in its middleware and
+everything below is attributed:
+
+```go
+c.SetActor(trilha.Actor{Subject: key.ID, Name: key.Label, Via: "api_key"})
+```
+
+Nobody recognised is recorded as `anonymous`, and it is recorded — an audit trail that silently
+drops the anonymous action has a hole exactly where somebody would look. `trilha audit` warns
+when `c.Audit` is called in a project where no route requires a session.
+
+### `Route` is the pattern
+
+`/documents/{id}`, not `/documents/42`. The concrete id is already in `Target`; the pattern is
+what lets a query group a thousand deletions into one row.
+

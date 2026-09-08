@@ -40,7 +40,7 @@ func (a *Auth) guard(roles []string) trilha.MiddlewareFunc {
 			c.Log().Warn("auth: access denied", "sub", u.Subject, "need", strings.Join(roles, ","))
 			return &trilha.HTTPError{Code: http.StatusForbidden, Message: "access denied"}
 		}
-		c.Set(ctxKey, u)
+		remember(c, u)
 		return next()
 	}
 }
@@ -67,7 +67,7 @@ func (a *Auth) User(c *trilha.Ctx) *User {
 	if err != nil {
 		return nil
 	}
-	c.Set(ctxKey, u)
+	remember(c, u)
 	return u
 }
 
@@ -76,7 +76,7 @@ func (a *Auth) User(c *trilha.Ctx) *User {
 func (a *Auth) Optional() trilha.MiddlewareFunc {
 	return func(c *trilha.Ctx, next trilha.Next) error {
 		if u, err := a.Session(c); err == nil {
-			c.Set(ctxKey, u)
+			remember(c, u)
 		}
 		return next()
 	}
@@ -98,4 +98,13 @@ func wantsHTML(r *http.Request) bool {
 	return strings.Contains(accept, "text/html") &&
 		!strings.Contains(accept, "application/json") &&
 		!strings.HasPrefix(r.URL.Path, "/api/")
+}
+
+// remember puts the session on the request and, with it, who is acting — so
+// that c.Audit below this middleware is attributed without the application
+// writing a line. It is one function because the same two things were being
+// set in five places, and the fifth is where one of them gets forgotten.
+func remember(c *trilha.Ctx, u *User) {
+	c.Set(ctxKey, u)
+	c.SetActor(trilha.Actor{Subject: u.Subject, Email: u.Email, Name: u.Name, Via: "session"})
 }

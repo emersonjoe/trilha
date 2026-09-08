@@ -3,6 +3,54 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.49.0 — 2026-09-08
+
+Spec 067.
+
+### Added
+
+- **`c.Audit` — who did what, in one line**
+  ([#104](https://github.com/emersonjoe/trilha/issues/104)). Every internal application ends up
+  needing the trail, and the framework already held half of it: the request id, the client IP
+  behind `TrustedProxies`, the session, the route pattern. What was missing was the sentence
+  and a place for it. What the beginner does instead is `slog.Info("deleted", "id", id)`, which
+  loses the actor, the address and the request id — or a table that half the handlers forget to
+  write to. Both failures are the same one: the information was right there and nobody joined
+  it up.
+
+  `Config.Audit` is an interface with one method, because the decision an application actually
+  makes is *which table*, not *which shape*. Leave it nil and the record goes to the logger
+  with `kind=audit`, which is enough to grep and enough to ship a first version with.
+
+  **A sink that fails does not take the response with it.** The error is logged, loudly, and
+  the request carries on: the document was deleted either way, and refusing to answer now would
+  lose the trail *and* confuse the person who did it — two failures instead of one.
+
+  `auth` fills in the actor, so any route behind `Require`, `RequireRole` or `RequirePolicy` is
+  attributed without the application writing a line; an application that authenticates its own
+  way calls `c.SetActor` once. Nobody recognised is recorded as `anonymous` and **is recorded**:
+  a trail that silently drops the anonymous action has a hole exactly where somebody would
+  look. `trilha audit` warns when `c.Audit` is called in a project where no route requires a
+  session.
+
+  `Route` is the pattern and not the path — the concrete id is already in `Target`, and the
+  pattern is what lets a query group a thousand deletions into one row.
+
+### Changed
+
+- **`auth` sets the session and the actor in one place.** There were five `c.Set(ctxKey, u)`
+  scattered through the package; five places doing two things is where the fifth forgets one of
+  them.
+
+### Not here
+
+`audit.SQL` and `ui.AuditTable`, both asked for by the issue. The first would put DDL for two
+SQL dialects into a framework that has no database dependency at all — a bigger decision than
+this change, and the one-method interface exists precisely so the application writes its own
+`INSERT`, as the example does. The second depends on `c.CSV`
+([#109](https://github.com/emersonjoe/trilha/issues/109)), which does not exist yet; without
+that button it is a `DataTable` with five columns.
+
 ## 0.48.0 — 2026-09-08
 
 Spec 066.

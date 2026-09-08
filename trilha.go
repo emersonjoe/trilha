@@ -71,6 +71,10 @@ type Config struct {
 	// happens to be local is not a decision anybody made. A name the machine
 	// does not carry falls back to UTC and says so in the log, once.
 	TimeZone string
+	// Audit is where c.Audit writes the trail of who did what. Nil sends it to
+	// the logger with kind=audit, which is enough to grep and enough to ship
+	// with; an app that shows the trail on a screen gives its own sink here.
+	Audit AuditSink
 	// Security tunes the hardening headers (zero value = defaults).
 	Security Security
 	// TrustedProxies lists CIDRs whose X-Forwarded-For/Proto are honoured.

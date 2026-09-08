@@ -194,3 +194,43 @@ func TestPolicyGridRoundTrip(t *testing.T) {
 		t.Error("a role the form did not carry survived")
 	}
 }
+
+// Spec 067 (#104): the session is what makes c.Audit one line. The application
+// writes the sentence; who did it, from where and on which route are already
+// known — and forgetting to attribute them is what every hand-rolled audit does
+// in half its handlers.
+func TestSessionAttributesTheAuditTrail(t *testing.T) {
+	var recs []trilha.AuditRecord
+	a := Sessions(Options{LoginPath: "/entrar"})
+	app := trilha.New(trilha.Config{Env: trilha.Prod, Secret: []byte("0123456789abcdef0123456789abcdef"),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Audit: trilha.AuditFunc(func(r trilha.AuditRecord) error {
+			recs = append(recs, r)
+			return nil
+		})})
+	route := func(pattern string, h trilha.HandlerFunc, mw ...trilha.MiddlewareFunc) {
+		app.Register(trilha.Route{Pattern: pattern, Kind: trilha.KindPage,
+			Methods: map[string]trilha.HandlerFunc{"GET": h}, Middlewares: mw})
+	}
+	route("/entrar", func(c *trilha.Ctx) error {
+		return a.Login(c, &User{Subject: "u-1", Email: "ana@exemplo.com", Roles: []string{"analista"}})
+	})
+	route("/excluir", func(c *trilha.Ctx) error {
+		c.Audit("documento.excluiu", "42")
+		return c.Text(200, "ok")
+	}, a.Require())
+
+	b := newBrowser(t, app)
+	b.get("/entrar", nil)
+	b.get("/excluir", nil)
+
+	if len(recs) != 1 {
+		t.Fatalf("gravou %d registros", len(recs))
+	}
+	if recs[0].Actor.Subject != "u-1" || recs[0].Actor.Email != "ana@exemplo.com" {
+		t.Fatalf("o ator não veio da sessão: %+v", recs[0].Actor)
+	}
+	if recs[0].Actor.Via != "session" {
+		t.Fatalf("via = %q", recs[0].Actor.Via)
+	}
+}
