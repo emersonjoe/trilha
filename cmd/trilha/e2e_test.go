@@ -27,8 +27,7 @@ func TestE2E(t *testing.T) {
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
 	t.Setenv("TRILHA_LANG", "en") // messages asserted below are English; pt is checked at the end
-	cli := exeName(filepath.Join(tmp, "trilha-cli"))
-	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	cli := buildCLI(t, repo, tmp)
 
 	proj := filepath.Join(tmp, "meu-app")
 	out := run(t, tmp, cli, "new", proj, "--module", "example.com/meu-app", "--trilha-dir", repo)
@@ -383,6 +382,18 @@ func TestE2E(t *testing.T) {
 	}
 }
 
+// buildCLI compiles the CLI into tmp and gives back the path that runs it.
+// It exists so that no test has to remember exeName: on Windows a binary
+// without the extension is one exec.LookPath refuses, and four tests added at
+// once forgot it, which is the sign that the knowledge belongs here and not in
+// every caller. The windows job is what caught them.
+func buildCLI(t *testing.T, repo, tmp string) string {
+	t.Helper()
+	cli := exeName(filepath.Join(tmp, "trilha-cli"))
+	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	return cli
+}
+
 func run(t *testing.T, dir, name string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command(name, args...)
@@ -430,8 +441,7 @@ func TestEmbeddedAppE2E(t *testing.T) {
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
 	t.Setenv("TRILHA_LANG", "en")
-	cli := exeName(filepath.Join(tmp, "trilha-cli"))
-	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	cli := buildCLI(t, repo, tmp)
 
 	host := filepath.Join(tmp, "farol")
 	crm := filepath.Join(host, "internal", "crm")
@@ -538,8 +548,7 @@ func TestGenerateContratoE2E(t *testing.T) {
 	// The audit step of check reads the environment, and a missing secret is
 	// about this machine, not about what generate wrote.
 	t.Setenv("TRILHA_SECRET", "um-segredo-de-teste-com-mais-de-32-bytes")
-	cli := exeName(filepath.Join(tmp, "trilha-cli"))
-	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	cli := buildCLI(t, repo, tmp)
 
 	proj := filepath.Join(tmp, "loja")
 	run(t, tmp, cli, "new", proj, "--module", "example.com/loja", "--trilha-dir", repo)
@@ -592,8 +601,7 @@ func TestTemplateAppE2E(t *testing.T) {
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
 	t.Setenv("TRILHA_LANG", "en")
-	cli := filepath.Join(tmp, "trilha-cli")
-	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	cli := buildCLI(t, repo, tmp)
 
 	proj := filepath.Join(tmp, "gestao")
 	run(t, tmp, cli, "new", proj, "--module", "example.com/gestao", "--template", "app", "--trilha-dir", repo)
@@ -641,8 +649,7 @@ func TestMigrateNextE2E(t *testing.T) {
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
 	t.Setenv("TRILHA_LANG", "en")
-	cli := filepath.Join(tmp, "trilha-cli")
-	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	cli := buildCLI(t, repo, tmp)
 
 	proj := filepath.Join(tmp, "portado")
 	run(t, tmp, cli, "new", proj, "--module", "example.com/portado", "--trilha-dir", repo)
@@ -724,8 +731,7 @@ func TestIslandTypesE2E(t *testing.T) {
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
 	t.Setenv("TRILHA_LANG", "en")
-	cli := filepath.Join(tmp, "trilha-cli")
-	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	cli := buildCLI(t, repo, tmp)
 
 	proj := filepath.Join(tmp, "ilhas")
 	run(t, tmp, cli, "new", proj, "--module", "example.com/ilhas", "--trilha-dir", repo)
@@ -822,8 +828,7 @@ func TestVendorE2E(t *testing.T) {
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
 	t.Setenv("TRILHA_LANG", "en")
-	cli := filepath.Join(tmp, "trilha-cli")
-	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
+	cli := buildCLI(t, repo, tmp)
 	proj := filepath.Join(tmp, "ilhas")
 	run(t, tmp, cli, "new", proj, "--module", "example.com/ilhas", "--trilha-dir", repo)
 

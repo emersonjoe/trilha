@@ -51,16 +51,19 @@ func cmdClient(args []string) error {
 		return err
 	}
 	path := filepath.Join(*out, "client.go")
+	// The path a person reads is the same on every system; the one the
+	// filesystem gets keeps its own separator.
+	shown := filepath.ToSlash(path)
 	if *check {
 		cur, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
+			return fmt.Errorf("%s: %w", shown, err)
 		}
 		if string(cur) == string(res.Source) {
-			fmt.Println("✓", fmt.Sprintf(t("client fresh"), path))
+			fmt.Println("✓", fmt.Sprintf(t("client fresh"), shown))
 			return nil
 		}
-		return fmt.Errorf(t("client stale"), path)
+		return fmt.Errorf(t("client stale"), shown)
 	}
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		return err
@@ -71,7 +74,7 @@ func cmdClient(args []string) error {
 	for _, n := range res.Notes {
 		fmt.Printf("  %s: %s\n", n.Where, n.What)
 	}
-	fmt.Printf(t("client done")+"\n", path, *pkg)
+	fmt.Printf(t("client done")+"\n", shown, *pkg)
 	return nil
 }
 

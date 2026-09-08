@@ -3,6 +3,21 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## Unreleased
+
+### Fixed
+
+- **The suite runs on Windows again** ([#88](https://github.com/emersonjoe/trilha/issues/88)).
+  The `windows` job failed on the 0.41.0 release commit with the error 0.39.2 had fixed: four
+  new e2e tests build the CLI and then execute it without the extension Windows requires. The
+  product was never affected. Four tests forgetting the same thing at once is a sign the
+  knowledge was in the wrong place, so `buildCLI` now owns it and the eighth test cannot get
+  it wrong.
+- **`trilha migrate next` and `trilha client` print a path the way the rest of the CLI does**.
+  Both were writing the native separator, so a migration report on Windows listed routes as
+  `app\page.go` while `trilha new` writes `app/api/hello/route.go` and `trilha vendor` already
+  calls `filepath.ToSlash` on its own line.
+
 ## 0.41.0 — 2026-09-08
 
 The release of the app that already exists somewhere else. An API in another language keeps
