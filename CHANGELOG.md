@@ -3,6 +3,64 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.40.0 — 2026-09-08
+
+Spec 057, from a field report: someone who came from years of React, ran Go + templ + htmx in
+production for six months and wrote down what they learned. The compliments describe what
+Trilha already is; the two complaints are this release.
+
+### Added
+
+- **`ui.Indicator(id)`, and a threshold that keeps it from blinking**
+  ([#81](https://github.com/emersonjoe/trilha/issues/81)). An element marked as the indicator
+  for a target stays hidden and appears only once the request for that target has been in
+  flight past 120 ms — `ui.PendingAfter(ms)` on the trigger changes it. Showing a spinner for
+  the 40 ms answer is the flicker people complain about, not a courtesy, so nothing is marked
+  before the threshold: a fast answer leaves the page exactly as it was. Several indicators
+  may watch the same target.
+- **`ui.Spinner(attrs…)`** — a turning ring sized by the font it sits in, hidden from
+  assistive technology because the waiting is announced by `aria-busy` on the target.
+- **`ui.NoTransition()`** — turns off the crossfade on one trigger.
+- **`trilha:pending` and `trilha:settled`** fire on `document` with `detail.target` and
+  `detail.id`, for what CSS cannot do.
+- **Two chapters, in both languages**: *The ceiling* / *O teto* — where the swap model stops,
+  the signs that you are above it, and the rules that keep an island from quietly growing
+  into a SPA ([#83](https://github.com/emersonjoe/trilha/issues/83)); and *From htmx and
+  templ* / *Vindo do htmx e do templ*, a translation table for people who already made both
+  decisions, including what has **no** equivalent — out-of-band swaps, polling triggers,
+  event triggers ([#84](https://github.com/emersonjoe/trilha/issues/84)).
+- **`/blog/ordem` in `examples/blog`** — drag to reorder, the order saved by the same
+  `POST → redirect → GET` the rest of the app uses, and ↑ ↓ buttons that keep the screen
+  usable from a keyboard and with the module blocked.
+
+### Fixed
+
+- **An island that arrives inside a swapped fragment now mounts**
+  ([#82](https://github.com/emersonjoe/trilha/issues/82)). It only did when the page already
+  had an island: the loader `Ctx.Island` writes travelled with the fragment as a `<script>`,
+  and the DOM does not run a script inserted by `outerHTML`. So the island sat there with its
+  fallback showing and nothing in the console — and the symptom disappeared when you reloaded
+  to check. A swap only ever happens through `ui.js`, so that is what mounts what a swap
+  brings in; both sides skip an element already marked `data-trilha-mounted`, so an island
+  mounts exactly once.
+- **A second click no longer sends the request twice.** A trigger whose target is already in
+  flight is ignored, which also replaces disabling the submit button on the spot — itself an
+  instant visual change on a fast answer.
+
+### Changed
+
+- **`aria-busy` on a swap target now obeys the threshold.** It used to be set the moment the
+  request left, so the target dimmed on every answer, however fast. If you styled
+  `[aria-busy]` yourself, the rule still applies — it just starts later.
+- **A swap crossfades where the browser has `document.startViewTransition`**, and does not
+  where it has none or where the system asks for less motion. `ui.swap(id, html, status)` now
+  returns a promise, because the replacement may be running inside that transition.
+- **The `ui.js` budget goes from 16 KB to 20 KB** (FR-007). The threshold, the transition and
+  the island mounting are about 3.8 KB, and all three sit on the path a swap already takes —
+  none of them could move into a file only the apps that use it download, the way `ui.nav.js`
+  and `ui.upload.js` do. The kit copies in `site/` and `examples/blog/` were refreshed with
+  `trilha ui --force`; the site had been serving a kit from before 0.39.0.
+
 ## 0.39.2 — 2026-09-08
 
 ### Fixed

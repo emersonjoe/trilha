@@ -146,6 +146,26 @@ existia. As issues 42–58 são o que doeu lá; a ordem aqui é a do que doeu ma
 42. ~~[#76](https://github.com/emersonjoe/trilha/issues/76) e [#78](https://github.com/emersonjoe/trilha/issues/78) um `route.go` não conseguia responder a um preflight.~~ **Entregue na 0.39.0** (spec 052): `func OPTIONS` nasce da árvore como os outros métodos, e `var CORS = trilha.CORS{...}` dá a política de uma rota só, preflight incluído, sem abrir o app inteiro.
 43. ~~[#77](https://github.com/emersonjoe/trilha/issues/77) o `trilha check` reprovava por `TRILHA_SECRET` num app que nunca assina cookie.~~ **Entregue na 0.39.0** (spec 052): a auditoria lê o código antes de cobrar — segredo ausente vira aviso quando nada assina, e continua crítico quando alguém assina ou quando está definido e curto.
 
+44. ~~[#79](https://github.com/emersonjoe/trilha/issues/79) `trilha dev` não subia no Windows.~~ **Entregue na 0.39.2** (spec 056): o binário que a CLI constrói recebe a extensão que o sistema exige — `go build -o` escreve o nome literal, e o `exec.LookPath` do Windows só aceita o que estiver no `PATHEXT` —, e o CI ganhou um trabalho `windows-latest`, que é quem impede a volta: era a ausência dele que deixava uma CLI incapaz de subir passar verde.
+
+### Fase 8 — O teto da interatividade
+
+Esta fase saiu de um relato de campo: alguém que veio de anos de React, rodou Go + templ +
+htmx seis meses em produção e escreveu o que aprendeu. Os elogios dele descrevem o que o
+Trilha já é — HTML tipado no servidor, troca de pedaço em vez de store no cliente — e por
+isso valem menos que as duas queixas. A primeira é que o teto de estado rico no cliente
+existe e chega; a segunda é que, em conexão lenta, faltava resposta visual enquanto o
+servidor responde, e ele resolveu com `hx-indicator` e transições de CSS.
+
+A tese da fase é que **admitir o teto é o que dá confiança**. Um framework que finge não ter
+um perde a pessoa exatamente no dia em que ela esbarra nele — e ela esbarra em produção, não
+no tutorial.
+
+45. ~~[#81](https://github.com/emersonjoe/trilha/issues/81) Enquanto o servidor responde: indicador em outro elemento que não o alvo, limiar de atraso para a resposta rápida não piscar, gatilho travado contra o segundo clique e troca sem pulo onde o `startViewTransition` existe. É a única queixa concreta do relato, e hoje o Trilha responde pela metade — `aria-busy` no alvo e nada mais.~~ **Entregue na 0.40.0** (spec 057): `ui.Indicator` com limiar de 120 ms, `ui.PendingAfter` para mudá-lo, `ui.Spinner`, guarda contra o segundo clique e *crossfade* onde o `startViewTransition` existe. O `aria-busy` passou a obedecer ao mesmo limiar — era ele que piscava.
+46. ~~[#82](https://github.com/emersonjoe/trilha/issues/82) A ilha que chega dentro de um fragmento trocado não monta se a página não tinha nenhuma ilha antes: o `<script>` do loader entra pelo `outerHTML` e o DOM não executa script inserido assim. Falha em silêncio, e some quando você recarrega para conferir.~~ **Entregue na 0.40.0** (spec 057): quem monta o que a troca traz é o `ui.js`, que é por onde toda troca passa; os dois lados pulam o que já tem `data-trilha-mounted`, então a ilha monta uma vez só.
+47. ~~[#83](https://github.com/emersonjoe/trilha/issues/83) Dizer onde o teto fica e como atravessá-lo: os sinais concretos (estado que sobrevive entre trocas, arrastar e soltar contínuo, edição colaborativa, canvas) e uma ilha com biblioteca de terceiros dentro, rodando em `examples/`, sem bundler.~~ **Entregue na 0.40.0** (spec 057): capítulo *O teto* nas duas línguas, com as regras que impedem a ilha de virar SPA, e a rota `/blog/ordem` com arrastar-e-soltar, botões ↑ ↓ para o teclado e a ordem salva pelo mesmo `POST → redirect → GET`.
+48. ~~[#84](https://github.com/emersonjoe/trilha/issues/84) Chegando do htmx + templ: a página que traduz o que a pessoa já sabe em vez de ensinar do zero, inclusive o que **não** tem equivalente.~~ **Entregue na 0.40.0** (spec 057): capítulo *Vindo do htmx e do templ* nas duas línguas, com a tabela de tradução e as três faltas ditas sem rodeio — troca fora de banda, gatilho por tempo e gatilho por evento qualquer.
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |

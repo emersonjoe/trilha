@@ -799,6 +799,7 @@ pkg ui, func Help(string) FieldOpt
 pkg ui, func Icon(string, ...h.Node) h.Node
 pkg ui, func IconSize() h.Node
 pkg ui, func Icons() []string
+pkg ui, func Indicator(string) h.Node
 pkg ui, func Input(...h.Node) h.Node
 pkg ui, func Invalid() h.Node
 pkg ui, func InvalidIf(map[string]string, string) h.Node
@@ -818,9 +819,11 @@ pkg ui, func Navigate(string) h.Node
 pkg ui, func NavigateScript(*trilha.Ctx) h.Node
 pkg ui, func NoNavigate() h.Node
 pkg ui, func NoPush() h.Node
+pkg ui, func NoTransition() h.Node
 pkg ui, func Num() h.Node
 pkg ui, func Outline() h.Node
 pkg ui, func Pagination(Pages) h.Node
+pkg ui, func PendingAfter(int) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func Radio(...h.Node) h.Node
 pkg ui, func Row(...h.Node) h.Node
@@ -833,6 +836,7 @@ pkg ui, func Sidebar(...h.Node) h.Node
 pkg ui, func Skeleton(...h.Node) h.Node
 pkg ui, func Sm() h.Node
 pkg ui, func Spacer() h.Node
+pkg ui, func Spinner(...h.Node) h.Node
 pkg ui, func Stack(...h.Node) h.Node
 pkg ui, func Submit(...h.Node) h.Node
 pkg ui, func Swap(string) h.Node
