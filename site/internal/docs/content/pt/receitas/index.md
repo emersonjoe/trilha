@@ -16,6 +16,7 @@ mailer — o que ele tem é um lugar para os seus, e é aqui que esse lugar est�
 | [Banco de dados](/pt/receitas/banco-de-dados) | pool, consultas, transação, migrações, sqlc |
 | [Sessões](/pt/receitas/sessoes) | login, cookie assinado, usuário atual, flash |
 | [Uploads](/pt/receitas/uploads) | receber um arquivo, validar, guardar, devolver |
+| [Planilhas (CSV)](/pt/receitas/planilhas) | exportar a planilha que o Excel abre, importar com o erro por célula |
 | [Paginação](/pt/receitas/paginacao) | página e cursor, e o rodapé que vem com eles |
 | [E-mail](/pt/receitas/email) | SMTP em produção, o log em dev, um corpo vindo de template |
 | [Tarefas agendadas](/pt/receitas/tarefas-agendadas) | um ticker que sobe com o app e para com ele |

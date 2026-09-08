@@ -240,6 +240,43 @@ dizer "ninguém escolheu nada". O arquivo que falha nomeia a própria posição 
 passaram voltam na fatia, e fechá-los é com quem chamou. Acima do `MaxFiles` a requisição
 inteira é recusada no nome do campo, antes de um byte ser lido.
 
+## Planilhas
+
+`CSV(name string, rows any) error` escreve uma fatia — ou um canal de recebimento — como um
+arquivo que a pessoa abre, e `BindCSV(r io.Reader, dst any, rules ...CSVRules) (CSVResult, error)`
+lê um de volta dizendo qual célula está errada.
+
+| Símbolo | Papel |
+|---|---|
+| `c.CSV(name string, rows any) error` | download com BOM UTF-8, o separador do locale e linhas em CRLF |
+| `csv:"Cabeçalho"` | o cabeçalho da coluna; sem tag é o nome do campo, e `csv:"-"` deixa o campo de fora |
+| `BindCSV(r io.Reader, dst any, rules ...CSVRules)` | lê o arquivo num `*[]T`, validando cada linha com as tags `validate` dela |
+| `CSVRules.MaxRows int` | teto do arquivo; padrão 100 mil, e acima dele um erro em vez de um corte |
+| `CSVRules.Separator rune` | força o delimitador; zero detecta pelo cabeçalho |
+| `CSVResult.Rows int` | quantas linhas de dados foram lidas, fora as em branco |
+| `CSVResult.Errors []CSVError` | `{Line, Column, Message}` na ordem do arquivo; o cabeçalho é a linha 1 |
+| `CSVResult.Warnings []string` | o que foi estranho e não fatal — cabeçalho que nenhum campo reivindica |
+| `res.OK() bool` | sem erros: todas as linhas podem ser usadas |
+
+O `Config.Locale` decide o separador (`,` em en, `;` em pt-BR), a data (`2006-01-02 15:04`
+contra `02/01/2006 15:04`), a marca decimal e a palavra do booleano (`yes`/`no`, `sim`/`não`);
+o `Config.TimeZone` decide em que dia um horário cai. O BOM não é opcional nem configurável:
+sem ele o Excel lê todo acento como caractere estranho, e é a primeira coisa que qualquer um
+percebe.
+
+Um canal é o que uma exportação de duzentas mil linhas quer — as linhas são escritas conforme
+chegam e o prazo de escrita é retirado —, mas encerrar o produtor é com você: faça `select` no
+`c.Context().Done()`, ou um navegador que fechou a conexão deixa uma goroutine para trás.
+(`iter.Seq` não é aceito: este módulo compila no Go 1.22.)
+
+Na volta, o separador e o BOM são detectados, o cabeçalho casa pela tag em qualquer ordem
+ignorando maiúsculas e espaços em volta, linha em branco é pulada, e a data é lida em
+`dd/mm/aaaa` além do ISO. Só as linhas que passam entram na fatia, então depois do `res.OK()`
+ela é o arquivo inteiro. Coluna obrigatória que falta no cabeçalho é uma mensagem na linha 1,
+não a mesma mensagem em toda linha; cabeçalho que nenhum campo reivindica é aviso, porque
+planilha ganha coluna o tempo todo. O `ui.CSVErrors` desenha a lista — veja
+[Planilhas (CSV)](/pt/receitas/planilhas) para a ida e a volta inteiras.
+
 ## Mandando um arquivo
 
 O `File` recebe; estes cinco mandam. O nome, o tipo e os dois cabeçalhos que impedem um

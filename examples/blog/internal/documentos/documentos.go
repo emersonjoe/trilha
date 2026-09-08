@@ -139,3 +139,18 @@ func Reset() {
 	defer mu.Unlock()
 	lista = semear()
 }
+
+// Importar acrescenta o que veio da planilha e devolve quantos entraram. O id
+// é gerado aqui: uma planilha editada à mão não tem por que carregar um.
+func Importar(novos []Documento) int {
+	mu.Lock()
+	defer mu.Unlock()
+	for _, d := range novos {
+		d.ID = fmt.Sprintf("d%d", len(lista)+1)
+		if d.Status == "" {
+			d.Status = "fila"
+		}
+		lista = append(lista, d)
+	}
+	return len(novos)
+}

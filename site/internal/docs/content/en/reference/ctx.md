@@ -238,6 +238,43 @@ per file can put the message on the right line; the files that passed come back 
 and closing them is the caller's job. Over `MaxFiles` the whole request is refused under the
 field's own name, before a single byte is read.
 
+## Spreadsheets
+
+`CSV(name string, rows any) error` writes a slice — or a receive-only channel — as a file the
+person can open, and `BindCSV(r io.Reader, dst any, rules ...CSVRules) (CSVResult, error)`
+reads one back saying which cell is wrong.
+
+| Symbol | Role |
+|---|---|
+| `c.CSV(name string, rows any) error` | download with a UTF-8 BOM, the locale's separator and CRLF lines |
+| `csv:"Heading"` | the column's heading; without a tag it is the field name, and `csv:"-"` leaves the field out |
+| `BindCSV(r io.Reader, dst any, rules ...CSVRules)` | reads the file into a `*[]T`, validating each row with its `validate` tags |
+| `CSVRules.MaxRows int` | ceiling on the file; default 100,000, and above it an error rather than a truncation |
+| `CSVRules.Separator rune` | forces the delimiter; zero detects it from the header |
+| `CSVResult.Rows int` | how many data lines were read, blank ones aside |
+| `CSVResult.Errors []CSVError` | `{Line, Column, Message}` in file order; the header is line 1 |
+| `CSVResult.Warnings []string` | what was odd and not fatal — a heading no field claims |
+| `res.OK() bool` | no errors: every row can be used |
+
+`Config.Locale` decides the separator (`,` in en, `;` in pt-BR), the date (`2006-01-02 15:04`
+against `02/01/2006 15:04`), the decimal mark and the word for a boolean (`yes`/`no`,
+`sim`/`não`); `Config.TimeZone` decides which day a timestamp falls on. The BOM is not
+optional and not configurable: without it Excel reads every accent as mojibake, and that is
+the first thing anybody notices.
+
+A channel is what a two-hundred-thousand-row export wants — rows are written as they arrive
+and the write deadline is cleared — but the producer is yours to end: select on
+`c.Context().Done()`, or a browser that closed the connection leaves a goroutine behind.
+(`iter.Seq` is not accepted: this module builds on Go 1.22.)
+
+On the way in, the separator and the BOM are detected, the header matches by tag in any order
+ignoring case and surrounding space, a blank line is skipped, and a date is read as
+`dd/mm/yyyy` as well as ISO. Only rows that pass are appended, so after `res.OK()` the slice
+is the whole file. A required column missing from the header is one message at line 1 rather
+than the same message on every row; a heading no field claims is a warning, because a
+spreadsheet grows a column all the time. `ui.CSVErrors` renders the list — see
+[CSV](/cookbook/csv) for the whole round trip.
+
 ## Sending a file
 
 `File` receives; these five send. The name, the type and the two headers that keep a download

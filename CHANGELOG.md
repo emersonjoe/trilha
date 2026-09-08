@@ -3,6 +3,58 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.50.0 — 2026-09-08
+
+Spec 068.
+
+### Added
+
+- **`c.CSV` and `trilha.BindCSV` — the spreadsheet, both ways**
+  ([#109](https://github.com/emersonjoe/trilha/issues/109)). Every internal application does
+  this twice: a button that downloads the list, and a screen that takes it back. Both fail in
+  the same few places, and none of them is interesting — which is exactly why nobody gets them
+  right. On the way out: no BOM, so Excel opens every accent as mojibake; a comma where that
+  person's Excel expects a semicolon, so the file opens as one long column. On the way in:
+  "error in the file", which leaves somebody to find one bad date among four thousand rows by
+  eye.
+
+  `c.CSV(name, rows)` takes a slice or a receive-only channel — the channel is what a
+  two-hundred-thousand-row export wants, written as it is produced with the write deadline
+  lifted. `Config.Locale` decides the separator, the date format, the decimal mark and the word
+  for a boolean. **The BOM is the one thing with no option**: there is no application for which
+  mangled accents are the desired behaviour.
+
+  `trilha.BindCSV(r, &rows)` detects the separator and the BOM, matches the header by tag in
+  any order, and **validates each row with the same `validate` tags a form uses** — a rule
+  written once holds on the screen and in the import, translation included. `res.Errors` is
+  `{Line, Column, Message}`, with the line taken from the reader rather than from a counter of
+  our own: one cell containing a newline would otherwise shift every message after it by one.
+
+  A required column missing from the header is one message at line 1, not the same message on
+  ten thousand rows. A heading no field claims is a warning, because a spreadsheet grows a
+  column all the time and refusing the file for it only teaches people to delete columns before
+  uploading. Only rows that pass are appended, and `MaxRows` (100,000) is an error rather than
+  a truncation — half an import that reports success is worse than one that fails.
+
+- **`ui.CSVErrors`** renders the rejected cells as a table of line, column and problem, twenty
+  at a time, with the warnings under them.
+
+- **`Upload` is an `io.Reader`.** One line, and it is what lets `BindCSV(up, &rows)` be the
+  call without the caller reaching into the struct for `.File`.
+
+### Changed
+
+- **The blog example declares `Locale: "pt-BR"` and `TimeZone: "America/Sao_Paulo"`.** It is an
+  application written for people who read Portuguese, and until now it said so everywhere
+  except in the one place that decides what a spreadsheet, a date and a number look like.
+
+### Not here
+
+`iter.Seq` for the export, which the issue asks for: this module builds on Go 1.22, where it
+does not exist, and the channel covers what that part of the issue actually wanted. The
+issue's `c.Draft` comes from [#103](https://github.com/emersonjoe/trilha/issues/103), which
+does not exist yet; the recipe shows the flow without it.
+
 ## 0.49.0 — 2026-09-08
 
 Spec 067.

@@ -306,6 +306,48 @@
     "example": "return c.HTML(http.StatusOK, ui.ComboboxOptions(cities, func(c City) (string, string) {\n\treturn strconv.Itoa(c.ID), c.Name\n}))"
   },
   {
+    "name": "CSVErrorsOpts",
+    "kind": "type",
+    "group": "csv",
+    "signature": "type CSVErrorsOpts struct",
+    "doc": "CSVErrorsOpts is what the list of rejected cells says. The zero value is a\nsensible screen.",
+    "summary": "CSVErrorsOpts is what the list of rejected cells says.",
+    "fields": [
+      {
+        "name": "Title",
+        "type": "string",
+        "doc": "Title is the sentence above the table."
+      },
+      {
+        "name": "Limit",
+        "type": "int",
+        "doc": "Limit is how many cells are listed."
+      },
+      {
+        "name": "Action",
+        "type": "h.Node",
+        "doc": "Action is what comes after the table — \"Choose another file\", usually."
+      }
+    ]
+  },
+  {
+    "name": "CSVErrors",
+    "kind": "func",
+    "group": "csv",
+    "signature": "CSVErrors(c *trilha.Ctx, res trilha.CSVResult, opts ...CSVErrorsOpts) h.Node",
+    "doc": "CSVErrors renders what BindCSV rejected, by line and column.\n\nIt exists because the alternative is what every import screen actually\nshows — \"error in the file\" — which leaves somebody to find one bad date in\nfour thousand rows by eye. Line is numbered the way their editor numbers it,\nwith the header as line 1, and Column is the heading as it appears in the\nfile, so both halves of the message can be searched for.\nWarnings are listed under the errors and read differently on purpose: a\ncolumn nobody claimed did not stop the import.",
+    "summary": "CSVErrors renders what BindCSV rejected, by line and column.",
+    "example": "res, err := trilha.BindCSV(up, \u0026nodes)\nif err != nil {\n\treturn trilha.FieldErrors{\"file\": err.Error()}\n}\nif !res.OK() {\n\treturn c.Render(422, page(ui.CSVErrors(c, res, ui.CSVErrorsOpts{\n\t\tAction: ui.ButtonLink(\"/import\", h.Text(\"Choose another file\")),\n\t})))\n}\n\n\n\nsee: trilha.BindCSV, ui.Empty",
+    "see": [
+      "h.Text",
+      "trilha.BindCSV",
+      "trilha.FieldErrors",
+      "ui.ButtonLink",
+      "ui.CSVErrorsOpts",
+      "ui.Empty"
+    ]
+  },
+  {
     "name": "DropzoneOpts",
     "kind": "type",
     "group": "dropzone",

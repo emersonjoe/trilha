@@ -55,6 +55,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Tooltip(texto, ...)` | dica no que ele embrulha: `title` mais `data-ui-tooltip`, promovido pelo `ui.js` a uma bolha com `role=tooltip` e `aria-describedby` |
 | `Separator, Skeleton, Progress(valor, máx), Breadcrumb(Crumb{Label, Href}...), Avatar(iniciais, src), Collapsible(resumo, ...)` | diversos |
 | `ThemeToggle()` | botão que alterna claro/escuro (`localStorage["ui-theme"]`) |
+| `CSVErrors(c, res, CSVErrorsOpts{...})` | o que o `trilha.BindCSV` recusou, por linha e coluna — veja [Planilhas (CSV)](/pt/receitas/planilhas) |
 | `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) |
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
 | `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) |

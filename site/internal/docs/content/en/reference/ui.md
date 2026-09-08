@@ -55,6 +55,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Tooltip(text, ...)` | hint on what it wraps: `title` plus `data-ui-tooltip`, upgraded by `ui.js` into a bubble with `role=tooltip` and `aria-describedby` |
 | `Separator, Skeleton, Progress(value, max), Breadcrumb(Crumb{Label, Href}...), Avatar(initials, src), Collapsible(summary, ...)` | miscellaneous |
 | `ThemeToggle()` | button that switches light/dark (`localStorage["ui-theme"]`) |
+| `CSVErrors(c, res, CSVErrorsOpts{...})` | what `trilha.BindCSV` rejected, by line and column — see [CSV](/cookbook/csv) |
 | `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) |
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
 | `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) |

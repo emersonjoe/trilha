@@ -23,6 +23,7 @@ import (
 	app_blog_slug_ "github.com/emersonjoe/trilha/examples/blog/app/blog/slug_"
 	app_docs_path__ "github.com/emersonjoe/trilha/examples/blog/app/docs/path__"
 	app_documentos "github.com/emersonjoe/trilha/examples/blog/app/documentos"
+	app_documentos_planilha "github.com/emersonjoe/trilha/examples/blog/app/documentos/planilha"
 	app_legado_ "github.com/emersonjoe/trilha/examples/blog/app/legado-"
 	app_legado__legado "github.com/emersonjoe/trilha/examples/blog/app/legado-/legado"
 	app_legado__legado_apagar "github.com/emersonjoe/trilha/examples/blog/app/legado-/legado/apagar"
@@ -160,6 +161,14 @@ func newApp() *trilha.App {
 		Pattern:     "/documentos",
 		Page:        app_documentos.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/documentos/planilha",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET":  app_documentos_planilha.GET,
+			"POST": app_documentos_planilha.POST,
+		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{

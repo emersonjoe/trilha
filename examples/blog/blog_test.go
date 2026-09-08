@@ -951,3 +951,48 @@ func TestRascunhoDaIlhaResponde(t *testing.T) {
 		t.Fatalf("resposta do rascunho: %+v", salvo)
 	}
 }
+
+// multipartCampo é o multipart com o nome do campo escolhido: a rota da
+// planilha recebe um arquivo em "arquivo", não a fila de "arquivos".
+func multipartCampo(t *testing.T, campo, name, content string) (body, contentType string) {
+	t.Helper()
+	var sb strings.Builder
+	w := multipartlib.NewWriter(&sb)
+	f, err := w.CreateFormFile(campo, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	io.WriteString(f, content)
+	w.Close()
+	return sb.String(), w.FormDataContentType()
+}
+
+// Issue #109: a planilha dos dois lados. O que o GET baixa, o POST aceita de
+// volta — que é o caminho real: a pessoa exporta, edita no Excel e sobe.
+func TestPlanilhaExportaEImporta(t *testing.T) {
+	documentos.Reset()
+	c := newClient(t, "prod")
+
+	rec := c.Get("/documentos/planilha")
+	rec.WantStatus(200).WantContains("Documento;Tipo;Bytes;Status", "\ufeff")
+	if d := rec.Header().Get("Content-Disposition"); !strings.Contains(d, `filename="documentos.csv"`) {
+		t.Fatalf("nome do arquivo: %q", d)
+	}
+
+	// A planilha de volta com duas linhas novas, no formato que o próprio
+	// export escreveu.
+	arquivo := "\ufeffDocumento;Tipo;Bytes;Status\r\ncontrato-2026.pdf;contrato;2048;fila\r\n"
+	body, ct := multipartCampo(t, "arquivo", "planilha.csv", arquivo)
+	env := c.Request("POST", "/documentos/planilha", trilha.WithBody(ct, body))
+	if env.Code != 303 {
+		t.Fatalf("importação boa deve redirecionar: %d %s", env.Code, env.Body.String())
+	}
+	c.Get("/documentos?q=contrato-2026").WantStatus(200).WantContains("contrato-2026.pdf")
+
+	// E a planilha com uma célula inválida diz qual linha e qual coluna, em vez
+	// de "erro no arquivo".
+	ruim := "Documento;Tipo;Bytes\r\n;xisto;2048\r\n"
+	body, ct = multipartCampo(t, "arquivo", "planilha.csv", ruim)
+	erro := c.Request("POST", "/documentos/planilha", trilha.WithBody(ct, body))
+	erro.WantStatus(422).WantContains("Documento", "Tipo", "obrigatório", "opção inválida", ">2<")
+}

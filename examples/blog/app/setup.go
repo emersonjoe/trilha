@@ -24,6 +24,11 @@ func Config(cfg *trilha.Config) error {
 	// the URL: an address that changes with the file can be cached forever,
 	// and a deploy never leaves anyone with new HTML and old CSS.
 	cfg.StaticCacheControl = "public, max-age=31536000, immutable"
+	// O app inteiro é escrito para quem lê em português, e é isso que decide o
+	// separador de uma planilha, o formato de uma data e a palavra para
+	// verdadeiro. Sem esta linha, o Excel daqui abre o CSV como uma coluna só.
+	cfg.Locale = "pt-BR"
+	cfg.TimeZone = "America/Sao_Paulo"
 	// As sondas /_trilha/health/live e /ready já existem sem configuração. O
 	// endereço de métricas é opt-in: aqui ele só aparece quando o ambiente
 	// traz TRILHA_METRICS, e quem raspa precisa de TRILHA_OBS_TOKEN.

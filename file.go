@@ -52,6 +52,11 @@ type Upload struct {
 // Close closes the underlying file.
 func (u *Upload) Close() error { return u.File.Close() }
 
+// Read makes the upload itself the reader, so it can be passed straight to
+// anything that takes one — io.Copy, BindCSV — without the caller reaching
+// into the struct for the field.
+func (u *Upload) Read(p []byte) (int, error) { return u.File.Read(p) }
+
 // Save writes the file inside dir, creating the directory if needed, with mode
 // 0600 and a name that is free: nota.pdf, then nota-1.pdf, and so on. It
 // returns the path written. The name cannot escape dir — that is the whole

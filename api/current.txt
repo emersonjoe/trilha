@@ -16,6 +16,7 @@ pkg trilha, const Prod Env
 pkg trilha, const StatusFail
 pkg trilha, const StatusPass
 pkg trilha, func AddRule(string, func(Field) bool)
+pkg trilha, func BindCSV(io.Reader, any, ...CSVRules) (CSVResult, error)
 pkg trilha, func BindSchema(*Ctx, Schema) (map[string]string, error)
 pkg trilha, func CSRFInput(*Ctx) h.Node
 pkg trilha, func CSRFTokenFrom(*http.Request) string
@@ -86,6 +87,7 @@ pkg trilha, method (*Ctx) Base() string
 pkg trilha, method (*Ctx) Bind(any) error
 pkg trilha, method (*Ctx) BindJSON(any) error
 pkg trilha, method (*Ctx) CSRFToken() string
+pkg trilha, method (*Ctx) CSV(string, any) error
 pkg trilha, method (*Ctx) CacheControl(string)
 pkg trilha, method (*Ctx) ClearCookie(string)
 pkg trilha, method (*Ctx) ClientIP() string
@@ -173,8 +175,10 @@ pkg trilha, method (*TestResponse) WantContains(...string) *TestResponse
 pkg trilha, method (*TestResponse) WantHeader(string, string) *TestResponse
 pkg trilha, method (*TestResponse) WantStatus(int) *TestResponse
 pkg trilha, method (*Upload) Close() error
+pkg trilha, method (*Upload) Read([]byte) (int, error)
 pkg trilha, method (*Upload) Save(string) (string, error)
 pkg trilha, method (AuditFunc) Write(AuditRecord) error
+pkg trilha, method (CSVResult) OK() bool
 pkg trilha, method (Enum) Has(string) bool
 pkg trilha, method (Enum) Label(string) string
 pkg trilha, method (Enum) Labels() []string
@@ -225,6 +229,17 @@ pkg trilha, type CSRF struct
 pkg trilha, type CSRF struct, Cookie string
 pkg trilha, type CSRF struct, Field string
 pkg trilha, type CSRF struct, Header string
+pkg trilha, type CSVError struct
+pkg trilha, type CSVError struct, Column string
+pkg trilha, type CSVError struct, Line int
+pkg trilha, type CSVError struct, Message string
+pkg trilha, type CSVResult struct
+pkg trilha, type CSVResult struct, Errors []CSVError
+pkg trilha, type CSVResult struct, Rows int
+pkg trilha, type CSVResult struct, Warnings []string
+pkg trilha, type CSVRules struct
+pkg trilha, type CSVRules struct, MaxRows int
+pkg trilha, type CSVRules struct, Separator rune
 pkg trilha, type CheckResult struct
 pkg trilha, type CheckResult struct, DurationMS float64
 pkg trilha, type CheckResult struct, Error string
@@ -897,6 +912,7 @@ pkg ui, func Breadcrumb(...Crumb) h.Node
 pkg ui, func Button(...h.Node) h.Node
 pkg ui, func ButtonLink(string, ...h.Node) h.Node
 pkg ui, func Bytes(*trilha.Ctx, int64) h.Node
+pkg ui, func CSVErrors(*trilha.Ctx, trilha.CSVResult, ...CSVErrorsOpts) h.Node
 pkg ui, func Card(...h.Node) h.Node
 pkg ui, func CardContent(...h.Node) h.Node
 pkg ui, func CardDescription(string) h.Node
@@ -1021,6 +1037,10 @@ pkg ui, method (Back) Render(io.Writer) error
 pkg ui, type Back struct
 pkg ui, type Back struct, Href string
 pkg ui, type Back struct, Label string
+pkg ui, type CSVErrorsOpts struct
+pkg ui, type CSVErrorsOpts struct, Action h.Node
+pkg ui, type CSVErrorsOpts struct, Limit int
+pkg ui, type CSVErrorsOpts struct, Title string
 pkg ui, type ChatMessage struct
 pkg ui, type ChatMessage struct, Role string
 pkg ui, type ChatMessage struct, Text string

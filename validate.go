@@ -119,6 +119,10 @@ var ValidationMessages = map[string]string{
 	"filemax":      "file must be at most {param}",
 	"filetype":     "file type not allowed",
 	"filecount":    "send at most {param} files",
+	"csvcolumn":    "column missing from the file",
+	"csvline":      "line could not be read",
+	"csvunknown":   "unknown column {param}, ignored",
+	"csvtoomany":   "stopped after {param} errors; fix these first",
 }
 
 // UseValidationPTBR switches the validation messages, BindInvalid included, to
@@ -147,6 +151,10 @@ func UseValidationPTBR() {
 		"filemax":      "arquivo pode ter no máximo {param}",
 		"filetype":     "tipo de arquivo não permitido",
 		"filecount":    "mande no máximo {param} arquivos",
+		"csvcolumn":    "coluna faltando no arquivo",
+		"csvline":      "linha não pôde ser lida",
+		"csvunknown":   "coluna desconhecida {param}, ignorada",
+		"csvtoomany":   "parou depois de {param} erros; corrija estes primeiro",
 	}
 	BindInvalid = "valor inválido"
 }
