@@ -57,6 +57,14 @@ route, and a box that answers which pattern would serve a given path. The page b
 supervisor, not to the app, so it does not exist in the binary `trilha build` produces — see
 [Development and production](/learn/dev-and-production#the-route-inspector).
 
+## trilha build
+
+`-o` names the binary; without it, `bin/<project folder>`. On Windows the output gets the
+`.exe` the system needs to run it, whether the name came from `-o` or from the default —
+`trilha build -o bin/app` writes `bin\app.exe`, because a file called `app` is one
+`exec.LookPath` refuses to execute. A name that already ends in `.exe` is left alone, and
+nothing changes on Linux and macOS.
+
 ## trilha generate
 
 The convention is what costs to remember: that `/blog/{slug}` lives in `app/blog/slug_/`,

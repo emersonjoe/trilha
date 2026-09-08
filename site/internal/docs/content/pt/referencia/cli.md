@@ -57,6 +57,14 @@ responde qual padrão atenderia um caminho. A página é do supervisor, não do 
 existe no binário que o `trilha build` produz — veja
 [Dev e produção](/pt/aprender/dev-e-producao#o-inspetor-de-rotas).
 
+## trilha build
+
+O `-o` dá o nome do binário; sem ele, `bin/<pasta do projeto>`. No Windows a saída recebe o
+`.exe` que o sistema exige para executá-la, tenha o nome vindo do `-o` ou do padrão —
+`trilha build -o bin/app` escreve `bin\app.exe`, porque um arquivo chamado `app` é um que o
+`exec.LookPath` recusa executar. Nome que já termina em `.exe` fica como está, e em Linux e
+macOS nada muda.
+
 ## trilha generate
 
 A convenção é o que custa lembrar: que `/blog/{slug}` mora em `app/blog/slug_/`, que uma pasta

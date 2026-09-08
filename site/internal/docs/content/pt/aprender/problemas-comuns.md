@@ -13,6 +13,20 @@ um terminal novo:
 export PATH="$HOME/go/bin:$PATH"
 ```
 
+## `executable file not found in %PATH%` no `trilha dev` (Windows)
+
+Até a 0.39.1 o supervisor construía `.trilha\app` — sem a extensão — e o Windows recusa
+executar arquivo cuja extensão não esteja no `PATHEXT`, então ele dava como ausente de um
+`%PATH%` que nunca consultou um binário que estava ali no disco. Atualize:
+
+```bash
+go install github.com/emersonjoe/trilha/cmd/trilha@latest
+```
+
+A mesma versão parou de escrever binário inexecutável no `trilha build` e no `trilha
+export`. Se você estiver preso numa anterior, `trilha gen` e depois `go run .` sobem o app
+(sem reconstruir a cada mudança), e `trilha build -o bin/app.exe` produz um binário que roda.
+
 ## `verifying module ... 404 Not Found` no `go install`
 
 O módulo está em um repositório privado, ou acabou de ficar público e o proxy ainda não o

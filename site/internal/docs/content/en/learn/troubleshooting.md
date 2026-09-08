@@ -13,6 +13,21 @@ a new terminal:
 export PATH="$HOME/go/bin:$PATH"
 ```
 
+## `executable file not found in %PATH%` on `trilha dev` (Windows)
+
+Up to 0.39.1 the dev supervisor built `.trilha\app` — without the extension — and Windows
+refuses to execute a file whose extension is not in `PATHEXT`, so it reported a binary that
+was right there on disk as missing from a `%PATH%` it never searched. Upgrade:
+
+```bash
+go install github.com/emersonjoe/trilha/cmd/trilha@latest
+```
+
+The same version stopped writing an unrunnable binary for `trilha build` and `trilha
+export`. If you are stuck on an older one, `trilha gen` followed by `go run .` serves the
+app (without rebuilding on change), and `trilha build -o bin/app.exe` produces a binary that
+runs.
+
 ## `verifying module ... 404 Not Found` on `go install`
 
 The module lives in a private repository, or it just became public and the proxy does not
