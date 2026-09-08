@@ -1,4 +1,4 @@
-/* trilha ui 39707fb4d3efe0fd */
+/* trilha ui 03e39bbf9b2a884e */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -195,7 +195,7 @@
   // for just that piece of the page and swaps element #id. Without JavaScript
   // the same link navigates and the same form submits — the server answers with
   // the whole page, because nobody sent the header.
-  const hydrate = (root) => { armFades(root); evalShowWhen(root); initTooltips(root); mountIslands(root); };
+  const hydrate = (root) => { armFades(root); evalShowWhen(root); initTooltips(root); };
 
   // A fragment swapped by another file of the kit (ui.live.js) asks for the
   // same hydration here, so the components inside it keep working.
@@ -245,87 +245,21 @@
     return vt.updateCallbackDone.then(() => out, () => out);
   };
 
-  // The third argument of an island is its way back to the server: the same
-  // channel the loader Ctx.Island writes hands over, because the island cannot
-  // know which of the two mounted it. The two implementations are one protocol
-  // — the CSRF token from the element, JSON in and out, 422 carrying the fields
-  // — and TestIslandChannelIsTheSameOnBothSides holds them together.
-  class IslandError extends Error {
-    constructor(status, detail, body) {
-      super(detail || ("HTTP " + status));
-      this.name = "IslandError"; this.status = status; this.detail = detail; this.body = body;
-    }
-  }
-  class IslandInvalid extends IslandError {
-    constructor(status, detail, body, fields) {
-      super(status, detail, body);
-      this.name = "IslandInvalid"; this.fields = fields || {};
-    }
-  }
-  const islandToken = (el) => el.getAttribute("data-trilha-csrf") || "";
-  const islandApi = (el, ac) => {
-    const send = async (method, url, data) => {
-      const h = { Accept: "application/json" };
-      if (data !== undefined) h["Content-Type"] = "application/json";
-      const t = islandToken(el);
-      if (t) h["X-CSRF-Token"] = t;
-      const res = await fetch(url, {
-        method, headers: h, credentials: "same-origin", signal: ac.signal,
-        body: data === undefined ? undefined : JSON.stringify(data),
-      });
-      const loc = res.headers.get("Trilha-Location");
-      if (loc) { location.assign(loc); return null; }
-      const ct = res.headers.get("Content-Type") || "";
-      const body = ct.includes("json") ? await res.json().catch(() => null) : await res.text();
-      if (res.ok) return body;
-      const d = body && typeof body === "object" ? (body.detail || body.title || "") : "";
-      if (res.status === 422) throw new IslandInvalid(res.status, d, body, (body && body.fields) || {});
-      throw new IslandError(res.status, d, body);
-    };
-    return {
-      csrf: () => islandToken(el),
-      signal: ac.signal,
-      get: (url) => send("GET", url),
-      post: (url, data) => send("POST", url, data === undefined ? {} : data),
-      send,
-      // swap goes through the kit, so the fragment is hydrated and the focus
-      // kept the way every other swap of the page is.
-      swap: async (url, id) => {
-        const target = id || el.id;
-        if (!target) throw new IslandError(0, "island.swap needs the id of the fragment");
-        const res = await fetch(url, { headers: { "Trilha-Fragment": target }, credentials: "same-origin", signal: ac.signal });
-        const loc = res.headers.get("Trilha-Location");
-        if (loc) { location.assign(loc); return false; }
-        return swap(target, await res.text(), res.status);
-      },
-    };
-  };
-
-  // Islands mount when they enter the document. The loader Ctx.Island writes
-  // covers the page without this kit, but not the island arriving inside a
-  // fragment on a page that had none: the DOM does not run a <script> inserted
-  // by outerHTML. Every swap passes through here, so here always sees it; both
-  // sides skip data-trilha-mounted, so an island mounts once (#82).
-  const mountIslands = (root) => {
-    $("[data-trilha-island]", root).concat(
-      root.matches?.("[data-trilha-island]") ? [root] : []
-    ).forEach((el) => {
-      if (el.hasAttribute("data-trilha-mounted")) return;
-      el.setAttribute("data-trilha-mounted", "");
-      const src = el.getAttribute("data-trilha-island");
-      let props = null;
-      try { props = JSON.parse(el.getAttribute("data-trilha-props") || "null"); }
-      catch (e) { console.error("trilha: island props", src, e); return; }
-      const ac = new AbortController();
-      const gone = new MutationObserver(() => { if (!el.isConnected) { ac.abort(); gone.disconnect(); } });
-      gone.observe(document, { childList: true, subtree: true });
-      import(src)
-        .then((mod) => {
-          if (typeof mod.default !== "function") { console.error("trilha: island without a default export:", src); return; }
-          mod.default(el, props, islandApi(el, ac));
-        })
-        .catch((e) => console.error("trilha: island", src, e));
-    });
+  // The island runtime is a file, and Ctx.Island links it with a <script src>.
+  // A script written by outerHTML never runs, so on a page that had no island
+  // the first one to arrive inside a fragment would sit there dead (#82). This
+  // re-creates that one tag, by its mark, and only while the runtime is absent:
+  // once it has loaded it listens to trilha:swap and mounts what arrives.
+  const runIslandRuntime = (root) => {
+    if (window.__trilhaIslands) return;
+    const tag = root.querySelector?.("script[data-trilha-islands]");
+    if (!tag || document.querySelector("script[data-trilha-islands][data-ran]")) return;
+    const s = document.createElement("script");
+    s.src = tag.getAttribute("src");
+    s.defer = true;
+    s.setAttribute("data-trilha-islands", "");
+    s.setAttribute("data-ran", "");
+    document.head.appendChild(s);
   };
 
   const applySwap = (id, html, status) => {
@@ -347,6 +281,7 @@
       }
     }
     hydrate(el);
+    runIslandRuntime(el);
     document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: el, status } }));
     return true;
   };
@@ -568,5 +503,5 @@
 
   const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update, mountIslands });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
 })();

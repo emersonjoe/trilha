@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	"github.com/emersonjoe/trilha/ui"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,11 +10,12 @@ import (
 func TestWriteUIStamp(t *testing.T) {
 	dir := t.TempDir()
 	res, err := WriteUI(dir, false, false, false)
-	if err != nil || len(res) != 7 || res[1].Action != UICreated {
+	if err != nil || len(res) != len(ui.Files) || res[1].Action != UICreated {
 		t.Fatal(err, res)
 	}
-	// Navigation, upload, live and chat are .js files of their own: --js writes them all.
-	if res, err := WriteUI(dir, false, false, true); err != nil || len(res) != 5 || res[4].File != "ui.chat.js" {
+	// Navigation, upload, live, chat and the island runtime are .js files of
+	// their own: --js writes them all.
+	if res, err := WriteUI(dir, false, false, true); err != nil || len(res) != 6 || res[5].File != "ui.island.js" {
 		t.Fatal(err, res)
 	}
 	css := filepath.Join(dir, "public", "ui.css")

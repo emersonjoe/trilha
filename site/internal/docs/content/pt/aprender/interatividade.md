@@ -181,11 +181,14 @@ Quatro coisas saem desse formato:
   serializa avisa no log e deixa o conteúdo de origem em paz.
 - **Sem bundler e sem hidratação global.** O módulo é um arquivo em `public/`, endereçado
   pelo `Asset` (então a URL leva o hash do conteúdo), e só as ilhas presentes na página são
-  montadas, cada uma uma vez. O carregador é um único script inline com o nonce da
-  requisição, e é por isso que a CSP padrão o aceita sem `unsafe-inline`.
-- **Uma ilha que chega dentro de um fragmento também monta**: o carregador ouve o
-  `trilha:swap`. O que ele precisa é já estar na página — ou seja, a página renderizou ao
-  menos uma ilha própria.
+  montadas, cada uma uma vez. Quem monta é o `public/ui.island.js`, um arquivo do kit ligado
+  por `<script src>` — não há script inline de ilha, então `script-src 'self'` basta para a
+  CSP, e o runtime é cacheado como qualquer outro asset. Projeto que usa ilha sem esse
+  arquivo leva um crítico do `trilha check`, porque a falha é silenciosa de outro jeito: o
+  conteúdo de origem aparece e nada acontece.
+- **Uma ilha que chega dentro de um fragmento também monta.** O runtime ouve o
+  `trilha:swap`; quando ele ainda não está na página, o kit recria a tag que veio no
+  fragmento, porque um `<script>` escrito por `outerHTML` nunca roda.
 
 ### A porta de saída
 

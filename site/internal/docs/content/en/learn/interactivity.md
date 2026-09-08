@@ -180,11 +180,14 @@ Four things fall out of that shape:
   what does not serialize warns in the log and leaves the fallback alone.
 - **No bundler and no global hydration.** The module is a file in `public/`, addressed
   through `Asset` (so the URL carries the content hash), and only the islands present on the
-  page are mounted, each one once. The loader is a single inline script with the request
-  nonce, which is why the default CSP accepts it without `unsafe-inline`.
-- **An island that arrives inside a fragment mounts too**: the loader listens for
-  `trilha:swap`. What it needs is to be on the page already — that is, the page rendered at
-  least one island of its own.
+  page are mounted, each one once. What mounts them is `public/ui.island.js`, a kit file
+  linked with a `<script src>` — there is no inline island script, so `script-src 'self'` is
+  all the CSP needs, and the runtime is cached like any other asset. A project that uses an
+  island without that file gets a critical from `trilha check`, because the failure is
+  otherwise silent: the fallback shows and nothing else happens.
+- **An island that arrives inside a fragment mounts too.** The runtime listens for
+  `trilha:swap`; when it is not on the page yet, the kit re-creates the tag that came with
+  the fragment, because a `<script>` written by `outerHTML` never runs.
 
 ### The escape hatch
 

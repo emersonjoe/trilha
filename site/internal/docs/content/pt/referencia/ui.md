@@ -12,7 +12,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` para `ui.theme.css` e `ui.css`, script inline (com nonce) que aplica o tema salvo, `<script defer src=ui.js>`; respeita `c.Base()` |
 | `ui.Body() h.Node` | classe `ui-body` para o `<body>` |
-| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js` ou `ui.live.js` |
+| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js`, `ui.live.js`, `ui.chat.js` ou `ui.island.js` |
 | `ui.Files` | os seis nomes, na ordem em que `trilha ui` os grava |
 
 ## Variantes e tamanhos
@@ -271,5 +271,5 @@ do sistema antes da primeira pintura).
 
 `trilha ui [--force] [--css-only|--js-only]` grava os seis arquivos em `public/`:
 `ui.theme.css` só é criado (nunca sobrescrito); `ui.css`, `ui.js`, `ui.nav.js`,
-`ui.upload.js` e `ui.live.js` são atualizados quando iguais a uma versão anterior e, se você os editou, só
+`ui.upload.js`, `ui.live.js`, `ui.chat.js` e `ui.island.js` são atualizados quando iguais a uma versão anterior e, se você os editou, só
 com `--force`.

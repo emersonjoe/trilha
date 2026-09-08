@@ -12,7 +12,7 @@ description: The kit's components, variants, assets and the theme contract.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` for `ui.theme.css` and `ui.css`, inline script (with nonce) that applies the saved theme, `<script defer src=ui.js>`; honors `c.Base()` |
 | `ui.Body() h.Node` | `ui-body` class for the `<body>` |
-| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js` or `ui.live.js` |
+| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js`, `ui.live.js`, `ui.chat.js` or `ui.island.js` |
 | `ui.Files` | the six names, in the order `trilha ui` writes them |
 
 ## Variants and sizes
@@ -270,5 +270,5 @@ preference before the first paint).
 
 `trilha ui [--force] [--css-only|--js-only]` writes the six files in `public/`:
 `ui.theme.css` is only created (never overwritten); `ui.css`, `ui.js`, `ui.nav.js`,
-`ui.upload.js` and `ui.live.js` are updated when they equal a previous version and, if you edited them, only
+`ui.upload.js`, `ui.live.js`, `ui.chat.js` and `ui.island.js` are updated when they equal a previous version and, if you edited them, only
 with `--force`.

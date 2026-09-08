@@ -3,6 +3,7 @@ pkg trilha, const CSRFField
 pkg trilha, const CSRFHeader
 pkg trilha, const DefaultPerPage
 pkg trilha, const Dev Env
+pkg trilha, const IslandRuntime
 pkg trilha, const KindAPI RouteKind
 pkg trilha, const KindAuto RouteKind
 pkg trilha, const KindPage RouteKind

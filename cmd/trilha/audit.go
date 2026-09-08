@@ -109,6 +109,17 @@ func runAudit(p *project, vuln bool) []check {
 		add("ok", t("checks ok"), "")
 	}
 
+	// The island runtime (spec 060) is a file of the kit, linked by Ctx.Island.
+	// A project that uses an island without it renders the fallback and nothing
+	// else, silently — which is the failure this check exists to name.
+	if strings.Contains(src, ".Island(") {
+		if _, err := os.Stat(filepath.Join(p.Root, "public", "ui.island.js")); err != nil {
+			add("critical", t("island runtime missing"), t("island runtime missing hint"))
+		} else {
+			add("ok", t("island runtime ok"), "")
+		}
+	}
+
 	// Asset cache (spec 017): a long cache on a fixed address is stale CSS
 	// for a year.
 	if strings.Contains(src, "immutable") && !strings.Contains(src, ".Asset(") {

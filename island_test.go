@@ -57,12 +57,14 @@ func TestIslandRendersFallbackAndLoader(t *testing.T) {
 	if n := strings.Count(body, `data-trilha-island="`); n != 1 {
 		t.Fatalf("data-trilha-island appears %d times, want 1", n)
 	}
-	nonce := regexp.MustCompile(`nonce-([A-Za-z0-9+/]+)`).FindStringSubmatch(rec.Header().Get("Content-Security-Policy"))
-	if nonce == nil {
-		t.Fatal("no nonce in the CSP")
+	// Spec 060: the runtime is a file, so the page has no inline island script
+	// at all — script-src 'self' already covers a <script src>, and the same
+	// file is what the kit loads, which is why there is only one of it now.
+	if !strings.Contains(body, `data-trilha-islands=""`) || !strings.Contains(body, IslandRuntime) {
+		t.Fatalf("the runtime is not linked:\n%s", body)
 	}
-	if !strings.Contains(body, `<script nonce="`+nonce[1]+`">`) {
-		t.Fatalf("loader script is not carrying the CSP nonce:\n%s", body)
+	if strings.Contains(body, "AbortController") {
+		t.Fatalf("the runtime came inline instead of as a file:\n%s", body)
 	}
 }
 
@@ -76,8 +78,8 @@ func TestIslandLoaderOncePerResponse(t *testing.T) {
 		), nil
 	})
 	body := islandGet(t, a).Body.String()
-	if n := strings.Count(body, islandLoaderMark); n != 1 {
-		t.Fatalf("loader appears %d times, want 1:\n%s", n, body)
+	if n := strings.Count(body, `data-trilha-islands=""`); n != 1 {
+		t.Fatalf("the runtime is linked %d times, want 1:\n%s", n, body)
 	}
 	if n := strings.Count(body, `data-trilha-island="`); n != 2 {
 		t.Fatalf("islands mounted: %d, want 2", n)
@@ -157,27 +159,35 @@ func TestIslandCarriesTheCSRFToken(t *testing.T) {
 }
 
 // The mount function receives a third argument, and what it can do with it is
-// the contract this test pins: the code lives in the loader, so nobody has to
-// download a second module before the island can save.
-func TestIslandLoaderCarriesTheChannel(t *testing.T) {
+// the contract this test pins. The code lives in the runtime file, which is
+// read here by path: the root package cannot import ui (ui imports it), and a
+// file is exactly what makes one implementation reachable from both sides.
+func TestIslandRuntimeCarriesTheChannel(t *testing.T) {
+	rt, err := os.ReadFile("ui/assets/ui.island.js")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, want := range []string{
-		"f(el,p,api(el,ac))",                 // the third argument
-		`h["X-CSRF-Token"]=t`,                // the token goes on every write
-		`credentials:"same-origin"`,          // and so does the session
-		"IslandInvalid",                      // 422 is not an error like the others
-		"body.fields",                        // the same fields a form would get
-		`res.headers.get("Trilha-Location")`, // a redirect is a redirect
-		`headers:{"Trilha-Fragment":target}`, // swap speaks the fragment protocol
-		`new CustomEvent("trilha:swap"`,      // and tells the page, like ui.js does
-		"new AbortController()",              // signal
-		"if(!el.isConnected){ac.abort()",     // aborted when the element is gone
+		"mod.default(el, props, api(el, ac))", // the third argument
+		`h["X-CSRF-Token"] = t`,               // the token goes on every write
+		`credentials: "same-origin"`,          // and so does the session
+		"IslandInvalid",                       // 422 is not an error like the others
+		"body.fields",                         // the same fields a form would get
+		`res.headers.get("Trilha-Location")`,  // a redirect is a redirect
+		`"Trilha-Fragment": target`,           // swap speaks the fragment protocol
+		`new CustomEvent("trilha:swap"`,       // and tells the page
+		"new AbortController()",               // signal
+		"if (!el.isConnected)",                // aborted when the element is gone
+		"window.ui.swap(target, html",         // with the kit, swap is the kit's swap
 	} {
-		if !strings.Contains(islandLoader, want) {
-			t.Fatalf("the island loader does not carry %q", want)
+		if !bytes.Contains(rt, []byte(want)) {
+			t.Errorf("the island runtime does not carry %q", want)
 		}
 	}
-	if strings.Contains(islandLoader, "import(") && !strings.Contains(islandLoader, "/*trilha-islands*/") {
-		t.Fatal("the loader lost its mark")
+	for _, want := range []string{"csrf:", "signal:", "get:", "post:", "send,", "swap:"} {
+		if !bytes.Contains(rt, []byte(want)) {
+			t.Errorf("the island runtime does not offer %q", want)
+		}
 	}
 }
 
@@ -226,30 +236,29 @@ func TestIslandPostGetsTheSameFieldsAsAForm(t *testing.T) {
 // ever met the kit still has to get the same third argument. The two are
 // written in different styles — one minified into a Go string, the other
 // readable — so what is compared is the protocol, not the text.
-func TestIslandChannelIsTheSameOnBothSides(t *testing.T) {
+func TestIslandChannelExistsOnce(t *testing.T) {
 	kit, err := os.ReadFile("ui/assets/ui.js")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{
-		`mod.default(el, props, islandApi(el, ac))`, // the island gets its way back
-		`data-trilha-csrf`,                          // read from the element, like the loader
-		`h["X-CSRF-Token"] = t`,                     // and sent as the header the server accepts
-		`credentials: "same-origin"`,                // the session cookie travels
-		`Trilha-Location`,                           // a redirect is a navigation, not a body
-		`res.status === 422`,                        // the invalid answer is its own class
-		`(body && body.fields) || {}`,               // with the fields beside it
-		`"Trilha-Fragment": target`,                 // swap asks for a piece of the page
-		`new AbortController()`,                     // and everything is cut when the island goes
-		`if (!el.isConnected)`,
+	// This test used to compare two implementations string by string, to keep
+	// them in step. They drifted anyway — only the ui.js copy restored focus
+	// and hydrated what came back. So the job changed: there is one
+	// implementation, and the kit must not grow a second.
+	for _, gone := range []string{
+		"islandApi",
+		"mountIslands",
+		`h["X-CSRF-Token"]`,
+		"IslandInvalid",
+		`"Trilha-Fragment": target`,
 	} {
-		if !bytes.Contains(kit, []byte(want)) {
-			t.Errorf("ui.js drifted from the loader: no %q", want)
+		if bytes.Contains(kit, []byte(gone)) {
+			t.Errorf("ui.js carries %q again: the channel belongs to ui.island.js alone", gone)
 		}
 	}
-	for _, want := range []string{"csrf:", "signal:", "get:", "post:", "send,", "swap:"} {
-		if !bytes.Contains(kit, []byte(want)) {
-			t.Errorf("ui.js does not offer %q, which the loader does", want)
-		}
+	// What the kit does keep is the one line that makes the runtime run when it
+	// arrives inside a fragment, which a <script> written by outerHTML does not.
+	if !bytes.Contains(kit, []byte("data-trilha-islands")) {
+		t.Error("ui.js no longer re-runs the runtime that arrives in a fragment (#82)")
 	}
 }

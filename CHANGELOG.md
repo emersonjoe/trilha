@@ -3,7 +3,42 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
-## Unreleased
+## 0.42.0 — 2026-09-08
+
+Spec 060. One thing the 0.41.0 island channel shipped twice.
+
+### Changed
+
+- **The island runtime is a kit file, `public/ui.island.js`, and `Ctx.Island` links it with a
+  `<script src>`** instead of writing an inline script. The channel handed to a mount function
+  existed in two places — minified inline in `island.go` for the page without the kit, and
+  readable in `ui.js` for the island arriving inside a swapped fragment — because neither one
+  could reach both cases. They had already drifted: only the `ui.js` copy restored focus,
+  returned the caret to the field in use, hydrated what came back and ran the transition, so
+  what `island.swap` did depended on whether the page happened to load the kit. A file is
+  reachable from both, so there is one implementation now, and `island.swap` chooses
+  `window.ui.swap` when the kit is there and replaces directly when it is not.
+
+  Two things follow. There is **no inline island script left**, so `script-src 'self'` is all
+  the CSP needs for this and the nonce is one requirement lighter; and the runtime is cached
+  with a content hash instead of travelling in every response that has an island. `ui.js` lost
+  4.1 KB.
+
+  **Migration**: a project that already uses `c.Island` needs `trilha ui` once, to write the
+  new file. `trilha audit` — and so `trilha check` — fails with a critical when a project calls
+  `c.Island` without it, because the failure is silent otherwise: the fallback shows and
+  nothing happens.
+
+### Added
+
+- **`trilha.IslandRuntime`** — the kit file name the script tag points at.
+
+### Removed
+
+- **`window.ui.mountIslands`** from the kit's public JavaScript. Mounting belongs to the
+  runtime; a test fails if the channel or the mounting comes back into `ui.js`. The test that
+  used to compare the two copies string by string is gone with them — a test whose job is to
+  hold two implementations in step is a symptom, and it did not hold.
 
 ### Fixed
 

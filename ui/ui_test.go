@@ -433,17 +433,26 @@ func TestSpinner(t *testing.T) {
 	}
 }
 
-// Spec 057 (#82): an island that arrives inside a swapped fragment is mounted by
-// the kit, not by the loader Ctx.Island writes — the DOM does not run a <script>
-// inserted by outerHTML, so on a page that had no island the loader never runs.
-// The contract between the two is the data-trilha-mounted mark, which is what
-// keeps the island from mounting twice when both are present. This test is a
-// guard on that contract: the behaviour itself lives in the browser.
-func TestKitMountsIslands(t *testing.T) {
-	js := string(Asset("ui.js"))
-	for _, want := range []string{"data-trilha-island", "data-trilha-mounted", "data-trilha-props"} {
-		if !strings.Contains(js, want) {
-			t.Fatalf("ui.js does not mount islands: %q is missing", want)
+// Spec 057 (#82) said an island arriving inside a swapped fragment must mount
+// even on a page that had none, because the DOM does not run a <script> written
+// by outerHTML. Spec 060 kept the guarantee and moved where it lives: the
+// runtime is a file, and the kit only has to make that one tag run.
+//
+// The division is the point. Two implementations of mounting had already
+// drifted — only one of them restored focus — so the mounting lives in
+// ui.island.js and nowhere else.
+func TestKitRunsTheIslandRuntimeItDoesNotMount(t *testing.T) {
+	rt := string(Asset("ui.island.js"))
+	for _, want := range []string{"data-trilha-island", "data-trilha-mounted", "data-trilha-props", "import(src)"} {
+		if !strings.Contains(rt, want) {
+			t.Errorf("ui.island.js does not mount islands: %q is missing", want)
 		}
+	}
+	js := string(Asset("ui.js"))
+	if !strings.Contains(js, `script[data-trilha-islands]`) || !strings.Contains(js, "createElement") {
+		t.Error("ui.js no longer re-creates the runtime tag that arrives in a fragment")
+	}
+	if strings.Contains(js, "data-trilha-mounted") {
+		t.Error("ui.js mounts islands again: that belongs to ui.island.js alone")
 	}
 }
