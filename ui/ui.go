@@ -308,6 +308,44 @@ func UploadScript(c *trilha.Ctx) h.Node {
 // Ctx.Fragment reports the requested id.
 func Swap(id string) h.Node { return h.Data("trilha-target", id) }
 
+// Indicator marks an element as the pending signal for the target with the
+// given id: it stays hidden while nothing is happening and appears once the
+// request for that target has been in flight past the threshold. Put it
+// anywhere — beside the target, in the header, inside the button.
+//
+//	ui.Spinner(ui.Indicator("lista"))
+//
+// The threshold is what keeps a fast answer from making it blink; see
+// PendingAfter. Several indicators may watch the same target.
+func Indicator(id string) h.Node { return h.Data("trilha-indicator", id) }
+
+// PendingAfter sets, in milliseconds, how long a request may be in flight
+// before the page says so. Put it on the element that carries Swap or on the
+// one that carries Navigate. The default is 120 ms, which is about where a
+// person starts to notice a wait; zero or less means the default.
+//
+// The threshold is the whole point: showing a spinner for the 40 ms answer is
+// the flash people complain about, not a courtesy.
+func PendingAfter(ms int) h.Node {
+	if ms <= 0 {
+		return h.Fragment()
+	}
+	return h.Data("trilha-pending-after", strconv.Itoa(ms))
+}
+
+// NoTransition turns off the crossfade a swap or a navigation would animate on
+// this trigger. The transition already does nothing where the browser has no
+// startViewTransition and where the system asks for less motion, so this is for
+// the page that wants the instant replacement on purpose.
+func NoTransition() h.Node { return h.Data("trilha-transition", "false") }
+
+// Spinner is a turning ring, sized by the font it sits in. It is decorative —
+// the waiting is announced by aria-busy on the target — so it is hidden from
+// assistive technology.
+func Spinner(attrs ...h.Node) h.Node {
+	return h.Span(append([]h.Node{h.Class("ui-spinner"), h.Aria("hidden", "true")}, attrs...)...)
+}
+
 // NoPush turns off the history entry a fragment link would create.
 func NoPush() h.Node { return h.Data("trilha-push", "false") }
 

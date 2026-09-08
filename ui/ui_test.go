@@ -119,10 +119,14 @@ func TestHeadAndAssets(t *testing.T) {
 	}
 	// FR-007 of spec 006, with the ui.js budget raised to 12 KB in 0.30.0 (the
 	// tooltip is the first component since the kit shipped to need script of
-	// its own, and a hint that cannot be dismissed is not accessible) and to
+	// its own, and a hint that cannot be dismissed is not accessible), to
 	// 16 KB in 0.39.0, where the confirmation dialog is built here so that no
-	// app has to write the inline script the CSP forbids.
-	if len(Asset("ui.css")) > 25<<10 || len(Asset("ui.js")) > 16<<10 {
+	// app has to write the inline script the CSP forbids, and to 20 KB in
+	// 0.40.0: the pending threshold, the view transition and the island that
+	// arrives inside a fragment are about 3.8 KB, and every one of them is on
+	// the path a swap already takes — none could be moved to a file that only
+	// the apps using it download, the way ui.nav.js and ui.upload.js are.
+	if len(Asset("ui.css")) > 25<<10 || len(Asset("ui.js")) > 20<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {
@@ -380,6 +384,52 @@ func TestUiJSConheceOsAtributosNovos(t *testing.T) {
 	for _, want := range []string{"data-ui-confirm", "data-ui-confirm-description", "data-ui-confirm-cancel", "Trilha-Flash", "requestSubmit"} {
 		if !strings.Contains(js, want) {
 			t.Fatalf("ui.js não fala de %q", want)
+		}
+	}
+}
+
+// Spec 057: the pending trio is three attributes and no state, so they compose
+// on whatever element the page already has.
+func TestPendingAttributes(t *testing.T) {
+	if got := render(t, Spinner(Indicator("lista"))); !strings.Contains(got, `data-trilha-indicator="lista"`) {
+		t.Fatalf("Indicator = %s", got)
+	}
+	if got := render(t, h.A(h.Href("/x"), Swap("lista"), PendingAfter(200))); !strings.Contains(got, `data-trilha-pending-after="200"`) {
+		t.Fatalf("PendingAfter = %s", got)
+	}
+	// A threshold that makes no sense is the page's mistake, and the page should
+	// not have to guard it: zero and negative mean "the default".
+	if got := render(t, h.A(PendingAfter(-1))); strings.Contains(got, "pending-after") {
+		t.Fatalf("PendingAfter(-1) must not write the attribute: %s", got)
+	}
+	if got := render(t, h.A(h.Href("/x"), Swap("lista"), NoTransition())); !strings.Contains(got, `data-trilha-transition="false"`) {
+		t.Fatalf("NoTransition = %s", got)
+	}
+	// The indicator composes with Swap on the same element: a link may be both
+	// the trigger and the thing that dims.
+	if got := render(t, h.A(h.Href("/x"), Swap("lista"), Indicator("lista"))); !strings.Contains(got, `data-trilha-target="lista"`) || !strings.Contains(got, `data-trilha-indicator="lista"`) {
+		t.Fatalf("Swap+Indicator = %s", got)
+	}
+}
+
+// Spinner is only worth a test for the class it carries; the animation is CSS.
+func TestSpinner(t *testing.T) {
+	if got := render(t, Spinner()); !strings.Contains(got, `class="ui-spinner"`) || !strings.Contains(got, `aria-hidden="true"`) {
+		t.Fatalf("Spinner = %s", got)
+	}
+}
+
+// Spec 057 (#82): an island that arrives inside a swapped fragment is mounted by
+// the kit, not by the loader Ctx.Island writes — the DOM does not run a <script>
+// inserted by outerHTML, so on a page that had no island the loader never runs.
+// The contract between the two is the data-trilha-mounted mark, which is what
+// keeps the island from mounting twice when both are present. This test is a
+// guard on that contract: the behaviour itself lives in the browser.
+func TestKitMountsIslands(t *testing.T) {
+	js := string(Asset("ui.js"))
+	for _, want := range []string{"data-trilha-island", "data-trilha-mounted", "data-trilha-props"} {
+		if !strings.Contains(js, want) {
+			t.Fatalf("ui.js does not mount islands: %q is missing", want)
 		}
 	}
 }

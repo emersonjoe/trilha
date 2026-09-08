@@ -79,6 +79,19 @@
 .ui-field-help { font-size: .8125rem; color: var(--muted-foreground); margin: 0; }
 [aria-busy="true"] { opacity: .6; transition: opacity .12s ease; }
 [aria-busy="true"] * { cursor: progress; }
+
+/* Spec 057 — waiting. Nothing here shows before the threshold: the client only
+   writes data-trilha-pending once the request has been in the air long enough
+   to be worth mentioning, so a fast answer leaves the page exactly as it was. */
+[data-trilha-indicator] { opacity: 0; visibility: hidden; transition: opacity .15s ease, visibility .15s; }
+[data-trilha-indicator][data-trilha-pending] { opacity: 1; visibility: visible; }
+a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > button { cursor: progress; opacity: .7; transition: opacity .15s ease; }
+.ui-spinner { display: inline-block; width: 1em; height: 1em; vertical-align: -.125em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: ui-spin .6s linear infinite; }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ui-spinner { animation-duration: 2s; }
+  [data-trilha-indicator] { transition: none; }
+}
 .ui-field-error { font-size: .8125rem; color: var(--destructive); margin: 0; }
 .ui-field[hidden] { display: none; }
 .ui-checkbox, .ui-radio { appearance: none; width: 1rem; height: 1rem; flex: none; border: 1px solid var(--input); border-radius: 4px; background: transparent; cursor: pointer; display: inline-grid; place-content: center; box-shadow: var(--ui-shadow); vertical-align: middle; }

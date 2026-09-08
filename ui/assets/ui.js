@@ -178,9 +178,77 @@
   // for just that piece of the page and swaps element #id. Without JavaScript
   // the same link navigates and the same form submits — the server answers with
   // the whole page, because nobody sent the header.
-  const hydrate = (root) => { armFades(root); evalShowWhen(root); initTooltips(root); };
+  const hydrate = (root) => { armFades(root); evalShowWhen(root); initTooltips(root); mountIslands(root); };
 
-  const swap = (id, html, status) => {
+  // Spec 057. A spinner for the 40 ms answer is the flash people complain about,
+  // not a courtesy: nothing is marked until the threshold passes, so a request
+  // that settles first leaves no trace on the page.
+  const DEFAULT_PENDING_MS = 120;
+  const inFlight = new Set(); // by target id: two triggers are one request in dispute
+  const pendingBits = (id) => [
+    document.getElementById(id),
+    ...$(`[data-trilha-indicator="${CSS.escape(id)}"]`),
+  ].filter(Boolean);
+  const threshold = (trigger) => {
+    const n = parseInt(trigger?.getAttribute("data-trilha-pending-after") || "", 10);
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_PENDING_MS;
+  };
+  // pending arms the marks and returns the function that takes them off again,
+  // whatever the answer was.
+  const pending = (id, trigger) => {
+    const timer = setTimeout(() => {
+      const els = pendingBits(id);
+      els.forEach((el) => el.setAttribute("data-trilha-pending", ""));
+      document.getElementById(id)?.setAttribute("aria-busy", "true");
+      trigger?.setAttribute("data-trilha-pending", "");
+      document.dispatchEvent(new CustomEvent("trilha:pending", { detail: { target: document.getElementById(id), id } }));
+    }, threshold(trigger));
+    return () => {
+      clearTimeout(timer);
+      pendingBits(id).forEach((el) => el.removeAttribute("data-trilha-pending"));
+      document.getElementById(id)?.removeAttribute("aria-busy");
+      trigger?.removeAttribute("data-trilha-pending");
+      document.dispatchEvent(new CustomEvent("trilha:settled", { detail: { target: document.getElementById(id), id } }));
+    };
+  };
+
+  // update replaces inside a view transition where there is one, so the content
+  // fades instead of jumping. It resolves with what fn returned: the caller
+  // decides between a swap and a real navigation by that value.
+  const motionOK = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const update = (fn, trigger) => {
+    const off = trigger?.getAttribute("data-trilha-transition") === "false";
+    if (off || !document.startViewTransition || !motionOK()) return Promise.resolve(fn());
+    let out;
+    const vt = document.startViewTransition(() => { out = fn(); });
+    return vt.updateCallbackDone.then(() => out, () => out);
+  };
+
+  // Islands mount when they enter the document. The loader Ctx.Island writes
+  // covers the page without this kit, but not the island arriving inside a
+  // fragment on a page that had none: the DOM does not run a <script> inserted
+  // by outerHTML. Every swap passes through here, so here always sees it; both
+  // sides skip data-trilha-mounted, so an island mounts once (#82).
+  const mountIslands = (root) => {
+    $("[data-trilha-island]", root).concat(
+      root.matches?.("[data-trilha-island]") ? [root] : []
+    ).forEach((el) => {
+      if (el.hasAttribute("data-trilha-mounted")) return;
+      el.setAttribute("data-trilha-mounted", "");
+      const src = el.getAttribute("data-trilha-island");
+      let props = null;
+      try { props = JSON.parse(el.getAttribute("data-trilha-props") || "null"); }
+      catch (e) { console.error("trilha: island props", src, e); return; }
+      import(src)
+        .then((mod) => {
+          if (typeof mod.default !== "function") { console.error("trilha: island without a default export:", src); return; }
+          mod.default(el, props);
+        })
+        .catch((e) => console.error("trilha: island", src, e));
+    });
+  };
+
+  const applySwap = (id, html, status) => {
     const old = document.getElementById(id);
     if (!old) return false;
     const act = document.activeElement;
@@ -203,10 +271,17 @@
     return true;
   };
 
+  // swap resolves false when the right thing to do is a real navigation, and has
+  // to be awaited: the transition calls back on the next frame.
+  const swap = (id, html, status, trigger) => update(() => applySwap(id, html, status), trigger);
+
   // ask returns false when the right thing to do is a real navigation.
-  const ask = async (url, opts, id) => {
-    const target = document.getElementById(id);
-    target?.setAttribute("aria-busy", "true");
+  const ask = async (url, opts, id, trigger) => {
+    // A second trigger for a target already in the air is the same request in
+    // dispute: the POST must not go out twice.
+    if (inFlight.has(id)) return true;
+    inFlight.add(id);
+    const settle = pending(id, trigger);
     try {
       const res = await fetch(url, { ...opts, headers: { "Trilha-Fragment": id }, credentials: "same-origin" });
       const flash = res.headers.get("Trilha-Flash");
@@ -215,11 +290,12 @@
       if (loc) { location.assign(loc); return true; }
       if (res.redirected) { location.assign(res.url); return true; }
       if (res.status >= 500) return false;
-      return swap(id, await res.text(), res.status);
+      return await swap(id, await res.text(), res.status, trigger);
     } catch {
       return false; // network is down: a normal navigation may still work
     } finally {
-      target?.removeAttribute("aria-busy");
+      settle();
+      inFlight.delete(id);
     }
   };
 
@@ -233,7 +309,7 @@
     if (url.origin !== location.origin) return;
     const id = a.getAttribute("data-trilha-target");
     e.preventDefault();
-    ask(url.href, { method: "GET" }, id).then((ok) => {
+    ask(url.href, { method: "GET" }, id, a).then((ok) => {
       if (!ok) { location.assign(url.href); return; }
       if (pushable(a)) history.pushState({ trilhaFragment: id }, "", url.href);
     });
@@ -258,9 +334,7 @@
     } else {
       opts.body = new URLSearchParams(data);
     }
-    if (btn) btn.disabled = true;
-    ask(url, opts, id).then((ok) => {
-      if (btn) btn.disabled = false;
+    ask(url, opts, id, btn || f).then((ok) => {
       if (!ok) { f.submit(); return; }
       if (method === "GET" && pushable(f)) history.replaceState({ trilhaFragment: id }, "", url);
     });
@@ -312,5 +386,5 @@
 
   const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update, mountIslands });
 })();
