@@ -3,6 +3,32 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.39.2 — 2026-09-08
+
+### Fixed
+
+- **The CLI works on Windows** ([#79](https://github.com/emersonjoe/trilha/issues/79)).
+  `trilha dev` died on a fresh project with `exec: ".trilha\app": executable file not found
+  in %PATH%` — pointing at a binary it had just built and that was sitting on disk. `go build
+  -o <path>` writes the literal name it is given, so on Windows the output was `app` and not
+  `app.exe`, and `exec.LookPath` only accepts a file whose extension is in `PATHEXT`. The
+  three places that build a binary and then run it now ask for the extension the system needs:
+  `trilha dev`, `trilha export`, and `trilha build` — for the default `bin/<project>` and for
+  the name given to `-o`, so `trilha build -o bin/app` writes `bin\app.exe` instead of a file
+  Windows will not execute. A name that already ends in `.exe` is left alone; Linux and macOS
+  are untouched.
+- **`TestFileSaveStaysInTheDirectory` no longer asserts Unix mode bits on Windows**, where
+  `os.Stat` reports `0666` for any writable file.
+
+### Changed
+
+- **CI runs on `windows-latest` too.** Only `ubuntu-latest` ever ran, which is why a CLI that
+  could not start on Windows shipped green. The suite could not have caught it either: the e2e
+  harness builds `trilha-cli` and executes it, with the same missing extension.
+- **`.gitattributes` pins the working tree to LF.** Git checks files out with CRLF on Windows
+  by default — `actions/checkout` included — and the golden files are compared byte for byte,
+  so without this every golden test fails on a stock Windows clone.
+
 ## 0.39.1 — 2026-09-06
 
 ### Fixed
