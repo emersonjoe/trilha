@@ -75,7 +75,24 @@ verdade; **422** põe o foco no primeiro `[aria-invalid=true]`, senão o foco (e
 voltam para o campo em uso; o que entrou é hidratado (`fade`, `show-when`) e dispara
 `trilha:swap` (`detail.target`, `detail.status`). Em 5xx, erro de rede ou fragmento sem o
 id, o kit desiste e navega/envia normalmente. `ui.swap(id, html, status)` e
-`ui.hydrate(el)` fazem a troca à mão. Veja [Interatividade](/pt/aprender/interatividade).
+`ui.hydrate(el)` fazem a troca à mão (o `ui.swap` devolve uma promessa: a substituição pode
+estar rodando dentro de uma transição de visualização). Veja
+[Interatividade](/pt/aprender/interatividade).
+
+### Espera
+
+| Símbolo | O que faz |
+|---|---|
+| `ui.Indicator(id)` | este elemento só aparece enquanto o alvo `id` espera além do limiar |
+| `ui.PendingAfter(ms)` | o limiar, no gatilho; padrão 120 ms, zero ou menos significa o padrão |
+| `ui.NoTransition()` | sem *crossfade* neste gatilho |
+| `ui.Spinner(attrs…)` | um anel girando do tamanho da fonte em que está, escondido da tecnologia assistiva |
+
+Enquanto um alvo espera, o `data-trilha-pending` está no alvo, no gatilho e em todo indicador
+daquele alvo, e o `aria-busy` está no alvo; `trilha:pending` e `trilha:settled` disparam no
+`document` com `detail.target` e `detail.id`. Um segundo gatilho para um alvo que já está no
+ar é ignorado. A substituição roda dentro do `document.startViewTransition` onde ele existe e
+onde o sistema não pede menos movimento.
 
 ## Navegação
 

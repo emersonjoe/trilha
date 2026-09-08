@@ -75,8 +75,24 @@ becomes a real navigation; **422** focuses the first `[aria-invalid=true]`, othe
 (and the caret) return to the field in use; what came in is hydrated (`fade`, `show-when`)
 and fires `trilha:swap` (`detail.target`, `detail.status`). On 5xx, a network error or a
 fragment without the id, the kit gives up and navigates/submits normally.
-`ui.swap(id, html, status)` and `ui.hydrate(el)` do the swap by hand. See
+`ui.swap(id, html, status)` and `ui.hydrate(el)` do the swap by hand (`ui.swap` returns a
+promise: the replacement may be running inside a view transition). See
 [Interactivity](/learn/interactivity).
+
+### Waiting
+
+| Symbol | What it does |
+|---|---|
+| `ui.Indicator(id)` | this element appears only while target `id` is waiting past the threshold |
+| `ui.PendingAfter(ms)` | the threshold on the trigger; default 120 ms, zero or less means the default |
+| `ui.NoTransition()` | no crossfade on this trigger |
+| `ui.Spinner(attrs…)` | a turning ring sized by the font it sits in, hidden from assistive technology |
+
+While a target waits, `data-trilha-pending` is on the target, the trigger and every indicator
+of that target, and `aria-busy` is on the target; `trilha:pending` and `trilha:settled` fire
+on `document` with `detail.target` and `detail.id`. A second trigger for a target already in
+flight is ignored. The replacement runs inside `document.startViewTransition` where it exists
+and where the system does not ask for less motion.
 
 ## Navigation
 

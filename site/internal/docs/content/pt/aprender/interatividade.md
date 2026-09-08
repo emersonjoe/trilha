@@ -92,6 +92,38 @@ Em **422** o `ui.js` põe o foco no primeiro campo com `aria-invalid="true"` —
 navegador faria sozinho numa recarga. Fora disso, ele devolve o foco (e a posição do cursor)
 ao campo que estava em uso, procurando pelo `id` ou pelo `name`.
 
+## Enquanto o servidor responde
+
+Uma troca que leva 40 ms deveria deixar a página exatamente como estava; uma que leva dois
+segundos deveria dizer isso. O `ui.Indicator` marca o elemento que aparece enquanto um alvo
+espera, e ele só aparece depois que o pedido passou de um limiar — 120 ms por padrão:
+
+```go
+h.Form(h.Method("get"), ui.Swap("lista"),
+    ui.Input(h.Name("q")),
+    ui.Submit(h.Text("Buscar")),
+    ui.Spinner(ui.Indicator("lista")),   // escondido até a espera valer menção
+)
+h.Div(h.ID("lista"), linhas())
+```
+
+O limiar é o ponto. Mostrar um spinner em toda resposta é o piscar que as pessoas escrevem CSS
+para esconder; mostrá-lo só nas lentas é informação. `ui.PendingAfter(300)` no gatilho muda o
+limiar, e vários indicadores podem observar o mesmo alvo — um spinner ao lado do botão, uma
+barra no cabeçalho.
+
+Enquanto um alvo espera, três elementos ficam com `data-trilha-pending`: o alvo, o gatilho e
+todo indicador daquele alvo. O alvo também ganha `aria-busy`, então um leitor de tela é
+avisado sem nenhuma estilização sua. `trilha:pending` e `trilha:settled` disparam no
+`document` para o que o CSS não resolve.
+
+Um segundo clique num gatilho cujo alvo já está no ar é ignorado, então o `POST` não sai duas
+vezes — não há nada para ligar por causa disso.
+
+Onde o navegador tem `startViewTransition`, a substituição faz *crossfade* em vez de pular;
+onde não tem, ou onde o sistema pede menos movimento, nada muda. O `ui.NoTransition()`
+desliga num gatilho.
+
 ## Quando o fragmento não dá certo
 
 O kit **nunca deixa a tela travada**: se a resposta for 5xx, se a rede cair ou se o pedaço
@@ -165,6 +197,11 @@ a virar componente, e o resto do projeto não fica sabendo da escolha.
 
 A CSP padrão é `script-src 'self'`, então módulo vindo de CDN é recusado até você abrir a
 mão — decisão, não acidente.
+
+A ilha também é para onde se vai quando o modelo de trocas acaba — arrastar, edição
+colaborativa, qualquer coisa cuja verdade mora no navegador enquanto a pessoa age.
+[O teto](/pt/aprender/o-teto) é sobre reconhecer esse momento, e sobre as regras que impedem
+uma ilha de virar uma SPA sem ninguém perceber.
 
 ## A página inteira, sem a recarga
 

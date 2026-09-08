@@ -91,6 +91,38 @@ On **422** `ui.js` focuses the first field with `aria-invalid="true"` — what t
 would do by itself on a reload. Otherwise it gives focus (and the caret position) back to
 the field in use, looking it up by `id` or by `name`.
 
+## While the server answers
+
+A swap that takes 40 ms should leave the page exactly as it was; one that takes two seconds
+should say so. `ui.Indicator` marks the element that appears while a target is waiting, and it
+only appears once the request has been in the air past a threshold — 120 ms by default:
+
+```go
+h.Form(h.Method("get"), ui.Swap("lista"),
+    ui.Input(h.Name("q")),
+    ui.Submit(h.Text("Search")),
+    ui.Spinner(ui.Indicator("lista")),   // hidden until the wait is worth mentioning
+)
+h.Div(h.ID("lista"), rows())
+```
+
+The threshold is the point. Showing a spinner for every answer is the flicker people write
+CSS to hide; showing it only for the slow ones is information. `ui.PendingAfter(300)` on the
+trigger changes it, and several indicators may watch the same target — a spinner beside the
+button, a bar in the header.
+
+While a target waits, three elements carry `data-trilha-pending`: the target, the trigger and
+every indicator of that target. The target also gets `aria-busy`, so a screen reader is told
+without any styling of yours. `trilha:pending` and `trilha:settled` fire on `document` for
+anything the CSS cannot do.
+
+A second click on a trigger whose target is already in flight is ignored, so the `POST` does
+not go out twice — there is nothing to wire for that.
+
+Where the browser has `startViewTransition`, the replacement crossfades instead of jumping;
+where it does not, or where the system asks for less motion, nothing changes.
+`ui.NoTransition()` turns it off on one trigger.
+
 ## When the fragment does not work out
 
 The kit **never leaves the screen stuck**: if the answer is 5xx, if the network drops or if
@@ -165,6 +197,11 @@ about the choice.
 
 The default CSP is `script-src 'self'`, so a module from a CDN is refused until you widen
 it — a decision, not an accident.
+
+An island is also where you go when the swap model runs out — dragging, collaborative
+editing, anything whose truth lives in the browser while the person is acting.
+[The ceiling](/learn/the-ceiling) is about recognising that moment, and about the rules that
+keep an island from quietly growing into a SPA.
 
 ## The whole page, without the reload
 
