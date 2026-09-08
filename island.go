@@ -47,6 +47,13 @@ func (c *Ctx) Island(src string, props any, children ...h.Node) h.Node {
 	return h.Fragment(el, h.Script(NonceAttr(c), h.Raw(islandLoader)))
 }
 
+// The loader is what mounts islands on a page that does not use the ui kit.
+// It cannot be the only one: a fragment applied with outerHTML does not run the
+// <script> it carries, so on a page that had no island the first one to arrive
+// through a swap would sit there unmounted and silent. ui.js mounts what a swap
+// brings in, and both sides skip an element already marked data-trilha-mounted,
+// so an island mounts exactly once when both are present (spec 057, #82).
+//
 // islandLoaderMark is what identifies the loader in a rendered page.
 const islandLoaderMark = "/*trilha-islands*/"
 
