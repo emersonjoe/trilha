@@ -20,6 +20,7 @@ trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
 trilha ui describe [Name] [--json]
 trilha agents [--force] [--lang en|pt]
+trilha mcp [--write]
 trilha version
 ```
 
@@ -37,6 +38,7 @@ trilha version
 | `ctx` | the map of the project — routes, API, types, setup — in one read, as Markdown or JSON |
 | `audit` | security checklist before publishing (see [Security](/reference/security)) |
 | `agents` | writes `AGENTS.md` and `CLAUDE.md` so a coding agent finds the conventions |
+| `mcp` | MCP server over stdio for an agent without a shell; read-only unless `--write` |
 
 Commands run in the folder containing `app/`. The project's import path comes from the
 nearest `go.mod`, plus the subfolder, so an app can live inside a larger module.

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/emersonjoe/trilha/ai/mcp"
 	"io"
 	"net"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -882,4 +884,127 @@ func TestVendorE2E(t *testing.T) {
 	if err == nil || !strings.Contains(string(outl), "not in vendor.lock") {
 		t.Fatalf("--check accepted an unpinned module: %v\n%s", err, outl)
 	}
+}
+
+// Spec 061 (#50): the MCP server is a wrapper, and this is what proves it —
+// the tool answers byte for byte what the command answers. It also checks the
+// part that is a security property and not a feature: without --write, the
+// tool that writes is not in tools/list at all.
+func TestMCPServerE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	cli := buildCLI(t, repo, tmp)
+
+	proj := filepath.Join(tmp, "servido")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/servido", "--trilha-dir", repo)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	dial := func(args ...string) *mcp.Client {
+		t.Helper()
+		c, err := mcp.Dial(ctx, func(context.Context) (mcp.Transport, error) {
+			cmd := exec.CommandContext(ctx, cli, args...)
+			cmd.Dir = proj // the project is decided here, not by any argument
+			cmd.Stderr = io.Discard
+			in, err := cmd.StdinPipe()
+			if err != nil {
+				return nil, err
+			}
+			out, err := cmd.StdoutPipe()
+			if err != nil {
+				return nil, err
+			}
+			if err := cmd.Start(); err != nil {
+				return nil, err
+			}
+			return mcp.Pipe(out, in, func() error {
+				_ = in.Close()
+				_ = cmd.Process.Kill()
+				_ = cmd.Wait()
+				return nil
+			}), nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = c.Close() })
+		return c
+	}
+
+	names := func(c *mcp.Client) []string {
+		t.Helper()
+		list, err := c.ListTools(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, i := range list {
+			out = append(out, i.Name)
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	// Read-only by default: generate is not offered, so it cannot be called.
+	ro := dial("mcp")
+	got := names(ro)
+	if strings.Join(got, ",") != "check,describe_project,routes,ui_describe" {
+		t.Fatalf("tools without --write = %v", got)
+	}
+	if !refused(t, ctx, ro, "generate", `{"kind":"page","target":"/x"}`) {
+		t.Fatal("a tool that was never offered answered anyway")
+	}
+
+	// The proof that it is a wrapper: the same bytes as the command.
+	res, err := ro.CallTool(ctx, "routes", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if direct := run(t, proj, cli, "routes"); res.Text() != direct {
+		t.Fatalf("the tool and the command disagree:\ntool: %q\ncmd:  %q", res.Text(), direct)
+	}
+
+	// The catalogue answers without a project and without a process.
+	if res, err := ro.CallTool(ctx, "ui_describe", json.RawMessage(`{"component":"Field"}`)); err != nil {
+		t.Fatal(err)
+	} else if !strings.Contains(res.Text(), "Field") {
+		t.Fatalf("ui_describe = %q", res.Text())
+	}
+	if !refused(t, ctx, ro, "ui_describe", `{"component":"../../etc/passwd"}`) {
+		t.Fatal("a name that is a path was accepted")
+	}
+
+	// With --write the tool appears, and writing is all it does differently.
+	rw := dial("mcp", "--write")
+	if got := names(rw); strings.Join(got, ",") != "check,describe_project,generate,routes,ui_describe" {
+		t.Fatalf("tools with --write = %v", got)
+	}
+	if _, err := rw.CallTool(ctx, "generate", json.RawMessage(`{"kind":"page","target":"/relatorio"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(proj, "app", "relatorio", "page.go")); err != nil {
+		t.Fatalf("generate did not write the page: %v", err)
+	}
+	// And a refusal stays a refusal even when the tool is offered.
+	if !refused(t, ctx, rw, "generate", `{"kind":"page","target":"/../../etc/x"}`) {
+		t.Fatal("a path that climbs out of the project was accepted")
+	}
+}
+
+// refused says whether the server turned the call down. A tool error travels
+// inside the result (isError), not as a transport error: that is the MCP
+// contract, and a test that checks the Go error instead would pass while the
+// server happily answered.
+func refused(t *testing.T, ctx context.Context, c *mcp.Client, tool, args string) bool {
+	t.Helper()
+	res, err := c.CallTool(ctx, tool, json.RawMessage(args))
+	if err != nil {
+		return true
+	}
+	return res.IsError
 }

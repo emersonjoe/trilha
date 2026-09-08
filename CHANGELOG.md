@@ -3,6 +3,49 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.43.0 — 2026-09-08
+
+Spec 061, the first of the two pieces of
+[#50](https://github.com/emersonjoe/trilha/issues/50).
+
+### Added
+
+- **`trilha mcp` — the project as tools, over stdio.** An agent with a shell does not need
+  this; `trilha ctx --json` already is the answer, which is why the issue left it for last.
+  This is for the agent that has no shell — a chat client, an editor that speaks MCP and
+  nothing else — and it offers what the commands already answer: `describe_project`
+  (`trilha ctx --json`), `routes`, `check` (`trilha check --json`), `ui_describe` (the
+  catalogue the binary already carries, so it needs neither a process nor a project) and,
+  with `--write`, `generate`.
+
+  Every tool is a wrapper, and the end-to-end test holds it to that: the tool answers what
+  the command answers, byte for byte. There is no second implementation to drift.
+
+  Point a client at it with `{"command": "trilha", "args": ["mcp"], "cwd": "/path/to/project"}`.
+  The `cwd` is what decides the project, and nothing the model sends can change it.
+
+  **It is read-only unless you ask otherwise.** Without `--write`, the tool that writes files
+  is not registered at all — it is absent from `tools/list`, so a call for it comes back
+  `unknown tool` rather than as a refusal a model can argue with. It never uses a shell:
+  every command is a program plus an argument slice. Every argument is checked against an
+  allowlist before it can reach a command line, so `/../../etc/passwd`, `/x; rm -rf /` and
+  `--force` stop with the reason and without running. One command at a time, each with a
+  deadline (ten minutes for `check`, which runs your suite) and a 1 MiB cap on output. No
+  network. Every call that does run is written to stderr first — stdout belongs to the
+  protocol — so you can watch what the agent asked for.
+
+  Reference in both languages, and `AGENTS.md` now says which of the two to reach for: if you
+  have a shell, run the command.
+
+### Not yet
+
+The other half of #50, a hosted documentation server answering `search_docs` / `get_page` /
+`get_recipe`, is still open. Its source is the same Markdown the site is built from — about a
+megabyte — and putting that inside the CLI binary to answer questions about a project it is
+not part of is the wrong trade; `internal/uidoc` already records that constraint by shipping a
+generated catalogue instead of the source. Serving it needs somewhere to run, and the site is
+static on GitHub Pages: that is a hosting decision, not code.
+
 ## 0.42.0 — 2026-09-08
 
 Spec 060. One thing the 0.41.0 island channel shipped twice.

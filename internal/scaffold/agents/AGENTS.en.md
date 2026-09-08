@@ -45,6 +45,12 @@ HTML is written in Go with the `h` package, not with templates:
 | `trilha new` | creates another project |
 | `trilha version` | the version of the framework |
 
+If you are reading this, you have a shell, and the commands above are the whole story: run
+them. `trilha mcp` exists for the agent that has no shell — a chat client, an editor that only
+speaks MCP — and it offers the same answers as tools, read-only unless it was started with
+`--write`. Do not reach for it from here; a subprocess of the CLI is one step, and the MCP
+server is the same CLI with a protocol in front of it.
+
 A route that answers 404 is almost always a missing `trilha gen`; `trilha check` catches it
 before the browser does. Every problem it reports comes with the line it is on and the sentence
 that resolves it — read that line instead of guessing.

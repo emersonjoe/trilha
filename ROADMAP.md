@@ -166,6 +166,32 @@ no tutorial.
 47. ~~[#83](https://github.com/emersonjoe/trilha/issues/83) Dizer onde o teto fica e como atravessá-lo: os sinais concretos (estado que sobrevive entre trocas, arrastar e soltar contínuo, edição colaborativa, canvas) e uma ilha com biblioteca de terceiros dentro, rodando em `examples/`, sem bundler.~~ **Entregue na 0.40.0** (spec 057): capítulo *O teto* nas duas línguas, com as regras que impedem a ilha de virar SPA, e a rota `/blog/ordem` com arrastar-e-soltar, botões ↑ ↓ para o teclado e a ordem salva pelo mesmo `POST → redirect → GET`.
 48. ~~[#84](https://github.com/emersonjoe/trilha/issues/84) Chegando do htmx + templ: a página que traduz o que a pessoa já sabe em vez de ensinar do zero, inclusive o que **não** tem equivalente.~~ **Entregue na 0.40.0** (spec 057): capítulo *Vindo do htmx e do templ* nas duas línguas, com a tabela de tradução e as três faltas ditas sem rodeio — troca fora de banda, gatilho por tempo e gatilho por evento qualquer.
 
+### Fase 7 — Migração de app Next.js
+
+Esta fase saiu de um inventário: 15.701 linhas de TypeScript em 77 arquivos de um app real
+(Acervo), 46 das 47 páginas em `'use client'`, 200 endpoints FastAPI que ficam onde estão. A
+issue [#74](https://github.com/emersonjoe/trilha/issues/74) tem a medição e a classificação
+das telas; o que segurava a migração não era a lógica das telas, era infraestrutura repetida.
+
+Entregue quase inteira na 0.41.0, com dois itens que vieram antes e um que precisou de uma
+segunda passada.
+
+49. ~~[#59](https://github.com/emersonjoe/trilha/issues/59) `trilha migrate next`: o esqueleto de `app/` e o relatório A/B/C.~~ **Entregue na 0.41.0.**
+50. ~~[#60](https://github.com/emersonjoe/trilha/issues/60) `Config.Upstreams`: o `rewrites` do Next com a credencial da sessão.~~ **Entregue na 0.41.0.**
+51. ~~[#62](https://github.com/emersonjoe/trilha/issues/62) `auth.Sessions` sem OIDC, com `User.Extra` e PBKDF2.~~ **Entregue na 0.41.0.**
+52. ~~[#61](https://github.com/emersonjoe/trilha/issues/61) `trilha client`: cliente Go tipado a partir do OpenAPI que já existe.~~ **Entregue na 0.41.0.**
+53. ~~[#65](https://github.com/emersonjoe/trilha/issues/65) `ui.Shell` e `trilha new --template app`.~~ **Entregue na 0.41.0.**
+54. ~~[#63](https://github.com/emersonjoe/trilha/issues/63) `ListParams` + `ui.DataTable`: a listagem que mora na URL.~~ **Entregue na 0.41.0.**
+55. ~~[#64](https://github.com/emersonjoe/trilha/issues/64) `ui.Poll` e `ui.Live`: fragmento que se atualiza sozinho.~~ **Entregue na 0.41.0.**
+56. ~~[#66](https://github.com/emersonjoe/trilha/issues/66) `c.Flash` sobrevivendo ao redirect e `ui.Confirm`.~~ **Entregue na 0.39.0** (spec 053) — chegou antes da fase que o pediu.
+57. ~~[#69](https://github.com/emersonjoe/trilha/issues/69) `Bind` de listas e mapas, e `ui.SchemaForm`.~~ **Entregue na 0.41.0.**
+58. ~~[#71](https://github.com/emersonjoe/trilha/issues/71) `c.Attachment`, `c.Inline` e `c.Pipe`.~~ **Entregue na 0.41.0.**
+59. ~~[#72](https://github.com/emersonjoe/trilha/issues/72) `ui.Markdown` seguro e `ui.Chat` + `ai.Serve`.~~ **Entregue na 0.41.0.**
+60. ~~[#67](https://github.com/emersonjoe/trilha/issues/67) `ui.Combobox` por fragmento e `ui.Dropzone`.~~ **Entregue na 0.41.0.**
+61. ~~[#68](https://github.com/emersonjoe/trilha/issues/68) Gráficos SVG gerados no servidor, sem JS.~~ **Entregue na 0.41.0.**
+62. ~~[#70](https://github.com/emersonjoe/trilha/issues/70) Ilhas de segunda geração: props tipadas, canal ilha→servidor, `trilha vendor`.~~ **Entregue na 0.41.0**, e endireitado na **0.42.0** (spec 060): o canal tinha nascido duplicado — uma cópia no script inline, outra no `ui.js` —, e as duas já divergiam no `swap`. Virou um arquivo do kit, alcançável pelos dois casos.
+63. ~~[#73](https://github.com/emersonjoe/trilha/issues/73) `trilha ui describe` e o guia "de Next.js para o Trilha".~~ **Entregue na 0.41.0.**
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |

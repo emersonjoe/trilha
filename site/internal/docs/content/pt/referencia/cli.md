@@ -20,6 +20,7 @@ trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
 trilha ui describe [Nome] [--json]
 trilha agents [--force] [--lang en|pt]
+trilha mcp [--write]
 trilha version
 ```
 
@@ -37,6 +38,7 @@ trilha version
 | `ctx` | o mapa do projeto — rotas, API, tipos, setup — numa leitura só, em Markdown ou JSON |
 | `audit` | checklist de segurança antes de publicar (veja [Segurança](/pt/referencia/seguranca)) |
 | `agents` | grava `AGENTS.md` e `CLAUDE.md` para um agente de código achar as convenções |
+| `mcp` | servidor MCP por stdio, para agente sem shell; somente leitura até passar `--write` |
 
 Os comandos rodam na pasta que contém `app/`. O caminho de import do projeto vem do
 `go.mod` mais próximo, mais a subpasta, então um app pode viver dentro de um módulo maior.

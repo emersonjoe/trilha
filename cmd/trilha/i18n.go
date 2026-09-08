@@ -58,6 +58,7 @@ Usage:
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
   trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
   trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
+  trilha mcp [--write]                              MCP server over stdio for an agent without a shell
   trilha migrate next <next-dir> [--out app]        skeleton of app/ and MIGRATION.md from a Next.js project
   trilha client <openapi.json|URL> [--check]       generate the Go client of an API that already exists
   trilha vendor [<pkg@version>] [--check] [--from URL]  pin a JavaScript module in public/vendor
@@ -82,6 +83,7 @@ Uso:
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
   trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
   trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
+  trilha mcp [--write]                                servidor MCP por stdio, para agente sem shell
   trilha migrate next <dir-do-next> [--out app]       esqueleto do app/ e MIGRATION.md a partir de um projeto Next.js
   trilha client <openapi.json|URL> [--check]          gera o cliente Go de uma API que já existe
   trilha vendor [<pkg@versão>] [--check] [--from URL]  fixa um módulo JavaScript em public/vendor
@@ -292,6 +294,10 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"island runtime ok":           {"ui.island.js is in public/", "ui.island.js está em public/"},
 	"island runtime missing":      {"this project uses c.Island but public/ui.island.js is missing", "este projeto usa c.Island mas falta public/ui.island.js"},
 	"island runtime missing hint": {"run `trilha ui` to write the kit files; without it the island shows only its fallback", "rode `trilha ui` para gravar os arquivos do kit; sem ele a ilha mostra só o recuo"},
+	"flag mcp write":              {"offer the tool that writes files (generate); off by default", "oferece a ferramenta que grava arquivos (generate); desligada por padrão"},
+	"mcp read only":               {"read-only: no tool here writes a file. Start with --write to offer generate.", "somente leitura: nenhuma ferramenta aqui grava arquivo. Use --write para oferecer o generate."},
+	"mcp timeout":                 {"the command did not finish within %s", "o comando não terminou em %s"},
+	"mcp bad arg":                 {"refused: %s = %q is not a value this tool accepts", "recusado: %s = %q não é um valor que esta ferramenta aceita"},
 	"no checks":                   {"no readiness check registered", "nenhuma verificação de prontidão registrada"},
 	"no checks hint":              {"/_trilha/health/ready always answers 200; register a.Check(\"db\", ...) in app/setup.go", "/_trilha/health/ready sempre responde 200; registre a.Check(\"banco\", ...) em app/setup.go"},
 	"checks ok":                   {"readiness checks registered", "verificações de prontidão registradas"},

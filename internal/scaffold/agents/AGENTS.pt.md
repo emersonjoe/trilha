@@ -46,6 +46,12 @@ O HTML é escrito em Go com o pacote `h`, não com template:
 | `trilha new` | cria outro projeto |
 | `trilha version` | a versão do framework |
 
+Se você está lendo isto, você tem shell, e os comandos acima são a história inteira: rode-os. O
+`trilha mcp` existe para o agente **sem** shell — cliente de chat, editor que só fala MCP — e
+oferece as mesmas respostas como ferramentas, somente leitura até ser iniciado com `--write`.
+Não recorra a ele daqui; um subprocesso da CLI é um passo, e o servidor MCP é a mesma CLI com
+um protocolo na frente.
+
 Rota que responde 404 quase sempre é `trilha gen` que faltou; o `trilha check` pega isso antes
 do navegador. Todo problema que ele reporta vem com a linha em que está e a frase que resolve —
 leia essa frase em vez de adivinhar.
