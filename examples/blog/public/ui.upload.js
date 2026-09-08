@@ -1,3 +1,4 @@
+/* trilha ui 5b14bec40fc8a9a3 */
 // Kit ui do Trilha — envio de arquivo com progresso. Carregado por `ui.UploadScript`.
 (() => {
   // The browser is the only one that knows how many bytes have left the

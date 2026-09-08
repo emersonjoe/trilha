@@ -1,3 +1,4 @@
+/* trilha ui 4f0cd07c4808a0d7 */
 // Kit ui do Trilha — navegação no cliente. Carregado só por `ui.NavigateScript`.
 (() => {
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
@@ -6,12 +7,19 @@
   // fetchInto asks the server for the whole page and swaps one element of it.
   // The address is the same one a normal navigation would use, so reloading it
   // gives the same page — this is a shortcut, not a second truth.
-  const fetchInto = async (url, id, y) => {
+  //
+  // The waiting marks and the crossfade come from ui.js, which the kit always
+  // loads before this file: one threshold, one transition, one behaviour — a
+  // second copy here would be a second thing to keep in step.
+  const pending = (id, trigger) => window.ui?.pending?.(id, trigger) || (() => {});
+  const update = (fn, trigger) => window.ui?.update?.(fn, trigger) || Promise.resolve(fn());
+
+  const fetchInto = async (url, id, y, trigger) => {
     const old = document.getElementById(id);
     if (!old) return false;
     ctl?.abort();
     ctl = new AbortController();
-    old.setAttribute("aria-busy", "true");
+    const settle = pending(id, trigger);
     try {
       const res = await fetch(url, { credentials: "same-origin", signal: ctl.signal, headers: { Accept: "text/html" } });
       if (res.redirected) { location.assign(res.url); return true; }
@@ -19,18 +27,20 @@
       const doc = new DOMParser().parseFromString(await res.text(), "text/html");
       const next = doc.getElementById(id);
       if (!next) return false; // the page is shaped differently: navigate for real
-      old.replaceWith(next);
-      if (doc.title) document.title = doc.title;
-      next.setAttribute("tabindex", "-1");
-      next.focus({ preventScroll: true });
-      window.ui?.hydrate?.(next);
-      document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: next, status: res.status, url } }));
-      scrollTo(0, y || 0);
-      return true;
+      return await update(() => {
+        old.replaceWith(next);
+        if (doc.title) document.title = doc.title;
+        next.setAttribute("tabindex", "-1");
+        next.focus({ preventScroll: true });
+        window.ui?.hydrate?.(next);
+        document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: next, status: res.status, url } }));
+        scrollTo(0, y || 0);
+        return true;
+      }, trigger);
     } catch (e) {
       return e.name === "AbortError"; // a newer click owns the page now
     } finally {
-      old.removeAttribute("aria-busy");
+      settle();
     }
   };
 
@@ -50,7 +60,7 @@
     e.preventDefault();
     // Mark the entry we are leaving, so Back knows how to rebuild it.
     history.replaceState({ trilhaNav: id, y: scrollY }, "");
-    fetchInto(url.href, id, 0).then((ok) => {
+    fetchInto(url.href, id, 0, a).then((ok) => {
       if (!ok) { location.assign(url.href); return; }
       history.pushState({ trilhaNav: id, y: 0 }, "", url.href);
     });

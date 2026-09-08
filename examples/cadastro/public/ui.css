@@ -1,3 +1,4 @@
+/* trilha ui ad8635729a7aa3d1 */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -79,6 +80,19 @@
 .ui-field-help { font-size: .8125rem; color: var(--muted-foreground); margin: 0; }
 [aria-busy="true"] { opacity: .6; transition: opacity .12s ease; }
 [aria-busy="true"] * { cursor: progress; }
+
+/* Spec 057 — waiting. Nothing here shows before the threshold: the client only
+   writes data-trilha-pending once the request has been in the air long enough
+   to be worth mentioning, so a fast answer leaves the page exactly as it was. */
+[data-trilha-indicator] { opacity: 0; visibility: hidden; transition: opacity .15s ease, visibility .15s; }
+[data-trilha-indicator][data-trilha-pending] { opacity: 1; visibility: visible; }
+a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > button { cursor: progress; opacity: .7; transition: opacity .15s ease; }
+.ui-spinner { display: inline-block; width: 1em; height: 1em; vertical-align: -.125em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: ui-spin .6s linear infinite; }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ui-spinner { animation-duration: 2s; }
+  [data-trilha-indicator] { transition: none; }
+}
 .ui-field-error { font-size: .8125rem; color: var(--destructive); margin: 0; }
 .ui-field[hidden] { display: none; }
 .ui-checkbox, .ui-radio { appearance: none; width: 1rem; height: 1rem; flex: none; border: 1px solid var(--input); border-radius: 4px; background: transparent; cursor: pointer; display: inline-grid; place-content: center; box-shadow: var(--ui-shadow); vertical-align: middle; }
@@ -141,6 +155,10 @@
 @keyframes ui-pulse { 50% { opacity: .5; } }
 .ui-progress { position: relative; height: .5rem; width: 100%; overflow: hidden; border-radius: 999px; background: color-mix(in oklch, var(--primary) 20%, transparent); }
 .ui-progress > div { height: 100%; background: var(--primary); transition: width .3s; }
+progress.ui-upload { -webkit-appearance: none; appearance: none; width: 100%; height: .5rem; border: 0; border-radius: 999px; background: color-mix(in oklch, var(--primary) 20%, transparent); }
+progress.ui-upload::-webkit-progress-bar { background: transparent; }
+progress.ui-upload::-webkit-progress-value { background: var(--primary); border-radius: 999px; }
+progress.ui-upload::-moz-progress-bar { background: var(--primary); border-radius: 999px; }
 .ui-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; list-style: none; padding: 0; margin: 0; font-size: .875rem; color: var(--muted-foreground); }
 .ui-breadcrumb a { text-decoration: none; }
 .ui-breadcrumb a:hover { color: var(--foreground); }
@@ -172,6 +190,17 @@
 .ui-menu:popover-open { display: grid; }
 .ui-menu button, .ui-menu a { display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left; padding: .375rem .5rem; border: 0; background: transparent; color: inherit; font: inherit; font-size: .875rem; border-radius: var(--radius-sm); cursor: pointer; text-decoration: none; }
 .ui-menu button:hover, .ui-menu a:hover { background: var(--accent); color: var(--accent-foreground); }
+
+/* pagination */
+.ui-pagination ul { display: flex; align-items: center; gap: .25rem; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.ui-pagination a, .ui-pagination [aria-current="page"] { display: inline-flex; align-items: center; justify-content: center; min-width: 2.25rem; height: 2.25rem; padding: 0 .625rem; border-radius: var(--radius-md); font-size: .875rem; text-decoration: none; color: var(--foreground); }
+.ui-pagination a:hover { background: var(--accent); color: var(--accent-foreground); }
+.ui-pagination [aria-current="page"] { border: 1px solid var(--border); background: var(--accent); color: var(--accent-foreground); font-weight: 600; }
+.ui-pagination li[aria-hidden="true"] { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem; color: var(--muted-foreground); }
+
+/* tooltip */
+.ui-tooltip { position: relative; display: inline-flex; }
+.ui-tooltip-bubble { position: absolute; bottom: calc(100% + .375rem); left: 50%; transform: translateX(-50%); z-index: 60; width: max-content; max-width: 16rem; padding: .25rem .5rem; border-radius: var(--radius-sm); background: var(--foreground); color: var(--background); font-size: .75rem; line-height: 1.35; box-shadow: var(--ui-shadow-md); pointer-events: none; }
 
 /* toast */
 .ui-toaster { position: fixed; bottom: 1rem; right: 1rem; display: flex; flex-direction: column; gap: .5rem; z-index: 50; max-width: 24rem; }
