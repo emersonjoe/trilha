@@ -52,13 +52,21 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 			// The island owns the dragging and nothing else. Its props are the
 			// order the server rendered, so a module that loads late still
 			// starts from the truth.
-			c.Island("/ilha-ordem.js", map[string]any{"ordem": slugs},
+			c.Island("/ilha-ordem.js", OrdemProps{Ordem: slugs},
 				h.Input(h.Type("hidden"), h.Name("ordem"), h.Value(strings.Join(slugs, ","))),
 				h.Ol(h.Class("ui-stack"), h.Data("lista", ""), h.Fragment(linhas...)),
 			),
 			h.Div(ui.Submit(h.Text("Salvar ordem")), h.Text(" "), ui.ButtonLink("/blog", ui.Ghost(), h.Text("Voltar"))),
 		)),
 	), nil
+}
+
+// OrdemProps is what the ordering island gets. It is a struct, not a map, so
+// `trilha gen` can write it into public/islands.d.ts and the module on the
+// JavaScript side knows the same names the page does.
+type OrdemProps struct {
+	// Ordem is the order the server rendered, slug by slug.
+	Ordem []string `json:"ordem"`
 }
 
 // POST saves the order and comes back to the list.

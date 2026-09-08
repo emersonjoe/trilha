@@ -279,6 +279,17 @@ versioning. This file is written in English only.
 - **The scaffold templates are split into `base/` and one folder per shape**, so a new shape
   is a folder and not a fork of the generator. `scaffold.Data.Template` and
   `scaffold.Templates()` name them; an unknown one is a message, not a stack trace.
+- **`ui.js` hands the island the same third argument the loader does.** Since 0.40.0 the kit
+  also mounts an island — the one that arrives inside a swapped fragment — and it runs first,
+  so on a page that uses the kit the kit is what a module meets. It was calling
+  `mod.default(el, props)`, which would have left `island` undefined exactly where the
+  fragment story is most useful. The two implementations are one protocol, and
+  `TestIslandChannelIsTheSameOnBothSides` compares them piece by piece so they cannot drift
+  apart quietly.
+- **The asset budget goes to 28 KB for `ui.js` and 30 KB for `ui.css`** (FR-007). The island
+  channel is 1.2 KB of the first; the combobox, the prose rules `ui.Markdown` needs and the
+  bubbles `ui.Chat` needs are the rest. This is the one duplication the kit accepts: an
+  island cannot know which of the two mounted it.
 
 ### Documentation
 

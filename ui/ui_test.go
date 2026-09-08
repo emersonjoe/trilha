@@ -121,20 +121,23 @@ func TestHeadAndAssets(t *testing.T) {
 	// tooltip is the first component since the kit shipped to need script of
 	// its own, and a hint that cannot be dismissed is not accessible), to
 	// 16 KB in 0.39.0, where the confirmation dialog is built here so that no
-	// app has to write the inline script the CSP forbids, and to 26 KB: the
+	// app has to write the inline script the CSP forbids, and to 28 KB: the
 	// pending threshold, the view transition and the island that arrives inside
 	// a fragment are about 3.8 KB, and the combobox — a listbox driven from the
 	// keyboard — another two. Every one of them sits on the path a swap already
 	// takes, or is a component the app that does not use it pays four hundred
 	// bytes of dead listeners for, against shipping its own copy of the same
 	// thing; none could move to a file only the apps using it download, the way
-	// ui.nav.js and ui.upload.js do.
-	// ui.css went to 28 KB: ui.Markdown needs prose rules (a model writes
+	// ui.nav.js and ui.upload.js do. The island channel (spec 066) is another
+	// 1.2 KB, and it is the one duplication the kit accepts: an island cannot
+	// know whether the loader or the kit mounted it, so both hand it the same
+	// object.
+	// ui.css went to 30 KB: ui.Markdown needs prose rules (a model writes
 	// lists, quotes and code blocks, and unstyled they read as one block of
 	// text) and ui.Chat needs the bubbles. Both are paid by every page, which
 	// is why they are rules and not a second stylesheet — a chat that has to
 	// remember to load its own CSS renders wrong once.
-	if len(Asset("ui.css")) > 28<<10 || len(Asset("ui.js")) > 26<<10 {
+	if len(Asset("ui.css")) > 30<<10 || len(Asset("ui.js")) > 28<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {

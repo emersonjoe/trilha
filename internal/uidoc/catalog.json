@@ -1417,6 +1417,42 @@
     ]
   },
   {
+    "name": "Indicator",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Indicator(id string) h.Node",
+    "doc": "Indicator marks an element as the pending signal for the target with the\ngiven id: it stays hidden while nothing is happening and appears once the\nrequest for that target has been in flight past the threshold. Put it\nanywhere — beside the target, in the header, inside the button.\n\nThe threshold is what keeps a fast answer from making it blink; see\nPendingAfter. Several indicators may watch the same target.",
+    "summary": "Indicator marks an element as the pending signal for the target with the given id: it stays hidden while nothing is happening and appears once the request for that target has been in flight past the threshold.",
+    "example": "ui.Spinner(ui.Indicator(\"lista\"))",
+    "see": [
+      "ui.Spinner"
+    ]
+  },
+  {
+    "name": "PendingAfter",
+    "kind": "func",
+    "group": "forms",
+    "signature": "PendingAfter(ms int) h.Node",
+    "doc": "PendingAfter sets, in milliseconds, how long a request may be in flight\nbefore the page says so. Put it on the element that carries Swap or on the\none that carries Navigate. The default is 120 ms, which is about where a\nperson starts to notice a wait; zero or less means the default.\n\nThe threshold is the whole point: showing a spinner for the 40 ms answer is\nthe flash people complain about, not a courtesy.",
+    "summary": "PendingAfter sets, in milliseconds, how long a request may be in flight before the page says so."
+  },
+  {
+    "name": "NoTransition",
+    "kind": "func",
+    "group": "forms",
+    "signature": "NoTransition() h.Node",
+    "doc": "NoTransition turns off the crossfade a swap or a navigation would animate on\nthis trigger. The transition already does nothing where the browser has no\nstartViewTransition and where the system asks for less motion, so this is for\nthe page that wants the instant replacement on purpose.",
+    "summary": "NoTransition turns off the crossfade a swap or a navigation would animate on this trigger."
+  },
+  {
+    "name": "Spinner",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Spinner(attrs ...h.Node) h.Node",
+    "doc": "Spinner is a turning ring, sized by the font it sits in. It is decorative —\nthe waiting is announced by aria-busy on the target — so it is hidden from\nassistive technology.",
+    "summary": "Spinner is a turning ring, sized by the font it sits in."
+  },
+  {
     "name": "NoPush",
     "kind": "func",
     "group": "forms",

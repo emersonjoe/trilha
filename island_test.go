@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -216,5 +217,39 @@ func TestIslandPostGetsTheSameFieldsAsAForm(t *testing.T) {
 	}
 	if problem.Fields["title"] == "" {
 		t.Fatalf("no field error: %s", rec.Body)
+	}
+}
+
+// TestIslandChannelIsTheSameOnBothSides holds the two mounting paths together.
+// The loader below covers a page without the kit; ui.js covers the island that
+// arrives inside a swapped fragment, and it runs first, so an island that only
+// ever met the kit still has to get the same third argument. The two are
+// written in different styles — one minified into a Go string, the other
+// readable — so what is compared is the protocol, not the text.
+func TestIslandChannelIsTheSameOnBothSides(t *testing.T) {
+	kit, err := os.ReadFile("ui/assets/ui.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`mod.default(el, props, islandApi(el, ac))`, // the island gets its way back
+		`data-trilha-csrf`,                          // read from the element, like the loader
+		`h["X-CSRF-Token"] = t`,                     // and sent as the header the server accepts
+		`credentials: "same-origin"`,                // the session cookie travels
+		`Trilha-Location`,                           // a redirect is a navigation, not a body
+		`res.status === 422`,                        // the invalid answer is its own class
+		`(body && body.fields) || {}`,               // with the fields beside it
+		`"Trilha-Fragment": target`,                 // swap asks for a piece of the page
+		`new AbortController()`,                     // and everything is cut when the island goes
+		`if (!el.isConnected)`,
+	} {
+		if !bytes.Contains(kit, []byte(want)) {
+			t.Errorf("ui.js drifted from the loader: no %q", want)
+		}
+	}
+	for _, want := range []string{"csrf:", "signal:", "get:", "post:", "send,", "swap:"} {
+		if !bytes.Contains(kit, []byte(want)) {
+			t.Errorf("ui.js does not offer %q, which the loader does", want)
+		}
 	}
 }

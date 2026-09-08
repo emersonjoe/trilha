@@ -1,4 +1,4 @@
-/* trilha ui a2dd205e36b3d7d4 */
+/* trilha ui 39707fb4d3efe0fd */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -16,6 +16,22 @@
     applyTheme(next);
     try { localStorage.setItem("ui-theme", next); } catch {}
   });
+
+  // Sidebar: [data-ui-sidebar-toggle] collapses the shell's sidebar; persisted
+  // in localStorage("ui-sidebar") and applied to <html> before the first paint
+  // by the same inline script that applies the theme.
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ui-sidebar-toggle]");
+    if (!b) return;
+    const off = document.documentElement.classList.toggle("ui-sidebar-collapsed");
+    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", String(!off)));
+    try { localStorage.setItem("ui-sidebar", off ? "collapsed" : "open"); } catch {}
+  });
+  // The button says what the page already shows: a reload lands with the class
+  // in place and the attribute has to agree with it.
+  if (document.documentElement.classList.contains("ui-sidebar-collapsed")) {
+    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", "false"));
+  }
 
   // Tabs: [data-ui-tabs] > .ui-tabs-list > .ui-tab[aria-controls] + panels.
   const selectTab = (tab) => {
@@ -181,6 +197,10 @@
   // the whole page, because nobody sent the header.
   const hydrate = (root) => { armFades(root); evalShowWhen(root); initTooltips(root); mountIslands(root); };
 
+  // A fragment swapped by another file of the kit (ui.live.js) asks for the
+  // same hydration here, so the components inside it keep working.
+  document.addEventListener("trilha:hydrate", (e) => { if (e.detail?.target) hydrate(e.detail.target); });
+
   // Spec 057. A spinner for the 40 ms answer is the flash people complain about,
   // not a courtesy: nothing is marked until the threshold passes, so a request
   // that settles first leaves no trace on the page.
@@ -225,6 +245,62 @@
     return vt.updateCallbackDone.then(() => out, () => out);
   };
 
+  // The third argument of an island is its way back to the server: the same
+  // channel the loader Ctx.Island writes hands over, because the island cannot
+  // know which of the two mounted it. The two implementations are one protocol
+  // — the CSRF token from the element, JSON in and out, 422 carrying the fields
+  // — and TestIslandChannelIsTheSameOnBothSides holds them together.
+  class IslandError extends Error {
+    constructor(status, detail, body) {
+      super(detail || ("HTTP " + status));
+      this.name = "IslandError"; this.status = status; this.detail = detail; this.body = body;
+    }
+  }
+  class IslandInvalid extends IslandError {
+    constructor(status, detail, body, fields) {
+      super(status, detail, body);
+      this.name = "IslandInvalid"; this.fields = fields || {};
+    }
+  }
+  const islandToken = (el) => el.getAttribute("data-trilha-csrf") || "";
+  const islandApi = (el, ac) => {
+    const send = async (method, url, data) => {
+      const h = { Accept: "application/json" };
+      if (data !== undefined) h["Content-Type"] = "application/json";
+      const t = islandToken(el);
+      if (t) h["X-CSRF-Token"] = t;
+      const res = await fetch(url, {
+        method, headers: h, credentials: "same-origin", signal: ac.signal,
+        body: data === undefined ? undefined : JSON.stringify(data),
+      });
+      const loc = res.headers.get("Trilha-Location");
+      if (loc) { location.assign(loc); return null; }
+      const ct = res.headers.get("Content-Type") || "";
+      const body = ct.includes("json") ? await res.json().catch(() => null) : await res.text();
+      if (res.ok) return body;
+      const d = body && typeof body === "object" ? (body.detail || body.title || "") : "";
+      if (res.status === 422) throw new IslandInvalid(res.status, d, body, (body && body.fields) || {});
+      throw new IslandError(res.status, d, body);
+    };
+    return {
+      csrf: () => islandToken(el),
+      signal: ac.signal,
+      get: (url) => send("GET", url),
+      post: (url, data) => send("POST", url, data === undefined ? {} : data),
+      send,
+      // swap goes through the kit, so the fragment is hydrated and the focus
+      // kept the way every other swap of the page is.
+      swap: async (url, id) => {
+        const target = id || el.id;
+        if (!target) throw new IslandError(0, "island.swap needs the id of the fragment");
+        const res = await fetch(url, { headers: { "Trilha-Fragment": target }, credentials: "same-origin", signal: ac.signal });
+        const loc = res.headers.get("Trilha-Location");
+        if (loc) { location.assign(loc); return false; }
+        return swap(target, await res.text(), res.status);
+      },
+    };
+  };
+
   // Islands mount when they enter the document. The loader Ctx.Island writes
   // covers the page without this kit, but not the island arriving inside a
   // fragment on a page that had none: the DOM does not run a <script> inserted
@@ -240,10 +316,13 @@
       let props = null;
       try { props = JSON.parse(el.getAttribute("data-trilha-props") || "null"); }
       catch (e) { console.error("trilha: island props", src, e); return; }
+      const ac = new AbortController();
+      const gone = new MutationObserver(() => { if (!el.isConnected) { ac.abort(); gone.disconnect(); } });
+      gone.observe(document, { childList: true, subtree: true });
       import(src)
         .then((mod) => {
           if (typeof mod.default !== "function") { console.error("trilha: island without a default export:", src); return; }
-          mod.default(el, props);
+          mod.default(el, props, islandApi(el, ac));
         })
         .catch((e) => console.error("trilha: island", src, e));
     });
@@ -384,6 +463,108 @@
   };
   ["pointerover", "focusin", "click"].forEach((ev) => document.addEventListener(ev, showTip));
   document.addEventListener("keydown", (e) => e.key === "Escape" && hideTips());
+
+  // Combobox: [data-ui-combo] wraps a text input (role=combobox), a hidden
+  // input with the value and a <ul role=listbox>. The server does the search
+  // and answers the options as HTML (ui.ComboboxOptions); a short list is
+  // already inside the <ul> and is filtered here.
+  const comboParts = (box) => ({
+    text: box.querySelector('input[role="combobox"]'),
+    hidden: box.querySelector('input[type="hidden"]'),
+    list: box.querySelector('[role="listbox"]'),
+  });
+  const comboOpts = (list) => $('[role="option"]', list).filter((o) => !o.hidden);
+  const comboClose = (box) => {
+    const { text, list } = comboParts(box);
+    list.hidden = true;
+    text.setAttribute("aria-expanded", "false");
+    text.removeAttribute("aria-activedescendant");
+  };
+  const comboMark = (box, opt) => {
+    const { text, list } = comboParts(box);
+    $('[role="option"]', list).forEach((o) => o.setAttribute("aria-selected", String(o === opt)));
+    if (!opt) return text.removeAttribute("aria-activedescendant");
+    if (!opt.id) opt.id = `${list.id}-o${$('[role="option"]', list).indexOf(opt)}`;
+    text.setAttribute("aria-activedescendant", opt.id);
+    opt.scrollIntoView({ block: "nearest" });
+  };
+  const comboOpen = (box) => {
+    const { text, list } = comboParts(box);
+    if (!comboOpts(list).length) return comboClose(box);
+    list.hidden = false;
+    text.setAttribute("aria-expanded", "true");
+  };
+  const comboPick = (box, opt) => {
+    const { text, hidden } = comboParts(box);
+    text.value = opt.textContent.trim();
+    hidden.value = opt.getAttribute("data-value") || "";
+    comboClose(box);
+    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  const comboSearch = async (box) => {
+    const { text, list } = comboParts(box);
+    const src = box.getAttribute("data-ui-combo-src");
+    const q = text.value.trim();
+    if (q.length < Number(box.getAttribute("data-ui-combo-min") || 1)) return comboClose(box);
+    if (!src) { // static list: the filter is here, there is nothing to ask
+      const needle = q.toLowerCase();
+      $('[role="option"]', list).forEach((o) => (o.hidden = !o.textContent.toLowerCase().includes(needle)));
+      return comboOpen(box);
+    }
+    const url = new URL(src, location.href);
+    url.searchParams.set("q", q);
+    for (const name of (box.getAttribute("data-ui-combo-with") || "").split(/\s+/).filter(Boolean)) {
+      const other = box.closest("form")?.elements[name];
+      if (other) url.searchParams.set(name, other.value);
+    }
+    box.setAttribute("aria-busy", "true");
+    try {
+      const res = await fetch(url, { headers: { "Trilha-Fragment": list.id } });
+      list.innerHTML = res.ok ? await res.text() : "";
+    } catch { list.innerHTML = ""; }
+    box.removeAttribute("aria-busy");
+    comboOpen(box);
+  };
+  const comboTimers = new WeakMap();
+  document.addEventListener("input", (e) => {
+    const box = e.target.closest?.("[data-ui-combo]");
+    if (!box || e.target.getAttribute("role") !== "combobox") return;
+    // Typing throws the choice away: the text and the value cannot disagree.
+    comboParts(box).hidden.value = "";
+    clearTimeout(comboTimers.get(box));
+    comboTimers.set(box, setTimeout(() => comboSearch(box), Number(box.getAttribute("data-ui-combo-wait") || 250)));
+  });
+  document.addEventListener("keydown", (e) => {
+    const box = e.target.closest?.("[data-ui-combo]");
+    if (!box || e.target.getAttribute("role") !== "combobox") return;
+    const { list } = comboParts(box);
+    const opts = comboOpts(list);
+    const at = opts.findIndex((o) => o.getAttribute("aria-selected") === "true");
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (list.hidden) comboOpen(box);
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      const from = at < 0 ? (step > 0 ? -1 : 0) : at;
+      const next = opts[(from + step + opts.length) % (opts.length || 1)];
+      if (next) comboMark(box, next);
+    } else if (e.key === "Enter" && !list.hidden && at >= 0) {
+      e.preventDefault(); // the choice is not the submit
+      comboPick(box, opts[at]);
+    } else if (e.key === "Escape" && !list.hidden) {
+      e.preventDefault();
+      comboClose(box);
+    }
+  });
+  document.addEventListener("click", (e) => {
+    const opt = e.target.closest?.('[data-ui-combo] [role="option"]');
+    if (opt) return comboPick(opt.closest("[data-ui-combo]"), opt);
+    $("[data-ui-combo]").forEach((box) => { if (!box.contains(e.target)) comboClose(box); });
+  });
+  document.addEventListener("focusout", (e) => {
+    const box = e.target.closest?.("[data-ui-combo]");
+    // A click on an option is a focusout too, so let it land first.
+    if (box) setTimeout(() => { if (!box.contains(document.activeElement)) comboClose(box); }, 0);
+  });
 
   const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
