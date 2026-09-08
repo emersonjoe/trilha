@@ -244,7 +244,7 @@ func (p *Project) page(source, dirRel, kind, file string) (Page, []Note, bool) {
 	body, err := os.ReadFile(filepath.Join(p.Root, filepath.FromSlash(source)))
 	if err == nil {
 		pg.Lines = strings.Count(string(body), "\n") + 1
-		pg.Analysis = analyze(string(body))
+		pg.Analysis = analyze(string(body), deps(p.Root, source))
 		if kind == KindRoute {
 			pg.Methods = handlers(string(body))
 		}

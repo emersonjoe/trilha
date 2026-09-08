@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -19,6 +20,8 @@ type Analysis struct {
 	Signals   []string       // the names below that matched
 	Class     string         // A, B or C
 	Why       string         // the reason for the class, in one clause
+	Deps      []string       // the files it imports that were read too
+	DepLines  int            // and how many lines they add to the job
 }
 
 // Endpoint is one address the screen calls, with the method it calls it with.
@@ -38,28 +41,36 @@ const (
 // with two useState is a form, one with fourteen is an application.
 var hookNames = []string{"useState", "useEffect", "useRef", "useMemo", "useCallback", "useContext"}
 
-// spaSignals are what cannot become a form: the browser is doing the work.
-var spaSignals = []struct {
+// signal is a name and what has to be in the file for it to count. Some
+// signals need two things at once: onDrop is a drop area when the file also
+// mentions a file, and something being dragged when it does not.
+type signal struct {
 	name string
 	re   *regexp.Regexp
-}{
-	{"pointer", regexp.MustCompile(`onPointer(Down|Move|Up)|onMouseMove|onDrag[A-Z]|draggable=`)},
-	{"drawing", regexp.MustCompile(`<svg\b|<canvas\b|getContext\(`)},
-	{"editor", regexp.MustCompile(`contentEditable|execCommand|Slate|ProseMirror|Tiptap`)},
-	{"chart", regexp.MustCompile(`\bd3[-.]|recharts|chart\.js|Chart\(`)},
+	and  *regexp.Regexp // optional: must match too
+}
+
+// spaSignals are what cannot become a form: the browser is doing the work.
+var spaSignals = []signal{
+	// Dropping is not pointing. onDrop and onDragOver on a screen that also
+	// mentions a file are a drop area — ui.Dropzone, class B — and reading
+	// them as pointer sent the upload screen to the hardest class there is.
+	// Dragging something that is not a file (a row being reordered) stays.
+	{name: "pointer", re: regexp.MustCompile(`onPointer(Down|Move|Up)|onMouseMove|onDragStart|draggable=`)},
+	{name: "drawing", re: regexp.MustCompile(`<svg\b|<canvas\b|getContext\(`)},
+	{name: "editor", re: regexp.MustCompile(`contentEditable|execCommand|Slate|ProseMirror|Tiptap`)},
+	{name: "chart", re: regexp.MustCompile(`\bd3[-.]|recharts|chart\.js|Chart\(`)},
 }
 
 // islandSignals are what a form cannot do alone, but the kit can.
-var islandSignals = []struct {
-	name string
-	re   *regexp.Regexp
-}{
-	{"polling", regexp.MustCompile(`setInterval\(|usePoll\(|refetchInterval|EventSource\(`)},
-	{"modal", regexp.MustCompile(`<Dialog\b|<Modal\b|showModal\(|<AlertDialog\b`)},
-	{"tabs", regexp.MustCompile(`<Tabs\b|role="tab"|<TabsTrigger\b`)},
-	{"upload", regexp.MustCompile(`type="file"|new FormData\(|<Dropzone\b`)},
-	{"storage", regexp.MustCompile(`localStorage|sessionStorage`)},
-	{"raw html", regexp.MustCompile(`dangerouslySetInnerHTML`)},
+var islandSignals = []signal{
+	{name: "polling", re: regexp.MustCompile(`setInterval\(|usePoll\(|refetchInterval|EventSource\(`)},
+	{name: "modal", re: regexp.MustCompile(`<Dialog\b|<Modal\b|showModal\(|<AlertDialog\b`)},
+	{name: "tabs", re: regexp.MustCompile(`<Tabs\b|role="tab"|<TabsTrigger\b`)},
+	{name: "upload", re: regexp.MustCompile(`type="file"|new FormData\(|<Dropzone\b`)},
+	{name: "storage", re: regexp.MustCompile(`localStorage|sessionStorage`)},
+	{name: "drop area", re: dropRe, and: fileRe},
+	{name: "raw html", re: regexp.MustCompile(`dangerouslySetInnerHTML`)},
 }
 
 var (
@@ -67,7 +78,11 @@ var (
 	// The three quote characters are three branches because Go's regexp has
 	// no backreference: a template literal may hold a quote, and
 	// `/api/users/${params["user-id"]}` is exactly the call worth reading.
-	callRe      = regexp.MustCompile("\\b(apiGet|apiPost|apiPut|apiPatch|apiDelete|fetch)\\s*\\(\\s*(?:\"([^\"]*)\"|'([^']*)'|`([^`]*)`)")
+	// The generic is optional and it is not rare: apiGet<DocsResponse>("/x")
+	// is how a typed helper is called, and without this the Calls column of a
+	// whole screen comes back empty — which is the column that says which
+	// endpoint of the generated client to use.
+	callRe      = regexp.MustCompile("\\b(apiGet|apiPost|apiPut|apiPatch|apiDelete|fetch)\\s*(?:<[^>]*>)?\\s*\\(\\s*(?:\"([^\"]*)\"|'([^']*)'|`([^`]*)`)")
 	methodRe    = regexp.MustCompile(`method\s*:\s*["'` + "`" + `](\w+)`)
 	exportRe    = regexp.MustCompile(`(?m)^export\s+(?:async\s+)?function\s+([A-Z]+)\s*\(`)
 	exportVarRe = regexp.MustCompile(`(?m)^export\s+const\s+([A-Z]+)\s*=`)
@@ -75,10 +90,20 @@ var (
 	interpRe    = regexp.MustCompile(`\$\{([^}]*)\}`)
 	identRe     = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 	keyRe       = regexp.MustCompile(`\[\s*["']([^"']+)["']\s*\]\s*$`)
+	// Dropping a file is an upload; dragging something that is not a file
+	// is a pointer. The two together are what tell them apart.
+	dropRe = regexp.MustCompile(`onDrop|onDragOver|onDragEnter|onDragLeave`)
+	fileRe = regexp.MustCompile(`dataTransfer\.files|type="file"`)
 )
 
-// analyze reads one source file.
-func analyze(src string) Analysis {
+// analyze reads one source file and the ones it imports. deps is keyed by the
+// path each source came from; it may be nil, and then only src is read.
+//
+// The imports are read because the page is thin and the component beside it is
+// not: a fifty-line page.tsx that imports three hundred lines of pointer
+// handling is the hardest screen in the app, and reading the page alone calls
+// it the easiest.
+func analyze(src string, deps map[string]string) Analysis {
 	a := Analysis{Client: useClientRe.MatchString(src), Hooks: map[string]int{}}
 	for _, h := range hookNames {
 		// useRef<any>(null) is a useRef: the type argument sits between the
@@ -89,23 +114,24 @@ func analyze(src string) Analysis {
 		}
 	}
 	a.Endpoints = endpointsOf(src)
-	var spa, island []string
-	for _, s := range spaSignals {
-		if s.re.MatchString(src) {
-			spa = append(spa, s.name)
-		}
+
+	// The page is looked at first and named "", so a signal it carries itself
+	// is printed without a file: the reason only names a file when the reason
+	// is somewhere else.
+	from := []struct{ path, src string }{{"", src}}
+	for _, p := range sortedKeys(deps) {
+		from = append(from, struct{ path, src string }{p, deps[p]})
+		a.Deps = append(a.Deps, p)
+		a.DepLines += strings.Count(deps[p], "\n") + 1
 	}
-	for _, s := range islandSignals {
-		if s.re.MatchString(src) {
-			island = append(island, s.name)
-		}
-	}
-	a.Signals = append(append([]string{}, spa...), island...)
+	spa, island := scan(spaSignals, from), scan(islandSignals, from)
+
+	a.Signals = append(append([]string{}, names(spa)...), names(island)...)
 	switch {
 	case len(spa) > 0:
-		a.Class, a.Why = ClassSPA, strings.Join(spa, " and ")
+		a.Class, a.Why = ClassSPA, why(spa)
 	case len(island) > 0:
-		a.Class, a.Why = ClassIsland, strings.Join(island, " and ")
+		a.Class, a.Why = ClassIsland, why(island)
 	default:
 		a.Class, a.Why = ClassForm, "no island signal"
 	}
@@ -229,5 +255,57 @@ func endpointStrings(es []Endpoint) []string {
 	for _, e := range es {
 		out = append(out, e.Method+" "+e.Path)
 	}
+	return out
+}
+
+// hit is a signal that matched, and where. The path is empty when the page
+// itself carried it.
+type hit struct{ name, path string }
+
+// scan looks for each signal in the page and then in what it imports, keeping
+// the first place it found each one: a signal the page carries is the page's,
+// and one it does not is named after the file that does.
+func scan(signals []signal, from []struct{ path, src string }) []hit {
+	var out []hit
+	for _, s := range signals {
+		for _, f := range from {
+			if s.re.MatchString(f.src) && (s.and == nil || s.and.MatchString(f.src)) {
+				out = append(out, hit{s.name, f.path})
+				break
+			}
+		}
+	}
+	return out
+}
+
+func names(hits []hit) []string {
+	out := make([]string, 0, len(hits))
+	for _, h := range hits {
+		out = append(out, h.name)
+	}
+	return out
+}
+
+// why is the clause the report prints. A signal found in an imported file says
+// which one, because that is where the work is and the reader is about to go
+// looking for it.
+func why(hits []hit) string {
+	parts := make([]string, 0, len(hits))
+	for _, h := range hits {
+		if h.path == "" {
+			parts = append(parts, h.name)
+			continue
+		}
+		parts = append(parts, h.name+" ("+path.Base(path.Dir(h.path))+"/"+path.Base(h.path)+")")
+	}
+	return strings.Join(parts, " and ")
+}
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
 	return out
 }

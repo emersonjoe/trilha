@@ -253,3 +253,78 @@ func TestWriteKeepsWhatIsThere(t *testing.T) {
 		t.Fatal("--force must overwrite")
 	}
 }
+
+// Spec 062 (#93): three things the report got wrong on a real Next application,
+// each one of them enough to send the agent to the wrong screen first.
+func TestReportReadsTheComponentBesideThePage(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, body string) {
+		t.Helper()
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// 1. The signal lives in the imported component, not in the thin page.
+	write("app/fluxos/id_/page.tsx", `'use client'
+import FlowCanvas from "../FlowCanvas"
+export default function Page() { return <FlowCanvas /> }
+`)
+	write("app/fluxos/FlowCanvas.tsx", `'use client'
+export default function FlowCanvas() {
+  return <svg onPointerDown={() => {}} onPointerMove={() => {}} />
+}
+`)
+	// 2. Dropping a file is an upload, not a pointer.
+	write("app/upload/page.tsx", `'use client'
+export default function Page() {
+  return <div onDrop={e => e.dataTransfer.files} onDragOver={e => e.preventDefault()} />
+}
+`)
+	// 3. A call with a TypeScript generic is still a call.
+	write("app/documentos/page.tsx", `'use client'
+import { apiGet } from "@/lib/api"
+export default function Page() {
+  const d = apiGet<DocsResponse>("/api/documents")
+  return <div>{d}</div>
+}
+`)
+	write("lib/api.ts", "export function apiGet<T>(u: string) { return fetch(u) }\n")
+
+	p, err := Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]Page{}
+	for _, pg := range p.Pages {
+		by[pg.Source] = pg
+	}
+
+	flow := by["app/fluxos/id_/page.tsx"]
+	if flow.Class != ClassSPA {
+		t.Errorf("the flow designer came back %s — %s; the signal is in the component it imports", flow.Class, flow.Why)
+	}
+	if !strings.Contains(flow.Why, "FlowCanvas.tsx") {
+		t.Errorf("the reason does not say where the signal is: %q", flow.Why)
+	}
+	if flow.DepLines == 0 {
+		t.Error("the size of the job does not count the component")
+	}
+
+	up := by["app/upload/page.tsx"]
+	if up.Class != ClassIsland {
+		t.Errorf("the upload screen came back %s — %s; a drop area is ui.Dropzone", up.Class, up.Why)
+	}
+
+	docs := by["app/documentos/page.tsx"]
+	if len(docs.Endpoints) == 0 {
+		t.Fatal("apiGet<T>(...) was not read as a call, so the Calls column is empty")
+	}
+	if docs.Endpoints[0].Path != "/api/documents" {
+		t.Errorf("endpoint = %+v", docs.Endpoints[0])
+	}
+}

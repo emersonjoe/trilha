@@ -3,6 +3,45 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.44.0 — 2026-09-08
+
+Spec 062. Three things that only showed up when 0.41.0–0.43.0 was run against a real
+application instead of the fixture.
+
+### Fixed
+
+- **`auth.CheckPBKDF2` reads the hash a Python app writes by hand**
+  ([#92](https://github.com/emersonjoe/trilha/issues/92)). `auth.Sessions` promised that an
+  existing users table stays valid without a password migration, and then read only Django's
+  spelling. The table that asked for the feature is not Django's: `hashlib.pbkdf2_hmac`
+  returns bytes and no format at all, so an app that uses neither Django nor passlib picks
+  one, and it picks `pbkdf2$<iterations>$<salt hex>$<digest hex>`. Three differences, and each
+  one alone was enough — the prefix, the salt that is hex decoded to bytes before the
+  derivation, the digest in hex. A login that refuses the right password is the worst way to
+  fail: it looks like the person typing got it wrong. `CheckPBKDF2` now reads both spellings,
+  told apart by the prefix; `HashPBKDF2` keeps writing one. SHA-256 only, comparison still
+  constant-time, a hash it cannot read still `false` and never a panic.
+- **`trilha client` gives back a pointer for `Optional[T]`**
+  ([#95](https://github.com/emersonjoe/trilha/issues/95)). Pydantic writes every optional
+  field as `anyOf [T, null]`, which is not a union — it is "T or nothing" — and in a FastAPI
+  document it is the most common shape there is: 39% of the fields measured. Carrying those
+  as `json.RawMessage` made the caller marshal by hand exactly where the generated client was
+  supposed to help. Two members with one of them `null` now become `*T`; a real union — two
+  types, or three members — stays `json.RawMessage` and stays in the report.
+- **`trilha migrate next` reads the component beside the page**
+  ([#93](https://github.com/emersonjoe/trilha/issues/93)). Three faults, all of which sent the
+  agent to the wrong screen first. The classification read only `page.tsx`, and in a real Next
+  app the page is thin: a fifty-line page importing three hundred lines of pointer handling
+  came back as the easiest class there is. It now follows relative and `@/` imports — three
+  levels, thirty files — runs the signals over all of them, and the printed reason names the
+  file that produced the signal, `C — pointer (fluxos/FlowCanvas.tsx)`. The size column adds
+  them up, because a fifty-line page in front of a three-hundred-line component is not a
+  fifty-line port. Dropping a file is now `upload` and not `pointer` — the two signals
+  together are what tell a drop area from something being dragged — so the upload screen stops
+  landing in class C. And `apiGet<DocsResponse>("/x")` is a call again: the generic made the
+  Calls column of whole screens come back empty, which is the column that says which endpoint
+  of the generated client to use.
+
 ## 0.43.0 — 2026-09-08
 
 Spec 061, the first of the two pieces of

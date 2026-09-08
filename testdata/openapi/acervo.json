@@ -109,7 +109,11 @@
               "archived": { "type": "boolean" },
               "tags": { "type": "array", "items": { "type": "string" } },
               "metadata": { "type": "object", "additionalProperties": true },
-              "payload": { "oneOf": [ { "type": "string" }, { "type": "object" } ] }
+              "payload": { "oneOf": [ { "type": "string" }, { "type": "object" } ] },
+              "tenant_id": { "anyOf": [ { "type": "string" }, { "type": "null" } ], "title": "Tenant Id" },
+              "page_count": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
+              "owner": { "anyOf": [ { "$ref": "#/components/schemas/DocumentIn" }, { "type": "null" } ] },
+              "either": { "anyOf": [ { "type": "string" }, { "type": "integer" }, { "type": "null" } ] }
             },
             "required": ["filename", "status"]
           }

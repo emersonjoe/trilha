@@ -42,8 +42,15 @@ func Report(p Project, lang string) string {
 		if pg.Kind == KindPage && pg.Class != "" {
 			class = pg.Class + " — " + pg.Why
 		}
-		fmt.Fprintf(&b, "| `%s` (%d) | `%s` | `%s` | %s | %s | %s |\n",
-			pg.Source, pg.Lines, file, pg.URL, client, calls, class)
+		// The size is the page plus what it imports, because that is the size of
+		// the job: a fifty-line page in front of a three-hundred-line component
+		// is not a fifty-line port.
+		size := fmt.Sprintf("%d", pg.Lines)
+		if pg.DepLines > 0 {
+			size = fmt.Sprintf("%d + %d", pg.Lines, pg.DepLines)
+		}
+		fmt.Fprintf(&b, "| `%s` (%s) | `%s` | `%s` | %s | %s | %s |\n",
+			pg.Source, size, file, pg.URL, client, calls, class)
 	}
 	fmt.Fprintf(&b, "\n%s\n\n", t["rule"])
 	fmt.Fprintf(&b, "## %s\n\n", t["notes"])

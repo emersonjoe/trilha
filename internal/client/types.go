@@ -187,6 +187,13 @@ func (b *builder) goType(s *Schema, hint, where string) string {
 		return b.named(n, target)
 	}
 	if len(s.OneOf) > 0 || len(s.AnyOf) > 0 {
+		// "T or null" is not a union, and in a FastAPI document it is the most
+		// common shape there is: Pydantic writes every Optional[T] this way. A
+		// client that hands those back as json.RawMessage makes the caller
+		// marshal by hand exactly where it was supposed to help.
+		if inner := nullableOf(s); inner != nil {
+			return "*" + b.goType(inner, hint, where)
+		}
 		b.note(where, "oneOf/anyOf — carried as json.RawMessage")
 		return "json.RawMessage"
 	}
@@ -428,3 +435,34 @@ func (b *builder) sortedNotes() []Note {
 
 // fmtErr keeps the error text of this package in one shape.
 func fmtErr(format string, args ...any) error { return fmt.Errorf("client: "+format, args...) }
+
+// nullableOf recognises the one shape a two-member union is allowed to have:
+// exactly two members, one of them the null type. That is Optional[T] as
+// Pydantic writes it, and it says "this field may be absent", not "this field
+// may be one of two things". Anything else — three members, two real types — is
+// a union the generator cannot name, and stays json.RawMessage.
+func nullableOf(s *Schema) *Schema {
+	members := s.AnyOf
+	if len(members) == 0 {
+		members = s.OneOf
+	}
+	if len(members) != 2 {
+		return nil
+	}
+	var inner *Schema
+	nulls := 0
+	for _, m := range members {
+		if m == nil {
+			return nil
+		}
+		if m.Ref == "" && m.TypeName() == "null" {
+			nulls++
+			continue
+		}
+		inner = m
+	}
+	if nulls != 1 || inner == nil {
+		return nil
+	}
+	return inner
+}

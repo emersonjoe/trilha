@@ -128,9 +128,23 @@ func CheckPBKDF2(codificado, senha string) bool // tempo constante; false para h
 func PBKDF2(senha, sal []byte, iter, tamanho int) []byte
 ```
 
-O formato é o que o Django e o `hashlib.pbkdf2_hmac` gravam, então a tabela de usuários que
-já existe continua valendo sem migração de senha — o número de iterações viaja dentro de
-cada hash, então aumentar `DefaultPBKDF2Iterations` não tranca ninguém do lado de fora.
+O `CheckPBKDF2` lê duas grafias, decididas pelo prefixo, porque a tabela que ele precisa manter
+funcionando nem sempre é a do Django:
+
+| Escrito por | Forma |
+|---|---|
+| Django, passlib | `pbkdf2_sha256$<iterações>$<sal>$<digest base64>` |
+| `hashlib`, à mão | `pbkdf2$<iterações>$<sal hex>$<digest hex>` |
+
+A segunda existe porque o `hashlib.pbkdf2_hmac` devolve bytes e formato nenhum, então uma app
+que não usa Django nem passlib escolhe um, e o que se escolhe é hex. Ali o sal é hex que foi
+decodificado para bytes antes da derivação, e é por isso que lê-lo como texto dá a resposta
+errada para a senha certa. Só SHA-256; `pbkdf2_sha512` é `false`.
+
+O `HashPBKDF2` continua gravando a primeira: uma grafia para escrever, duas para ler. Assim a
+tabela de usuários que já existe continua valendo sem migração de senha — o número de iterações
+viaja dentro de cada hash, então aumentar `DefaultPBKDF2Iterations` não tranca ninguém do lado
+de fora.
 `bcrypt` e `argon2` fazem isso melhor e nenhum dos dois está na biblioteca padrão, que é a
 razão inteira de este estar aqui.
 

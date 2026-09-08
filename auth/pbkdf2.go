@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -69,19 +70,51 @@ func encodePBKDF2(password, salt string, iter int) string {
 // CheckPBKDF2 reports whether the password matches the encoded hash. The
 // comparison is constant-time; a hash it cannot read is a false, never a
 // panic — a row written by another tool must not take the login down.
+//
+// It reads two spellings, told apart by the prefix, because the table it has to
+// keep working is not always Django's:
+//
+//	pbkdf2_sha256$<iterations>$<salt>$<digest base64>   Django, passlib
+//	pbkdf2$<iterations>$<salt hex>$<digest hex>         hashlib, written by hand
+//
+// The second is what a Python app writes when it uses neither Django nor
+// passlib: hashlib.pbkdf2_hmac returns bytes and no format at all, so whoever
+// stores it picks one, and hex is what they pick. There the salt is hex that
+// was decoded to bytes before it went into the derivation, which is why reading
+// it as text gives the wrong answer for the right password.
+//
+// SHA-256 only. HashPBKDF2 keeps writing the first spelling: one to write, two
+// to read.
 func CheckPBKDF2(encoded, password string) bool {
 	parts := strings.Split(encoded, "$")
-	if len(parts) != 4 || parts[0] != "pbkdf2_sha256" {
+	if len(parts) != 4 {
 		return false
 	}
 	iter, err := strconv.Atoi(parts[1])
 	if err != nil || iter <= 0 || iter > 10_000_000 {
 		return false
 	}
-	want, err := base64.StdEncoding.DecodeString(parts[3])
-	if err != nil || len(want) == 0 {
+	salt, want := []byte(parts[2]), []byte(nil)
+	switch parts[0] {
+	case "pbkdf2_sha256":
+		if want, err = base64.StdEncoding.DecodeString(parts[3]); err != nil {
+			return false
+		}
+	case "pbkdf2":
+		if want, err = hex.DecodeString(parts[3]); err != nil {
+			return false
+		}
+		// The salt is bytes if it reads as hex, and text if it does not:
+		// both are out there, and only the hash itself can say which.
+		if raw, err := hex.DecodeString(parts[2]); err == nil && len(raw) > 0 {
+			salt = raw
+		}
+	default:
 		return false
 	}
-	got := PBKDF2([]byte(password), []byte(parts[2]), iter, len(want))
+	if len(want) == 0 {
+		return false
+	}
+	got := PBKDF2([]byte(password), salt, iter, len(want))
 	return subtle.ConstantTimeCompare(got, want) == 1
 }

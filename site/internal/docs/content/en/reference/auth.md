@@ -128,9 +128,22 @@ func CheckPBKDF2(encoded, password string) bool   // constant-time; false on a h
 func PBKDF2(password, salt []byte, iter, keyLen int) []byte
 ```
 
-The format is the one Django and `hashlib.pbkdf2_hmac` write, so an existing users table
-stays valid without a password migration — the iteration count travels inside each hash, so
-raising `DefaultPBKDF2Iterations` locks nobody out. `bcrypt` and `argon2` are better at this
+`CheckPBKDF2` reads two spellings, told apart by the prefix, because the table it has to keep
+working is not always Django's:
+
+| Written by | Shape |
+|---|---|
+| Django, passlib | `pbkdf2_sha256$<iterations>$<salt>$<digest base64>` |
+| `hashlib`, by hand | `pbkdf2$<iterations>$<salt hex>$<digest hex>` |
+
+The second one exists because `hashlib.pbkdf2_hmac` returns bytes and no format at all, so an
+app that uses neither Django nor passlib picks one, and hex is what it picks. There the salt is
+hex that was decoded to bytes before the derivation, which is why reading it as text gives the
+wrong answer for the right password. SHA-256 only; `pbkdf2_sha512` is `false`.
+
+`HashPBKDF2` keeps writing the first: one spelling to write, two to read. So an existing users
+table stays valid without a password migration — the iteration count travels inside each hash,
+so raising `DefaultPBKDF2Iterations` locks nobody out. `bcrypt` and `argon2` are better at this
 and neither is in the standard library, which is the whole reason this one is here.
 
 ### Authorization the roles do not express

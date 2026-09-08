@@ -187,15 +187,20 @@ type Base struct {
 type Document struct {
 	Archived  bool                       `json:"archived,omitempty"`
 	CreatedAt string                     `json:"created_at,omitempty"`
+	Either    json.RawMessage            `json:"either,omitempty"`
 	Filename  string                     `json:"filename" validate:"required,min=1,max=255"`
 	ID        string                     `json:"id" validate:"required"`
 	Metadata  map[string]json.RawMessage `json:"metadata,omitempty"`
+	Owner     *DocumentIn                `json:"owner,omitempty"`
+	PageCount *int64                     `json:"page_count,omitempty"`
 	Pages     int32                      `json:"pages,omitempty"`
 	Payload   json.RawMessage            `json:"payload,omitempty"`
 	Score     float64                    `json:"score,omitempty"`
 	SizeBytes int64                      `json:"size_bytes,omitempty"`
 	Status    Status                     `json:"status" validate:"required"`
 	Tags      []string                   `json:"tags,omitempty"`
+	// Tenant Id
+	TenantID *string `json:"tenant_id,omitempty"`
 }
 
 // DocumentIn is a schema of the API.
