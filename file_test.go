@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -153,7 +154,9 @@ func TestFileSaveStaysInTheDirectory(t *testing.T) {
 	if b, _ := os.ReadFile(path); string(b) != pdfBytes {
 		t.Fatalf("content on disk: %q", b)
 	}
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	// Windows has no Unix mode bits: os.Stat reports 0666 for any writable file,
+	// so 0600 is only an assertion where it means something.
+	if fi, _ := os.Stat(path); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %v", fi.Mode().Perm())
 	}
 

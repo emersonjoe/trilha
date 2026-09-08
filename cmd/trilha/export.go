@@ -23,7 +23,7 @@ func cmdExport(args []string) error {
 	if _, err := generate(p); err != nil {
 		return err
 	}
-	bin := filepath.Join(p.Root, ".trilha", "export-app")
+	bin := exeName(filepath.Join(p.Root, ".trilha", "export-app"))
 	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
 		return err
 	}

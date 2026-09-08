@@ -15,7 +15,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,6 +45,17 @@ type Server struct {
 	secret    string
 }
 
+// exeName gives a path the extension the system needs to execute it. `go build -o`
+// writes the literal name it is given, and on Windows exec.LookPath only accepts a
+// file whose extension is in PATHEXT — so a binary called "app" is reported as not
+// found in %PATH% while it sits right there on disk.
+func exeName(path string) string {
+	if runtime.GOOS == "windows" && !strings.EqualFold(filepath.Ext(path), ".exe") {
+		return path + ".exe"
+	}
+	return path
+}
+
 // Run generates, builds, starts the child and watches for changes until ctx
 // is cancelled.
 func (s *Server) Run(ctx context.Context) error {
@@ -50,7 +63,7 @@ func (s *Server) Run(ctx context.Context) error {
 		s.Out = os.Stdout
 	}
 	s.clients = map[chan string]struct{}{}
-	s.binPath = filepath.Join(s.Root, ".trilha", "app")
+	s.binPath = exeName(filepath.Join(s.Root, ".trilha", "app"))
 	if err := os.MkdirAll(filepath.Dir(s.binPath), 0o755); err != nil {
 		return err
 	}

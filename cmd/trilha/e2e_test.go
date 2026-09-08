@@ -24,7 +24,7 @@ func TestE2E(t *testing.T) {
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
 	t.Setenv("TRILHA_LANG", "en") // messages asserted below are English; pt is checked at the end
-	cli := filepath.Join(tmp, "trilha-cli")
+	cli := exeName(filepath.Join(tmp, "trilha-cli"))
 	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
 
 	proj := filepath.Join(tmp, "meu-app")
@@ -299,7 +299,7 @@ func TestE2E(t *testing.T) {
 	port := freePort(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	bin := exec.CommandContext(ctx, filepath.Join(proj, "bin", "app"))
+	bin := exec.CommandContext(ctx, exeName(filepath.Join(proj, "bin", "app")))
 	bin.Dir = tmp
 	bin.Env = append(os.Environ(), "PORT="+strconv.Itoa(port), "TRILHA_ENV=prod")
 	bin.Stdout, bin.Stderr = io.Discard, io.Discard
@@ -400,7 +400,7 @@ func TestEmbeddedAppE2E(t *testing.T) {
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	tmp := t.TempDir()
 	t.Setenv("TRILHA_LANG", "en")
-	cli := filepath.Join(tmp, "trilha-cli")
+	cli := exeName(filepath.Join(tmp, "trilha-cli"))
 	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
 
 	host := filepath.Join(tmp, "farol")
@@ -466,7 +466,7 @@ func Page(c *trilha.Ctx) (h.Node, error) { return h.P(h.Text("contatos do crm"))
 	}
 
 	// The host binary compiles with the app inside it and serves both routers.
-	bin := filepath.Join(tmp, "farol-bin")
+	bin := exeName(filepath.Join(tmp, "farol-bin"))
 	run(t, host, "go", "build", "-o", bin, ".")
 	port := freePort(t)
 	srv := exec.Command(bin)
@@ -508,7 +508,7 @@ func TestGenerateContratoE2E(t *testing.T) {
 	// The audit step of check reads the environment, and a missing secret is
 	// about this machine, not about what generate wrote.
 	t.Setenv("TRILHA_SECRET", "um-segredo-de-teste-com-mais-de-32-bytes")
-	cli := filepath.Join(tmp, "trilha-cli")
+	cli := exeName(filepath.Join(tmp, "trilha-cli"))
 	run(t, repo, "go", "build", "-o", cli, "./cmd/trilha")
 
 	proj := filepath.Join(tmp, "loja")

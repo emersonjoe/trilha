@@ -28,6 +28,7 @@ func cmdBuild(args []string) error {
 	if *out == "" {
 		*out = filepath.Join("bin", filepath.Base(p.Root))
 	}
+	*out = exeName(*out)
 	if err := os.MkdirAll(filepath.Dir(filepath.Join(p.Root, *out)), 0o755); err != nil {
 		return err
 	}
