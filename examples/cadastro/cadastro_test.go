@@ -150,3 +150,20 @@ func TestEnvioSemRecarga(t *testing.T) {
 	c.PostForm("/", f, tela).WantStatus(422).
 		WantContains("E-mail inválido", `aria-invalid="true"`)
 }
+
+// Spec 057: a espera tem indicador, e ele nasce escondido. O que o servidor
+// manda é o atributo; quem decide quando mostrar é o limiar, no cliente.
+func TestBuscaTemIndicadorDeEspera(t *testing.T) {
+	c := newClient(t)
+	rec := c.Get("/")
+	rec.WantStatus(200).WantContains(
+		`class="ui-spinner"`,
+		`data-trilha-indicator="tela"`,    // observa o mesmo alvo do ui.Swap
+		`data-trilha-pending-after="250"`, // busca local responde rápido demais para 120 ms
+		`data-trilha-transition="false"`,  // buscar de novo não deve cintilar
+	)
+	// Nada nasce em espera: o estado é do cliente, e só depois do limiar.
+	if strings.Contains(rec.Body.String(), "data-trilha-pending=") {
+		t.Fatal("o servidor não deve mandar nada já em espera")
+	}
+}

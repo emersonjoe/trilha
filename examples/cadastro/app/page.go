@@ -124,9 +124,17 @@ func lista(q string) h.Node {
 		ui.CardHeader(ui.CardTitle("Cadastrados"), ui.CardDescription("Os últimos primeiro."),
 			// Busca por fragmento: só a tela pisca. Sem JavaScript é um GET
 			// comum, e a URL fica igual nos dois caminhos.
+			//
+			// Esta busca lê um mapa em memória e responde em microssegundos, e
+			// quem busca busca de novo. Então o limiar sobe para 250 ms — o
+			// spinner só aparece se a rede estiver ruim de verdade — e o
+			// crossfade sai: numa sequência de buscas ele vira cintilação, não
+			// suavidade.
 			h.Form(h.Method("get"), h.Action("/"), h.Class("busca"), ui.Swap("tela"),
+				ui.PendingAfter(250), ui.NoTransition(),
 				ui.Input(h.ID("q"), h.Name("q"), h.Type("search"), h.Value(q), h.Placeholder("Buscar por nome, documento ou cidade")),
 				ui.Submit(ui.Sm(), h.Text("Buscar")),
+				ui.Spinner(ui.Indicator("tela")),
 			)),
 		ui.CardContent(h.IfElse(len(todos) == 0,
 			ui.Muted(h.Text(vazio(q))),

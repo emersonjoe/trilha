@@ -17,6 +17,7 @@ import (
 	app_api_posts_id_ "github.com/emersonjoe/trilha/examples/blog/app/api/posts/id_"
 	app_blog "github.com/emersonjoe/trilha/examples/blog/app/blog"
 	app_blog_novo "github.com/emersonjoe/trilha/examples/blog/app/blog/novo"
+	app_blog_ordem "github.com/emersonjoe/trilha/examples/blog/app/blog/ordem"
 	app_blog_slug_ "github.com/emersonjoe/trilha/examples/blog/app/blog/slug_"
 	app_docs_path__ "github.com/emersonjoe/trilha/examples/blog/app/docs/path__"
 	app_legado_ "github.com/emersonjoe/trilha/examples/blog/app/legado-"
@@ -106,6 +107,15 @@ func newApp() *trilha.App {
 		Page:    app_blog_novo.Page,
 		Methods: map[string]trilha.HandlerFunc{
 			"POST": app_blog_novo.POST,
+		},
+		Layouts:     []trilha.LayoutFunc{app_blog.Layout, app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/blog/ordem",
+		Page:    app_blog_ordem.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_blog_ordem.POST,
 		},
 		Layouts:     []trilha.LayoutFunc{app_blog.Layout, app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},

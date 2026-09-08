@@ -26,6 +26,10 @@ type Post struct {
 type Store struct {
 	mu    sync.RWMutex
 	store map[string]Post
+	// order is the list order somebody chose by hand, by slug. Empty means
+	// the default, newest first. It lives here and not in Post so the API's
+	// JSON does not grow a field that is about one screen of one example.
+	order []string
 
 	// Published counts posts created since the process started. Setup points
 	// it at the app registry; nil (this package under its own test) counts
@@ -88,7 +92,45 @@ func (s *Store) All() []Post {
 		out = append(out, p)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Created.After(out[j].Created) })
+	if len(s.order) == 0 {
+		return out
+	}
+	// A chosen order comes first, in the order it was chosen; a post created
+	// while somebody was dragging is not named there and keeps coming after,
+	// newest first, instead of disappearing.
+	rank := make(map[string]int, len(s.order))
+	for i, slug := range s.order {
+		rank[slug] = i
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		ri, oki := rank[out[i].Slug]
+		rj, okj := rank[out[j].Slug]
+		if oki != okj {
+			return oki
+		}
+		if !oki {
+			return false // both unranked: SliceStable keeps newest first
+		}
+		return ri < rj
+	})
 	return out
+}
+
+// Reorder fixes the order of the list by slug. A slug the store does not have
+// is ignored, so a stale form cannot invent a post.
+func (s *Store) Reorder(slugs []string) {
+	s.mu.Lock()
+	order := make([]string, 0, len(slugs))
+	seen := make(map[string]bool, len(slugs))
+	for _, slug := range slugs {
+		if _, ok := s.store[slug]; ok && !seen[slug] {
+			seen[slug] = true
+			order = append(order, slug)
+		}
+	}
+	s.order = order
+	s.mu.Unlock()
+	s.invalidate()
 }
 
 // Get returns one post.

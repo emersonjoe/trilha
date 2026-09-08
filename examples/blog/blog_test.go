@@ -725,3 +725,50 @@ func entre(t *testing.T, s, abre, fecha string) string {
 	}
 	return rest[:j]
 }
+
+// Spec 057 (#83) — o teto da interatividade. Arrastar é estado contínuo no
+// cliente, então há uma ilha; mas a ilha não é dona dos dados, e a página
+// continua servindo sem ela.
+func TestOrdemDosPostsAtravessaOTeto(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.Get("/blog/ordem")
+	rec.WantStatus(200).WantContains(
+		`data-trilha-island="/ilha-ordem.js`, // a ilha desta página (o Asset versiona a URL)
+		`name="ordem"`,                       // o campo escondido que ela escreve
+		`name="mover"`,                       // e o caminho sem ponteiro, que sobrevive a ela
+	)
+
+	padrao := c.posts().All()
+	if len(padrao) < 2 {
+		t.Fatalf("o exemplo precisa de dois posts para ter ordem: %d", len(padrao))
+	}
+	invertida := make([]string, 0, len(padrao))
+	for i := len(padrao) - 1; i >= 0; i-- {
+		invertida = append(invertida, padrao[i].Slug)
+	}
+
+	// O que a ilha faria: a ordem inteira num campo só.
+	if rec := c.postForm("/blog/ordem", "ordem="+strings.Join(invertida, ",")); rec.Code != 303 {
+		t.Fatalf("salvar a ordem: %d", rec.Code)
+	}
+	if got := c.posts().All()[0].Slug; got != invertida[0] {
+		t.Fatalf("primeiro post = %q, queria %q", got, invertida[0])
+	}
+
+	// O que o botão faz sem script: um passo, e o handler é o mesmo.
+	segundo := invertida[1]
+	if rec := c.postForm("/blog/ordem", "ordem="+strings.Join(invertida, ",")+"&mover=cima:"+segundo); rec.Code != 303 {
+		t.Fatalf("mover uma linha: %d", rec.Code)
+	}
+	if got := c.posts().All()[0].Slug; got != segundo {
+		t.Fatalf("depois de subir, primeiro = %q, queria %q", got, segundo)
+	}
+
+	// Um slug que não existe não inventa post nem derruba a rota.
+	if rec := c.postForm("/blog/ordem", "ordem=nao-existe,"+segundo); rec.Code != 303 {
+		t.Fatalf("slug desconhecido: %d", rec.Code)
+	}
+	if n := len(c.posts().All()); n != len(padrao) {
+		t.Fatalf("a lista mudou de tamanho: %d, queria %d", n, len(padrao))
+	}
+}
