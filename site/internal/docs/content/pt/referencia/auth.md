@@ -93,6 +93,111 @@ type User struct {
 func (u *User) HasRole(role string) bool
 ```
 
+## A matriz de permissões
+
+Uma lista de papéis responde "esta pessoa é admin". O que uma aplicação pergunta de verdade é
+"esta pessoa pode editar documentos", e a resposta é uma matriz: papel × módulo × nível.
+
+```go
+var Policy = auth.Policy{
+	Modules: []string{"docs", "processos", "rh"},
+	Levels:  auth.Levels{"ver", "editar", "administrar"},   // ordenados: administrar ⊇ editar ⊇ ver
+	Roles: map[string]auth.Grants{
+		"admin":    auth.All("administrar"),
+		"analista": {"docs": "editar", "processos": "ver"},
+		"leitor":   auth.All("ver"),
+	},
+}
+```
+
+A ordem de `Levels` é o significado inteiro: `administrar` cobre `editar`, que cobre `ver`,
+então uma célula guarda um valor em vez de três booleanos. Módulo que o papel não nomeia é
+módulo que ele não alcança — a ausência é negação, nunca herança — e `Default` é o que um
+usuário logado sem papel conhecido pode fazer, que é nada até você dizer o contrário. Papel
+apagado tem que perder acesso, não herdar o de outro.
+
+| Símbolo | O que faz |
+|---|---|
+| `Policy.Can(u, módulo, nível) bool` | este usuário pode isto |
+| `Policy.Level(u, módulo) string` | o que ele tem, ou `""` |
+| `(*Auth) RequirePolicy(p, módulo, nível)` | o guarda |
+| `auth.All(nível) Grants` | o mesmo nível em todo módulo |
+| `auth.BindPolicy(c, p)` | lê de volta o que a grade postou |
+| `auth.PolicyStore`, `auth.PolicyFrom` | matriz que se edita |
+| `ui.PolicyGrid(p, opts)` | a tela que edita |
+
+### O guarda
+
+```go
+// app/docs/middleware.go
+var ver = acesso.Auth.RequirePolicy(acesso.Policy, "docs", "ver")
+
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return ver(c, next) }
+```
+
+Duas linhas e não uma: o `middleware.go` precisa exportar uma **função** com aquela assinatura,
+e uma var do tipo certo não é uma. O `MiddlewarePOST` guarda um método só, então uma pasta pode
+ser legível por um nível e gravável por outro.
+
+Anônimo vai para o login. Usuário logado que não pode recebe **403** — ele é conhecido, só não
+autorizado, e mandá-lo ao login viraria laço — e a mensagem diz o que faltou: `needs editar on
+docs`. É essa frase que a pessoa repete para quem administra a aplicação; um "forbidden" seco
+transforma um conserto de dois minutos numa thread de suporte.
+
+### Esconder botão não é regra
+
+```go
+if acesso.Policy.Can(acesso.Auth.User(c), "docs", "editar") { … }
+```
+
+Correto e cosmético. A regra que vale é o middleware, porque botão escondido continua sendo um
+endereço que dá para digitar.
+
+O `trilha audit` avisa quando a política declara um módulo e nenhuma rota o exige: a matriz diz
+que a área está protegida, e se ninguém pede, a proteção é uma frase num arquivo.
+
+### Matriz que se edita
+
+`Policy` é dado no código, que é onde ele mora quando só um deploy o muda. Aplicação cujos
+administradores inventam papéis guarda os papéis numa tabela:
+
+```go
+type PolicyStore interface {
+	Load(ctx context.Context) (map[string]Grants, error)
+	Save(ctx context.Context, roles map[string]Grants) error
+}
+
+policy, err := auth.PolicyFrom(ctx, store, padroes)   // store vazio mantém os padrões
+```
+
+O `PolicyFrom` é um retrato de propósito: `Policy` é um valor, e um valor que mudasse debaixo
+de uma requisição deixaria uma requisição responder duas vezes — liberado no middleware,
+negado no botão. Chame de novo depois de salvar.
+
+A tela vem pronta:
+
+```go
+ui.PolicyGrid(policy, ui.PolicyGridOpts{
+	Action: "/admin/permissoes",
+	CSRF:   trilha.CSRFInput(c),
+	Labels: map[string]string{"docs": "Documentos"},
+})
+```
+
+Uma linha por papel, uma coluna por módulo, um select de níveis por célula, campos chamados
+`grant.<papel>.<módulo>` — que é o que o `auth.BindPolicy` lê do outro lado. Sem JavaScript: é
+um formulário, ele posta, o handler salva e redireciona. Célula que nomeia módulo ou nível que
+a política não declara é descartada em silêncio, porque responder 400 só diria a quem forjou
+qual nome tentar em seguida.
+
+Guarde essa tela com o módulo que administra a aplicação. Ela é a tela mais valiosa que existe.
+
+### O que isto não expressa
+
+Regra sobre um registro — o dono de um documento, a linha de um inquilino — continua sendo
+`RequireFunc`, escrito à mão. Uma política que alcançasse o dado precisaria do dado, e aí seria
+uma consulta, não uma declaração.
+
 ## Sessão sem OIDC
 
 Um app cujos usuários são uma tabela sua — e-mail, hash de senha, papel — monta o mesmo

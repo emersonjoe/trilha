@@ -109,6 +109,29 @@ func runAudit(p *project, vuln bool) []check {
 		add("ok", t("checks ok"), "")
 	}
 
+	// A module in the policy that no route requires (spec 063). The matrix says
+	// the area exists and is protected; if nothing asks for it, the protection
+	// is a sentence in a file and the area is open. It is a warning and not a
+	// critical because the guard may be one commit away.
+	if mods := policyModules(src); len(mods) > 0 {
+		guarded := map[string]bool{}
+		for _, m := range policyRequired(src) {
+			guarded[m] = true
+		}
+		var loose []string
+		for _, m := range mods {
+			if !guarded[m] {
+				loose = append(loose, m)
+			}
+		}
+		sort.Strings(loose)
+		if len(loose) > 0 {
+			add("warn", fmt.Sprintf(t("policy loose"), strings.Join(loose, ", ")), t("policy loose hint"))
+		} else {
+			add("ok", t("policy ok"), "")
+		}
+	}
+
 	// The island runtime (spec 060) is a file of the kit, linked by Ctx.Island.
 	// A project that uses an island without it renders the fallback and nothing
 	// else, silently — which is the failure this check exists to name.
@@ -573,3 +596,34 @@ func libVersion(root string) (version string, replaced bool) {
 	}
 	return version, false
 }
+
+// policyModules reads the module names out of an auth.Policy declaration. It is
+// a regular expression and not a parse because the audit reads the project the
+// way a reviewer does: the declaration is one literal, and a project that hides
+// it behind a function has moved past what this check can promise.
+func policyModules(src string) []string {
+	m := policyModulesRe.FindStringSubmatch(src)
+	if m == nil {
+		return nil
+	}
+	var out []string
+	for _, q := range quotedRe.FindAllStringSubmatch(m[1], -1) {
+		out = append(out, q[1])
+	}
+	return out
+}
+
+// policyRequired is the modules some route actually asks for.
+func policyRequired(src string) []string {
+	var out []string
+	for _, m := range policyRequireRe.FindAllStringSubmatch(src, -1) {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+var (
+	policyModulesRe = regexp.MustCompile(`(?s)Modules:\s*\[\]string\{([^}]*)\}`)
+	policyRequireRe = regexp.MustCompile(`RequirePolicy\([^,]+,\s*"([^"]+)"`)
+	quotedRe        = regexp.MustCompile(`"([^"]*)"`)
+)

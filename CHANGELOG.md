@@ -3,6 +3,53 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.45.0 — 2026-09-08
+
+Spec 063.
+
+### Added
+
+- **`auth.Policy` — the permission matrix as data**
+  ([#100](https://github.com/emersonjoe/trilha/issues/100)). A role list answers "is this
+  person an admin"; what an application asks is "may this person edit documents", and that
+  answer is a matrix: role × module × level. `RequireFunc` was the right hook and the wrong
+  blank page — whoever gets `func(*User, *Ctx) bool` writes
+  `u.HasRole("admin") || (u.HasRole("analyst") && module == "docs")` on the third screen and
+  gets it wrong on the fourth.
+
+  Declared once, it answers in the four places the application repeats itself: the middleware
+  that guards (`RequirePolicy`), the button that hides (`Can`), the 403 that explains, and the
+  screen that edits it (`ui.PolicyGrid` with `auth.BindPolicy` on the other side).
+
+  The order of `Levels` is the whole meaning — `manage ⊇ edit ⊇ view` is what lets a cell hold
+  one value instead of three booleans — and a module a role does not name is a module it cannot
+  reach: the absence is a denial, never an inheritance, so a role that was deleted loses access
+  rather than inheriting somebody else's.
+
+  The 403 says what was missing (`needs edit on docs`), because that sentence is what the
+  person repeats to whoever administers the application; a bare "forbidden" turns a two-minute
+  fix into a support thread.
+
+  For a matrix people edit, `auth.PolicyStore` (two methods) and `auth.PolicyFrom` read the
+  roles from a table while the modules and levels stay in the code — one is the shape of the
+  application, the other is what an administrator invents on a Tuesday. `PolicyFrom` returns a
+  snapshot on purpose: a value that changed underneath a request would let one request answer
+  twice, allowed at the middleware and denied at the button.
+
+- **`ui.PolicyGrid`** — the administration screen, without JavaScript: one row per role, one
+  column per module, a select of levels per cell, fields named `grant.<role>.<module>`. It
+  takes a four-method interface and not `auth.Policy`, because the kit must not drag
+  authentication into every application that draws a button.
+
+- **`trilha audit` warns about a module no route requires.** The matrix says the area is
+  protected; if nothing asks for it, the protection is a sentence in a file.
+
+### Note for whoever read the issue
+
+The proposed `var Middleware = auth.RequirePolicy(...)` does not work: `middleware.go` has to
+export a *function* with the middleware signature, and a var of the right type is not one — the
+scanner says so, in those words. The documented idiom is two lines, and the example uses it.
+
 ## 0.44.0 — 2026-09-08
 
 Spec 062. Three things that only showed up when 0.41.0–0.43.0 was run against a real

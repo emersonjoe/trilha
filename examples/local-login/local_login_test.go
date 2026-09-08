@@ -138,3 +138,32 @@ func TestUiLiveJSEstaAtualizado(t *testing.T) {
 		t.Fatal("public/ui.live.js está desatualizado: rode `trilha ui --force`")
 	}
 }
+
+// #100 — the matrix is one declaration and it answers in three places: the
+// middleware that guards, the 403 that explains, and the grid that edits.
+func TestPoliticaGuardaExplicaEEdita(t *testing.T) {
+	c := cliente(t, api(t).URL)
+
+	// Anonymous does not reach the screen that edits permissions.
+	if rec := c.Get("/permissoes", navegador()); rec.Code == 200 {
+		t.Fatal("anônimo abriu a tela de permissões")
+	}
+
+	// Ana is an analyst: she may edit reports and may not administer users.
+	entrar(t, c, "ana@exemplo.com", "segredo-da-ana").WantStatus(303)
+	rec := c.Get("/permissoes", navegador())
+	if rec.Code != 403 {
+		t.Fatalf("analista em /permissoes → %d, queria 403", rec.Code)
+	}
+	// The 403 says what was missing, which is what she repeats to whoever
+	// administers the app.
+	if body := rec.Body.String(); !strings.Contains(body, "usuarios") {
+		t.Fatalf("o 403 não diz o que faltou: %q", body)
+	}
+
+	// Bia is an admin: she gets the grid, with one field per cell.
+	c2 := cliente(t, api(t).URL)
+	entrar(t, c2, "bia@exemplo.com", "segredo-da-bia").WantStatus(303)
+	c2.Get("/permissoes", navegador()).WantStatus(200).
+		WantContains(`name="grant.analista.relatorios"`, `name="grant.leitor.usuarios"`, "Relatórios")
+}

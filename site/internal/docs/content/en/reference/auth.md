@@ -93,6 +93,112 @@ type User struct {
 func (u *User) HasRole(role string) bool
 ```
 
+## The permission matrix
+
+A role list answers "is this person an admin". What an application actually asks is "may this
+person edit documents", and the answer is a matrix: role × module × level.
+
+```go
+var Policy = auth.Policy{
+	Modules: []string{"docs", "processes", "hr"},
+	Levels:  auth.Levels{"view", "edit", "manage"},   // ordered: manage ⊇ edit ⊇ view
+	Roles: map[string]auth.Grants{
+		"admin":   auth.All("manage"),
+		"analyst": {"docs": "edit", "processes": "view"},
+		"reader":  auth.All("view"),
+	},
+}
+```
+
+The order of `Levels` is the whole meaning: `manage` covers `edit` covers `view`, so a cell
+holds one value instead of three booleans. A module a role does not name is a module it cannot
+reach — the absence is a denial, never an inheritance — and `Default` is what a signed-in user
+with no known role may do, which is nothing until you say otherwise. A role that was deleted
+should lose access, not inherit somebody else's.
+
+| Symbol | What it does |
+|---|---|
+| `Policy.Can(u, module, level) bool` | may this user do this |
+| `Policy.Level(u, module) string` | what they have, or `""` |
+| `(*Auth) RequirePolicy(p, module, level)` | the guard |
+| `auth.All(level) Grants` | the same level on every module |
+| `auth.BindPolicy(c, p)` | read back what the grid posted |
+| `auth.PolicyStore`, `auth.PolicyFrom` | a matrix people edit |
+| `ui.PolicyGrid(p, opts)` | the screen that edits it |
+
+### The guard
+
+```go
+// app/docs/middleware.go
+var see = acesso.Auth.RequirePolicy(acesso.Policy, "docs", "view")
+
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return see(c, next) }
+```
+
+Two lines and not one: `middleware.go` has to export a *function* with that signature, and a
+var of the right type is not one. `MiddlewarePOST` guards a single method, so a folder can be
+readable by one level and writable by another.
+
+Anonymous goes to the login. A signed-in user who is not allowed gets **403** — they are known,
+just not permitted, and sending them to the login would loop — and the message says what was
+missing: `needs edit on docs`. That sentence is what the person repeats to whoever administers
+the application; a bare "forbidden" turns a two-minute fix into a support thread.
+
+### Hiding a button is not a rule
+
+```go
+if acesso.Policy.Can(acesso.Auth.User(c), "docs", "edit") { … }
+```
+
+Correct and cosmetic. The rule that holds is the middleware, because a hidden button is still
+an address somebody can type.
+
+`trilha audit` warns when the policy declares a module and no route requires it: the matrix
+says the area is protected, and if nothing asks, the protection is a sentence in a file.
+
+### A matrix people edit
+
+`Policy` is data in the code, which is where it belongs when only deploys change it. An
+application whose administrators invent roles keeps the roles in a table:
+
+```go
+type PolicyStore interface {
+	Load(ctx context.Context) (map[string]Grants, error)
+	Save(ctx context.Context, roles map[string]Grants) error
+}
+
+policy, err := auth.PolicyFrom(ctx, store, defaults)   // empty store keeps the defaults
+```
+
+`PolicyFrom` is a snapshot on purpose: a `Policy` is a value, and a value that changed
+underneath a request would let one request answer twice — allowed at the middleware, denied at
+the button. Call it again after saving.
+
+The screen comes ready:
+
+```go
+ui.PolicyGrid(policy, ui.PolicyGridOpts{
+	Action: "/admin/permissions",
+	CSRF:   trilha.CSRFInput(c),
+	Labels: map[string]string{"docs": "Documents"},
+})
+```
+
+One row per role, one column per module, a select of levels per cell, fields named
+`grant.<role>.<module>` — which is what `auth.BindPolicy` reads on the other side. No
+JavaScript: it is a form, it posts, the handler saves and redirects. A cell naming a module or
+a level the policy does not declare is dropped in silence, because answering 400 would only
+tell whoever forged it which name to try next.
+
+Guard that screen with the module that administers the application. It is the most valuable
+screen there is.
+
+### What this does not express
+
+A rule about one record — the owner of a document, a row of a tenant — stays `RequireFunc`,
+written by hand. A policy that reached into the data would need the data, and then it would be
+a query and not a declaration.
+
 ## Session without OIDC
 
 An app whose users are a table of its own — e-mail, password hash, role — builds the same

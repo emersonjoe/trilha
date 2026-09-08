@@ -537,6 +537,8 @@ pkg ai/mcp, type Transport interface, Close() error
 pkg ai/mcp, type Transport interface, Recv(context.Context) ([]byte, error)
 pkg ai/mcp, type Transport interface, Send(context.Context, []byte) error
 pkg auth, const DefaultPBKDF2Iterations
+pkg auth, func All(string) Grants
+pkg auth, func BindPolicy(*trilha.Ctx, Policy) (map[string]Grants, error)
 pkg auth, func CheckPBKDF2(string, string) bool
 pkg auth, func Clerk(string, string, string, string) *Provider
 pkg auth, func Cognito(string, string, string, string, string) *Provider
@@ -547,6 +549,7 @@ pkg auth, func New(*Provider, Options) *Auth
 pkg auth, func NewMemoryStore() *MemoryStore
 pkg auth, func OIDC(string, string, string, string) *Provider
 pkg auth, func PBKDF2([]byte, []byte, int, int) []byte
+pkg auth, func PolicyFrom(context.Context, PolicyStore, Policy) (Policy, error)
 pkg auth, func Sessions(Options) *Auth
 pkg auth, method (*Auth) Callback(*trilha.Ctx) error
 pkg auth, method (*Auth) Login(*trilha.Ctx, *User) error
@@ -555,6 +558,7 @@ pkg auth, method (*Auth) Optional() trilha.MiddlewareFunc
 pkg auth, method (*Auth) Provider() *Provider
 pkg auth, method (*Auth) Require() trilha.MiddlewareFunc
 pkg auth, method (*Auth) RequireFunc(func(*User, *trilha.Ctx) bool) trilha.MiddlewareFunc
+pkg auth, method (*Auth) RequirePolicy(Policy, string, string) trilha.MiddlewareFunc
 pkg auth, method (*Auth) RequireRole(...string) trilha.MiddlewareFunc
 pkg auth, method (*Auth) Session(*trilha.Ctx) (*User, error)
 pkg auth, method (*Auth) Start(*trilha.Ctx) error
@@ -563,6 +567,12 @@ pkg auth, method (*MemoryStore) Delete(string) error
 pkg auth, method (*MemoryStore) Load(string) (*User, bool)
 pkg auth, method (*MemoryStore) Save(string, *User, time.Duration) error
 pkg auth, method (*User) HasRole(string) bool
+pkg auth, method (Policy) Can(*User, string, string) bool
+pkg auth, method (Policy) Level(*User, string) string
+pkg auth, method (Policy) LevelNames() []string
+pkg auth, method (Policy) LevelOf(string, string) string
+pkg auth, method (Policy) ModuleNames() []string
+pkg auth, method (Policy) RolesSorted() []string
 pkg auth, type Auth struct
 pkg auth, type Claims struct
 pkg auth, type Claims struct, All map[string]any
@@ -575,6 +585,8 @@ pkg auth, type Claims struct, Name string
 pkg auth, type Claims struct, Nonce string
 pkg auth, type Claims struct, NotBefore time.Time
 pkg auth, type Claims struct, Subject string
+pkg auth, type Grants map[string]string
+pkg auth, type Levels []string
 pkg auth, type MemoryStore struct
 pkg auth, type Options struct
 pkg auth, type Options struct, Absolute time.Duration
@@ -588,6 +600,14 @@ pkg auth, type Options struct, OnLogin func(*trilha.Ctx, *User) error
 pkg auth, type Options struct, RoleClaims []string
 pkg auth, type Options struct, Scopes []string
 pkg auth, type Options struct, Store Store
+pkg auth, type Policy struct
+pkg auth, type Policy struct, Default Grants
+pkg auth, type Policy struct, Levels Levels
+pkg auth, type Policy struct, Modules []string
+pkg auth, type Policy struct, Roles map[string]Grants
+pkg auth, type PolicyStore interface
+pkg auth, type PolicyStore interface, Load(context.Context) (map[string]Grants, error)
+pkg auth, type PolicyStore interface, Save(context.Context, map[string]Grants) error
 pkg auth, type Provider struct
 pkg auth, type Provider struct, ClientID string
 pkg auth, type Provider struct, ClientSecret string
@@ -911,6 +931,7 @@ pkg ui, func Outline() h.Node
 pkg ui, func PageHeader(string, ...h.Node) h.Node
 pkg ui, func Pagination(Pages) h.Node
 pkg ui, func PendingAfter(int) h.Node
+pkg ui, func PolicyGrid(Policy, PolicyGridOpts) h.Node
 pkg ui, func Poll(string, string) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func Radio(...h.Node) h.Node
@@ -1038,6 +1059,18 @@ pkg ui, type Pages struct, Next string
 pkg ui, type Pages struct, Page int
 pkg ui, type Pages struct, Prev string
 pkg ui, type Pages struct, Total int
+pkg ui, type Policy interface
+pkg ui, type Policy interface, LevelNames() []string
+pkg ui, type Policy interface, LevelOf(string, string) string
+pkg ui, type Policy interface, ModuleNames() []string
+pkg ui, type Policy interface, RolesSorted() []string
+pkg ui, type PolicyGridOpts struct
+pkg ui, type PolicyGridOpts struct, Action string
+pkg ui, type PolicyGridOpts struct, CSRF h.Node
+pkg ui, type PolicyGridOpts struct, Labels map[string]string
+pkg ui, type PolicyGridOpts struct, None string
+pkg ui, type PolicyGridOpts struct, ReadOnly bool
+pkg ui, type PolicyGridOpts struct, Submit string
 pkg ui, type ShellOpts struct
 pkg ui, type ShellOpts struct, Brand h.Node
 pkg ui, type ShellOpts struct, Current string

@@ -574,6 +574,66 @@
     ]
   },
   {
+    "name": "Policy",
+    "kind": "type",
+    "group": "policygrid",
+    "signature": "type Policy interface",
+    "doc": "Policy is what PolicyGrid needs to draw a permission matrix: the columns, the\nvalues a cell may hold, the rows, and what is in each cell.\n\nIt is an interface and not auth.Policy because the kit must not drag\nauthentication into an application that only draws buttons. auth.Policy\nsatisfies it as it is.",
+    "summary": "Policy is what PolicyGrid needs to draw a permission matrix: the columns, the values a cell may hold, the rows, and what is in each cell."
+  },
+  {
+    "name": "PolicyGridOpts",
+    "kind": "type",
+    "group": "policygrid",
+    "signature": "type PolicyGridOpts struct",
+    "doc": "PolicyGridOpts configures the grid.",
+    "summary": "PolicyGridOpts configures the grid.",
+    "fields": [
+      {
+        "name": "Action",
+        "type": "string",
+        "doc": "Action is where the form posts."
+      },
+      {
+        "name": "Labels",
+        "type": "map[string]string",
+        "doc": "Labels renames a module for the screen: the code says \"docs\", the person reading says \"Documents\"."
+      },
+      {
+        "name": "None",
+        "type": "string",
+        "doc": "None is what the empty option says."
+      },
+      {
+        "name": "Submit",
+        "type": "string",
+        "doc": "Submit is the button's text."
+      },
+      {
+        "name": "ReadOnly",
+        "type": "bool",
+        "doc": "ReadOnly draws the same grid with every control disabled, which is what somebody who may see the matrix but not change it should get."
+      },
+      {
+        "name": "CSRF",
+        "type": "h.Node",
+        "doc": "CSRF is the hidden token field, and a form that changes permissions has to carry one: pass trilha.CSRFInput(c)."
+      }
+    ]
+  },
+  {
+    "name": "PolicyGrid",
+    "kind": "func",
+    "group": "policygrid",
+    "signature": "PolicyGrid(p Policy, opts PolicyGridOpts) h.Node",
+    "doc": "PolicyGrid renders the permission matrix as a form: one row per role, one\ncolumn per module, a select of levels in each cell.\n\nThe fields are named grant.\u003crole\u003e.\u003cmodule\u003e, which is what auth.BindPolicy\nreads on the other side. There is no JavaScript: it is a form, it posts, the\nhandler saves and redirects.\nWhoever draws this screen has to guard it — a grid that edits the matrix is\nthe most valuable screen in the application, and it must sit behind the\nmodule that administers it.",
+    "summary": "PolicyGrid renders the permission matrix as a form: one row per role, one column per module, a select of levels in each cell.",
+    "example": "ui.PolicyGrid(acesso.Policy, ui.PolicyGridOpts{Action: \"/admin/permissoes\"})",
+    "see": [
+      "ui.PolicyGridOpts"
+    ]
+  },
+  {
     "name": "SchemaForm",
     "kind": "func",
     "group": "schema",

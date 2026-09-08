@@ -12,6 +12,7 @@ import (
 	app_entrar "github.com/emersonjoe/trilha/examples/local-login/app/entrar"
 	app_painel "github.com/emersonjoe/trilha/examples/local-login/app/painel"
 	app_painel_eventos "github.com/emersonjoe/trilha/examples/local-login/app/painel/eventos"
+	app_permissoes "github.com/emersonjoe/trilha/examples/local-login/app/permissoes"
 	app_sair "github.com/emersonjoe/trilha/examples/local-login/app/sair"
 )
 
@@ -54,6 +55,15 @@ func newApp() *trilha.App {
 			"GET": app_painel_eventos.GET,
 		},
 		Middlewares: []trilha.MiddlewareFunc{app_painel.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/permissoes",
+		Page:    app_permissoes.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_permissoes.POST,
+		},
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app_permissoes.Middleware},
 	})
 	a.Register(trilha.Route{
 		Pattern: "/sair",
