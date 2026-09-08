@@ -70,7 +70,9 @@ func cmdMigrateNext(args []string) error {
 		if r.Action == migrate.Created {
 			created++
 		}
-		fmt.Printf("  %-40s %s\n", filepath.Join(*out, r.Path), t("ui "+r.Action))
+		// A route reads as a route on every system: the rest of the CLI already
+		// prints app/page.go, and only this line was printing app\page.go.
+		fmt.Printf("  %-40s %s\n", filepath.ToSlash(filepath.Join(*out, r.Path)), t("ui "+r.Action))
 	}
 	if err := os.WriteFile(*report, []byte(md), 0o644); err != nil {
 		return err
