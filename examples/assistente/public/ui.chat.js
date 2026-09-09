@@ -1,3 +1,4 @@
+/* trilha ui ba1c100683abb623 */
 // ui.chat.js — the behavior behind ui.Chat: send the message, read the events
 // from ai.Serve and render the answer as it arrives. Without this file the
 // form still submits and the page comes back with the answer; this only makes

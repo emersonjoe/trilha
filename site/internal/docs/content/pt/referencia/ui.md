@@ -58,6 +58,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | o que o `trilha.BindCSV` recusou, por linha e coluna — veja [Planilhas (CSV)](/pt/receitas/planilhas) |
 | `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) |
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
+| `SecretOnce(c, segredo)`, `APIKeysTable(c, linhas, opts)` | a chave mostrada uma vez, e a lista delas — veja [Auth](/pt/referencia/auth) |
 | `SettingsForm(c, seção, errs)` | a tela de administração de uma seção do `trilha.Settings`, desenhada da struct — veja [App](/pt/referencia/app) |
 | `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarquia que abre nó a nó, e o campo que escolhe um — veja [Árvores](#árvores) |
 | `AuditTable(c, registros, AuditOpts{...})` | a trilha que o c.Audit escreve, com filtro, paginação e exportação CSV — veja [Observabilidade](/pt/referencia/observabilidade) |

@@ -27,12 +27,14 @@ pkg trilha, func Errorf(int, string, ...any) error
 pkg trilha, func Fatal(error)
 pkg trilha, func Limit(float64, int) MiddlewareFunc
 pkg trilha, func New(Config) *App
+pkg trilha, func NewLimiter(RateLimit) *Limiter
 pkg trilha, func NewSettings[T any](string, T) *Settings[T]
 pkg trilha, func NewSigner(...[]byte) *Signer
 pkg trilha, func NewTestClient(TestingT, *App) *TestClient
 pkg trilha, func NonceAttr(*Ctx) h.Node
 pkg trilha, func NonceFrom(*http.Request) string
 pkg trilha, func Open([]byte) ([]byte, error)
+pkg trilha, func Pepper([]byte) ([]byte, error)
 pkg trilha, func Provide[T any](*App, T)
 pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
@@ -160,6 +162,7 @@ pkg trilha, method (*Gauge) With(...string) *Gauge
 pkg trilha, method (*HTTPError) Error() string
 pkg trilha, method (*Histogram) Observe(float64)
 pkg trilha, method (*Histogram) With(...string) *Histogram
+pkg trilha, method (*Limiter) Allow(string) (bool, int)
 pkg trilha, method (*ListParams) Restrict(...string) bool
 pkg trilha, method (*Metrics) Counter(string, string, ...string) *Counter
 pkg trilha, method (*Metrics) Gauge(string, string, ...string) *Gauge
@@ -340,6 +343,7 @@ pkg trilha, type HealthReport struct, Status string
 pkg trilha, type HealthReport struct, UptimeSeconds float64
 pkg trilha, type Histogram struct
 pkg trilha, type LayoutFunc func(*Ctx, h.Node) (h.Node, error)
+pkg trilha, type Limiter struct
 pkg trilha, type ListParams struct
 pkg trilha, type ListParams struct, Dir string
 pkg trilha, type ListParams struct, Page int
@@ -630,6 +634,7 @@ pkg ai/mcp, type Transport interface, Close() error
 pkg ai/mcp, type Transport interface, Recv(context.Context) ([]byte, error)
 pkg ai/mcp, type Transport interface, Send(context.Context, []byte) error
 pkg auth, const DefaultPBKDF2Iterations
+pkg auth, func APIKeys(KeyOptions) *Keys
 pkg auth, func All(string) Grants
 pkg auth, func BindPolicy(*trilha.Ctx, Policy) (map[string]Grants, error)
 pkg auth, func CheckPBKDF2(string, string) bool
@@ -638,6 +643,7 @@ pkg auth, func Cognito(string, string, string, string, string) *Provider
 pkg auth, func EntraID(string, string, string, string) *Provider
 pkg auth, func HashPBKDF2(string) (string, error)
 pkg auth, func Keycloak(string, string, string, string, string) *Provider
+pkg auth, func MemoryKeyStore() KeyStore
 pkg auth, func New(*Provider, Options) *Auth
 pkg auth, func NewMemoryStore() *MemoryStore
 pkg auth, func OIDC(string, string, string, string) *Provider
@@ -656,6 +662,12 @@ pkg auth, method (*Auth) RequireRole(...string) trilha.MiddlewareFunc
 pkg auth, method (*Auth) Session(*trilha.Ctx) (*User, error)
 pkg auth, method (*Auth) Start(*trilha.Ctx) error
 pkg auth, method (*Auth) User(*trilha.Ctx) *User
+pkg auth, method (*Key) Active(time.Time) bool
+pkg auth, method (*Keys) All() ([]*Key, error)
+pkg auth, method (*Keys) Issue(*trilha.Ctx, string, []string, time.Duration) (*Key, string, error)
+pkg auth, method (*Keys) Require(...string) trilha.MiddlewareFunc
+pkg auth, method (*Keys) Revoke(*trilha.Ctx, string) error
+pkg auth, method (*Keys) User(*trilha.Ctx) *User
 pkg auth, method (*MemoryStore) Delete(string) error
 pkg auth, method (*MemoryStore) Load(string) (*User, bool)
 pkg auth, method (*MemoryStore) Save(string, *User, time.Duration) error
@@ -679,6 +691,28 @@ pkg auth, type Claims struct, Nonce string
 pkg auth, type Claims struct, NotBefore time.Time
 pkg auth, type Claims struct, Subject string
 pkg auth, type Grants map[string]string
+pkg auth, type Key struct
+pkg auth, type Key struct, Created time.Time
+pkg auth, type Key struct, ExpiresAt time.Time
+pkg auth, type Key struct, Handle string
+pkg auth, type Key struct, Hash []byte
+pkg auth, type Key struct, ID string
+pkg auth, type Key struct, LastUsed time.Time
+pkg auth, type Key struct, Name string
+pkg auth, type Key struct, RevokedAt time.Time
+pkg auth, type Key struct, Scopes []string
+pkg auth, type KeyOptions struct
+pkg auth, type KeyOptions struct, Prefix string
+pkg auth, type KeyOptions struct, RateLimit trilha.RateLimit
+pkg auth, type KeyOptions struct, Scopes []string
+pkg auth, type KeyOptions struct, Store KeyStore
+pkg auth, type KeyStore interface
+pkg auth, type KeyStore interface, All() ([]*Key, error)
+pkg auth, type KeyStore interface, Find(string) (*Key, bool)
+pkg auth, type KeyStore interface, Revoke(string, time.Time) error
+pkg auth, type KeyStore interface, Save(*Key) error
+pkg auth, type KeyStore interface, Touch(string, time.Time) error
+pkg auth, type Keys struct
 pkg auth, type Levels []string
 pkg auth, type MemoryStore struct
 pkg auth, type Options struct
@@ -723,6 +757,7 @@ pkg auth, type User struct, Seen time.Time
 pkg auth, type User struct, SessionID string
 pkg auth, type User struct, Subject string
 pkg auth, var ErrNoSession
+pkg auth, var ErrUnknownKey
 pkg cache, func Do[T any](context.Context, *Cache, Key, func(context.Context) (T, error)) (T, error)
 pkg cache, func Get[T any](*Cache, string) (T, bool)
 pkg cache, func New(Options) *Cache
@@ -939,6 +974,7 @@ pkg ui, const FlashError
 pkg ui, const FlashFadeMs
 pkg ui, const FlashInfo
 pkg ui, const FlashSuccess
+pkg ui, func APIKeysTable(*trilha.Ctx, []APIKeyRow, ...APIKeysOpts) h.Node
 pkg ui, func Alert(string, ...h.Node) h.Node
 pkg ui, func AlertDescription(...h.Node) h.Node
 pkg ui, func Asset(string) []byte
@@ -1045,6 +1081,7 @@ pkg ui, func Row(...h.Node) h.Node
 pkg ui, func SchemaForm(trilha.Schema, map[string]string, map[string]string, ...h.Node) h.Node
 pkg ui, func Secondary() h.Node
 pkg ui, func SecretField(*trilha.Ctx, string, string, trilha.Secret, ...FieldOpt) h.Node
+pkg ui, func SecretOnce(*trilha.Ctx, string, ...h.Node) h.Node
 pkg ui, func Select(...h.Node) h.Node
 pkg ui, func SelectOptions([]Option, string) h.Node
 pkg ui, func Separator() h.Node
@@ -1084,6 +1121,18 @@ pkg ui, func UploadScript(*trilha.Ctx) h.Node
 pkg ui, func UploadTo(string) h.Node
 pkg ui, func With(...h.Node) FieldOpt
 pkg ui, method (Back) Render(io.Writer) error
+pkg ui, type APIKeyRow struct
+pkg ui, type APIKeyRow struct, Created time.Time
+pkg ui, type APIKeyRow struct, Handle string
+pkg ui, type APIKeyRow struct, ID string
+pkg ui, type APIKeyRow struct, LastUsed time.Time
+pkg ui, type APIKeyRow struct, Name string
+pkg ui, type APIKeyRow struct, Revoked bool
+pkg ui, type APIKeyRow struct, Scopes []string
+pkg ui, type APIKeysOpts struct
+pkg ui, type APIKeysOpts struct, CSRF h.Node
+pkg ui, type APIKeysOpts struct, Empty h.Node
+pkg ui, type APIKeysOpts struct, Revoke string
 pkg ui, type AuditOpts struct
 pkg ui, type AuditOpts struct, Action string
 pkg ui, type AuditOpts struct, Actions []string

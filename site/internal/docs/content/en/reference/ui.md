@@ -58,6 +58,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | what `trilha.BindCSV` rejected, by line and column — see [CSV](/cookbook/csv) |
 | `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) |
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
+| `SecretOnce(c, secret)`, `APIKeysTable(c, rows, opts)` | a key shown once, and the list of them — see [Auth](/reference/auth) |
 | `SettingsForm(c, section, errs)` | the administration screen of a `trilha.Settings` section, drawn from the struct — see [App](/reference/app) |
 | `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarchy that opens node by node, and the field that picks one — see [Trees](#trees) |
 | `AuditTable(c, records, AuditOpts{...})` | the trail c.Audit writes, with filter, pagination and CSV export — see [Observability](/reference/observability) |

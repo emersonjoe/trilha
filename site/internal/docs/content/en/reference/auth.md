@@ -309,3 +309,56 @@ required, and clock tolerance is 60 seconds.
 
 `trilha audit` checks, when the project imports `trilha/auth`: client secret written in the
 code (critical) and `redirect_uri` over `http://` outside `localhost` (critical).
+
+## API keys
+
+`auth.Sessions` is a cookie and OIDC is somebody else's bearer. `auth.APIKeys` is the third one:
+the key **this** application issues to its own callers. It is a pile of rules a beginner does not
+know — store only the hash, show the secret once, keep a handle so a key can be found without
+opening the hash, a scope per route, a limit per key rather than per address, revocation that
+takes effect now, a record of use — and the first version always stores the key in the clear.
+
+```go
+var Keys = auth.APIKeys(auth.KeyOptions{
+	Store:     chaves.NewStore(db),        // nil keeps them in memory
+	Prefix:    "ak",                       // keys read "ak_<handle>_<secret>"
+	Scopes:    []string{"docs:read", "docs:write"},
+	RateLimit: trilha.RateLimit{RPS: 10, Burst: 30},
+})
+
+// app/api/v1/middleware.go
+var exige = Keys.Require("docs:read")
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
+```
+
+| Symbol | Role |
+|---|---|
+| `APIKeys(KeyOptions)` | the set of keys of an application |
+| `Issue(c, name, scopes, ttl)` | creates one and answers the secret — the only time it exists |
+| `Require(scopes...)` | the middleware: bearer, hash, revocation, expiry, scope, limit |
+| `Revoke(c, id)` / `All()` | ends one now; lists them for the screen |
+| `User(c)` | the caller, as an `auth.User` with the scopes as roles |
+| `KeyStore` / `MemoryKeyStore()` | five methods over whatever the app runs; memory for tests |
+| `ui.SecretOnce(c, secret)` | the card that shows it once, with the sentence that has to be there |
+| `ui.APIKeysTable(c, rows, opts)` | the list, with the handle and never the key |
+
+**Only the hash is stored**, peppered with `trilha.Pepper` — HMAC-SHA256 under a key derived
+from the app's secret. A stolen table of digests is not a list anybody can attack offline, and
+without a secret `Issue` refuses rather than writing an unkeyed hash that would look like it
+worked.
+
+**The handle is the half that identifies without opening the hash.** It is what a screen shows
+and how a request finds its key; the secret is compared in constant time, and revocation and
+expiry are checked *after* that comparison — answering faster for a revoked key than for a wrong
+one says which of the two happened.
+
+**A key is an actor.** `Require` puts an `auth.User` in the request with the scopes as roles and
+`via: "api_key"`, so `c.Audit`, the log and the policy all see a caller instead of a hole.
+
+**The limit is per key**, not per address: one caller behind one key is one budget, whatever
+their IP is doing. **Use is recorded once a minute** — writing on every request turns a read-only
+endpoint into a write per call, and "is this key still in use?" does not need the second.
+
+**A scope the application never declared is a panic at wiring time.** The alternative is a route
+that guards nothing because of a typo, and nobody finding out until they read it in a breach
+report.

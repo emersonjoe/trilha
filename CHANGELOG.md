@@ -3,6 +3,60 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.58.0 — 2026-09-08
+
+Spec 076.
+
+### Added
+
+- **`auth.APIKeys` — the key this application issues**
+  ([#105](https://github.com/emersonjoe/trilha/issues/105)). The framework had a session cookie
+  and somebody else's bearer (OIDC). The third case was missing, and it is a pile of security
+  rules a beginner does not know: store only the hash, show the secret once, keep a handle so a
+  key can be found without opening the hash, a scope per route, a limit per key rather than per
+  address, revocation that takes effect now, a record of use. The first version always stores the
+  key in the clear.
+
+  **Only the hash is stored**, peppered with the new `trilha.Pepper` — HMAC-SHA256 under a key
+  derived from the app's secret, sister to `Seal` from 0.57.0. Without a secret, `Issue`
+  **refuses**: an unkeyed hash would look like it worked and leave a table anybody can attack
+  offline.
+
+  The comparison is constant time, and revocation and expiry are checked **after** it: answering
+  faster for a revoked key than for a wrong one tells whoever is guessing which of the two
+  happened. All three are the same 401 with `WWW-Authenticate`.
+
+  A key is an actor: `Require` puts an `auth.User` in the request with the scopes as roles and
+  `via: "api_key"`, so `c.Audit`, the log and the policy work with no extra line. The limit is
+  **per key**, use is recorded **once a minute**, and a scope the application never declared is a
+  panic when the route is wired — the alternative is a route that guards nothing because of a
+  typo.
+
+  `ui.SecretOnce` is the card that shows the key once, with the sentence that has to be there;
+  `ui.APIKeysTable` lists them by handle and never by key.
+
+- **`trilha.Limiter`** — the token bucket `Config.RateLimit` already used, exported so a limit
+  keyed by something other than an IP does not need a second implementation. **`trilha.Pepper`** —
+  a keyed hash under the app's secret, for an API key and never for a password.
+
+### Fixed
+
+- **A bug that only showed up sometimes.** The secret was base64url, whose alphabet **includes
+  `_`** — the separator in `ak_<handle>_<secret>`. The split broke in the wrong place whenever
+  the random bytes happened to encode an underscore: three tests failing, two passing, a
+  different set each run. The alphabet is now lower-case base32 — letters and digits and nothing
+  else — and the split is `SplitN`.
+
+- Two repeated attributes in the kit's own markup, which the example screen showed:
+  `class="ui-input ui-input"` and two `type="button"` on one button.
+
+### Not here
+
+`trilha openapi` marking the key-guarded routes with `securitySchemes`: that is the generator
+reading a route's middleware, which is the same static reading
+[#124](https://github.com/emersonjoe/trilha/issues/124) records as scanner debt, and it goes in
+with it.
+
 ## 0.57.0 — 2026-09-08
 
 Spec 075.

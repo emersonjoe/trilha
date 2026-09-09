@@ -287,3 +287,28 @@ func maskSecret(v string) string {
 // not a thing any provider issues, while a mask travelling back into the
 // database is a thing that happens on the first screen somebody builds.
 func isMask(v string) bool { return strings.Contains(v, maskEllipsis) }
+
+// Pepper is a keyed hash of data under a key derived from the app's secret —
+// the same secret Seal and the signer use, with an info string of its own.
+//
+// It is what turns "store the hash" into "store a hash nobody can attack
+// offline with a rainbow table": the digest cannot be computed without the
+// application's secret, so a stolen database of hashes is not a list of
+// guessable inputs. Use it for an API key, never for a password — a password
+// needs a slow hash, and auth.HashPassword is that.
+//
+// The answer is deterministic, which is what makes it a lookup key; without a
+// secret it is ErrNoSecret, never an unkeyed digest that would look like it
+// worked.
+func Pepper(data []byte) ([]byte, error) {
+	sealMu.RLock()
+	keys := sealKeys
+	sealMu.RUnlock()
+	if len(keys) == 0 {
+		return nil, ErrNoSecret
+	}
+	mac := hmac.New(sha256.New, keys[0])
+	mac.Write([]byte("trilha:pepper:v1"))
+	mac.Write(data)
+	return mac.Sum(nil), nil
+}

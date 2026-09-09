@@ -97,3 +97,21 @@ func Limit(rps float64, burst int) MiddlewareFunc {
 		return next()
 	}
 }
+
+// Limiter is a token bucket per key, which is the shape a limit takes whenever
+// the thing being limited is not an IP: an API key, a tenant, a webhook
+// endpoint. It is the same bucket Config.RateLimit uses on the way in, exported
+// so nothing has to write a second one.
+//
+//	var perKey = trilha.NewLimiter(trilha.RateLimit{RPS: 10, Burst: 30})
+//	if ok, after := perKey.Allow(key.ID); !ok { … }
+type Limiter struct{ l *limiter }
+
+// NewLimiter builds one. A zero Burst becomes 1, and a zero RPS means every
+// request after the first burst waits — which is a limit of "one burst, ever",
+// and almost never what somebody meant.
+func NewLimiter(rl RateLimit) *Limiter { return &Limiter{l: newLimiter(rl)} }
+
+// Allow takes one token for key. When the bucket is empty it answers false and
+// the seconds to wait, which is what a Retry-After header carries.
+func (l *Limiter) Allow(key string) (ok bool, retryAfter int) { return l.l.allow(key) }

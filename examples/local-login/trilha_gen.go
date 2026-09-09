@@ -9,8 +9,11 @@ import (
 
 	trilha "github.com/emersonjoe/trilha"
 	app "github.com/emersonjoe/trilha/examples/local-login/app"
+	app_api_v1 "github.com/emersonjoe/trilha/examples/local-login/app/api/v1"
+	app_api_v1_documentos "github.com/emersonjoe/trilha/examples/local-login/app/api/v1/documentos"
 	app_auditoria "github.com/emersonjoe/trilha/examples/local-login/app/auditoria"
 	app_auditoria_csv "github.com/emersonjoe/trilha/examples/local-login/app/auditoria/csv"
+	app_chaves "github.com/emersonjoe/trilha/examples/local-login/app/chaves"
 	app_entrar "github.com/emersonjoe/trilha/examples/local-login/app/entrar"
 	app_painel "github.com/emersonjoe/trilha/examples/local-login/app/painel"
 	app_painel_eventos "github.com/emersonjoe/trilha/examples/local-login/app/painel/eventos"
@@ -37,6 +40,14 @@ func newApp() *trilha.App {
 		Layouts: []trilha.LayoutFunc{app.Layout},
 	})
 	a.Register(trilha.Route{
+		Pattern: "/api/v1/documentos",
+		Kind:    app.Kind,
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_api_v1_documentos.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app_api_v1.Middleware},
+	})
+	a.Register(trilha.Route{
 		Pattern:     "/auditoria",
 		Page:        app_auditoria.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
@@ -49,6 +60,15 @@ func newApp() *trilha.App {
 			"GET": app_auditoria_csv.GET,
 		},
 		Middlewares: []trilha.MiddlewareFunc{app_auditoria.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/chaves",
+		Page:    app_chaves.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_chaves.POST,
+		},
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app_chaves.Middleware},
 	})
 	a.Register(trilha.Route{
 		Pattern: "/entrar",

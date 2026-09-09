@@ -310,3 +310,56 @@ obrigatório, e a tolerância de relógio é de 60 segundos.
 
 `trilha audit` verifica, quando o projeto importa `trilha/auth`: segredo do cliente escrito
 no código (crítico) e `redirect_uri` em `http://` fora de `localhost` (crítico).
+
+## Chaves de API
+
+O `auth.Sessions` é cookie e o OIDC é bearer de terceiro. O `auth.APIKeys` é o terceiro caso: a
+chave que **esta** aplicação emite para quem a chama. É um monte de regra que o iniciante não
+sabe — guardar só o hash, mostrar o segredo uma vez, ter um identificador para achar a chave sem
+abrir o hash, escopo por rota, limite por chave e não por endereço, revogação que vale já,
+registro de uso — e a primeira versão sempre guarda a chave em claro.
+
+```go
+var Chaves = auth.APIKeys(auth.KeyOptions{
+	Store:     chaves.NewStore(db),        // nil guarda em memória
+	Prefix:    "ak",                       // as chaves saem "ak_<identificador>_<segredo>"
+	Scopes:    []string{"docs:ler", "docs:escrever"},
+	RateLimit: trilha.RateLimit{RPS: 10, Burst: 30},
+})
+
+// app/api/v1/middleware.go
+var exige = Chaves.Require("docs:ler")
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
+```
+
+| Símbolo | Papel |
+|---|---|
+| `APIKeys(KeyOptions)` | o conjunto de chaves da aplicação |
+| `Issue(c, nome, escopos, ttl)` | cria uma e devolve o segredo — a única vez que ele existe |
+| `Require(escopos...)` | o middleware: bearer, hash, revogação, vencimento, escopo, limite |
+| `Revoke(c, id)` / `All()` | encerra uma agora; lista para a tela |
+| `User(c)` | quem chamou, como `auth.User` com os escopos de papéis |
+| `KeyStore` / `MemoryKeyStore()` | cinco métodos sobre o que a app roda; memória para teste |
+| `ui.SecretOnce(c, segredo)` | o cartão que mostra uma vez, com a frase que precisa estar lá |
+| `ui.APIKeysTable(c, linhas, opts)` | a lista, com o identificador e nunca a chave |
+
+**Só o hash é guardado**, com pimenta do `trilha.Pepper` — HMAC-SHA256 sob uma chave derivada do
+segredo da app. Uma tabela de digests roubada não é uma lista que alguém ataca offline, e sem
+segredo o `Issue` recusa em vez de gravar um hash sem chave que pareceria ter funcionado.
+
+**O identificador é a metade que identifica sem abrir o hash.** É o que a tela mostra e o que a
+requisição usa para achar a chave; o segredo é comparado em tempo constante, e revogação e
+vencimento são conferidos **depois** dessa comparação — responder mais rápido para uma chave
+revogada do que para uma errada conta qual das duas aconteceu.
+
+**Chave é ator.** O `Require` põe um `auth.User` na requisição com os escopos como papéis e
+`via: "api_key"`, então `c.Audit`, o log e a política enxergam alguém em vez de um buraco.
+
+**O limite é por chave**, não por endereço: um cliente atrás de uma chave é um orçamento, faça o
+IP dele o que fizer. **O uso é gravado uma vez por minuto** — gravar a cada requisição
+transforma um endpoint de leitura numa escrita por chamada, e "esta chave ainda é usada?" não
+precisa do segundo.
+
+**Escopo que a aplicação nunca declarou é pânico na hora de montar a rota.** A alternativa é uma
+rota que não guarda nada por causa de um erro de digitação, e ninguém descobrir até ler num
+relatório de incidente.

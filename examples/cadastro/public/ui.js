@@ -1,4 +1,4 @@
-/* trilha ui 03e39bbf9b2a884e */
+/* trilha ui cedc4fd6d02fa675 */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -504,4 +504,19 @@
   const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
   window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
+
+  // [data-ui-copy=texto]: copia e diz que copiou. Sem ele o valor continua
+  // sendo texto selecionável num campo — o botão é conveniência, não o caminho.
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest?.("[data-ui-copy]");
+    if (!b) return;
+    try {
+      await navigator.clipboard.writeText(b.getAttribute("data-ui-copy"));
+    } catch {
+      return; // sem permissão de área de transferência: o campo ainda está lá
+    }
+    const antes = b.textContent;
+    b.textContent = b.getAttribute("data-ui-copied") || "✓";
+    setTimeout(() => { b.textContent = antes; }, 1500);
+  });
 })();

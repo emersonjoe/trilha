@@ -1,5 +1,91 @@
 [
   {
+    "name": "SecretOnce",
+    "kind": "func",
+    "group": "apikeys",
+    "signature": "SecretOnce(c *trilha.Ctx, secret string, children ...h.Node) h.Node",
+    "doc": "SecretOnce is the card that shows a freshly issued key: the value, a way to\ncopy it, and the sentence that has to be there — this is the only time it\nappears.\n\nThe copy button is the one piece of script here, and it degrades to nothing:\nwithout it the value is still selectable text in a field somebody can copy\nby hand. What is never done is offering to show it again — the application\ncannot, because only the hash was stored, and a screen that implies\notherwise teaches the wrong lesson about its own keys.",
+    "summary": "SecretOnce is the card that shows a freshly issued key: the value, a way to copy it, and the sentence that has to be there — this is the only time it appears.",
+    "example": "k, secret, err := Keys.Issue(c, f.Nome, f.Escopos, 0)\nif err != nil {\n\treturn err\n}\nreturn c.Render(200, ui.SecretOnce(c, secret))\n\n\nsee: auth.Keys.Issue"
+  },
+  {
+    "name": "APIKeyRow",
+    "kind": "type",
+    "group": "apikeys",
+    "signature": "type APIKeyRow struct",
+    "doc": "APIKeyRow is one line of the table. It is a plain struct and not an\nauth.Key because ui does not import auth — the kit draws, and what it draws\nis data. The application maps one to the other in three lines, and that\nmapping is where \"what a screen shows\" is decided.",
+    "summary": "APIKeyRow is one line of the table.",
+    "fields": [
+      {
+        "name": "ID",
+        "type": "string"
+      },
+      {
+        "name": "Handle",
+        "type": "string",
+        "doc": "Handle identifies the key without opening the hash."
+      },
+      {
+        "name": "Name",
+        "type": "string"
+      },
+      {
+        "name": "Scopes",
+        "type": "[]string"
+      },
+      {
+        "name": "Created",
+        "type": "time.Time"
+      },
+      {
+        "name": "LastUsed",
+        "type": "time.Time"
+      },
+      {
+        "name": "Revoked",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "name": "APIKeysOpts",
+    "kind": "type",
+    "group": "apikeys",
+    "signature": "type APIKeysOpts struct",
+    "doc": "APIKeysOpts is what the table can do besides list.",
+    "summary": "APIKeysOpts is what the table can do besides list.",
+    "fields": [
+      {
+        "name": "Revoke",
+        "type": "string",
+        "doc": "Revoke is where the revoke button posts, with the id in \"id\"."
+      },
+      {
+        "name": "CSRF",
+        "type": "h.Node",
+        "doc": "CSRF is the hidden token field, and a form that revokes a key has to carry one: pass trilha.CSRFInput(c)."
+      },
+      {
+        "name": "Empty",
+        "type": "h.Node",
+        "doc": "Empty replaces the default empty state."
+      }
+    ]
+  },
+  {
+    "name": "APIKeysTable",
+    "kind": "func",
+    "group": "apikeys",
+    "signature": "APIKeysTable(c *trilha.Ctx, rows []APIKeyRow, opts ...APIKeysOpts) h.Node",
+    "doc": "APIKeysTable lists the keys of an application: what each one is called, what\nit may do, when it was made and when it was last used.\n\nThe key itself is not here and cannot be — only the handle, which is the half\nthat identifies it without opening the hash. Revoking posts with a\nconfirmation, because it is the one action on this screen nobody can undo.",
+    "summary": "APIKeysTable lists the keys of an application: what each one is called, what it may do, when it was made and when it was last used.",
+    "example": "return ui.APIKeysTable(c, linhas, ui.APIKeysOpts{Revoke: \"/chaves/revogar\"})\n\n\nsee: ui.SecretOnce",
+    "see": [
+      "ui.APIKeysOpts",
+      "ui.SecretOnce"
+    ]
+  },
+  {
     "name": "AuditOpts",
     "kind": "type",
     "group": "audit",

@@ -152,6 +152,9 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-list-check { width: 1px; white-space: nowrap; }
 /* The empty state (spec 065). The minimum height is so a fragment that comes
    back empty does not make the page jump. */
+.ui-secret-once { display: grid; gap: .75rem; }
+.ui-secret-once-row { display: flex; gap: .5rem; align-items: center; }
+.ui-secret-once-value { font-family: var(--font-mono, ui-monospace, monospace); }
 /* Tree (spec 073): a árvore e o seletor. O recuo é do grupo, não do item, para
    um nó de duas linhas não desalinhar do irmão. */
 .ui-tree { display: grid; gap: .125rem; }

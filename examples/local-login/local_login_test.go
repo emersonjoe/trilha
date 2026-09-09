@@ -235,3 +235,58 @@ func TestAuditoriaTemTelaEExportacaoGuardadas(t *testing.T) {
 		t.Fatalf("a exportação não foi auditada: %q", r.Action)
 	}
 }
+
+// #105 — a chave que esta app emite: o segredo aparece uma vez, a API responde
+// a ela e não ao cookie, e revogar vale no mesmo segundo.
+func TestChavesDeAPI(t *testing.T) {
+	c := cliente(t, api(t).URL)
+
+	// A tela é administração: emitir uma chave é dar acesso à API.
+	if rec := c.Get("/chaves", navegador()); rec.Code == 200 {
+		t.Fatal("anônimo abriu a tela de chaves")
+	}
+	entrar(t, c, "bia@exemplo.com", "segredo-da-bia").WantStatus(303)
+	c.Get("/chaves", navegador()).WantStatus(200).WantContains("Nova chave", "documentos:ler")
+
+	// Emitir mostra o segredo uma vez, com o aviso.
+	rec := c.Request("POST", "/chaves", trilha.WithBody("application/x-www-form-urlencoded",
+		"nome=Integração&escopos=documentos:ler"))
+	rec.WantStatus(200).WantContains("única vez", "ll_")
+	segredo := extrai(t, rec.Body.String())
+
+	// A API responde à chave — e o cookie de sessão não serve para ela.
+	semChave := c.Get("/api/v1/documentos")
+	if semChave.Code != 401 {
+		t.Fatalf("a API aceitou o cookie: %d", semChave.Code)
+	}
+	if semChave.Header().Get("WWW-Authenticate") == "" {
+		t.Fatal("sem WWW-Authenticate")
+	}
+	comChave := c.Get("/api/v1/documentos", trilha.WithHeader("Authorization", "Bearer "+segredo))
+	comChave.WantStatus(200).WantContains("contrato-2026.pdf", "Integração")
+
+	// A trilha sabe que foi uma chave, e qual.
+	recs := sessao.Trilha()
+	ultimo := recs[len(recs)-1]
+	if ultimo.Action != "documentos.listou" || ultimo.Actor.Via != "api_key" {
+		t.Fatalf("ator = %+v (%s)", ultimo.Actor, ultimo.Action)
+	}
+
+	// Revogar vale já.
+	chaves, _ := sessao.Chaves.All()
+	c.Request("POST", "/chaves", trilha.WithBody("application/x-www-form-urlencoded", "id="+chaves[0].ID)).WantStatus(303)
+	if depois := c.Get("/api/v1/documentos", trilha.WithHeader("Authorization", "Bearer "+segredo)); depois.Code != 401 {
+		t.Fatalf("chave revogada continuou entrando: %d", depois.Code)
+	}
+}
+
+// extrai pega o segredo do cartão que só aparece uma vez.
+func extrai(t *testing.T, body string) string {
+	t.Helper()
+	i := strings.Index(body, `data-ui-copy="`)
+	if i < 0 {
+		t.Fatal("o cartão não trouxe o segredo")
+	}
+	rest := body[i+len(`data-ui-copy="`):]
+	return rest[:strings.Index(rest, `"`)]
+}
