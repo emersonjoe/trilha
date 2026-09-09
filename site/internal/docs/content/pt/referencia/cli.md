@@ -353,6 +353,30 @@ corpo e respostas, os tipos que essas operações trocam e o que o `app/setup.go
 ...
 ```
 
+Duas seções a mais aparecem só quando o projeto as tem, então quem não usa nenhuma das duas não
+paga nada — nem linha, nem token:
+
+```text
+- `GET POST /docs` — app/docs/page.go · middleware: app/docs/middleware.go · needs docs:ver · POST needs docs:editar
+
+## Enums
+
+- `doc.situacao` — `rascunho` (Rascunho), `enviado` (Enviado · info) · app/setup.go
+```
+
+**O que uma rota exige** é lido do `middleware.go` que declara, e herdado do jeito que a cadeia
+de middleware é herdada: a pasta mais funda ganha, e um `MiddlewarePOST` aparece só naquele
+método. A leitura resolve as duas formas que a documentação ensina — o guarda chamado na hora e
+a var de pacote que o `Middleware` devolve —, inclusive um embrulho seu que entrega duas strings
+ao `RequirePolicy`, que é o idioma do `examples/local-login`. O que ela não consegue ler não
+aparece: um módulo que vem de variável precisaria de um compilador, e um mapa que chuta é pior
+que um mapa calado sobre uma pasta.
+
+**Os enums** são as listas de domínio que o `trilha.RegisterEnum` registrou, casadas com a
+declaração de onde vieram. Estão aqui porque quem não sabe que uma lista existe inventa uma
+segunda, e aí duas telas escrevem "em análise" de dois jeitos. As mesmas listas são legíveis em
+tempo de execução com o `trilha.LookupEnum` e o `trilha.RegisteredEnums`.
+
 O padrão é Markdown compacto, para ler. `--routes` e `--types` imprimem uma seção sozinha,
 `--all` não elide nada (os middlewares por método, todas as respostas de erro, o tipo
 `Problem`) e `--json` escreve o mesmo modelo como documento, ordenado e sem relógio nem caminho

@@ -357,6 +357,30 @@ provides:
 ...
 ```
 
+Two more sections appear only when the project has them, so a project that uses neither pays
+nothing — no lines, no tokens:
+
+```text
+- `GET POST /docs` — app/docs/page.go · middleware: app/docs/middleware.go · needs docs:ver · POST needs docs:editar
+
+## Enums
+
+- `doc.situacao` — `rascunho` (Rascunho), `enviado` (Enviado · info) · app/setup.go
+```
+
+**What a route demands** is read from the `middleware.go` that declares it, and inherited the way
+the middleware chain is: the deepest folder wins, and a `MiddlewarePOST` shows on that method
+alone. It resolves the two shapes the documentation teaches — the guard called inline, and the
+package-level var the `Middleware` function returns — including a wrapper of your own that hands
+two strings to `RequirePolicy`, which is the idiom `examples/local-login` uses. What it cannot
+read does not appear: a module that comes from a variable would take a compiler, and a map that
+guesses is worse than a map that is quiet about one folder.
+
+**The enums** are the domain lists `trilha.RegisterEnum` registered, joined to the declaration
+they came from. They are here because somebody who does not know a list exists invents a second
+one, and then two screens spell "in review" two ways. The same lists are readable at runtime with
+`trilha.LookupEnum` and `trilha.RegisteredEnums`.
+
 The default is compact Markdown for reading. `--routes` and `--types` print one section alone,
 `--all` elides nothing (the per-method middlewares, every error response, the `Problem` type),
 and `--json` writes the same model as a document, sorted and free of clocks and absolute paths,

@@ -32,7 +32,10 @@ type Context struct {
 	Generated Generated `json:"generated"`
 	Routes    []Route   `json:"routes"`
 	Types     []Type    `json:"types,omitempty"`
-	Setup     *Setup    `json:"setup,omitempty"`
+	// Enums are the domain lists the project registered: what stops a second
+	// screen from inventing a second spelling of "status".
+	Enums []Enum `json:"enums,omitempty"`
+	Setup *Setup `json:"setup,omitempty"`
 }
 
 // Generated says whether trilha_gen.go matches what app/ asks for. A route
@@ -54,7 +57,14 @@ type Route struct {
 	// MiddlewaresByMethod holds the chains that guard a single method; the
 	// compact output elides them and --all prints them.
 	MiddlewaresByMethod map[string][]string `json:"middlewaresByMethod,omitempty"`
-	API                 []Operation         `json:"api,omitempty"`
+	// Policy is the module and level this route demands, read from the
+	// middleware.go that declares it. Nil for a route no RequirePolicy
+	// reaches, which is most routes in most projects.
+	Policy *Policy `json:"policy,omitempty"`
+	// PolicyByMethod is the same, for a folder guarded at one level for
+	// reading and another for writing.
+	PolicyByMethod map[string]Policy `json:"policyByMethod,omitempty"`
+	API            []Operation       `json:"api,omitempty"`
 }
 
 // Operation is one method of an API route, as the openapi inference reads it.
@@ -120,10 +130,12 @@ func Build(root, module, version string) (*Context, error) {
 		return nil, err
 	}
 	used := map[string]bool{}
+	pols := policies(root)
 	for _, r := range res.Routes {
-		c.Routes = append(c.Routes, route(r, doc, used))
+		c.Routes = append(c.Routes, route(r, doc, used, pols))
 	}
 	c.Types = types(doc, used)
+	c.Enums = enums(root)
 	c.Setup = setup(root, res)
 	return c, nil
 }
@@ -155,7 +167,7 @@ func generated(root string, res *scan.Result) Generated {
 	return g
 }
 
-func route(r scan.Route, doc *doc, used map[string]bool) Route {
+func route(r scan.Route, doc *doc, used map[string]bool, pols map[string]Policy) Route {
 	out := Route{
 		Pattern: r.Pattern,
 		Kind:    r.Kind,
@@ -175,6 +187,17 @@ func route(r scan.Route, doc *doc, used map[string]bool) Route {
 		}
 		for _, ref := range chain {
 			out.MiddlewaresByMethod[m] = append(out.MiddlewaresByMethod[m], refFile(ref, "middleware.go"))
+		}
+	}
+	if p, ok := politicaDaRota(r.Middlewares, pols, "Middleware"); ok {
+		out.Policy = &p
+	}
+	for m, chain := range r.MiddlewaresByMethod {
+		if p, ok := politicaDaRota(chain, pols, "Middleware"+m); ok {
+			if out.PolicyByMethod == nil {
+				out.PolicyByMethod = map[string]Policy{}
+			}
+			out.PolicyByMethod[m] = p
 		}
 	}
 	if r.Kind == "api" {

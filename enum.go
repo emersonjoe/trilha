@@ -162,15 +162,31 @@ func (e Enum) same(other Enum) bool {
 	return true
 }
 
-// lookupEnum returns a registered enum. It is unexported until something
-// outside needs it: `trilha ctx` listing the enums for an agent is the obvious
-// caller, and it is not written yet — an exported symbol with no consumer is a
-// promise nobody asked for.
-func lookupEnum(name string) (Enum, bool) {
+// LookupEnum returns a registered enum.
+//
+// It was unexported until something outside needed it, which was the condition
+// written here in 0.46.0: an exported symbol with no consumer is a promise
+// nobody asked for. `trilha ctx` reads the same lists from source now, and an
+// application that wants them at runtime — a screen offering every value of a
+// status, a report grouping by it — has this.
+func LookupEnum(name string) (Enum, bool) {
 	enumsMu.RLock()
 	defer enumsMu.RUnlock()
 	e, ok := enums[name]
 	return e, ok
+}
+
+// RegisteredEnums is every list this application registered, by name. It is a
+// copy: a caller that ranged over the real map while a Setup was still running
+// would be reading a map somebody else is writing.
+func RegisteredEnums() map[string]Enum {
+	enumsMu.RLock()
+	defer enumsMu.RUnlock()
+	out := make(map[string]Enum, len(enums))
+	for k, v := range enums {
+		out[k] = append(Enum(nil), v...)
+	}
+	return out
 }
 
 // ruleEnum is the enum= tag. The message lists the labels and not the values,
@@ -181,7 +197,7 @@ func lookupEnum(name string) (Enum, bool) {
 // visible instead of silent, and it is what lets this rule say something the
 // static table cannot: the list depends on which enum the tag named.
 func ruleEnum(f Field) (bool, string) {
-	e, ok := lookupEnum(f.Param)
+	e, ok := LookupEnum(f.Param)
 	if !ok {
 		// A tag naming an enum nobody registered would otherwise accept
 		// anything, which is the failure this refuses to have quietly.

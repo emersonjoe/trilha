@@ -134,3 +134,35 @@ func TestRegisterEnumTwiceIsFineUnlessItChanged(t *testing.T) {
 	}()
 	RegisterEnum("test.Twice", Enum{{Value: "outro", Label: "Outro"}})
 }
+
+// #124 — os dois símbolos que a 0.46.0 deixou sem exportar por não terem
+// consumidor. O `trilha ctx` passou a listar os enums, e uma aplicação que
+// quer a lista em tempo de execução — uma tela oferecendo todos os valores de
+// um status — passa a ter por onde.
+func TestLookupERegisteredEnums(t *testing.T) {
+	RegisterEnum("teste.situacao", Enum{
+		{Value: "aberto", Label: "Aberto"},
+		{Value: "fechado", Label: "Fechado", Tone: "success"},
+	})
+
+	got, ok := LookupEnum("teste.situacao")
+	if !ok || len(got) != 2 || got[1].Tone != "success" {
+		t.Fatalf("lookup = %+v (%v)", got, ok)
+	}
+	if _, ok := LookupEnum("nao.registrado"); ok {
+		t.Fatal("achou um enum que ninguém registrou")
+	}
+
+	todos := RegisteredEnums()
+	if _, ok := todos["teste.situacao"]; !ok {
+		t.Fatalf("o registro não apareceu: %v", todos)
+	}
+	// É uma cópia: mexer no que voltou não mexe no registro, senão quem lista
+	// consegue reescrever a lista de outra pessoa sem querer.
+	todos["teste.situacao"][0].Value = "mexido"
+	delete(todos, "teste.situacao")
+	depois, _ := LookupEnum("teste.situacao")
+	if len(depois) != 2 || depois[0].Value != "aberto" {
+		t.Fatalf("o registro foi alterado por fora: %+v", depois)
+	}
+}

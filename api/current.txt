@@ -26,6 +26,7 @@ pkg trilha, func ConfigFromEnv() Config
 pkg trilha, func Errorf(int, string, ...any) error
 pkg trilha, func Fatal(error)
 pkg trilha, func Limit(float64, int) MiddlewareFunc
+pkg trilha, func LookupEnum(string) (Enum, bool)
 pkg trilha, func New(Config) *App
 pkg trilha, func NewLimiter(RateLimit) *Limiter
 pkg trilha, func NewSettings[T any](string, T) *Settings[T]
@@ -40,6 +41,7 @@ pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
 pkg trilha, func RedirectCode(string, int) error
 pkg trilha, func RegisterEnum(string, Enum)
+pkg trilha, func RegisteredEnums() map[string]Enum
 pkg trilha, func RequireCSRF(*Ctx, Next) error
 pkg trilha, func Run(*App)
 pkg trilha, func SchemaOf[T any]() Schema

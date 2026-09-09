@@ -3,6 +3,37 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.66.0 — 2026-09-09
+
+Spec 085.
+
+### Added
+
+- **`trilha ctx`: what a route demands, and the enums that exist** ([#124](https://github.com/emersonjoe/trilha/issues/124)).
+  Two specs in a row left the same thing out for the same reason — the map reads source, and both
+  of these live in a package-level declaration tied to where it is used. Finding that link is one
+  job, so this is one spec.
+
+  A route now says `needs docs:ver`, inherited the way the middleware chain is: the deepest folder
+  wins, and a `MiddlewarePOST` shows on that method alone. It resolves the two shapes the
+  documentation teaches — the guard called inline, and the package-level var `Middleware` returns
+  — plus a wrapper of your own handing two strings to `RequirePolicy`, which is the idiom
+  `examples/local-login` uses. Refusing that last one would have shipped a reading that does not
+  work on this repository's own example.
+
+  An `## Enums` section lists the domain lists `RegisterEnum` registered, joined to the
+  declaration they came from, with values, labels and tones. It is there because somebody who does
+  not know a list exists invents a second one, and then two screens spell "in review" two ways.
+
+  Neither section exists for a project that uses neither: no lines, no JSON fields, no tokens.
+  And what the reading cannot resolve does not appear — a module that comes from a variable would
+  take a compiler, and a map that guesses is worse than a map that is quiet about one folder.
+
+- **`trilha.LookupEnum` and `trilha.RegisteredEnums`**, exported now that they have a consumer,
+  which was the condition written into the source in 0.46.0. `RegisteredEnums` answers a copy: a
+  caller ranging over the real map while a `Setup` was still running would be reading a map
+  somebody else is writing.
+
 ## 0.65.1 — 2026-09-09
 
 ### Fixed

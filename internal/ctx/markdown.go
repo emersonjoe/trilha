@@ -48,7 +48,52 @@ func (c *Context) Markdown(v View) string {
 	if v != OnlyRoutes {
 		c.types(&sb, v)
 	}
+	c.enums(&sb)
 	return sb.String()
+}
+
+// enums is a section only when there are any: a project that declares none
+// pays nothing for the feature, on the map or in the tokens.
+func (c *Context) enums(sb *strings.Builder) {
+	if len(c.Enums) == 0 {
+		return
+	}
+	sb.WriteString("## Enums\n\n")
+	for _, e := range c.Enums {
+		partes := make([]string, 0, len(e.Values))
+		for _, v := range e.Values {
+			partes = append(partes, valorEnum(v))
+		}
+		fmt.Fprintf(sb, "- `%s` — %s · %s\n", e.Name, strings.Join(partes, ", "), e.From)
+	}
+	sb.WriteString("\n")
+}
+
+func valorEnum(v EnumValue) string {
+	out := "`" + v.Value + "`"
+	switch {
+	case v.Label != "" && v.Tone != "":
+		out += " (" + v.Label + " · " + v.Tone + ")"
+	case v.Label != "":
+		out += " (" + v.Label + ")"
+	case v.Tone != "":
+		out += " (· " + v.Tone + ")"
+	}
+	return out
+}
+
+// sorted keeps the output stable: a map printed in range order is a map that
+// prints differently every run, and a diff nobody can read.
+func sorted(m map[string]Policy) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func value(v Value) string {
@@ -86,6 +131,16 @@ func (c *Context) routes(sb *strings.Builder, v View) {
 		}
 		if len(r.Middlewares) > 0 {
 			fmt.Fprintf(sb, " · middleware: %s", strings.Join(r.Middlewares, ", "))
+		}
+		// The demand comes before the chain that enforces it: "needs docs:edit"
+		// is what somebody about to write this screen has to know, and the file
+		// that says so is only interesting once they doubt it.
+		if r.Policy != nil {
+			fmt.Fprintf(sb, " · needs %s:%s", r.Policy.Module, r.Policy.Level)
+		}
+		for _, m := range sorted(r.PolicyByMethod) {
+			p := r.PolicyByMethod[m]
+			fmt.Fprintf(sb, " · %s needs %s:%s", m, p.Module, p.Level)
 		}
 		if v == All && len(r.MiddlewaresByMethod) > 0 {
 			var ms []string
