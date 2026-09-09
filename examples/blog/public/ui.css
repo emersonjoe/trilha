@@ -1,4 +1,4 @@
-/* trilha ui 79fdbc8f2420fdcb */
+/* trilha ui 1d88eac21e971b24 */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -153,6 +153,7 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-list-check { width: 1px; white-space: nowrap; }
 /* The empty state (spec 065). The minimum height is so a fragment that comes
    back empty does not make the page jump. */
+.ui-audit-fields { display: grid; gap: .125rem; padding: .25rem 0; font-size: .8125rem; }
 /* Steps (spec 071): o indicador de um formulário em várias telas. O feito, o
    atual e o que falta se distinguem por cor e por peso, nunca só por cor. */
 .ui-steps { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; list-style: none; margin: 0 0 1rem; padding: 0; }

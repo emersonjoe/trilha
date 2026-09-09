@@ -193,3 +193,45 @@ func TestAuditoriaRegistraQuemMudouAPermissao(t *testing.T) {
 		t.Fatalf("rota = %q", r.Route)
 	}
 }
+
+// #128 — a tela que lê a trilha. Ela é, ela mesma, das mais sensíveis do app:
+// é a lista das ações de todo mundo, e ler isso é ato administrativo.
+func TestAuditoriaTemTelaEExportacaoGuardadas(t *testing.T) {
+	c := cliente(t, api(t).URL)
+
+	// Anônimo não chega nem na tela nem no arquivo.
+	if rec := c.Get("/auditoria", navegador()); rec.Code == 200 {
+		t.Fatal("anônimo abriu a trilha")
+	}
+	if rec := c.Get("/auditoria/csv"); rec.Code == 200 {
+		t.Fatal("anônimo baixou a trilha inteira")
+	}
+
+	// Analista tampouco: a exportação mora dentro da pasta guardada, então ela
+	// herda o mesmo 403 sem escrever uma linha sobre permissão.
+	entrar(t, c, "ana@exemplo.com", "segredo-da-ana").WantStatus(303)
+	if rec := c.Get("/auditoria/csv"); rec.Code != 403 {
+		t.Fatalf("analista baixando a trilha → %d, queria 403", rec.Code)
+	}
+
+	// Bia administra: gera uma ação, e ela aparece na tela e no arquivo.
+	c2 := cliente(t, api(t).URL)
+	entrar(t, c2, "bia@exemplo.com", "segredo-da-bia").WantStatus(303)
+	c2.Request("POST", "/permissoes", trilha.WithBody("application/x-www-form-urlencoded",
+		"grant.admin.usuarios=administrar")).WantStatus(303)
+
+	c2.Get("/auditoria", navegador()).WantStatus(200).WantContains(
+		"permissao.alterou", "Bia", "Exportar CSV", "Quem", "Ação", `class="ui-table"`)
+
+	csv := c2.Get("/auditoria/csv")
+	csv.WantStatus(200).WantContains("Quando;Quem;Como;Ação;Alvo;IP;Rota", "permissao.alterou")
+	if d := csv.Header().Get("Content-Disposition"); !strings.Contains(d, "auditoria.csv") {
+		t.Fatalf("Content-Disposition = %q", d)
+	}
+
+	// E quem baixa a trilha inteira também deixa rastro.
+	recs := sessao.Trilha()
+	if r := recs[len(recs)-1]; r.Action != "auditoria.exportou" {
+		t.Fatalf("a exportação não foi auditada: %q", r.Action)
+	}
+}

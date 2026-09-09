@@ -84,6 +84,11 @@ func Config(cfg *trilha.Config) {
 	// Where the trail of who did what goes. Without this it would go to the
 	// log, which is enough to grep and enough to ship with.
 	cfg.Audit = sessao.Auditoria
+	// O app é escrito para quem lê em português, e é isto que decide o idioma
+	// dos componentes do kit que trazem texto próprio — a tela de auditoria
+	// entre eles — e o fuso em que as datas dela aparecem.
+	cfg.Locale = "pt-BR"
+	cfg.TimeZone = "America/Sao_Paulo"
 	if api := os.Getenv("API_URL"); api != "" {
 		cfg.Upstreams = map[string]trilha.Upstream{
 			"/api/": {

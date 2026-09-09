@@ -186,6 +186,47 @@ Ninguém reconhecido é registrado como `anonymous` — e é registrado: trilha 
 silêncio a ação anônima tem um buraco exatamente onde alguém iria procurar. O `trilha audit`
 avisa quando o `c.Audit` é chamado num projeto em que nenhuma rota exige sessão.
 
+### A tela
+
+O `ui.AuditTable` é a tela que toda aplicação com `c.Audit` acaba escrevendo à mão: quem fez o
+quê, em quê, quando e de onde.
+
+```go
+regs, total := auditoria.Buscar(q)
+return ui.AuditTable(c, regs, ui.AuditOpts{
+	Params:  q.ListParams,
+	Total:   total,
+	Actions: auditoria.Acoes(),
+	Action:  q.Acao,
+	Export:  "/auditoria/csv",
+}), nil
+```
+
+Por baixo é um `ui.DataTable`, e é esse o ponto: o formulário de filtro, os links de ordem, a
+paginação e a troca de fragmento são os mesmos de qualquer outra listagem. Uma trilha que se
+comportasse diferente do resto do app seria uma segunda coisa para aprender.
+
+**Ler a trilha é da aplicação.** O `Config.Audit` é uma interface de escrita com um método e
+continua assim — o framework não tem banco, e a consulta desta tela (um período, um ator, uma
+tabela que este app escolheu) não é algo que ele pudesse escrever. A do exemplo tem trinta
+linhas sobre uma fatia.
+
+`Fields` é detalhe e não coluna: cada ação carrega as suas chaves, e uma coluna por chave é uma
+tabela que ganha coluna toda vez que alguém audita algo novo.
+
+O `Export` aponta para uma rota que responde com `c.CSV`, e o botão leva o recorte que está na
+tela — exportar ignorando o filtro na frente da pessoa é exportar a coisa errada, e ela só
+descobre na planilha.
+
+:::warning
+A trilha é a lista das ações de todo mundo, então **lê-la é ato administrativo**. Ponha a tela
+atrás do mesmo guarda do resto da administração, e ponha a exportação **dentro** da pasta
+guardada — um download é outra resposta, não outra permissão. No
+[`examples/local-login`](https://github.com/emersonjoe/trilha/tree/main/examples/local-login/app/auditoria)
+o `/auditoria/csv` herda o middleware da pasta sem dizer uma palavra sobre isso; fora dela seria
+o único endereço entregando a trilha inteira para qualquer um.
+:::
+
 ### `Route` é o gabarito
 
 `/documentos/{id}`, não `/documentos/42`. O id concreto já está no `Target`; o gabarito é o que

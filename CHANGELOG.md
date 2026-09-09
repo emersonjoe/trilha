@@ -3,6 +3,47 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.54.0 — 2026-09-08
+
+Spec 072.
+
+### Added
+
+- **`ui.AuditTable` — the screen that reads the trail**
+  ([#128](https://github.com/emersonjoe/trilha/issues/128)). 0.49.0 gave the framework `c.Audit`
+  and left this out with the reason written down: it depended on `c.CSV`, and without the export
+  button it was a `DataTable` with five columns. `c.CSV` shipped in 0.50.0.
+
+  It **is** a `DataTable` underneath, and that is the point: the filter form, the ordering links,
+  the pagination and the fragment swap are the ones every other listing already has. A trail that
+  behaved differently from the rest of the app would be a second thing to learn, with its own
+  copy of four mechanisms that already exist.
+
+  **Reading the trail is still the application's job.** `Config.Audit` is a write interface with
+  one method and did not grow a `Read`: the framework has no database, and the query behind this
+  screen — a period, an actor, a table this app chose — is not something it could write. The
+  example's is thirty lines over a slice.
+
+  `Fields` is a detail and not a column: each action carries its own keys, so a column per key is
+  a table that grows a column every time somebody audits something new. The keys come out sorted,
+  because a detail that shuffles between two loads of the same screen is a detail nobody trusts.
+
+  The export button carries the query that is on screen — an export that ignores the filter in
+  front of somebody is an export of the wrong thing, and they only find out in the spreadsheet.
+
+### Fixed
+
+- **The `local-login` example did not declare `Config.Locale`**, so a component carrying its own
+  text spoke English inside an application written in Portuguese. Same finding as 0.50.0 in the
+  blog example, in the other example.
+
+### Not here
+
+The period filter the issue asks for. A date range belongs to the application's query, and a
+pair of fields here would only be worth it if the component also built that query — which is
+exactly what it deliberately does not do. `q` and the action cover the common path; the example
+shows where the rest goes.
+
 ## 0.53.0 — 2026-09-08
 
 Spec 071.

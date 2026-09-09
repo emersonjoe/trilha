@@ -915,6 +915,7 @@ pkg ui, const FlashSuccess
 pkg ui, func Alert(string, ...h.Node) h.Node
 pkg ui, func AlertDescription(...h.Node) h.Node
 pkg ui, func Asset(string) []byte
+pkg ui, func AuditTable(*trilha.Ctx, []trilha.AuditRecord, ...AuditOpts) h.Node
 pkg ui, func Avatar(string, string) h.Node
 pkg ui, func Badge(...h.Node) h.Node
 pkg ui, func Bars([]Datum, ...h.Node) h.Node
@@ -1049,6 +1050,14 @@ pkg ui, func UploadScript(*trilha.Ctx) h.Node
 pkg ui, func UploadTo(string) h.Node
 pkg ui, func With(...h.Node) FieldOpt
 pkg ui, method (Back) Render(io.Writer) error
+pkg ui, type AuditOpts struct
+pkg ui, type AuditOpts struct, Action string
+pkg ui, type AuditOpts struct, Actions []string
+pkg ui, type AuditOpts struct, Empty h.Node
+pkg ui, type AuditOpts struct, Export string
+pkg ui, type AuditOpts struct, ID string
+pkg ui, type AuditOpts struct, Params trilha.ListParams
+pkg ui, type AuditOpts struct, Total int
 pkg ui, type Back struct
 pkg ui, type Back struct, Href string
 pkg ui, type Back struct, Label string

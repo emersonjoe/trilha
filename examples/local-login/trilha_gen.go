@@ -9,6 +9,8 @@ import (
 
 	trilha "github.com/emersonjoe/trilha"
 	app "github.com/emersonjoe/trilha/examples/local-login/app"
+	app_auditoria "github.com/emersonjoe/trilha/examples/local-login/app/auditoria"
+	app_auditoria_csv "github.com/emersonjoe/trilha/examples/local-login/app/auditoria/csv"
 	app_entrar "github.com/emersonjoe/trilha/examples/local-login/app/entrar"
 	app_painel "github.com/emersonjoe/trilha/examples/local-login/app/painel"
 	app_painel_eventos "github.com/emersonjoe/trilha/examples/local-login/app/painel/eventos"
@@ -33,6 +35,20 @@ func newApp() *trilha.App {
 		Pattern: "/",
 		Page:    app.Page,
 		Layouts: []trilha.LayoutFunc{app.Layout},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/auditoria",
+		Page:        app_auditoria.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app_auditoria.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/auditoria/csv",
+		Kind:    app.Kind,
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_auditoria_csv.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app_auditoria.Middleware},
 	})
 	a.Register(trilha.Route{
 		Pattern: "/entrar",

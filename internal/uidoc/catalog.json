@@ -1,5 +1,64 @@
 [
   {
+    "name": "AuditOpts",
+    "kind": "type",
+    "group": "audit",
+    "signature": "type AuditOpts struct",
+    "doc": "AuditOpts is the screen around the trail: how much of it there is, what can\nbe filtered, and where the export lives.",
+    "summary": "AuditOpts is the screen around the trail: how much of it there is, what can be filtered, and where the export lives.",
+    "fields": [
+      {
+        "name": "Params",
+        "type": "trilha.ListParams",
+        "doc": "Params is what Bind read from the query — the same ListParams the listing of any other screen uses, so ordering and paging are in the address and the back button works."
+      },
+      {
+        "name": "Total",
+        "type": "int",
+        "doc": "Total is how many records the filter matched, for the pagination."
+      },
+      {
+        "name": "ID",
+        "type": "string",
+        "doc": "ID is the fragment the table swaps into; empty uses \"auditoria\"."
+      },
+      {
+        "name": "Actions",
+        "type": "[]string",
+        "doc": "Actions fills the action filter."
+      },
+      {
+        "name": "Action",
+        "type": "string",
+        "doc": "Action is the one currently chosen, so the select comes back on the option that is filtering."
+      },
+      {
+        "name": "Export",
+        "type": "string",
+        "doc": "Export is the address that downloads this same selection as a spreadsheet — a route answering with Ctx.CSV."
+      },
+      {
+        "name": "Empty",
+        "type": "h.Node",
+        "doc": "Empty replaces the default empty state."
+      }
+    ]
+  },
+  {
+    "name": "AuditTable",
+    "kind": "func",
+    "group": "audit",
+    "signature": "AuditTable(c *trilha.Ctx, records []trilha.AuditRecord, opts ...AuditOpts) h.Node",
+    "doc": "AuditTable is the screen every application with c.Audit ends up writing by\nhand: who did what, to what, when and from where.\n\nIt is a DataTable underneath, which is the point: the filter form, the\nordering links, the pagination and the fragment swap are the ones every\nother listing already has, and a trail that behaved differently from the\nrest of the app would be a second thing to learn.\nReading the records is the application's job. Config.AuditSink is a write\ninterface with one method, and it stays that way: the framework has no\ndatabase, and the query behind this screen — a period, an actor, a table\nthis app chose — is not something it could write.\nFields is a detail and not a column. Each action carries its own keys, so a\ncolumn per key is a table that grows a column every time somebody audits\nsomething new.",
+    "summary": "AuditTable is the screen every application with c.Audit ends up writing by hand: who did what, to what, when and from where.",
+    "example": "regs, total, err := auditoria.Buscar(c, q)\nif err != nil {\n\treturn nil, err\n}\nreturn ui.AuditTable(c, regs, ui.AuditOpts{\n\tParams: q.ListParams,\n\tTotal:  total,\n\tExport: \"/auditoria.csv\",\n}), nil\n\n\n\n\nsee: trilha.Ctx.Audit, ui.DataTable, trilha.Ctx.CSV",
+    "see": [
+      "trilha.Ctx",
+      "ui.AuditOpts",
+      "ui.DataTable"
+    ]
+  },
+  {
     "name": "Datum",
     "kind": "type",
     "group": "chart",

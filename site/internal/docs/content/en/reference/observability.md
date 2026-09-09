@@ -186,6 +186,47 @@ Nobody recognised is recorded as `anonymous`, and it is recorded — an audit tr
 drops the anonymous action has a hole exactly where somebody would look. `trilha audit` warns
 when `c.Audit` is called in a project where no route requires a session.
 
+### The screen
+
+`ui.AuditTable` is the screen every application with `c.Audit` ends up writing by hand: who did
+what, to what, when and from where.
+
+```go
+regs, total := auditoria.Buscar(q)
+return ui.AuditTable(c, regs, ui.AuditOpts{
+	Params:  q.ListParams,
+	Total:   total,
+	Actions: auditoria.Acoes(),
+	Action:  q.Acao,
+	Export:  "/auditoria/csv",
+}), nil
+```
+
+It is a `ui.DataTable` underneath, and that is the point: the filter form, the ordering links,
+the pagination and the fragment swap are the ones every other listing already has. A trail that
+behaved differently from the rest of the app would be a second thing to learn.
+
+**Reading the trail is the application's job.** `Config.Audit` is a write interface with one
+method and stays that way — the framework has no database, and the query behind this screen (a
+period, an actor, a table this app chose) is not something it could write. The example's is
+thirty lines over a slice.
+
+`Fields` is a detail and not a column: each action carries its own keys, so a column per key is
+a table that grows a column every time somebody audits something new.
+
+`Export` points at a route answering with `c.CSV`, and the button carries the query that is on
+screen — an export that ignores the filter in front of somebody is an export of the wrong thing,
+and they only find out in the spreadsheet.
+
+:::warning
+The trail is the list of everybody's actions, so **reading it is an administrative act**. Put
+the screen behind the same guard as the rest of the administration, and put the export
+**inside** the guarded folder — a download is a different response, not a different permission.
+In [`examples/local-login`](https://github.com/emersonjoe/trilha/tree/main/examples/local-login/app/auditoria)
+`/auditoria/csv` inherits the folder's middleware without saying a word about it; outside the
+folder it would have been the one address handing the whole trail to anybody.
+:::
+
 ### `Route` is the pattern
 
 `/documents/{id}`, not `/documents/42`. The concrete id is already in `Target`; the pattern is
