@@ -14,6 +14,8 @@ import (
 	app_auditoria "github.com/emersonjoe/trilha/examples/local-login/app/auditoria"
 	app_auditoria_csv "github.com/emersonjoe/trilha/examples/local-login/app/auditoria/csv"
 	app_chaves "github.com/emersonjoe/trilha/examples/local-login/app/chaves"
+	app_convite_token_ "github.com/emersonjoe/trilha/examples/local-login/app/convite/token_"
+	app_convites "github.com/emersonjoe/trilha/examples/local-login/app/convites"
 	app_entrar "github.com/emersonjoe/trilha/examples/local-login/app/entrar"
 	app_painel "github.com/emersonjoe/trilha/examples/local-login/app/painel"
 	app_painel_eventos "github.com/emersonjoe/trilha/examples/local-login/app/painel/eventos"
@@ -69,6 +71,23 @@ func newApp() *trilha.App {
 		},
 		Layouts:     []trilha.LayoutFunc{app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app_chaves.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/convite/{token}",
+		Page:    app_convite_token_.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_convite_token_.POST,
+		},
+		Layouts: []trilha.LayoutFunc{app.Layout},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/convites",
+		Page:    app_convites.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_convites.POST,
+		},
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app_convites.Middleware},
 	})
 	a.Register(trilha.Route{
 		Pattern: "/entrar",

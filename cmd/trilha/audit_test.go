@@ -399,3 +399,39 @@ func TestAuditoriaDoIframeEscritoAMao(t *testing.T) {
 		t.Fatal("quem usa o ui.Preview não devia ser avisado")
 	}
 }
+
+// O modo dev do trilha/mail escreve .eml numa pasta e diz onde. Em produção
+// isso é o convite que nunca sai, e ninguém descobre até alguém perguntar.
+func TestAuditoriaDeEmail(t *testing.T) {
+	acha := func(cs []check) (check, bool) {
+		for _, c := range cs {
+			if strings.Contains(strings.ToLower(c.title), "mail") {
+				return c, true
+			}
+		}
+		return check{}, false
+	}
+	escreve := func(t *testing.T, src string) string {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	manda := escreve(t, "package main\n\nvar Mail = mail.New(mail.FromEnv())\n")
+	nao := escreve(t, "package main\n")
+
+	t.Setenv("TRILHA_MAIL_URL", "")
+	if got, ok := acha(runAudit(&project{Root: manda}, false)); !ok || got.level != "warn" {
+		t.Errorf("app que manda e-mail sem servidor: %+v (achou: %v)", got, ok)
+	}
+	// Quem não manda e-mail não precisa ouvir sobre e-mail.
+	if _, ok := acha(runAudit(&project{Root: nao}, false)); ok {
+		t.Error("avisou sobre e-mail um app que não manda nenhum")
+	}
+	t.Setenv("TRILHA_MAIL_URL", "smtp://smtp.org.br:587")
+	if got, ok := acha(runAudit(&project{Root: manda}, false)); !ok || got.level != "ok" {
+		t.Errorf("com servidor: %+v", got)
+	}
+}

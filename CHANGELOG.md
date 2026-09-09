@@ -3,6 +3,52 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.63.0 — 2026-09-09
+
+Spec 081.
+
+### Added
+
+- **`trilha/mail` — the messages an app actually sends** ([#113](https://github.com/emersonjoe/trilha/issues/113)).
+  Every internal application mails somebody: the invitation, the link, the notice that a flow
+  finished. The framework said nothing about it, so what got written was `net/smtp` inside the
+  handler — and the questions that stops on are never about the product. 587 or 465. STARTTLS or
+  implicit TLS. PLAIN or LOGIN. How to write a body without going back to 2003 tables. How to
+  test without mailing a real person.
+
+  The worst one is invisible: **`smtp.SendMail` has no deadline**, so a slow server pins the
+  handler until TCP gives up, which the visitor sees as a page that spins. Here the deadline is
+  the context's, on the connection, and a handler that gave up hangs up.
+
+  **The body is an `h.Node`** — the same nodes the pages are written with — and every message
+  goes out `multipart/alternative` with **the plain text generated from that same node**, so a
+  client with no HTML reads it whole and a link becomes `text <https://…>` instead of
+  disappearing. `mail.Layout` is the transactional email nobody should write twice: a centred
+  table, widths in pixels, every rule inline, because Outlook renders with Word and Gmail strips
+  `<style>` out of the head.
+
+  Authentication never happens over a clear channel unless somebody types
+  `SMTP.AllowInsecureAuth`: a server offering `PLAIN` unencrypted is misconfigured, not an
+  invitation. `Bcc` is a recipient of the envelope and of no header. The headers the package
+  writes cannot be replaced through `Message.Headers`.
+
+  With `TRILHA_MAIL_URL` unset, **dev writes `.eml` files into `./mail`** — the format a client
+  opens by double-clicking — and **production answers `mail.ErrNotConfigured`**. That asymmetry
+  is the point: an app that quietly files invitations into a directory is an app whose users are
+  never invited, and nobody finds out for a week. `trilha audit` warns about exactly that.
+
+  `mail.Outbox` is how an application tests it: in memory, already taken apart into text and
+  HTML, no network and no container. It lives in the package and not in a `_test.go` because a
+  non-test package cannot import `testing` — everything that imports it registers the test flags
+  in every binary of the project.
+
+  The SMTP client is exercised against a real server on a real socket with real TLS, because
+  that is the only way to prove STARTTLS was negotiated and that the password never left before
+  it. `examples/local-login` gained the whole invitation flow: `c.Link` for the capability, the
+  e-mail to deliver it, and an accept page in a folder of its own — a middleware guards its
+  folder and everything under it, so an accept page under the invite screen would have demanded
+  the session the invited person does not have yet.
+
 ## 0.62.0 — 2026-09-09
 
 Spec 080.

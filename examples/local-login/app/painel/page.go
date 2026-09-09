@@ -28,6 +28,14 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		// know is that the call goes out with it.
 		h.P(h.Text("As chamadas a /api/ saem com o token desta sessão.")),
 		agora(),
+		// Quem administra usuários vê as telas de administrar. Esconder é
+		// cosmético — quem guarda é o middleware de cada pasta —, mas um menu
+		// que mostra o que a pessoa não pode fazer é um 403 marcado.
+		h.If(sessao.Pode(c, "usuarios", "editar"), h.P(
+			h.A(h.Href("/convites"), h.Text("Convidar alguém")),
+			h.Text(" · "),
+			h.A(h.Href("/permissoes"), h.Text("Permissões")),
+		)),
 		ui.LiveScript(c),
 	), nil
 }

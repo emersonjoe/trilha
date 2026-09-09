@@ -103,6 +103,17 @@ func runAudit(p *project, vuln bool) []check {
 	if strings.Contains(src, "0.0.0.0/0") || strings.Contains(os.Getenv("TRILHA_OBS_TRUSTED"), "0.0.0.0/0") {
 		add("warn", t("obs open"), t("obs open hint"))
 	}
+	// Mail. The dev mode writes .eml files into a directory and says so, which
+	// is exactly right on a laptop and silent data loss in production: nobody
+	// finds out the invitations were never sent until somebody asks why they
+	// never arrived.
+	if strings.Contains(src, "mail.New(") || strings.Contains(src, "mail.FromEnv(") {
+		if os.Getenv("TRILHA_MAIL_URL") == "" {
+			add("warn", t("mail unset"), t("mail unset hint"))
+		} else {
+			add("ok", t("mail ok"), "")
+		}
+	}
 	if !strings.Contains(src, ".Check(") {
 		add("warn", t("no checks"), t("no checks hint"))
 	} else {

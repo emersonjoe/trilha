@@ -1,179 +1,211 @@
 ---
 title: E-mail
-description: One interface the handlers call, SMTP behind it in production, the log in dev, a body from a template, and headers that refuse to be injected.
+description: trilha/mail — the body is an h.Node, the plain text writes itself, dev writes .eml files, and a test asserts on what was sent without a server.
 ---
 
 Sending mail is three problems wearing one coat: talking to a server, assembling a message
-that is valid, and not sending anything from a test. Only the first is about SMTP.
+that is valid, and not sending anything from a test. `trilha/mail` answers all three, and the
+part worth reading is which decisions it takes away from you.
 
-## The seam
+## The mailer
 
 ```go
-// Mailer is what the handlers call. They never learn which one they got,
-// which is the whole point: the test and the dev server do not send mail.
-type Mailer interface {
-	Send(ctx context.Context, to []string, subject, body string) error
+// Mailer is the one an app holds: built once, at startup, from the
+// environment. New opens no connection and reads no file, so it belongs in a
+// var and not behind a sync.Once.
+var Mailer = mail.New(mail.FromEnv())
+```
+
+`FromEnv` reads one variable:
+
+```bash
+TRILHA_MAIL_URL='smtp://user:senha@smtp.org.br:587?from=Acervo <no-reply@org.br>'
+```
+
+Port 587 is STARTTLS, 465 (or `smtps://`) is implicit TLS. With the variable unset the
+behaviour depends on where the app is running, and the difference is the point: in dev it
+writes `.eml` files into `./mail` and says where; anywhere else `Send` answers
+`mail.ErrNotConfigured`.
+
+That asymmetry is deliberate. A production app that quietly files invitations into a
+directory is an app whose users are never invited, and nobody finds out for a week.
+
+## Sending
+
+```go
+// SendWelcome is what a handler calls. The message is an h.Node — the same
+// nodes the pages are written with — and mail.Layout is what keeps the tables
+// and the inline CSS out of here.
+func SendWelcome(c *trilha.Ctx, nome, email, link string) error {
+	return Mailer.Send(c.Context(), mail.Message{
+		To:      []string{email},
+		Subject: "Sua conta está pronta",
+		Body: mail.Layout("Acervo",
+			h.P(h.Textf("Olá, %s.", nome)),
+			mail.Button("Definir minha senha", link),
+			mail.Muted(h.Text("O link vale por uma hora.")),
+		),
+	})
 }
 ```
 
-An interface with one method, defined where it is used. The handlers never learn which
-implementation they got, which is the entire point: a test that signs a user up must not send
-mail to a real address.
+`mail.Layout` is a centred table with widths in pixels and every rule inline, because Outlook
+renders with Word — no flexbox, no grid, no float — and Gmail strips `<style>` out of the
+head. Writing that once here is what keeps it out of your application. `Button` is an `<a>`
+styled like a button: a form control in an email does nothing, and a link degrades to a link.
+
+Every message goes out as `multipart/alternative`, and **the plain text is generated from the
+same node**:
+
+```
+Acervo
+
+Olá, Ana.
+
+Definir minha senha <https://acervo.org.br/convite/abc123>
+
+O link vale por uma hora.
+```
+
+A link becomes `text <https://…>` rather than disappearing, which is what makes the message
+useful in a client that shows no HTML — and one fewer point of spam score. Write `Message.Text`
+yourself only when you want different words there.
+
+Headers travel Q-encoded and bodies quoted-printable, because a line of generated HTML goes
+past the 998 octets SMTP accepts, and a server that wraps it for you wraps it in the middle of
+a URL. `Bcc` is a recipient of the envelope and of no header. The headers this package writes
+cannot be replaced through `Message.Headers`: a message with two `From` lines is one some
+servers reject and others deliver to the wrong person.
+
+## The whole flow: an invitation
+
+`examples/local-login` invites somebody who has no account. The link is a capability with a
+deadline — `c.Link`, one use, 48 hours — and the e-mail is what delivers it:
 
 ```go
-// SetupMailer makes the choice once, at startup. Production without an
-// address configured fails to start, which is better than a sign-up that
-// silently sends nothing.
-func SetupMailer(a *trilha.App) error {
-	if a.Env() == trilha.Dev {
-		trilha.Provide[Mailer](a, LogMailer{Log: a.Logger()})
-		return nil
-	}
-	addr, from := os.Getenv("SMTP_ADDR"), os.Getenv("SMTP_FROM")
-	if addr == "" || from == "" {
-		return errors.New("SMTP_ADDR and SMTP_FROM are required outside dev")
-	}
-	host, _, _ := strings.Cut(addr, ":")
-	trilha.Provide[Mailer](a, SMTPMailer{
-		Addr: addr,
-		From: from,
-		Auth: smtp.PlainAuth("", os.Getenv("SMTP_USER"), os.Getenv("SMTP_PASSWORD"), host),
+// Convite is the message somebody receives before they have an account: the
+// only thing in it is the link, and the only thing the link needs to say is
+// who invited them and until when it works.
+func Convite(ctx context.Context, para, nome, quemConvidou, link string) error {
+	return Mailer.Send(ctx, mail.Message{
+		To:      []string{para},
+		Subject: "Você foi convidado para o " + Marca,
+		Body: mail.Layout(Marca,
+			h.P(h.Textf("%s convidou você para o %s.", quemConvidou, Marca)),
+			mail.Button("Criar minha senha", link),
+			mail.Muted(h.Text("O convite vale por 48 horas e só pode ser usado uma vez. "+
+				"Se o botão não funcionar, cole este endereço no navegador: "+link)),
+		),
 	})
+}
+```
+
+Two things in that example are worth copying. The accept page lives in its own folder, outside
+the one that invites: a middleware guards its folder **and everything under it**, so an accept
+page under the invite screen would demand the session the invited person does not have yet.
+And the address in the message is absolute, built from `TRILHA_BASE_URL` — an e-mail has no
+current page to be relative to.
+
+## Testing it
+
+`mail.Outbox` keeps messages in memory, already taken apart. A test asserts on the link inside
+the body, not on quoted-printable:
+
+```go
+// caixa põe um Outbox no lugar do remetente do app, que é como um aplicativo
+// testa e-mail: sem rede, sem contêiner, sem servidor SMTP falso.
+func caixa(t *testing.T) *mail.Outbox {
+	t.Helper()
+	box := &mail.Outbox{}
+	antes := correio.Mailer
+	correio.Mailer = mail.New(mail.Options{From: "Acervo <no-reply@exemplo.com>", Transport: box})
+	t.Cleanup(func() { correio.Mailer = antes })
+	return box
+}
+```
+
+```go
+	// O link vive no texto tanto quanto no HTML — é o que faz a mensagem
+	// funcionar num cliente que não mostra HTML.
+	link := extraiURL(t, msg.Text, "/convite/")
+	if !strings.Contains(msg.HTML, link) {
+		t.Fatal("o link do texto não é o mesmo do HTML")
+	}
+```
+
+:::note
+It is `Outbox` and not `mail.Sent(t)` because a package that is not a test package cannot
+import `testing`: everything that imports it registers the test flags in every binary of the
+project, and `-test.v` on a web server is a surprising thing to ship.
+:::
+
+## Another provider
+
+`Transport` is one method, and that is the extension point. An app that sends through an HTTP
+API writes this instead of the framework carrying a driver for every provider:
+
+```go
+// Deliver implements mail.Transport.
+func (r Resend) Deliver(ctx context.Context, from string, to []string, raw []byte) error {
+	body, err := json.Marshal(map[string]any{"from": from, "to": to, "raw": string(raw)})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+r.Key)
+	req.Header.Set("Content-Type", "application/json")
+	cli := r.HTTP
+	if cli == nil {
+		cli = &http.Client{Timeout: 15 * time.Second}
+	}
+	res, err := cli.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		detalhe, _ := io.ReadAll(io.LimitReader(res.Body, 512))
+		return fmt.Errorf("resend: %s: %s", res.Status, detalhe)
+	}
 	return nil
 }
 ```
 
 ```go
-// SendWelcome is the other end of the seam: a handler asks for the interface,
-// never for the implementation behind it. The type argument is what Provide
-// filed the value under, which is why it is written out here — LogMailer and
-// SMTPMailer are two answers to the same question.
-func SendWelcome(c *trilha.Ctx, name, email, link string) error {
-	return Welcome(c.Context(), trilha.Use[Mailer](c), name, email, link)
-}
-```
-
-`Provide` files the mailer under `Mailer`, the interface, and not under the struct that
-happens to be behind it today — that is what the type argument is for. A handler that asks
-for `Mailer` gets the log in dev and SMTP in production, and never learns the difference.
-
-Production without an address configured refuses to start. That is deliberate: a sign-up that
-silently sends nothing is discovered by a customer, and a process that will not boot is
-discovered by the deploy.
-
-## Sending
-
-```go
-// SMTPMailer sends through a real server.
-type SMTPMailer struct {
-	Addr string // "smtp.example.com:587"
-	From string
-	Auth smtp.Auth
-}
-```
-
-```go
-// Send hands the message to the server. smtp.SendMail takes no context, so
-// the deadline is honoured here: when the request gives up, the handler
-// returns and the goroutine finishes on its own.
-func (m SMTPMailer) Send(ctx context.Context, to []string, subject, body string) error {
-	msg, err := Message(m.From, to, subject, body)
-	if err != nil {
-		return err
+// SetupMailer picks the transport at startup: the provider when its key is
+// there, the environment's answer otherwise.
+func SetupMailer() *mail.Mailer {
+	o := mail.FromEnv()
+	if key := os.Getenv("RESEND_API_KEY"); key != "" {
+		o.Transport = Resend{Key: key}
 	}
-	done := make(chan error, 1)
-	go func() { done <- smtp.SendMail(m.Addr, m.Auth, m.From, to, msg) }()
-	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return mail.New(o)
 }
 ```
 
-`smtp.SendMail` takes no context, and a mail server that stops answering would otherwise hold
-the request until the write timeout. The `select` gives the deadline back to the handler; the
-goroutine finishes on its own.
+The message arrives already assembled — headers, multipart, encoding — so what is left is the
+HTTP call.
 
-:::note
-Port 587 with `PlainAuth` means STARTTLS, and `net/smtp` refuses plain authentication on a
-connection that is not encrypted — that refusal is a feature. Port 465 is implicit TLS, which
-`net/smtp` does not do on its own: dial with `tls.Dial` and use `smtp.NewClient`.
+## What is tested
+
+The unit tests build messages and read them back with `net/mail` and `mime/multipart`, so what
+is asserted is what a client would parse and not what this package meant to write.
+
+The SMTP client is exercised against **a real server on a real socket with real TLS**, because
+that is the only way to prove the interesting parts: that STARTTLS was actually negotiated,
+that the password never left before it, and that `AUTH LOGIN` works with the servers that only
+speak it. A fake transport would have proved that the package calls its own methods.
+
+:::warning
+`SMTP.AllowInsecureAuth` sends the password over a connection that was never encrypted. It is
+off, and it stays off unless somebody types the field: a server that offers `PLAIN` on a clear
+channel is a server misconfigured, not a reason to comply.
 :::
 
-## The message
+## What the audit says
 
-```go
-// Message assembles the bytes of RFC 5322. A newline inside a header is how
-// a form field becomes a second Bcc:, so anything that came from outside is
-// refused rather than escaped.
-func Message(from string, to []string, subject, body string) ([]byte, error) {
-	for _, v := range append([]string{from, subject}, to...) {
-		if strings.ContainsAny(v, "\r\n") {
-			return nil, errors.New("cookbook: header injection")
-		}
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "From: %s\r\n", from)
-	fmt.Fprintf(&b, "To: %s\r\n", strings.Join(to, ", "))
-	fmt.Fprintf(&b, "Subject: %s\r\n", mime.QEncoding.Encode("utf-8", subject))
-	b.WriteString("MIME-Version: 1.0\r\n")
-	b.WriteString("Content-Type: text/plain; charset=utf-8\r\n\r\n")
-	b.WriteString(strings.ReplaceAll(body, "\n", "\r\n"))
-	return []byte(b.String()), nil
-}
-```
-
-The loop at the top is the only security check in this file and the one that is usually
-missing. A newline inside a header is how a "name" field from a form becomes a second `Bcc:` —
-your server, someone else's mailing list. Refusing is right; escaping is a guess.
-
-The body comes from `text/template`, not `html/template`:
-
-```go
-// welcome is text/template, not html/template: what is being escaped here
-// is nothing, and HTML escaping in a plain-text mail turns an apostrophe
-// into &#39;.
-var welcome = template.Must(template.New("welcome").Parse(
-	`Hello, {{.Name}}.
-
-Your account is ready. Set your password here:
-{{.URL}}
-
-This link is good for one hour.
-`))
-```
-
-```go
-// Welcome renders the body and sends it.
-func Welcome(ctx context.Context, m Mailer, name, email, link string) error {
-	var b strings.Builder
-	if err := welcome.Execute(&b, struct{ Name, URL string }{name, link}); err != nil {
-		return err
-	}
-	return m.Send(ctx, []string{email}, "Welcome", b.String())
-}
-```
-
-HTML escaping in a plain-text mail turns an apostrophe into `&#39;` in somebody's inbox. If
-you send a multipart HTML mail, then `html/template` is right for that part — and the plain
-one still goes along, because a lot of clients show it.
-
-## In dev
-
-```go
-// LogMailer is the implementation for dev and tests: it writes the message
-// to the log. Nobody's inbox learns about your fixtures.
-type LogMailer struct{ Log *slog.Logger }
-
-```
-
-The whole message in the log, including the link, which is what you actually need when you are
-testing a password reset for the fifth time.
-
-:::tip
-Two other implementations pay for themselves: one that collects messages in a slice, for
-tests to assert on, and one that writes `.eml` files to a directory so you can open them in a
-mail client.
-:::
+`trilha audit` warns when the code sends mail and `TRILHA_MAIL_URL` is empty. The dev mode is
+good for developing and a terrible discovery in production.

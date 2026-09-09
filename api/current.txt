@@ -1054,6 +1054,55 @@ pkg h, func Width(string) Node
 pkg h, type Node interface
 pkg h, type Node interface, Render(io.Writer) error
 pkg h, var Nil Node
+pkg mail, func Button(string, string) h.Node
+pkg mail, func FromEnv() Options
+pkg mail, func Layout(string, ...h.Node) h.Node
+pkg mail, func Muted(...h.Node) h.Node
+pkg mail, func New(Options) *Mailer
+pkg mail, func PlainText(h.Node) string
+pkg mail, method (*Mailer) Send(context.Context, Message) error
+pkg mail, method (*Outbox) Deliver(context.Context, string, []string, []byte) error
+pkg mail, method (*Outbox) Last() Sent
+pkg mail, method (*Outbox) Messages() []Sent
+pkg mail, method (*Outbox) Reset()
+pkg mail, method (*SMTP) Deliver(context.Context, string, []string, []byte) error
+pkg mail, method (Dir) Deliver(context.Context, string, []string, []byte) error
+pkg mail, type Dir string
+pkg mail, type Mailer struct
+pkg mail, type Message struct
+pkg mail, type Message struct, Bcc []string
+pkg mail, type Message struct, Body h.Node
+pkg mail, type Message struct, Cc []string
+pkg mail, type Message struct, From string
+pkg mail, type Message struct, Headers map[string]string
+pkg mail, type Message struct, ReplyTo string
+pkg mail, type Message struct, Subject string
+pkg mail, type Message struct, Text string
+pkg mail, type Message struct, To []string
+pkg mail, type Options struct
+pkg mail, type Options struct, From string
+pkg mail, type Options struct, Logger *slog.Logger
+pkg mail, type Options struct, Timeout time.Duration
+pkg mail, type Options struct, Transport Transport
+pkg mail, type Outbox struct
+pkg mail, type SMTP struct
+pkg mail, type SMTP struct, Addr string
+pkg mail, type SMTP struct, AllowInsecureAuth bool
+pkg mail, type SMTP struct, ImplicitTLS bool
+pkg mail, type SMTP struct, Pass string
+pkg mail, type SMTP struct, TLS *tls.Config
+pkg mail, type SMTP struct, User string
+pkg mail, type Sent struct
+pkg mail, type Sent struct, At time.Time
+pkg mail, type Sent struct, From string
+pkg mail, type Sent struct, HTML string
+pkg mail, type Sent struct, Raw []byte
+pkg mail, type Sent struct, Subject string
+pkg mail, type Sent struct, Text string
+pkg mail, type Sent struct, To []string
+pkg mail, type Transport interface
+pkg mail, type Transport interface, Deliver(context.Context, string, []string, []byte) error
+pkg mail, var ErrNotConfigured
 pkg tmpl, func HTML(h.Node) (template.HTML, error)
 pkg tmpl, func Must(fs.FS, ...string) *template.Template
 pkg tmpl, func Node(*template.Template, string, any) h.Node
