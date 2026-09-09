@@ -162,6 +162,50 @@ Conteúdo na mesma origem é seguro só até onde os cabeçalhos que você lembr
 origem é segura porque o navegador não deixa ela encostar no seu site.
 :::
 
+## Mostrando
+
+Baixar não é pré-visualizar: a tela que todo app de documentos tem põe o arquivo ao lado do que
+se sabe sobre ele. Quem desenha é o `ui.Preview`; quem permite é o `c.Inline`.
+
+```go
+// ShowFile is the other half of handing a file back: the screen that shows it
+// beside what is known about it, instead of a download and a guess.
+//
+// c.Inline is what makes this possible, and it is the half people miss: the
+// framed answer is what refuses to be framed. Every response carries
+// X-Frame-Options: DENY and frame-ancestors 'none', and Inline relaxes that
+// pair to same-origin on this one response. A page that adds frame-src to its
+// own policy while the file still says DENY gets a blank frame and a console
+// message about a policy it did not write.
+func ShowFile(c *trilha.Ctx, name, ctype string) error {
+	f, err := os.Open(filepath.Join(UploadDir, name))
+	if err != nil {
+		return trilha.Errorf(http.StatusNotFound, "file not found")
+	}
+	defer f.Close()
+	if c.Query("raw") != "" {
+		return c.Inline(name, f, ctype)
+	}
+	return c.Render(http.StatusOK, ui.Preview(c, "?raw=1", ui.PreviewOpts{
+		Title:    name,
+		Type:     ctype,
+		Download: "?download=1",
+	}))
+}
+```
+
+A metade que todo mundo erra é qual lado recusa. Toda resposta leva `X-Frame-Options: DENY` e
+`frame-ancestors 'none'`; o `Inline` afrouxa esse par para a mesma origem **naquela resposta
+só**. Acrescentar `frame-src 'self'` na página que enquadra não muda nada enquanto o arquivo
+enquadrado continua dizendo DENY — o navegador recusa em nome da resposta enquadrada, e o
+console cita a política dela, não a sua.
+
+O `ui.Preview` também decide o que o navegador consegue fazer com o tipo: imagem vira `<img>`
+(clicar abre no tamanho real), PDF vira quadro, e o que o `Inline` recusa — HTML, SVG, XML —
+vira um cartão dizendo que não dá para pré-visualizar, com o botão de baixar, em vez de um
+quadro em branco que não explica nada.
+
+
 ## Onde os arquivos moram
 
 `UploadDir` é um diretório fora de `public/`, e fora da árvore do binário:

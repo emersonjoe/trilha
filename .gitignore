@@ -3,3 +3,6 @@ bin/
 *.test
 coverage.out
 /trilha
+# Binário de um `go build` solto: no Windows ele cai na raiz com o nome do
+# pacote, e foi assim que um blog.exe quase entrou num commit.
+*.exe

@@ -883,6 +883,56 @@
     ]
   },
   {
+    "name": "PreviewOpts",
+    "kind": "type",
+    "group": "preview",
+    "signature": "type PreviewOpts struct",
+    "doc": "PreviewOpts is the file being shown and the two ways out of it.",
+    "summary": "PreviewOpts is the file being shown and the two ways out of it.",
+    "fields": [
+      {
+        "name": "Title",
+        "type": "string",
+        "doc": "Title names the document."
+      },
+      {
+        "name": "Type",
+        "type": "string",
+        "doc": "Type is the media type, so the preview knows whether it is an image, a document a browser renders, or something nobody can show."
+      },
+      {
+        "name": "Height",
+        "type": "string",
+        "doc": "Height is how tall the frame is."
+      },
+      {
+        "name": "Download",
+        "type": "string",
+        "doc": "Download is the address that sends the file as a download — a route that answers with Ctx.Attachment."
+      },
+      {
+        "name": "NoOpen",
+        "type": "bool",
+        "doc": "NoOpen removes the \"open in a new tab\" link."
+      }
+    ]
+  },
+  {
+    "name": "Preview",
+    "kind": "func",
+    "group": "preview",
+    "signature": "Preview(c *trilha.Ctx, src string, opts ...PreviewOpts) h.Node",
+    "doc": "Preview shows a file beside its metadata: the bar, the frame, and a way out.\n\nWhat it does that a hand-written \u003ciframe\u003e does not:\nAn image is an \u003cimg\u003e, not a frame, and clicking it opens the full size — a\nframe around a photograph is a scrollbar around a photograph.\nA type no browser shows in place — HTML, SVG, anything Ctx.Inline refuses —\nis a card saying so, with the download button, instead of a frame that\nrenders blank and explains nothing.\nThe frame is sandboxed, lazy and named, and src must be served with\nCtx.Inline: that is the response that says it may be framed by a page of\nthis origin. A file served any other way carries the default\nX-Frame-Options: DENY, and the frame stays blank however the page around it\nis configured — the browser blames the framed answer, not the page.",
+    "summary": "Preview shows a file beside its metadata: the bar, the frame, and a way out.",
+    "example": "ui.Preview(c, \"/documents/\"+id+\"/file\", ui.PreviewOpts{\n\tTitle:    doc.Filename,\n\tType:     doc.MIME,\n\tDownload: \"/documents/\" + id + \"/download\",\n})\n\n\n\n\n\nsee: trilha.Ctx.Inline, trilha.CanInline, ui.Empty",
+    "see": [
+      "trilha.CanInline",
+      "trilha.Ctx",
+      "ui.Empty",
+      "ui.PreviewOpts"
+    ]
+  },
+  {
     "name": "SchemaForm",
     "kind": "func",
     "group": "schema",

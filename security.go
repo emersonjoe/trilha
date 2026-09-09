@@ -185,3 +185,29 @@ func NonceAttr(c *Ctx) h.Node {
 	}
 	return h.Attr("nonce", n)
 }
+
+// allowSameOriginFrame lets this one response be shown inside a page of the
+// same origin. The default hardening sends X-Frame-Options: DENY and
+// frame-ancestors 'none' on everything, which is right for a page and wrong
+// for a document that exists to be framed: a PDF beside its metadata is the
+// screen every document application has.
+//
+// It touches this response only, and only the two headers that say who may
+// frame it — never the rest of the policy. An app that wrote its own
+// Security.CSP is left exactly as it is: a hand-written policy is a decision,
+// and quietly editing somebody's decision is worse than a blank iframe.
+func (c *Ctx) allowSameOriginFrame() {
+	s := &c.app.cfg.Security
+	if s.Delegated || s.CSP != "" {
+		return
+	}
+	h := c.w.Header()
+	if h.Get("X-Frame-Options") != "" {
+		h.Set("X-Frame-Options", "SAMEORIGIN")
+	}
+	csp := h.Get("Content-Security-Policy")
+	if csp == "" {
+		return
+	}
+	h.Set("Content-Security-Policy", strings.ReplaceAll(csp, "frame-ancestors 'none'", "frame-ancestors 'self'"))
+}

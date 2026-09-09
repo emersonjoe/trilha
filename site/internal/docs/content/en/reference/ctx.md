@@ -300,14 +300,19 @@ is free to re-interpret is a download that can become a page of this origin.
 
 `Inline` only accepts what a viewer renders — `application/pdf`, `image/*` (not SVG),
 `audio/*`, `video/*`, `text/plain`, `text/csv`. HTML, SVG and XML come back as a programming
-error, not as a response: they are documents with script, served from your own origin. The
-`<iframe>` also needs the app to say so, because the default policy is `frame-ancestors 'none'`:
+error, not as a response: they are documents with script, served from your own origin.
+`trilha.CanInline(ctype)` answers the same question, so a screen can offer the "view" link only
+where there is something to view.
 
-```go
-cfg.Security.CSPExtra = map[string][]string{"frame-src": {"'self'"}}
-```
+**The response says it may be framed by a page of this origin**, and that is the half everybody
+gets wrong. The default hardening sends `X-Frame-Options: DENY` and `frame-ancestors 'none'` on
+every answer; a document carrying those cannot be shown in place, whatever the page around it
+declares. Adding `frame-src` to the framing page changes nothing — the browser is refusing on
+behalf of the framed answer, and it says so in the console. `Inline` relaxes those two headers
+on that one response, and leaves an app that wrote its own `Security.CSP` exactly as it is.
 
-`Inline` does not loosen that from below.
+Drawing it is [`ui.Preview`](/reference/ui): the bar, the frame, the fallback for a type nobody
+can show, and an `<img>` instead of a frame for an image.
 
 A `body` that is an `io.ReadSeeker` — a `bytes.Reader`, an `os.File` — is written by
 `http.ServeContent`, so `Range`, `If-Range`, `304` and `HEAD` come for free and

@@ -20,6 +20,7 @@ pkg trilha, func BindCSV(io.Reader, any, ...CSVRules) (CSVResult, error)
 pkg trilha, func BindSchema(*Ctx, Schema) (map[string]string, error)
 pkg trilha, func CSRFInput(*Ctx) h.Node
 pkg trilha, func CSRFTokenFrom(*http.Request) string
+pkg trilha, func CanInline(string) bool
 pkg trilha, func CompileErrorPage(string) string
 pkg trilha, func ConfigFromEnv() Config
 pkg trilha, func Errorf(int, string, ...any) error
@@ -997,6 +998,7 @@ pkg ui, func Pagination(Pages) h.Node
 pkg ui, func PendingAfter(int) h.Node
 pkg ui, func PolicyGrid(Policy, PolicyGridOpts) h.Node
 pkg ui, func Poll(string, string) h.Node
+pkg ui, func Preview(*trilha.Ctx, string, ...PreviewOpts) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func Radio(...h.Node) h.Node
 pkg ui, func Relative() FormatOpt
@@ -1155,6 +1157,12 @@ pkg ui, type PolicyGridOpts struct, Labels map[string]string
 pkg ui, type PolicyGridOpts struct, None string
 pkg ui, type PolicyGridOpts struct, ReadOnly bool
 pkg ui, type PolicyGridOpts struct, Submit string
+pkg ui, type PreviewOpts struct
+pkg ui, type PreviewOpts struct, Download string
+pkg ui, type PreviewOpts struct, Height string
+pkg ui, type PreviewOpts struct, NoOpen bool
+pkg ui, type PreviewOpts struct, Title string
+pkg ui, type PreviewOpts struct, Type string
 pkg ui, type ShellOpts struct
 pkg ui, type ShellOpts struct, Brand h.Node
 pkg ui, type ShellOpts struct, Current string

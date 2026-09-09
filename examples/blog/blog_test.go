@@ -382,7 +382,7 @@ func TestAnexoBaixaEAbre(t *testing.T) {
 	c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento).WantStatus(200)
 
 	// A lista oferece baixar e, para o que abre, ver.
-	c.Get("/anexos").WantStatus(200).WantContains(`href="/anexos/relat%C3%B3rio%20%22final%22.txt"`, "?ver=1")
+	c.Get("/anexos").WantStatus(200).WantContains(`href="/anexos/relat%C3%B3rio%20%22final%22.txt"`, "/ver\"")
 
 	const url = "/anexos/relat%C3%B3rio%20%22final%22.txt"
 	baixa := c.Get(url)
@@ -401,6 +401,47 @@ func TestAnexoBaixaEAbre(t *testing.T) {
 	}
 
 	c.Get("/anexos/nao-existe.txt").WantStatus(404)
+}
+
+// Issue #102: quem bloqueia o iframe é a resposta enquadrada, não a página. O
+// c.Inline é o que diz que aquele documento pode ser mostrado dentro de uma
+// página desta mesma origem — e o resto das respostas continua com DENY.
+func TestPreviewMostraOArquivoNoLugar(t *testing.T) {
+	c := newClient(t, "prod")
+	body, ct := multipart(t, "nota.txt", "linha um\n")
+	c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento).WantStatus(200)
+
+	tela := c.Get("/anexos/nota.txt/ver")
+	tela.WantStatus(200).WantContains(
+		`class="ui-preview"`,
+		`<iframe class="ui-preview-frame" src="/anexos/nota.txt?ver=1"`,
+		`title="nota.txt"`,
+		// Texto fica com o sandbox; o PDF não, porque o visualizador do
+		// navegador recusa rodar dentro de um.
+		`sandbox="allow-same-origin"`,
+		"Baixar",
+		"Abrir em nova aba",
+	)
+
+	// A resposta enquadrada é a que precisa permitir: sem isto o quadro fica
+	// branco e o console culpa o frame-ancestors do arquivo, não a página.
+	arquivo := c.Get("/anexos/nota.txt?ver=1")
+	if xfo := arquivo.Header().Get("X-Frame-Options"); xfo != "SAMEORIGIN" {
+		t.Fatalf("X-Frame-Options do inline = %q", xfo)
+	}
+	if csp := arquivo.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "frame-ancestors 'self'") {
+		t.Fatalf("CSP do inline = %q", csp)
+	}
+
+	// E o download continua recusando ser enquadrado: a folga é do inline, não
+	// da app inteira.
+	baixa := c.Get("/anexos/nota.txt")
+	if xfo := baixa.Header().Get("X-Frame-Options"); xfo != "DENY" {
+		t.Fatalf("X-Frame-Options do attachment = %q", xfo)
+	}
+	if csp := baixa.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "frame-ancestors 'none'") {
+		t.Fatalf("CSP do attachment = %q", csp)
+	}
 }
 
 // fragmento pede só o pedaço da página, como a fila do upload faz.

@@ -3,6 +3,55 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.52.0 — 2026-09-08
+
+Spec 070.
+
+### Fixed
+
+- **`Inline` could not be shown in place, which is the one thing it exists for**
+  ([#102](https://github.com/emersonjoe/trilha/issues/102)). Every response goes out with
+  `X-Frame-Options: DENY` and `frame-ancestors 'none'`, and a document carrying those cannot be
+  framed by anything, including a page of the same app. `Inline` now relaxes that pair to
+  same-origin **on that one response**. `Attachment` keeps `DENY`; an app that wrote its own
+  `Security.CSP`, or marked `Security.Delegated`, is left exactly as it was.
+
+  **The advice this repository gave for the blank iframe was wrong, in four places** — the
+  `Inline` doc comment, the `Ctx` reference in both languages, and the "From Next.js" recipe.
+  All of them said to add `frame-src 'self'` to `Security.CSPExtra` on the page doing the
+  framing. The default policy already has `default-src 'self'`, which covers `frame-src`: the
+  page was never the problem. Anybody who followed it changed a policy that was not blocking
+  anything, kept the blank frame, and lost the trail. The browser had been saying so all along:
+  *"Framing … violates the following Content Security Policy directive: frame-ancestors
+  'none'"* — the framed answer's policy, not the page's.
+
+### Added
+
+- **`ui.Preview`** — the file beside its metadata, which is the screen every document
+  application has. A bar with the title, download and "open in a new tab"; a frame for what a
+  browser renders; an `<img>` for an image, where a click opens the full size (the zoom, with
+  no script); and for a type `Inline` refuses — HTML, SVG, XML — a card saying it cannot be
+  previewed, with the download button, instead of a blank frame that explains nothing.
+
+  **The sandbox is chosen per type, and that was measured.** The browser's PDF viewer refuses to
+  run inside a sandboxed frame: the request comes back blocked and the frame is blank with
+  nothing in the console. The two flags that would bring it back — `allow-scripts` with
+  `allow-same-origin` — are precisely the pair that lets a same-origin document take its own
+  sandbox off, so the attribute would be a label and not a fence. A PDF is framed without one;
+  text and images keep `allow-same-origin`, which was verified rendering.
+
+- **`trilha.CanInline(ctype)`** answers, from outside, the question `Inline` answers inside: is
+  this a type a browser shows rather than runs. The blog example had a hand-written second copy
+  of that list, and the second copy is the one that falls behind.
+
+- **`trilha audit` warns about a hand-written `<iframe>`**, with the advice pointing at the
+  framed answer rather than at the page.
+
+### Changed
+
+- The Portuguese threat model was three rows shorter than the English one. The two missing rows
+  about downloads are back, and both now carry the row about framing.
+
 ## 0.51.0 — 2026-09-08
 
 Spec 069.

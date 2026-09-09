@@ -1,4 +1,4 @@
-/* trilha ui 599d4f4afc9e6ecf */
+/* trilha ui 81b00b854983fb6e */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -153,6 +153,15 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-list-check { width: 1px; white-space: nowrap; }
 /* The empty state (spec 065). The minimum height is so a fragment that comes
    back empty does not make the page jump. */
+/* Preview (spec 070): a barra, o quadro e a imagem. O quadro tem fundo próprio
+   porque um PDF que ainda não pintou sobre um fundo transparente parece um
+   buraco na página. */
+.ui-preview { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--card); }
+.ui-preview-bar { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; border-bottom: 1px solid var(--border); }
+.ui-preview-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-preview-frame { display: block; width: 100%; border: 0; background: var(--muted); }
+.ui-preview-image { display: block; padding: .75rem; text-align: center; }
+.ui-preview-image img { max-height: 70vh; border-radius: var(--radius-sm); }
 .ui-empty { display: grid; gap: .5rem; justify-items: center; text-align: center; padding: 2.5rem 1rem; min-height: 8rem; align-content: center; }
 .ui-empty-icon { color: var(--muted-foreground); opacity: .7; }
 .ui-empty-icon .ui-icon { width: 2rem; height: 2rem; }

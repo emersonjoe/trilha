@@ -162,6 +162,50 @@ own domain. Same-origin content is only ever as safe as the headers you remember
 origin is safe because the browser will not let it touch your site.
 :::
 
+## Showing it
+
+A download is not a preview: the screen every document application has puts the file beside its
+metadata. `ui.Preview` draws it, and `c.Inline` is what allows it.
+
+```go
+// ShowFile is the other half of handing a file back: the screen that shows it
+// beside what is known about it, instead of a download and a guess.
+//
+// c.Inline is what makes this possible, and it is the half people miss: the
+// framed answer is what refuses to be framed. Every response carries
+// X-Frame-Options: DENY and frame-ancestors 'none', and Inline relaxes that
+// pair to same-origin on this one response. A page that adds frame-src to its
+// own policy while the file still says DENY gets a blank frame and a console
+// message about a policy it did not write.
+func ShowFile(c *trilha.Ctx, name, ctype string) error {
+	f, err := os.Open(filepath.Join(UploadDir, name))
+	if err != nil {
+		return trilha.Errorf(http.StatusNotFound, "file not found")
+	}
+	defer f.Close()
+	if c.Query("raw") != "" {
+		return c.Inline(name, f, ctype)
+	}
+	return c.Render(http.StatusOK, ui.Preview(c, "?raw=1", ui.PreviewOpts{
+		Title:    name,
+		Type:     ctype,
+		Download: "?download=1",
+	}))
+}
+```
+
+The half people miss is which side refuses. Every response carries `X-Frame-Options: DENY` and
+`frame-ancestors 'none'`; `Inline` relaxes that pair to same-origin **on that one response**.
+Adding `frame-src 'self'` to the framing page changes nothing while the file it frames still
+says DENY — the browser refuses on behalf of the framed answer, and the console names its
+policy, not yours.
+
+`ui.Preview` also decides what a browser can do with the type: an image is an `<img>` (clicking
+it opens the full size), a PDF is a frame, and anything `Inline` refuses — HTML, SVG, XML — is a
+card saying it cannot be previewed, with the download button, instead of a blank frame that
+explains nothing.
+
+
 ## Where the files live
 
 `UploadDir` is a directory outside `public/`, and outside the binary's tree:

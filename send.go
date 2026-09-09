@@ -42,9 +42,16 @@ func (c *Ctx) Attachment(name string, body io.Reader, ctype string) error {
 // <iframe>, an image, a plain-text file. Anything the browser would run
 // instead of render (HTML, SVG, XML) is refused as a programming error.
 //
-// The iframe still needs the app to say so: the default policy is
-// frame-ancestors 'none', so add "frame-src": {"'self'"} to Security.CSPExtra
-// on the page that frames it. Inline does not loosen the policy from below.
+// This response says it may be framed by a page of this same origin: the
+// default hardening sends X-Frame-Options: DENY and frame-ancestors 'none' on
+// everything, and a document that carries those cannot be shown in place —
+// which is the one thing Inline exists to do. The relaxation is on this
+// response and on this origin only; every other response keeps DENY, and an
+// app that set Security.CSP or Security.Delegated itself is left alone.
+//
+// It is the framed answer that decides this, not the page around it: a page
+// adding frame-src to its own policy changes nothing while the document it
+// frames still refuses to be framed.
 func (c *Ctx) Inline(name string, body io.Reader, ctype string) error {
 	return c.send("inline", name, body, ctype, time.Time{})
 }
@@ -95,6 +102,9 @@ func (c *Ctx) send(kind, name string, body io.Reader, ctype string, mod time.Tim
 	h := c.w.Header()
 	h.Set("Content-Type", ctype)
 	h.Set("Content-Disposition", disposition(kind, name))
+	if kind == "inline" {
+		c.allowSameOriginFrame()
+	}
 	// A download that the browser is free to re-interpret is a download that
 	// can become a page of this origin.
 	h.Set("X-Content-Type-Options", "nosniff")
@@ -176,6 +186,14 @@ var inlineNever = map[string]bool{
 	"text/html":             true,
 	"application/xhtml+xml": true,
 }
+
+// CanInline reports whether Inline would accept this media type — whether a
+// browser shows it in place instead of running it. It is exported so a screen
+// can offer the "view" link only where there is something to view, without
+// keeping a second copy of the list that would drift from this one.
+//
+//	if trilha.CanInline(up.MIME) { … }
+func CanInline(ctype string) bool { return inlineOK(ctype) }
 
 func inlineOK(ctype string) bool {
 	kind, _, err := mime.ParseMediaType(ctype)

@@ -254,6 +254,14 @@ func runAudit(p *project, vuln bool) []check {
 		add("warn", t("live no auth"), t("live no auth hint"))
 	}
 
+	// A hand-written <iframe> (spec 070). The trap is not where it looks: the
+	// default hardening sends X-Frame-Options: DENY and frame-ancestors 'none'
+	// on every answer, so the framed document refuses, the frame is blank and
+	// the console blames a policy the developer did not write.
+	if handWrittenIframe(src) {
+		add("warn", t("iframe by hand"), t("iframe by hand hint"))
+	}
+
 	// Vendored JavaScript (spec 066). A file under public/vendor that
 	// vendor.lock does not name is third-party code the repository accepted
 	// without recording where it came from: nobody can tell a version bump
@@ -289,6 +297,14 @@ func runAudit(p *project, vuln bool) []check {
 		}
 	}
 	return out
+}
+
+// handWrittenIframe reports an <iframe> drawn by the app itself, with no
+// ui.Preview anywhere. Preview exists because the framed answer has to allow
+// being framed, and a page cannot fix that from outside.
+func handWrittenIframe(src string) bool {
+	return (strings.Contains(src, "h.Iframe(") || strings.Contains(src, "<iframe")) &&
+		!strings.Contains(src, "ui.Preview(")
 }
 
 // unpinnedVendor lists the modules in public/vendor that vendor.lock does not

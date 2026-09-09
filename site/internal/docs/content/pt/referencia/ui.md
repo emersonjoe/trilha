@@ -58,6 +58,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | o que o `trilha.BindCSV` recusou, por linha e coluna — veja [Planilhas (CSV)](/pt/receitas/planilhas) |
 | `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) |
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
+| `Preview(c, src, PreviewOpts{...})` | o arquivo ao lado do que se sabe dele: barra, quadro, imagem ou "não dá para pré-visualizar" — veja [Ctx](/pt/referencia/ctx) e [Uploads](/pt/receitas/uploads) |
 | `Defer(c, id, src, DeferOpts{...})` | serve a página agora e preenche esta parte um instante depois — veja [Fragmentos vivos](/pt/referencia/vivo) |
 | `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) |
 | `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |

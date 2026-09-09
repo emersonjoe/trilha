@@ -87,6 +87,9 @@ recopiada aqui.
 | Script inline injetado na página | CSP com nonce por requisição; `base-uri`, `form-action` e `frame-ancestors` fechados. |
 | Upload que não é o que diz ser | O tipo é detectado no conteúdo, nunca no nome nem no que o cliente anunciou (`FileRules.Accept`). |
 | Travessia de caminho, na entrada e na saída | `fs.FS` para os estáticos; o `Upload.Save` recusa nome que saia do diretório e grava com modo 0600. |
+| Download que o navegador roda em vez de guardar | O `Attachment` e o `Inline` põem o tipo a partir do conteúdo, mandam sempre `X-Content-Type-Options: nosniff`, e o `Inline` recusa HTML, SVG e XML de saída — documento com script servido da própria origem do app é XSS armazenado com passos a mais. |
+| Nome de arquivo que escreve um cabeçalho por conta | O nome de um download passa pelo mesmo saneador do nome de um upload e sai como `filename*` percent-encoded mais um `filename` ASCII entre aspas: aspa, separador ou quebra de linha no nome não conseguem acrescentar parâmetro nem linha. |
+| Documento enquadrado por uma página de outra origem | Toda resposta leva `X-Frame-Options: DENY` e `frame-ancestors 'none'`. O `Inline` — e só ele — afrouxa o par para a mesma origem naquela resposta, porque um documento que ninguém pode enquadrar não aparece no lugar, que é para o que o `Inline` existe. A folga nunca vale para uma página, para um download, nem para um app que escreveu o próprio `Security.CSP`. |
 
 ### Repúdio
 

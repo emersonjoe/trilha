@@ -367,3 +367,35 @@ func TestAuditoriaOlhaOVendorSemLock(t *testing.T) {
 		t.Fatalf("only the one nobody pinned: %v", got)
 	}
 }
+
+// Spec 070: o iframe escrito à mão. A armadilha não está onde parece — quem
+// recusa ser enquadrado é a resposta lá dentro —, então o aviso tem de dizer
+// isso, e sumir quando a app usa o ui.Preview.
+func TestAuditoriaDoIframeEscritoAMao(t *testing.T) {
+	tem := func(cs []check) bool {
+		for _, c := range cs {
+			if strings.Contains(c.title, "iframe") || strings.Contains(c.title, "IFrame") {
+				return true
+			}
+		}
+		return false
+	}
+	escreve := func(t *testing.T, src string) *project {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return &project{Root: dir}
+	}
+	t.Setenv("TRILHA_SECRET", strings.Repeat("k", 40))
+
+	mao := escreve(t, "package main\n\nvar x = h.Iframe(h.Src(\"/arquivo\"))\n")
+	if !tem(runAudit(mao, false)) {
+		t.Fatal("o iframe à mão devia virar aviso")
+	}
+	kit := escreve(t, "package main\n\nvar x = ui.Preview(c, \"/arquivo\", ui.PreviewOpts{})\n")
+	if tem(runAudit(kit, false)) {
+		t.Fatal("quem usa o ui.Preview não devia ser avisado")
+	}
+}

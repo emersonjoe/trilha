@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strings"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/blog/internal/anexos"
@@ -128,18 +127,6 @@ func mensagens(errs trilha.FieldErrors) []h.Node {
 	return out
 }
 
-// abrivel repete, do lado do desenho, a lista que o c.Inline aplica do lado do
-// servidor: PDF, imagem e texto simples abrem; o resto se baixa.
-func abrivel(tipo string) bool {
-	switch {
-	case tipo == "application/pdf", tipo == "text/plain":
-		return true
-	case strings.HasPrefix(tipo, "image/") && tipo != "image/svg+xml":
-		return true
-	}
-	return false
-}
-
 // lista é a lista de anexos, dentro do bloco trocado.
 func lista() h.Node {
 	itens := anexos.All()
@@ -156,8 +143,11 @@ func lista() h.Node {
 		}
 		// O link de ver só aparece para o que o c.Inline aceita: oferecer um
 		// "abrir" que o servidor vai recusar é oferecer um erro.
-		if abrivel(a.Tipo) {
-			linhas = append(linhas, h.Text(" "), h.A(h.Href(href+"?ver=1"), h.Class("ui-muted"), h.Text("ver")))
+		// O link de ver só aparece para o que o c.Inline aceita, e quem diz o
+		// que ele aceita é o próprio pacote: a lista escrita à mão aqui era uma
+		// segunda cópia, e a segunda cópia é a que fica para trás.
+		if trilha.CanInline(a.Tipo) {
+			linhas = append(linhas, h.Text(" "), h.A(h.Href(href+"/ver"), h.Class("ui-muted"), h.Text("ver")))
 		}
 		rows = append(rows, h.Li(linhas...))
 	}

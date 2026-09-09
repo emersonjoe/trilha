@@ -256,9 +256,10 @@ Um endereço é mais simples que um blob, e sobrevive a um recarregamento:
 // when the component unmounted early: here the browser asks for a URL and
 // gets a document.
 //
-// The frame still has to be allowed: the default policy is frame-ancestors
-// 'none', so the page that frames it adds "frame-src": {"'self'"} to
-// Security.CSPExtra.
+// Nothing else is needed for the <iframe>: Inline is the answer that says it
+// may be framed by a page of this origin. It is the framed document that
+// refuses, never the page around it — a page adding frame-src to its own
+// policy changes nothing while the file it frames still carries DENY.
 func Preview(c *trilha.Ctx) error {
 	f, err := os.Open("var/previews/" + c.Param("slug") + ".pdf")
 	if err != nil {
@@ -361,11 +362,10 @@ a alternativa é o que lê quem está com o script bloqueado.
 ```go
 // SetupPreviews is the last piece of the move. next.config.js had rewrites,
 // headers and a public/ folder; here public/ is served by the framework and
-// the rest is this: a mount for the generated files, and the one relaxation
-// the <iframe> of Preview needs.
+// the rest is this: a mount for the generated files. The <iframe> needs no
+// entry at all — that line used to be here, and it never did anything.
 func SetupPreviews(cfg *trilha.Config) {
 	cfg.Mounts = map[string]fs.FS{"/previews/": os.DirFS("var/previews")}
-	cfg.Security.CSPExtra = map[string][]string{"frame-src": {"'self'"}}
 }
 ```
 

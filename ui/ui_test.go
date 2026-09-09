@@ -138,7 +138,11 @@ func TestHeadAndAssets(t *testing.T) {
 	// text) and ui.Chat needs the bubbles. Both are paid by every page, which
 	// is why they are rules and not a second stylesheet — a chat that has to
 	// remember to load its own CSS renders wrong once.
-	if len(Asset("ui.css")) > 30<<10 || len(Asset("ui.js")) > 28<<10 {
+	// ui.css went to 32 KB in 0.52.0: ui.Preview needs the bar, the frame and
+	// the image (about 800 bytes), and it was 24 bytes from the old ceiling.
+	// The frame carries a background of its own on purpose — a PDF that has
+	// not painted yet, over a transparent one, reads as a hole in the page.
+	if len(Asset("ui.css")) > 32<<10 || len(Asset("ui.js")) > 28<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {

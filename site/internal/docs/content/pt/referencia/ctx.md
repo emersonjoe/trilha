@@ -303,13 +303,19 @@ reinterpretar é um download que vira página desta origem.
 O `Inline` só aceita o que um visor mostra — `application/pdf`, `image/*` (SVG não),
 `audio/*`, `video/*`, `text/plain`, `text/csv`. HTML, SVG e XML voltam como erro de
 programação, não como resposta: são documentos com script, servidos da sua própria origem. O
-`<iframe>` também precisa que o app diga, porque a política padrão é `frame-ancestors 'none'`:
+`trilha.CanInline(ctype)` responde a mesma pergunta, para uma tela oferecer o "ver" só onde há
+o que ver.
 
-```go
-cfg.Security.CSPExtra = map[string][]string{"frame-src": {"'self'"}}
-```
+**A resposta é que diz que pode ser enquadrada por uma página desta origem**, e é essa a metade
+que todo mundo erra. O endurecimento padrão manda `X-Frame-Options: DENY` e
+`frame-ancestors 'none'` em toda resposta; um documento que carrega isso não aparece no lugar,
+não importa o que a página em volta declare. Acrescentar `frame-src` na página que enquadra não
+muda nada — quem recusa é a resposta enquadrada, e o console diz isso. O `Inline` afrouxa esses
+dois cabeçalhos naquela resposta só, e deixa em paz o app que escreveu o próprio
+`Security.CSP`.
 
-O `Inline` não afrouxa isso por baixo.
+Quem desenha é o [`ui.Preview`](/pt/referencia/ui): a barra, o quadro, o cartão para o tipo que
+ninguém mostra, e um `<img>` no lugar do quadro quando é imagem.
 
 Um `corpo` que é `io.ReadSeeker` — um `bytes.Reader`, um `os.File` — sai pelo
 `http.ServeContent`, então `Range`, `If-Range`, `304` e `HEAD` vêm de graça e o

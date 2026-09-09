@@ -58,6 +58,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | what `trilha.BindCSV` rejected, by line and column — see [CSV](/cookbook/csv) |
 | `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) |
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
+| `Preview(c, src, PreviewOpts{...})` | a file shown beside its metadata: bar, frame, image or "cannot be previewed" — see [Ctx](/reference/ctx) and [Uploads](/cookbook/uploads) |
 | `Defer(c, id, src, DeferOpts{...})` | serves the page now and fills this part a moment later — see [Live fragments](/reference/live) |
 | `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) |
 | `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |

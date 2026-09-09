@@ -13,6 +13,7 @@ import (
 	app_admin "github.com/emersonjoe/trilha/examples/blog/app/admin"
 	app_anexos "github.com/emersonjoe/trilha/examples/blog/app/anexos"
 	app_anexos_nome_ "github.com/emersonjoe/trilha/examples/blog/app/anexos/nome_"
+	app_anexos_nome__ver "github.com/emersonjoe/trilha/examples/blog/app/anexos/nome_/ver"
 	app_api "github.com/emersonjoe/trilha/examples/blog/app/api"
 	app_api_posts "github.com/emersonjoe/trilha/examples/blog/app/api/posts"
 	app_api_posts_id_ "github.com/emersonjoe/trilha/examples/blog/app/api/posts/id_"
@@ -88,6 +89,12 @@ func newApp() *trilha.App {
 		Methods: map[string]trilha.HandlerFunc{
 			"GET": app_anexos_nome_.GET,
 		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_anexos.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/anexos/{nome}/ver",
+		Page:        app_anexos_nome__ver.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_anexos.Middleware},
 	})
 	a.Register(trilha.Route{

@@ -5,9 +5,11 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/ui"
 )
 
 // MaxAvatar is the ceiling for one file. A limit that lives in a constant
@@ -107,4 +109,29 @@ func AddAttachment(ctx context.Context, file string, size int64, mime string) er
 	_, err := DB.ExecContext(ctx,
 		`INSERT INTO attachments (file, size, mime) VALUES ($1, $2, $3)`, file, size, mime)
 	return err
+}
+
+// ShowFile is the other half of handing a file back: the screen that shows it
+// beside what is known about it, instead of a download and a guess.
+//
+// c.Inline is what makes this possible, and it is the half people miss: the
+// framed answer is what refuses to be framed. Every response carries
+// X-Frame-Options: DENY and frame-ancestors 'none', and Inline relaxes that
+// pair to same-origin on this one response. A page that adds frame-src to its
+// own policy while the file still says DENY gets a blank frame and a console
+// message about a policy it did not write.
+func ShowFile(c *trilha.Ctx, name, ctype string) error {
+	f, err := os.Open(filepath.Join(UploadDir, name))
+	if err != nil {
+		return trilha.Errorf(http.StatusNotFound, "file not found")
+	}
+	defer f.Close()
+	if c.Query("raw") != "" {
+		return c.Inline(name, f, ctype)
+	}
+	return c.Render(http.StatusOK, ui.Preview(c, "?raw=1", ui.PreviewOpts{
+		Title:    name,
+		Type:     ctype,
+		Download: "?download=1",
+	}))
 }
