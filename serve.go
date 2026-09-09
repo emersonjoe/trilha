@@ -181,20 +181,7 @@ func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
 	// Both paths: "path" is the concrete one, for whoever is looking into a
 	// single case; "route" is the template, for whoever is counting. An app
 	// with an id in the URL has one path per record and one route per screen.
-	if tid := c.TraceID(); tid != "" {
-		a.log.Info("request",
-			"method", c.r.Method,
-			"path", c.r.URL.Path,
-			"route", c.Pattern(),
-			"status", rw.status,
-			"bytes", rw.bytes,
-			"dur", dur,
-			"request_id", c.requestID,
-			"trace_id", tid,
-		)
-		return
-	}
-	a.log.Info("request",
+	args := []any{
 		"method", c.r.Method,
 		"path", c.r.URL.Path,
 		"route", c.Pattern(),
@@ -202,7 +189,18 @@ func (a *App) logRequest(c *Ctx, rw *responseWriter, start time.Time) {
 		"bytes", rw.bytes,
 		"dur", dur,
 		"request_id", c.requestID,
-	)
+	}
+	if tid := c.TraceID(); tid != "" {
+		args = append(args, "trace_id", tid)
+	}
+	// The organisation, when the session carries one. In an app with a tenant
+	// column this is the first filter of any support question, and it belongs
+	// on the access record itself — a second line for it would be a second
+	// thing to join.
+	if t := c.Actor().Tenant; t != "" {
+		args = append(args, "tenant", t)
+	}
+	a.log.Info("request", args...)
 }
 
 // fallback handles everything the typed routes did not: static files,

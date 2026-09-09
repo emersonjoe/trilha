@@ -23,6 +23,16 @@ type User struct {
 	Seen time.Time `json:"seen"`
 	// SessionID changes on every login (session fixation).
 	SessionID string `json:"sid"`
+	// Tenant is the organisation this session is inside, for the most common
+	// shape of multi-tenant: one column. It is a field of its own and not one
+	// more entry in Extra because everything the framework does with it —
+	// putting it in the audit trail, in the access log, refusing a session
+	// without one — has to find it in the same place in every application.
+	//
+	// The framework carries it and points at the query that forgot it. The
+	// query is yours: there is no ORM here, and a WHERE this package wrote
+	// would be a WHERE nobody could read.
+	Tenant string `json:"tenant,omitempty"`
 	// Extra carries what this app's session needs and OIDC has no claim for:
 	// the token the upstream wants, the tenant, the plan. It travels where the
 	// rest of the session travels — the signed cookie, or the Store — so keep

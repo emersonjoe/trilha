@@ -363,3 +363,56 @@ precisa do segundo.
 **Escopo que a aplicação nunca declarou é pânico na hora de montar a rota.** A alternativa é uma
 rota que não guarda nada por causa de um erro de digitação, e ninguém descobrir até ler num
 relatório de incidente.
+
+## Multi-tenant por coluna
+
+Uma coluna é a forma mais comum de multi-tenant, e esquecer essa coluna numa consulta é o bug
+mais comum de multi-tenant: o relatório que mostra as linhas de outra organização, descoberto
+por um cliente.
+
+**O framework carrega o valor e aponta a consulta que esqueceu. A consulta é sua.** Não há ORM
+aqui, e um `WHERE` gerado por este pacote seria um `WHERE` que ninguém consegue ler numa
+revisão — o oposto do que um filtro de tenant precisa.
+
+```go
+// no login, ou no OnLogin
+u.Tenant = row.TenantID
+
+// num repositório
+rows, err := db.QueryContext(c, `SELECT … FROM documentos WHERE tenant_id = $1`, auth.Tenant(c))
+```
+
+| Símbolo | Papel |
+|---|---|
+| `auth.User.Tenant` | um campo próprio, ao lado de Roles; viaja onde a sessão viaja |
+| `auth.Tenant(c)` | a organização da sessão atual, ou "" |
+| `sso.RequireTenant()` | recusa sessão sem organização escolhida |
+| `Options.ChooseTenantPath` | para onde o navegador vai escolher; vazio responde 403 |
+| `sso.SwitchTenant(c, id)` | troca a sessão e registra os dois lados |
+
+É **campo e não mais uma entrada no `Extra`** porque tudo o que o framework faz com ele precisa
+encontrá-lo no mesmo lugar em toda aplicação: ele entra na trilha como `actor.tenant` e no
+registro de acesso como `tenant` — que é o primeiro filtro de qualquer pergunta do suporte, e o
+campo que diz se "viram as linhas erradas" é sobre uma consulta ou sobre alguém ter trocado de
+organização.
+
+O `RequireTenant` trata "entrou e não escolheu" pelo que é: um administrador que ainda não
+escolheu, ou um primeiro login. O navegador é redirecionado; o resto leva 403, porque um
+redirecionamento para uma tela não é resposta que uma API use.
+
+**Conferir se alguém pode entrar numa organização é da aplicação.** O `SwitchTenant` troca a
+sessão e audita; ele não sabe o que é um vínculo, e fingir que sabe seria uma checagem que parece
+garantia e não é.
+
+### A consulta que esqueceu
+
+O `trilha audit` conta, por tabela, quantas consultas a filtram por tenant — e nomeia as que não:
+
+```
+warn  consultas que talvez estejam sem o filtro de tenant
+      internal/docs/repo.go:88: documents é filtrada por tenant em 7 de 8 consultas, e não nesta
+```
+
+É heurística de texto e diz isso: sem parser de SQL, sem veredito, um lugar para olhar. Consulta
+que está certa de propósito — relatório global, listagem de admin — merece um comentário dizendo
+isso, tanto para a próxima pessoa quanto para a ferramenta.

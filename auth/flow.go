@@ -35,6 +35,11 @@ type Options struct {
 	CookieName string
 	// LoginPath is where Require sends an anonymous browser (default "/entrar").
 	LoginPath string
+	// ChooseTenantPath is where RequireTenant sends somebody who is logged in
+	// and has not picked an organisation yet. Empty answers 403 instead of
+	// redirecting, which is the right answer for an API and the wrong one for
+	// a browser — so a browser app sets it.
+	ChooseTenantPath string
 	// AfterLogin is where Callback lands when there is no next (default "/").
 	AfterLogin string
 	// AfterLogout is where Logout lands when the provider has no end session

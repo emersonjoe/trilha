@@ -269,6 +269,16 @@ func runAudit(p *project, vuln bool) []check {
 		add("warn", t("secret no previous"), t("secret no previous hint"))
 	}
 
+	// Multi-tenant by column (spec 078). Forgetting the column in one query
+	// out of forty is invisible in review and very visible to counting.
+	if strings.Contains(src, "auth.Tenant(") {
+		if gaps := tenantGaps(p.Root); len(gaps) > 0 {
+			add("warn", t("tenant gaps"), t("tenant gaps hint")+"\n"+strings.Join(gaps, "\n"))
+		} else {
+			add("ok", t("tenant gaps"), "")
+		}
+	}
+
 	// Vendored JavaScript (spec 066). A file under public/vendor that
 	// vendor.lock does not name is third-party code the repository accepted
 	// without recording where it came from: nobody can tell a version bump

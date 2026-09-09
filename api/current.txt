@@ -235,6 +235,7 @@ pkg trilha, type Actor struct
 pkg trilha, type Actor struct, Email string
 pkg trilha, type Actor struct, Name string
 pkg trilha, type Actor struct, Subject string
+pkg trilha, type Actor struct, Tenant string
 pkg trilha, type Actor struct, Via string
 pkg trilha, type App struct
 pkg trilha, type AuditFunc func(AuditRecord) error
@@ -670,6 +671,7 @@ pkg auth, func OIDC(string, string, string, string) *Provider
 pkg auth, func PBKDF2([]byte, []byte, int, int) []byte
 pkg auth, func PolicyFrom(context.Context, PolicyStore, Policy) (Policy, error)
 pkg auth, func Sessions(Options) *Auth
+pkg auth, func Tenant(*trilha.Ctx) string
 pkg auth, method (*Auth) Callback(*trilha.Ctx) error
 pkg auth, method (*Auth) Login(*trilha.Ctx, *User) error
 pkg auth, method (*Auth) Logout(*trilha.Ctx) error
@@ -679,8 +681,10 @@ pkg auth, method (*Auth) Require() trilha.MiddlewareFunc
 pkg auth, method (*Auth) RequireFunc(func(*User, *trilha.Ctx) bool) trilha.MiddlewareFunc
 pkg auth, method (*Auth) RequirePolicy(Policy, string, string) trilha.MiddlewareFunc
 pkg auth, method (*Auth) RequireRole(...string) trilha.MiddlewareFunc
+pkg auth, method (*Auth) RequireTenant() trilha.MiddlewareFunc
 pkg auth, method (*Auth) Session(*trilha.Ctx) (*User, error)
 pkg auth, method (*Auth) Start(*trilha.Ctx) error
+pkg auth, method (*Auth) SwitchTenant(*trilha.Ctx, string) error
 pkg auth, method (*Auth) User(*trilha.Ctx) *User
 pkg auth, method (*Key) Active(time.Time) bool
 pkg auth, method (*Keys) All() ([]*Key, error)
@@ -739,6 +743,7 @@ pkg auth, type Options struct
 pkg auth, type Options struct, Absolute time.Duration
 pkg auth, type Options struct, AfterLogin string
 pkg auth, type Options struct, AfterLogout string
+pkg auth, type Options struct, ChooseTenantPath string
 pkg auth, type Options struct, CookieName string
 pkg auth, type Options struct, Idle time.Duration
 pkg auth, type Options struct, IdleOff bool
@@ -776,6 +781,7 @@ pkg auth, type User struct, Roles []string
 pkg auth, type User struct, Seen time.Time
 pkg auth, type User struct, SessionID string
 pkg auth, type User struct, Subject string
+pkg auth, type User struct, Tenant string
 pkg auth, var ErrNoSession
 pkg auth, var ErrUnknownKey
 pkg cache, func Do[T any](context.Context, *Cache, Key, func(context.Context) (T, error)) (T, error)

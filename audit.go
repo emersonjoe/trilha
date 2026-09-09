@@ -18,6 +18,11 @@ type Actor struct {
 	// Via is "session", "api_key" or "system"; "anonymous" when nobody was
 	// recognised, which is itself worth writing down.
 	Via string `json:"via"`
+	// Tenant is the organisation the action happened inside. In an app with
+	// one column for it, this is the first filter of any investigation — and
+	// the field that says whether "they saw the wrong rows" is about a query
+	// or about somebody having changed organisation.
+	Tenant string `json:"tenant,omitempty"`
 }
 
 // AuditRecord is one line of the trail: who, what, to what, from where.

@@ -106,5 +106,5 @@ func wantsHTML(r *http.Request) bool {
 // set in five places, and the fifth is where one of them gets forgotten.
 func remember(c *trilha.Ctx, u *User) {
 	c.Set(ctxKey, u)
-	c.SetActor(trilha.Actor{Subject: u.Subject, Email: u.Email, Name: u.Name, Via: "session"})
+	c.SetActor(trilha.Actor{Subject: u.Subject, Email: u.Email, Name: u.Name, Via: "session", Tenant: u.Tenant})
 }

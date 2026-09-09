@@ -362,3 +362,57 @@ endpoint into a write per call, and "is this key still in use?" does not need th
 **A scope the application never declared is a panic at wiring time.** The alternative is a route
 that guards nothing because of a typo, and nobody finding out until they read it in a breach
 report.
+
+## Multi-tenant by column
+
+One column is the most common shape of multi-tenant, and forgetting that column in one query is
+the most common bug of multi-tenant: the report that shows another organisation's rows, found by
+a customer.
+
+**The framework carries the value and points at the query that forgot it. The query is yours.**
+There is no ORM here, and a `WHERE` this package generated would be a `WHERE` nobody could read
+in a review — which is the opposite of what a tenant filter needs.
+
+```go
+// at login, or in OnLogin
+u.Tenant = row.TenantID
+
+// in a repository
+rows, err := db.QueryContext(c, `SELECT … FROM documents WHERE tenant_id = $1`, auth.Tenant(c))
+```
+
+| Symbol | Role |
+|---|---|
+| `auth.User.Tenant` | a field of its own, next to Roles; travels wherever the session travels |
+| `auth.Tenant(c)` | the organisation of the current session, or "" |
+| `sso.RequireTenant()` | refuses a session with no organisation chosen |
+| `Options.ChooseTenantPath` | where a browser goes to pick one; empty answers 403 |
+| `sso.SwitchTenant(c, id)` | moves the session and writes both sides down |
+
+It is a **field and not one more entry in `Extra`** because everything the framework does with it
+has to find it in the same place in every application: it goes into the audit trail as
+`actor.tenant` and onto the access record as `tenant` — which is the first filter of any support
+question, and the field that says whether "they saw the wrong rows" is about a query or about
+somebody having changed organisation.
+
+`RequireTenant` treats "logged in, no organisation" as what it is: an administrator who has not
+picked one, or a first login. A browser is redirected; anything else gets 403, because a redirect
+to a screen is not an answer an API can use.
+
+**Checking that somebody may enter an organisation is the application's job.** `SwitchTenant`
+moves the session and audits it; it does not know what a membership is, and pretending to would
+be a check that looks like a guarantee and is not one.
+
+### The query that forgot
+
+`trilha audit` counts, per table, how many queries filter it by tenant — and names the ones that
+do not:
+
+```
+warn  queries that may be missing the tenant filter
+      internal/docs/repo.go:88: documents is filtered by tenant in 7 of 8 queries, and not in this one
+```
+
+It is a text heuristic and says so: no SQL parser, no verdict, a place to look. A query that is
+right on purpose — a global report, an admin listing — is worth a comment saying so, for the next
+person as much as for the tool.
