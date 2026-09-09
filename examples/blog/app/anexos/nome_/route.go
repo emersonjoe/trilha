@@ -4,11 +4,12 @@
 package anexoarquivo
 
 import (
-	"bytes"
 	"net/http"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/blob"
 	"github.com/emersonjoe/trilha/examples/blog/internal/anexos"
+	arquivos "github.com/emersonjoe/trilha/examples/blog/internal/arquivos"
 )
 
 // GET manda o anexo. O nome que vai no Content-Disposition é o que o c.File
@@ -22,11 +23,11 @@ func GET(c *trilha.Ctx) error {
 	if !ok {
 		return trilha.Errorf(http.StatusNotFound, "anexo não encontrado")
 	}
-	corpo := bytes.NewReader(a.Conteudo)
-	if c.Query("ver") != "" {
-		// O Inline recusa o que o navegador rodaria em vez de mostrar, então
-		// um texto ou um PDF abrem e um HTML não chega aqui como inline.
-		return c.Inline(a.Nome, corpo, a.Tipo)
-	}
-	return c.Attachment(a.Nome, corpo, a.Tipo)
+	// O blob entrega: de disco sai pelo http.ServeContent, com Range e 304;
+	// de um bucket que sabe pré-assinar, sai como redirecionamento e os bytes
+	// não passam por aqui.
+	return arquivos.Arquivos.Serve(c, a.Chave, blob.ServeOpts{
+		Name:   a.Nome,
+		Inline: c.Query("ver") != "",
+	})
 }

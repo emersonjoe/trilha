@@ -784,6 +784,70 @@ pkg auth, type User struct, Subject string
 pkg auth, type User struct, Tenant string
 pkg auth, var ErrNoSession
 pkg auth, var ErrUnknownKey
+pkg blob, func FromEnv() Store
+pkg blob, func New(Store) *Files
+pkg blob, func NewDisk(string) *Disk
+pkg blob, func NewMemory() *Memory
+pkg blob, method (*Disk) Delete(context.Context, string) error
+pkg blob, method (*Disk) Get(context.Context, string) (io.ReadCloser, error)
+pkg blob, method (*Disk) Keys(context.Context, func(string) error) error
+pkg blob, method (*Disk) Put(context.Context, string, io.Reader, int64, string) error
+pkg blob, method (*Disk) Stat(context.Context, string) (Info, error)
+pkg blob, method (*Files) Delete(context.Context, string) error
+pkg blob, method (*Files) Get(context.Context, string) (io.ReadCloser, error)
+pkg blob, method (*Files) Orphans(context.Context, func(func(string) bool)) ([]string, error)
+pkg blob, method (*Files) Put(context.Context, *trilha.Upload) (Ref, error)
+pkg blob, method (*Files) PutBytes(context.Context, string, []byte, string) (Ref, error)
+pkg blob, method (*Files) Serve(*trilha.Ctx, string, ServeOpts) error
+pkg blob, method (*Files) Stat(context.Context, string) (Info, error)
+pkg blob, method (*Memory) Delete(context.Context, string) error
+pkg blob, method (*Memory) Get(context.Context, string) (io.ReadCloser, error)
+pkg blob, method (*Memory) Keys(context.Context, func(string) error) error
+pkg blob, method (*Memory) Put(context.Context, string, io.Reader, int64, string) error
+pkg blob, method (*Memory) Stat(context.Context, string) (Info, error)
+pkg blob, method (*S3) Delete(context.Context, string) error
+pkg blob, method (*S3) Get(context.Context, string) (io.ReadCloser, error)
+pkg blob, method (*S3) Keys(context.Context, func(string) error) error
+pkg blob, method (*S3) Presign(context.Context, string, time.Duration) (string, error)
+pkg blob, method (*S3) Put(context.Context, string, io.Reader, int64, string) error
+pkg blob, method (*S3) Stat(context.Context, string) (Info, error)
+pkg blob, type Disk struct
+pkg blob, type Files struct
+pkg blob, type Files struct, TTL time.Duration
+pkg blob, type Info struct
+pkg blob, type Info struct, Key string
+pkg blob, type Info struct, ModTime time.Time
+pkg blob, type Info struct, Size int64
+pkg blob, type Info struct, Type string
+pkg blob, type Memory struct
+pkg blob, type Presigner interface
+pkg blob, type Presigner interface, Presign(context.Context, string, time.Duration) (string, error)
+pkg blob, type Ref struct
+pkg blob, type Ref struct, Key string
+pkg blob, type Ref struct, Name string
+pkg blob, type Ref struct, SHA256 string
+pkg blob, type Ref struct, Size int64
+pkg blob, type Ref struct, Type string
+pkg blob, type S3 struct
+pkg blob, type S3 struct, Bucket string
+pkg blob, type S3 struct, Endpoint string
+pkg blob, type S3 struct, HTTP *http.Client
+pkg blob, type S3 struct, Key string
+pkg blob, type S3 struct, PathStyle bool
+pkg blob, type S3 struct, Region string
+pkg blob, type S3 struct, Secret string
+pkg blob, type S3 struct, Session string
+pkg blob, type ServeOpts struct
+pkg blob, type ServeOpts struct, Inline bool
+pkg blob, type ServeOpts struct, Name string
+pkg blob, type ServeOpts struct, Proxy bool
+pkg blob, type Store interface
+pkg blob, type Store interface, Delete(context.Context, string) error
+pkg blob, type Store interface, Get(context.Context, string) (io.ReadCloser, error)
+pkg blob, type Store interface, Keys(context.Context, func(string) error) error
+pkg blob, type Store interface, Put(context.Context, string, io.Reader, int64, string) error
+pkg blob, type Store interface, Stat(context.Context, string) (Info, error)
+pkg blob, var ErrNotFound
 pkg cache, func Do[T any](context.Context, *Cache, Key, func(context.Context) (T, error)) (T, error)
 pkg cache, func Get[T any](*Cache, string) (T, bool)
 pkg cache, func New(Options) *Cache

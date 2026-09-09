@@ -24,6 +24,7 @@ var pacotesPublicos = []apisurface.Package{
 	{Dir: "ai", Name: "ai"},
 	{Dir: "ai/mcp", Name: "ai/mcp"},
 	{Dir: "auth", Name: "auth"},
+	{Dir: "blob", Name: "blob"},
 	{Dir: "cache", Name: "cache"},
 	{Dir: "h", Name: "h"},
 	{Dir: "tmpl", Name: "tmpl"},

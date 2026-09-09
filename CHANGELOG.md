@@ -3,6 +3,60 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.61.0 — 2026-09-09
+
+Spec 079.
+
+### Added
+
+- **`trilha/blob` — where the file lives** ([#114](https://github.com/emersonjoe/trilha/issues/114)).
+  The framework knew how to receive a file and how to hand one back; where to keep it was never
+  said, and the example wrote into `./uploads` with the name the client sent — both classic
+  mistakes on one line.
+
+  **The key is the content, never the name**: SHA-256, two levels deep, with the extension of the
+  sniffed type (`ab/cd/abcd…ef.pdf`). Path traversal is not prevented by a check, it is
+  impossible — nothing from the request reaches the key. The same file uploaded twice is one
+  object, and no directory ends up with a hundred thousand entries.
+
+  Three stores: `Disk` (the default, with an atomic write, so a crash never leaves a key that
+  exists and cannot be read), `Memory` (for tests, and its reader seeks, so a test that passes
+  here does not fail on disk over `Range`), and `S3` — **the signature written here, about two
+  hundred lines, no SDK**, which is what keeps this module optional instead of the framework
+  growing a dependency tree. It puts, gets, heads, deletes, lists and presigns; more than that is
+  a reason to use the SDK in your own code.
+
+  `Serve` is `http.ServeContent` from disk — `Range`, `304`, `HEAD` — and a redirect from a store
+  that can presign, with the bytes never touching the application. **A presigned URL is a
+  capability**, and the docs say so: whoever holds it has the file until it expires, with no
+  session and no log of yours; `ServeOpts{Proxy: true}` is the answer when that is not acceptable.
+
+  `Orphans` is the sweep every application ends up needing — a row deleted while the object
+  stayed, an upload that failed after the write.
+
+  Deduplication is the module's; deciding what it means is not. `Ref.SHA256` is there to count
+  references with; `Delete` removes the object, and whether that is right when two rows point at
+  one key is a business rule, not something a storage package should answer for you.
+
+  `TRILHA_BLOB_URL` picks the store, and a URL it cannot read is a **panic at boot** rather than a
+  quiet fallback: an application that starts with the wrong storage loses files quietly.
+
+### Verified, and not
+
+The SigV4 signature is checked against a test server that **recomputes** it with the secret: a
+badly signed request fails there for the same reason it would fail at AWS. It is **not** checked
+against an official AWS test vector — there was no way to verify one offline, and a made-up
+"known vector" would suggest a guarantee that does not exist. The failure mode is loud: a wrong
+signature is a 403 on the first call, not a quiet leak. A run against a real MinIO is one
+`docker run` away and worth doing once.
+
+### Not here
+
+`Orphans` takes a function and not an `iter.Seq` (Go 1.22; the shape already matches, so the
+signature changes without breaking anyone when the minimum moves), and the SVG-with-script check
+stays in `Ctx.File`/`Ctx.Inline` where it already is — `Put` receives what `Ctx.File` approved,
+and a second copy of that list is the copy that falls behind.
+
 ## 0.60.0 — 2026-09-09
 
 Spec 078.

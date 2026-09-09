@@ -4,13 +4,13 @@
 package anexos
 
 import (
-	"io"
 	"net/http"
 	"net/url"
 	"sort"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/blog/internal/anexos"
+	arquivos "github.com/emersonjoe/trilha/examples/blog/internal/arquivos"
 	"github.com/emersonjoe/trilha/h"
 	"github.com/emersonjoe/trilha/ui"
 )
@@ -51,12 +51,15 @@ func POST(c *trilha.Ctx) error {
 		return c.Render(http.StatusUnprocessableEntity, pagina(c, errs))
 	}
 	for _, up := range ups {
-		conteudo, err := io.ReadAll(up.File)
+		// O blob calcula o digest, guarda por ele e devolve a chave. O nome
+		// que veio do cliente nunca vira caminho, e o mesmo arquivo mandado
+		// duas vezes ocupa espaço uma vez.
+		ref, err := arquivos.Arquivos.Put(c.Context(), up)
 		up.Close()
 		if err != nil {
 			return err
 		}
-		anexos.Add(up.Name, up.Size, up.MIME, conteudo)
+		anexos.Add(ref.Name, ref.Size, ref.Type, ref.Key)
 	}
 	if c.Fragment() != "" {
 		return c.Render(http.StatusOK, lista())

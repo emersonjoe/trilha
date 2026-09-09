@@ -9,6 +9,7 @@ import (
 	multipartlib "mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/examples/blog/internal/anexos"
 	"github.com/emersonjoe/trilha/examples/blog/internal/documentos"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
 	"github.com/emersonjoe/trilha/ui"
@@ -1098,5 +1100,46 @@ func TestCopiaDoKitEstaAtualizada(t *testing.T) {
 		if !bytes.Contains(b, ui.Asset(filepath.Base(nome))) {
 			t.Errorf("%s está desatualizado: rode `cd examples/blog && trilha ui --force`", nome)
 		}
+	}
+}
+
+// #114 — o anexo agora mora no blob: a chave é o digest do conteúdo, o mesmo
+// arquivo duas vezes ocupa espaço uma vez, e o nome do cliente nunca vira
+// caminho.
+func TestAnexoVaiParaOBlob(t *testing.T) {
+	// A lista é global ao processo, como o store de um app de verdade: sem
+	// isto o teste conta o que os outros subiram.
+	anexos.Reset()
+	c := newClient(t, "prod")
+
+	body, ct := multipart(t, "../../etc/passwd", "conteúdo do arquivo")
+	c.Request("POST", "/anexos", trilha.WithBody(ct, body), fragmento).WantStatus(200)
+
+	lista := anexos.All()
+	if len(lista) != 1 {
+		t.Fatalf("anexos = %d", len(lista))
+	}
+	a := lista[0]
+	// A chave é o digest, em dois níveis — e não tem nada do nome.
+	if strings.Contains(a.Chave, "passwd") || strings.Contains(a.Chave, "..") {
+		t.Fatalf("chave = %q", a.Chave)
+	}
+	if !strings.HasSuffix(a.Chave, ".txt") || strings.Count(a.Chave, "/") != 2 {
+		t.Fatalf("formato da chave = %q", a.Chave)
+	}
+
+	// O mesmo conteúdo com outro nome é a mesma chave.
+	body2, ct2 := multipart(t, "outro-nome.txt", "conteúdo do arquivo")
+	c.Request("POST", "/anexos", trilha.WithBody(ct2, body2), fragmento).WantStatus(200)
+	todos := anexos.All()
+	if len(todos) != 2 || todos[0].Chave != todos[1].Chave {
+		t.Fatalf("deduplicação: %q %q", todos[0].Chave, todos[1].Chave)
+	}
+
+	// E a entrega vem do blob, com o nome saneado e o tipo lido do conteúdo.
+	rec := c.Get("/anexos/" + url.PathEscape(a.Nome))
+	rec.WantStatus(200).WantContains("conteúdo do arquivo")
+	if d := rec.Header().Get("Content-Disposition"); !strings.Contains(d, "attachment") {
+		t.Fatalf("Content-Disposition = %q", d)
 	}
 }

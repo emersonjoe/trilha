@@ -1,5 +1,9 @@
-// Package anexos guarda os anexos enviados. É memória: o exemplo mostra o
-// caminho do arquivo até o handler, não onde guardá-lo.
+// Package anexos guarda o que se sabe sobre cada anexo. Os bytes não moram
+// aqui: eles vão para o trilha/blob, e o que fica é a chave.
+//
+// É a migração que todo exemplo acaba fazendo: a primeira versão guardava o
+// conteúdo ao lado do nome, o que funciona até o primeiro arquivo de 50 MB e
+// até a primeira reinicialização.
 package anexos
 
 import (
@@ -10,15 +14,14 @@ import (
 	"time"
 )
 
-// Anexo é um arquivo recebido. O conteúdo mora aqui porque isto é memória;
-// num app de verdade ele estaria em disco ou num bucket, e o que muda é a
-// linha do handler que abre — c.AttachmentFile no lugar de c.Attachment.
+// Anexo é o que se sabe sobre um arquivo recebido. A Chave é o endereço dele
+// no blob — o digest do conteúdo, nunca o nome que veio do cliente.
 type Anexo struct {
-	Nome     string
-	Bytes    int64
-	Tipo     string // o tipo lido no conteúdo pelo c.File, não a extensão
-	Quando   time.Time
-	Conteudo []byte
+	Nome   string
+	Bytes  int64
+	Tipo   string // o tipo lido no conteúdo pelo c.File, não a extensão
+	Quando time.Time
+	Chave  string
 }
 
 var (
@@ -26,11 +29,11 @@ var (
 	lista []Anexo
 )
 
-// Add registra um anexo recebido.
-func Add(nome string, n int64, tipo string, conteudo []byte) Anexo {
+// Add registra um anexo recebido, com a chave que o blob devolveu.
+func Add(nome string, n int64, tipo, chave string) Anexo {
 	mu.Lock()
 	defer mu.Unlock()
-	a := Anexo{Nome: nome, Bytes: n, Tipo: tipo, Quando: time.Now(), Conteudo: conteudo}
+	a := Anexo{Nome: nome, Bytes: n, Tipo: tipo, Quando: time.Now(), Chave: chave}
 	lista = append(lista, a)
 	sort.SliceStable(lista, func(i, j int) bool { return lista[i].Quando.After(lista[j].Quando) })
 	return a

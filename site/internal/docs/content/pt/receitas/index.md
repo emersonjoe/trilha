@@ -19,6 +19,7 @@ mailer — o que ele tem é um lugar para os seus, e é aqui que esse lugar est�
 | [Planilhas (CSV)](/pt/receitas/planilhas) | exportar a planilha que o Excel abre, importar com o erro por célula |
 | [Formulário em passos](/pt/receitas/formulario-em-passos) | onde mora o passo 1 enquanto a pessoa está no passo 2 |
 | [Link público](/pt/receitas/link-publico) | um formulário preenchido sem login, e um código que confere um documento |
+| [Arquivos](/pt/receitas/arquivos) | onde um upload mora, como ele volta, e a varredura de órfãos |
 | [Paginação](/pt/receitas/paginacao) | página e cursor, e o rodapé que vem com eles |
 | [E-mail](/pt/receitas/email) | SMTP em produção, o log em dev, um corpo vindo de template |
 | [Tarefas agendadas](/pt/receitas/tarefas-agendadas) | um ticker que sobe com o app e para com ele |
