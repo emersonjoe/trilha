@@ -592,6 +592,70 @@ func TestGenerateContratoE2E(t *testing.T) {
 	}
 }
 
+// TestGenerateCrudE2E is issue #115 end to end: from a struct to the screens,
+// with nobody editing anything in between. It is the only place that proves
+// the five generated files agree with each other — the store the pages use,
+// the form the store accepts, and the test that walks all three.
+func TestGenerateCrudE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	t.Setenv("TRILHA_SECRET", "um-segredo-de-teste-com-mais-de-32-bytes")
+	cli := buildCLI(t, repo, tmp)
+
+	proj := filepath.Join(tmp, "loja")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/loja", "--trilha-dir", repo)
+
+	// The struct the project already has, which is the whole premise: a CRUD
+	// is generated for something that exists.
+	dir := filepath.Join(proj, "internal", "docs")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tipo, err := os.ReadFile(filepath.Join(repo, "testdata", "crud", "tipo.go.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "tipo.go"), tipo, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out := run(t, proj, cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos")
+	for _, quero := range []string{
+		"internal/docs/tipo_store.go", "app/admin/tipos/page.go",
+		"app/admin/tipos/new/page.go", "app/admin/tipos/id_/page.go",
+		"tipo_crud_test.go", "app/setup.go", "/admin/tipos",
+	} {
+		if !strings.Contains(out, quero) {
+			t.Fatalf("generate crud did not report %s:\n%s", quero, out)
+		}
+	}
+
+	// The whole point: no edit between generating and the gate being green.
+	// The generated test is inside it, so a CRUD whose screens disagree fails
+	// here rather than on somebody's first afternoon with it.
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "test") {
+		t.Fatal(out)
+	}
+
+	// Generating again over what is there refuses, and names the file. There
+	// is no --force: a CRUD is what somebody generates after editing one.
+	again := exec.Command(cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos")
+	again.Dir = proj
+	out2, err := again.CombinedOutput()
+	if err == nil {
+		t.Fatal("generating over an existing CRUD must refuse:\n" + string(out2))
+	}
+	// The refusal names the file, because "it exists" without saying which is
+	// a message somebody has to go looking behind.
+	if !strings.Contains(string(out2), "tipo_store.go") {
+		t.Fatal("the refusal does not name the file:\n" + string(out2))
+	}
+}
+
 // TestTemplateAppE2E is issue #65 end to end: `trilha new --template app` has
 // to produce a project that is already green — it compiles, `trilha check`
 // passes and the tests that come with it pass — without a single edit. A

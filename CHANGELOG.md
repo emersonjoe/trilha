@@ -3,6 +3,40 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.68.0 — 2026-09-09
+
+Spec 087. Part of [#115](https://github.com/emersonjoe/trilha/issues/115), which stays open for
+the flags it also asks for.
+
+### Added
+
+- **`trilha generate crud <Type>` — from a struct to the screens.** Between
+  `trilha new --template app`, which brings one finished CRUD as an example, and
+  `trilha generate page`, which writes an empty page, sits the task people repeat most: *I have a
+  struct, I want the screen*. Ten times in one project, each with the same skeleton and a
+  different small mistake.
+
+  It writes five files and touches one: the store (interface plus memory, in the type's own
+  package), the listing with search, sorting, pagination and a delete button that confirms, the
+  create form, the edit form, a test that walks all of it, and the line in `app/setup.go` that
+  puts the store where the pages look.
+
+  `ID` is the key, and a struct without one is refused with that sentence — the generator does
+  not pick a field, because the wrong key does not show up until the first `Update`. Timestamps
+  and `json:"-"` stay out of the form and get stamped by the store, with "created" surviving an
+  update. `validate` tags become the control's rules and the message beside the field.
+
+  **Nothing is overwritten and there is no `--force`**: a generator that overwrites is a
+  generator nobody runs twice, and a CRUD is exactly what you generate after having edited one.
+  The one exception is `app/setup.go`, edited rather than refused because without that line the
+  CRUD compiles and answers 500 on the first request — the worst outcome a generator can have,
+  since it looks like it worked. The command names the file it touched.
+
+  Everything is formatted before it is written, so `trilha check` is green with nobody editing
+  anything — and a template that produced broken Go fails at generation, naming the file, instead
+  of at the first compile with a line number into generated code. There is an end-to-end test
+  that generates into a fresh project and runs `check`, generated test included.
+
 ## 0.67.0 — 2026-09-09
 
 Spec 086. Part of [#118](https://github.com/emersonjoe/trilha/issues/118), which stays open for

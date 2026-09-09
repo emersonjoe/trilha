@@ -1,0 +1,12 @@
+package docs
+
+import "time"
+
+// Tipo is a document type: the struct the CRUD generator reads.
+type Tipo struct {
+	ID       string    `json:"id"`
+	Nome     string    `json:"nome" form:"nome" validate:"required,max=80"`
+	Sigla    string    `json:"sigla" form:"sigla" validate:"required,max=8"`
+	Retencao int       `json:"retencao" form:"retencao" validate:"min=0,max=100"`
+	CriadoEm time.Time `json:"criado_em"`
+}

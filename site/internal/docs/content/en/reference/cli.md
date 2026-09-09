@@ -29,6 +29,7 @@ trilha version
 | `new` | creates a project with `go.mod`, layout, home page, 404, one API route, `public/style.css` and `.gitignore`; runs `go mod tidy` and `gen` |
 | `gen` | scans `app/` and writes `trilha_gen.go`; fails with one line per violated convention |
 | `generate` | writes one skeleton — a page, an API route or a component — in the folder the convention asks for |
+| `generate crud` | reads a struct and writes the whole thing: listing, create, edit, delete, a store and a test |
 | `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE + route inspector on `/_trilha/routes` |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + runs with `TRILHA_EXPORT` to produce static HTML |
@@ -336,6 +337,76 @@ Exit `1` when anything failed, so in CI it is the single line:
 ```yaml
 - run: trilha check
 ```
+
+## trilha generate crud
+
+Between `trilha new --template app`, which brings **one** finished CRUD as an example, and
+`trilha generate page`, which writes an empty page, sits the task people repeat most: *I have a
+struct, I want the screen.* Ten times in one project, each with the same skeleton and a different
+small mistake — one has no delete confirmation, one does not show the validation error in the
+field, one loses the page on the way back.
+
+```bash
+trilha generate crud docs.Tipo --at app/admin/tipos
+```
+
+```text
+  + internal/docs/tipo_store.go       TipoStore: List/Get/Create/Update/Delete, and memory behind it
+  + app/admin/tipos/page.go           listing: ui.DataTable, search, sorting, pagination, delete
+  + app/admin/tipos/new/page.go       create: ui.Field per field, 422 comes back with the messages
+  + app/admin/tipos/id_/page.go       edit: the same form, filled in
+  + tipo_crud_test.go                 empty list, create, edit, 422, delete
+  + app/setup.go                      the store, where the pages find it
+```
+
+What comes out is code somebody reads and edits, in the shape `templates/app` already proved
+idiomatic — not a runtime that hides the screens behind a call. It exists so the tenth screen of
+a project looks like the first.
+
+### How the fields become the screen
+
+The struct is read by **static analysis**, the same way `--form` already reads one: no compiler,
+no module download.
+
+- **`ID` is the key**, and a struct without one is refused with that sentence. The generator does
+  not pick a field: the wrong key does not show up until the first `Update`, and by then there
+  are five screens written on top of it.
+- **`CriadoEm`/`CreatedAt`/`AtualizadoEm`/`UpdatedAt` and `json:"-"` stay out of the form.** They
+  belong to the system, and a date somebody types by hand is a bug waiting. The store stamps
+  them: created stays created on an update, because that is the one date people go looking for.
+- **`validate:"required,max=80"`** becomes `required` and `maxlength` on the control, and the
+  message beside the field when it fails.
+- The label comes from the field name in title case, and changing it is editing a string in the
+  file that was just generated — which is where it belongs.
+- The first four fields become the table's columns. Four is what a table shows before it starts
+  scrolling sideways.
+
+### Nothing is overwritten, and there is no --force
+
+A file that already exists is a refusal naming it. That is deliberate: a generator that
+overwrites is a generator nobody runs twice, and a CRUD is precisely what you generate *after*
+having edited one.
+
+The single exception is `app/setup.go`, which the generator edits rather than refuses — one line,
+into a function whose shape the framework defines. Without it the CRUD compiles and answers 500
+on the first request, which is the worst outcome a generator can have, because it looks like it
+worked. The command names that file in its output, because a generator that changes something you
+did not ask for owes you the sentence.
+
+### The store is an interface with memory behind it
+
+The same choice every store in this framework makes, and here it pays twice: **what comes out of
+the generator runs** — the screen opens, the form saves, the generated test passes — and swapping
+memory for a database is implementing five methods whose signatures are already written. The
+[database recipe](/cookbook/database) is the other half.
+
+### Not here yet
+
+`--store sqlite|postgres` with a generated migration, `--tenant`, `--policy`, the compact
+`ui.SchemaForm` version, and re-running to print the diff of fields you added to the struct
+later. They are on [#115](https://github.com/emersonjoe/trilha/issues/115); the SQL store in
+particular would have to pick a placeholder dialect and own a DDL, which is the thing this
+framework does not do anywhere else.
 
 ## trilha ctx
 

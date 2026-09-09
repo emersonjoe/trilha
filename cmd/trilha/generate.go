@@ -28,6 +28,9 @@ func cmdGenerate(args []string) error {
 		return errors.New(t("generate usage"))
 	}
 	kind, arg := fs.Arg(0), fs.Arg(1)
+	if kind == "crud" {
+		return crud(arg, fs.Args()[2:])
+	}
 	// Allow flags after the positional arguments: trilha generate page /x --force.
 	if err := fs.Parse(fs.Args()[2:]); err != nil {
 		return err
@@ -70,5 +73,46 @@ func cmdGenerate(args []string) error {
 		return err
 	}
 	fmt.Printf(t("generated route"), res.Pattern)
+	return nil
+}
+
+// crud writes the screens a struct needs. It is its own function because it
+// answers with several files and three routes, and because its flags are not
+// the flags of the other kinds — a shared flag set that half the kinds ignore
+// is a help text nobody can read.
+func crud(arg string, args []string) error {
+	fs := flag.NewFlagSet("generate crud", flag.ContinueOnError)
+	at := fs.String("at", "", t("flag crud at"))
+	langFlag := fs.String("lang", lang, t("flag lang"))
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *langFlag != "en" && *langFlag != "pt" {
+		return errors.New(t("bad lang"))
+	}
+	p, err := findProject()
+	if err != nil {
+		return err
+	}
+	res, err := scaffold.Crud(p.Root, scaffold.CrudOptions{
+		Type: arg, At: *at, Module: p.Module, Lang: *langFlag,
+	})
+	switch {
+	case errors.Is(err, scaffold.ErrGenExists):
+		// No --force, and the message says why rather than offering one: the
+		// CRUD is what somebody generates after having edited it.
+		return fmt.Errorf("%w — %s", err, t("crud exists"))
+	case err != nil:
+		return err
+	}
+	for _, f := range res.Files {
+		fmt.Println("  +", f)
+	}
+	if _, err := generate(p); err != nil {
+		return err
+	}
+	for _, pat := range res.Patterns {
+		fmt.Printf(t("generated route"), pat)
+	}
 	return nil
 }

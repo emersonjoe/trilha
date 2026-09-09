@@ -29,6 +29,7 @@ trilha version
 | `new` | cria um projeto com `go.mod`, layout, página inicial, 404, uma rota de API, `public/style.css` e `.gitignore`; roda `go mod tidy` e `gen` |
 | `gen` | varre `app/` e escreve `trilha_gen.go`; falha com uma linha por convenção violada |
 | `generate` | grava um esqueleto — página, rota de API ou componente — na pasta que a convenção pede |
+| `generate crud` | lê um struct e escreve tudo: lista, criar, editar, excluir, um store e um teste |
 | `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE + inspetor de rotas em `/_trilha/routes` |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` com `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + executa com `TRILHA_EXPORT` para gerar HTML estático |
@@ -333,6 +334,73 @@ Sai com `1` quando algo falhou, então no CI é a linha única:
 ```yaml
 - run: trilha check
 ```
+
+## trilha generate crud
+
+Entre o `trilha new --template app`, que traz **um** CRUD pronto de exemplo, e o
+`trilha generate page`, que escreve uma página vazia, mora a tarefa que mais se repete: *tenho um
+struct, quero a tela.* Dez vezes no mesmo projeto, cada uma com o mesmo esqueleto e um errinho
+diferente — uma não confirma o excluir, outra não mostra o erro de validação no campo, outra
+perde a página ao voltar.
+
+```bash
+trilha generate crud docs.Tipo --at app/admin/tipos
+```
+
+```text
+  + internal/docs/tipo_store.go       TipoStore: List/Get/Create/Update/Delete, e a memória atrás
+  + app/admin/tipos/page.go           lista: ui.DataTable, busca, ordenação, paginação, excluir
+  + app/admin/tipos/new/page.go       criar: ui.Field por campo, 422 volta com as mensagens
+  + app/admin/tipos/id_/page.go       editar: o mesmo formulário, preenchido
+  + tipo_crud_test.go                 lista vazia, cria, edita, 422, exclui
+  + app/setup.go                      o store, onde as páginas acham
+```
+
+O que sai é código que alguém lê e edita, na forma que o `templates/app` já provou ser
+idiomática — e não um runtime que esconde as telas atrás de uma chamada. Ele existe para a décima
+tela do projeto sair como a primeira.
+
+### Como os campos viram tela
+
+O struct é lido por **análise estática**, do mesmo jeito que o `--form` já lê: sem compilador e
+sem baixar módulo.
+
+- **O `ID` é a chave**, e um struct sem ela é recusado com essa frase. O gerador não escolhe um
+  campo: a chave errada só aparece no primeiro `Update`, e aí já há cinco telas escritas em cima.
+- **`CriadoEm`/`CreatedAt`/`AtualizadoEm`/`UpdatedAt` e `json:"-"` ficam fora do formulário.** São
+  do sistema, e uma data preenchida à mão é um bug esperando. O store carimba: o "criado em"
+  continua o mesmo num update, porque é a única data que as pessoas vão procurar.
+- **`validate:"required,max=80"`** vira `required` e `maxlength` no controle, e a mensagem no
+  campo quando falha.
+- O rótulo vem do nome do campo em título, e trocar isso é editar uma string no arquivo que
+  acabou de ser gerado — que é onde ela deve estar.
+- Os quatro primeiros campos viram as colunas da tabela. Quatro é o que uma tabela mostra antes de
+  começar a rolar para o lado.
+
+### Nada é sobrescrito, e não há --force
+
+Arquivo que já existe é recusa nomeando-o. É de propósito: gerador que sobrescreve é gerador que
+ninguém roda duas vezes, e um CRUD é justamente o que se gera **depois** de já ter editado um.
+
+A única exceção é o `app/setup.go`, que o gerador edita em vez de recusar — uma linha, dentro de
+uma função cuja forma o framework define. Sem ela o CRUD compila e responde 500 na primeira
+requisição, que é o pior resultado que um gerador pode ter, porque parece que funcionou. O comando
+nomeia esse arquivo na saída, porque um gerador que mexe no que você não pediu deve essa frase.
+
+### O store é interface com memória atrás
+
+A mesma escolha de todo store deste framework, e aqui ela vale duas vezes: **o que sai do gerador
+roda** — a tela abre, o formulário grava, o teste gerado passa — e trocar a memória por um banco é
+implementar cinco métodos cujas assinaturas já estão escritas. A
+[receita de banco de dados](/pt/receitas/banco-de-dados) é a outra metade.
+
+### O que ainda não está aqui
+
+`--store sqlite|postgres` com migração gerada, `--tenant`, `--policy`, a versão compacta com
+`ui.SchemaForm`, e rodar de novo para imprimir o diff dos campos que você acrescentou ao struct
+depois. Estão na [#115](https://github.com/emersonjoe/trilha/issues/115); o store em SQL, em
+particular, teria de escolher dialeto de placeholder e ser dono de um DDL, que é a coisa que este
+framework não faz em nenhum outro lugar.
 
 ## trilha ctx
 
