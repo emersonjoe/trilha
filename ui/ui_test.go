@@ -146,6 +146,11 @@ func TestHeadAndAssets(t *testing.T) {
 	// the picker's box (about 1.3 KB). The arrow is two characters and no
 	// animation — a caret that rotates is decoration, and decoration is what a
 	// budget is for.
+	// 0.64.0 spent about 600 bytes on ui.TaskProgress: the indeterminate bar
+	// and its reduced-motion fallback, plus two rules for the table's retry
+	// button. That leaves barely a hundred bytes under the ceiling, and the
+	// next rule that does not fit is a conversation and not an increment —
+	// which is what a budget is for.
 	if len(Asset("ui.css")) > 34<<10 || len(Asset("ui.js")) > 28<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}

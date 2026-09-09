@@ -13,6 +13,7 @@ import (
 	"github.com/emersonjoe/trilha/cache"
 	"github.com/emersonjoe/trilha/examples/blog/internal/icones"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
+	"github.com/emersonjoe/trilha/examples/blog/internal/tarefas"
 )
 
 // Config runs before trilha.New: the place to change fields New derives
@@ -89,6 +90,15 @@ func Setup(a *trilha.App) error {
 	})
 	// Métrica de domínio: aparece na raspagem junto com as do framework.
 	store.Published = a.Metrics().Counter("blog_posts_total", "Posts publicados desde o início do processo.")
+	// O processamento longo é um valor do app, como o store: cada servidor de
+	// teste tem o seu, e nenhum teste vê a tarefa do outro. O Setup varre o
+	// que um processo anterior deixou pendurado e pendura o Shutdown no app,
+	// para um deploy no meio de um processamento esperar em vez de cortar.
+	motor := tarefas.Novo()
+	trilha.Provide(a, motor)
+	if err := motor.Setup(a); err != nil {
+		return err
+	}
 	// Limite global brando; /api tem o seu próprio em app/api/middleware.go.
 	a.Security().CSPExtra = map[string][]string{"img-src": {"https:"}}
 	return nil

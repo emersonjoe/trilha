@@ -1326,6 +1326,57 @@
     ]
   },
   {
+    "name": "TaskProgress",
+    "kind": "func",
+    "group": "task",
+    "signature": "TaskProgress(c *trilha.Ctx, tasks *task.Tasks, id string) h.Node",
+    "doc": "TaskProgress is the bar that watches one task: the step, how far along, and\nthe failure when there was one.\n\nIt is a Poll that stops on its own: while the task is alive the fragment\nasks again every two seconds, and the moment it finishes the route answers\nCtx.PollStop and the browser stops asking. Without JavaScript it is the\nstate as of when the page loaded — old, never broken — and reloading is the\nrefresh.\nThe id comes from the application, which knows which task belongs to the\nscreen; passing one the visitor sent would be letting them watch somebody\nelse's work.",
+    "summary": "TaskProgress is the bar that watches one task: the step, how far along, and the failure when there was one.",
+    "example": "// app/documentos/id_/page.go\nfunc Page(c *trilha.Ctx) (h.Node, error) {\n\tif c.Fragment() == \"tarefa\" {\n\t\treturn ui.TaskProgress(c, app.Tarefas, id), nil\n\t}\n\t…\n}",
+    "see": [
+      "h.Node",
+      "trilha.Ctx"
+    ]
+  },
+  {
+    "name": "TaskTableOpts",
+    "kind": "type",
+    "group": "task",
+    "signature": "type TaskTableOpts struct",
+    "doc": "TaskTableOpts is what the administration screen needs beyond the rows.",
+    "summary": "TaskTableOpts is what the administration screen needs beyond the rows.",
+    "fields": [
+      {
+        "name": "Retry",
+        "type": "string",
+        "doc": "Retry is where the \"try again\" button posts to; the button is not drawn when it is empty, because a screen that offers to retry and cannot is worse than one that does not offer."
+      },
+      {
+        "name": "CSRF",
+        "type": "h.Node",
+        "doc": "CSRF is the hidden input, from trilha.CSRFInput."
+      },
+      {
+        "name": "Empty",
+        "type": "string",
+        "doc": "Empty is what to say when there is nothing."
+      }
+    ]
+  },
+  {
+    "name": "TaskTable",
+    "kind": "func",
+    "group": "task",
+    "signature": "TaskTable(c *trilha.Ctx, tasks []task.Task, o TaskTableOpts) h.Node",
+    "doc": "TaskTable is the administration screen: what ran, how it ended, and the\nbutton to run it again.\n\nIt is a plain table and not a DataTable because the columns are fixed and\nthe sort is always the same: newest first is the only order anybody wants\nfrom a list of what just happened.",
+    "summary": "TaskTable is the administration screen: what ran, how it ended, and the button to run it again.",
+    "example": "ui.TaskTable(c, tarefas, ui.TaskTableOpts{Retry: \"/tarefas/retry\", CSRF: trilha.CSRFInput(c)})",
+    "see": [
+      "trilha.CSRFInput",
+      "ui.TaskTableOpts"
+    ]
+  },
+  {
     "name": "TreeNode",
     "kind": "type",
     "group": "tree",

@@ -28,6 +28,7 @@ var pacotesPublicos = []apisurface.Package{
 	{Dir: "cache", Name: "cache"},
 	{Dir: "h", Name: "h"},
 	{Dir: "mail", Name: "mail"},
+	{Dir: "task", Name: "task"},
 	{Dir: "tmpl", Name: "tmpl"},
 	{Dir: "ui", Name: "ui"},
 }

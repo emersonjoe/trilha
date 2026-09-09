@@ -1103,6 +1103,65 @@ pkg mail, type Sent struct, To []string
 pkg mail, type Transport interface
 pkg mail, type Transport interface, Deliver(context.Context, string, []string, []byte) error
 pkg mail, var ErrNotConfigured
+pkg task, const Done State
+pkg task, const Failed State
+pkg task, const Interrupted State
+pkg task, const Queued State
+pkg task, const Running State
+pkg task, func Memory() Store
+pkg task, func New(Options) *Tasks
+pkg task, method (*Progress) Step(string, int, int)
+pkg task, method (*Tasks) Cancel(context.Context, string) error
+pkg task, method (*Tasks) Get(context.Context, string) (Task, error)
+pkg task, method (*Tasks) Handle(string, Func)
+pkg task, method (*Tasks) List(context.Context, ListParams) ([]Task, error)
+pkg task, method (*Tasks) Retry(*trilha.Ctx, string) (string, error)
+pkg task, method (*Tasks) Run(*trilha.Ctx, string, string) (string, error)
+pkg task, method (*Tasks) Setup(*trilha.App) error
+pkg task, method (*Tasks) Shutdown(context.Context) error
+pkg task, method (State) Live() bool
+pkg task, method (Task) Percent() int
+pkg task, method (Task) Took() time.Duration
+pkg task, type Func func(context.Context, *Progress) error
+pkg task, type ListParams struct
+pkg task, type ListParams struct, Key string
+pkg task, type ListParams struct, Limit int
+pkg task, type ListParams struct, Name string
+pkg task, type ListParams struct, Offset int
+pkg task, type ListParams struct, State State
+pkg task, type Options struct
+pkg task, type Options struct, Logger *slog.Logger
+pkg task, type Options struct, Queue int
+pkg task, type Options struct, Shutdown time.Duration
+pkg task, type Options struct, Store Store
+pkg task, type Options struct, Workers int
+pkg task, type Progress struct
+pkg task, type Progress struct, ID string
+pkg task, type Progress struct, Key string
+pkg task, type Progress struct, Name string
+pkg task, type State string
+pkg task, type Store interface
+pkg task, type Store interface, Active(context.Context, string, string) (string, error)
+pkg task, type Store interface, Get(context.Context, string) (Task, error)
+pkg task, type Store interface, Interrupt(context.Context, time.Time) (int, error)
+pkg task, type Store interface, List(context.Context, ListParams) ([]Task, error)
+pkg task, type Store interface, Save(context.Context, Task) error
+pkg task, type Task struct
+pkg task, type Task struct, By string
+pkg task, type Task struct, Ended time.Time
+pkg task, type Task struct, Err string
+pkg task, type Task struct, ID string
+pkg task, type Task struct, Key string
+pkg task, type Task struct, N int
+pkg task, type Task struct, Name string
+pkg task, type Task struct, Of int
+pkg task, type Task struct, Queued time.Time
+pkg task, type Task struct, Started time.Time
+pkg task, type Task struct, State State
+pkg task, type Task struct, Step string
+pkg task, type Tasks struct
+pkg task, var ErrNotFound
+pkg task, var ErrUnknownTask
 pkg tmpl, func HTML(h.Node) (template.HTML, error)
 pkg tmpl, func Must(fs.FS, ...string) *template.Template
 pkg tmpl, func Node(*template.Template, string, any) h.Node
@@ -1244,6 +1303,8 @@ pkg ui, func Swap(string) h.Node
 pkg ui, func Switch(...h.Node) h.Node
 pkg ui, func Table(...h.Node) h.Node
 pkg ui, func Tabs(string, ...Tab) h.Node
+pkg ui, func TaskProgress(*trilha.Ctx, *task.Tasks, string) h.Node
+pkg ui, func TaskTable(*trilha.Ctx, []task.Task, TaskTableOpts) h.Node
 pkg ui, func Textarea(...h.Node) h.Node
 pkg ui, func ThemeToggle() h.Node
 pkg ui, func TimeOnly() FormatOpt
@@ -1425,6 +1486,10 @@ pkg ui, type Step struct, Label string
 pkg ui, type Tab struct
 pkg ui, type Tab struct, Content h.Node
 pkg ui, type Tab struct, Label string
+pkg ui, type TaskTableOpts struct
+pkg ui, type TaskTableOpts struct, CSRF h.Node
+pkg ui, type TaskTableOpts struct, Empty string
+pkg ui, type TaskTableOpts struct, Retry string
 pkg ui, type TreeNode struct
 pkg ui, type TreeNode struct, Children []TreeNode
 pkg ui, type TreeNode struct, Href string

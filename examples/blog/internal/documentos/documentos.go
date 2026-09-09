@@ -154,3 +154,31 @@ func Importar(novos []Documento) int {
 	}
 	return len(novos)
 }
+
+// Um devolve um documento pelo id. A lista é uma fatia porque é um exemplo;
+// numa tabela de verdade isto é um SELECT, e a assinatura é a mesma.
+func Um(id string) (Documento, bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	for _, d := range lista {
+		if d.ID == id {
+			return d, true
+		}
+	}
+	return Documento{}, false
+}
+
+// Marcar troca o estado de um documento. É o que a tarefa longa escreve entre
+// um estágio e outro, e é por isso que ela existe: o estado tem de ficar em
+// algum lugar que a tela consiga ler depois que a requisição acabou.
+func Marcar(id, status string) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	for i, d := range lista {
+		if d.ID == id {
+			lista[i].Status = status
+			return true
+		}
+	}
+	return false
+}

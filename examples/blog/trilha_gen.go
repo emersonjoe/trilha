@@ -36,6 +36,9 @@ import (
 	app_painel_ "github.com/emersonjoe/trilha/examples/blog/app/painel-"
 	app_painel__painel "github.com/emersonjoe/trilha/examples/blog/app/painel-/painel"
 	app_painel__relatorio "github.com/emersonjoe/trilha/examples/blog/app/painel-/relatorio"
+	app_tarefas "github.com/emersonjoe/trilha/examples/blog/app/tarefas"
+	app_tarefas_id_ "github.com/emersonjoe/trilha/examples/blog/app/tarefas/id_"
+	app_tarefas_tentar "github.com/emersonjoe/trilha/examples/blog/app/tarefas/tentar"
 )
 
 //go:embed public
@@ -239,6 +242,28 @@ func newApp() *trilha.App {
 		Pattern:     "/sobre",
 		Page:        app_marketing__sobre.Page,
 		Layouts:     []trilha.LayoutFunc{app_marketing_.Layout, app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/tarefas",
+		Page:    app_tarefas.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_tarefas.POST,
+		},
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/tarefas/tentar",
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_tarefas_tentar.POST,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/tarefas/{id}",
+		Page:        app_tarefas_id_.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	return a

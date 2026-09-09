@@ -3,6 +3,44 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.64.0 — 2026-09-09
+
+Spec 082.
+
+### Added
+
+- **`trilha/task` — the work that outlives the request** ([#111](https://github.com/emersonjoe/trilha/issues/111)).
+  Six screens of a real application start something long and then ask "is it done yet?". What
+  gets written for that is one line — `go func() { processa(docID) }()` — and it has four defects
+  that all show up in production. The error goes nowhere. The request's context dies when the
+  browser closes, so half the work stops halfway. A panic takes down the whole process, web
+  server included, because a background goroutine has nobody to recover it. And the screen has
+  nothing to show, because there is no state: there is a goroutine.
+
+  `Handle` registers the work by name and `Run` starts it. They are separate because of `Retry`:
+  a closure lives as long as the process, and the task somebody wants to retry is usually exactly
+  the one that died in a deploy. **Two runs with the same name and key, while one is alive, are
+  one run** — the double click on the button does not process the document twice — and the key
+  reaches the function as `Progress.Key`.
+
+  `Setup` marks everything the store still calls queued or running as **interrupted**: those
+  belong to a process that no longer exists, and a task stuck on "running" forever is the classic
+  bug. `Shutdown` hangs on the app, so a deploy mid-run waits instead of cutting, and cancels the
+  context when it runs out of patience.
+
+  `ui.TaskProgress` is a `ui.Poll` that stops itself the moment the task ends, and draws an
+  indeterminate bar when there is no step count — a bar stuck at 0% reads as broken.
+  `ui.TaskTable` is the administration screen, with the retry button only on what has finished.
+
+  **It is not a queue, and the package doc says so first**: tasks live in one process, two
+  replicas run everything twice, and nothing survives a crash but the record. `Store` is the seam
+  for anything more. There is no `task.SQL(db)` for the reason no store in this framework ships
+  one — it would have to pick a placeholder dialect and own a DDL — and the recipe carries the
+  whole implementation instead.
+
+  `examples/blog` gained the four-stage processing of a document, the progress screen and the
+  administration table, with a test that asserts the POST came back before the work finished.
+
 ## 0.63.0 — 2026-09-09
 
 Spec 081.

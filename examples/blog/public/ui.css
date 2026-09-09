@@ -1,4 +1,4 @@
-/* trilha ui 9aa0780c76352cfd */
+/* trilha ui 41a56cff5b8ef266 */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -250,6 +250,14 @@ details[open] > .ui-tree-summary::before { content: "▾"; }
 @keyframes ui-pulse { 50% { opacity: .5; } }
 .ui-progress { position: relative; height: .5rem; width: 100%; overflow: hidden; border-radius: 999px; background: color-mix(in oklch, var(--primary) 20%, transparent); }
 .ui-progress > div { height: 100%; background: var(--primary); transition: width .3s; }
+/* Sem contagem de passos a barra é indeterminada: 0% parado diz "quebrado",
+   e uma faixa que anda diz "indo". prefers-reduced-motion troca a animação por
+   uma barra cheia e translúcida, que continua dizendo a mesma coisa. */
+.ui-progress-idle > div { width: 35%; background: var(--primary); animation: ui-progress-slide 1.4s ease-in-out infinite; }
+@keyframes ui-progress-slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .ui-progress-idle > div { width: 100%; margin-left: 0; animation: none; opacity: .5; } }
+.ui-task-step { margin: 0 0 .5rem; font-size: .875rem; color: var(--muted-foreground); }
+.ui-task-retry { display: inline; margin: 0; }
 progress.ui-upload { -webkit-appearance: none; appearance: none; width: 100%; height: .5rem; border: 0; border-radius: 999px; background: color-mix(in oklch, var(--primary) 20%, transparent); }
 progress.ui-upload::-webkit-progress-bar { background: transparent; }
 progress.ui-upload::-webkit-progress-value { background: var(--primary); border-radius: 999px; }
