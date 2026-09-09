@@ -133,3 +133,46 @@ o token de CSRF, então uma rota de `POST` num app que também serve páginas qu
 `var Kind = trilha.KindPage` num `kind.go` acima dela — uma linha para o ramo inteiro, veja
 [Convenções de arquivo](/pt/referencia/convencoes#o-kind-segue-a-subarvore). Ligar o
 `Config.CSRFForAPI` responde a mesma pergunta pelo outro lado e também cala o aviso.
+
+## Segredos em repouso
+
+O framework tinha segredo, assinador e cookies assinados. O que não tinha era *cifre isto para
+guardar* — e o que se escreve no lugar é um token em claro, depois um AES copiado da internet
+com IV fixo, depois a chave inteira voltando num `GET` e aparecendo no DevTools.
+
+```go
+sealed, err := trilha.Seal([]byte(chave)) // AES-256-GCM, nonce aleatório
+plain, err := trilha.Open(sealed)         // segredo atual, depois o PreviousSecret
+```
+
+| Símbolo | Papel |
+|---|---|
+| `Seal([]byte) ([]byte, error)` | cifra para guardar; `ErrNoSecret` sem segredo, nunca um valor em claro |
+| `Open([]byte) ([]byte, error)` | decifra; `ErrSealed` para o que não abre, sem dizer por quê |
+| `Secret` | uma string que não vaza por descuido |
+| `s.Reveal()` | o valor, lido de propósito |
+| `s.Sealed()` / `SecretFrom(b)` | a forma cifrada e a volta |
+| `s.Value()` / `s.Scan()` | `driver.Valuer` e `sql.Scanner`: a coluna guarda o selo |
+| `ui.SecretField(c, nome, rótulo, atual)` | o campo de senha para um formulário escrito à mão |
+
+**O `Value()` é o método do driver e o `Reveal()` é o leitor.** A issue que pediu este tipo tinha
+o contrário; não dá: um `Secret` é uma string por baixo, e o `database/sql` converte sozinho
+qualquer valor de kind string — então, a menos que `Value()` seja o `driver.Valuer`, passar um
+`Secret` para uma query grava o texto em claro, em silêncio.
+
+**Máscara voltando é "não mudou".** Um formulário não tem como mandar "não mexi nisto", então
+uma tela que preenche o campo ou devolve o segredo para o navegador ou o apaga no primeiro save
+que ninguém redigitou. O `Bind` trata vazio **ou máscara** como não mudou, o `trilha.Settings`
+desenha um `Secret` como campo de senha sempre vazio, e a linha de ajuda diz isso.
+
+**Rotação.** O `Open` tenta o segredo atual e depois o `Config.PreviousSecret`; o `Seal` sempre
+usa o atual. Então: ponha a chave antiga em `TRILHA_PREVIOUS_SECRET`, publique o novo
+`TRILHA_SECRET`, deixe tudo ser re-cifrado, e só então tire a antiga. O `trilha audit` avisa
+quando há `trilha.Secret` no projeto e nenhum segredo anterior — rodar a chave nessa hora é o
+momento em que todo token guardado para de abrir.
+
+:::warning
+A chave vem do segredo da app. Isto é cifra **contra um dump do banco e contra um backup**, não
+contra o operador nem contra quem tem o ambiente — esses têm a chave por definição. Cifrar contra
+a sua própria infraestrutura precisa de um gerenciador de chaves, e o framework não finge ser um.
+:::

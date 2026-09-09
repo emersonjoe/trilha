@@ -32,6 +32,9 @@ func tela(c *trilha.Ctx, errs trilha.FieldErrors) h.Node {
 	return h.Div(
 		ui.H1(h.Text("Configuração do assistente")),
 		ui.Muted(h.Text("Muda sem redeploy; vale para a próxima mensagem.")),
+		// O campo da chave sai da própria struct: um trilha.Secret vira um
+		// campo de senha que nunca volta preenchido, e o formulário continua
+		// sendo uma linha.
 		ui.Card(ui.CardContent(ui.SettingsForm(c, config.Cfg, errs))),
 	)
 }

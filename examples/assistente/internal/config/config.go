@@ -13,6 +13,10 @@ type Assistente struct {
 	Temperatura float64 `json:"temperatura" form:"temperatura" validate:"min=0,max=2" label:"Temperatura" help:"0 responde igual sempre; 2 inventa"`
 	MaxTokens   int     `json:"max_tokens"  form:"max_tokens"  validate:"min=64,max=4096" label:"Tamanho máximo da resposta"`
 	Ferramentas bool    `json:"ferramentas" form:"ferramentas" label:"Deixar o assistente usar as ferramentas"`
+	// A chave do provedor é o caso do trilha.Secret: não pode ficar em claro
+	// no banco, não pode voltar inteira para a tela, e não pode aparecer num
+	// log por descuido. Vazia, o cliente segue com o que veio do ambiente.
+	Chave trilha.Secret `json:"chave" form:"chave" label:"Chave do provedor"`
 }
 
 // Cfg is the section itself, with the defaults that answer before anybody has

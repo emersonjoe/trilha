@@ -3,6 +3,52 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.57.0 — 2026-09-08
+
+Spec 075.
+
+### Added
+
+- **`trilha.Seal`, `trilha.Open` and `trilha.Secret` — encrypt this to store it**
+  ([#108](https://github.com/emersonjoe/trilha/issues/108)). The framework had a secret, a signer
+  and signed cookies, and no way to encrypt a value at rest. What gets written instead is a token
+  in the clear, then AES copied off the internet with a fixed IV, then the whole key coming back
+  in a `GET` and showing up in the DevTools.
+
+  AES-256-GCM, a random nonce per value, and a key derived from the app's secret with HKDF-SHA256
+  under a fixed info string — **the key that encrypts is never the key that signs**. The first
+  byte is the format version and travels as additional data, so changing it invalidates the tag
+  instead of becoming another format. `Open` tries the current secret and then
+  `Config.PreviousSecret`, which is what makes a rotation possible, and answers one error for
+  both "not mine" and "cannot open": telling them apart tells whoever is guessing which of the
+  two they got right.
+
+  `trilha.Secret` is a string with every accidental exit closed: JSON, `String` and `slog` answer
+  a mask, `Reveal()` is the only way to read it, and a form field that comes back **empty or
+  masked leaves the stored value alone** — the "leave blank to keep" every settings screen writes
+  by hand.
+
+  **`Value()` is the driver method, not the reader.** The issue asked for it the other way round
+  and it cannot be: a `Secret` is a string underneath, and `database/sql` converts a
+  string-kinded value all by itself — so unless `Value()` is the `driver.Valuer`, passing a
+  `Secret` to a query stores the plaintext, silently, which is the exact accident the type exists
+  to prevent.
+
+  `Schema` grew a `password` type, so a `Secret` inside a `trilha.Settings` section draws as a
+  password field that is always empty, with the mask of what is stored in the help line.
+  `ui.SecretField` is the same field for a hand-written form.
+
+  `trilha audit` warns when there is a `trilha.Secret` in the project and no
+  `TRILHA_PREVIOUS_SECRET`: rotating then is the moment every stored token stops opening.
+
+### Not here
+
+A key manager. The key comes from the app's secret, and the threat model now says so in both
+languages: this is encryption against a database dump and a backup, **not** against the operator
+or anybody holding the environment. Pretending otherwise would be worse than not encrypting.
+Automatic re-sealing on rotation is also out — the application knows where its values are stored;
+the framework has no database to sweep.
+
 ## 0.56.0 — 2026-09-08
 
 Spec 074.

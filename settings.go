@@ -152,8 +152,34 @@ func (s *Settings[T]) Update(c *Ctx) error {
 	return c.Redirect(c.Request().URL.Path)
 }
 
-// Schema is the form of this section, derived from the struct.
-func (s *Settings[T]) Schema() Schema { return SchemaOf[T]() }
+// Schema is the form of this section, derived from the struct — and, for a
+// secret, from the value too: which one is stored can only be said here, where
+// the value is, and SchemaOf knows the type and nothing else.
+func (s *Settings[T]) Schema() Schema {
+	sc := SchemaOf[T]()
+	cur := reflect.ValueOf(s.Get())
+	for i := range sc {
+		if sc[i].Type != "password" {
+			continue
+		}
+		if f := cur.FieldByName(fieldOf(cur.Type(), sc[i].Name)); f.IsValid() {
+			if sec, ok := f.Interface().(Secret); ok {
+				sc[i].Help = secretHint(sec, sc[i].Help)
+			}
+		}
+	}
+	return sc
+}
+
+// fieldOf finds the struct field a schema name came from.
+func fieldOf(t reflect.Type, name string) string {
+	for i := 0; i < t.NumField(); i++ {
+		if fieldName(t.Field(i)) == name {
+			return t.Field(i).Name
+		}
+	}
+	return ""
+}
 
 // Key is the section's name, as stored.
 func (s *Settings[T]) Key() string { return s.key }
@@ -200,6 +226,18 @@ func changedFields(a, b any) []string {
 	return out
 }
 
+// secretHint is what a password field says under it: which secret is stored,
+// masked, and the sentence that makes the whole pattern work.
+func secretHint(v Secret, help string) string {
+	if help != "" {
+		help += " · "
+	}
+	if v.Empty() {
+		return help + "nothing stored yet; leave blank to keep it that way"
+	}
+	return help + v.String() + " · leave blank to keep it"
+}
+
 // SchemaOf builds the form of a struct: one field per exported field, with the
 // label, the help and the rules it already declares.
 //
@@ -243,6 +281,13 @@ func schemaFieldOf(t reflect.Type, f reflect.StructField) SchemaField {
 	}
 	if sf.Label == "" {
 		sf.Label = f.Name
+	}
+	// A Secret is a string underneath, so it has to be recognised before the
+	// kind is looked at: drawn as a text field it would come back pre-filled
+	// with the value, which is the leak the type exists to prevent.
+	if f.Type == reflect.TypeOf(Secret("")) {
+		sf.Type = "password"
+		return sf
 	}
 	switch f.Type.Kind() {
 	case reflect.Bool:
@@ -307,6 +352,11 @@ func schemaValues(v any) map[string]string {
 		case reflect.Float32, reflect.Float64:
 			out[fieldName(f)] = strconv.FormatFloat(fv.Float(), 'f', -1, 64)
 		case reflect.String:
+			if fv.Type() == reflect.TypeOf(Secret("")) {
+				// A secret never goes back to the browser, not even masked:
+				// what the field shows is nothing, and empty means unchanged.
+				continue
+			}
 			out[fieldName(f)] = fv.String()
 		}
 	}

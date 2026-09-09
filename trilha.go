@@ -356,6 +356,9 @@ func (a *App) applyConfig() {
 	switch {
 	case len(cfg.Secret) > 0:
 		a.signer = NewSigner(cfg.Secret, cfg.PreviousSecret)
+		// Seal derives its own key from the same secret, so an app with a
+		// secret can encrypt at rest without a second variable to forget.
+		setSealKeys(a, cfg.Secret, cfg.PreviousSecret)
 	case cfg.Env == Dev:
 		if a.signer == nil || !a.signer.ephemeral {
 			a.signer = NewSigner(randomSecret())

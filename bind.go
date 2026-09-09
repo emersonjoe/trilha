@@ -193,6 +193,13 @@ func setField(fv reflect.Value, vals []string) error {
 	if len(vals) > 0 {
 		s = strings.TrimSpace(vals[0])
 	}
+	// A secret field that came back empty leaves what is stored alone. It is
+	// the "leave blank to keep" every settings screen needs, and the screen
+	// cannot do it itself: the form has no way to send "unchanged", and a
+	// masked value coming back would be stored as if somebody had typed it.
+	if _, isSecret := fv.Interface().(Secret); isSecret && (s == "" || isMask(s)) {
+		return nil
+	}
 	switch fv.Interface().(type) {
 	case time.Time:
 		if s == "" {

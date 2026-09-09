@@ -133,3 +133,48 @@ not check the CSRF token, so a `POST` route in an app that also serves pages usu
 `var Kind = trilha.KindPage` in a `kind.go` above it — one line for the whole branch, see
 [File conventions](/reference/conventions#kind-follows-the-subtree). Setting
 `Config.CSRFForAPI` answers the same question the other way and silences the warning too.
+
+## Secrets at rest
+
+The framework had a secret, a signer and signed cookies. What it did not have was *encrypt this
+to store it* — and what gets written instead is a token in the clear, then AES copied off the
+internet with a fixed IV, then the whole key coming back in a `GET` and showing up in the
+DevTools.
+
+```go
+sealed, err := trilha.Seal([]byte(apiKey)) // AES-256-GCM, random nonce
+plain, err := trilha.Open(sealed)          // current secret, then PreviousSecret
+```
+
+| Symbol | Role |
+|---|---|
+| `Seal([]byte) ([]byte, error)` | encrypts for storage; `ErrNoSecret` without a secret, never a value in the clear |
+| `Open([]byte) ([]byte, error)` | decrypts; `ErrSealed` for anything it cannot open, without saying why |
+| `Secret` | a string that cannot leak by accident |
+| `s.Reveal()` | the value, read on purpose |
+| `s.Sealed()` / `SecretFrom(b)` | the encrypted form and back |
+| `s.Value()` / `s.Scan()` | `driver.Valuer` and `sql.Scanner`: the column holds the sealed bytes |
+| `ui.SecretField(c, name, label, current)` | the password field for a hand-written form |
+
+**`Value()` is the driver method and `Reveal()` is the reader.** The issue that asked for this
+type had it the other way round; it cannot be. A `Secret` is a string underneath, and
+`database/sql` converts a string-kinded value all by itself — so unless `Value()` is the
+`driver.Valuer`, passing a `Secret` to a query stores the plaintext, silently.
+
+**A masked value coming back is "unchanged".** A form has no way to send "I did not touch this",
+so a screen that pre-fills a secret either sends it back to the browser or wipes it on the first
+save nobody retyped. `Bind` treats an empty **or masked** value as unchanged, `trilha.Settings`
+renders a `Secret` as a password field that is always empty, and the help line says so.
+
+**Rotation.** `Open` tries the current secret and then `Config.PreviousSecret`; `Seal` always
+uses the current one. So: set the old key as `TRILHA_PREVIOUS_SECRET`, deploy the new
+`TRILHA_SECRET`, let everything be re-sealed, then drop the old one. `trilha audit` warns when
+there is a `trilha.Secret` in the project and no previous secret — rotating then is the moment
+every stored token stops opening.
+
+:::warning
+The key is derived from the app's secret. This is encryption **against a database dump and a
+backup**, not against the operator and not against anybody who holds the environment — they have
+the key by definition. Encrypting against your own infrastructure needs a key manager, and the
+framework does not pretend to be one.
+:::

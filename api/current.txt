@@ -32,6 +32,7 @@ pkg trilha, func NewSigner(...[]byte) *Signer
 pkg trilha, func NewTestClient(TestingT, *App) *TestClient
 pkg trilha, func NonceAttr(*Ctx) h.Node
 pkg trilha, func NonceFrom(*http.Request) string
+pkg trilha, func Open([]byte) ([]byte, error)
 pkg trilha, func Provide[T any](*App, T)
 pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
@@ -40,6 +41,8 @@ pkg trilha, func RegisterEnum(string, Enum)
 pkg trilha, func RequireCSRF(*Ctx, Next) error
 pkg trilha, func Run(*App)
 pkg trilha, func SchemaOf[T any]() Schema
+pkg trilha, func Seal([]byte) ([]byte, error)
+pkg trilha, func SecretFrom([]byte) (Secret, error)
 pkg trilha, func StatusOf(error) int
 pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse
 pkg trilha, func TestRequest(TestingT, *App, string, string, ...TestOption) *TestResponse
@@ -164,6 +167,8 @@ pkg trilha, method (*Metrics) Histogram(string, string, []float64, ...string) *H
 pkg trilha, method (*Problem) Error() string
 pkg trilha, method (*Problem) MarshalJSON() ([]byte, error)
 pkg trilha, method (*RedirectError) Error() string
+pkg trilha, method (*Secret) Scan(any) error
+pkg trilha, method (*Secret) UnmarshalJSON([]byte) error
 pkg trilha, method (*Settings) Bind(*App, SettingsStore) error
 pkg trilha, method (*Settings) Get() T
 pkg trilha, method (*Settings) Key() string
@@ -213,6 +218,13 @@ pkg trilha, method (ListParams) Offset() int
 pkg trilha, method (ListParams) PageHref(int) string
 pkg trilha, method (ListParams) TotalPages(int) int
 pkg trilha, method (Schema) Check() error
+pkg trilha, method (Secret) Empty() bool
+pkg trilha, method (Secret) LogValue() slog.Value
+pkg trilha, method (Secret) MarshalJSON() ([]byte, error)
+pkg trilha, method (Secret) Reveal() string
+pkg trilha, method (Secret) Sealed() ([]byte, error)
+pkg trilha, method (Secret) String() string
+pkg trilha, method (Secret) Value() (driver.Value, error)
 pkg trilha, type Actor struct
 pkg trilha, type Actor struct, Email string
 pkg trilha, type Actor struct, Name string
@@ -387,6 +399,7 @@ pkg trilha, type SchemaField struct, Type string
 pkg trilha, type SchemaOption struct
 pkg trilha, type SchemaOption struct, Label string
 pkg trilha, type SchemaOption struct, Value string
+pkg trilha, type Secret string
 pkg trilha, type Security struct
 pkg trilha, type Security struct, COOP string
 pkg trilha, type Security struct, CSP string
@@ -445,6 +458,7 @@ pkg trilha, var ErrNoDraft
 pkg trilha, var ErrNoSecret
 pkg trilha, var ErrNotFound
 pkg trilha, var ErrRateLimited
+pkg trilha, var ErrSealed
 pkg trilha, var MaxItems
 pkg trilha, var ProblemType func(int) string
 pkg trilha, var SchemaTypes
@@ -1030,6 +1044,7 @@ pkg ui, func Relative() FormatOpt
 pkg ui, func Row(...h.Node) h.Node
 pkg ui, func SchemaForm(trilha.Schema, map[string]string, map[string]string, ...h.Node) h.Node
 pkg ui, func Secondary() h.Node
+pkg ui, func SecretField(*trilha.Ctx, string, string, trilha.Secret, ...FieldOpt) h.Node
 pkg ui, func Select(...h.Node) h.Node
 pkg ui, func SelectOptions([]Option, string) h.Node
 pkg ui, func Separator() h.Node

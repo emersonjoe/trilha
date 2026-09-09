@@ -72,6 +72,11 @@ func schemaField(f trilha.SchemaField, value string, errs map[string]string) h.N
 		control = Input(append(append(common, h.Type(t), h.Value(value)), minmaxAttrs(f)...)...)
 	case "file":
 		control = Input(append(common, h.Type("file"))...)
+	case "password":
+		// Never the value, and never even the mask: a secret that goes back to
+		// the browser is a secret in the DevTools. Empty means unchanged, and
+		// the help line under it says so.
+		control = Input(append(common, h.Type("password"), h.Attr("autocomplete", "new-password"), h.Value(""))...)
 	default: // text, signature: a signature is a name typed in, and drawing it is the app's
 		control = Input(append(append(common, h.Type("text"), h.Value(value), patternAttr(f)), lengthAttrs(f)...)...)
 	}

@@ -34,7 +34,7 @@ type SchemaField struct {
 type Schema []SchemaField
 
 // SchemaTypes lists the field types a schema may ask for.
-var SchemaTypes = []string{"text", "textarea", "number", "date", "datetime", "select", "checkbox", "file", "signature", "display"}
+var SchemaTypes = []string{"text", "textarea", "number", "date", "datetime", "select", "checkbox", "file", "signature", "display", "password"}
 
 // SchemaPattern is the FieldErrors message for a value that does not match the
 // field's Pattern; it is also ValidationMessages["pattern"].

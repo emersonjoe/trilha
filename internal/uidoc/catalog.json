@@ -1010,6 +1010,19 @@
     ]
   },
   {
+    "name": "SecretField",
+    "kind": "func",
+    "group": "secret",
+    "signature": "SecretField(c *trilha.Ctx, name, label string, current trilha.Secret, opts ...FieldOpt) h.Node",
+    "doc": "SecretField is the input for a value that must never come back whole: an API\nkey, a webhook secret, an SMTP password.\n\nIt draws an empty password field and, under it, what is stored — masked —\nplus the sentence that makes the whole thing work: leave it blank to keep\nwhat is there. That is not decoration. A form has no way to send\n\"unchanged\", so a screen that pre-fills the field either sends the secret\nback to the browser (where the DevTools show it) or wipes it on the first\nsave that somebody did not retype. trilha.Secret and Bind already agree on\nthis: an empty value leaves the stored one alone.",
+    "summary": "SecretField is the input for a value that must never come back whole: an API key, a webhook secret, an SMTP password.",
+    "example": "ui.SecretField(c, \"token\", \"Provider token\", cfg.Token)\n\n\nsee: trilha.Secret, trilha.Seal",
+    "see": [
+      "trilha.Seal",
+      "trilha.Secret"
+    ]
+  },
+  {
     "name": "Section",
     "kind": "type",
     "group": "settings",

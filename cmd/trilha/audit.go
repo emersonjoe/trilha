@@ -262,6 +262,13 @@ func runAudit(p *project, vuln bool) []check {
 		add("warn", t("iframe by hand"), t("iframe by hand hint"))
 	}
 
+	// A sealed value is only readable with the key that sealed it (spec 075).
+	// Rotating without keeping the previous key is not a warning about a
+	// theoretical risk: it is the moment every stored token stops opening.
+	if strings.Contains(src, "trilha.Secret") && os.Getenv("TRILHA_PREVIOUS_SECRET") == "" {
+		add("warn", t("secret no previous"), t("secret no previous hint"))
+	}
+
 	// Vendored JavaScript (spec 066). A file under public/vendor that
 	// vendor.lock does not name is third-party code the repository accepted
 	// without recording where it came from: nobody can tell a version bump

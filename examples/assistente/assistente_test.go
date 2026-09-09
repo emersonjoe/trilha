@@ -171,3 +171,39 @@ func TestConfiguracaoVemDaStruct(t *testing.T) {
 	}
 	c.Get("/config").WantStatus(200).WantContains(`value="llama3.1"`, `value="0.2"`)
 }
+
+// #108 — a chave do provedor é um trilha.Secret: o campo nunca volta
+// preenchido, o vazio mantém o que está guardado, e nada disso aparece no JSON
+// nem no log.
+func TestChaveDoProvedorEhSegredo(t *testing.T) {
+	c := newClient(t)
+
+	// Um campo de senha, vazio, com a frase que faz o padrão funcionar.
+	c.Get("/config").WantStatus(200).WantContains(`name="chave"`, `type="password"`, "leave blank")
+
+	c.Request("POST", "/config", trilha.WithBody("application/x-www-form-urlencoded",
+		"modelo=llama3.1&temperatura=0.2&max_tokens=512&ferramentas=on&chave=sk-abcdef123456")).WantStatus(303)
+	if got := config.Cfg.Get().Chave.Reveal(); got != "sk-abcdef123456" {
+		t.Fatalf("chave = %q", got)
+	}
+
+	// A tela de volta não traz a chave — nem inteira, nem mascarada dentro do
+	// campo: máscara no campo é máscara que volta como valor no próximo envio.
+	tela := c.Get("/config").WantStatus(200)
+	if strings.Contains(tela.Body.String(), "abcdef123456") {
+		t.Fatal("a chave voltou para o navegador")
+	}
+	if strings.Contains(tela.Body.String(), `name="chave" type="password" value="`) {
+		t.Fatal("o campo de senha voltou preenchido")
+	}
+
+	// E salvar de novo com o campo vazio mantém o que estava lá.
+	c.Request("POST", "/config", trilha.WithBody("application/x-www-form-urlencoded",
+		"modelo=llama3.1&temperatura=0.5&max_tokens=512&ferramentas=on&chave=")).WantStatus(303)
+	if got := config.Cfg.Get().Chave.Reveal(); got != "sk-abcdef123456" {
+		t.Fatalf("o vazio apagou a chave: %q", got)
+	}
+	if config.Cfg.Get().Temperatura != 0.5 {
+		t.Fatal("o resto do formulário devia ter mudado")
+	}
+}
