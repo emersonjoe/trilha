@@ -97,6 +97,7 @@ pkg trilha, method (*Ctx) BindJSON(any) error
 pkg trilha, method (*Ctx) CSRFToken() string
 pkg trilha, method (*Ctx) CSV(string, any) error
 pkg trilha, method (*Ctx) CacheControl(string)
+pkg trilha, method (*Ctx) Claim(string) (*Link, error)
 pkg trilha, method (*Ctx) ClearCookie(string)
 pkg trilha, method (*Ctx) ClientIP() string
 pkg trilha, method (*Ctx) Context() context.Context
@@ -120,6 +121,7 @@ pkg trilha, method (*Ctx) InlineFile(string, string) error
 pkg trilha, method (*Ctx) Island(string, any, ...h.Node) h.Node
 pkg trilha, method (*Ctx) JSON(int, any) error
 pkg trilha, method (*Ctx) LastModified(time.Time) bool
+pkg trilha, method (*Ctx) Link(string, LinkOpts) (string, error)
 pkg trilha, method (*Ctx) Locale() string
 pkg trilha, method (*Ctx) Location() *time.Location
 pkg trilha, method (*Ctx) Log() *slog.Logger
@@ -163,6 +165,7 @@ pkg trilha, method (*HTTPError) Error() string
 pkg trilha, method (*Histogram) Observe(float64)
 pkg trilha, method (*Histogram) With(...string) *Histogram
 pkg trilha, method (*Limiter) Allow(string) (bool, int)
+pkg trilha, method (*Link) Consume() error
 pkg trilha, method (*ListParams) Restrict(...string) bool
 pkg trilha, method (*Metrics) Counter(string, string, ...string) *Counter
 pkg trilha, method (*Metrics) Gauge(string, string, ...string) *Gauge
@@ -285,6 +288,7 @@ pkg trilha, type Config struct, CSRFForAPI bool
 pkg trilha, type Config struct, DevReload string
 pkg trilha, type Config struct, Drafts DraftStore
 pkg trilha, type Config struct, Env Env
+pkg trilha, type Config struct, Links LinkStore
 pkg trilha, type Config struct, Locale string
 pkg trilha, type Config struct, LogRequest func(*Ctx, int, time.Duration) bool
 pkg trilha, type Config struct, Logger *slog.Logger
@@ -344,6 +348,21 @@ pkg trilha, type HealthReport struct, UptimeSeconds float64
 pkg trilha, type Histogram struct
 pkg trilha, type LayoutFunc func(*Ctx, h.Node) (h.Node, error)
 pkg trilha, type Limiter struct
+pkg trilha, type Link struct
+pkg trilha, type Link struct, Data map[string]string
+pkg trilha, type Link struct, ExpiresAt time.Time
+pkg trilha, type Link struct, ID string
+pkg trilha, type Link struct, Name string
+pkg trilha, type Link struct, Uses int
+pkg trilha, type LinkOpts struct
+pkg trilha, type LinkOpts struct, Data map[string]string
+pkg trilha, type LinkOpts struct, Path string
+pkg trilha, type LinkOpts struct, TTL time.Duration
+pkg trilha, type LinkOpts struct, Uses int
+pkg trilha, type LinkStore interface
+pkg trilha, type LinkStore interface, Consume(string, int) (bool, error)
+pkg trilha, type LinkStore interface, Forget(string) error
+pkg trilha, type LinkStore interface, Used(string) (int, error)
 pkg trilha, type ListParams struct
 pkg trilha, type ListParams struct, Dir string
 pkg trilha, type ListParams struct, Page int
@@ -459,6 +478,7 @@ pkg trilha, type Validator interface
 pkg trilha, type Validator interface, Validate() error
 pkg trilha, var BindInvalid
 pkg trilha, var ErrNoDraft
+pkg trilha, var ErrNoLink
 pkg trilha, var ErrNoSecret
 pkg trilha, var ErrNotFound
 pkg trilha, var ErrRateLimited

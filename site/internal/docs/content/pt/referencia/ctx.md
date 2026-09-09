@@ -362,3 +362,38 @@ O `Pipe` copia o status e uma lista fechada de cabeçalhos — `Content-Type`,
 `Set-Cookie`, em especial, não viaja: o corpo de outro serviço não senta na sessão deste. Para
 um prefixo inteiro encaminhado a outro serviço, veja [Upstreams](/pt/referencia/upstreams); o
 `Pipe` é a resposta que você mesmo foi buscar.
+
+## Links públicos
+
+`c.Link(nome, opts)` monta uma URL assinada que funciona sem sessão, e `c.Claim(nome)` é o que a
+rota do outro lado chama.
+
+| Símbolo | Papel |
+|---|---|
+| `c.Link(nome, LinkOpts{...})` | a URL; `nome` é o fim, e link de um fim não abre outro |
+| `LinkOpts.Data` | viaja dentro do token: **assinado, não secreto** |
+| `LinkOpts.TTL` | zero é uma hora; negativo é erro, não padrão |
+| `LinkOpts.Uses` | zero é ilimitado e não precisa de estado nenhum |
+| `c.Claim(nome)` | confere assinatura, fim, prazo e usos restantes |
+| `link.Consume()` | gasta um uso — depois do trabalho, nunca antes |
+| `Config.Links` | conta os usos dos links com limite; nil conta no processo |
+
+**Toda forma de um link falhar responde o mesmo 404.** Assinatura errada, fim errado, vencido, já
+gasto: dizer a um estranho qual das quatro aconteceu é dizer o quão perto ele está. Token errado
+também custa ao endereço um ponto de um orçamento pequeno, porque adivinhar token em URL é força
+bruta.
+
+Esse orçamento **se recompõe, e não é um bloqueio**, o que é uma diferença deliberada em relação
+à issue que pediu isto: uma hora de bloqueio por endereço transforma uma pessoa desastrada atrás
+do NAT de um escritório numa queda para todo mundo atrás dele — e a propriedade que importa,
+adivinhar ficar inviável, é a mesma nos dois casos.
+
+**Com `Uses: 0` não há estado.** Nem linha, nem consulta, nem limpeza: conferir é checar uma
+assinatura. É o caso do código de verificação impresso num documento, e é por isso que o fluxo
+comum não precisa de tabela.
+
+**Ler não é gastar.** O `Claim` confere que sobrou uso; só o `Consume` tira um. Senão um
+recarregar queimaria o link de quem ainda está preenchendo, e um erro de validação custaria o
+convite.
+
+Veja [Link público](/pt/receitas/link-publico) para o fluxo inteiro.

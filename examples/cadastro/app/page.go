@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/cadastro/internal/clientes"
@@ -55,7 +56,7 @@ func tela(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors, aviso str
 	return h.Div(h.ID("tela"), h.Class("tela"),
 		h.If(aviso != "", ui.Alert(aviso, h.Data("ui-fade", "4000"), ui.Icon("circle-check"))),
 		formulario(c, in, errs),
-		lista(c.Query("q")),
+		lista(c, c.Query("q")),
 	)
 }
 
@@ -180,7 +181,7 @@ func formulario(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors) h.N
 	)
 }
 
-func lista(q string) h.Node {
+func lista(c *trilha.Ctx, q string) h.Node {
 	todos := clientes.Buscar(q)
 	return ui.Card(
 		ui.CardHeader(ui.CardTitle("Cadastrados"), ui.CardDescription("Os últimos primeiro."),
@@ -201,13 +202,14 @@ func lista(q string) h.Node {
 		ui.CardContent(h.IfElse(len(todos) == 0,
 			ui.Muted(h.Text(vazio(q))),
 			ui.Table(
-				h.Thead(h.Tr(h.Th(h.Text("Nome")), h.Th(h.Text("Documento")), h.Th(h.Text("Cidade")), h.Th(h.Text("Novidades")))),
-				h.Tbody(h.Map(todos, func(c clientes.Cliente) h.Node {
+				h.Thead(h.Tr(h.Th(h.Text("Nome")), h.Th(h.Text("Documento")), h.Th(h.Text("Cidade")), h.Th(h.Text("Novidades")), h.Th(h.Text("Convite")))),
+				h.Tbody(h.Map(todos, func(cl clientes.Cliente) h.Node {
 					return h.Tr(
-						h.Td(h.Text(c.Nome), h.Br(), ui.Muted(h.Text(c.Email))),
-						h.Td(h.Text(c.Documento())),
-						h.Td(h.Textf("%s/%s", c.Endereco.Cidade, c.Endereco.UF)),
-						h.Td(h.IfElse(c.Novidades, ui.Status(clientes.Frequencias, c.Frequencia), ui.Badge(ui.Outline(), h.Text("não")))),
+						h.Td(h.Text(cl.Nome), h.Br(), ui.Muted(h.Text(cl.Email))),
+						h.Td(h.Text(cl.Documento())),
+						h.Td(h.Textf("%s/%s", cl.Endereco.Cidade, cl.Endereco.UF)),
+						h.Td(h.IfElse(cl.Novidades, ui.Status(clientes.Frequencias, cl.Frequencia), ui.Badge(ui.Outline(), h.Text("não")))),
+						h.Td(convite(c, cl)),
 					)
 				})),
 			),
@@ -244,4 +246,23 @@ func arvore(escolhido string) []ui.TreeNode {
 		return out
 	}
 	return monta("")
+}
+
+// convite gera o link que alguém de fora usa para completar os próprios dados,
+// sem login. O que vai dentro dele é o id do cliente e o nome de quem convidou
+// — assinado, e legível por quem tem o link, que é justamente por que não vai
+// nada além disso ali.
+func convite(c *trilha.Ctx, cl clientes.Cliente) h.Node {
+	url, err := c.Link("convite", trilha.LinkOpts{
+		Data: map[string]string{"cliente": strconv.Itoa(cl.ID), "quem": cl.Nome},
+		TTL:  7 * 24 * time.Hour,
+		Uses: 1,
+		Path: "/convite",
+	})
+	if err != nil {
+		// Sem segredo não há link, e a tela diz isso em vez de mostrar um
+		// endereço que não abriria.
+		return ui.Muted(h.Text("indisponível"))
+	}
+	return h.A(h.Href(url), h.Class("ui-muted"), h.Text("copiar link"))
 }

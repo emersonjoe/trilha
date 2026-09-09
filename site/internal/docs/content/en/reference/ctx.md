@@ -357,3 +357,38 @@ Every send clears the write deadline: a 50 MB file on a bad link is not a slow h
 `Set-Cookie` in particular does not travel: the body of another service does not get to sit on
 this one's session. For a whole prefix forwarded to another service, see
 [Upstreams](/reference/upstreams); `Pipe` is the one response you fetched yourself.
+
+## Public links
+
+`c.Link(name, opts)` builds a signed URL that works with no session, and `c.Claim(name)` is what
+the route on the other side calls.
+
+| Symbol | Role |
+|---|---|
+| `c.Link(name, LinkOpts{...})` | the URL; `name` is the purpose, and a link for one purpose does not open another |
+| `LinkOpts.Data` | travels inside the token: **signed, not secret** |
+| `LinkOpts.TTL` | zero is an hour; negative is an error, not a default |
+| `LinkOpts.Uses` | zero is unlimited and needs no storage at all |
+| `c.Claim(name)` | checks signature, purpose, deadline and remaining uses |
+| `link.Consume()` | spends one use — after the work, never before |
+| `Config.Links` | counts the uses of limited links; nil counts in the process |
+
+**Every way a link can fail answers the same 404.** Wrong signature, wrong purpose, expired,
+already spent: telling a stranger which of the four happened tells them how close they are. A
+wrong token also costs the address a point of a small budget, because guessing a token in a URL
+is brute force.
+
+That budget is a **refilling one and not a lockout**, which is a deliberate difference from the
+issue that asked for this: an hour of blocking keyed by address turns one clumsy person behind an
+office NAT into an outage for everybody behind it, and the property that matters — guessing
+becomes infeasible — is the same either way.
+
+**With `Uses: 0` there is no state.** No row, no lookup, no cleanup: verifying is a signature
+check. That is the case of a verification code printed on a document, and it is why the common
+flow needs no table.
+
+**Reading is not spending.** `Claim` checks that a use is left; only `Consume` takes one. A
+reload would otherwise burn the link somebody is still filling in, and a validation error would
+cost them the invitation.
+
+See [A public link](/cookbook/public-link) for the whole flow.

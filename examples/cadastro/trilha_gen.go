@@ -14,6 +14,7 @@ import (
 	app_assistente_endereco "github.com/emersonjoe/trilha/examples/cadastro/app/assistente/endereco"
 	app_assistente_revisao "github.com/emersonjoe/trilha/examples/cadastro/app/assistente/revisao"
 	app_cidades_busca "github.com/emersonjoe/trilha/examples/cadastro/app/cidades/busca"
+	app_convite_token_ "github.com/emersonjoe/trilha/examples/cadastro/app/convite/token_"
 	app_ficha "github.com/emersonjoe/trilha/examples/cadastro/app/ficha"
 	app_setores_busca "github.com/emersonjoe/trilha/examples/cadastro/app/setores/busca"
 	app_setores_nos "github.com/emersonjoe/trilha/examples/cadastro/app/setores/nos"
@@ -74,6 +75,14 @@ func newApp() *trilha.App {
 		Methods: map[string]trilha.HandlerFunc{
 			"GET": app_cidades_busca.GET,
 		},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/convite/{token}",
+		Page:    app_convite_token_.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_convite_token_.POST,
+		},
+		Layouts: []trilha.LayoutFunc{app.Layout},
 	})
 	a.Register(trilha.Route{
 		Pattern: "/ficha",

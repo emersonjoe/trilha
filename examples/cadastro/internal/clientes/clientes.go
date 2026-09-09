@@ -3,6 +3,7 @@
 package clientes
 
 import (
+	"errors"
 	"net/mail"
 	"sort"
 	"strconv"
@@ -343,4 +344,23 @@ func Todos() []Cliente {
 		out[len(list)-1-i] = c
 	}
 	return out
+}
+
+// ErrSemCliente is what AddDependente answers for an id nobody has. It is a
+// plain error and not a 404: the link said which client, and a link that names
+// a client who no longer exists is a link that outlived its reason.
+var ErrSemCliente = errors.New("clientes: cliente não encontrado")
+
+// AddDependente adds one dependant to a client. It is what the public invite
+// does with what somebody outside filled in.
+func AddDependente(id string, d Dependente) error {
+	mu.Lock()
+	defer mu.Unlock()
+	for i := range list {
+		if strconv.Itoa(list[i].ID) == id {
+			list[i].Dependentes = append(list[i].Dependentes, d)
+			return nil
+		}
+	}
+	return ErrSemCliente
 }

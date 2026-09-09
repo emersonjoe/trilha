@@ -3,6 +3,50 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.59.0 — 2026-09-09
+
+Spec 077.
+
+### Added
+
+- **`c.Link` and `c.Claim` — the link that works with no login**
+  ([#106](https://github.com/emersonjoe/trilha/issues/106)). Three flows in every internal
+  application happen without a session: somebody outside fills in a form, somebody checks a
+  document by a code, somebody answers a request from an e-mail. The framework had the primitive
+  — the signer — and not the pattern, and what gets written without it is a random string in a
+  table, in the clear, with no deadline.
+
+  **With `Uses: 0` there is no state at all**: no row, no lookup, no cleanup — verifying is a
+  signature check. That is the verification code printed on a document, and it is what makes the
+  common flow need no table.
+
+  **Reading is not spending.** `Claim` checks that a use is left; only `Consume` takes one, and
+  after the work. Otherwise a reload would burn the link somebody is still filling in, and a
+  validation error would cost them the invitation.
+
+  **All four failures answer the same 404** — wrong signature, wrong purpose, expired, spent.
+  Telling a stranger which one happened tells them how close they are. A wrong token also costs
+  the address a point of a small budget, because guessing a token in a URL is brute force.
+
+  The purpose is part of the token: a link to a form does not open a verification, even signed by
+  the same application with the same key. And what travels inside is **signed, not secret** —
+  said in the doc comment, the reference and the recipe, with a test so nobody discovers it the
+  other way.
+
+### Not here
+
+`E_CLAIM_BEHIND_LOGIN` in `gen`: reading a route's middleware statically is the same debt as
+[#124](https://github.com/emersonjoe/trilha/issues/124) and goes in with it. The attempt budget
+is also **a refilling one and not an hour of blocking**, which is a deliberate difference from
+the issue: blocking by address turns one clumsy person behind an office NAT into an outage for
+everybody behind it, and guessing is just as infeasible either way.
+
+### Changed
+
+- A negative `TTL` used to become one hour, silently. A caller computing "until the end of the
+  day" after midnight would have got a valid link out of a bug; it is now an error. Zero is still
+  the one-hour default.
+
 ## 0.58.0 — 2026-09-08
 
 Spec 076.

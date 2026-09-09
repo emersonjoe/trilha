@@ -75,6 +75,9 @@ type Config struct {
 	// the logger with kind=audit, which is enough to grep and enough to ship
 	// with; an app that shows the trail on a screen gives its own sink here.
 	Audit AuditSink
+	// Links counts the uses of a link made with a Uses limit. Nil keeps the
+	// count in the process, which is enough for one replica and for a test.
+	Links LinkStore
 	// Drafts is where c.Draft keeps a form in progress that is too large for
 	// a cookie (over 2 KB of JSON). Nil is the common case: a wizard's draft
 	// is a handful of fields and travels signed in the browser.
@@ -252,23 +255,27 @@ const (
 
 // App is a configured Trilha application.
 type App struct {
-	shutdown    []func(*App) error
-	tzOnce      sync.Once
-	tz          *time.Location
-	cfg         Config
-	log         *slog.Logger
-	mux         *http.ServeMux
-	pathMux     *http.ServeMux
-	routes      map[string]*Route
-	values      map[string]any
-	rootLayout  LayoutFunc
-	notFound    PageFunc
-	errorPage   ErrorPageFunc
-	exportExtra []string
-	proxies     []netip.Prefix
-	limiter     *limiter
-	cors        *corsPolicy
-	signer      *Signer
+	shutdown      []func(*App) error
+	tzOnce        sync.Once
+	tz            *time.Location
+	cfg           Config
+	log           *slog.Logger
+	mux           *http.ServeMux
+	pathMux       *http.ServeMux
+	routes        map[string]*Route
+	values        map[string]any
+	rootLayout    LayoutFunc
+	notFound      PageFunc
+	errorPage     ErrorPageFunc
+	exportExtra   []string
+	proxies       []netip.Prefix
+	limiter       *limiter
+	cors          *corsPolicy
+	signer        *Signer
+	linkOnce      sync.Once
+	links         LinkStore
+	linkGuardOnce sync.Once
+	linkLimiter   *Limiter
 
 	metrics    *Metrics
 	instrument bool
@@ -599,4 +606,33 @@ func (a *App) location() *time.Location {
 		a.tz = loc
 	})
 	return a.tz
+}
+
+// linkStore is where the uses of a limited link are counted; nil keeps them in
+// the process, which is honest about one replica and said once.
+func (a *App) linkStore() LinkStore {
+	a.linkOnce.Do(func() {
+		if a.cfg.Links == nil {
+			a.links = &memLinks{}
+			a.infoOnce("links:memory", "trilha: link uses counted in memory; a second replica would not see them")
+			return
+		}
+		a.links = a.cfg.Links
+	})
+	return a.links
+}
+
+// linkGuard is the budget for getting a token wrong. Guessing a token in a URL
+// is brute force, and the answer to brute force is that wrong answers cost
+// something.
+//
+// It is a refilling budget and not a lockout, which is a deliberate difference
+// from what the issue proposed: an hour of blocking keyed by address turns one
+// clumsy person behind an office NAT into an outage for everybody behind it,
+// and the property that matters — guessing becomes infeasible — is the same.
+func (a *App) linkGuard() *Limiter {
+	a.linkGuardOnce.Do(func() {
+		a.linkLimiter = NewLimiter(RateLimit{RPS: 1.0 / 120, Burst: 5})
+	})
+	return a.linkLimiter
 }

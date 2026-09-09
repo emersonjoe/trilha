@@ -425,3 +425,47 @@ func TestArvoreDeSetores(t *testing.T) {
 	erro := c.PostForm("/", f2).WantStatus(422)
 	erro.WantContains(`value="100.2.1" class="ui-tree-radio" checked`, "Recrutamento")
 }
+
+// #106 — o convite: alguém de fora abre um link, preenche um formulário e
+// pronto. Sem sessão, sem tabela de tokens, e o link vale uma vez.
+func TestConvitePorLink(t *testing.T) {
+	c := newClient(t)
+
+	// O link sai da lista, já assinado.
+	pagina := c.Get("/").WantStatus(200)
+	url := extraiConvite(t, pagina.Body.String())
+
+	// Quem tem o link abre sem sessão, e a tela diz de quem é o convite.
+	c.Get(url).WantStatus(200).WantContains("Complete seus dados", "Ada Lovelace")
+
+	// Um token adulterado é 404, e não diz o que houve.
+	if rec := c.Get(url[:len(url)-3] + "aaa"); rec.Code != 404 {
+		t.Fatalf("token mexido = %d", rec.Code)
+	}
+
+	// Erro de validação não gasta o link: quem digitou a data errada não fica
+	// sem convite.
+	c.Request("POST", url, trilha.WithBody("application/x-www-form-urlencoded",
+		"nome=&nascimento=2010-01-01")).WantStatus(422)
+	c.Get(url).WantStatus(200).WantContains("Complete seus dados")
+
+	// O envio bom grava e gasta.
+	c.Request("POST", url, trilha.WithBody("application/x-www-form-urlencoded",
+		"nome=Filha+da+Ada&nascimento=2010-01-01")).WantStatus(200).WantContains("Pronto")
+
+	// E aí o link não abre mais.
+	if rec := c.Get(url); rec.Code != 404 {
+		t.Fatalf("link gasto = %d", rec.Code)
+	}
+}
+
+// extraiConvite pega o link da coluna de convite da lista.
+func extraiConvite(t *testing.T, body string) string {
+	t.Helper()
+	i := strings.Index(body, `href="/convite/`)
+	if i < 0 {
+		t.Fatal("a lista não trouxe o link de convite")
+	}
+	rest := body[i+len(`href="`):]
+	return rest[:strings.Index(rest, `"`)]
+}
