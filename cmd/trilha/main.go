@@ -21,7 +21,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.68.0"
+const version = "0.69.0"
 
 // exeName gives a path the extension the system needs to execute it. `go build -o`
 // writes the literal name it is given, and on Windows exec.LookPath only accepts a
@@ -77,6 +77,8 @@ func main() {
 		err = cmdAudit(os.Args[2:])
 	case "secret":
 		err = cmdSecret(os.Args[2:])
+	case "add":
+		err = cmdAdd(os.Args[2:])
 	case "version", "-v", "--version":
 		fmt.Println("trilha", version)
 	case "help", "-h", "--help":

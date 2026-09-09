@@ -592,6 +592,63 @@ func TestGenerateContratoE2E(t *testing.T) {
 	}
 }
 
+// TestAddE2E is issue #116 end to end: every recipe, applied to a project
+// nobody has touched, and `trilha check` green afterwards.
+//
+// This is the guarantee that decides whether recipes age well. One that broke
+// quietly is worse than no recipe at all, because whoever ran it already has
+// its code inside their project — so the CI applies each of them for real.
+func TestAddE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	t.Setenv("TRILHA_SECRET", "um-segredo-de-teste-com-mais-de-32-bytes")
+	cli := buildCLI(t, repo, tmp)
+
+	proj := filepath.Join(tmp, "loja")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/loja", "--trilha-dir", repo)
+
+	// The listing is how anybody finds out a recipe exists.
+	lista := run(t, proj, cli, "add")
+	for _, nome := range []string{"audit", "api-keys", "settings"} {
+		if !strings.Contains(lista, nome) {
+			t.Fatalf("`trilha add` does not list %s:\n%s", nome, lista)
+		}
+	}
+
+	// Every recipe into the same project: they have to coexist, because a
+	// project that wants one usually wants two.
+	for _, nome := range []string{"audit", "settings", "api-keys"} {
+		out := run(t, proj, cli, "add", nome)
+		if !strings.Contains(out, "  + ") {
+			t.Fatalf("add %s wrote nothing:\n%s", nome, out)
+		}
+	}
+
+	// The whole point: no edit between adding and the gate being green.
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "test") {
+		t.Fatal(out)
+	}
+
+	// A second run adds nothing and duplicates nothing.
+	again := run(t, proj, cli, "add", "audit")
+	if strings.Contains(again, "  + ") {
+		t.Fatalf("running it again wrote a file:\n%s", again)
+	}
+	setup, err := os.ReadFile(filepath.Join(proj, "app", "setup.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(string(setup), "trilha:add audit"); n != 1 {
+		t.Fatalf("the marker appears %d times:\n%s", n, setup)
+	}
+	// And the gate is still green after the second run.
+	run(t, proj, cli, "check")
+}
+
 // TestGenerateCrudE2E is issue #115 end to end: from a struct to the screens,
 // with nobody editing anything in between. It is the only place that proves
 // the five generated files agree with each other — the store the pages use,

@@ -56,6 +56,7 @@ Usage:
   trilha openapi [-o file] [--check]                write the OpenAPI document of the API routes
   trilha audit [--no-vuln]                          check the project's security and configuration
   trilha secret                                     print a signing key for TRILHA_SECRET
+  trilha add [recipe] [--dry-run] [--list --json]   write a framework recipe into the project
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
   trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
   trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
@@ -82,6 +83,7 @@ Uso:
   trilha openapi [-o arquivo] [--check]               escreve o documento OpenAPI das rotas de API
   trilha audit [--no-vuln]                            verifica segurança e configuração do projeto
   trilha secret                                       imprime uma chave para o TRILHA_SECRET
+  trilha add [receita] [--dry-run] [--list --json]    escreve uma receita do framework no projeto
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
   trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
   trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
@@ -162,6 +164,14 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"flag gen-bind":    {"type the body binds to; written in the route's package when the project has none", "tipo em que o corpo é lido; nasce no pacote da rota quando o projeto não tem"},
 	"flag gen-form":    {"type the form binds to, with the round trip of errors and the redirect", "tipo em que o formulário é lido, com a ida e volta dos erros e o redirect"},
 	"flag gen-layout":  {"layout.go to write when the folder above the page has none", "layout.go a gravar quando a pasta acima da página não tem um"},
+	"flag add list":    {"list the recipes and write nothing", "lista as receitas e não escreve nada"},
+	"flag add json":    {"with --list, answer JSON", "com --list, responde JSON"},
+	"flag add dry":     {"show what would be written and write nothing", "mostra o que seria escrito e não escreve nada"},
+	"add see list":     {"run `trilha add` to see what there is", "rode `trilha add` para ver o que existe"},
+	"add skipped":      {"already there, kept", "já existe, mantido"},
+	"add wired":        {"one line added", "uma linha acrescentada"},
+	"add dry":          {"--dry-run: nothing was written", "--dry-run: nada foi escrito"},
+	"add doc":          {"Doc:", "Doc:"},
 	"flag crud at":     {"where the screens go, under app/ (default app/<plural of the type>)", "onde as telas vão, dentro de app/ (padrão app/<plural do tipo>)"},
 	"crud exists":      {"a CRUD is what you generate after editing one, so there is no --force: move or delete the file and run again", "um CRUD é o que se gera depois de já ter editado, então não há --force: mova ou apague o arquivo e rode de novo"},
 	"generate usage":   {"usage: trilha generate page|route|test <url> | component <Name> | crud <Type> [--at dir] [--methods GET,POST] [--bind Type] [--form Type] [--layout file] [--force] [--dir path] [--lang en|pt]", "uso: trilha generate page|route|test <url> | component <Nome> | crud <Tipo> [--at dir] [--methods GET,POST] [--bind Tipo] [--form Tipo] [--layout arquivo] [--force] [--dir caminho] [--lang en|pt]"},

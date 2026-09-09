@@ -30,6 +30,7 @@ trilha version
 | `gen` | scans `app/` and writes `trilha_gen.go`; fails with one line per violated convention |
 | `generate` | writes one skeleton — a page, an API route or a component — in the folder the convention asks for |
 | `generate crud` | reads a struct and writes the whole thing: listing, create, edit, delete, a store and a test |
+| `add` | writes a framework recipe into the project: the audit trail, API keys, a settings section |
 | `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE + route inspector on `/_trilha/routes` |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + runs with `TRILHA_EXPORT` to produce static HTML |
@@ -407,6 +408,77 @@ memory for a database is implementing five methods whose signatures are already 
 later. They are on [#115](https://github.com/emersonjoe/trilha/issues/115); the SQL store in
 particular would have to pick a placeholder dialect and own a DDL, which is the thing this
 framework does not do anywhere else.
+
+## trilha add
+
+Half of what a management app needs is a **pattern**, not a primitive: the trail of who did what,
+the screen that issues API keys, the settings section somebody edits instead of redeploying. In
+the framework they would be rigid; as documentation they are work to copy. `trilha add` writes
+them into the project as files it then owns.
+
+```bash
+trilha add              # what there is, one line each
+trilha add audit
+trilha add audit --dry-run
+trilha add --list --json    # for the MCP server and an editor's agent
+```
+
+```text
+  + internal/auditoria/store.go
+  + app/auditoria/page.go
+  ~ app/setup.go (one line added)
+
+Run `trilha dev` and open /auditoria. Guard it: the trail says who did what, and that is
+not for everybody.
+Doc: https://trilha.dev/reference/observability
+```
+
+The difference from `generate` is the direction: **`generate crud` writes from your code** — a
+struct becomes a screen — and **`add` writes from a recipe of the framework's**. Both end with
+`gen`, and both leave `trilha check` green.
+
+### Running it twice adds; it does not start over
+
+A file that is already there is skipped with a note, not overwritten and not refused. By the
+second run the file belongs to whoever received it, and they have probably edited it.
+
+The one file a recipe edits is `app/setup.go`, and the insertion is **marked**:
+
+```go
+func Setup(a *trilha.App) error {
+	// trilha:add audit
+	a.Config().Audit = auditoria.Store
+	return nil
+}
+```
+
+That marker is what makes the second run recognise its own line instead of adding a second copy
+of a store nobody wanted twice. Three recipes leave one import block, not three one-line groups —
+the file is somebody's to read.
+
+`--dry-run` prints all of that and writes nothing, which is what to run before letting a command
+touch a project that already has code.
+
+### The recipes
+
+| Recipe | What it writes |
+|---|---|
+| `audit` | the sink `Config.Audit` receives, and the screen that reads it with `ui.AuditTable` |
+| `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
+| `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
+
+Each one comes with memory behind it, so the screen works from the first request, and a comment
+saying where a database goes. Each also says, in the file, that the folder needs guarding: an
+audit trail names people, and a keys screen issues credentials.
+
+More are coming — `login`, `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
+`tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
+
+### Why the CI applies every one of them
+
+A recipe that broke quietly is worse than no recipe, because whoever ran it already has its code
+inside their project. So the test does not read the templates: it creates a project, applies every
+recipe to it, and runs `trilha check` — compile, vet, test, audit — with nobody editing anything.
 
 ## trilha ctx
 

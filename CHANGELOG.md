@@ -3,6 +3,41 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.69.0 — 2026-09-09
+
+Spec 088. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for
+the recipes it also lists.
+
+### Added
+
+- **`trilha add <recipe>` — the pattern, written into the project.** Half of what a management
+  app needs is a pattern and not a primitive: the trail of who did what, the screen that issues
+  API keys, the settings section somebody edits instead of redeploying. In the framework they
+  would be rigid; as documentation they are work to copy. Now they are files the project receives
+  and owns.
+
+  Three to start: `audit`, `api-keys` and `settings`. `trilha add` with no name lists them one
+  line each, and `--list --json` answers the same for the MCP server and an editor's agent.
+
+  The difference from `generate` is the direction: `generate crud` writes from **your** code — a
+  struct becomes a screen — and `add` writes from a recipe of the framework's.
+
+  **Running it twice adds; it does not start over.** A file already there is skipped with a note,
+  because by the second run it belongs to whoever received it. The one file a recipe edits is
+  `app/setup.go`, and the insertion carries a `// trilha:add <recipe>` marker — that marker is
+  what makes the second run recognise its own line instead of adding a second copy of a store
+  nobody wanted twice. Three recipes leave one import block, not three one-line groups.
+  `--dry-run` prints all of it and writes nothing.
+
+  **CI applies every recipe to a fresh project and runs `trilha check`** — compile, vet, test,
+  audit — with nobody editing anything. A recipe that broke quietly is worse than no recipe,
+  because whoever ran it already has its code inside their project, so the test does not read the
+  templates: it uses them.
+
+  There is no "requires" gate, and that is deliberate: none of these three needs one, and a field
+  with no consumer is a promise nobody asked for. It arrives with the first recipe that genuinely
+  depends on something.
+
 ## 0.68.0 — 2026-09-09
 
 Spec 087. Part of [#115](https://github.com/emersonjoe/trilha/issues/115), which stays open for

@@ -30,6 +30,7 @@ trilha version
 | `gen` | varre `app/` e escreve `trilha_gen.go`; falha com uma linha por convenção violada |
 | `generate` | grava um esqueleto — página, rota de API ou componente — na pasta que a convenção pede |
 | `generate crud` | lê um struct e escreve tudo: lista, criar, editar, excluir, um store e um teste |
+| `add` | escreve uma receita do framework no projeto: a trilha de auditoria, chaves de API, uma seção de configurações |
 | `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE + inspetor de rotas em `/_trilha/routes` |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` com `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + executa com `TRILHA_EXPORT` para gerar HTML estático |
@@ -401,6 +402,78 @@ implementar cinco métodos cujas assinaturas já estão escritas. A
 depois. Estão na [#115](https://github.com/emersonjoe/trilha/issues/115); o store em SQL, em
 particular, teria de escolher dialeto de placeholder e ser dono de um DDL, que é a coisa que este
 framework não faz em nenhum outro lugar.
+
+## trilha add
+
+Metade do que um app de gestão precisa é um **padrão**, e não um primitivo: a trilha de quem fez o
+quê, a tela que emite chaves de API, a seção de configurações que alguém edita em vez de fazer um
+deploy. No framework isso fica rígido; como documentação, vira trabalho de copiar. O `trilha add`
+escreve no projeto, como arquivos que ele passa a possuir.
+
+```bash
+trilha add              # o que existe, uma linha cada
+trilha add audit
+trilha add audit --dry-run
+trilha add --list --json    # para o servidor MCP e o agente do editor
+```
+
+```text
+  + internal/auditoria/store.go
+  + app/auditoria/page.go
+  ~ app/setup.go (uma linha acrescentada)
+
+Rode `trilha dev` e abra /auditoria. Guarde a rota: a trilha diz quem fez o quê, e isso
+não é para todo mundo.
+Doc: https://trilha.dev/reference/observability
+```
+
+A diferença para o `generate` é a direção: **o `generate crud` escreve a partir do seu código** —
+um struct vira tela — e o **`add` escreve a partir de uma receita do framework**. Os dois terminam
+em `gen`, e os dois deixam o `trilha check` verde.
+
+### Rodar duas vezes acrescenta; não recomeça
+
+Arquivo que já está lá é pulado com um aviso — não é sobrescrito nem vira recusa. Na segunda vez o
+arquivo é de quem o recebeu, e provavelmente já foi editado.
+
+O único arquivo que uma receita edita é o `app/setup.go`, e a inserção é **marcada**:
+
+```go
+func Setup(a *trilha.App) error {
+	// trilha:add audit
+	a.Config().Audit = auditoria.Store
+	return nil
+}
+```
+
+É essa marca que faz a segunda execução reconhecer a própria linha, em vez de acrescentar uma
+segunda cópia de um store que ninguém queria duas vezes. Três receitas deixam um bloco de imports,
+e não três grupos de uma linha — o arquivo é de alguém, e essa pessoa vai lê-lo.
+
+O `--dry-run` imprime tudo isso e não escreve nada, que é o que se roda antes de deixar um comando
+mexer num projeto que já tem código.
+
+### As receitas
+
+| Receita | O que escreve |
+|---|---|
+| `audit` | o destino que o `Config.Audit` recebe, e a tela que o lê com o `ui.AuditTable` |
+| `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
+| `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
+
+Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisição, e um comentário
+dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
+guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
+
+Faltam outras — `login`, `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
+`tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
+
+### Por que a CI aplica todas elas
+
+Uma receita que quebrou em silêncio é pior que nenhuma receita, porque quem a rodou já está com o
+código dela dentro do projeto. Então o teste não lê os templates: ele cria um projeto, aplica todas
+as receitas nele e roda o `trilha check` — compilar, vet, testar, auditar — sem ninguém editar
+nada.
 
 ## trilha ctx
 
