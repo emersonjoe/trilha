@@ -1162,6 +1162,87 @@ pkg task, type Task struct, Step string
 pkg task, type Tasks struct
 pkg task, var ErrNotFound
 pkg task, var ErrUnknownTask
+pkg webhook, const Delivered State
+pkg webhook, const Failed State
+pkg webhook, const HeaderEvent
+pkg webhook, const HeaderID
+pkg webhook, const HeaderSignature
+pkg webhook, const HeaderTimestamp
+pkg webhook, const Pending State
+pkg webhook, const SecretCookie
+pkg webhook, func Memory() Store
+pkg webhook, func New(Options) *Hooks
+pkg webhook, func Sign(string, string, []byte) string
+pkg webhook, func TakeSecret(*trilha.Ctx) string
+pkg webhook, func Verify(*http.Request, string) ([]byte, error)
+pkg webhook, method (*Hooks) Deliveries(context.Context, ListParams) ([]Delivery, error)
+pkg webhook, method (*Hooks) Emit(*trilha.Ctx, string, any) error
+pkg webhook, method (*Hooks) Events() []string
+pkg webhook, method (*Hooks) Handle(*trilha.Ctx) error
+pkg webhook, method (*Hooks) Ping(*trilha.Ctx, string) (string, error)
+pkg webhook, method (*Hooks) Retry(*trilha.Ctx, string) (string, error)
+pkg webhook, method (*Hooks) Revoke(*trilha.Ctx, string) error
+pkg webhook, method (*Hooks) Setup(*trilha.App) error
+pkg webhook, method (*Hooks) Shutdown(context.Context) error
+pkg webhook, method (*Hooks) Subscribe(*trilha.Ctx, Subscription) (trilha.Secret, error)
+pkg webhook, method (*Hooks) Subscriptions(context.Context, string) ([]Subscription, error)
+pkg webhook, method (Subscription) Wants(string) bool
+pkg webhook, type Delivery struct
+pkg webhook, type Delivery struct, Attempt int
+pkg webhook, type Delivery struct, Created time.Time
+pkg webhook, type Delivery struct, Ended time.Time
+pkg webhook, type Delivery struct, Err string
+pkg webhook, type Delivery struct, Event string
+pkg webhook, type Delivery struct, ID string
+pkg webhook, type Delivery struct, NextTry time.Time
+pkg webhook, type Delivery struct, Payload []byte
+pkg webhook, type Delivery struct, Response string
+pkg webhook, type Delivery struct, RetryOf string
+pkg webhook, type Delivery struct, State State
+pkg webhook, type Delivery struct, Status int
+pkg webhook, type Delivery struct, SubscriptionID string
+pkg webhook, type Delivery struct, Tenant string
+pkg webhook, type Hooks struct
+pkg webhook, type ListParams struct
+pkg webhook, type ListParams struct, Event string
+pkg webhook, type ListParams struct, Limit int
+pkg webhook, type ListParams struct, Offset int
+pkg webhook, type ListParams struct, State State
+pkg webhook, type ListParams struct, SubscriptionID string
+pkg webhook, type ListParams struct, Tenant string
+pkg webhook, type Options struct
+pkg webhook, type Options struct, AllowPrivateURL bool
+pkg webhook, type Options struct, Backoff []time.Duration
+pkg webhook, type Options struct, Env trilha.Env
+pkg webhook, type Options struct, Events []string
+pkg webhook, type Options struct, HTTP *http.Client
+pkg webhook, type Options struct, Logger *slog.Logger
+pkg webhook, type Options struct, Store Store
+pkg webhook, type Options struct, Tick time.Duration
+pkg webhook, type Options struct, Timeout time.Duration
+pkg webhook, type Options struct, Workers int
+pkg webhook, type State string
+pkg webhook, type Store interface
+pkg webhook, type Store interface, Deliveries(context.Context, ListParams) ([]Delivery, error)
+pkg webhook, type Store interface, Delivery(context.Context, string) (Delivery, error)
+pkg webhook, type Store interface, Due(context.Context, time.Time, int) ([]string, error)
+pkg webhook, type Store interface, SaveDelivery(context.Context, Delivery) error
+pkg webhook, type Store interface, SaveSubscription(context.Context, Subscription) error
+pkg webhook, type Store interface, Subscription(context.Context, string) (Subscription, error)
+pkg webhook, type Store interface, Subscriptions(context.Context, string) ([]Subscription, error)
+pkg webhook, type Subscription struct
+pkg webhook, type Subscription struct, Created time.Time
+pkg webhook, type Subscription struct, Events []string
+pkg webhook, type Subscription struct, ID string
+pkg webhook, type Subscription struct, Label string
+pkg webhook, type Subscription struct, Revoked bool
+pkg webhook, type Subscription struct, Secret trilha.Secret
+pkg webhook, type Subscription struct, Tenant string
+pkg webhook, type Subscription struct, URL string
+pkg webhook, var ErrNotFound
+pkg webhook, var ErrSignature
+pkg webhook, var ErrUnknownEvent
+pkg webhook, var Tolerance
 pkg tmpl, func HTML(h.Node) (template.HTML, error)
 pkg tmpl, func Must(fs.FS, ...string) *template.Template
 pkg tmpl, func Node(*template.Template, string, any) h.Node
@@ -1319,6 +1400,7 @@ pkg ui, func TreeScript(*trilha.Ctx) h.Node
 pkg ui, func UploadBar(...h.Node) h.Node
 pkg ui, func UploadScript(*trilha.Ctx) h.Node
 pkg ui, func UploadTo(string) h.Node
+pkg ui, func WebhooksPanel(*trilha.Ctx, []WebhookRow, []DeliveryRow, WebhooksOpts) h.Node
 pkg ui, func With(...h.Node) FieldOpt
 pkg ui, method (Back) Render(io.Writer) error
 pkg ui, type APIKeyRow struct
@@ -1395,6 +1477,17 @@ pkg ui, type DeferOpts struct, Load string
 pkg ui, type DeferOpts struct, Placeholder h.Node
 pkg ui, type DeferOpts struct, Retry string
 pkg ui, type DeferOpts struct, Then h.Node
+pkg ui, type DeliveryRow struct
+pkg ui, type DeliveryRow struct, Attempt int
+pkg ui, type DeliveryRow struct, Err string
+pkg ui, type DeliveryRow struct, Event string
+pkg ui, type DeliveryRow struct, ID string
+pkg ui, type DeliveryRow struct, Next time.Time
+pkg ui, type DeliveryRow struct, Response string
+pkg ui, type DeliveryRow struct, RetryOf string
+pkg ui, type DeliveryRow struct, State string
+pkg ui, type DeliveryRow struct, Status int
+pkg ui, type DeliveryRow struct, When time.Time
 pkg ui, type DropzoneOpts struct
 pkg ui, type DropzoneOpts struct, Accept string
 pkg ui, type DropzoneOpts struct, Attrs []h.Node
@@ -1519,4 +1612,16 @@ pkg ui, type UserMenu struct
 pkg ui, type UserMenu struct, Detail string
 pkg ui, type UserMenu struct, Items []h.Node
 pkg ui, type UserMenu struct, Name string
+pkg ui, type WebhookRow struct
+pkg ui, type WebhookRow struct, Created time.Time
+pkg ui, type WebhookRow struct, Events []string
+pkg ui, type WebhookRow struct, ID string
+pkg ui, type WebhookRow struct, Label string
+pkg ui, type WebhookRow struct, Revoked bool
+pkg ui, type WebhookRow struct, URL string
+pkg ui, type WebhooksOpts struct
+pkg ui, type WebhooksOpts struct, Action string
+pkg ui, type WebhooksOpts struct, CSRF h.Node
+pkg ui, type WebhooksOpts struct, Events []string
+pkg ui, type WebhooksOpts struct, Secret string
 pkg ui, var Files

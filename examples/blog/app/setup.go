@@ -14,6 +14,7 @@ import (
 	"github.com/emersonjoe/trilha/examples/blog/internal/icones"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
 	"github.com/emersonjoe/trilha/examples/blog/internal/tarefas"
+	"github.com/emersonjoe/trilha/webhook"
 )
 
 // Config runs before trilha.New: the place to change fields New derives
@@ -90,11 +91,26 @@ func Setup(a *trilha.App) error {
 	})
 	// Métrica de domínio: aparece na raspagem junto com as do framework.
 	store.Published = a.Metrics().Counter("blog_posts_total", "Posts publicados desde o início do processo.")
+	// O que este app avisa para fora. A lista é fechada: um erro de digitação
+	// num Emit vira erro na hora, e não um evento que ninguém assina — que,
+	// visto de fora, é idêntico a um parceiro que não está ouvindo.
+	hooks := webhook.New(webhook.Options{
+		Events: []string{"documento.processado", "documento.falhou"},
+		Env:    a.Env(),
+	})
+	trilha.Provide(a, hooks)
+	if err := hooks.Setup(a); err != nil {
+		return err
+	}
 	// O processamento longo é um valor do app, como o store: cada servidor de
 	// teste tem o seu, e nenhum teste vê a tarefa do outro. O Setup varre o
 	// que um processo anterior deixou pendurado e pendura o Shutdown no app,
 	// para um deploy no meio de um processamento esperar em vez de cortar.
-	motor := tarefas.Novo()
+	//
+	// Os dois módulos se encontram aqui: quando a tarefa termina, ela avisa
+	// para fora. É a forma que o par tem numa aplicação de verdade — o
+	// trabalho longo acontece, e alguém do lado de fora precisa saber.
+	motor := tarefas.Novo(hooks)
 	trilha.Provide(a, motor)
 	if err := motor.Setup(a); err != nil {
 		return err

@@ -39,6 +39,7 @@ import (
 	app_tarefas "github.com/emersonjoe/trilha/examples/blog/app/tarefas"
 	app_tarefas_id_ "github.com/emersonjoe/trilha/examples/blog/app/tarefas/id_"
 	app_tarefas_tentar "github.com/emersonjoe/trilha/examples/blog/app/tarefas/tentar"
+	app_webhooks "github.com/emersonjoe/trilha/examples/blog/app/webhooks"
 )
 
 //go:embed public
@@ -263,6 +264,15 @@ func newApp() *trilha.App {
 	a.Register(trilha.Route{
 		Pattern:     "/tarefas/{id}",
 		Page:        app_tarefas_id_.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/webhooks",
+		Page:    app_webhooks.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_webhooks.POST,
+		},
 		Layouts:     []trilha.LayoutFunc{app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})

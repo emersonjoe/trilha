@@ -148,9 +148,17 @@ func TestHeadAndAssets(t *testing.T) {
 	// budget is for.
 	// 0.64.0 spent about 600 bytes on ui.TaskProgress: the indeterminate bar
 	// and its reduced-motion fallback, plus two rules for the table's retry
-	// button. That leaves barely a hundred bytes under the ceiling, and the
-	// next rule that does not fit is a conversation and not an increment —
-	// which is what a budget is for.
+	// button. That left barely a hundred bytes under the ceiling, and the next
+	// rule that did not fit was meant to be a conversation and not an
+	// increment — which is what a budget is for.
+	//
+	// That conversation happened in 0.65.0, and the answer was to spend less
+	// rather than to raise the ceiling. ui.WebhooksPanel needed two rules and
+	// no more: everything else it draws is a table, a form and buttons the kit
+	// already styles. The retry button's rule was not copied for it either —
+	// it was renamed .ui-inline-form and both screens use it, which is what a
+	// second caller is supposed to do to a rule. The comment that would have
+	// explained it lives in the Go doc, where it costs the reader nothing.
 	if len(Asset("ui.css")) > 34<<10 || len(Asset("ui.js")) > 28<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}

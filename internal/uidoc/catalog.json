@@ -2724,5 +2724,135 @@
       "trilha.Enum",
       "ui.Badge"
     ]
+  },
+  {
+    "name": "WebhookRow",
+    "kind": "type",
+    "group": "webhooks",
+    "signature": "type WebhookRow struct",
+    "doc": "WebhookRow is one subscription on the screen. It is a plain struct and not a\nwebhook.Subscription because ui does not import webhook — the kit draws, and\nwhat it draws is data. The application maps one to the other in five lines,\nand that mapping is where \"what a screen shows\" is decided.\n\nThe secret is not here and must not be: only its owner ever saw it, and a\nrow carrying it would be a row that ends up in a log.",
+    "summary": "WebhookRow is one subscription on the screen.",
+    "fields": [
+      {
+        "name": "ID",
+        "type": "string"
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "URL",
+        "type": "string"
+      },
+      {
+        "name": "Events",
+        "type": "[]string"
+      },
+      {
+        "name": "Created",
+        "type": "time.Time"
+      },
+      {
+        "name": "Revoked",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "name": "DeliveryRow",
+    "kind": "type",
+    "group": "webhooks",
+    "signature": "type DeliveryRow struct",
+    "doc": "DeliveryRow is one attempt on the screen.",
+    "summary": "DeliveryRow is one attempt on the screen.",
+    "fields": [
+      {
+        "name": "ID",
+        "type": "string"
+      },
+      {
+        "name": "Event",
+        "type": "string"
+      },
+      {
+        "name": "State",
+        "type": "string",
+        "doc": "State is \"pending\", \"delivered\" or \"failed\"."
+      },
+      {
+        "name": "Attempt",
+        "type": "int"
+      },
+      {
+        "name": "Status",
+        "type": "int",
+        "doc": "Status is the last HTTP status; 0 when there was never an answer, and then Err says why."
+      },
+      {
+        "name": "Err",
+        "type": "string"
+      },
+      {
+        "name": "Response",
+        "type": "string",
+        "doc": "Response is what the partner said — the first kilobyte."
+      },
+      {
+        "name": "When",
+        "type": "time.Time"
+      },
+      {
+        "name": "Next",
+        "type": "time.Time"
+      },
+      {
+        "name": "RetryOf",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "WebhooksOpts",
+    "kind": "type",
+    "group": "webhooks",
+    "signature": "type WebhooksOpts struct",
+    "doc": "WebhooksOpts is what the panel can do besides list.",
+    "summary": "WebhooksOpts is what the panel can do besides list.",
+    "fields": [
+      {
+        "name": "Action",
+        "type": "string",
+        "doc": "Action is where the forms post — the panel's own address."
+      },
+      {
+        "name": "CSRF",
+        "type": "h.Node",
+        "doc": "CSRF is the hidden token field, from trilha.CSRFInput(c)."
+      },
+      {
+        "name": "Events",
+        "type": "[]string",
+        "doc": "Events is the closed list this application emits, for the checkboxes."
+      },
+      {
+        "name": "Secret",
+        "type": "string",
+        "doc": "Secret is the plain secret of a subscription just created, shown once."
+      }
+    ]
+  },
+  {
+    "name": "WebhooksPanel",
+    "kind": "func",
+    "group": "webhooks",
+    "signature": "WebhooksPanel(c *trilha.Ctx, subs []WebhookRow, deliveries []DeliveryRow, o WebhooksOpts) h.Node",
+    "doc": "WebhooksPanel is the screen an application gives whoever integrates with it:\nregister an endpoint, see what was sent, send it again, test it.\n\nIt is one form posting to one address, dispatched by a hidden action field,\nbecause that is what webhook.Handle answers — and because a screen that\nposts to itself comes back to itself when something is wrong, with the\nmessage beside the field.",
+    "summary": "WebhooksPanel is the screen an application gives whoever integrates with it: register an endpoint, see what was sent, send it again, test it.",
+    "example": "ui.WebhooksPanel(c, assinaturas, entregas, ui.WebhooksOpts{\n\tAction: \"/webhooks\", CSRF: trilha.CSRFInput(c),\n\tEvents: app.Hooks.Events(), Secret: webhook.TakeSecret(c),\n})",
+    "see": [
+      "trilha.CSRFInput",
+      "ui.WebhooksOpts"
+    ]
   }
 ]

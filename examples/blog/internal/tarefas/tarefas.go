@@ -11,12 +11,14 @@ package tarefas
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/emersonjoe/trilha/examples/blog/internal/documentos"
 	"github.com/emersonjoe/trilha/task"
+	"github.com/emersonjoe/trilha/webhook"
 )
 
 // Nome is the task this app runs. It is a constant because the name is an
@@ -28,14 +30,17 @@ const Nome = "processar-documento"
 // variable, and that is not taste: a package variable a test writes while
 // another test's worker reads it is a data race, and the race detector found
 // exactly that one here.
-type motor struct{ passo time.Duration }
+type motor struct {
+	passo time.Duration
+	hooks *webhook.Hooks
+}
 
 // Novo builds the engine with the handler already registered. The pace of the
 // stages is read once, here, so each engine carries its own — a test asks for
 // a fast one through the environment, before the app is built, and nothing is
 // shared afterwards.
-func Novo() *task.Tasks {
-	m := &motor{passo: 250 * time.Millisecond}
+func Novo(hooks *webhook.Hooks) *task.Tasks {
+	m := &motor{passo: 250 * time.Millisecond, hooks: hooks}
 	if v := os.Getenv("BLOG_TASK_STEP"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			m.passo = d
@@ -71,9 +76,29 @@ func (m *motor) processar(ctx context.Context, p *task.Progress) error {
 		// o exemplo precisa mostrar tanto quanto o que dá certo.
 		if i == 1 && strings.Contains(strings.ToLower(doc.Nome), "erro") {
 			documentos.Marcar(p.Key, "fila")
+			m.avisa("documento.falhou", doc)
 			return errors.New("não consegui classificar: o arquivo não tem texto")
 		}
 	}
 	documentos.Marcar(p.Key, "pronto")
+	m.avisa("documento.processado", doc)
 	return nil
+}
+
+// avisa manda o evento para quem assinou. O Ctx é nulo porque aqui não há
+// requisição — o trabalho já saiu dela faz tempo, que é o motivo de existir —
+// e o Emit grava as entregas e volta sem esperar rede nenhuma.
+//
+// A falha ao avisar não derruba a tarefa: o documento foi processado, e um
+// aviso que não saiu é uma entrega que a tela mostra. Fazer o contrário seria
+// reprocessar um documento porque um parceiro está fora do ar.
+func (m *motor) avisa(evento string, doc documentos.Documento) {
+	if m.hooks == nil {
+		return
+	}
+	if err := m.hooks.Emit(nil, evento, map[string]any{
+		"id": doc.ID, "nome": doc.Nome, "tipo": doc.Tipo, "bytes": doc.Bytes,
+	}); err != nil {
+		slog.Default().Error("webhook", "evento", evento, "documento", doc.ID, "err", err)
+	}
 }

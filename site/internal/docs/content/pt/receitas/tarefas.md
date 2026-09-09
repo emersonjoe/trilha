@@ -34,8 +34,8 @@ quer uma fila de verdade — e o `Store` é a costura para pôr uma atrás.
 // stages is read once, here, so each engine carries its own — a test asks for
 // a fast one through the environment, before the app is built, and nothing is
 // shared afterwards.
-func Novo() *task.Tasks {
-	m := &motor{passo: 250 * time.Millisecond}
+func Novo(hooks *webhook.Hooks) *task.Tasks {
+	m := &motor{passo: 250 * time.Millisecond, hooks: hooks}
 	if v := os.Getenv("BLOG_TASK_STEP"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			m.passo = d
@@ -53,7 +53,7 @@ função nenhuma para tentar de novo — e a tarefa que alguém quer tentar de n
 que morreu no deploy. Registrada por nome, o botão funciona.
 
 ```go
-	motor := tarefas.Novo()
+	motor := tarefas.Novo(hooks)
 	trilha.Provide(a, motor)
 	if err := motor.Setup(a); err != nil {
 		return err
@@ -118,10 +118,12 @@ func (m *motor) processar(ctx context.Context, p *task.Progress) error {
 		// o exemplo precisa mostrar tanto quanto o que dá certo.
 		if i == 1 && strings.Contains(strings.ToLower(doc.Nome), "erro") {
 			documentos.Marcar(p.Key, "fila")
+			m.avisa("documento.falhou", doc)
 			return errors.New("não consegui classificar: o arquivo não tem texto")
 		}
 	}
 	documentos.Marcar(p.Key, "pronto")
+	m.avisa("documento.processado", doc)
 	return nil
 }
 ```
@@ -131,6 +133,13 @@ troca que o `c.Link` faz, e pelo mesmo motivo — o que viaja fica pequeno e con
 
 O `Step` escreve no store, então custa uma escrita. Chame uma vez por estágio, não uma vez por
 linha.
+
+O `hooks` no `Novo(hooks)` e o `m.avisa` no fim são o outro módulo: quando o trabalho termina,
+alguém de fora fica sabendo. Esse par é a forma que isto tem numa aplicação de verdade — o
+trabalho longo acontece, e um parceiro precisa saber — e a falha ao avisar não derruba a tarefa:
+o documento foi processado, e um aviso que não saiu é uma entrega que a
+[tela de webhooks](/pt/receitas/webhooks) mostra. Ao contrário, seria reprocessar um documento
+porque o servidor de outra pessoa está fora do ar.
 
 Um `panic` lá dentro vira erro gravado, com a pilha no log. Perder o servidor web porque um
 documento tinha uma página ruim não é uma troca que alguém faria de propósito.

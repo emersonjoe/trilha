@@ -132,8 +132,8 @@ func TestTaskTableSoOfereceRetryDoQueAcabou(t *testing.T) {
 		return TaskTable(c, []task.Task{rodando, falhou}, TaskTableOpts{
 			Retry: "/tarefas/retry", CSRF: trilha.CSRFInput(c)})
 	})
-	if strings.Count(got, "ui-task-retry") != 1 {
-		t.Fatalf("botões de retry = %d:\n%s", strings.Count(got, "ui-task-retry"), got)
+	if strings.Count(got, "ui-inline-form") != 1 {
+		t.Fatalf("botões de retry = %d:\n%s", strings.Count(got, "ui-inline-form"), got)
 	}
 	if !strings.Contains(got, `value="t2"`) {
 		t.Fatal("o botão não aponta para a tarefa que falhou")
@@ -155,7 +155,7 @@ func TestTaskTableSemRotaNaoDesenhaBotao(t *testing.T) {
 	got, _ := desenha(t, func(c *trilha.Ctx) h.Node {
 		return TaskTable(c, []task.Task{{ID: "t2", Name: "x", State: task.Failed}}, TaskTableOpts{})
 	})
-	if strings.Contains(got, "ui-task-retry") {
+	if strings.Contains(got, "ui-inline-form") {
 		t.Fatalf("desenhou botão sem para onde postar:\n%s", got)
 	}
 }

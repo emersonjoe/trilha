@@ -3,6 +3,47 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.65.0 — 2026-09-09
+
+Spec 083.
+
+### Added
+
+- **`trilha/webhook` — telling another application** ([#112](https://github.com/emersonjoe/trilha/issues/112)).
+  What gets written for this is an `http.Post` inside the handler, and it has four problems that
+  none of them show up on the day the code is written. The visitor waits for somebody else's
+  server. There is no signature, so the receiver cannot tell your call from whoever found the
+  URL. There is no retry, so the partner restarting at three in the morning means that event
+  simply never existed. And there is no record, so "did you send it?" is a grep.
+
+  `Emit` records one delivery per subscription and returns; the delivery goes out on a worker,
+  signed with HMAC-SHA256 of `timestamp.body` — the timestamp **inside** the signed string, so a
+  captured request cannot be replayed a year later. 2xx in ten seconds is delivered; anything
+  else waits and tries again on 1 min, 5, 30, 2 h, 12 h and then gives up, **keeping the last
+  status and the first kilobyte of the body**, which is what turns "it failed" into "422, field
+  destinatario required".
+
+  There is a fifth problem, and it is the ugliest: the URL belongs to the partner but the person
+  typing it works for you, and a webhook pointed at `http://169.254.169.254/` is your own server
+  fetching the machine's cloud credentials and posting them to whoever registered the address.
+  Every URL is checked when it is registered **and again at delivery** — a name that resolved to
+  the partner then and to link-local now is the attack, not the accident — every address it
+  resolves to has to be public, and the client follows no redirects. In dev, loopback and private
+  addresses pass, because a receiver on `localhost:4000` is how anybody tries this first and a
+  check that refuses it is one somebody turns off wholesale; link-local is refused everywhere.
+
+  `Verify` is the other side, for a receiver written in Go: it reads the body, checks the
+  signature and the age in both directions, compares in constant time, and hands the bytes back.
+  `ui.WebhooksPanel` is register, list, retry and test, with the secret shown once — a
+  `trilha.Secret` in the column, and a cookie of its own to cross the redirect.
+
+  It is one sender in one process, and the package doc says so: two replicas send everything
+  twice. There is no `webhook.SQL(db)`, the same choice every store here makes, and the recipe
+  carries the whole implementation.
+
+  `examples/blog` wires it to the task module — when a document finishes processing, the partner
+  is told — with an integration test where the receiving end verifies the real signature.
+
 ## 0.64.1 — 2026-09-09
 
 ### Fixed

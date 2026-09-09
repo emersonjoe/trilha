@@ -34,8 +34,8 @@ and `Store` is the seam to put it behind.
 // stages is read once, here, so each engine carries its own — a test asks for
 // a fast one through the environment, before the app is built, and nothing is
 // shared afterwards.
-func Novo() *task.Tasks {
-	m := &motor{passo: 250 * time.Millisecond}
+func Novo(hooks *webhook.Hooks) *task.Tasks {
+	m := &motor{passo: 250 * time.Millisecond, hooks: hooks}
 	if v := os.Getenv("BLOG_TASK_STEP"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			m.passo = d
@@ -53,7 +53,7 @@ try again with — and the task somebody wants to retry is usually exactly the o
 deploy. Registered by name, the button works.
 
 ```go
-	motor := tarefas.Novo()
+	motor := tarefas.Novo(hooks)
 	trilha.Provide(a, motor)
 	if err := motor.Setup(a); err != nil {
 		return err
@@ -118,10 +118,12 @@ func (m *motor) processar(ctx context.Context, p *task.Progress) error {
 		// o exemplo precisa mostrar tanto quanto o que dá certo.
 		if i == 1 && strings.Contains(strings.ToLower(doc.Nome), "erro") {
 			documentos.Marcar(p.Key, "fila")
+			m.avisa("documento.falhou", doc)
 			return errors.New("não consegui classificar: o arquivo não tem texto")
 		}
 	}
 	documentos.Marcar(p.Key, "pronto")
+	m.avisa("documento.processado", doc)
 	return nil
 }
 ```
@@ -131,6 +133,13 @@ table. That is the same trade `c.Link` makes, and for the same reason — what t
 and stays true.
 
 `Step` writes to the store, so it costs a write. Call it once per stage, not once per row.
+
+The `hooks` in `Novo(hooks)` and the `m.avisa` at the end are the other module: when the work
+finishes, somebody outside is told. That pairing is the shape this has in a real application —
+long work happens, and a partner needs to know — and the failure to tell does not fail the task:
+the document was processed, and a notice that did not go out is a delivery the
+[webhooks screen](/cookbook/webhooks) shows. Doing it the other way round would reprocess a
+document because somebody else's server is down.
 
 A `panic` inside becomes a recorded error with the stack in the log. Losing the web server
 because one document had a bad page is not a trade anybody would make on purpose.

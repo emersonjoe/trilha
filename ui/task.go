@@ -154,7 +154,7 @@ func taskRetry(t task.Task, o TaskTableOpts, w map[string]string) h.Node {
 	if o.Retry == "" || t.State.Live() {
 		return h.Nil
 	}
-	return h.Form(h.Method("post"), h.Action(o.Retry), h.Class("ui-task-retry"),
+	return h.Form(h.Method("post"), h.Action(o.Retry), h.Class("ui-inline-form"),
 		o.CSRF,
 		h.Input(h.Type("hidden"), h.Name("id"), h.Value(t.ID)),
 		Button(Ghost(), h.Type("submit"), h.Text(w["retry"])),
