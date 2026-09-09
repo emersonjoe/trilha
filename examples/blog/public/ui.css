@@ -1,4 +1,4 @@
-/* trilha ui 81b00b854983fb6e */
+/* trilha ui 79fdbc8f2420fdcb */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -153,6 +153,15 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-list-check { width: 1px; white-space: nowrap; }
 /* The empty state (spec 065). The minimum height is so a fragment that comes
    back empty does not make the page jump. */
+/* Steps (spec 071): o indicador de um formulário em várias telas. O feito, o
+   atual e o que falta se distinguem por cor e por peso, nunca só por cor. */
+.ui-steps { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; list-style: none; margin: 0 0 1rem; padding: 0; }
+.ui-step { display: flex; align-items: center; gap: .5rem; color: var(--muted-foreground); }
+.ui-step-mark { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 999px; border: 1px solid var(--border); font-size: .75rem; }
+.ui-step[data-state="done"] { color: var(--foreground); }
+.ui-step[data-state="done"] .ui-step-mark { background: var(--muted); }
+.ui-step[data-state="current"] { color: var(--foreground); font-weight: 600; }
+.ui-step[data-state="current"] .ui-step-mark { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
 /* Preview (spec 070): a barra, o quadro e a imagem. O quadro tem fundo próprio
    porque um PDF que ainda não pintou sobre um fundo transparente parece um
    buraco na página. */

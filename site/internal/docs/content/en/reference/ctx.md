@@ -238,6 +238,38 @@ per file can put the message on the right line; the files that passed come back 
 and closing them is the caller's job. Over `MaxFiles` the whole request is refused under the
 field's own name, before a single byte is read.
 
+## Drafts
+
+`Draft(name string) *Draft` is a form in progress, kept between one request and the next. It is
+the answer to the only hard question a multi-step form asks: where does step one live while
+somebody is on step two.
+
+| Symbol | Role |
+|---|---|
+| `c.Draft(name)` | names the form — not the person; the draft travels in their own cookie |
+| `d.Save(v any, ttl time.Duration) error` | writes the draft and starts its clock |
+| `d.Load(v any) error` | fills v, or `ErrNoDraft` — never saved, finished, expired, tampered with, or another browser |
+| `d.Clear()` | the draft became a record and stops existing |
+| `Config.Drafts DraftStore` | where a draft over 2 KB of JSON goes; nil means the cookie is all there is |
+
+Under 2 KB of JSON the draft is a **signed cookie**: nothing to configure, nothing to clean up,
+and it expires on its own. Above that it needs `Config.Drafts` — three methods over whatever the
+app already runs — and without one, `Save` returns an error naming that field rather than setting
+a cookie the browser would drop without a word. (The limit is 2 KB and not the 3 KB the issue
+proposed, because what goes in the cookie is base64 of the draft plus an expiry and a signature,
+and 3 KB of JSON crosses the browser's 4 KB.)
+
+`ErrNoDraft` is an answer, not a failure: it is what sends somebody back to step one. A draft
+written by an older version of the struct answers the same way — the field was renamed between
+deploys, and starting over beats a 500 in the middle of somebody's form.
+
+A draft is signed, so it cannot be edited by hand, and it is **not secret**: what is in a cookie
+travels to the browser and can be read there. Keep a price or somebody else's name behind
+`Config.Drafts`, with only the key in the cookie. Signing needs `TRILHA_SECRET`; without it
+`Save` says so instead of failing quietly.
+
+`ui.Steps` draws the indicator — see [A form in steps](/cookbook/wizard) for the whole flow.
+
 ## Spreadsheets
 
 `CSV(name string, rows any) error` writes a slice — or a receive-only channel — as a file the

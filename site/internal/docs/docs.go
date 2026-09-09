@@ -41,12 +41,12 @@ var Locales = []Locale{
 	{Code: "en", Prefix: "", Lang: "en", Name: "English", Sections: []Section{
 		{"learn", "Learn", []string{"", "pages-and-routes", "layouts", "html-with-h", "forms", "api", "data", "middleware", "security", "observability", "authentication", "ui-kit", "interactivity", "the-ceiling", "from-htmx-and-templ", "ai-and-agents", "examples", "testing", "dev-and-production", "troubleshooting"}},
 		{"reference", "Reference", []string{"", "conventions", "ctx", "h", "tmpl", "errors", "validation", "app", "security", "observability", "auth", "upstreams", "cache", "ui", "shell", "charts", "listings", "live", "ai", "mcp", "cli", "performance"}},
-		{"cookbook", "Cookbook", []string{"", "database", "sessions", "uploads", "csv", "pagination", "email", "scheduled-tasks", "docker", "production-checklist", "existing-api", "listing", "migration", "from-next", "react-island"}},
+		{"cookbook", "Cookbook", []string{"", "database", "sessions", "uploads", "csv", "wizard", "pagination", "email", "scheduled-tasks", "docker", "production-checklist", "existing-api", "listing", "migration", "from-next", "react-island"}},
 	}},
 	{Code: "pt", Prefix: "/pt", Lang: "pt-BR", Name: "Português", Sections: []Section{
 		{"aprender", "Aprender", []string{"", "paginas-e-rotas", "layouts", "html-com-h", "formularios", "api", "dados", "middleware", "seguranca", "observabilidade", "autenticacao", "interface-com-ui", "interatividade", "o-teto", "vindo-do-htmx-e-templ", "ia-e-agentes", "exemplos", "testes", "dev-e-producao", "problemas-comuns"}},
 		{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "validacao", "app", "seguranca", "observabilidade", "auth", "upstreams", "cache", "ui", "shell", "graficos", "listagens", "vivo", "ai", "mcp", "cli", "desempenho"}},
-		{"receitas", "Receitas", []string{"", "banco-de-dados", "sessoes", "uploads", "planilhas", "paginacao", "email", "tarefas-agendadas", "docker", "checklist-de-producao", "api-existente", "listagem", "migracao", "do-next", "ilha-react"}},
+		{"receitas", "Receitas", []string{"", "banco-de-dados", "sessoes", "uploads", "planilhas", "formulario-em-passos", "paginacao", "email", "tarefas-agendadas", "docker", "checklist-de-producao", "api-existente", "listagem", "migracao", "do-next", "ilha-react"}},
 	}},
 }
 

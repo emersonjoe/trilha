@@ -10,6 +10,9 @@ import (
 	trilha "github.com/emersonjoe/trilha"
 	app "github.com/emersonjoe/trilha/examples/cadastro/app"
 	app_api_cidades "github.com/emersonjoe/trilha/examples/cadastro/app/api/cidades"
+	app_assistente_dados "github.com/emersonjoe/trilha/examples/cadastro/app/assistente/dados"
+	app_assistente_endereco "github.com/emersonjoe/trilha/examples/cadastro/app/assistente/endereco"
+	app_assistente_revisao "github.com/emersonjoe/trilha/examples/cadastro/app/assistente/revisao"
 	app_cidades_busca "github.com/emersonjoe/trilha/examples/cadastro/app/cidades/busca"
 	app_ficha "github.com/emersonjoe/trilha/examples/cadastro/app/ficha"
 )
@@ -39,6 +42,30 @@ func newApp() *trilha.App {
 		Methods: map[string]trilha.HandlerFunc{
 			"GET": app_api_cidades.GET,
 		},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/assistente/dados",
+		Page:    app_assistente_dados.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_assistente_dados.POST,
+		},
+		Layouts: []trilha.LayoutFunc{app.Layout},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/assistente/endereco",
+		Page:    app_assistente_endereco.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_assistente_endereco.POST,
+		},
+		Layouts: []trilha.LayoutFunc{app.Layout},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/assistente/revisao",
+		Page:    app_assistente_revisao.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_assistente_revisao.POST,
+		},
+		Layouts: []trilha.LayoutFunc{app.Layout},
 	})
 	a.Register(trilha.Route{
 		Pattern: "/cidades/busca",

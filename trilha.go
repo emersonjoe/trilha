@@ -75,6 +75,10 @@ type Config struct {
 	// the logger with kind=audit, which is enough to grep and enough to ship
 	// with; an app that shows the trail on a screen gives its own sink here.
 	Audit AuditSink
+	// Drafts is where c.Draft keeps a form in progress that is too large for
+	// a cookie (over 2 KB of JSON). Nil is the common case: a wizard's draft
+	// is a handful of fields and travels signed in the browser.
+	Drafts DraftStore
 	// Security tunes the hardening headers (zero value = defaults).
 	Security Security
 	// TrustedProxies lists CIDRs whose X-Forwarded-For/Proto are honoured.

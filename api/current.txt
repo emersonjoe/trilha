@@ -94,6 +94,7 @@ pkg trilha, method (*Ctx) ClearCookie(string)
 pkg trilha, method (*Ctx) ClientIP() string
 pkg trilha, method (*Ctx) Context() context.Context
 pkg trilha, method (*Ctx) Cookie(string) (*http.Cookie, error)
+pkg trilha, method (*Ctx) Draft(string) *Draft
 pkg trilha, method (*Ctx) ETag(string) bool
 pkg trilha, method (*Ctx) Env() Env
 pkg trilha, method (*Ctx) File(string, FileRules) (*Upload, error)
@@ -143,6 +144,9 @@ pkg trilha, method (*Ctx) Title() string
 pkg trilha, method (*Ctx) TraceID() string
 pkg trilha, method (*Ctx) Writer() http.ResponseWriter
 pkg trilha, method (*Ctx) Written() bool
+pkg trilha, method (*Draft) Clear()
+pkg trilha, method (*Draft) Load(any) error
+pkg trilha, method (*Draft) Save(any, time.Duration) error
 pkg trilha, method (*Gauge) Add(float64)
 pkg trilha, method (*Gauge) Dec()
 pkg trilha, method (*Gauge) Inc()
@@ -255,6 +259,7 @@ pkg trilha, type Config struct, CORS CORS
 pkg trilha, type Config struct, CSRF CSRF
 pkg trilha, type Config struct, CSRFForAPI bool
 pkg trilha, type Config struct, DevReload string
+pkg trilha, type Config struct, Drafts DraftStore
 pkg trilha, type Config struct, Env Env
 pkg trilha, type Config struct, Locale string
 pkg trilha, type Config struct, LogRequest func(*Ctx, int, time.Duration) bool
@@ -276,6 +281,11 @@ pkg trilha, type Config struct, TrustedProxies []string
 pkg trilha, type Config struct, Upstreams map[string]Upstream
 pkg trilha, type Counter struct
 pkg trilha, type Ctx struct
+pkg trilha, type Draft struct
+pkg trilha, type DraftStore interface
+pkg trilha, type DraftStore interface, Delete(string) error
+pkg trilha, type DraftStore interface, Load(string) ([]byte, bool)
+pkg trilha, type DraftStore interface, Save(string, []byte, time.Duration) error
 pkg trilha, type Enum []EnumValue
 pkg trilha, type EnumValue struct
 pkg trilha, type EnumValue struct, Label string
@@ -418,6 +428,7 @@ pkg trilha, type Upstream struct, Transport http.RoundTripper
 pkg trilha, type Validator interface
 pkg trilha, type Validator interface, Validate() error
 pkg trilha, var BindInvalid
+pkg trilha, var ErrNoDraft
 pkg trilha, var ErrNoSecret
 pkg trilha, var ErrNotFound
 pkg trilha, var ErrRateLimited
@@ -1021,6 +1032,7 @@ pkg ui, func Stack(...h.Node) h.Node
 pkg ui, func Stat(string, string, ...h.Node) h.Node
 pkg ui, func StatHint(string, ...h.Node) h.Node
 pkg ui, func Status(trilha.Enum, string) h.Node
+pkg ui, func Steps([]Step, int) h.Node
 pkg ui, func Submit(...h.Node) h.Node
 pkg ui, func Swap(string) h.Node
 pkg ui, func Switch(...h.Node) h.Node
@@ -1172,6 +1184,9 @@ pkg ui, type ShellOpts struct, User UserMenu
 pkg ui, type SparkOpts struct
 pkg ui, type SparkOpts struct, Height int
 pkg ui, type SparkOpts struct, Width int
+pkg ui, type Step struct
+pkg ui, type Step struct, Href string
+pkg ui, type Step struct, Label string
 pkg ui, type Tab struct
 pkg ui, type Tab struct, Content h.Node
 pkg ui, type Tab struct, Label string

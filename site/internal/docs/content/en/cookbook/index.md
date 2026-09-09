@@ -17,6 +17,7 @@ what it has is a place for yours, and this is where the placing is written down.
 | [Sessions](/cookbook/sessions) | login, signed cookie, current user, flash |
 | [Uploads](/cookbook/uploads) | receive a file, validate it, store it, hand it back |
 | [CSV](/cookbook/csv) | export a spreadsheet Excel opens, import one with the error per cell |
+| [A form in steps](/cookbook/wizard) | where step one lives while somebody is on step two |
 | [Pagination](/cookbook/pagination) | page and cursor, and the footer that goes with them |
 | [E-mail](/cookbook/email) | SMTP in production, the log in dev, a body from a template |
 | [Scheduled tasks](/cookbook/scheduled-tasks) | a ticker that starts with the app and stops with it |

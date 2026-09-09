@@ -3,6 +3,52 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.53.0 — 2026-09-08
+
+Spec 071.
+
+### Added
+
+- **`c.Draft` — where step one lives while somebody is on step two**
+  ([#103](https://github.com/emersonjoe/trilha/issues/103)). A form in several screens asks one
+  hard question, and it is not the HTML. What gets written instead is a page full of
+  `<input type="hidden">` (which the first upload breaks), a half-filled row in the database
+  (which every report then has to learn to ignore), or one enormous screen with everything on it.
+
+  `c.Draft(name)` has three methods — `Load`, `Save(v, ttl)`, `Clear` — and keeps the draft in a
+  **signed cookie** under 2 KB of JSON: nothing to configure, nothing to clean up, and it expires
+  on its own. Above that it needs `Config.Drafts`, three methods over whatever the app already
+  runs. **Without a store, `Save` returns an error naming that field** rather than setting a
+  cookie the browser would drop without a word — a form that loses step one in silence is the
+  worst outcome available here. (The limit is 2 KB and not the 3 KB the issue proposed: what goes
+  in the cookie is base64 of the draft plus an expiry and a signature, and 3 KB of JSON crosses
+  the browser's 4 KB.)
+
+  `ErrNoDraft` is an answer, not a failure — never saved, finished, expired, tampered with, or
+  another browser — and it is what sends somebody back to step one. A draft written by an older
+  version of the struct answers the same way: the field was renamed between deploys, and starting
+  over beats a 500 in the middle of somebody's form.
+
+  A draft is signed, so it cannot be edited by hand, and it is **not secret**: what is in a cookie
+  travels to the browser and can be read there.
+
+- **`ui.Steps`** draws the indicator: steps already done are links, the current one carries
+  `aria-current="step"`, and the ones ahead are plain text — a wizard where step three is one
+  click away is a wizard whose steps did not have to happen in order.
+
+- The **"A form in steps"** recipe, in both languages, and a three-screen wizard in
+  `examples/cadastro`. The part of it worth copying is not the framework call: it is **one struct
+  per step**, each with only its own rules.
+
+### Not here
+
+`Draft.Attach` and `Draft.Attachment`, which the issue asks for. They need what the framework
+does not have — a temporary directory, a token, a janitor, and deleting the file when the draft
+expires. The issue describes them as if that lifecycle already existed ("cleaned up along with
+the temporary uploads"); it does not, and building a second private copy of it inside `Draft` is
+the duplication that [#114](https://github.com/emersonjoe/trilha/issues/114) (`trilha/blob`)
+exists to avoid. The recipe shows step one saving the file and keeping its path in the draft.
+
 ## 0.52.0 — 2026-09-08
 
 Spec 070.

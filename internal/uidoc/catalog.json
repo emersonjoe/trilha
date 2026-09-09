@@ -1108,6 +1108,39 @@
     ]
   },
   {
+    "name": "Step",
+    "kind": "type",
+    "group": "steps",
+    "signature": "type Step struct",
+    "doc": "Step is one screen of a multi-step form.",
+    "summary": "Step is one screen of a multi-step form.",
+    "fields": [
+      {
+        "name": "Label",
+        "type": "string",
+        "doc": "Label is what it is called: \"File\", \"Mapping\", \"Confirm\"."
+      },
+      {
+        "name": "Href",
+        "type": "string",
+        "doc": "Href takes somebody back to a step already done."
+      }
+    ]
+  },
+  {
+    "name": "Steps",
+    "kind": "func",
+    "group": "steps",
+    "signature": "Steps(steps []Step, current int) h.Node",
+    "doc": "Steps is the indicator of a form in several screens: where somebody is, what\nis behind them, and what is left.\n\ncurrent is 1-based and is the step being filled. Behind it the steps are\nlinks (they were done, and going back is normal); ahead of it they are\nplain text. The current one carries aria-current=\"step\", which is how a\nscreen reader says \"you are here\" in a list of five.\nIt draws the indicator and nothing else: the state between one screen and\nthe next is trilha.Ctx.Draft, and the form is yours.",
+    "summary": "Steps is the indicator of a form in several screens: where somebody is, what is behind them, and what is left.",
+    "example": "var passos = []ui.Step{\n\t{Label: \"File\", Href: \"/import/1\"},\n\t{Label: \"Mapping\", Href: \"/import/2\"},\n\t{Label: \"Confirm\"},\n}\n\nui.Steps(passos, 2)\n\n\n\nsee: trilha.Ctx.Draft",
+    "see": [
+      "trilha.Ctx",
+      "ui.Step"
+    ]
+  },
+  {
     "name": "Asset",
     "kind": "func",
     "group": "ui",

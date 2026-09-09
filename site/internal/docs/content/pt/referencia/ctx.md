@@ -240,6 +240,39 @@ dizer "ninguém escolheu nada". O arquivo que falha nomeia a própria posição 
 passaram voltam na fatia, e fechá-los é com quem chamou. Acima do `MaxFiles` a requisição
 inteira é recusada no nome do campo, antes de um byte ser lido.
 
+## Rascunhos
+
+`Draft(nome string) *Draft` é um formulário em andamento, guardado de uma requisição para a
+outra. É a resposta à única pergunta difícil de um formulário em passos: onde mora o passo 1
+enquanto a pessoa está no passo 2.
+
+| Símbolo | Papel |
+|---|---|
+| `c.Draft(nome)` | nomeia o formulário — não a pessoa; o rascunho viaja no cookie dela |
+| `d.Save(v any, ttl time.Duration) error` | escreve o rascunho e começa o prazo |
+| `d.Load(v any) error` | preenche v, ou `ErrNoDraft` — nunca salvo, terminado, vencido, mexido, ou de outro navegador |
+| `d.Clear()` | o rascunho virou registro e deixa de existir |
+| `Config.Drafts DraftStore` | onde fica um rascunho acima de 2 KB de JSON; nil é só o cookie |
+
+Abaixo de 2 KB de JSON o rascunho é um **cookie assinado**: nada para configurar, nada para
+limpar, e vence sozinho. Acima disso ele precisa do `Config.Drafts` — três métodos sobre o que a
+app já roda — e, sem ele, o `Save` devolve um erro citando esse campo em vez de mandar um cookie
+que o navegador descartaria sem avisar. (O limite é 2 KB e não os 3 KB que a issue propunha
+porque o que vai no cookie é o base64 do rascunho mais o prazo e a assinatura, e 3 KB de JSON
+passam dos 4 KB do navegador.)
+
+`ErrNoDraft` é uma resposta, não uma falha: é o que manda a pessoa de volta ao passo 1. Rascunho
+escrito por uma versão anterior da struct responde igual — o campo mudou de nome entre dois
+deploys, e recomeçar é melhor que um 500 no meio do formulário de alguém.
+
+Rascunho é assinado, então não dá para editá-lo à mão, e **não é secreto**: o que está num cookie
+viaja para o navegador e pode ser lido lá. Preço ou o nome de outra pessoa ficam atrás do
+`Config.Drafts`, com só a chave no cookie. Assinar precisa do `TRILHA_SECRET`; sem ele, o `Save`
+avisa em vez de falhar calado.
+
+O `ui.Steps` desenha o indicador — veja [Formulário em passos](/pt/receitas/formulario-em-passos)
+para o fluxo inteiro.
+
 ## Planilhas
 
 `CSV(name string, rows any) error` escreve uma fatia — ou um canal de recebimento — como um

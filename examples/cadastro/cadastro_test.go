@@ -14,6 +14,9 @@ import (
 func newClient(t *testing.T) *trilha.TestClient {
 	t.Helper()
 	t.Setenv("TRILHA_ENV", "prod")
+	// O assistente guarda o rascunho num cookie assinado, e assinar precisa de
+	// segredo: sem ele o passo 1 não teria onde deixar o que a pessoa digitou.
+	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	return trilha.NewTestClient(t, newApp())
 }
@@ -304,5 +307,68 @@ func TestFrequenciaVemDeUmaDeclaracaoSo(t *testing.T) {
 	}
 	if b := rec.Body.String(); !strings.Contains(b, "Semanal") || !strings.Contains(b, "Mensal") {
 		t.Fatalf("a mensagem não cita os rótulos: %s", b)
+	}
+}
+
+// Issue #103: o assistente de três telas. O rascunho é o que responde à
+// pergunta difícil de um formulário em passos — onde mora o passo 1 enquanto a
+// pessoa está no passo 2.
+func TestAssistenteGuardaOPassoAnterior(t *testing.T) {
+	c := newClient(t)
+
+	// Passo 1 valida só o que ele mesmo pediu.
+	c.Get("/assistente/dados").WantStatus(200).WantContains(
+		`class="ui-steps"`, `aria-current="step"`, `name="nome"`)
+	ruim := c.Request("POST", "/assistente/dados",
+		trilha.WithBody("application/x-www-form-urlencoded", "nome=Ada&email=nao-e-email"))
+	ruim.WantStatus(422).WantContains("invalid e-mail", `value="Ada"`)
+
+	bom := c.Request("POST", "/assistente/dados",
+		trilha.WithBody("application/x-www-form-urlencoded", "nome=Ada+Lovelace&email=ada@example.com"))
+	if bom.Code != 303 || bom.Header().Get("Location") != "/assistente/endereco" {
+		t.Fatalf("passo 1: %d %s", bom.Code, bom.Header().Get("Location"))
+	}
+
+	// Passo 2 já sabe quem é: o passo 1 veio no rascunho.
+	c.Get("/assistente/endereco").WantStatus(200).WantContains("Ada Lovelace", "ada@example.com")
+
+	// E um 422 no passo 2 não custa o passo 1.
+	erro := c.Request("POST", "/assistente/endereco",
+		trilha.WithBody("application/x-www-form-urlencoded", "cep=1&cidade="))
+	erro.WantStatus(422).WantContains("Ada Lovelace")
+
+	ok := c.Request("POST", "/assistente/endereco",
+		trilha.WithBody("application/x-www-form-urlencoded", "cep=13010000&cidade=Campinas"))
+	if ok.Header().Get("Location") != "/assistente/revisao" {
+		t.Fatalf("passo 2: %s", ok.Header().Get("Location"))
+	}
+
+	c.Get("/assistente/revisao").WantStatus(200).WantContains("Ada Lovelace", "13010000", "Campinas")
+
+	// O passo final grava e o rascunho deixa de existir: voltar ao passo 2
+	// recomeça, em vez de retomar o que já aconteceu.
+	fim := c.Request("POST", "/assistente/revisao")
+	if fim.Code != 303 || fim.Header().Get("Location") != "/?ok=1" {
+		t.Fatalf("passo 3: %d %s", fim.Code, fim.Header().Get("Location"))
+	}
+	c.Get("/").WantStatus(200).WantContains("Ada Lovelace")
+	volta := c.Get("/assistente/endereco")
+	if volta.Code != 303 || volta.Header().Get("Location") != "/assistente/dados" {
+		t.Fatalf("rascunho devia ter acabado: %d %s", volta.Code, volta.Header().Get("Location"))
+	}
+}
+
+// Rascunho é de quem o escreveu: outro navegador não tem o cookie, e o passo 2
+// manda essa pessoa para o começo em vez de mostrar um formulário vazio que
+// perderia o que ela digitasse.
+func TestAssistenteNaoVazaEntreNavegadores(t *testing.T) {
+	um := newClient(t)
+	um.Request("POST", "/assistente/dados",
+		trilha.WithBody("application/x-www-form-urlencoded", "nome=Ada&email=ada@example.com")).WantStatus(303)
+
+	outro := newClient(t)
+	r := outro.Get("/assistente/endereco")
+	if r.Code != 303 || r.Header().Get("Location") != "/assistente/dados" {
+		t.Fatalf("o rascunho de um apareceu para o outro: %d %s", r.Code, r.Header().Get("Location"))
 	}
 }
