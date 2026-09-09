@@ -6,3 +6,5 @@ coverage.out
 # Binário de um `go build` solto: no Windows ele cai na raiz com o nome do
 # pacote, e foi assim que um blog.exe quase entrou num commit.
 *.exe
+# `go test -c` cruzado para rodar dentro do WSL: auth.test.linux, blob.test.linux.
+*.linux

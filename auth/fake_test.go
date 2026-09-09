@@ -25,6 +25,15 @@ import (
 // flow: discovery, JWKS, code exchange and a signed ID token. Every knob it
 // exposes exists so a test can break one rule at a time.
 type fakeIDP struct {
+	// accessClaims, quando presente, faz o provedor emitir um access token
+	// assinado com estas claims — o formato do Keycloak, que guarda os papéis
+	// ali e não no id_token.
+	accessClaims map[string]any
+
+	// accessRaw manda um access token literal, para o caso do token que não é
+	// JWT (a maioria dos provedores) e para o token que não confere.
+	accessRaw string
+
 	t        *testing.T
 	srv      *httptest.Server
 	key      *rsa.PrivateKey
@@ -132,7 +141,27 @@ func (f *fakeIDP) token(w http.ResponseWriter, r *http.Request) {
 	if f.dropNonce {
 		nonce = ""
 	}
-	writeJSON(w, map[string]string{"token_type": "Bearer", "id_token": f.idToken(nonce)})
+	out := map[string]string{"token_type": "Bearer", "id_token": f.idToken(nonce)}
+	// Um access token com as claims que o Keycloak põe só nele: é o caso que
+	// o provedor de verdade mostrou, e o único jeito de a suíte protegê-lo sem
+	// um contêiner.
+	if f.accessRaw != "" {
+		out["access_token"] = f.accessRaw
+	}
+	if f.accessClaims != nil {
+		claims := map[string]any{
+			"iss": pick(f.tokenIss, f.srv.URL),
+			"sub": "user-1",
+			"aud": pick(f.tokenAud, f.clientID),
+			"exp": time.Now().Add(f.expIn).Unix(),
+			"iat": time.Now().Unix(),
+		}
+		for k, v := range f.accessClaims {
+			claims[k] = v
+		}
+		out["access_token"] = f.sign(claims)
+	}
+	writeJSON(w, out)
 }
 
 // idToken signs a token with the current knobs.

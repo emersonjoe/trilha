@@ -176,6 +176,10 @@ func (a *Auth) Callback(c *trilha.Ctx) error {
 	if err != nil {
 		return a.fail(c, err)
 	}
+	// Identity comes from the id_token, always. Roles may not be there:
+	// Keycloak puts them in the access token, and a login with no roles is a
+	// login where every guarded page answers 403 for no visible reason.
+	a.p.rolesFromAccess(c.Context(), tok.AccessToken, claims)
 	u := &User{Subject: claims.Subject, Email: claims.Email, Name: claims.Name,
 		Roles: a.p.roles(claims, a.opts.RoleClaims)}
 

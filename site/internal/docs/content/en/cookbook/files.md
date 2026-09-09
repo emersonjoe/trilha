@@ -127,11 +127,27 @@ Every application eventually needs this: a row deleted while the object stayed, 
 failed after the write. The known keys are streamed out of the database rather than collected,
 because neither the bucket nor the table fits in memory.
 
-## What is tested, and what is not
+## What is tested
 
-The S3 signature is checked against a server that recomputes it — a badly signed request fails
-here for the same reason it would fail at AWS. It is **not** checked against an official AWS test
-vector: there was no way to verify one offline, and a made-up "known vector" would suggest a
-guarantee that does not exist. The failure mode is loud, at least: a wrong signature is a 403 on
-the very first call, not a quiet leak. Against a real MinIO it is one `docker run` away, and worth
-doing once.
+Two levels, and the second one is the one that counts.
+
+The unit test signs against a server that recomputes the signature with the same algorithm this
+package writes — which proves the client is consistent with itself, and nothing more.
+
+`TestS3AoVivo` runs the whole thing against a real **MinIO**: create the bucket, put, get, stat,
+list, fetch a presigned URL **with a client that signs nothing**, watch an expired URL be refused,
+delete. It is skipped unless `TRILHA_S3_TEST` points at a server, because a test that depends on a
+container fails for the wrong reason on somebody else's machine:
+
+```bash
+docker run -d --name trilha-minio -p 9000:9000 \
+  -e MINIO_ROOT_USER=trilha -e MINIO_ROOT_PASSWORD=trilha-secret-123 \
+  quay.io/minio/minio:latest server /data
+
+TRILHA_S3_TEST='s3://trilha-teste?region=us-east-1&endpoint=http://localhost:9000&path_style=1' \
+AWS_ACCESS_KEY_ID=trilha AWS_SECRET_ACCESS_KEY=trilha-secret-123 \
+go test ./blob/ -run TestS3AoVivo -v
+```
+
+Running it with the wrong secret is worth doing once, too: MinIO answers `SignatureDoesNotMatch`,
+which is what says the server really is checking and the passing run really means something.

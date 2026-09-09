@@ -3,6 +3,40 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.62.0 — 2026-09-09
+
+Spec 080.
+
+### Fixed
+
+- **`auth`: Keycloak roles never arrived** — roles are now read from the access token too.
+  A login against a stock Keycloak worked and left `User.Roles` empty, so every `RequireRole`
+  answered 403: **Keycloak puts `realm_access` and `resource_access` in the access token, not
+  in the `id_token`**, and the callback only read the `id_token`. The symptom looks like a
+  permissions misconfiguration and is a claim read from the wrong token.
+
+  `Callback` now completes the role claims from the access token when it is a JWT from the same
+  issuer. Identity still comes from the `id_token`, always, and the `id_token` wins wherever
+  both carry the same claim — only what is missing is filled in. An opaque access token, one
+  that does not verify, or one from another issuer is not an error and grants nothing: the
+  login was already proven.
+
+### Added
+
+- **Live test suites against real servers** — `blob/s3_live_test.go` (MinIO) and
+  `auth/oidc_live_test.go` (Keycloak). The test servers written here recompute what this code
+  does the way this code does it, which is internal consistency and nothing else; a real server
+  is what tells you the protocol was understood. They are skipped unless `TRILHA_S3_TEST` /
+  `TRILHA_OIDC_TEST` point at one, so `go test ./...` still needs no network and no Docker.
+
+  The S3 one creates the bucket, puts, gets, stats, lists, **fetches the presigned URL with a
+  client that signs nothing**, watches an expired URL be refused, and deletes. Run once with the
+  wrong secret, MinIO answers `SignatureDoesNotMatch` — which is what says the passing run means
+  something. The OIDC one provisions realm, client, user and role through the admin API and then
+  logs in through a cookie-keeping browser, all the way to a guarded page.
+
+  It was the second one that found the Keycloak bug above.
+
 ## 0.61.0 — 2026-09-09
 
 Spec 079.

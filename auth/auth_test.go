@@ -554,3 +554,69 @@ func TestClerkLogoutIsLocal(t *testing.T) {
 		t.Fatalf("log não explica o logout local: %s", log.String())
 	}
 }
+
+// O Keycloak põe realm_access e resource_access no access token, e não no
+// id_token. Antes disto, um login contra um Keycloak de fábrica funcionava e
+// devolvia zero papéis — todo RequireRole recusava todo mundo, com cara de bug
+// de permissão em vez de mapper faltando.
+//
+// Foi um Keycloak de verdade que mostrou (auth/oidc_live_test.go); este teste
+// é o que impede a volta sem precisar de um contêiner.
+func TestPapeisVemDoAccessTokenQuandoNaoEstaoNoID(t *testing.T) {
+	idp, a, b := setup(t, Options{})
+	a.p.kind = keycloakProvider
+	a.p.keycloakClient = idp.clientID
+	idp.claims = map[string]any{"email": "ana@exemplo.com"}
+	idp.accessClaims = map[string]any{
+		"realm_access":    map[string]any{"roles": []any{"analista"}},
+		"resource_access": map[string]any{idp.clientID: map[string]any{"roles": []any{"editor"}}},
+	}
+
+	b.login(idp, "")
+	rec := b.get("/admin", nil)
+	if rec.Code != 200 {
+		t.Fatalf("/admin → %d", rec.Code)
+	}
+	if got := rec.Body.String(); !strings.Contains(got, "analista") || !strings.Contains(got, "editor") {
+		t.Fatalf("os papéis do access token não chegaram na sessão: %q", got)
+	}
+}
+
+// O id_token continua mandando na identidade e nos papéis que ele traz: o
+// access token só preenche o que faltou. Se ele pudesse sobrescrever, um
+// provedor com dois mappers daria resultados diferentes conforme a ordem.
+func TestOIDTokenGanhaDoAccessToken(t *testing.T) {
+	idp, _, b := setup(t, Options{})
+	idp.claims = map[string]any{"roles": []any{"leitor"}}
+	idp.accessClaims = map[string]any{"roles": []any{"admin"}}
+
+	b.login(idp, "")
+	if rec := b.get("/admin/relatorio", nil); rec.Code != http.StatusForbidden {
+		t.Fatalf("o access token promoveu um leitor a admin (→ %d)", rec.Code)
+	}
+}
+
+// Access token que não é JWT — o caso comum — e access token que não confere
+// não podem atrapalhar nem valer: o login vale pelo id_token, e papel só sai
+// de token verificado.
+func TestAccessTokenOpacoOuInvalidoNaoDaPapeis(t *testing.T) {
+	for _, caso := range []struct{ nome, tok string }{
+		{"opaco", "nao-e-um-jwt-nenhum"},
+		{"assinatura trocada", "eyJhbGciOiJSUzI1NiIsImtpZCI6ImsxIn0.eyJyb2xlcyI6WyJhZG1pbiJdfQ.aaaa"},
+	} {
+		t.Run(caso.nome, func(t *testing.T) {
+			idp, _, b := setup(t, Options{})
+			idp.claims = map[string]any{"email": "ana@exemplo.com"}
+			idp.accessRaw = caso.tok
+
+			b.login(idp, "")
+			rec := b.get("/admin", nil)
+			if rec.Code != 200 {
+				t.Fatalf("o login devia valer pelo id_token: /admin → %d", rec.Code)
+			}
+			if got := strings.TrimSpace(rec.Body.String()); got != "ola ana@exemplo.com" {
+				t.Fatalf("saiu papel de um token não verificado: %q", got)
+			}
+		})
+	}
+}

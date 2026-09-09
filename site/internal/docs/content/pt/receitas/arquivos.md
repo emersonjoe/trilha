@@ -126,11 +126,28 @@ Toda aplicação acaba precisando disto: a linha apagada com o objeto ficando, o
 depois da escrita. As chaves conhecidas saem do banco em fluxo, e não numa fatia, porque nem o
 balde nem a tabela cabem em memória.
 
-## O que está testado, e o que não está
+## O que está testado
 
-A assinatura do S3 é conferida contra um servidor que a recomputa — requisição mal assinada
-falha aqui pelo mesmo motivo que falharia na AWS. Ela **não** é conferida contra um vetor oficial
-da AWS: não havia como validar um offline, e inventar um "vetor conhecido" sugeriria uma garantia
-que não existe. O modo de falha, ao menos, é barulhento: assinatura errada é 403 na primeira
-chamada, não um vazamento silencioso. Contra um MinIO de verdade é um `docker run` de distância,
-e vale fazer uma vez.
+Dois níveis, e é o segundo que conta.
+
+O teste de unidade assina contra um servidor que recomputa a assinatura com o mesmo algoritmo que
+este pacote escreve — o que prova coerência interna, e nada além disso.
+
+O `TestS3AoVivo` roda tudo contra um **MinIO** de verdade: cria o balde, guarda, lê, stat, lista,
+busca uma URL pré-assinada **com um cliente que não assina nada**, vê uma URL vencida ser
+recusada, apaga. Ele é pulado a menos que o `TRILHA_S3_TEST` aponte para um servidor, porque
+teste que depende de contêiner falha por motivo errado na máquina de outra pessoa:
+
+```bash
+docker run -d --name trilha-minio -p 9000:9000 \
+  -e MINIO_ROOT_USER=trilha -e MINIO_ROOT_PASSWORD=trilha-secret-123 \
+  quay.io/minio/minio:latest server /data
+
+TRILHA_S3_TEST='s3://trilha-teste?region=us-east-1&endpoint=http://localhost:9000&path_style=1' \
+AWS_ACCESS_KEY_ID=trilha AWS_SECRET_ACCESS_KEY=trilha-secret-123 \
+go test ./blob/ -run TestS3AoVivo -v
+```
+
+Rodar uma vez com o segredo errado também vale: o MinIO responde `SignatureDoesNotMatch`, que é o
+que diz que o servidor está mesmo conferindo — e que a execução que passou quer dizer alguma
+coisa.

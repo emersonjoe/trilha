@@ -204,6 +204,62 @@ func (p *Provider) discover(ctx context.Context) (*discovery, error) {
 }
 
 // verify validates an ID token against the provider keys and claims.
+// rolesFromAccess reads the role claims of the access token and merges them
+// into the id_token's, when the access token happens to be a JWT from this
+// same issuer.
+//
+// It exists because of a difference nobody sees until they use a real
+// provider: **Keycloak puts realm_access and resource_access in the access
+// token, not in the id_token**. A login worked, the roles arrived empty, and
+// RequireRole refused everybody — a failure that reads like a permissions bug
+// and is a missing mapper. A test IdP written by us could never have shown
+// that, because it put the roles where our code was already looking.
+//
+// It is best-effort by design: an access token is allowed to be opaque, and
+// most providers' are. Anything that does not parse, does not verify, or does
+// not belong to this issuer is ignored — never an error, because the login
+// itself was already proven by the id_token.
+func (p *Provider) rolesFromAccess(ctx context.Context, accessToken string, into *Claims) {
+	if accessToken == "" || into == nil {
+		return
+	}
+	hdr, payload, sig, signed, err := parseJWS(accessToken)
+	if err != nil {
+		return // opaque token: normal, and not this function's business
+	}
+	p.mu.Lock()
+	keys := p.keys
+	p.mu.Unlock()
+	if keys == nil {
+		return
+	}
+	key, err := keys.key(ctx, hdr.Kid)
+	if err != nil {
+		return
+	}
+	if err := verifySignature(hdr.Alg, key, signed, sig); err != nil {
+		return
+	}
+	claims, err := decodeClaims(payload)
+	if err != nil || claims.Issuer != into.Issuer {
+		return
+	}
+	// Only the claims that carry roles, and only when the id_token did not
+	// bring them: the id_token stays the source of identity, and this adds
+	// nothing but authorisation data.
+	for _, name := range []string{"realm_access", "resource_access", "roles", "groups", "cognito:groups"} {
+		if _, taken := into.All[name]; taken {
+			continue
+		}
+		if v, ok := claims.All[name]; ok {
+			if into.All == nil {
+				into.All = map[string]any{}
+			}
+			into.All[name] = v
+		}
+	}
+}
+
 func (p *Provider) verify(ctx context.Context, token, nonce string) (*Claims, error) {
 	if _, err := p.discover(ctx); err != nil {
 		return nil, err

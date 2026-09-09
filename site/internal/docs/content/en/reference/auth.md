@@ -25,6 +25,13 @@ func Clerk(frontendAPI, clientID, clientSecret, redirectURL string) *Provider
 | `Cognito` | `https://cognito-idp.<region>.amazonaws.com/<userPoolID>` | `cognito:groups` |
 | `Clerk` | the Frontend API URL, normalized (`https://<slug>.clerk.accounts.dev`) | `roles`, `groups` — Clerk's `id_token` carries the organization (`org_id`), not the role in it; a configured claim goes in `Options.RoleClaims` |
 
+Those claims are read from the `id_token` **and from the access token**, when the access
+token happens to be a JWT from the same issuer — the `id_token` wins wherever both carry the
+same claim. This is not a nicety: **Keycloak puts `realm_access` and `resource_access` in the
+access token only**, so reading the `id_token` alone gives a login that works and a `Roles`
+that is empty, and every `RequireRole` answers 403 for no visible reason. An opaque access
+token — what most providers issue — changes nothing; one that does not verify grants nothing.
+
 `Provider.LogoutDomain` exists for Cognito: set it to the managed login domain
 (`<prefix>.auth.<region>.amazoncognito.com`, or your own) and `Logout` redirects to
 `/logout?client_id=…&logout_uri=…` there; the return URL must be in the app client's

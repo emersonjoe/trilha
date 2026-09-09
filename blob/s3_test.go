@@ -19,11 +19,10 @@ import (
 // servidor S3 faz — então uma requisição mal assinada aqui é uma requisição
 // que a AWS também recusaria por assinatura.
 //
-// O que este teste não faz, e vale dizer: conferir contra um vetor oficial da
-// AWS. Não tinha como validar um offline, e inventar um "vetor conhecido" seria
-// pior que não ter — daria a impressão de uma garantia que não existe. O modo de
-// falha, felizmente, é barulhento: assinatura errada é 403 em tudo, na primeira
-// chamada, e não um vazamento silencioso.
+// O que este teste sozinho não provaria: que a assinatura serve para um S3 de
+// verdade. Ele recomputa com o mesmo algoritmo que este pacote escreve, então
+// prova coerência interna e mais nada — é o s3_live_test.go, contra um MinIO,
+// que fecha essa lacuna, e ele já rodou.
 type fakeS3 struct {
 	t       *testing.T
 	key     string
