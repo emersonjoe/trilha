@@ -27,6 +27,7 @@ pkg trilha, func Errorf(int, string, ...any) error
 pkg trilha, func Fatal(error)
 pkg trilha, func Limit(float64, int) MiddlewareFunc
 pkg trilha, func New(Config) *App
+pkg trilha, func NewSettings[T any](string, T) *Settings[T]
 pkg trilha, func NewSigner(...[]byte) *Signer
 pkg trilha, func NewTestClient(TestingT, *App) *TestClient
 pkg trilha, func NonceAttr(*Ctx) h.Node
@@ -38,6 +39,7 @@ pkg trilha, func RedirectCode(string, int) error
 pkg trilha, func RegisterEnum(string, Enum)
 pkg trilha, func RequireCSRF(*Ctx, Next) error
 pkg trilha, func Run(*App)
+pkg trilha, func SchemaOf[T any]() Schema
 pkg trilha, func StatusOf(error) int
 pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse
 pkg trilha, func TestRequest(TestingT, *App, string, string, ...TestOption) *TestResponse
@@ -162,6 +164,13 @@ pkg trilha, method (*Metrics) Histogram(string, string, []float64, ...string) *H
 pkg trilha, method (*Problem) Error() string
 pkg trilha, method (*Problem) MarshalJSON() ([]byte, error)
 pkg trilha, method (*RedirectError) Error() string
+pkg trilha, method (*Settings) Bind(*App, SettingsStore) error
+pkg trilha, method (*Settings) Get() T
+pkg trilha, method (*Settings) Key() string
+pkg trilha, method (*Settings) Schema() Schema
+pkg trilha, method (*Settings) Set(T) error
+pkg trilha, method (*Settings) Update(*Ctx) error
+pkg trilha, method (*Settings) Values() map[string]string
 pkg trilha, method (*Signer) Sign(string, time.Time) (string, error)
 pkg trilha, method (*Signer) Verify(string, time.Time) (string, bool)
 pkg trilha, method (*Stream) Comment(string) error
@@ -395,6 +404,10 @@ pkg trilha, type SecurityEvent struct, Method string
 pkg trilha, type SecurityEvent struct, Path string
 pkg trilha, type SecurityEvent struct, RequestID string
 pkg trilha, type SecurityEvent struct, Status int
+pkg trilha, type SettingsStore interface
+pkg trilha, type SettingsStore interface, Load(string) ([]byte, bool)
+pkg trilha, type SettingsStore interface, Save(string, []byte) error
+pkg trilha, type Settings[T any] struct
 pkg trilha, type Signer struct
 pkg trilha, type Stream struct
 pkg trilha, type TestClient struct
@@ -1020,6 +1033,7 @@ pkg ui, func Secondary() h.Node
 pkg ui, func Select(...h.Node) h.Node
 pkg ui, func SelectOptions([]Option, string) h.Node
 pkg ui, func Separator() h.Node
+pkg ui, func SettingsForm(*trilha.Ctx, Section, map[string]string, ...h.Node) h.Node
 pkg ui, func Shell(*trilha.Ctx, ShellOpts, ...h.Node) h.Node
 pkg ui, func ShowWhen(string, ...string) h.Node
 pkg ui, func Sidebar(...h.Node) h.Node
@@ -1189,6 +1203,10 @@ pkg ui, type PreviewOpts struct, Height string
 pkg ui, type PreviewOpts struct, NoOpen bool
 pkg ui, type PreviewOpts struct, Title string
 pkg ui, type PreviewOpts struct, Type string
+pkg ui, type Section interface
+pkg ui, type Section interface, Key() string
+pkg ui, type Section interface, Schema() trilha.Schema
+pkg ui, type Section interface, Values() map[string]string
 pkg ui, type ShellOpts struct
 pkg ui, type ShellOpts struct, Brand h.Node
 pkg ui, type ShellOpts struct, Current string

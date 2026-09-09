@@ -307,3 +307,55 @@ pede de um navegador. O `WithoutCSRF()` é como um teste prova a recusa.
 Nenhuma asserção devolve `error` — em teste, o valor de um erro é parar com a mensagem certa,
 então a falha imprime o alvo, o status e o corpo. O que as asserções prontas não cobrem é um
 `if` sobre o recorder embutido. Veja [Testes](/pt/aprender/testes) para a trilha inteira.
+
+## Configurações
+
+A configuração que o administrador muda sem redeploy é um padrão que toda aplicação escreve à
+mão: uma tabela de settings, um GET que devolve JSON, um PUT, uma tela com um formulário por
+seção — e validação em nenhum deles. O `trilha.Settings[T]` é a struct sendo a configuração, e a
+tela vindo dela.
+
+```go
+type Assistente struct {
+	Modelo      string  `json:"modelo"      form:"modelo"      validate:"required,max=60" label:"Modelo" help:"o nome que o provedor conhece"`
+	Temperatura float64 `json:"temperatura" form:"temperatura" validate:"min=0,max=2" label:"Temperatura"`
+	Ferramentas bool    `json:"ferramentas" form:"ferramentas" label:"Deixar usar as ferramentas"`
+}
+
+var Cfg = trilha.NewSettings("assistente", Assistente{Temperatura: 0.7, Ferramentas: true})
+
+func Setup(a *trilha.App) error { return Cfg.Bind(a, store) } // store nil = memória
+
+cfg := Cfg.Get()                    // uma cópia, segura em qualquer goroutine
+func POST(c *trilha.Ctx) error { return Cfg.Update(c) }
+```
+
+| Símbolo | Papel |
+|---|---|
+| `NewSettings(chave, padrões)` | declara a seção; os padrões respondem antes de alguém gravar |
+| `Bind(app, store)` | lê o que foi gravado, no Setup; store nil guarda em memória e avisa uma vez |
+| `Get() T` | a configuração atual, copiada |
+| `Set(T) error` | grava uma seção que a própria aplicação montou |
+| `Update(c) error` | o POST inteiro: bind, valida, grava, audita, redireciona |
+| `Schema()` / `Values()` | o formulário da seção e o que ele mostra |
+| `SettingsStore` | `Load(chave)` / `Save(chave, dados)` sobre o que a app já roda |
+| `trilha.SchemaOf[T]()` | o formulário de qualquer struct, a partir das tags dela |
+| `ui.SettingsForm(c, seção, errs)` | a tela: um campo por campo, do tipo que as tags pediram |
+
+As tags fazem três trabalhos ao mesmo tempo: `json` diz como é guardado, `form` nomeia o input —
+o mesmo nome que o `Bind` lê — e `validate` é a regra, a mesma na tela e em qualquer outro lugar
+que grave. `label` e `help` são o que a pessoa lê. `oneof` vira select, `bool` vira checkbox,
+número carrega a sua faixa.
+
+**Um 422 não grava nada.** É a metade que toda tela de configuração feita à mão erra: valida na
+tela e salva de qualquer jeito.
+
+**Seção escrita por uma versão anterior da struct não derruba o app.** Campo que mudou de nome
+fica no padrão, e um valor ilegível cai nos padrões com uma linha no log — configuração vazia em
+produção é pior que configuração desatualizada.
+
+**A linha de auditoria diz quais campos mudaram e nunca os valores.** Tela de configuração é onde
+mora um token, e uma trilha que o copia é um segundo lugar de onde ele vaza.
+
+O `SchemaOf` explode num campo que nenhum formulário segura — mapa, fatia, struct aninhada —
+porque a alternativa é uma tela que silenciosamente não edita parte da própria configuração.

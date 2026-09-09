@@ -3,6 +3,43 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.56.0 — 2026-09-08
+
+Spec 074.
+
+### Added
+
+- **`trilha.Settings[T]` — the configuration an administrator changes without a deploy**
+  ([#107](https://github.com/emersonjoe/trilha/issues/107)). Every application writes this by
+  hand: a settings table, a GET that answers JSON, a PUT, a screen with one form per section —
+  and validation in none of them. Here the struct is the configuration and the screen comes from
+  it.
+
+  The tags do three jobs and none of them is new: `json` stores, `form` names the input (the same
+  name `Bind` already reads), `validate` is the rule. `label` and `help` are what a person reads.
+  `ui.SettingsForm` draws one field per field, of the type the tags asked for, and
+  `trilha.SchemaOf[T]()` is that reflection on its own — the form of any struct, from its own
+  tags.
+
+  **A 422 saves nothing**, which is the half every hand-written settings page gets wrong: it
+  validates on the screen and saves anyway. **A section written by an older version of the struct
+  does not bring the app down**: a renamed field keeps its default, and an unreadable value falls
+  back to the defaults with a line in the log, because an empty configuration in production is
+  worse than an outdated one. **The audit line names the fields that changed and never their
+  values** — a settings page is where a token lives.
+
+  `SettingsStore` is two methods over whatever the app already runs; nil keeps the section in
+  memory and says so once.
+
+### Not here
+
+`trilha.Secret` and `ui.SecretField` (they are [#108](https://github.com/emersonjoe/trilha/issues/108),
+still open — what would have leaked first, the audit copying values, is already closed);
+`settings.SQL` (no DDL in a framework with no database dependency, same as `audit.SQL` in
+0.49.0); and `[]string` with `oneof` as checkboxes — `Schema` has no multiple-choice type, and
+inventing one here would be deciding for another issue in the corridor. That is why a slice is
+the case that panics, with a message saying what a settings struct holds.
+
 ## 0.55.0 — 2026-09-08
 
 Spec 073.

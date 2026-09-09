@@ -14,6 +14,7 @@ import (
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/ai"
+	"github.com/emersonjoe/trilha/examples/assistente/internal/config"
 	"github.com/emersonjoe/trilha/examples/assistente/internal/ferramentas"
 )
 
@@ -138,4 +139,35 @@ func TestCalcular(t *testing.T) {
 			t.Fatal("expected error for", bad)
 		}
 	}
+}
+
+// #107 — a tela de configuração vem da struct: um campo por campo, do tipo que
+// as tags pediram. E o POST é uma linha.
+func TestConfiguracaoVemDaStruct(t *testing.T) {
+	c := newClient(t)
+
+	tela := c.Get("/config")
+	tela.WantStatus(200).WantContains(
+		`name="modelo"`, "Modelo", "o nome que o provedor conhece",
+		`name="temperatura"`, `type="number"`, `min="0"`, `max="2"`,
+		`name="ferramentas"`, `type="checkbox"`, `name="_csrf"`)
+
+	// O que não passa na validação da própria struct não é gravado.
+	ruim := c.Request("POST", "/config", trilha.WithBody("application/x-www-form-urlencoded",
+		"modelo=&temperatura=9&max_tokens=1024&ferramentas=on"))
+	ruim.WantStatus(422).WantContains("required", "must be 2 or less")
+	if config.Cfg.Get().Temperatura == 9 {
+		t.Fatal("gravou o que não passou")
+	}
+
+	// O que passa vale na próxima mensagem, sem reiniciar nada.
+	bom := c.Request("POST", "/config", trilha.WithBody("application/x-www-form-urlencoded",
+		"modelo=llama3.1&temperatura=0.2&max_tokens=512&ferramentas=on"))
+	if bom.Code != 303 {
+		t.Fatalf("POST bom = %d %s", bom.Code, bom.Body.String())
+	}
+	if got := config.Cfg.Get(); got.Modelo != "llama3.1" || got.Temperatura != 0.2 || got.MaxTokens != 512 {
+		t.Fatalf("%+v", got)
+	}
+	c.Get("/config").WantStatus(200).WantContains(`value="llama3.1"`, `value="0.2"`)
 }

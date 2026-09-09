@@ -10,6 +10,7 @@ import (
 	trilha "github.com/emersonjoe/trilha"
 	app "github.com/emersonjoe/trilha/examples/assistente/app"
 	app_api_chat "github.com/emersonjoe/trilha/examples/assistente/app/api/chat"
+	app_config "github.com/emersonjoe/trilha/examples/assistente/app/config"
 	app_mcp "github.com/emersonjoe/trilha/examples/assistente/app/mcp"
 )
 
@@ -35,6 +36,14 @@ func newApp() *trilha.App {
 		Methods: map[string]trilha.HandlerFunc{
 			"POST": app_api_chat.POST,
 		},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/config",
+		Page:    app_config.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_config.POST,
+		},
+		Layouts: []trilha.LayoutFunc{app.Layout},
 	})
 	a.Register(trilha.Route{
 		Pattern: "/mcp",

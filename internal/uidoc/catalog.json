@@ -1010,6 +1010,33 @@
     ]
   },
   {
+    "name": "Section",
+    "kind": "type",
+    "group": "settings",
+    "signature": "type Section interface",
+    "doc": "Section is what SettingsForm needs of a trilha.Settings — its form, its\ncurrent values and the address it posts to. It is an interface so that the\nkit does not have to name the generic type of somebody else's configuration.",
+    "summary": "Section is what SettingsForm needs of a trilha.Settings — its form, its current values and the address it posts to.",
+    "see": [
+      "trilha.Settings"
+    ]
+  },
+  {
+    "name": "SettingsForm",
+    "kind": "func",
+    "group": "settings",
+    "signature": "SettingsForm(c *trilha.Ctx, s Section, errs map[string]string, children ...h.Node) h.Node",
+    "doc": "SettingsForm is the administration screen of one section, drawn from the\nstruct that declares it.\n\nOne field per field, of the type the tags asked for: a select where there is\na oneof, a number with its range, a checkbox for a bool. It is the same\nui.SchemaForm every data-defined form uses, so the label, the help and the\nmessage say the same things here as anywhere else.",
+    "summary": "SettingsForm is the administration screen of one section, drawn from the struct that declares it.",
+    "example": "// app/admin/pipeline/page.go\nfunc Page(c *trilha.Ctx) (h.Node, error) { return ui.SettingsForm(c, config.Cfg, nil), nil }\nfunc POST(c *trilha.Ctx) error           { return config.Cfg.Update(c) }\n\n\nsee: trilha.Settings, trilha.SchemaOf, ui.SchemaForm",
+    "see": [
+      "h.Node",
+      "trilha.Ctx",
+      "trilha.SchemaOf",
+      "trilha.Settings",
+      "ui.SchemaForm"
+    ]
+  },
+  {
     "name": "NavItem",
     "kind": "type",
     "group": "shell",

@@ -311,3 +311,55 @@ No assertion returns an `error` — in a test, the value of an error is stopping
 message, so a failure prints the target, the status and the body. Anything the ready-made
 assertions do not cover is an `if` over the embedded recorder. See
 [Testing](/learn/testing) for the whole trail.
+
+## Settings
+
+The configuration an administrator changes without a deploy is a pattern every application
+writes by hand: a settings table, a GET that answers JSON, a PUT, a screen with one form per
+section — and validation in none of them. `trilha.Settings[T]` is the struct being the
+configuration, and the screen coming from it.
+
+```go
+type Assistant struct {
+	Model       string  `json:"model"       form:"model"       validate:"required,max=60" label:"Model" help:"the name the provider knows"`
+	Temperature float64 `json:"temperature" form:"temperature" validate:"min=0,max=2" label:"Temperature"`
+	Tools       bool    `json:"tools"       form:"tools"       label:"Let it use the tools"`
+}
+
+var Cfg = trilha.NewSettings("assistant", Assistant{Temperature: 0.7, Tools: true})
+
+func Setup(a *trilha.App) error { return Cfg.Bind(a, store) } // nil store = memory
+
+cfg := Cfg.Get()                    // a copy, safe from any goroutine
+func POST(c *trilha.Ctx) error { return Cfg.Update(c) }
+```
+
+| Symbol | Role |
+|---|---|
+| `NewSettings(key, defaults)` | declares a section; the defaults answer before anybody saves |
+| `Bind(app, store)` | reads what was saved, in Setup; a nil store keeps it in memory and says so once |
+| `Get() T` | the current configuration, copied |
+| `Set(T) error` | saves a section the application built itself |
+| `Update(c) error` | the whole POST: bind, validate, save, audit, redirect |
+| `Schema()` / `Values()` | the form of the section and what it shows |
+| `SettingsStore` | `Load(key)` / `Save(key, data)` over whatever the app already runs |
+| `trilha.SchemaOf[T]()` | the form of any struct, from its own tags |
+| `ui.SettingsForm(c, section, errs)` | the screen: one field per field, of the type the tags asked for |
+
+The tags carry three jobs at once: `json` says how it is stored, `form` names the input — the
+same name `Bind` reads — and `validate` is the rule, the same rule on the screen and on anything
+else that saves. `label` and `help` are what a person reads. `oneof` becomes a select, a `bool`
+becomes a checkbox, a number carries its range.
+
+**A 422 saves nothing.** That is the half every hand-written settings page gets wrong: it
+validates on the screen and saves anyway.
+
+**A section written by an older version of the struct does not bring the app down.** A field that
+was renamed keeps its default, and a value that cannot be read at all falls back to the defaults
+with a line in the log — an empty configuration in production is worse than an outdated one.
+
+**The audit line names the fields that changed and never their values.** A settings page is where
+a token lives, and a trail that copies it is a second place to leak it from.
+
+`SchemaOf` panics on a field no form can hold — a map, a slice, a nested struct — because the
+alternative is a screen that silently cannot edit part of its own configuration.
