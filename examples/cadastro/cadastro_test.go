@@ -73,6 +73,7 @@ func TestValidSubmissionAndHiddenFieldsIgnored(t *testing.T) {
 	f.Set("numero", "1")
 	f.Set("uf", "RJ")
 	f.Set("cidade", "Rio de Janeiro")
+	f.Set("setor", "100.1.1")
 	f.Set("novidades", "on")
 	f.Set("frequencia", "mensal")
 	c.PostForm("/", f).WantStatus(303).WantHeader("Location", "/?ok=1")
@@ -139,6 +140,7 @@ func TestEnvioSemRecarga(t *testing.T) {
 	f.Set("numero", "2")
 	f.Set("uf", "SP")
 	f.Set("cidade", "Campinas")
+	f.Set("setor", "200.1")
 	rec := c.PostForm("/", f, tela).WantStatus(200)
 	body := rec.Body.String()
 	if strings.Contains(body, "<!doctype") || !strings.HasPrefix(body, `<div id="tela"`) {
@@ -243,6 +245,7 @@ func valido() url.Values {
 	f.Set("numero", "1")
 	f.Set("uf", "RJ")
 	f.Set("cidade", "Rio de Janeiro")
+	f.Set("setor", "100.1.1")
 	return f
 }
 
@@ -371,4 +374,54 @@ func TestAssistenteNaoVazaEntreNavegadores(t *testing.T) {
 	if r.Code != 303 || r.Header().Get("Location") != "/assistente/dados" {
 		t.Fatalf("o rascunho de um apareceu para o outro: %d %s", r.Code, r.Header().Get("Location"))
 	}
+}
+
+// #101 — a árvore de setores: dá para navegar, dá para buscar, e o que o
+// formulário posta é um radio. Sem script, tudo isso continua de pé.
+func TestArvoreDeSetores(t *testing.T) {
+	c := newClient(t)
+
+	// A árvore chega com as raízes e sem os filhos: eles são pedidos quando
+	// alguém abre o ramo.
+	pagina := c.Get("/").WantStatus(200)
+	// A árvore do seletor é um grupo de escolhas, não uma navegação: é um
+	// campo de formulário, e é assim que ela se anuncia.
+	pagina.WantContains(`class="ui-tree" role="group"`, `data-ui-tree-src="/setores/nos"`,
+		`data-ui-tree-search="/setores/busca"`, "100 Administração", `type="radio"`, `name="setor"`,
+		`src="/ui.tree.js`)
+	if strings.Contains(pagina.Body.String(), "Contas a pagar") {
+		t.Fatal("a árvore trouxe os netos sem ninguém abrir nada")
+	}
+
+	// A fonte responde os filhos de um nó, já como radios do mesmo campo. O
+	// cabeçalho é o que o script manda: sem ele a mesma rota responde a página
+	// inteira, que é o caminho de quem não tem JavaScript.
+	arvore := trilha.WithHeader("Trilha-Fragment", "tree")
+	filhos := c.Get("/setores/nos?parent=100.1", arvore)
+	filhos.WantStatus(200).WantContains("Contas a pagar", "Contas a receber", `name="setor"`, `value="100.1.1"`)
+	if strings.Contains(filhos.Body.String(), "<!doctype") {
+		t.Fatal("a fonte devia responder só os nós")
+	}
+
+	// A busca acha por código ou por nome, achatada e com o caminho — um
+	// resultado fora de contexto não diz nada sem a ancestralidade.
+	c.Get("/setores/busca?q=conta", arvore).WantStatus(200).
+		WantContains("Contas a pagar", "Administração › Financeiro")
+	c.Get("/setores/busca?q=200.2", arvore).WantStatus(200).WantContains("Logística")
+
+	// O código escolhido é conferido contra a árvore: um POST à mão não põe
+	// qualquer string no cadastro.
+	f := valido()
+	f.Set("setor", "999-inventado")
+	c.PostForm("/", f).WantStatus(422).WantContains("escolha um setor da árvore")
+
+	// E o que passa volta na lista, com o caminho aberto até ele quando o
+	// formulário é redesenhado.
+	f.Set("setor", "100.2.1")
+	c.PostForm("/", f).WantStatus(303)
+	f2 := valido()
+	f2.Set("email", "nao-e-email")
+	f2.Set("setor", "100.2.1")
+	erro := c.PostForm("/", f2).WantStatus(422)
+	erro.WantContains(`value="100.2.1" class="ui-tree-radio" checked`, "Recrutamento")
 }

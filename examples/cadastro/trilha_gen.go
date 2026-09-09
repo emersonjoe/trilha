@@ -15,6 +15,8 @@ import (
 	app_assistente_revisao "github.com/emersonjoe/trilha/examples/cadastro/app/assistente/revisao"
 	app_cidades_busca "github.com/emersonjoe/trilha/examples/cadastro/app/cidades/busca"
 	app_ficha "github.com/emersonjoe/trilha/examples/cadastro/app/ficha"
+	app_setores_busca "github.com/emersonjoe/trilha/examples/cadastro/app/setores/busca"
+	app_setores_nos "github.com/emersonjoe/trilha/examples/cadastro/app/setores/nos"
 )
 
 //go:embed public
@@ -80,6 +82,18 @@ func newApp() *trilha.App {
 			"POST": app_ficha.POST,
 		},
 		Layouts: []trilha.LayoutFunc{app.Layout},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/setores/busca",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_setores_busca.GET,
+		},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/setores/nos",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_setores_nos.GET,
+		},
 	})
 	return a
 }

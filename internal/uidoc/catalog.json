@@ -1200,6 +1200,209 @@
     ]
   },
   {
+    "name": "TreeNode",
+    "kind": "type",
+    "group": "tree",
+    "signature": "type TreeNode struct",
+    "doc": "TreeNode is one node. Children that are already known travel with it — the\nopen path when the screen loads, or a small tree served whole.",
+    "summary": "TreeNode is one node.",
+    "fields": [
+      {
+        "name": "Value",
+        "type": "string",
+        "doc": "Value is what the form posts and what the source is asked about."
+      },
+      {
+        "name": "Label",
+        "type": "string",
+        "doc": "Label is what a person reads."
+      },
+      {
+        "name": "Leaf",
+        "type": "bool",
+        "doc": "Leaf says there is nothing under it, so it draws no arrow and is never asked for children."
+      },
+      {
+        "name": "Href",
+        "type": "string",
+        "doc": "Href turns the label into a link — for a node that is also a page."
+      },
+      {
+        "name": "Children",
+        "type": "[]TreeNode",
+        "doc": "Children are already loaded; nil means \"ask the source when opened\"."
+      },
+      {
+        "name": "Open",
+        "type": "bool",
+        "doc": "Open draws it expanded, which is how the path down to the current node arrives open on the first render."
+      },
+      {
+        "name": "Path",
+        "type": "string",
+        "doc": "Path is the ancestry shown under a search result — \"100 › 100.1\" — so a match out of context still says where it lives."
+      }
+    ]
+  },
+  {
+    "name": "TreeOpts",
+    "kind": "type",
+    "group": "tree",
+    "signature": "type TreeOpts struct",
+    "doc": "TreeOpts is the tree itself.",
+    "summary": "TreeOpts is the tree itself.",
+    "fields": [
+      {
+        "name": "Nodes",
+        "type": "[]TreeNode",
+        "doc": "Nodes are the roots, with whatever children came with them."
+      },
+      {
+        "name": "Source",
+        "type": "string",
+        "doc": "Source is a GET route that answers TreeNodes for ?parent=\u003cvalue\u003e."
+      },
+      {
+        "name": "Current",
+        "type": "string",
+        "doc": "Current is the value marked as the current node."
+      },
+      {
+        "name": "Label",
+        "type": "string",
+        "doc": "Label is the accessible name of the tree — a tree announced as \"tree\" and nothing else is a tree nobody can tell from the next one."
+      },
+      {
+        "name": "ID",
+        "type": "string",
+        "doc": "ID is the element's id; one is generated from Label when empty."
+      },
+      {
+        "name": "Name",
+        "type": "string",
+        "doc": "Name turns every node into a radio of this name: the tree stops being a navigation and becomes a field."
+      },
+      {
+        "name": "Selected",
+        "type": "string",
+        "doc": "Selected is the value already chosen, when Name is set."
+      }
+    ]
+  },
+  {
+    "name": "Tree",
+    "kind": "func",
+    "group": "tree",
+    "signature": "Tree(o TreeOpts) h.Node",
+    "doc": "Tree renders a hierarchy that opens node by node.\n\nEach node is a \u003cdetails\u003e, so it opens with no JavaScript at all; what the\nscript adds is fetching the children the first time instead of asking the\nserver for a whole page. A node whose children are already in Nodes never\nasks for anything, which is why the path down to Current arrives open and\ncomplete on the first render.\nThe roles are the real ones — tree, treeitem, group, aria-expanded — and the\narrows, Home, End and \"*\" move through it. Load TreeScript once on the page.",
+    "summary": "Tree renders a hierarchy that opens node by node.",
+    "example": "ui.Tree(ui.TreeOpts{\n\tNodes:   roots,                 // with the open path already inside\n\tSource:  \"/classification/nodes\", // GET ?parent=100.1 answers the children\n\tCurrent: doc.Code,\n\tLabel:   \"Classification plan\",\n})\n\n// app/classification/nodes/route.go\nfunc GET(c *trilha.Ctx) error {\n\treturn c.HTML(200, ui.TreeNodes(children(c.Query(\"parent\")), func(n Node) ui.TreeNode {\n\t\treturn ui.TreeNode{Value: n.Code, Label: n.Code + \" \" + n.Name, Leaf: n.Leaves == 0}\n\t}))\n}\n\n\n\nsee: ui.TreePicker, ui.TreeNodes, ui.Combobox",
+    "see": [
+      "trilha.Ctx",
+      "ui.Combobox",
+      "ui.TreeNode",
+      "ui.TreeNodes",
+      "ui.TreeOpts",
+      "ui.TreePicker"
+    ]
+  },
+  {
+    "name": "TreeNodes",
+    "kind": "func",
+    "group": "tree",
+    "signature": "TreeNodes[T any](items []T, of func(T) TreeNode) h.Node",
+    "doc": "TreeNodes is what a source route answers: the children of one node, as HTML,\nbecause the browser has nothing to decide about them.",
+    "summary": "TreeNodes is what a source route answers: the children of one node, as HTML, because the browser has nothing to decide about them.",
+    "example": "return c.HTML(200, ui.TreeNodes(children, func(n Node) ui.TreeNode { … }))",
+    "see": [
+      "ui.TreeNode"
+    ]
+  },
+  {
+    "name": "TreeItems",
+    "kind": "func",
+    "group": "tree",
+    "signature": "TreeItems(nodes []TreeNode, o TreeOpts) h.Node",
+    "doc": "TreeItems renders nodes with the options of the tree they belong to — the\nname of the radios, the current value — for a source route answering inside\na picker, where the children have to come back as fields and not as text.",
+    "summary": "TreeItems renders nodes with the options of the tree they belong to — the name of the radios, the current value — for a source route answering inside a picker, where the children have to come back as fields and not as text.",
+    "example": "return c.HTML(200, ui.TreeItems(nodes, ui.TreeOpts{Name: \"code\"}))",
+    "see": [
+      "ui.TreeOpts"
+    ]
+  },
+  {
+    "name": "TreePickerOpts",
+    "kind": "type",
+    "group": "tree",
+    "signature": "type TreePickerOpts struct",
+    "doc": "TreePickerOpts is the field: a search that finds, a tree that browses, and\none value that posts.",
+    "summary": "TreePickerOpts is the field: a search that finds, a tree that browses, and one value that posts.",
+    "fields": [
+      {
+        "name": "Name",
+        "type": "string",
+        "doc": "Name is what the form posts — a radio per node, so choosing is a form control and not a script."
+      },
+      {
+        "name": "Value",
+        "type": "string",
+        "doc": "Value is what is already chosen."
+      },
+      {
+        "name": "Nodes",
+        "type": "[]TreeNode",
+        "doc": "Nodes are the roots (with the path down to Value already open)."
+      },
+      {
+        "name": "Source",
+        "type": "string",
+        "doc": "Source answers the children of ?parent=\u003cvalue\u003e."
+      },
+      {
+        "name": "Search",
+        "type": "string",
+        "doc": "Search answers TreeNodes for ?q=, flattened, each with its Path — the match of a code deep in the tree only means something with its ancestry beside it."
+      },
+      {
+        "name": "Placeholder",
+        "type": "string",
+        "doc": "Placeholder and Label are the search field's text and the tree's accessible name."
+      },
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "MinChars",
+        "type": "int",
+        "doc": "MinChars is how much has to be typed before searching (2 when zero)."
+      }
+    ]
+  },
+  {
+    "name": "TreePicker",
+    "kind": "func",
+    "group": "tree",
+    "signature": "TreePicker(o TreePickerOpts, attrs ...h.Node) h.Node",
+    "doc": "TreePicker is choosing one node out of thousands: type to find it, or browse\nto it.\n\nThe value posts as a radio, which is the whole no-JavaScript story: a person\nwith no script browses the same \u003cdetails\u003e and picks the same radio, and the\nform posts the same field. The search box then behaves like any filter — it\nsubmits, and the route renders the picker with the matches.\nWith the script, typing asks Search and puts the matches in place of the\ntree, each with the ancestry it came from; clearing the box brings the tree\nback.",
+    "summary": "TreePicker is choosing one node out of thousands: type to find it, or browse to it.",
+    "example": "ui.Field(\"code\", \"Classification\", ui.TreePicker(ui.TreePickerOpts{\n\tName:   \"code\",\n\tValue:  form.Code,\n\tNodes:  plan.Roots(form.Code), // open down to what is chosen\n\tSource: \"/classification/nodes\",\n\tSearch: \"/classification/search\",\n}))\n\n\n\nsee: ui.Tree, ui.Combobox",
+    "see": [
+      "ui.Combobox",
+      "ui.Field",
+      "ui.Tree",
+      "ui.TreePickerOpts"
+    ]
+  },
+  {
+    "name": "TreeScript",
+    "kind": "func",
+    "group": "tree",
+    "signature": "TreeScript(c *trilha.Ctx) h.Node",
+    "doc": "TreeScript loads ui.tree.js, the behaviour behind Tree and TreePicker: the\nchildren fetched on the first open, the search, and the keyboard. Put it\nonce on the page that has a tree — Head does not load it, so a page without\none does not download it.",
+    "summary": "TreeScript loads ui.tree.js, the behaviour behind Tree and TreePicker: the children fetched on the first open, the search, and the keyboard."
+  },
+  {
     "name": "Asset",
     "kind": "func",
     "group": "ui",

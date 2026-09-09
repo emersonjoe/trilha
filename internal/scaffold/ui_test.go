@@ -13,9 +13,9 @@ func TestWriteUIStamp(t *testing.T) {
 	if err != nil || len(res) != len(ui.Files) || res[1].Action != UICreated {
 		t.Fatal(err, res)
 	}
-	// Navigation, upload, live, chat and the island runtime are .js files of
-	// their own: --js writes them all.
-	if res, err := WriteUI(dir, false, false, true); err != nil || len(res) != 6 || res[5].File != "ui.island.js" {
+	// Navigation, upload, live, chat, the island runtime and the tree are .js
+	// files of their own: --js writes them all.
+	if res, err := WriteUI(dir, false, false, true); err != nil || len(res) != 7 || res[6].File != "ui.tree.js" {
 		t.Fatal(err, res)
 	}
 	css := filepath.Join(dir, "public", "ui.css")

@@ -6,6 +6,7 @@ import (
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/cadastro/internal/clientes"
+	"github.com/emersonjoe/trilha/examples/cadastro/internal/setores"
 	"github.com/emersonjoe/trilha/h"
 	"github.com/emersonjoe/trilha/ui"
 )
@@ -133,6 +134,17 @@ func formulario(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors) h.N
 				campo("nome", "Nome completo", in.Nome, errs, h.Autofocus()),
 				campo("email", "E-mail", in.Email, errs, h.Type("email")),
 			),
+			// A árvore de setores: dá para navegar ou para procurar, e o que o
+			// formulário posta é um radio — sem script, é o mesmo campo.
+			ui.Field("setor", "Setor", ui.TreePicker(ui.TreePickerOpts{
+				Name:        "setor",
+				Value:       in.Setor,
+				Nodes:       arvore(in.Setor),
+				Source:      "/setores/nos",
+				Search:      "/setores/busca",
+				Placeholder: "Buscar por código ou nome",
+				Label:       "Setores",
+			}), ui.Errors(errs, "setor")),
 			h.Div(h.Class("ui-grid"), ui.ShowWhen("tipo", "pf"),
 				campo("cpf", "CPF", in.CPF, errs, h.Attr("inputmode", "numeric"), h.Placeholder("000.000.000-00")),
 				campo("nascimento", "Data de nascimento", in.Nascimento, errs, h.Type("date")),
@@ -208,4 +220,28 @@ func vazio(q string) string {
 		return "Nada encontrado para " + q + "."
 	}
 	return "Ninguém ainda."
+}
+
+// arvore monta as raízes com o caminho até o escolhido já aberto: um
+// formulário que voltou com erro volta mostrando a escolha, não uma árvore
+// fechada em que a pessoa tem de achar de novo onde estava.
+func arvore(escolhido string) []ui.TreeNode {
+	abertos := map[string]bool{}
+	for _, a := range setores.Abertos(escolhido) {
+		abertos[a] = true
+	}
+	var monta func(pai string) []ui.TreeNode
+	monta = func(pai string) []ui.TreeNode {
+		var out []ui.TreeNode
+		for _, s := range setores.Filhos(pai) {
+			n := ui.TreeNode{Value: s.Codigo, Label: setores.Rotulo(s), Leaf: setores.Folha(s.Codigo)}
+			if abertos[s.Codigo] {
+				n.Open = true
+				n.Children = monta(s.Codigo)
+			}
+			out = append(out, n)
+		}
+		return out
+	}
+	return monta("")
 }

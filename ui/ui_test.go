@@ -142,7 +142,11 @@ func TestHeadAndAssets(t *testing.T) {
 	// the image (about 800 bytes), and it was 24 bytes from the old ceiling.
 	// The frame carries a background of its own on purpose — a PDF that has
 	// not painted yet, over a transparent one, reads as a hole in the page.
-	if len(Asset("ui.css")) > 32<<10 || len(Asset("ui.js")) > 28<<10 {
+	// And to 34 KB in 0.55.0: ui.Tree brings the branch lines, the indent and
+	// the picker's box (about 1.3 KB). The arrow is two characters and no
+	// animation — a caret that rotates is decoration, and decoration is what a
+	// budget is for.
+	if len(Asset("ui.css")) > 34<<10 || len(Asset("ui.js")) > 28<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {

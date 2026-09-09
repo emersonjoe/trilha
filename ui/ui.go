@@ -13,7 +13,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 )
 
-//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js assets/ui.live.js assets/ui.chat.js assets/ui.island.js
+//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js assets/ui.live.js assets/ui.chat.js assets/ui.island.js assets/ui.tree.js
 var assets embed.FS
 
 // Asset returns the embedded file (ui.css, ui.theme.css or ui.js).
@@ -26,7 +26,7 @@ func Asset(name string) []byte {
 }
 
 // Files lists the kit files written to a project's public/ folder.
-var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js", "ui.live.js", "ui.chat.js", "ui.island.js"}
+var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js", "ui.live.js", "ui.chat.js", "ui.island.js", "ui.tree.js"}
 
 // Head links the kit's stylesheets and script and applies the saved theme
 // before first paint (inline script with the request nonce, so the default

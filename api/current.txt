@@ -1045,6 +1045,11 @@ pkg ui, func TimeOnly() FormatOpt
 pkg ui, func Toast(string, string, int) h.Node
 pkg ui, func Toaster(...h.Node) h.Node
 pkg ui, func Tooltip(string, ...h.Node) h.Node
+pkg ui, func Tree(TreeOpts) h.Node
+pkg ui, func TreeItems([]TreeNode, TreeOpts) h.Node
+pkg ui, func TreeNodes[T any]([]T, func(T) TreeNode) h.Node
+pkg ui, func TreePicker(TreePickerOpts, ...h.Node) h.Node
+pkg ui, func TreeScript(*trilha.Ctx) h.Node
 pkg ui, func UploadBar(...h.Node) h.Node
 pkg ui, func UploadScript(*trilha.Ctx) h.Node
 pkg ui, func UploadTo(string) h.Node
@@ -1199,6 +1204,31 @@ pkg ui, type Step struct, Label string
 pkg ui, type Tab struct
 pkg ui, type Tab struct, Content h.Node
 pkg ui, type Tab struct, Label string
+pkg ui, type TreeNode struct
+pkg ui, type TreeNode struct, Children []TreeNode
+pkg ui, type TreeNode struct, Href string
+pkg ui, type TreeNode struct, Label string
+pkg ui, type TreeNode struct, Leaf bool
+pkg ui, type TreeNode struct, Open bool
+pkg ui, type TreeNode struct, Path string
+pkg ui, type TreeNode struct, Value string
+pkg ui, type TreeOpts struct
+pkg ui, type TreeOpts struct, Current string
+pkg ui, type TreeOpts struct, ID string
+pkg ui, type TreeOpts struct, Label string
+pkg ui, type TreeOpts struct, Name string
+pkg ui, type TreeOpts struct, Nodes []TreeNode
+pkg ui, type TreeOpts struct, Selected string
+pkg ui, type TreeOpts struct, Source string
+pkg ui, type TreePickerOpts struct
+pkg ui, type TreePickerOpts struct, Label string
+pkg ui, type TreePickerOpts struct, MinChars int
+pkg ui, type TreePickerOpts struct, Name string
+pkg ui, type TreePickerOpts struct, Nodes []TreeNode
+pkg ui, type TreePickerOpts struct, Placeholder string
+pkg ui, type TreePickerOpts struct, Search string
+pkg ui, type TreePickerOpts struct, Source string
+pkg ui, type TreePickerOpts struct, Value string
 pkg ui, type UserMenu struct
 pkg ui, type UserMenu struct, Detail string
 pkg ui, type UserMenu struct, Items []h.Node

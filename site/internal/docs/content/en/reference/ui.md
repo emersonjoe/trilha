@@ -58,6 +58,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | what `trilha.BindCSV` rejected, by line and column — see [CSV](/cookbook/csv) |
 | `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) |
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
+| `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarchy that opens node by node, and the field that picks one — see [Trees](#trees) |
 | `AuditTable(c, records, AuditOpts{...})` | the trail c.Audit writes, with filter, pagination and CSV export — see [Observability](/reference/observability) |
 | `Steps([]Step{Label, Href}, current)` | the indicator of a form in several screens — see [A form in steps](/cookbook/wizard) |
 | `Preview(c, src, PreviewOpts{...})` | a file shown beside its metadata: bar, frame, image or "cannot be previewed" — see [Ctx](/reference/ctx) and [Uploads](/cookbook/uploads) |
@@ -67,6 +68,69 @@ description: The kit's components, variants, assets and the theme contract.
 | `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error) |
+
+## Trees
+
+A hierarchy with thousands of nodes is the component people go to npm for: expanding, searching
+and the keyboard are each easy and together are three hundred lines. `ui.Tree` is the server's
+version of it — the server already knows the tree, so the browser never has to.
+
+```go
+ui.Tree(ui.TreeOpts{
+	Nodes:   roots,                   // with the path down to Current already inside
+	Source:  "/classification/nodes", // GET ?parent=100.1 answers the children
+	Current: doc.Code,
+	Label:   "Classification plan",
+})
+```
+
+| Symbol | Role |
+|---|---|
+| `Tree(TreeOpts{...})` | the hierarchy; each node is a `<details>`, so it opens with no script at all |
+| `TreeNode{Value, Label, Leaf, Href, Children, Open, Path}` | one node; `Children` travel with it when they are already known |
+| `TreeItems(nodes, TreeOpts{...})` / `TreeNodes(items, of)` | what a source route answers: the children of one node, as HTML |
+| `TreePicker(TreePickerOpts{...})` | the same tree as a form field: **a radio per node** |
+| `TreeScript(c)` | loads `ui.tree.js`; a page with no tree does not download it |
+
+**A node is `<details>`, and that is the whole no-JavaScript story.** What the script adds is
+fetching the children the first time a branch opens, instead of asking the server for a whole
+page. A node whose `Children` are already in `Nodes` never asks for anything — which is how the
+path down to the current node arrives open and complete on the first render, including after a
+422 brought the form back.
+
+The roles are the real ones (`tree`, `treeitem`, `group`, `aria-expanded`), the arrows move
+through what is visible, `Home` and `End` jump to the ends, and `*` expands everything. Only the
+first node is in the tab order: the tree is one stop, and the arrows move inside it.
+
+### The picker
+
+```go
+ui.Field("code", "Classification", ui.TreePicker(ui.TreePickerOpts{
+	Name:   "code",
+	Value:  form.Code,
+	Nodes:  plan.Roots(form.Code),
+	Source: "/classification/nodes",
+	Search: "/classification/search", // GET ?q= answers flattened nodes, each with its Path
+}))
+```
+
+**What posts is a radio**, which is the whole reason this works with no script: somebody browses
+the same `<details>` and picks the same radio, and the form posts the same field. There is no
+hidden input to keep in sync and nothing to resolve on the server.
+
+With the script, typing asks `Search` and puts the matches where the tree was, each with the
+ancestry it came from — a code found out of context does not say where it lives. Clearing the box
+brings the tree back from memory, without asking again.
+
+A tree of radios announces itself as a **group of choices**, not as a navigation: it is a form
+field, and that is one role and not two.
+
+:::warning
+The value arriving at the server did not come from the tree — it came from a request. Check it
+against the hierarchy (`validate:"required,..."` plus a rule of your own, as
+[`examples/cadastro`](https://github.com/emersonjoe/trilha/tree/main/examples/cadastro) does):
+the radio is what a person uses, not what an attacker is limited to.
+:::
 
 ## ui.js
 

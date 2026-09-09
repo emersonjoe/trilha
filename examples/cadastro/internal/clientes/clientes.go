@@ -52,7 +52,11 @@ type Cliente struct {
 	Dependentes []Dependente `form:"dependentes" validate:"maxitems=10"`
 	Novidades   bool         `form:"novidades"`
 	Frequencia  string       `form:"frequencia" validate:"enum=cadastro.Frequencia"`
-	Criado      time.Time
+	// Setor comes from a tree of hundreds of nodes, so it is picked and not
+	// typed; what posts is a radio, and the rule below is what keeps a code
+	// that was never in the tree from getting in through a hand-made request.
+	Setor  string `form:"setor" validate:"required,setor"`
+	Criado time.Time
 }
 
 // Frequencias is the newsletter cadence, declared once. Before this it was

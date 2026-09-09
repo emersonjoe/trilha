@@ -3,6 +3,53 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.55.0 — 2026-09-08
+
+Spec 073.
+
+### Added
+
+- **`ui.Tree` and `ui.TreePicker` — the hierarchy, and the field that picks one node of it**
+  ([#101](https://github.com/emersonjoe/trilha/issues/101)). A tree with thousands of nodes is
+  the component people go to npm for: expanding, searching and the keyboard are each easy and
+  together are three hundred lines. The kit had `ui.Combobox` for a flat list and nothing for a
+  hierarchy.
+
+  **A node is `<details>`, and that is the whole no-JavaScript story.** The script draws nothing:
+  it fetches the children the first time a branch opens, instead of asking for a whole page. A
+  node whose children already came from the server asks for nothing — which is how the path down
+  to the current node arrives open and complete on the first render, including after a 422
+  brought the form back.
+
+  **The picker posts a radio.** No hidden input to keep in sync, no text to resolve on the
+  server: somebody with no script browses the same `<details>` and picks the same radio, and the
+  form posts the same field.
+
+  The roles are the real ones and the keyboard is the real one — arrows through what is visible,
+  `Home`/`End`, `*` to expand everything — with only the first node in the tab order, because a
+  tree is one stop and the arrows move inside it. `ui.tree.js` is optional, like `ui.nav.js`: a
+  page with no tree does not download it.
+
+### Fixed
+
+- **`AddRule` panicked with "already registered" when `Setup` ran twice** — and its own doc
+  comment says to register rules *in Setup*, which is exactly what a test suite does once per
+  test. The same function registering again is now accepted (compared by pointer); two different
+  functions under one name is still a panic, which is the bug the guard exists for. Same trip
+  `RegisterEnum` took in spec 064, same way out.
+
+- **Two `role` attributes on one element.** The picker's tree emitted `role="tree"` and
+  `role="group"` together — not a stronger promise, an invalid one. A tree of radios is a field
+  and announces itself as a group of choices; a tree of links is a navigation; the choice happens
+  once. An empty `Label` no longer becomes `aria-label=""` either: naming a field with nothing is
+  worse than not naming it, because it hides whatever the `<label>` around it would have said.
+
+### Not here
+
+Expanding everything without script (`*` is the keyboard, and the keyboard is script) and virtual
+scrolling (it would be a second rendering path in JavaScript, which is the opposite of what this
+component does).
+
 ## 0.54.0 — 2026-09-08
 
 Spec 072.

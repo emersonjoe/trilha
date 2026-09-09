@@ -2,6 +2,7 @@ package trilha
 
 import (
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,7 +53,10 @@ type rule func(Field) (bool, string)
 
 var (
 	rulesMu sync.RWMutex
-	rules   = map[string]rule{
+	// ruleFrom is where each added rule came from, so the same registration
+	// running twice is not mistaken for two rules fighting over a name.
+	ruleFrom = map[string]uintptr{}
+	rules    = map[string]rule{
 		"required": ruleRequired,
 		"min":      func(f Field) (bool, string) { return minmax(f, true) },
 		"max":      func(f Field) (bool, string) { return minmax(f, false) },
@@ -77,9 +81,20 @@ var (
 func AddRule(name string, fn func(Field) bool) {
 	rulesMu.Lock()
 	defer rulesMu.Unlock()
-	if _, ok := rules[name]; ok {
+	at := reflect.ValueOf(fn).Pointer()
+	if prev, ok := rules[name]; ok {
+		// The same function registering twice is Setup running twice — a test
+		// suite that boots an app per test, which is the normal shape of a
+		// test suite and where this used to panic on the second one. Two
+		// different functions under one name stays a panic: that is the bug
+		// this guard exists for, and it is the one nobody would find later.
+		if ruleFrom[name] == at {
+			_ = prev
+			return
+		}
 		panic("trilha: validation rule " + name + " is already registered")
 	}
+	ruleFrom[name] = at
 	rules[name] = func(f Field) (bool, string) { return fn(f), name }
 }
 

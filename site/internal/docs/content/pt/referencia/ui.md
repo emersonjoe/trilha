@@ -58,6 +58,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | o que o `trilha.BindCSV` recusou, por linha e coluna — veja [Planilhas (CSV)](/pt/receitas/planilhas) |
 | `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) |
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
+| `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarquia que abre nó a nó, e o campo que escolhe um — veja [Árvores](#árvores) |
 | `AuditTable(c, registros, AuditOpts{...})` | a trilha que o c.Audit escreve, com filtro, paginação e exportação CSV — veja [Observabilidade](/pt/referencia/observabilidade) |
 | `Steps([]Step{Label, Href}, atual)` | o indicador de um formulário em várias telas — veja [Formulário em passos](/pt/receitas/formulario-em-passos) |
 | `Preview(c, src, PreviewOpts{...})` | o arquivo ao lado do que se sabe dele: barra, quadro, imagem ou "não dá para pré-visualizar" — veja [Ctx](/pt/referencia/ctx) e [Uploads](/pt/receitas/uploads) |
@@ -67,6 +68,69 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação) |
+
+## Árvores
+
+Hierarquia com milhares de nós é o componente que as pessoas vão buscar no npm: expandir, buscar
+e teclado são cada um fácil e juntos são trezentas linhas. O `ui.Tree` é a versão disso no
+servidor — o servidor já conhece a árvore, então o navegador nunca precisa conhecer.
+
+```go
+ui.Tree(ui.TreeOpts{
+	Nodes:   raizes,                  // com o caminho até o Current já dentro
+	Source:  "/classificacao/nos",    // GET ?parent=100.1 responde os filhos
+	Current: doc.Codigo,
+	Label:   "Plano de classificação",
+})
+```
+
+| Símbolo | Papel |
+|---|---|
+| `Tree(TreeOpts{...})` | a hierarquia; cada nó é um `<details>`, então abre sem script nenhum |
+| `TreeNode{Value, Label, Leaf, Href, Children, Open, Path}` | um nó; os `Children` viajam junto quando já são conhecidos |
+| `TreeItems(nos, TreeOpts{...})` / `TreeNodes(itens, of)` | o que uma rota-fonte responde: os filhos de um nó, em HTML |
+| `TreePicker(TreePickerOpts{...})` | a mesma árvore como campo de formulário: **um radio por nó** |
+| `TreeScript(c)` | carrega o `ui.tree.js`; página sem árvore não baixa nada disso |
+
+**Um nó é `<details>`, e é essa a história inteira do sem-JavaScript.** O que o script
+acrescenta é buscar os filhos na primeira vez que um ramo abre, em vez de pedir uma página
+inteira ao servidor. Nó cujos `Children` já estão em `Nodes` não pede nada — é assim que o
+caminho até o nó atual chega aberto e completo no primeiro desenho, inclusive depois de um 422
+trazer o formulário de volta.
+
+Os papéis são os de verdade (`tree`, `treeitem`, `group`, `aria-expanded`), as setas andam pelo
+que está visível, `Home` e `End` vão às pontas, e `*` expande tudo. Só o primeiro nó entra na
+ordem de tabulação: a árvore é uma parada só, e as setas andam dentro dela.
+
+### O seletor
+
+```go
+ui.Field("codigo", "Classificação", ui.TreePicker(ui.TreePickerOpts{
+	Name:   "codigo",
+	Value:  form.Codigo,
+	Nodes:  plano.Raizes(form.Codigo),
+	Source: "/classificacao/nos",
+	Search: "/classificacao/busca", // GET ?q= responde nós achatados, cada um com o seu Path
+}))
+```
+
+**O que posta é um radio**, e é essa a razão inteira de isto funcionar sem script: a pessoa
+navega pelos mesmos `<details>` e marca o mesmo radio, e o formulário manda o mesmo campo. Não
+há hidden para manter em sincronia nem texto para resolver no servidor.
+
+Com o script, digitar pergunta ao `Search` e põe os achados no lugar da árvore, cada um com a
+ancestralidade de onde veio — um código achado fora de contexto não diz onde mora. Apagar a busca
+traz a árvore de volta da memória, sem pedir de novo.
+
+Uma árvore de radios se anuncia como **grupo de escolhas**, não como navegação: é campo de
+formulário, e isso é um papel e não dois.
+
+:::warning
+O valor que chega ao servidor não veio da árvore — veio de uma requisição. Confira contra a
+hierarquia (`validate:"required,..."` mais uma regra sua, como o
+[`examples/cadastro`](https://github.com/emersonjoe/trilha/tree/main/examples/cadastro) faz): o
+radio é o que uma pessoa usa, não o que limita quem ataca.
+:::
 
 ## ui.js
 
