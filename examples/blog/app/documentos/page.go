@@ -56,6 +56,11 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	return h.Div(
 		ui.H1(h.Text("Documentos")),
 		fila(c),
+		// O resumo varre a lista inteira e é a parte lenta desta tela. Com o
+		// Defer a página chega pronta sem ele, e ele entra sozinho um instante
+		// depois; sem JavaScript, o placeholder carrega um link para a mesma
+		// rota, que responde como página.
+		ui.Defer(c, "resumo", "/documentos/resumo", ui.DeferOpts{Height: "9rem"}),
 		tabela,
 		ui.LiveScript(c),
 	), nil

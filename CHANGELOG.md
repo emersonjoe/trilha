@@ -3,6 +3,48 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.51.0 — 2026-09-08
+
+Spec 069.
+
+### Added
+
+- **`ui.Defer` — serve the page now, fill the slow part a moment later**
+  ([#98](https://github.com/emersonjoe/trilha/issues/98)). Server-side rendering makes the
+  loading skeleton disappear, because the page arrives ready. It disappears for a reason the
+  beginner meets again from the other side: a dashboard that needs seven queries to draw now
+  waits for the slowest of the seven. `ui.Defer(c, id, src, opts)` renders a placeholder and
+  asks for that fragment as soon as the page has loaded — once, with no clock, carrying the
+  session and the headers of the page it sits in.
+
+  It is `ui.Poll`'s machinery with the clock left out, which is why `Then: ui.Poll("30s", src)`
+  loads now and watches from then on with no extra code: the attributes travel on the same
+  element and the route's answer decides the rest.
+
+  **A fragment that fails shows a message and a "try again" in the hole**, not a skeleton
+  pulsing for ever — and that block is rendered on the server and hidden, so every sentence and
+  every class stays on the Go side and the behaviour never has to know a language. **Without
+  JavaScript the placeholder carries a `<noscript>` link** to the same route, which answers as a
+  page: the slow part is one click away instead of missing.
+
+  `Height` is not decoration: a placeholder shorter than what replaces it makes the page jump
+  under the cursor of somebody who had already started reading.
+
+### Fixed
+
+- **The blog example's copy of the kit was stale.** `public/ui.css` had been sitting at the
+  version from spec 064, without the enum tones. The `local-login` example guarded one file
+  (`ui.live.js`); the blog guarded none, and the browser — not the suite — is what showed it:
+  the attribute was in the HTML and the behaviour never came. The blog now checks every
+  `public/ui*` against what the package embeds.
+
+### Not here
+
+`E_NESTED_DEFER` in `gen`, which the issue asks for. Nesting is dynamic — route A defers to B,
+and B's own page has a defer of its own — so a scanner that cannot see across routes would only
+catch the case nobody writes. What is here instead is the guarantee that matters: a set of ids
+already asked for, so a fragment that answers with a defer of its own id cannot ask for ever.
+
 ## 0.50.0 — 2026-09-08
 
 Spec 068.

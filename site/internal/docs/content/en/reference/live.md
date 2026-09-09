@@ -58,6 +58,53 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 `c.Fragment()` stays the only API on the server side: the route does not know whether the
 request came from a click or from a tick.
 
+## Loading later
+
+A dashboard that needs seven queries to draw should not hold the whole page for the one that
+takes two seconds.
+
+```go
+ui.Container(
+	ui.Grid(stats...),
+	ui.Defer(c, "insights", "/panel/insights", ui.DeferOpts{Height: "12rem"}),
+)
+```
+
+`ui.Defer` renders a placeholder now and asks for the fragment as soon as the page has loaded —
+once, with no clock, carrying the session and the headers of the page it sits in. `src` is an
+ordinary route that answers `c.Fragment()`, the same one `ui.Poll` would ask:
+
+```go
+func Page(c *trilha.Ctx) (h.Node, error) {
+	if c.Fragment() != "" {
+		return block(c), nil
+	}
+	return h.Div(ui.H1(h.Text("Insights")), block(c)), nil
+}
+```
+
+The id appears in both places for the same reason it does with `ui.Poll`: it is the element
+being replaced, so the route's answer has to carry it. The route also answers as a whole page
+when nobody sent the header — which is exactly where the placeholder's `<noscript>` link goes.
+Without JavaScript the slow part is one click away instead of missing.
+
+| Option | What it decides |
+|---|---|
+| `Height` | how tall the default skeleton is; the page must not jump when the content lands |
+| `Placeholder` | something other than a skeleton — a card outline, a last known value |
+| `Then` | what the fragment does after it arrives: `Then: ui.Poll("30s", src)` loads now and watches from then on |
+| `Load`, `Error`, `Retry` | the three sentences, if the kit's own (in the app's language) are not what you want |
+
+A fragment that fails shows a message and a **try again** in the hole instead of a skeleton
+pulsing for ever. Both sentences are rendered on the server, so the behaviour never invents
+text and never has to know a language.
+
+:::note
+`Defer` is `Poll`'s machinery with the clock left out, so `ui.LiveScript(c)` is what turns it
+on — and one `Defer` per part of the page, not one per row of a list. A page that defers
+twenty fragments made twenty requests to render itself; that is the SPA it was avoiding.
+:::
+
 ## Events
 
 One connection per page, opened by `ui.Live`:

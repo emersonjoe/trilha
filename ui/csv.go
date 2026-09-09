@@ -58,15 +58,15 @@ func CSVErrors(c *trilha.Ctx, res trilha.CSVResult, opts ...CSVErrorsOpts) h.Nod
 	switch {
 	case title != "":
 	case len(res.Errors) == 1:
-		title = csvWord(pt, "The file has one error", "O arquivo tem um erro")
+		title = word(pt, "The file has one error", "O arquivo tem um erro")
 	default:
-		title = replaceCount(csvWord(pt, "The file has %s errors", "O arquivo tem %s erros"), len(res.Errors))
+		title = replaceCount(word(pt, "The file has %s errors", "O arquivo tem %s erros"), len(res.Errors))
 	}
 
 	head := h.Thead(h.Tr(
-		h.Th(h.Text(csvWord(pt, "Line", "Linha")), Num()),
-		h.Th(h.Text(csvWord(pt, "Column", "Coluna"))),
-		h.Th(h.Text(csvWord(pt, "Problem", "Problema"))),
+		h.Th(h.Text(word(pt, "Line", "Linha")), Num()),
+		h.Th(h.Text(word(pt, "Column", "Coluna"))),
+		h.Th(h.Text(word(pt, "Problem", "Problema"))),
 	))
 	rows := make([]h.Node, 0, limit)
 	for i, e := range res.Errors {
@@ -77,7 +77,7 @@ func CSVErrors(c *trilha.Ctx, res trilha.CSVResult, opts ...CSVErrorsOpts) h.Nod
 		if col == "" {
 			// A whole-line problem has no column, and an empty cell there
 			// reads as a missing value rather than as "the line itself".
-			col = csvWord(pt, "line", "linha")
+			col = word(pt, "line", "linha")
 		}
 		rows = append(rows, h.Tr(
 			h.Td(h.Text(strconv.Itoa(e.Line)), Num()),
@@ -88,14 +88,14 @@ func CSVErrors(c *trilha.Ctx, res trilha.CSVResult, opts ...CSVErrorsOpts) h.Nod
 
 	kids := []h.Node{
 		Alert(title, Destructive(), AlertDescription(h.Text(
-			csvWord(pt,
+			word(pt,
 				"Fix these lines in the spreadsheet and send it again. Nothing was imported.",
 				"Corrija estas linhas na planilha e envie de novo. Nada foi importado.")))),
 		Table(head, h.Tbody(rows...)),
 	}
 	if rest := len(res.Errors) - limit; rest > 0 {
 		kids = append(kids, Muted(h.Text(replaceCount(
-			csvWord(pt, "and %s more", "e mais %s"), rest))))
+			word(pt, "and %s more", "e mais %s"), rest))))
 	}
 	for _, w := range res.Warnings {
 		kids = append(kids, Muted(h.Text(w)))
@@ -106,7 +106,10 @@ func CSVErrors(c *trilha.Ctx, res trilha.CSVResult, opts ...CSVErrorsOpts) h.Nod
 	return Stack(kids...)
 }
 
-func csvWord(pt bool, en, br string) string {
+// word picks the sentence the person reads. The kit's components carry their
+// own text in both languages, so a screen never has to pass a label just to
+// get one that is not English.
+func word(pt bool, en, br string) string {
 	if pt {
 		return br
 	}

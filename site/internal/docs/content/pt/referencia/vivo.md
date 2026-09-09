@@ -57,6 +57,53 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 O `c.Fragment()` continua sendo a única API do lado do servidor: a rota não sabe se quem
 pediu foi um clique ou um tique.
 
+## Carregar depois
+
+Um painel que precisa de sete consultas para desenhar não devia segurar a página inteira por
+causa da que demora dois segundos.
+
+```go
+ui.Container(
+	ui.Grid(stats...),
+	ui.Defer(c, "insights", "/painel/insights", ui.DeferOpts{Height: "12rem"}),
+)
+```
+
+O `ui.Defer` desenha um placeholder agora e pede o fragmento assim que a página carrega — uma
+vez, sem relógio, com a sessão e os cabeçalhos da página em que ele está. O `src` é uma rota
+comum que responde ao `c.Fragment()`, a mesma que o `ui.Poll` pediria:
+
+```go
+func Page(c *trilha.Ctx) (h.Node, error) {
+	if c.Fragment() != "" {
+		return bloco(c), nil
+	}
+	return h.Div(ui.H1(h.Text("Insights")), bloco(c)), nil
+}
+```
+
+O id aparece nos dois lugares pela mesma razão que aparece no `ui.Poll`: é o elemento que vai
+ser trocado, então a resposta da rota precisa carregá-lo. E a rota responde como página inteira
+quando ninguém mandou o cabeçalho — que é justamente para onde vai o link do `<noscript>` do
+placeholder. Sem JavaScript, a parte lenta fica a um clique, não ausente.
+
+| Opção | O que decide |
+|---|---|
+| `Height` | a altura do esqueleto padrão; a página não pode pular quando o conteúdo chega |
+| `Placeholder` | outra coisa no lugar do esqueleto — o contorno de um card, o último valor conhecido |
+| `Then` | o que o fragmento faz depois de chegar: `Then: ui.Poll("30s", src)` carrega agora e acompanha daí em diante |
+| `Load`, `Error`, `Retry` | as três frases, se as do kit (no idioma da app) não servirem |
+
+Fragmento que falha mostra a mensagem e um **tentar de novo** no buraco, em vez de um esqueleto
+pulsando para sempre. As duas frases são desenhadas no servidor, então o comportamento nunca
+inventa texto nem precisa saber idioma.
+
+:::note
+O `Defer` é a máquina do `Poll` sem o relógio, então quem o liga é o `ui.LiveScript(c)` — e um
+`Defer` por parte da página, não um por linha de uma lista. Página que adia vinte fragmentos fez
+vinte requisições para se desenhar; é a SPA da qual ela estava fugindo.
+:::
+
 ## Eventos
 
 Uma conexão por página, aberta pelo `ui.Live`:

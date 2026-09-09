@@ -348,6 +348,63 @@
     ]
   },
   {
+    "name": "DeferOpts",
+    "kind": "type",
+    "group": "defer",
+    "signature": "type DeferOpts struct",
+    "doc": "DeferOpts is what stands in the hole until the slow part arrives, and what\nis said when it never does. The zero value is a skeleton and the kit's own\nsentences.",
+    "summary": "DeferOpts is what stands in the hole until the slow part arrives, and what is said when it never does.",
+    "fields": [
+      {
+        "name": "Placeholder",
+        "type": "h.Node",
+        "doc": "Placeholder is what is drawn while the fragment is on its way."
+      },
+      {
+        "name": "Height",
+        "type": "string",
+        "doc": "Height is how tall that skeleton is — \"12rem\"."
+      },
+      {
+        "name": "Then",
+        "type": "h.Node",
+        "doc": "Then is what the fragment does after it has arrived — Poll(\"30s\", src) to keep watching."
+      },
+      {
+        "name": "Load",
+        "type": "string",
+        "doc": "Load is the label of the link a visitor without JavaScript sees."
+      },
+      {
+        "name": "Error",
+        "type": "string",
+        "doc": "Error and Retry are the two sentences of the failure: what happened, and the button that asks again."
+      },
+      {
+        "name": "Retry",
+        "type": "string",
+        "doc": "Error and Retry are the two sentences of the failure: what happened, and the button that asks again."
+      }
+    ]
+  },
+  {
+    "name": "Defer",
+    "kind": "func",
+    "group": "defer",
+    "signature": "Defer(c *trilha.Ctx, id, src string, opts ...DeferOpts) h.Node",
+    "doc": "Defer serves the page now and fills this part of it a moment later.\n\nThe dashboard that needs seven queries to draw does not have to hold the\nwhole page for the one that takes two seconds. The fast part is rendered on\nthe server as usual; this one is a placeholder that the kit swaps as soon as\nthe page has loaded — once, with no clock, carrying the session and the\nheaders of the page it sits in.\nsrc is an ordinary route that answers Ctx.Fragment, the same route Poll would\nask, and it must return an element with this id — that is what is being\nreplaced. Without JavaScript the placeholder carries a link to src, which\nanswers as a page like any other: the slow part is one click away instead of\nmissing.\nA fragment that fails puts a message and a \"try again\" in the hole rather\nthan pulsing for ever, and both sentences are rendered here, in the app's\nlanguage, so the behaviour never has to invent text.\nLoad LiveScript once in the layout — Defer is the same machinery as Poll.",
+    "summary": "Defer serves the page now and fills this part of it a moment later.",
+    "example": "ui.Container(\n\tui.Grid(stats...),\n\tui.Defer(c, \"insights\", \"/panel/insights\", ui.DeferOpts{Height: \"12rem\"}),\n)\n\n\n\n\n\nsee: ui.Poll, ui.LiveScript, ui.Skeleton",
+    "see": [
+      "ui.Container",
+      "ui.DeferOpts",
+      "ui.Grid",
+      "ui.LiveScript",
+      "ui.Poll",
+      "ui.Skeleton"
+    ]
+  },
+  {
     "name": "DropzoneOpts",
     "kind": "type",
     "group": "dropzone",

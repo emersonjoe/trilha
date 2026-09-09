@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"html"
 	"io"
@@ -8,6 +9,8 @@ import (
 	multipartlib "mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -16,6 +19,7 @@ import (
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/blog/internal/documentos"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
+	"github.com/emersonjoe/trilha/ui"
 )
 
 type client struct {
@@ -995,4 +999,63 @@ func TestPlanilhaExportaEImporta(t *testing.T) {
 	body, ct = multipartCampo(t, "arquivo", "planilha.csv", ruim)
 	erro := c.Request("POST", "/documentos/planilha", trilha.WithBody(ct, body))
 	erro.WantStatus(422).WantContains("Documento", "Tipo", "obrigatório", "opção inválida", ">2<")
+}
+
+// Issue #98: a parte cara da tela não segura a página. O GET responde com o
+// placeholder e o fragmento chega numa segunda requisição — e o link do
+// <noscript> aponta para a mesma rota, que responde como página.
+func TestDeferServeAPaginaSemAParteLenta(t *testing.T) {
+	documentos.Reset()
+	c := newClient(t, "prod")
+
+	pagina := c.Get("/documentos")
+	pagina.WantStatus(200).WantContains(
+		`id="resumo" data-trilha-defer="" data-trilha-src="/documentos/resumo"`,
+		`data-trilha-defer-wait=""`,
+		`class="ui-skeleton" aria-hidden="true" style="height: 9rem"`,
+		`<noscript><a href="/documentos/resumo"`,
+		`data-trilha-defer-fail="" hidden`,
+		"Tentar de novo",
+	)
+	if strings.Contains(pagina.Body.String(), `class="ui-card-title">Resumo<`) {
+		t.Fatal("o bloco lento veio junto com a página; o Defer não adiantou nada")
+	}
+
+	// O fragmento: só o bloco, com o id que vai ser trocado.
+	frag := c.Request("GET", "/documentos/resumo", trilha.WithHeader("Trilha-Fragment", "resumo"))
+	frag.WantStatus(200).WantContains(`id="resumo"`, "Resumo", "ainda na fila")
+	if strings.Contains(frag.Body.String(), "<!doctype") {
+		t.Fatal("o fragmento não pode vir com o documento inteiro")
+	}
+
+	// E a mesma rota sem o cabeçalho é uma página, que é para onde o link do
+	// <noscript> leva.
+	c.Get("/documentos/resumo").WantStatus(200).WantContains("<!doctype", "Resumo dos documentos")
+}
+
+// A cópia do kit em public/ é o que o navegador baixa. Quando ela fica para
+// trás do que o pacote embute, o atributo existe no HTML e o comportamento não
+// — e o exemplo passa a mostrar uma versão do kit que ninguém mais tem. O
+// local-login já tinha essa guarda para um arquivo; aqui ela vale para todos,
+// porque foi o ui.css do blog, parado desde a spec 064, que mostrou que uma
+// guarda por arquivo não cobre a estante.
+func TestCopiaDoKitEstaAtualizada(t *testing.T) {
+	nomes, err := filepath.Glob("public/ui*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nomes) < 5 {
+		t.Fatalf("o exemplo devia carregar a cópia do kit: %v", nomes)
+	}
+	for _, nome := range nomes {
+		b, err := os.ReadFile(nome)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// A cópia sai com um cabeçalho de versão do `trilha ui` na frente; o
+		// que tem de bater é o corpo.
+		if !bytes.Contains(b, ui.Asset(filepath.Base(nome))) {
+			t.Errorf("%s está desatualizado: rode `cd examples/blog && trilha ui --force`", nome)
+		}
+	}
 }

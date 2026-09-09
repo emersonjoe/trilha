@@ -936,6 +936,7 @@ pkg ui, func DataTable[T any](*trilha.Ctx, Columns[T], []T, ListState) h.Node
 pkg ui, func Date(*trilha.Ctx, any, ...FormatOpt) h.Node
 pkg ui, func DateOnly() FormatOpt
 pkg ui, func Decimals(int) FormatOpt
+pkg ui, func Defer(*trilha.Ctx, string, string, ...DeferOpts) h.Node
 pkg ui, func Depth(int) h.Node
 pkg ui, func Destructive() h.Node
 pkg ui, func Dialog(string, string, ...h.Node) h.Node
@@ -1081,6 +1082,13 @@ pkg ui, type Datum struct
 pkg ui, type Datum struct, Label string
 pkg ui, type Datum struct, Text string
 pkg ui, type Datum struct, Value float64
+pkg ui, type DeferOpts struct
+pkg ui, type DeferOpts struct, Error string
+pkg ui, type DeferOpts struct, Height string
+pkg ui, type DeferOpts struct, Load string
+pkg ui, type DeferOpts struct, Placeholder h.Node
+pkg ui, type DeferOpts struct, Retry string
+pkg ui, type DeferOpts struct, Then h.Node
 pkg ui, type DropzoneOpts struct
 pkg ui, type DropzoneOpts struct, Accept string
 pkg ui, type DropzoneOpts struct, Attrs []h.Node

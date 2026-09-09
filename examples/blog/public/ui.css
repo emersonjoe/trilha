@@ -1,4 +1,4 @@
-/* trilha ui 3668628b10d888d9 */
+/* trilha ui 599d4f4afc9e6ecf */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -111,6 +111,17 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-badge-secondary { background: var(--secondary); color: var(--secondary-foreground); }
 .ui-badge-outline { background: transparent; color: var(--foreground); border-color: var(--border); }
 .ui-badge-destructive { background: var(--destructive); color: #fff; }
+/* The six tones of an enum (spec 064). They are names and not colours on
+   purpose: whoever declares a status picks a meaning, and two screens that each
+   pick a green end up with two greens. */
+.ui-badge-muted { background: var(--muted); color: var(--muted-foreground); }
+.ui-badge-info { background: color-mix(in oklch, var(--primary) 15%, transparent); color: var(--primary); border-color: color-mix(in oklch, var(--primary) 35%, transparent); }
+.ui-badge-success { background: color-mix(in oklch, #16a34a 15%, transparent); color: #15803d; border-color: color-mix(in oklch, #16a34a 35%, transparent); }
+.ui-badge-warning { background: color-mix(in oklch, #d97706 18%, transparent); color: #b45309; border-color: color-mix(in oklch, #d97706 38%, transparent); }
+.ui-badge-danger { background: var(--destructive); color: #fff; }
+.ui-badge-accent { background: var(--accent); color: var(--accent-foreground); }
+:root:not([data-theme="light"]) .ui-badge-success, .dark .ui-badge-success { color: #4ade80; }
+:root:not([data-theme="light"]) .ui-badge-warning, .dark .ui-badge-warning { color: #fbbf24; }
 .ui-alert { position: relative; display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; align-items: start; width: 100%; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); color: var(--card-foreground); font-size: .875rem; }
 .ui-alert .ui-icon { grid-row: span 2; margin-top: .125rem; }
 .ui-alert-title { font-weight: 500; margin: 0; }
@@ -140,6 +151,16 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-list-bulk { display: flex; align-items: center; gap: .5rem; }
 .ui-list-bulk:empty { display: none; }
 .ui-list-check { width: 1px; white-space: nowrap; }
+/* The empty state (spec 065). The minimum height is so a fragment that comes
+   back empty does not make the page jump. */
+.ui-empty { display: grid; gap: .5rem; justify-items: center; text-align: center; padding: 2.5rem 1rem; min-height: 8rem; align-content: center; }
+.ui-empty-icon { color: var(--muted-foreground); opacity: .7; }
+.ui-empty-icon .ui-icon { width: 2rem; height: 2rem; }
+.ui-empty-title { margin: 0; font-weight: 500; }
+.ui-empty-hint { margin: 0; font-size: .875rem; color: var(--muted-foreground); max-width: 42ch; }
+.ui-empty-action { margin-top: .25rem; }
+.ui-empty-error .ui-empty-icon { color: var(--destructive); opacity: 1; }
+.ui-empty-error .ui-empty-hint { font: .8125rem var(--ui-mono); text-align: left; overflow-wrap: anywhere; }
 .ui-list-empty { padding: 2rem .5rem; text-align: center; }
 .ui-list-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
 .ui-table th .ui-sort { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: .25rem; }

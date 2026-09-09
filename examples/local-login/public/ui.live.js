@@ -1,9 +1,10 @@
-/* trilha ui 7003d0b52a86efe2 */
+/* trilha ui f602a7c8f9bf7834 */
 // Kit ui do Trilha — fragmentos que se atualizam sozinhos. Carregado só por
 // `ui.LiveScript`.
 (() => {
   const POLL = "data-trilha-poll", SRC = "data-trilha-src";
   const ON = "data-trilha-on", LIVE = "data-trilha-live";
+  const DEFER = "data-trilha-defer";
   const MAX = 60000; // the slowest a fragment ever gets, after failing
 
   // ms reads "6s", "500ms" or "2m"; 0 when it is not a duration.
@@ -28,6 +29,17 @@
     return s;
   };
 
+  // show flips between the placeholder and the failure block that the server
+  // already rendered inside a deferred fragment. Every sentence and every class
+  // stays on the Go side; a skeleton that pulses for ever is the hole this
+  // exists to avoid.
+  const show = (el, bad) => {
+    if (!el.hasAttribute(DEFER)) return;
+    el.querySelector(`[${DEFER}-wait]`)?.toggleAttribute("hidden", bad);
+    el.querySelector(`[${DEFER}-fail]`)?.toggleAttribute("hidden", !bad);
+  };
+  const fail = (el) => show(el, true);
+
   const swap = (id, html) => {
     const old = document.getElementById(id);
     if (!old || old.contains(document.activeElement)) return; // never type into a fragment that is being replaced
@@ -48,7 +60,7 @@
       });
       const say = res.headers.get("Trilha-Poll");
       if (!res.ok) {
-        if (res.status >= 400 && res.status < 500 && res.status !== 429) { s.stop = true; return; }
+        if (res.status >= 400 && res.status < 500 && res.status !== 429) { s.stop = true; fail(el); return; }
         const after = ms((res.headers.get("Retry-After") || "") + "s");
         s.fails++;
         s.next = Date.now() + (after || Math.min(s.base * 2 ** s.fails, MAX));
@@ -63,6 +75,7 @@
     } catch {
       s.fails++;
       s.next = Date.now() + Math.min(s.base * 2 ** s.fails, MAX);
+      fail(el);
     } finally {
       s.busy = false;
     }
@@ -117,9 +130,27 @@
     }
   };
 
-  const start = () => { arm(); tick(); };
+  // A deferred fragment asks once, with no clock: base stays 0, so tick never
+  // picks it up. The Set stops one that answers with a defer of its own id
+  // from asking for ever.
+  const asked = new Set();
+  const defer = () => {
+    for (const el of document.querySelectorAll(`[${DEFER}]`))
+      if (el.id && !asked.has(el.id)) { asked.add(el.id); ask(el); }
+  };
+
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest?.(`[${DEFER}-retry]`)?.closest(`[${DEFER}]`);
+    if (!el) return;
+    show(el, false);
+    const s = of(el);
+    s.stop = s.fails = 0;
+    ask(el);
+  });
+
+  const start = () => { arm(); defer(); tick(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
-  document.addEventListener("trilha:swap", arm);
+  document.addEventListener("trilha:swap", () => { arm(); defer(); });
   setInterval(tick, 500);
 })();
