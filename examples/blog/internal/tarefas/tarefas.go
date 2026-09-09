@@ -11,6 +11,7 @@ package tarefas
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"time"
 
@@ -23,21 +24,32 @@ import (
 // agree, and a typo would be a task queued for nobody.
 const Nome = "processar-documento"
 
-// Passo is how long each stage pretends to take. The tests set it to nothing;
-// in the dev server it is what makes the bar visible.
-var Passo = 250 * time.Millisecond
+// motor carries what the work needs to know. It is a struct and not a package
+// variable, and that is not taste: a package variable a test writes while
+// another test's worker reads it is a data race, and the race detector found
+// exactly that one here.
+type motor struct{ passo time.Duration }
 
-// Novo builds the engine with the handler already registered.
+// Novo builds the engine with the handler already registered. The pace of the
+// stages is read once, here, so each engine carries its own — a test asks for
+// a fast one through the environment, before the app is built, and nothing is
+// shared afterwards.
 func Novo() *task.Tasks {
+	m := &motor{passo: 250 * time.Millisecond}
+	if v := os.Getenv("BLOG_TASK_STEP"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			m.passo = d
+		}
+	}
 	t := task.New(task.Options{Workers: 2})
-	t.Handle(Nome, processar)
+	t.Handle(Nome, m.processar)
 	return t
 }
 
 // processar is the work. It reports each stage with Progress.Step and looks at
 // the context between them: a task that never looks is a task the shutdown has
 // to cancel by force.
-func processar(ctx context.Context, p *task.Progress) error {
+func (m *motor) processar(ctx context.Context, p *task.Progress) error {
 	doc, ok := documentos.Um(p.Key)
 	if !ok {
 		return errors.New("documento não existe mais")
@@ -53,7 +65,7 @@ func processar(ctx context.Context, p *task.Progress) error {
 			// tells somebody before they press "try again".
 			documentos.Marcar(p.Key, "fila")
 			return ctx.Err()
-		case <-time.After(Passo):
+		case <-time.After(m.passo):
 		}
 		// Um documento com "erro" no nome falha de propósito: é o caminho que
 		// o exemplo precisa mostrar tanto quanto o que dá certo.

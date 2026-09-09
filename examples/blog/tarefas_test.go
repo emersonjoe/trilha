@@ -1,23 +1,37 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/blog/internal/documentos"
-	"github.com/emersonjoe/trilha/examples/blog/internal/tarefas"
+	"github.com/emersonjoe/trilha/task"
 )
 
-// depressa tira a espera artificial dos estágios: o que este teste prova é o
-// caminho, e não que time.After funciona.
-func depressa(t *testing.T) {
+// clienteComTarefas é o cliente de teste com o motor de tarefas domado: os
+// estágios sem espera, e o motor desligado no fim.
+//
+// As duas metades são a mesma lição. O ritmo vem do ambiente, lido uma vez
+// quando o app é construído, porque uma variável de pacote que um teste
+// escreve enquanto o worker de outro lê é uma corrida — e foi assim que o
+// detector a encontrou. E o Shutdown é o que impede o motor de um teste de
+// continuar mexendo na lista de documentos durante o teste seguinte.
+func clienteComTarefas(t *testing.T) *client {
 	t.Helper()
-	antes := tarefas.Passo
-	tarefas.Passo = time.Millisecond
-	t.Cleanup(func() { tarefas.Passo = antes })
+	t.Setenv("BLOG_TASK_STEP", "1ms")
+	documentos.Reset()
+	c := newClient(t, "prod")
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		trilha.Use[*task.Tasks](c.app).Shutdown(ctx)
+	})
+	return c
 }
 
 // ate segura o teste até a condição valer, para não depender de sleep.
@@ -46,9 +60,7 @@ func primeiroDoc(t *testing.T) (id, nome string) {
 // #111 — o processamento roda fora da requisição: o POST volta na hora, e o
 // estado continua andando depois que a resposta foi embora.
 func TestTarefaRodaForaDaRequisicao(t *testing.T) {
-	depressa(t)
-	documentos.Reset()
-	c := newClient(t, "prod")
+	c := clienteComTarefas(t)
 
 	id, _ := primeiroDoc(t)
 	inicio := time.Now()
@@ -80,8 +92,7 @@ func TestTarefaRodaForaDaRequisicao(t *testing.T) {
 
 // Duplo clique no botão não processa o documento duas vezes.
 func TestDoisPostsSaoUmaTarefaSo(t *testing.T) {
-	documentos.Reset()
-	c := newClient(t, "prod")
+	c := clienteComTarefas(t)
 	id, _ := primeiroDoc(t)
 
 	primeiro := c.PostForm("/tarefas", url.Values{"documento": {id}}).Header().Get("Location")
@@ -94,9 +105,7 @@ func TestDoisPostsSaoUmaTarefaSo(t *testing.T) {
 // A falha aparece na tela com o motivo, e o botão de tentar de novo roda outra
 // vez — que é o ciclo inteiro da tela de administração.
 func TestFalhaApareceETentaDeNovo(t *testing.T) {
-	depressa(t)
-	documentos.Reset()
-	c := newClient(t, "prod")
+	c := clienteComTarefas(t)
 
 	// O exemplo falha de propósito num documento com "erro" no nome.
 	documentos.Importar([]documentos.Documento{{Nome: "erro-sem-texto.pdf", Tipo: "nota", Bytes: 10, Status: "fila"}})
@@ -125,6 +134,6 @@ func TestFalhaApareceETentaDeNovo(t *testing.T) {
 
 // Documento que não existe é 404, e não uma tarefa disparada para o vazio.
 func TestDispararDocumentoInexistenteE404(t *testing.T) {
-	c := newClient(t, "prod")
+	c := clienteComTarefas(t)
 	c.PostForm("/tarefas", url.Values{"documento": {"nao-existe"}}).WantStatus(http.StatusNotFound)
 }

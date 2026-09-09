@@ -3,6 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.64.1 — 2026-09-09
+
+### Fixed
+
+- **A data race in the blog example's task test**, found by CI's race detector on 0.64.0. The
+  pace of the stages was a package variable a test wrote while another test's worker was reading
+  it. It is a field of the engine now, read once from the environment when the app is built, so
+  nothing is shared after that — and the tests shut their engine down, instead of leaving workers
+  running into the next test.
+
+- **The agent benchmark's ruler could not see the failure it measures.** `Verify` trims the
+  output of a failing run to its last 4 KB, and the line it is checked against — `--- FAIL:` —
+  falls outside that window when one failure is long enough to fill it. A hidden test that
+  asserts on a page gets the whole rendered page in its message, which is two kilobytes of HTML,
+  and the blog example growing a screen was enough to tip it over. Losing that line is not
+  cosmetic: it is what separates "the hidden test ran and failed", which is the measurement, from
+  "the fixture does not build", which is a broken ruler. The trim keeps the `--- FAIL:` lines
+  now, and there is a test for it.
+
 ## 0.64.0 — 2026-09-09
 
 Spec 082.

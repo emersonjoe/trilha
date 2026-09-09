@@ -21,7 +21,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.64.0"
+const version = "0.64.1"
 
 // exeName gives a path the extension the system needs to execute it. `go build -o`
 // writes the literal name it is given, and on Windows exec.LookPath only accepts a

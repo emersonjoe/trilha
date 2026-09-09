@@ -203,11 +203,31 @@ func copyTree(src, dst, oldModule, newModule string) error {
 	})
 }
 
+// tail trims the output to its end, which is where a Go test run says what
+// broke — but it keeps the "--- FAIL:" lines even when they fall outside the
+// window.
+//
+// Without that, one failure long enough to fill the window hides the name of
+// the test that produced it: a hidden test asserting on a page gets the whole
+// rendered page in its message, and 2 KB of HTML is enough to push the
+// headline out. Losing it is not cosmetic — it is what BrokenRuler and the
+// fixture check read to tell "the test ran and failed", which is the
+// measurement, from "the fixture does not build", which is a broken ruler.
 func tail(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return "…" + s[len(s)-n:]
+	corte := "…" + s[len(s)-n:]
+	var faltando []string
+	for _, linha := range strings.Split(s[:len(s)-n], "\n") {
+		if strings.HasPrefix(strings.TrimSpace(linha), "--- FAIL") {
+			faltando = append(faltando, strings.TrimSpace(linha))
+		}
+	}
+	if len(faltando) == 0 {
+		return corte
+	}
+	return strings.Join(faltando, "\n") + "\n" + corte
 }
 
 // summary is the first line of the agent's last message: enough to tell a

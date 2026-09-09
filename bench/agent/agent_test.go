@@ -116,3 +116,34 @@ func TestFixturesFailWithoutTheAgent(t *testing.T) {
 		})
 	}
 }
+
+// O que a régua lê é a linha "--- FAIL": é ela que separa "o teste escondido
+// rodou e falhou", que é a medição, de "o fixture nem compila", que é a régua
+// quebrada. Uma falha comprida o bastante empurrava essa linha para fora da
+// janela — e um teste escondido que afirma sobre uma página recebe a página
+// inteira na mensagem, que são dois quilobytes de HTML.
+// O que a régua lê é a linha "--- FAIL": é ela que separa "o teste escondido
+// rodou e falhou", que é a medição, de "o fixture nem compila", que é a régua
+// quebrada. Uma falha comprida o bastante empurrava essa linha para fora da
+// janela — e um teste escondido que afirma sobre uma página recebe a página
+// inteira na mensagem, que são dois quilobytes de HTML.
+func TestTailGuardaOCabecalhoDaFalha(t *testing.T) {
+	quebra := func(s string) string { return strings.ReplaceAll(s, "|", "\n") }
+	saida := quebra("--- FAIL: TestBenchContato|") + strings.Repeat("x", 5000) + quebra("|FAIL|")
+
+	got := tail(saida, 4000)
+	if !strings.Contains(got, "--- FAIL: TestBenchContato") {
+		t.Fatalf("o cabeçalho da falha sumiu: %q", got[:120])
+	}
+	if !strings.HasSuffix(strings.TrimSpace(got), "FAIL") {
+		t.Fatal("o fim da saída, que é onde o go test diz o que quebrou, não sobreviveu")
+	}
+	if n := strings.Count(got, "--- FAIL: TestBenchContato"); n != 1 {
+		t.Fatalf("o cabeçalho apareceu %d vezes", n)
+	}
+	// Saída curta volta inteira, sem cabeçalho repetido na frente.
+	curta := quebra("--- FAIL: TestX|detalhe|FAIL|")
+	if got := tail(curta, 4000); got != curta {
+		t.Fatalf("saída curta veio mexida: %q", got)
+	}
+}

@@ -30,10 +30,19 @@ and `Store` is the seam to put it behind.
 ## Registering and starting
 
 ```go
-// Novo builds the engine with the handler already registered.
+// Novo builds the engine with the handler already registered. The pace of the
+// stages is read once, here, so each engine carries its own — a test asks for
+// a fast one through the environment, before the app is built, and nothing is
+// shared afterwards.
 func Novo() *task.Tasks {
+	m := &motor{passo: 250 * time.Millisecond}
+	if v := os.Getenv("BLOG_TASK_STEP"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			m.passo = d
+		}
+	}
 	t := task.New(task.Options{Workers: 2})
-	t.Handle(Nome, processar)
+	t.Handle(Nome, m.processar)
 	return t
 }
 ```
@@ -87,7 +96,7 @@ the first — which is the double click on the button, and the reason the key ex
 // processar is the work. It reports each stage with Progress.Step and looks at
 // the context between them: a task that never looks is a task the shutdown has
 // to cancel by force.
-func processar(ctx context.Context, p *task.Progress) error {
+func (m *motor) processar(ctx context.Context, p *task.Progress) error {
 	doc, ok := documentos.Um(p.Key)
 	if !ok {
 		return errors.New("documento não existe mais")
@@ -103,7 +112,7 @@ func processar(ctx context.Context, p *task.Progress) error {
 			// tells somebody before they press "try again".
 			documentos.Marcar(p.Key, "fila")
 			return ctx.Err()
-		case <-time.After(Passo):
+		case <-time.After(m.passo):
 		}
 		// Um documento com "erro" no nome falha de propósito: é o caminho que
 		// o exemplo precisa mostrar tanto quanto o que dá certo.
