@@ -3,6 +3,8 @@ pkg trilha, const CSRFField
 pkg trilha, const CSRFHeader
 pkg trilha, const DefaultPerPage
 pkg trilha, const Dev Env
+pkg trilha, const ErrRedirectAbsolute
+pkg trilha, const ErrSecretShort
 pkg trilha, const IslandRuntime
 pkg trilha, const KindAPI RouteKind
 pkg trilha, const KindAuto RouteKind
@@ -25,9 +27,11 @@ pkg trilha, func CompileErrorPage(string) string
 pkg trilha, func ConfigFromEnv() Config
 pkg trilha, func Errorf(int, string, ...any) error
 pkg trilha, func Fatal(error)
+pkg trilha, func HintOf(error) *Hint
 pkg trilha, func Limit(float64, int) MiddlewareFunc
 pkg trilha, func LookupEnum(string) (Enum, bool)
 pkg trilha, func New(Config) *App
+pkg trilha, func NewHint(string, error) *Hint
 pkg trilha, func NewLimiter(RateLimit) *Limiter
 pkg trilha, func NewSettings[T any](string, T) *Settings[T]
 pkg trilha, func NewSigner(...[]byte) *Signer
@@ -40,6 +44,7 @@ pkg trilha, func Provide[T any](*App, T)
 pkg trilha, func PublicFS(fs.FS, string) fs.FS
 pkg trilha, func Redirect(string) error
 pkg trilha, func RedirectCode(string, int) error
+pkg trilha, func RedirectExternal(string) error
 pkg trilha, func RegisterEnum(string, Enum)
 pkg trilha, func RegisteredEnums() map[string]Enum
 pkg trilha, func RequireCSRF(*Ctx, Next) error
@@ -137,6 +142,7 @@ pkg trilha, method (*Ctx) PollEvery(time.Duration)
 pkg trilha, method (*Ctx) PollStop()
 pkg trilha, method (*Ctx) Query(string) string
 pkg trilha, method (*Ctx) Redirect(string) error
+pkg trilha, method (*Ctx) RedirectExternal(string) error
 pkg trilha, method (*Ctx) Render(int, h.Node) error
 pkg trilha, method (*Ctx) Request() *http.Request
 pkg trilha, method (*Ctx) RequestID() string
@@ -164,6 +170,10 @@ pkg trilha, method (*Gauge) Inc()
 pkg trilha, method (*Gauge) Set(float64)
 pkg trilha, method (*Gauge) With(...string) *Gauge
 pkg trilha, method (*HTTPError) Error() string
+pkg trilha, method (*Hint) Doc(string) *Hint
+pkg trilha, method (*Hint) Error() string
+pkg trilha, method (*Hint) Fix(string) *Hint
+pkg trilha, method (*Hint) Unwrap() error
 pkg trilha, method (*Histogram) Observe(float64)
 pkg trilha, method (*Histogram) With(...string) *Histogram
 pkg trilha, method (*Limiter) Allow(string) (bool, int)
@@ -348,6 +358,10 @@ pkg trilha, type HealthReport struct
 pkg trilha, type HealthReport struct, Checks []CheckResult
 pkg trilha, type HealthReport struct, Status string
 pkg trilha, type HealthReport struct, UptimeSeconds float64
+pkg trilha, type Hint struct
+pkg trilha, type Hint struct, Code string
+pkg trilha, type Hint struct, Docs string
+pkg trilha, type Hint struct, Repair string
 pkg trilha, type Histogram struct
 pkg trilha, type LayoutFunc func(*Ctx, h.Node) (h.Node, error)
 pkg trilha, type Limiter struct

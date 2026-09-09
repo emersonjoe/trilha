@@ -55,6 +55,7 @@ Usage:
   trilha export [-o out] [--base /prefix]           export the static pages as HTML
   trilha openapi [-o file] [--check]                write the OpenAPI document of the API routes
   trilha audit [--no-vuln]                          check the project's security and configuration
+  trilha secret                                     print a signing key for TRILHA_SECRET
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
   trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
   trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
@@ -80,6 +81,7 @@ Uso:
   trilha export [-o out] [--base /prefixo]            exporta as páginas estáticas em HTML
   trilha openapi [-o arquivo] [--check]               escreve o documento OpenAPI das rotas de API
   trilha audit [--no-vuln]                            verifica segurança e configuração do projeto
+  trilha secret                                       imprime uma chave para o TRILHA_SECRET
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
   trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
   trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
@@ -312,6 +314,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"time format hint":            {"ui.Date(c, t) writes the date in the app language and zone; a layout in the page ignores Config.TimeZone", "ui.Date(c, t) escreve a data no idioma e no fuso do app; layout na página ignora o Config.TimeZone"},
 	"audit anon":                  {"c.Audit is called and no route requires a session", "c.Audit é chamado e nenhuma rota exige sessão"},
 	"audit anon hint":             {"the trail would say anonymous did it; guard the route with auth.Require or set the actor with c.SetActor", "a trilha diria que foi anônimo; guarde a rota com auth.Require ou marque o ator com c.SetActor"},
+	"upstream no timeout":         {"proxy without Timeout", "proxy sem Timeout"},
+	"upstream no timeout hint":    {"Upstream.Timeout is 30 s by default; a slow API then holds 30 s of requests, and the failure arrives as \"our app is down\" — set it to what you are willing to wait", "o Upstream.Timeout é 30 s por padrão; uma API lenta segura 30 s de requisições, e a falha chega como \"nosso app caiu\" — defina o que você está disposto a esperar"},
 	"mail unset":                  {"the app sends e-mail and no server is configured", "o app manda e-mail e não há servidor configurado"},
 	"mail unset hint":             {"without TRILHA_MAIL_URL, Send answers mail.ErrNotConfigured in production (and writes .eml files into ./mail in dev)", "sem TRILHA_MAIL_URL o Send devolve mail.ErrNotConfigured em produção (e em dev escreve .eml em ./mail)"},
 	"mail ok":                     {"mail server configured", "servidor de e-mail configurado"},

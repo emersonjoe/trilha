@@ -151,3 +151,82 @@ erro em páginas. Um formulário normalmente não o devolve: valida, e no erro c
 | `Has(campo) bool`, `Get(campo) string` | consulta |
 | `Any() bool` | há erros? |
 | `OrNil() error` | `nil` quando vazio, para `return errs.OrNil()` |
+
+## Erros que ensinam: trilha.Hint
+
+O framework já ensina em tempo de build — os códigos `E_` do scanner vêm com a linha do
+conserto — e no `trilha audit`. O `Hint` é o meio: o erro que só acontece com o app rodando,
+onde a resposta era um 500 e uma pilha das entranhas do framework.
+
+```go
+return trilha.NewHint(trilha.ErrRedirectAbsolute, err).
+	Fix("Redirect só aceita caminho; para sair do site, RedirectExternal.").
+	Doc("/reference/errors")
+```
+
+Um erro comum com três coisas a mais: um **código** que alguém cola numa busca, uma frase dizendo
+**o que fazer no lugar**, e um **link**. Em `Env: Dev` a página de erro mostra os três; em
+produção mostra o que mostrava, porque o conserto é para quem escreve o código e quem está do
+outro lado não escreveu.
+
+Ele embrulha, então `errors.Is` e `errors.As` atravessam: quem já tratava um erro não passa a
+tratar outro. O `trilha.HintOf(err)` acha, ou devolve nil.
+
+### E_REDIRECT_ABSOLUTE
+
+O `Redirect` aceita caminho e recusa endereço que sai do site.
+
+```go
+c.Redirect("/painel")                           // como sempre
+c.Redirect(c.Query("next"))                     // "https://…" é erro, não redirecionamento
+c.RedirectExternal("https://gov.example/pagar") // de propósito, e escrito
+```
+
+O destino de um redirecionamento quase sempre veio de um formulário ou de uma query string — o
+`?next=` é como se volta para a página que pediu login — e um redirecionamento que segue para
+qualquer lugar é um open redirect: um link de phishing no seu próprio domínio, com o seu próprio
+certificado.
+
+Sanitizar em vez de recusar é como se escreve um open redirect com mais passos. `//evil.com`,
+`/\evil.com` e `https:/\evil.com` existem porque cada um passou por uma checagem que alguém achou
+suficiente. O que passa aqui é caminho: começa com `/` e não começa com `//` nem `/\`.
+
+O `RedirectExternal` é função separada para que sair fique escrito. Quem revisa lendo o nome sabe
+que alguém quis; lendo `Redirect`, sabe que ninguém conseguiria sem querer. Ele não confere o
+endereço, porque não há o que conferir — é um literal no seu código, não um valor da requisição.
+
+:::warning
+Isto mudou na 0.67.0. Um app que redirecionava para URL absoluta passa a receber erro; o conserto
+é uma palavra — `RedirectExternal` — onde o destino é literal seu. Onde o destino veio da
+requisição, o erro é o defeito aparecendo.
+:::
+
+### E_SECRET_SHORT
+
+O `ListenAndServe` recusa escutar quando o `Env` não é `Dev` e a chave de assinatura tem menos de
+32 bytes:
+
+```text
+trilha: TRILHA_SECRET has 5 bytes and the minimum is 32 (E_SECRET_SHORT)
+Generate one with: trilha secret
+```
+
+Tudo que a assinatura protege — o cookie de sessão, o flash, um link público, uma coluna selada —
+vale exatamente o que a chave vale, e uma chave que alguém digitou vale uma tarde. O número está
+na mensagem porque "curta demais" deixa alguém contando caracteres, e o comando está nela porque
+"gere uma" sem dizer como é meia instrução.
+
+Três limites de propósito nessa recusa:
+
+- **Em dev é uma linha no log, uma vez.** Segredo de desenvolvimento é segredo de
+  desenvolvimento, e recusar subir seria o framework atrapalhar no único lugar onde não deve.
+- **É no `ListenAndServe`, não no `New`.** O `New` é o que um teste chama: quem sobe um servidor
+  está subindo, quem monta um `Handler()` numa suíte não está.
+- **Segredo nenhum é outra coisa**, e já tem resposta: a assinatura falha alto com `ErrNoSecret`
+  onde for tentada, e o `trilha audit` é crítico sobre isso para quem assina e calado para quem
+  não assina. Recusar aqui também pararia um app que não assina nada, que não deve nada ao
+  framework.
+
+O `trilha secret` imprime uma: trinta e dois bytes do `crypto/rand`, em base64 — o tamanho que o
+HMAC-SHA256 usa como chave sem dobrar, numa codificação que sobrevive a um shell, a um YAML e a
+uma colagem num console de deploy.

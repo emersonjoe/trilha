@@ -33,6 +33,7 @@ HTML is written in Go with the `h` package, not with templates:
 | `trilha generate page /path` | writes the skeleton in the right folder (also `route`, `component`, `test`); `--methods`, `--bind` and `--form` write the contract too |
 | `trilha routes` | lists every route the scanner found and the file it came from |
 | `trilha audit` | checks security and configuration: secrets, CSP, cookies, dependencies |
+| `trilha secret` | prints a signing key for `TRILHA_SECRET`; production refuses to start with a short one |
 | `trilha build` | generates and compiles a single binary |
 | `trilha export` | writes the static pages as HTML |
 | `trilha openapi` | writes the OpenAPI document of the API routes |

@@ -131,7 +131,10 @@ func (a *Auth) Start(c *trilha.Ctx) error {
 		"code_challenge":        {base64.RawURLEncoding.EncodeToString(sum[:])},
 		"code_challenge_method": {"S256"},
 	}
-	return c.Redirect(doc.Authorization + sep(doc.Authorization) + q.Encode())
+	// The provider is another site, and going there is the whole point of
+	// Start. Ctx.Redirect refuses an address that leaves — see spec 086 — and
+	// this is the case the separate name exists to record.
+	return c.RedirectExternal(doc.Authorization + sep(doc.Authorization) + q.Encode())
 }
 
 // Callback finishes the login: it checks state, exchanges the code, validates
@@ -228,7 +231,8 @@ func (a *Auth) Logout(c *trilha.Ctx) error {
 	if dest == "" {
 		return c.Redirect(a.opts.AfterLogout)
 	}
-	return c.Redirect(dest)
+	// end_session_endpoint is the provider's, on the provider's domain.
+	return c.RedirectExternal(dest)
 }
 
 type tokenResponse struct {

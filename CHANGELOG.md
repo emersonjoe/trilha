@@ -3,6 +3,55 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.67.0 — 2026-09-09
+
+Spec 086. Part of [#118](https://github.com/emersonjoe/trilha/issues/118), which stays open for
+the rest.
+
+### Changed — incompatible
+
+- **`Redirect` refuses an address that leaves the site**, and `RedirectExternal` is how you leave
+  on purpose. Confirmed before writing any code: `c.Redirect("https://evil.example/x")` answered
+  303 to the attacker. The destination of a redirect almost always came from a form or a query
+  string — `?next=` is how somebody gets back to the page that asked them to log in — so a
+  redirect that follows it anywhere is an open redirect: a phishing link on your own domain, with
+  your own certificate.
+
+  Sanitising instead of refusing is how an open redirect gets written with more steps.
+  `//evil.com`, `/\evil.com` and `https:/\evil.com` all exist because each walked past a check
+  somebody thought was enough. What passes is a path.
+
+  **The repair is one word.** Where the destination is your own literal — a payment provider, an
+  identity provider — it is `RedirectExternal`, and the separate name is the record that somebody
+  meant it. Where the destination came from the request, the error is the bug being found. Inside
+  this repository it moved two lines, both in `auth`: the redirect to the provider, and the
+  provider's `end_session_endpoint`.
+
+### Added
+
+- **`trilha.Hint`** — an error carrying a code, the sentence that says what to do instead, and a
+  documentation link. In `Env: Dev` the error page shows all three; in production it shows what
+  it showed before, because the repair is for whoever writes the code and the person on the other
+  side did not write it. It wraps, so `errors.Is` and `errors.As` reach straight through.
+
+- **A production app refuses to start with a short signing key** (`E_SECRET_SHORT`).
+  `ListenAndServe` answers the length it found and the command that makes a good one. Three
+  deliberate limits: in dev it is one log line; it is `ListenAndServe` and not `New`, because
+  `New` is what a test calls; and **no secret at all is left alone**, because that already fails
+  loudly where signing is attempted and stopping an app that signs nothing would be the framework
+  getting in the way of somebody who owes it nothing.
+
+- **`trilha secret`** prints one — thirty-two bytes from `crypto/rand`, base64. "Generate a
+  secret" without saying how is half an instruction.
+
+- **`trilha audit`: a proxy with no `Timeout`.** The default is 30 s, and thirty seconds per
+  pending request is what takes the whole app down when the API on the other side gets slow — and
+  the failure arrives as "our app is down", which sends everybody looking in the wrong place.
+
+Two rows of the issue's table turned out to be done already, and are worth recording as such: a
+`ui.Live` channel on an unguarded route is a warning the audit has had since 0.36.0, and
+`blob.Files.Serve` of a missing key has answered 404 rather than 500 since the module shipped.
+
 ## 0.66.0 — 2026-09-09
 
 Spec 085.

@@ -259,6 +259,13 @@ func runAudit(p *project, vuln bool) []check {
 		if upstreamWithoutCredential(src) {
 			add("warn", t("upstream no credential"), t("upstream no credential hint"))
 		}
+		// No Timeout is thirty seconds by default, and thirty seconds per
+		// pending request is what takes the whole app down when the API on the
+		// other side gets slow — the failure arrives as "our app is down",
+		// which sends everybody looking in the wrong place.
+		if !strings.Contains(src, "Timeout:") {
+			add("warn", t("upstream no timeout"), t("upstream no timeout hint"))
+		}
 	}
 
 	if liveWithoutAuth(src) {

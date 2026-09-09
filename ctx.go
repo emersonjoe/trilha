@@ -239,6 +239,10 @@ func (c *Ctx) HTML(code int, n h.Node) error {
 // Redirect returns a redirect error (303). Use as `return c.Redirect("/x")`.
 func (c *Ctx) Redirect(url string) error { return Redirect(url) }
 
+// RedirectExternal sends the visitor to another site, and says so. See
+// Redirect for why leaving needs a name of its own.
+func (c *Ctx) RedirectExternal(url string) error { return RedirectExternal(url) }
+
 // Cookie returns a request cookie.
 func (c *Ctx) Cookie(name string) (*http.Cookie, error) { return c.r.Cookie(name) }
 

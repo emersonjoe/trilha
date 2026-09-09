@@ -34,6 +34,7 @@ O HTML é escrito em Go com o pacote `h`, não com template:
 | `trilha generate page /caminho` | grava o esqueleto na pasta certa (também `route`, `component`, `test`); `--methods`, `--bind` e `--form` escrevem o contrato junto |
 | `trilha routes` | lista as rotas encontradas e o arquivo de onde vieram |
 | `trilha audit` | verifica segurança e configuração: segredos, CSP, cookies, dependências |
+| `trilha secret` | imprime uma chave para o `TRILHA_SECRET`; produção recusa subir com uma curta |
 | `trilha build` | gera e compila um binário único |
 | `trilha export` | grava as páginas estáticas em HTML |
 | `trilha openapi` | escreve o documento OpenAPI das rotas de API |

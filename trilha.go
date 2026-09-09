@@ -7,6 +7,7 @@ package trilha
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -508,8 +509,16 @@ func (a *App) registerDefaultMetrics() {
 }
 
 // ListenAndServe serves until SIGINT/SIGTERM, then shuts down gracefully.
+//
+// In production it refuses to listen with a signing key too short to be worth
+// signing with. The refusal is here and not in New because New is what a test
+// calls: somebody standing up a server is standing up, and somebody building a
+// Handler() in a suite is not.
 func (a *App) ListenAndServe() error {
 	a.applyConfig()
+	if err := a.checkSecret(); err != nil {
+		return err
+	}
 	t := a.cfg.Timeouts
 	srv := &http.Server{
 		Addr:              a.cfg.Addr,
@@ -534,6 +543,45 @@ func (a *App) ListenAndServe() error {
 		err := srv.Shutdown(shutdownCtx)
 		return errors.Join(err, a.runShutdown())
 	}
+}
+
+// checkSecret refuses a production app whose key is too short. Everything the
+// signature protects — the session cookie, the flash, a public link, a sealed
+// column — is worth exactly what the key is worth, and a key somebody typed is
+// worth an afternoon.
+//
+// In dev it is a line in the log, once: a development secret is a development
+// secret, and refusing to start would be the framework getting in the way of
+// the one place where it should not.
+func (a *App) checkSecret() error {
+	n := len(a.cfg.Secret)
+	if n >= MinSecretLen {
+		return nil
+	}
+	// No secret at all is a different thing and already has an answer: signing
+	// fails loudly with ErrNoSecret wherever it is attempted, and `trilha
+	// audit` is critical about it for an app that signs and quiet for an app
+	// that does not. Refusing to start here too would stop an app that signs
+	// nothing, which is the framework getting in the way of somebody who owes
+	// it nothing.
+	//
+	// A secret that exists and is short is not that. It is somebody who meant
+	// to configure signing and typed a word.
+	if n == 0 {
+		return nil
+	}
+	if a.cfg.Env == Dev {
+		a.warnOnce("secret:short", "trilha: TRILHA_SECRET is short for production",
+			"bytes", n, "minimum", MinSecretLen, "fix", "trilha secret")
+		return nil
+	}
+	// The number is on the message because "too short" leaves somebody
+	// counting characters, and the command is on it because "generate one"
+	// without saying how is half an instruction.
+	return NewHint(ErrSecretShort,
+		fmt.Errorf("trilha: TRILHA_SECRET has %d bytes and the minimum is %d", n, MinSecretLen)).
+		Fix("Generate one with: trilha secret").
+		Doc("/reference/errors")
 }
 
 // OnShutdown registers fn to run after the server stopped accepting requests

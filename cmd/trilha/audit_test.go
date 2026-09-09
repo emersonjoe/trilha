@@ -435,3 +435,40 @@ func TestAuditoriaDeEmail(t *testing.T) {
 		t.Errorf("com servidor: %+v", got)
 	}
 }
+
+// #118 — proxy sem Timeout. O padrão é trinta segundos, e trinta segundos por
+// requisição pendurada é o que derruba o app inteiro quando a API do outro
+// lado fica lenta — e a falha chega como "nosso app caiu", que manda todo
+// mundo procurar no lugar errado.
+func TestAuditoriaDeUpstreamSemTimeout(t *testing.T) {
+	acha := func(cs []check) (check, bool) {
+		for _, c := range cs {
+			if strings.Contains(strings.ToLower(c.title), "timeout") {
+				return c, true
+			}
+		}
+		return check{}, false
+	}
+	escreve := func(t *testing.T, src string) string {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	sem := escreve(t, "package main\n\nvar cfg = trilha.Config{Upstreams: map[string]trilha.Upstream{\"/api/\": {Target: \"https://api.exemplo\"}}}\n")
+	com := escreve(t, "package main\n\nvar cfg = trilha.Config{Upstreams: map[string]trilha.Upstream{\"/api/\": {Target: \"https://api.exemplo\", Timeout: 5 * time.Second}}}\n")
+	nenhum := escreve(t, "package main\n")
+
+	if got, ok := acha(runAudit(&project{Root: sem}, false)); !ok || got.level != "warn" {
+		t.Errorf("proxy sem Timeout: %+v (achou: %v)", got, ok)
+	}
+	if _, ok := acha(runAudit(&project{Root: com}, false)); ok {
+		t.Error("avisou de um proxy que tem Timeout")
+	}
+	// Quem não faz proxy não ouve sobre proxy.
+	if _, ok := acha(runAudit(&project{Root: nenhum}, false)); ok {
+		t.Error("avisou um app que não tem upstream nenhum")
+	}
+}

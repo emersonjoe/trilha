@@ -153,3 +153,83 @@ in pages. A form usually does not return it: it validates and, on error, calls
 | `Has(field) bool`, `Get(field) string` | lookup |
 | `Any() bool` | are there errors? |
 | `OrNil() error` | `nil` when empty, for `return errs.OrNil()` |
+
+## Errors that teach: trilha.Hint
+
+The framework already teaches at build time — the scanner's `E_` codes come with a fix line —
+and in `trilha audit`. A `Hint` is the middle: the error that only happens once the app is
+running, where the answer used to be a 500 and a stack trace of framework internals.
+
+```go
+return trilha.NewHint(trilha.ErrRedirectAbsolute, err).
+	Fix("Redirect takes a path; to leave the site, RedirectExternal.").
+	Doc("/reference/errors")
+```
+
+An ordinary error with three things added: a **code** somebody can paste into a search box, a
+sentence saying **what to do instead**, and a **link**. In `Env: Dev` the error page shows all
+three; in production it shows what it showed before, because the repair is for whoever writes
+the code and the person on the other side did not write it.
+
+It wraps, so `errors.Is` and `errors.As` reach straight through: code that already handled an
+error does not start handling a different one. `trilha.HintOf(err)` finds it, or answers nil.
+
+### E_REDIRECT_ABSOLUTE
+
+`Redirect` takes a path and refuses an address that leaves the site.
+
+```go
+c.Redirect("/painel")                          // fine
+c.Redirect(c.Query("next"))                    // "https://…" is an error, not a redirect
+c.RedirectExternal("https://gov.example/pay")  // deliberate, and written down
+```
+
+The destination of a redirect almost always came from a form or a query string — `?next=` is how
+somebody gets back to the page that asked them to log in — and a redirect that follows it
+anywhere is an open redirect: a phishing link on your own domain, with your own certificate.
+
+Sanitising instead of refusing is how an open redirect gets written with more steps.
+`//evil.com`, `/\evil.com` and `https:/\evil.com` all exist because each of them walked past a
+check somebody thought was enough. What passes here is a path: it starts with `/` and does not
+start with `//` or `/\`.
+
+`RedirectExternal` is a separate function so that leaving is written down. A reviewer reading it
+knows somebody meant it; a reviewer reading `Redirect` knows nobody could have done it by
+accident. It does not check the address, because there is nothing to check — it is a literal in
+your code, not a value from a request.
+
+:::warning
+This changed in 0.67.0. An app that redirected to an absolute URL gets an error now; the repair
+is one word — `RedirectExternal` — wherever the destination is your own literal. Wherever the
+destination came from the request, the error is the bug being found.
+:::
+
+### E_SECRET_SHORT
+
+`ListenAndServe` refuses to listen when `Env` is not `Dev` and the signing key is shorter than
+32 bytes:
+
+```text
+trilha: TRILHA_SECRET has 5 bytes and the minimum is 32 (E_SECRET_SHORT)
+Generate one with: trilha secret
+```
+
+Everything the signature protects — the session cookie, the flash, a public link, a sealed
+column — is worth exactly what the key is worth, and a key somebody typed is worth an afternoon.
+The number is in the message because "too short" leaves somebody counting characters, and the
+command is in it because "generate one" without saying how is half an instruction.
+
+Three deliberate limits on that refusal:
+
+- **In dev it is a log line, once.** A development secret is a development secret, and refusing
+  to start would be the framework getting in the way in the one place where it should not.
+- **It is `ListenAndServe`, not `New`.** `New` is what a test calls: somebody standing up a
+  server is standing up, and somebody building a `Handler()` in a suite is not.
+- **No secret at all is a different thing**, and already has an answer: signing fails loudly with
+  `ErrNoSecret` wherever it is attempted, and `trilha audit` is critical about it for an app that
+  signs and quiet for an app that does not. Refusing here too would stop an app that signs
+  nothing, which owes the framework nothing.
+
+`trilha secret` prints one: thirty-two bytes from `crypto/rand`, base64 — the length HMAC-SHA256
+uses as a key without folding it, in an encoding that survives a shell, a YAML file and a paste
+into a deployment console.

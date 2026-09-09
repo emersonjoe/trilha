@@ -214,7 +214,7 @@ func (a *App) renderErrorPage(c *Ctx, cause error, code int) {
 	if code >= 500 {
 		detail := ""
 		if a.cfg.Env == Dev {
-			detail = cause.Error()
+			detail = hintDetail(cause) + cause.Error()
 			if st, ok := cause.(interface{ Stack() string }); ok {
 				detail += "\n\n" + st.Stack()
 			}
@@ -274,4 +274,27 @@ func CompileErrorPage(output string) string {
 		"<style>body{font:15px/1.5 system-ui,sans-serif;max-width:60rem;margin:3rem auto;padding:0 1rem;color:#222}pre{background:#2b1d1d;color:#ffd9d9;padding:1rem;overflow:auto;white-space:pre-wrap;border-radius:6px}</style></head>" +
 		"<body><h1>Build error</h1><p>Fix the code and save: this page reloads on its own.</p><pre>" +
 		html.EscapeString(strings.TrimSpace(output)) + "</pre>" + strings.ReplaceAll(devScript, "{nonce}", "") + "</body></html>"
+}
+
+// hintDetail is what a Hint adds to the development error page: the code, the
+// sentence that says what to do, and where to read more.
+//
+// It goes above the error and above the stack because it is the part somebody
+// can act on — a stack trace of framework internals says where the refusal was
+// written, and never what to write instead. The caller checks Env: the repair
+// is for whoever writes the code, and the person on the other side did not
+// write it.
+func hintDetail(err error) string {
+	h := HintOf(err)
+	if h == nil {
+		return ""
+	}
+	out := h.Code
+	if h.Repair != "" {
+		out += "\n" + h.Repair
+	}
+	if h.Docs != "" {
+		out += "\nhttps://trilha.dev" + h.Docs
+	}
+	return out + "\n\n"
 }
