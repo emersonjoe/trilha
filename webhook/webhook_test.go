@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -101,9 +102,13 @@ func motor(t *testing.T, r *relogio, o Options) *Hooks {
 	return h
 }
 
+// espera é um teto, não uma soneca: ele volta assim que a condição vale. O
+// teto é generoso porque a CI roda esta suíte com o detector de corrida, que é
+// várias vezes mais lento — e um teto apertado ali vira uma falha que não
+// diz nada sobre o código.
 func espera(t *testing.T, porque string, cond func() bool) {
 	t.Helper()
-	limite := time.Now().Add(3 * time.Second)
+	limite := time.Now().Add(10 * time.Second)
 	for time.Now().Before(limite) {
 		if cond() {
 			return
@@ -439,5 +444,36 @@ func TestSegredoApareceUmaVezEDepoisSeMascara(t *testing.T) {
 	guardado := subs[0].Secret
 	if got := guardado.String(); strings.Contains(got, segredo.Reveal()) {
 		t.Fatalf("o segredo saiu inteiro numa impressão: %q", got)
+	}
+}
+
+// Um evento chega uma vez ao parceiro, ainda que a mesma entrega entre na fila
+// duas vezes — o Emit põe ela lá, e o relógio põe de novo quando a linha
+// vence. Dois workers segurando o mesmo id ao mesmo tempo é o parceiro
+// recebendo o mesmo evento duas vezes, que é a coisa que um webhook não pode
+// fazer sem avisar.
+func TestAMesmaEntregaNaoSaiDuasVezes(t *testing.T) {
+	r := &relogio{now: time.Now()}
+	var chamadas int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		atomic.AddInt32(&chamadas, 1)
+		// A entrega demora: é durante ela que o relógio bate de novo e acha a
+		// mesma linha, ainda pendente e ainda vencida.
+		time.Sleep(50 * time.Millisecond)
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	// Relógio rápido e vários workers: a combinação que faz a mesma linha ser
+	// pescada de novo enquanto a primeira tentativa ainda está de pé.
+	h := motor(t, r, Options{Tick: time.Millisecond, Workers: 4, HTTP: srv.Client()})
+	h.Subscribe(nil, Subscription{URL: srv.URL})
+	h.Emit(nil, "fluxo.concluido", map[string]string{"id": "1"})
+
+	espera(t, "a entrega terminar", func() bool { return primeira(t, h).State == Delivered })
+	// E mais um tanto de tiques depois do fim, para nada aparecer atrasado.
+	time.Sleep(30 * time.Millisecond)
+	if n := atomic.LoadInt32(&chamadas); n != 1 {
+		t.Fatalf("o parceiro recebeu o mesmo evento %d vezes", n)
 	}
 }

@@ -3,6 +3,21 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.65.1 — 2026-09-09
+
+### Fixed
+
+- **`webhook`: the same delivery could go out twice.** The id reaches the queue from two places —
+  `Emit` puts it there, and the clock puts it there again the moment the row comes due — and
+  nothing stopped two workers from holding it at once. The row could not say: it stays `pending`
+  for the whole attempt, which is exactly what makes a crashed attempt retryable.
+
+  A worker claims the delivery now, and the partner gets the event once. Without the claim the
+  regression test sees the same event arrive four times.
+
+  It was CI's race build that found it, by being slow enough for the window to open — the failure
+  looked like a flaky timing test, and was one delivery escaping twice.
+
 ## 0.65.0 — 2026-09-09
 
 Spec 083.

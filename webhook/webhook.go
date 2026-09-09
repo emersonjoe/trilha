@@ -166,6 +166,11 @@ type Hooks struct {
 
 	queue chan string
 	mu    sync.Mutex
+	// inflight is the deliveries a worker is holding. Emit enqueues, and so
+	// does the clock when the row comes due — the same id can be in the queue
+	// twice, and without this two workers would POST it at the same moment
+	// and the partner would get one event twice.
+	inflight map[string]bool
 
 	started bool
 	stop    chan struct{}
@@ -183,6 +188,7 @@ func New(o Options) *Hooks {
 		workers: o.Workers, timeout: o.Timeout, backoff: o.Backoff, tick: o.Tick,
 		client: o.HTTP, log: o.Logger, allow: o.AllowPrivateURL,
 		queue: make(chan string, 256), stop: make(chan struct{}), now: time.Now,
+		inflight: map[string]bool{},
 	}
 	if h.store == nil {
 		h.store = Memory()

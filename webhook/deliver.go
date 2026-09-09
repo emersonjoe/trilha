@@ -61,7 +61,17 @@ func (h *Hooks) clock(stop chan struct{}) {
 }
 
 // attempt is one POST, from the store back to the store.
+//
+// It claims the delivery first. The same id reaches the queue from two places
+// — Emit puts it there, and the clock puts it there again when the row comes
+// due — and two workers holding it at the same moment is one event delivered
+// twice to the partner. The row alone cannot say: it stays "pending" for the
+// whole attempt, because that is what makes a crashed attempt retryable.
 func (h *Hooks) attempt(id string) {
+	if !h.claim(id) {
+		return
+	}
+	defer h.release(id)
 	defer func() {
 		if r := recover(); r != nil {
 			// A panic in a delivery worker would take the web server with it,
@@ -167,4 +177,21 @@ func Sign(secret, timestamp string, body []byte) string {
 	m.Write([]byte("."))
 	m.Write(body)
 	return "sha256=" + hex.EncodeToString(m.Sum(nil))
+}
+
+// claim answers whether this worker got the delivery. release gives it back.
+func (h *Hooks) claim(id string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.inflight[id] {
+		return false
+	}
+	h.inflight[id] = true
+	return true
+}
+
+func (h *Hooks) release(id string) {
+	h.mu.Lock()
+	delete(h.inflight, id)
+	h.mu.Unlock()
 }
