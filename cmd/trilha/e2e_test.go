@@ -753,6 +753,22 @@ func TestTemplateAppE2E(t *testing.T) {
 		t.Fatal(out)
 	}
 
+	// --with "" is a choice and not an absence: somebody who typed it asked
+	// for the skeleton, and gets it.
+	pelado := filepath.Join(tmp, "pelado")
+	run(t, tmp, cli, "new", pelado, "--module", "example.com/pelado", "--template", "app",
+		"--with", "", "--trilha-dir", repo, "--no-tidy")
+	if _, err := os.Stat(filepath.Join(pelado, "app", "admin", "auditoria")); err == nil {
+		t.Fatal(`--with "" still wrote the administration screens`)
+	}
+	// And the recipes are not the app template's alone.
+	blog := filepath.Join(tmp, "blogue")
+	run(t, tmp, cli, "new", blog, "--module", "example.com/blogue",
+		"--with", "audit", "--trilha-dir", repo, "--no-tidy")
+	if _, err := os.Stat(filepath.Join(blog, "app", "auditoria", "page.go")); err != nil {
+		t.Fatal("--with audit did nothing on the blog template:", err)
+	}
+
 	// An unknown shape is a message, not a stack trace.
 	cmd := exec.Command(cli, "new", filepath.Join(tmp, "nope"), "--template", "banana", "--no-tidy")
 	cmd.Dir = tmp

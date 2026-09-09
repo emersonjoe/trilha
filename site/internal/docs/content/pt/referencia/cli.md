@@ -4,7 +4,7 @@ description: Os comandos de trilha e suas opções.
 ---
 
 ```text
-trilha new <dir> [--module caminho] [--template blog|app] [--lang en|pt] [--agents]
+trilha new <dir> [--module caminho] [--template blog|app] [--with receitas] [--lang en|pt] [--agents]
     [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check] [--package nome]
 trilha generate page|route|test <url> | component <Nome>
@@ -58,6 +58,33 @@ O projeto `app` já nasce verde: compila, o `trilha check` passa e o `go test ./
 sem nenhuma edição. A conta de exemplo aparece na própria tela de login, e toda rota
 abaixo de `app/` está atrás de uma sessão porque o middleware está na raiz da pasta —
 inclusive as rotas que você escrever amanhã.
+
+### O que vem no `app`
+
+Além do esqueleto, ele pede ao [`trilha add`](#trilha-add) as três telas que toda aplicação
+interna ganha no primeiro mês, e as põe sob `app/admin/`:
+
+| Tela | O que é |
+|---|---|
+| `/admin/auditoria` | a trilha de quem fez o quê, com o `ui.AuditTable` |
+| `/admin/chaves` | chaves de API: emitir, revogar, e a chave mostrada uma vez |
+| `/admin/config` | uma seção de configurações, desenhada do struct que a declara |
+
+São **as receitas, e não uma segunda cópia** — uma fonte só, para o template não envelhecer
+separado do que o `trilha add` escreve. O `app/admin/` exige o papel `admin`, e quem está logado
+sem ele recebe **403, e não um redirecionamento para o login**: a pessoa é conhecida, só não
+autorizada, e mandá-la de volta a um login que ela já passou é um laço sem saída.
+
+O `--with` decide com quais receitas um projeto novo começa, em qualquer template:
+
+```bash
+trilha new minha-app --template app --with ""              # só o esqueleto
+trilha new meu-site --with audit                           # no template blog também
+trilha new minha-app --template app --with audit,settings  # escolha a sua
+```
+
+Um `--with` vazio é uma escolha, e não uma ausência: quem digita isso está pedindo o esqueleto, e
+recebe o esqueleto.
 
 ## Idioma
 

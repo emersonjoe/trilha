@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/template"
 )
 
@@ -76,6 +77,15 @@ type Insert struct {
 type Options struct {
 	Module string
 	Lang   string
+	// At is the folder the screens land under, slash-terminated. Empty is
+	// "app/", which is where somebody adding one recipe to their own project
+	// wants it; the app template asks for "app/admin/", because screens that
+	// name people and issue credentials do not belong behind the same door as
+	// a listing of items.
+	//
+	// It moves the screens and nothing else: what a recipe writes under
+	// internal/ is not a screen and has no business moving with one.
+	At string
 	// DryRun prints what would happen and writes nothing. It is what somebody
 	// runs before letting a command touch a project that already has code.
 	DryRun bool
@@ -112,9 +122,20 @@ func Get(name string) (Recipe, error) {
 func Add(root string, r Recipe, o Options) (Result, error) {
 	var res Result
 	res.Doc = r.Doc
-	res.Next = pick(r.Next, o.Lang)
 
-	dados := map[string]any{"Module": o.Module, "Lang": o.Lang, "T": words(o.Lang)}
+	at := o.At
+	if at == "" {
+		at = "app/"
+	}
+	if !strings.HasSuffix(at, "/") {
+		at += "/"
+	}
+	// URL is the address side of At: the screens have to link and redirect to
+	// where they actually landed. Writing "/chaves" in a recipe that a
+	// template puts under /admin/ is a form that posts to a 404 — and the
+	// kind of mistake nobody sees until they press the button.
+	url := "/" + strings.TrimPrefix(at, "app/")
+	dados := map[string]any{"Module": o.Module, "Lang": o.Lang, "At": at, "URL": url, "T": words(o.Lang)}
 
 	// Everything is rendered before anything is written: a template that
 	// produces broken Go fails here, naming the file, rather than at the
@@ -140,6 +161,7 @@ func Add(root string, r Recipe, o Options) (Result, error) {
 		arquivos = append(arquivos, pronto{rel, body})
 	}
 
+	var err error
 	for _, f := range arquivos {
 		abs := filepath.Join(root, filepath.FromSlash(f.rel))
 		if _, err := os.Stat(abs); err == nil {
@@ -158,6 +180,12 @@ func Add(root string, r Recipe, o Options) (Result, error) {
 		if err := os.WriteFile(abs, []byte(f.body), 0o644); err != nil {
 			return res, err
 		}
+	}
+
+	// The next step names the address the screens actually landed on, so it
+	// is a template like everything else.
+	if res.Next, err = render(pick(r.Next, o.Lang), dados); err != nil {
+		return res, err
 	}
 
 	linhas, err := r.setupLines(dados)

@@ -15,7 +15,7 @@ func auditRecipe() Recipe {
 		Doc: "/reference/observability",
 		Files: []File{
 			{Rel: "internal/auditoria/store.go", Go: true, Body: auditStore},
-			{Rel: "app/auditoria/page.go", Go: true, Body: auditPage},
+			{Rel: "{{.At}}auditoria/page.go", Go: true, Body: auditPage},
 		},
 		Setup: []Insert{{
 			Marker: "// trilha:add audit",
@@ -23,8 +23,8 @@ func auditRecipe() Recipe {
 		}},
 		Imports: []string{"{{.Module}}/internal/auditoria"},
 		Next: map[string]string{
-			"en": "Run `trilha dev` and open /auditoria. Guard it: the trail says who did what, and that is not for everybody.",
-			"pt": "Rode `trilha dev` e abra /auditoria. Guarde a rota: a trilha diz quem fez o quê, e isso não é para todo mundo.",
+			"en": "Run `trilha dev` and open {{.URL}}auditoria. Guard it: the trail says who did what, and that is not for everybody.",
+			"pt": "Rode `trilha dev` e abra {{.URL}}auditoria. Guarde a rota: a trilha diz quem fez o quê, e isso não é para todo mundo.",
 		},
 	}
 }
@@ -97,7 +97,7 @@ import (
 	"{{.Module}}/internal/auditoria"
 )
 
-// Page draws the trail at GET /auditoria.
+// Page draws the trail at GET {{.URL}}auditoria.
 //
 // Guard this folder: add a middleware.go with the rule your app uses. The
 // trail names people and what they did, which is not something to leave open.

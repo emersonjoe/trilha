@@ -166,3 +166,50 @@ func TestTodaReceitaSeApresenta(t *testing.T) {
 		}
 	}
 }
+
+// #117 — a receita cai onde o template pediu, e os endereços dela vão junto.
+// Escrever "/chaves" numa receita que um template põe sob /admin/ é um
+// formulário que posta para um 404 — e é o tipo de erro que ninguém vê até
+// apertar o botão.
+func TestAddSobPastaLevaOsEnderecosJunto(t *testing.T) {
+	raiz := projeto(t)
+	r, _ := Get("api-keys")
+	res, err := Add(raiz, r, Options{Module: "example.com/x", Lang: "en", At: "app/admin/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(res.Written, " ") != "app/admin/chaves/page.go" {
+		t.Fatalf("escreveu %v", res.Written)
+	}
+	pagina := ler(t, raiz, "app/admin/chaves/page.go")
+	for _, quero := range []string{`c.Redirect("/admin/chaves")`, `h.Action("/admin/chaves")`,
+		`Revoke: "/admin/chaves"`} {
+		if !strings.Contains(pagina, quero) {
+			t.Fatalf("faltou %q:\n%s", quero, pagina)
+		}
+	}
+	if strings.Contains(pagina, `"/chaves"`) {
+		t.Fatalf("sobrou um endereço da raiz:\n%s", pagina)
+	}
+	// O import do setup segue a tela, senão o pacote não é o que está lá.
+	if setup := ler(t, raiz, "app/setup.go"); !strings.Contains(setup, `"example.com/x/app/admin/chaves"`) {
+		t.Fatalf("o import não seguiu a tela:\n%s", setup)
+	}
+	// E o próximo passo diz o endereço de verdade.
+	if !strings.Contains(res.Next, "/admin/chaves") {
+		t.Fatalf("o próximo passo aponta para o lugar errado: %q", res.Next)
+	}
+}
+
+// O que a receita escreve em internal/ não é tela e não se move com uma.
+func TestAddNaoMoveOQueNaoEhTela(t *testing.T) {
+	raiz := projeto(t)
+	r, _ := Get("audit")
+	res, err := Add(raiz, r, Options{Module: "example.com/x", Lang: "en", At: "app/admin/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(res.Written, " ") != "internal/auditoria/store.go app/admin/auditoria/page.go" {
+		t.Fatalf("escreveu %v", res.Written)
+	}
+}

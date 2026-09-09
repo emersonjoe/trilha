@@ -3,6 +3,33 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.70.0 — 2026-09-09
+
+Spec 089. Part of [#117](https://github.com/emersonjoe/trilha/issues/117), which stays open for
+the screens that still need recipes of their own.
+
+### Added
+
+- **The `app` template is administrable, and made of the recipes.** The issue says it plainly —
+  *"the template becomes the result of `trilha add` over the current skeleton"* — and 0.69.0 made
+  that possible. `trilha new --template app` now asks for `audit`, `api-keys` and `settings` and
+  puts them under `app/admin/`, guarded by the `admin` role.
+
+  They are **the recipes and not a second copy**: one source, so the template cannot age apart
+  from what `trilha add` writes. Somebody signed in without the role gets 403 and not a redirect
+  to the login — they are known, just not permitted, and sending them back to a login they
+  already passed is a loop with no exit.
+
+- **`trilha new --with <recipes>`** applies recipes at creation, on any template. `--with ""` is
+  a choice and not an absence: typing it asks for the skeleton and gets it, and `--with audit`
+  works on the blog template too.
+
+- **`recipes.Options.At`** — where a recipe's screens land. It moves the screens and nothing
+  else: what a recipe writes under `internal/` is not a screen and has no business moving with
+  one. The addresses move with them, which is the part that would have gone wrong quietly: a
+  recipe writing `/chaves` while the template puts it under `/admin/` is a form posting to a 404,
+  and nobody finds out until they press the button.
+
 ## 0.69.0 — 2026-09-09
 
 Spec 088. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for

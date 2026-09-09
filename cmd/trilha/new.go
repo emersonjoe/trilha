@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/emersonjoe/trilha/internal/gen"
+	"github.com/emersonjoe/trilha/internal/recipes"
 	"github.com/emersonjoe/trilha/internal/scaffold"
 )
 
@@ -22,6 +23,7 @@ func cmdNew(args []string) error {
 	trilhaDir := fs.String("trilha-dir", "", t("flag trilha-dir"))
 	noTidy := fs.Bool("no-tidy", false, t("flag no-tidy"))
 	agents := fs.Bool("agents", false, t("flag agents"))
+	with := fs.String("with", "", t("flag with"))
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -52,6 +54,27 @@ func cmdNew(args []string) error {
 	}
 	for _, w := range written {
 		fmt.Println("  +", w)
+	}
+	// The recipes of `trilha add`, applied at creation. The app template asks
+	// for three by default because they are what every internal application
+	// grows in its first month — and asking for them here rather than copying
+	// their screens into templates/ is what keeps one source: what the
+	// template ships is exactly what `trilha add` writes.
+	receitas := recipeList(*with, *tmpl, fs)
+	for _, nome := range receitas {
+		r, err := recipes.Get(nome)
+		if err != nil {
+			return err
+		}
+		res, err := recipes.Add(dir, r, recipes.Options{
+			Module: *module, Lang: *langFlag, At: adminDir(*tmpl),
+		})
+		if err != nil {
+			return err
+		}
+		for _, f := range res.Written {
+			fmt.Println("  +", f)
+		}
 	}
 	// AI support is opt-in: without --agents a new project gets neither file.
 	if *agents {
@@ -94,4 +117,43 @@ func runIn(dir string, name string, args ...string) error {
 		return fmt.Errorf("%s %s: %w\n%s", name, strings.Join(args, " "), err, out)
 	}
 	return nil
+}
+
+// recipeList decides which recipes a new project starts with: what --with
+// says, or the template's own answer when the flag was not given at all.
+//
+// An empty --with is a choice and not an absence — somebody who typed
+// `--with ""` asked for the skeleton — so the flag being present is what
+// decides, not the value being empty.
+func recipeList(with, tmpl string, fs *flag.FlagSet) []string {
+	dado := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "with" {
+			dado = true
+		}
+	})
+	if !dado {
+		if tmpl == "app" {
+			return []string{"audit", "api-keys", "settings"}
+		}
+		return nil
+	}
+	var out []string
+	for _, s := range strings.Split(with, ",") {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// adminDir is where a template wants those screens. The app template puts them
+// behind a role: they name people, issue credentials and change how the
+// application behaves for everybody, which is not the same door as a listing
+// of items.
+func adminDir(tmpl string) string {
+	if tmpl == "app" {
+		return "app/admin/"
+	}
+	return "app/"
 }

@@ -4,7 +4,7 @@ description: The trilha commands and their options.
 ---
 
 ```text
-trilha new <dir> [--module path] [--template blog|app] [--lang en|pt] [--agents]
+trilha new <dir> [--module path] [--template blog|app] [--with recipes] [--lang en|pt] [--agents]
     [--trilha-dir ../trilha] [--no-tidy]
 trilha gen [--check] [--package name]
 trilha generate page|route|test <url> | component <Name>
@@ -58,6 +58,32 @@ The `app` project comes green: it compiles, `trilha check` passes and `go test .
 passes without a single edit. Its seeded account is printed on the login page, and every
 route below `app/` is behind a session because the middleware sits at the root of the
 folder — including the routes you add tomorrow.
+
+### What comes in `app`
+
+Beyond the skeleton, it asks [`trilha add`](#trilha-add) for the three screens every internal
+application grows in its first month, and puts them under `app/admin/`:
+
+| Screen | What it is |
+|---|---|
+| `/admin/auditoria` | the trail of who did what, with `ui.AuditTable` |
+| `/admin/chaves` | API keys: issue, revoke, and the key shown once |
+| `/admin/config` | a settings section, drawn from the struct that declares it |
+
+They are **the recipes and not a second copy** — one source, so the template cannot age apart
+from what `trilha add` writes. `app/admin/` requires the `admin` role, and somebody signed in
+without it gets **403 and not a redirect to the login**: they are known, just not permitted, and
+sending them back to a login they already passed is a loop with no exit.
+
+`--with` decides which recipes a new project starts with, on any template:
+
+```bash
+trilha new minha-app --template app --with ""              # the skeleton alone
+trilha new meu-site --with audit                           # on the blog template too
+trilha new minha-app --template app --with audit,settings  # pick your own
+```
+
+An empty `--with` is a choice, not an absence: typing it asks for the skeleton and gets it.
 
 ## Language
 

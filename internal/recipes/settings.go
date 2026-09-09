@@ -16,7 +16,7 @@ func settingsRecipe() Recipe {
 		Doc: "/reference/app",
 		Files: []File{
 			{Rel: "internal/config/config.go", Go: true, Body: settingsDecl},
-			{Rel: "app/config/page.go", Go: true, Body: settingsPage},
+			{Rel: "{{.At}}config/page.go", Go: true, Body: settingsPage},
 		},
 		Setup: []Insert{{
 			Marker: "// trilha:add settings",
@@ -24,8 +24,8 @@ func settingsRecipe() Recipe {
 		}},
 		Imports: []string{"{{.Module}}/internal/config"},
 		Next: map[string]string{
-			"en": "Run `trilha dev` and open /config. Edit internal/config/config.go to say what your app actually has; the screen follows the struct.",
-			"pt": "Rode `trilha dev` e abra /config. Edite o internal/config/config.go com o que o seu app tem de verdade; a tela segue o struct.",
+			"en": "Run `trilha dev` and open {{.URL}}config. Edit internal/config/config.go to say what your app actually has; the screen follows the struct.",
+			"pt": "Rode `trilha dev` e abra {{.URL}}config. Edite o internal/config/config.go com o que o seu app tem de verdade; a tela segue o struct.",
 		},
 	}
 }
@@ -72,7 +72,7 @@ import (
 	"{{.Module}}/internal/config"
 )
 
-// Page draws the form at GET /config.
+// Page draws the form at GET {{.URL}}config.
 //
 // Guard this folder: a settings screen changes how the application behaves for
 // everybody, which is the definition of something not everybody should reach.
@@ -88,6 +88,6 @@ func POST(c *trilha.Ctx) error {
 		return err
 	}
 	c.Flash(ui.FlashSuccess, "{{.T.settings_saved}}")
-	return c.Redirect("/config")
+	return c.Redirect("{{.URL}}config")
 }
 `

@@ -1,0 +1,28 @@
+// Package admin holds the screens that administer the application: the audit
+// trail, the API keys, the settings.
+//
+// They are here and not next to the others because of what they are. The trail
+// names people and what they did. The keys screen issues credentials for your
+// API. The settings change how the application behaves for everybody. Leaving
+// them behind the same door as a listing of items would be handing out the key
+// with the door.
+package admin
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"{{.Module}}/internal/session"
+)
+
+// exige is the rule, and Middleware is what the scanner reads: middleware.go
+// has to export a function with that signature, and a var of the right type
+// is not one.
+var exige = session.Flow.RequireRole("admin")
+
+// Middleware guards this folder and everything below it — the screens written
+// tomorrow included.
+//
+// Somebody signed in without the role gets 403 and not a redirect to the
+// login: they are known, just not permitted, and sending them back to a login
+// they already passed is a loop with no exit.
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }

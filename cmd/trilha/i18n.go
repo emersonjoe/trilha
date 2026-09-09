@@ -164,6 +164,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"flag gen-bind":    {"type the body binds to; written in the route's package when the project has none", "tipo em que o corpo é lido; nasce no pacote da rota quando o projeto não tem"},
 	"flag gen-form":    {"type the form binds to, with the round trip of errors and the redirect", "tipo em que o formulário é lido, com a ida e volta dos erros e o redirect"},
 	"flag gen-layout":  {"layout.go to write when the folder above the page has none", "layout.go a gravar quando a pasta acima da página não tem um"},
+	"flag with":        {"recipes to apply at creation, comma-separated (`trilha add` lists them); --with \"\" for none", "receitas a aplicar na criação, separadas por vírgula (o `trilha add` lista); --with \"\" para nenhuma"},
 	"flag add list":    {"list the recipes and write nothing", "lista as receitas e não escreve nada"},
 	"flag add json":    {"with --list, answer JSON", "com --list, responde JSON"},
 	"flag add dry":     {"show what would be written and write nothing", "mostra o que seria escrito e não escreve nada"},

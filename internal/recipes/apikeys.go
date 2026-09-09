@@ -15,16 +15,16 @@ func apiKeysRecipe() Recipe {
 		},
 		Doc: "/reference/auth",
 		Files: []File{
-			{Rel: "app/chaves/page.go", Go: true, Body: keysPage},
+			{Rel: "{{.At}}chaves/page.go", Go: true, Body: keysPage},
 		},
 		Setup: []Insert{{
 			Marker: "// trilha:add api-keys",
 			Line:   "\ttrilha.Provide(a, chaves.Keys)\n",
 		}},
-		Imports: []string{"{{.Module}}/app/chaves"},
+		Imports: []string{"{{.Module}}/{{.At}}chaves"},
 		Next: map[string]string{
-			"en": "Run `trilha dev` and open /chaves. Guard that folder, and put `chaves.Keys.Require(\"read\")` on the API branch the keys are for.",
-			"pt": "Rode `trilha dev` e abra /chaves. Guarde essa pasta, e ponha `chaves.Keys.Require(\"read\")` no ramo de API que as chaves servem.",
+			"en": "Run `trilha dev` and open {{.URL}}chaves. Guard that folder, and put `chaves.Keys.Require(\"read\")` on the API branch the keys are for.",
+			"pt": "Rode `trilha dev` e abra {{.URL}}chaves. Guarde essa pasta, e ponha `chaves.Keys.Require(\"read\")` no ramo de API que as chaves servem.",
 		},
 	}
 }
@@ -58,7 +58,7 @@ var Keys = auth.APIKeys(auth.KeyOptions{
 	RateLimit: trilha.RateLimit{RPS: 10, Burst: 30},
 })
 
-// Page lists the keys at GET /chaves, and shows a new one once.
+// Page lists the keys at GET {{.URL}}chaves, and shows a new one once.
 //
 // Guard this folder: whoever reaches it can issue a credential for your API.
 func Page(c *trilha.Ctx) (h.Node, error) {
@@ -86,7 +86,7 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		}
 	}
 	corpo = append(corpo, criar(c), ui.APIKeysTable(c, linhas, ui.APIKeysOpts{
-		Revoke: "/chaves", CSRF: trilha.CSRFInput(c),
+		Revoke: "{{.URL}}chaves", CSRF: trilha.CSRFInput(c),
 	}))
 	return h.Div(corpo...), nil
 }
@@ -113,7 +113,7 @@ func POST(c *trilha.Ctx) error {
 		c.Flash("key", plain)
 		c.Flash(ui.FlashSuccess, "{{.T.keys_created}}")
 	}
-	return c.Redirect("/chaves")
+	return c.Redirect("{{.URL}}chaves")
 }
 
 func criar(c *trilha.Ctx) h.Node {
@@ -124,7 +124,7 @@ func criar(c *trilha.Ctx) h.Node {
 		caixas = append(caixas, ui.CheckRow(
 			ui.Checkbox(h.ID(id), h.Name("escopos"), h.Value(e)), e, id))
 	}
-	return h.Form(h.Method("post"), h.Action("/chaves"), h.Class("ui-stack"),
+	return h.Form(h.Method("post"), h.Action("{{.URL}}chaves"), h.Class("ui-stack"),
 		trilha.CSRFInput(c),
 		ui.Field("nome", "{{.T.keys_name}}", ui.Input(h.ID("nome"), h.Name("nome"), h.Required())),
 		h.Fieldset(h.Legend(h.Text("{{.T.keys_scopes}}")), h.Div(caixas...)),
