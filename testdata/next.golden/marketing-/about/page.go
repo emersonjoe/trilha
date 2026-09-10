@@ -8,8 +8,8 @@ import (
 
 // Page renders GET /about, ported from app/(marketing)/about/page.tsx.
 //
-// Source: 4 lines, server component.
-// Suggested: A — no island signal.
+// Source: 11 lines, server component.
+// Suggested: A — no island signal of its own.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("About")
 	return ui.Container(

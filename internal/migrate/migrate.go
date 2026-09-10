@@ -75,6 +75,22 @@ type Project struct {
 	AppDir string // the app/ inside it, relative to Root
 	Pages  []Page
 	Notes  []Note
+	// Globals is the frame: what the layouts reach, with the signals that make
+	// it work. It is ported once — as the layout, or as one island inside it —
+	// and it is here instead of inside every screen that happens to sit under
+	// it.
+	Globals []Global
+
+	global map[string]string // the same files, by path, while scanning
+}
+
+// Global is one file the layouts reach: the shell, the provider, the chat the
+// shell carries.
+type Global struct {
+	Path    string   // relative to Root, slash-separated
+	Lines   int      // the size of that piece of the job
+	Signals []string // what it does that a form does not
+	Class   string   // what it would be if it were a screen
 }
 
 // nextFiles maps the base name of a Next file to what it becomes here.
@@ -106,6 +122,10 @@ func Scan(root string) (Project, error) {
 	}
 	p.AppDir = appDir
 	abs := filepath.Join(root, filepath.FromSlash(appDir))
+	// The frame is read first, because every screen after this is classified
+	// against it: what the layout reaches is the application's work, not the
+	// screen's.
+	p.global = globalFiles(root, abs)
 	seen := map[string]string{}
 	err = filepath.WalkDir(abs, func(fp string, d os.DirEntry, err error) error {
 		switch {
@@ -150,7 +170,58 @@ func Scan(root string) (Project, error) {
 	}
 	p.Notes = append(p.Notes, p.rootNotes()...)
 	sort.SliceStable(p.Notes, func(i, j int) bool { return p.Notes[i].Source < p.Notes[j].Source })
+	p.Globals = globalsOf(p.global)
 	return p, nil
+}
+
+// globalSet is the membership test analyze needs.
+func (p *Project) globalSet() map[string]bool {
+	out := make(map[string]bool, len(p.global))
+	for k := range p.global {
+		out[k] = true
+	}
+	return out
+}
+
+// globalFiles reads every layout and template of the app and returns what they
+// reach, by path. Those two are what the App Router defines as the frame; a
+// providers.tsx that only the layout imports arrives through the reach, with no
+// rule that has to guess from a file name.
+func globalFiles(root, appAbs string) map[string]string {
+	out := map[string]string{}
+	_ = filepath.WalkDir(appAbs, func(fp string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		base := strings.TrimSuffix(d.Name(), filepath.Ext(d.Name()))
+		if !sourceExts[filepath.Ext(d.Name())] || (base != "layout" && base != "template") {
+			return nil
+		}
+		for k, v := range deps(root, filepath.ToSlash(mustRel(root, fp))) {
+			out[k] = v
+		}
+		return nil
+	})
+	return out
+}
+
+// globalsOf keeps the global files that are work: a frame that does nothing a
+// form cannot do needs no line in the report.
+func globalsOf(files map[string]string) []Global {
+	var out []Global
+	for _, path := range sortedKeys(files) {
+		a := analyze(files[path], nil, nil)
+		if len(a.Signals) == 0 {
+			continue
+		}
+		out = append(out, Global{
+			Path:    path,
+			Lines:   strings.Count(files[path], "\n") + 1,
+			Signals: a.Signals,
+			Class:   a.Class,
+		})
+	}
+	return out
 }
 
 // findApp locates the app directory: the one given, or app/ or src/app/ under
@@ -244,7 +315,7 @@ func (p *Project) page(source, dirRel, kind, file string) (Page, []Note, bool) {
 	body, err := os.ReadFile(filepath.Join(p.Root, filepath.FromSlash(source)))
 	if err == nil {
 		pg.Lines = strings.Count(string(body), "\n") + 1
-		pg.Analysis = analyze(string(body), deps(p.Root, source))
+		pg.Analysis = analyze(string(body), deps(p.Root, source), p.globalSet())
 		if kind == KindRoute {
 			pg.Methods = handlers(string(body))
 		}

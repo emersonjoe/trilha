@@ -22,6 +22,11 @@ type Analysis struct {
 	Why       string         // the reason for the class, in one clause
 	Deps      []string       // the files it imports that were read too
 	DepLines  int            // and how many lines they add to the job
+	// Reaches are the global files this screen reaches — the shell and what
+	// the shell carries. They are not Deps: a screen wrapped by a frame is not
+	// made of it, and counting them classified twenty listings as the chat
+	// that sits beside them.
+	Reaches []string
 }
 
 // Endpoint is one address the screen calls, with the method it calls it with.
@@ -103,7 +108,12 @@ var (
 // not: a fifty-line page.tsx that imports three hundred lines of pointer
 // handling is the hardest screen in the app, and reading the page alone calls
 // it the easiest.
-func analyze(src string, deps map[string]string) Analysis {
+//
+// global is what the layouts reach, and it is read the other way round: a file
+// in it is the frame around the screen, not the screen. Its signals belong to
+// the application once — the report says so in its own section — and letting
+// them decide a class is how every screen of an app came back C.
+func analyze(src string, deps map[string]string, global map[string]bool) Analysis {
 	a := Analysis{Client: useClientRe.MatchString(src), Hooks: map[string]int{}}
 	for _, h := range hookNames {
 		// useRef<any>(null) is a useRef: the type argument sits between the
@@ -120,6 +130,13 @@ func analyze(src string, deps map[string]string) Analysis {
 	// is somewhere else.
 	from := []struct{ path, src string }{{"", src}}
 	for _, p := range sortedKeys(deps) {
+		if global[p] {
+			// The frame around the screen is not the screen. Its signals are
+			// the application's work, once, and the report says so in a
+			// section of its own.
+			a.Reaches = append(a.Reaches, p)
+			continue
+		}
 		from = append(from, struct{ path, src string }{p, deps[p]})
 		a.Deps = append(a.Deps, p)
 		a.DepLines += strings.Count(deps[p], "\n") + 1
@@ -134,6 +151,11 @@ func analyze(src string, deps map[string]string) Analysis {
 		a.Class, a.Why = ClassIsland, why(island)
 	default:
 		a.Class, a.Why = ClassForm, "no island signal"
+		if len(a.Reaches) > 0 {
+			// Saying "of its own" is the whole finding: the screen has a chat
+			// around it, and the chat is not this screen's work.
+			a.Why = "no island signal of its own"
+		}
 	}
 	return a
 }

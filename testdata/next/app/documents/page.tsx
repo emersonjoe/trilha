@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { apiGet } from "@/lib/api"
+import { DataTable } from "@/components"
 
 export default function Documents() {
   const [rows, setRows] = useState([])
@@ -9,15 +10,5 @@ export default function Documents() {
   useEffect(() => {
     apiGet(`/api/documents?q=${query}`).then(setRows)
   }, [query])
-  return (
-    <table>
-      <tbody>
-        {rows.map((r: any) => (
-          <tr key={r.id}>
-            <td>{r.name}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
+  return <DataTable rows={rows} />
 }

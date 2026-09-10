@@ -328,3 +328,115 @@ export default function Page() {
 		t.Errorf("endpoint = %+v", docs.Endpoints[0])
 	}
 }
+
+// Spec 091 (#140): measured on a real application, twenty screens out of twenty
+// came back C, and almost all of them named the same file — the chat the shell
+// carries. Reaching a file is not the same as being made of it.
+func TestOShellNaoPromoveAsTelas(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, body string) {
+		t.Helper()
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// The frame: every page is wrapped by it, and it carries a chat that draws.
+	write("app/layout.tsx", `import { Shell } from "@/components"
+export default function RootLayout({ children }) {
+  return <html><body><Shell>{children}</Shell></body></html>
+}
+`)
+	write("components/index.ts", `export { default as Shell } from "./Shell"
+export { default as Chat } from "./Chat"
+export { default as DataTable } from "./DataTable"
+`)
+	write("components/Shell.tsx", `'use client'
+import Chat from "./Chat"
+export default function Shell({ children }) { return <div>{children}<Chat /></div> }
+`)
+	write("components/Chat.tsx", `'use client'
+import { useState, useRef } from "react"
+export default function Chat() {
+  const [m, setM] = useState([])
+  const r = useRef(null)
+  return <aside ref={r}><svg viewBox="0 0 16 16" /></aside>
+}
+`)
+	write("components/DataTable.tsx", `export default function DataTable({ rows }) {
+  return <table><tbody>{rows.map(r => <tr key={r}><td>{r}</td></tr>)}</tbody></table>
+}
+`)
+
+	// Two listings with nothing of their own: a table and a call. The barrel is
+	// how a real project imports one component, and it is what dragged the chat
+	// into every screen.
+	for _, name := range []string{"usuarios", "rubricas"} {
+		write("app/"+name+"/page.tsx", `import { DataTable } from "@/components"
+export default async function Page() {
+  const rows = await fetch("/api/`+name+`").then(r => r.json())
+  return <DataTable rows={rows} />
+}
+`)
+	}
+
+	// And one screen that really is an island, so the fix cannot be "call
+	// everything A": the component is this page's, nobody else imports it.
+	write("app/mapa/page.tsx", `'use client'
+import Mapa from "./Mapa"
+export default function Page() { return <Mapa /> }
+`)
+	write("app/mapa/Mapa.tsx", `'use client'
+export default function Mapa() { return <canvas onPointerMove={() => {}} /> }
+`)
+
+	p, err := Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]Page{}
+	for _, pg := range p.Pages {
+		by[pg.Source] = pg
+	}
+
+	for _, name := range []string{"usuarios", "rubricas"} {
+		pg := by["app/"+name+"/page.tsx"]
+		if pg.Class != ClassForm {
+			t.Errorf("%s veio %s — %s; a tela não tem sinal próprio, o sinal é do shell", name, pg.Class, pg.Why)
+		}
+		if len(pg.Deps) != 1 || pg.Deps[0] != "components/DataTable.tsx" {
+			t.Errorf("%s trouxe os irmãos do barril: %v", name, pg.Deps)
+		}
+	}
+
+	mapa := by["app/mapa/page.tsx"]
+	if mapa.Class != ClassSPA {
+		t.Errorf("o mapa veio %s — %s; o componente é só dele", mapa.Class, mapa.Why)
+	}
+
+	// The chat is work, and it is work done once: it belongs in the report as a
+	// global dependency, not in twenty rows of the table.
+	if len(p.Globals) == 0 {
+		t.Fatal("o relatório não lista nenhuma dependência global")
+	}
+	var chat *Global
+	for i, g := range p.Globals {
+		if g.Path == "components/Chat.tsx" {
+			chat = &p.Globals[i]
+		}
+	}
+	if chat == nil {
+		t.Fatalf("o chat não está entre as dependências globais: %+v", p.Globals)
+	}
+	if len(chat.Signals) == 0 {
+		t.Errorf("a dependência global veio sem o sinal que a torna trabalho: %+v", chat)
+	}
+	md := Report(p, "pt")
+	if n := strings.Count(md, "components/Chat.tsx"); n != 1 {
+		t.Errorf("o chat aparece %d vezes no relatório; é para aparecer uma", n)
+	}
+}

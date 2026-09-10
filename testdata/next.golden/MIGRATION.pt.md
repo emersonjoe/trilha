@@ -6,14 +6,14 @@ Lido de `app`: 13 arquivos com para onde ir. A árvore ao lado deste arquivo é 
 
 | Origem | Aqui | URL | Cliente | Chama | Sugestão |
 |---|---|---|---|---|---|
-| `app/(marketing)/about/page.tsx` (4) | `marketing-/about/page.go` | `/about` | não | — | A — no island signal |
+| `app/(marketing)/about/page.tsx` (11) | `marketing-/about/page.go` | `/about` | não | — | A — no island signal of its own |
 | `app/api/documents/route.ts` (15) | `api/documents/route.go` | `/api/documents` | não | — | — |
 | `app/api/health/route.ts` (2) | `api/health/route.go` | `/api/health` | não | — | — |
 | `app/dashboard/layout.tsx` (4) | `dashboard/layout.go` | `/dashboard` | não | — | — |
 | `app/dashboard/page.tsx` (15) | `dashboard/page.go` | `/dashboard` | sim (1 useState, 1 useMemo) | GET /api/metrics?range=:range | C — pointer and drawing |
 | `app/docs/[[...slug]]/page.tsx` (4) | `docs/slug__/page.go` | `/docs/{slug...}` | não | — | A — no island signal |
 | `app/documents/[id]/page.tsx` (24) | `documents/id_/page.go` | `/documents/{id}` | sim (2 useState, 1 useEffect, 1 useRef) | GET /api/documents/:id<br>POST /api/documents/:id/reprocess<br>GET /api/documents/:id/status | B — polling |
-| `app/documents/page.tsx` (24) | `documents/page.go` | `/documents` | sim (2 useState, 1 useEffect) | GET /api/documents?q=:query | A — no island signal |
+| `app/documents/page.tsx` (15 + 12) | `documents/page.go` | `/documents` | sim (2 useState, 1 useEffect) | GET /api/documents?q=:query | A — no island signal |
 | `app/error.tsx` (6) | `error.go` | `/` | sim | — | — |
 | `app/files/[...path]/page.tsx` (4) | `files/path__/page.go` | `/files/{path...}` | não | — | A — no island signal |
 | `app/not-found.tsx` (4) | `not_found.go` | `/` | não | — | — |
@@ -21,6 +21,12 @@ Lido de `app`: 13 arquivos com para onde ir. A árvore ao lado deste arquivo é 
 | `app/users/[user-id]/page.tsx` (6) | `users/user_id_/page.go` | `/users/{user_id}` | não | GET /api/users/:user_id | A — no island signal |
 
 A sugestão é mecânica, e está aqui para ser contestada: **C** quando o arquivo mostra tratador de ponteiro, superfície de desenho (`<svg>`, `<canvas>`) ou editor — quem trabalha é o browser, então vira ilha; **B** quando faz polling, abre modal, tem abas ou recebe arquivo — o kit faz isso sem bundle; **A** no resto, que é formulário e lista, e cabe inteiro no servidor.
+
+## Dependências globais
+
+Alcançadas a partir de um `layout.tsx`: a moldura de todas as telas, e trabalho de nenhuma delas em particular. Porta-se uma vez — no layout, ou numa ilha só — e não muda a classe das telas que envolve.
+
+- `components/Chat.tsx` (19 linhas): drawing, polling — sozinha seria C.
 
 ## Sem equivalente
 

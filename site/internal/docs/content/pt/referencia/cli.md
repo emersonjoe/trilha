@@ -278,6 +278,15 @@ junta isso numa tabela só, mais a lista do que não tem equivalente aqui: estad
 carregamento, templates, rotas paralelas e interceptadoras, middleware e rewrites, cada um com
 a frase que explica o que ocupa o lugar.
 
+A sugestão é sobre a tela, e só sobre ela. Um componente que a página importa conta para ela —
+um `page.tsx` de cinquenta linhas na frente de um componente de trezentas não é uma porta de
+cinquenta linhas —, mas a moldura não é a tela: o que um `layout.tsx` alcança é listado uma vez,
+em **Dependências globais**, e não promove as páginas que envolve. O barril também não:
+`import { DataTable } from "@/components"` segue a linha do `index.ts` que reexporta `DataTable`
+e mais nenhuma, porque reexportar não é usar. Sem essas duas regras, um shell que carrega um chat
+com `<svg>` classificou todas as telas da aplicação como **C** — uma ordem de trabalho que manda
+começar por qualquer lugar.
+
 As telas em si não são traduzidas. O corpo de uma página é regra de negócio, e máquina
 chutando isso custa mais para revisar do que para escrever — o guia
 [Do Next.js para a Trilha](/pt/receitas/do-next) tem o padrão de React ao lado da linha que

@@ -280,6 +280,15 @@ a verdict. `MIGRATION.md` gathers the same thing in one table, plus the list of 
 equivalent here: loading states, templates, parallel and intercepting routes, middleware and
 rewrites, each with the sentence explaining what takes its place.
 
+The suggestion is about the screen, and only about the screen. A component the page imports
+counts for it — a fifty-line `page.tsx` in front of a three-hundred-line component is not a
+fifty-line port — but the frame is not the screen: what a `layout.tsx` reaches is listed once,
+under **Global dependencies**, and does not promote the pages it wraps. Neither does a barrel:
+`import { DataTable } from "@/components"` follows the line of the `index.ts` that forwards
+`DataTable` and no other, because re-exporting is not using. Without those two rules a shell
+carrying a chat with an `<svg>` classified every screen of the application as **C**, which is
+an order of work that says start anywhere.
+
 The screens themselves are not translated. A page's body is business logic, and a machine
 guessing at it would cost more to review than to write — the guide
 [From Next.js to Trilha](/cookbook/from-next) has the React pattern beside the line that

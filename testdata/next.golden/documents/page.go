@@ -8,7 +8,7 @@ import (
 
 // Page renders GET /documents, ported from app/documents/page.tsx.
 //
-// Source: 24 lines, 'use client', 1 useEffect, 2 useState.
+// Source: 15 lines, 'use client', 1 useEffect, 2 useState.
 // Calls: GET /api/documents?q=:query.
 // Suggested: A — no island signal.
 func Page(c *trilha.Ctx) (h.Node, error) {

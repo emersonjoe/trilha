@@ -53,6 +53,16 @@ func Report(p Project, lang string) string {
 			pg.Source, size, file, pg.URL, client, calls, class)
 	}
 	fmt.Fprintf(&b, "\n%s\n\n", t["rule"])
+	// The frame, once. Without this section the chat the shell carries has two
+	// bad places to be: inside every row of the table above, or nowhere.
+	if len(p.Globals) > 0 {
+		fmt.Fprintf(&b, "## %s\n\n%s\n\n", t["globals"], t["globals.intro"])
+		for _, g := range p.Globals {
+			fmt.Fprintf(&b, "- `%s` (%d %s): %s — %s %s.\n",
+				g.Path, g.Lines, t["lines"], strings.Join(g.Signals, ", "), t["alone"], g.Class)
+		}
+		b.WriteString("\n")
+	}
 	fmt.Fprintf(&b, "## %s\n\n", t["notes"])
 	if len(p.Notes) == 0 {
 		fmt.Fprintf(&b, "%s\n", t["notes.none"])
@@ -112,6 +122,13 @@ func reportText(lang string) map[string]string {
 			"a file — the kit does that without a bundle; **A** otherwise, which is a form and a list, and " +
 			"the whole screen fits on the server.",
 
+		"globals": "Global dependencies",
+		"globals.intro": "Reached from a `layout.tsx`: the frame around every screen, not the work of any one " +
+			"of them. It is ported once — into the layout, or into a single island inside it — and it does " +
+			"not change the class of the screens it wraps.",
+		"lines": "lines",
+		"alone": "on its own it would be",
+
 		"screens.none": "No screen was found.",
 		"notes":        "No equivalent",
 		"notes.none":   "Nothing: everything found has somewhere to go.",
@@ -156,6 +173,13 @@ func reportText(lang string) map[string]string {
 			"tratador de ponteiro, superfície de desenho (`<svg>`, `<canvas>`) ou editor — quem trabalha é o " +
 			"browser, então vira ilha; **B** quando faz polling, abre modal, tem abas ou recebe arquivo — o " +
 			"kit faz isso sem bundle; **A** no resto, que é formulário e lista, e cabe inteiro no servidor.",
+
+		"globals": "Dependências globais",
+		"globals.intro": "Alcançadas a partir de um `layout.tsx`: a moldura de todas as telas, e trabalho de " +
+			"nenhuma delas em particular. Porta-se uma vez — no layout, ou numa ilha só — e não muda a classe " +
+			"das telas que envolve.",
+		"lines": "linhas",
+		"alone": "sozinha seria",
 
 		"screens.none": "Nenhuma tela encontrada.",
 		"notes":        "Sem equivalente",

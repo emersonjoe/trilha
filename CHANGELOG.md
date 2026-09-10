@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.72.0 — 2026-09-10
+
+Spec 091. Closes [#140](https://github.com/emersonjoe/trilha/issues/140).
+
+### Fixed
+
+- **`trilha migrate next` no longer classifies every screen by the shell.** Measured on a real
+  application: 20 of 20 screens came back **C**, almost all of them naming the same file — the
+  chat the shell carries. The A → B → C order is the report's product, and a column that answers
+  "C" for everything orders nothing.
+
+  Two causes, and reaching a file was the common half of both. **A barrel is crossed by name**:
+  `import { DataTable } from "@/components"` now follows the line of the `index.ts` that forwards
+  `DataTable` and no other, because re-exporting is not using — before, one named import dragged
+  in every sibling the index listed. **What a `layout.tsx` reaches is global**: it is the frame
+  around every screen and the work of none of them, so it no longer decides a class, and it is
+  listed once in a new **Global dependencies** section with the signals that make it work — what
+  gets ported once, into the layout or into a single island inside it.
+
+  What did not change is why the transitive read exists at all: a component that only one page
+  imports still counts for that page, with its signal and its lines. A fifty-line `page.tsx` in
+  front of a three-hundred-line component is still not a fifty-line port.
+
 ## 0.71.0 — 2026-09-10
 
 Spec 090. Part of [#94](https://github.com/emersonjoe/trilha/issues/94), which stays open for the
