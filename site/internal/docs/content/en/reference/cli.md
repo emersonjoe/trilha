@@ -575,6 +575,7 @@ touch a project that already has code.
 | `share-link` | a signed link with a deadline: access to one thing, without an account |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
 | `tasks` | the work that does not fit in a request: queue, dedupe, retry, and the screen |
+| `tenant` | organisations: choosing one, switching, and where the column goes |
 | `webhooks` | what this app announces to the outside: signed delivery with retry, and the screen for it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
@@ -618,7 +619,7 @@ Each one comes with memory behind it, so the screen works from the first request
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an
 audit trail names people, and a keys screen issues credentials.
 
-One more is coming — `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
+That is every recipe [#116](https://github.com/emersonjoe/trilha/issues/116) listed. The next one is whichever pattern an application repeats and this list does not have.
 
 ### Why the CI applies every one of them
 

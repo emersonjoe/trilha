@@ -571,6 +571,7 @@ mexer num projeto que já tem código.
 | `share-link` | um link assinado com prazo: acesso a uma coisa, sem conta |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
 | `tasks` | o trabalho que não cabe numa requisição: fila, dedupe, retry, e a tela |
+| `tenant` | organizações: escolher uma, trocar, e onde a coluna entra |
 | `webhooks` | o que este app avisa para fora: entrega assinada com retry, e a tela dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
@@ -612,7 +613,7 @@ Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisi
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
 guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
 
-Falta uma — `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
+São todas as receitas que a [#116](https://github.com/emersonjoe/trilha/issues/116) listou. A próxima é o padrão que uma aplicação repete e que esta lista não tem.
 
 ### Por que a CI aplica todas elas
 

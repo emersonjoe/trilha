@@ -3,6 +3,31 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.88.0 — 2026-09-10
+
+Spec 108. Closes [#116](https://github.com/emersonjoe/trilha/issues/116); part of
+[#117](https://github.com/emersonjoe/trilha/issues/117), which stays open.
+
+### Added
+
+- **`trilha add tenant`: the column that must not be missing.** One column is the most common
+  shape of multi-tenant, and forgetting it in one query is its most common bug — the report that
+  shows another customer's rows, found by the customer.
+
+  The recipe writes the organisations, **who belongs to which**, the screen that picks and
+  switches, and the check the framework deliberately does not do: `auth.SwitchTenant` does not know
+  what a membership is in your application, and pretending to would be a check that looks like a
+  guarantee and is not one. Without that line the screen is a URL that moves anybody into any
+  organisation.
+
+  The screen asks for a session and **not** for a tenant: guarding the screen where the
+  organisation is chosen with the rule that one must already be chosen is a loop with no way out.
+
+- **That closes the list of recipes `#116` asked for**: `audit`, `api-keys`, `settings`, `login`,
+  `users`, `permissions`, `profile`, `webhooks`, `tasks`, `mail`, `blob`, `share-link` and
+  `tenant`. Every one of them is applied to the same fresh project by the CI, with `trilha check`
+  on top — and each ships the test that proves what it wrote actually answers.
+
 ## 0.87.0 — 2026-09-10
 
 Spec 107. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for

@@ -198,5 +198,13 @@ var words = func(lang string) map[string]string {
 		"share_title": "Shared with you",
 		"share_desc":  "This link is worth something for a while and then stops. Nobody needed an account to open it.",
 		"share_item":  "Item %s.",
+
+		"tenant_title":    "Organisations",
+		"tenant_desc":     "Pick which one you are in. Switching changes what you see, and is recorded.",
+		"tenant_current":  "current",
+		"tenant_none":     "You do not belong to any organisation yet.",
+		"tenant_switched": "Organisation switched.",
+		"tenant_denied":   "You do not belong to that organisation.",
+		"tenant_gone":     "Your session ended.",
 	}
 }
