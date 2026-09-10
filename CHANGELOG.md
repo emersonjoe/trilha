@@ -3,6 +3,31 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.82.0 — 2026-09-10
+
+Spec 102. Part of [#116](https://github.com/emersonjoe/trilha/issues/116) and
+[#117](https://github.com/emersonjoe/trilha/issues/117), both of which stay open.
+
+### Added
+
+- **`trilha add profile`: the account screen, and only your own.** The smallest of the four
+  screens that issue lists, and the one where the same bug is written most often — the form
+  carries the id and the server trusts it.
+
+  There is **no id on the screen**, in any form. It comes from the session, which is the only
+  place that knows whose account is being changed; a form that carried it would be a form somebody
+  edits, turning the profile screen into everybody else's profile screen.
+
+  Changing the password **asks for the current one** even with a session open: a machine left
+  unlocked for two minutes should not become an account somebody lost, and the current password is
+  what the owner knows and whoever walked past does not. It then **ends the session** — signing in
+  again is the proof that the new password is the one they meant. Ending the *other* sessions needs
+  a store that can find them by owner, which the one in memory cannot; the file says so where that
+  line goes.
+
+  Changing an e-mail is deliberately not here: without confirming at the new address, changing an
+  e-mail is changing owner.
+
 ## 0.81.0 — 2026-09-10
 
 Spec 101. Part of [#116](https://github.com/emersonjoe/trilha/issues/116) and

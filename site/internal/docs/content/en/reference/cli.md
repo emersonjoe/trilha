@@ -569,6 +569,7 @@ touch a project that already has code.
 | `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
 | `login` | a session of your own: the users table, the sign-in screen and the way out |
 | `permissions` | the permission matrix as data, and the screen that edits it |
+| `profile` | the account screen: own name, own password — the id comes from the session |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
@@ -593,6 +594,13 @@ spread over eighteen files stops being written. It writes the policy as data —
 levels, what each role has — the three functions that read it, and the `ui.PolicyGrid` screen. The
 screen that edits the matrix is guarded **by the matrix itself**, because a permissions screen
 behind an if on the role is a matrix with one exception living outside it.
+
+`profile` is the smallest of them and the one where the same bug is written most often: the form
+carries the id and the server trusts it. There is no id on that screen, in any form — it comes
+from the session, the only place that knows whose account is being changed. Changing the password
+asks for the current one even with a session open (a machine left unlocked for two minutes should
+not become an account somebody lost) and then ends the session, because signing in again is the
+proof that the new password is the one they meant.
 
 Each one comes with memory behind it, so the screen works from the first request, and a comment
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an

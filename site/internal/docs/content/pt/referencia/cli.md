@@ -565,6 +565,7 @@ mexer num projeto que já tem código.
 | `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
 | `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
 | `permissions` | a matriz de permissões como dado, e a tela que a edita |
+| `profile` | a tela da própria conta: nome e senha — o id vem da sessão |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
@@ -589,6 +590,12 @@ dezoito arquivos deixa de ser escrito. Ela escreve a política como dado — mó
 ordenados, o que cada papel tem —, as três funções que a leem e a tela do `ui.PolicyGrid`. A tela
 que edita a matriz é guardada **pela própria matriz**, porque uma tela de permissões atrás de um
 if no papel é uma matriz com uma exceção do lado de fora.
+
+A `profile` é a menor delas e aquela onde mais se escreve o mesmo bug: o formulário manda o id e o
+servidor confia. Nessa tela não existe id em formulário nenhum — ele vem da sessão, o único lugar
+que sabe de quem é a conta. Trocar a senha pede a senha atual mesmo com a sessão aberta (um
+computador destravado por dois minutos não deve virar uma conta perdida) e depois fecha a sessão,
+porque entrar de novo é a prova de que a senha nova é a que a pessoa quis.
 
 Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisição, e um comentário
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser

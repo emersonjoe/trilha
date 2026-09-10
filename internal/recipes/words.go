@@ -67,6 +67,20 @@ var words = func(lang string) map[string]string {
 			"perms_none":  "sem acesso",
 			"perms_save":  "Salvar",
 			"perms_saved": "Permissões salvas.",
+
+			"profile_title":         "Minha conta",
+			"profile_name":          "Nome",
+			"profile_save":          "Salvar",
+			"profile_saved":         "Nome salvo.",
+			"profile_need_name":     "Diga um nome.",
+			"profile_password":      "Senha",
+			"profile_password_desc": "Trocar a senha fecha esta sessão: entre de novo com a nova.",
+			"profile_current":       "Senha atual",
+			"profile_new":           "Senha nova",
+			"profile_change":        "Trocar senha",
+			"profile_wrong":         "A senha atual não confere, ou a nova tem menos de 12 caracteres.",
+			"profile_password_done": "Senha trocada. Entre de novo.",
+			"profile_gone":          "Sua sessão acabou.",
 		}
 	}
 	return map[string]string{
@@ -128,5 +142,19 @@ var words = func(lang string) map[string]string {
 		"perms_none":  "no access",
 		"perms_save":  "Save",
 		"perms_saved": "Permissions saved.",
+
+		"profile_title":         "My account",
+		"profile_name":          "Name",
+		"profile_save":          "Save",
+		"profile_saved":         "Name saved.",
+		"profile_need_name":     "Say a name.",
+		"profile_password":      "Password",
+		"profile_password_desc": "Changing the password ends this session: sign in again with the new one.",
+		"profile_current":       "Current password",
+		"profile_new":           "New password",
+		"profile_change":        "Change password",
+		"profile_wrong":         "The current password does not match, or the new one is shorter than 12 characters.",
+		"profile_password_done": "Password changed. Sign in again.",
+		"profile_gone":          "Your session ended.",
 	}
 }
