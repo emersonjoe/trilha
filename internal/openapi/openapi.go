@@ -27,10 +27,14 @@ type Options struct {
 }
 
 type document struct {
-	OpenAPI    string               `json:"openapi"`
-	Info       info                 `json:"info"`
-	Servers    []server             `json:"servers,omitempty"`
-	Paths      map[string]*pathItem `json:"paths"`
+	OpenAPI string               `json:"openapi"`
+	Info    info                 `json:"info"`
+	Servers []server             `json:"servers,omitempty"`
+	Paths   map[string]*pathItem `json:"paths"`
+	// Webhooks is the other half of the contract: what the application sends.
+	// OpenAPI 3.1 puts it beside paths, and a document with only paths
+	// describes half of an integration.
+	Webhooks   map[string]*pathItem `json:"webhooks,omitempty"`
 	Components components           `json:"components"`
 }
 
@@ -136,6 +140,9 @@ func Generate(root string, res *scan.Result, o Options) ([]byte, error) {
 		}
 		doc.Paths[openAPIPath(r.Pattern)] = item
 	}
+	// The webhooks come after the routes on purpose: a struct that is already a
+	// component of a route is referenced here, not copied.
+	doc.Webhooks = g.webhooks(root)
 	doc.Components = components{Schemas: g.schemas}
 	out, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {

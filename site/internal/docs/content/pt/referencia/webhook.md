@@ -51,6 +51,13 @@ evento que ninguém assina — que, de fora, é indistinguível de um parceiro q
 Contexto `nil` é um job de fundo; de um manipulador, passe `c` e o tenant e a linha de auditoria
 vêm junto.
 
+O `trilha openapi` lê essas chamadas: um `Emit` com o nome do evento escrito nele vira uma entrada
+na seção `webhooks` do documento, com o schema do payload como corpo e os quatro cabeçalhos da
+entrega descritos. Um struct que já é componente de uma rota entra ali por `$ref`, não copiado —
+então quem integra do outro lado lê um documento em vez do seu código. Um `Emit` cujo nome vem de
+uma variável não é documentado: um documento não pode dizer um nome que só existe na hora de
+rodar.
+
 ## O que vai na rede
 
 ```

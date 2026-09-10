@@ -347,6 +347,11 @@ to the module name, `0.0.0` and no server). `--check` compares with the file on 
 - run: trilha openapi --check
 ```
 
+The document also carries what the application **sends**: every
+[`webhook`](/reference/webhook#emitting) `Emit` with the event name written in it becomes an entry
+in the `webhooks` section of OpenAPI 3.1, with the payload's schema and the delivery headers. A
+document with only `paths` describes half of an integration.
+
 What is deduced and the `openapi:` directives are in [APIs](/learn/api#the-openapi-document).
 
 ## trilha check

@@ -357,3 +357,44 @@ func TestListaEMapaNoCorpo(t *testing.T) {
 		t.Errorf("perm.additionalProperties.type = %v", got)
 	}
 }
+
+// #112 — o documento descrevia só o que o app recebe. A seção webhooks é a
+// outra metade do contrato: o que ele manda, com o corpo e como conferir a
+// assinatura.
+func TestWebhooksDoQueOAppManda(t *testing.T) {
+	doc := decode(t, gen(t, filepath.Join("..", "..", "testdata", "apps", "openapi"), "example.com/openapi", Options{}))
+
+	// O evento com nome escrito na chamada entra, com o corpo do payload — e o
+	// struct que já é componente de uma rota vem por $ref, não copiado.
+	ref := at(t, doc, "webhooks", "item.criado", "post", "requestBody", "content",
+		"application/json", "schema", "$ref")
+	if ref != "#/components/schemas/store.Item" {
+		t.Fatalf("o corpo do webhook = %v", ref)
+	}
+
+	// Os quatro cabeçalhos da entrega estão descritos: quem integra do outro
+	// lado lê o documento, não o nosso código.
+	params, ok := at(t, doc, "webhooks", "item.criado", "post", "parameters").([]any)
+	if !ok || len(params) != 4 {
+		t.Fatalf("parameters = %v", params)
+	}
+	var nomes []string
+	for _, p := range params {
+		nomes = append(nomes, p.(map[string]any)["name"].(string))
+	}
+	if got := strings.Join(nomes, ","); got != "X-Webhook-Id,X-Webhook-Event,X-Webhook-Timestamp,X-Webhook-Signature" {
+		t.Fatalf("cabeçalhos = %s", got)
+	}
+
+	// Um Emit cujo nome vem de variável não inventa evento nenhum: um documento
+	// não pode dizer um nome que só existe na hora de rodar.
+	hooks := at(t, doc, "webhooks").(map[string]any)
+	if len(hooks) != 2 {
+		t.Fatalf("eventos = %v", hooks)
+	}
+	for nome := range hooks {
+		if strings.Contains(nome, "evento") || strings.HasSuffix(nome, ".") {
+			t.Fatalf("um nome de variável virou evento: %q", nome)
+		}
+	}
+}

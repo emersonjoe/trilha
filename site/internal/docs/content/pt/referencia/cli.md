@@ -346,6 +346,11 @@ disco e sai com `1` quando divergem — a mesma linha que o `gen --check` é, pe
 - run: trilha openapi --check
 ```
 
+O documento leva também o que a aplicação **manda**: cada `Emit` do
+[`webhook`](/pt/referencia/webhook#emitindo) com o nome do evento escrito nele vira uma entrada na
+seção `webhooks` do OpenAPI 3.1, com o schema do payload e os cabeçalhos da entrega. Um documento
+só com `paths` descreve metade de uma integração.
+
 O que é deduzido e as diretivas `openapi:` estão em [APIs](/pt/aprender/api#documento-openapi).
 
 ## trilha check

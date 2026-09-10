@@ -3,6 +3,26 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.77.0 — 2026-09-10
+
+Spec 097. Closes [#112](https://github.com/emersonjoe/trilha/issues/112).
+
+### Added
+
+- **`trilha openapi` documents what the application sends, not only what it receives.** The
+  document ends up with a `webhooks` section beside `paths`, which is where OpenAPI 3.1 puts it —
+  and a document with only `paths` describes half of an integration.
+
+  The events come from the calls to `Emit`, with the name written in the call and the body read
+  from the payload by the same machinery that reads the body of a route: a struct that is already
+  a component is referenced with `$ref` and not copied. The four delivery headers — the id that
+  repeats across retries, the event, the timestamp and the HMAC signature — are described on every
+  entry, so whoever integrates from the other side reads one document instead of your code.
+
+  An `Emit` whose event name comes from a variable is not documented. A document cannot state a
+  name that does not exist until the program runs, and the rule is printed in the reference so it
+  can be argued with, like the rest of what this generator deduces.
+
 ## 0.76.0 — 2026-09-10
 
 Spec 096. Part of [#116](https://github.com/emersonjoe/trilha/issues/116) and

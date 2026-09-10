@@ -420,6 +420,142 @@
       }
     }
   },
+  "webhooks": {
+    "item.criado": {
+      "post": {
+        "summary": "Sent when item.criado happens.",
+        "operationId": "webhook_item_criado",
+        "parameters": [
+          {
+            "name": "X-Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "Id of this delivery. The same id repeats on a retry, so the receiver can make the handling idempotent.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "Name of the event, the same key as in this section.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix seconds of the delivery, and the first half of what the signature covers.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "sha256=… — HMAC-SHA256 of \"timestamp.body\" with the subscription's secret. webhook.Verify checks it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/store.Item"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Received. Any 2xx within the timeout ends the delivery; anything else is retried with backoff."
+          }
+        }
+      }
+    },
+    "pedido.criado": {
+      "post": {
+        "summary": "Sent when pedido.criado happens.",
+        "operationId": "webhook_pedido_criado",
+        "parameters": [
+          {
+            "name": "X-Webhook-Id",
+            "in": "header",
+            "required": true,
+            "description": "Id of this delivery. The same id repeats on a retry, so the receiver can make the handling idempotent.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Webhook-Event",
+            "in": "header",
+            "required": true,
+            "description": "Name of the event, the same key as in this section.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Webhook-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix seconds of the delivery, and the first half of what the signature covers.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Webhook-Signature",
+            "in": "header",
+            "required": true,
+            "description": "sha256=… — HMAC-SHA256 of \"timestamp.body\" with the subscription's secret. webhook.Verify checks it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "items": {
+                      "$ref": "#/components/schemas/orders.Row"
+                    }
+                  },
+                  "perm": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Received. Any 2xx within the timeout ends the delivery; anything else is retried with backoff."
+          }
+        }
+      }
+    }
+  },
   "components": {
     "schemas": {
       "Problem": {

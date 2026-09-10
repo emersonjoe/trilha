@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/emersonjoe/trilha"
+	"example.com/openapi/app/api/items"
 )
 
 // Row is one line of the order.
@@ -23,5 +24,6 @@ func POST(c *trilha.Ctx) error {
 	if err := c.Bind(&in); err != nil {
 		return err
 	}
+	items.Hooks.Emit(c, "pedido.criado", in)
 	return c.JSON(http.StatusCreated, in)
 }

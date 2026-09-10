@@ -51,6 +51,13 @@ nobody subscribed to, which from outside is indistinguishable from a partner who
 listening. A `nil` context is a background job; from a handler, pass `c` and the tenant and the
 audit line come with it.
 
+`trilha openapi` reads these calls: an `Emit` with the event name written in it becomes an entry
+in the document's `webhooks` section, with the payload's schema as the body and the four delivery
+headers described. A struct that is already a component of a route is referenced there, not
+copied — so whoever integrates from the other side reads one document instead of your code. An
+`Emit` whose name comes from a variable is not documented: a document cannot state a name that
+does not exist until the program runs.
+
 ## What goes on the wire
 
 ```
