@@ -189,3 +189,57 @@ func ler(t *testing.T, raiz, rel string) string {
 	}
 	return string(b)
 }
+
+// #115 — "gerador que sobrescreve é gerador que ninguém roda duas vezes". A
+// recusa já existia; o que faltava era o que ela diz. Quem roda de novo é
+// porque o struct mudou, e o que essa pessoa quer saber é qual campo entrou e
+// onde ele falta.
+func TestCrudRodadoDeNovoDizOQueFaltou(t *testing.T) {
+	raiz := projetoComTipo(t, tipoSrc)
+	o := CrudOptions{Type: "docs.Tipo", Module: "example.com/loja", Lang: "en"}
+	if _, err := Crud(raiz, o); err != nil {
+		t.Fatal(err)
+	}
+
+	// Com o struct igual, as telas têm tudo.
+	faltando, err := CrudMissing(raiz, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(faltando) != 0 {
+		t.Fatalf("achou o que não falta: %+v", faltando)
+	}
+
+	// O struct ganha um campo, que é a razão de alguém rodar o comando de novo.
+	novo := strings.Replace(tipoSrc, "\tSegredo ",
+		"\tDescricao string    `json:\"descricao\" form:\"descricao\" validate:\"max=200\"`\n\tSegredo ", 1)
+	if err := os.WriteFile(filepath.Join(raiz, filepath.FromSlash("internal/docs/tipo.go")),
+		[]byte(novo), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	faltando, err = CrudMissing(raiz, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(faltando) != 3 {
+		t.Fatalf("faltando = %+v", faltando)
+	}
+	quero := []string{"app/tipos/page.go", "app/tipos/new/page.go", "app/tipos/id_/page.go"}
+	for i, m := range faltando {
+		if m.Field != "Descricao" || m.Form != "descricao" {
+			t.Errorf("campo = %+v", m)
+		}
+		if m.File != quero[i] {
+			t.Errorf("arquivo = %s, quero %s", m.File, quero[i])
+		}
+		if m.Line <= 0 {
+			t.Errorf("sem linha: %+v", m)
+		}
+	}
+
+	// E nada disso escreve: a segunda execução continua não tocando em nada.
+	if _, err := Crud(raiz, o); !errors.Is(err, ErrGenExists) {
+		t.Fatalf("a segunda execução escreveu: %v", err)
+	}
+}

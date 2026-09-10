@@ -3,6 +3,33 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.80.0 — 2026-09-10
+
+Spec 100. Part of [#115](https://github.com/emersonjoe/trilha/issues/115), which stays open for
+`--store`, `--tenant`, `--policy` and `--schema`.
+
+### Added
+
+- **`trilha generate crud` run a second time says what the struct grew.** The refusal to overwrite
+  came in 0.68.0; what it said was only that the file exists, which whoever ran the command
+  already knew. The reason they ran it again is that the struct has a new field.
+
+  ```text
+  $ trilha generate crud docs.Tipo
+  already generated — nothing was written.
+
+    Descricao is not in the listing
+      add {Key: "descricao", …} app/tipos/page.go:21
+    Descricao is not in the form
+      add ui.Field("descricao", …) app/tipos/new/page.go:34
+  ```
+
+  It writes nothing and exits `0`: running it again is a normal thing to do, and what it prints is
+  information. It does not add the field either — writing inside a file somebody has edited is
+  overwriting with extra steps — it hands over the line and the place. With the struct unchanged
+  it says that, in one line. Half a CRUD on disk is still the refusal that names the file, because
+  that is a different problem.
+
 ## 0.79.0 — 2026-09-10
 
 Spec 099. Part of [#118](https://github.com/emersonjoe/trilha/issues/118), which stays open for

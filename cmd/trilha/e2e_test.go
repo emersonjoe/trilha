@@ -717,18 +717,39 @@ func TestGenerateCrudE2E(t *testing.T) {
 		t.Fatal(out)
 	}
 
-	// Generating again over what is there refuses, and names the file. There
-	// is no --force: a CRUD is what somebody generates after editing one.
-	again := exec.Command(cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos")
-	again.Dir = proj
-	out2, err := again.CombinedOutput()
-	if err == nil {
-		t.Fatal("generating over an existing CRUD must refuse:\n" + string(out2))
+	// Generating again writes nothing — there is no --force, because a CRUD is
+	// what somebody generates after editing one — and it says what running it
+	// again is worth: with the struct unchanged, that the screens have
+	// everything.
+	out2 := run(t, proj, cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos")
+	if !strings.Contains(out2, "already generated") || !strings.Contains(out2, "every field") {
+		t.Fatal("the second run does not say what it found:\n" + out2)
 	}
-	// The refusal names the file, because "it exists" without saying which is
-	// a message somebody has to go looking behind.
-	if !strings.Contains(string(out2), "tipo_store.go") {
-		t.Fatal("the refusal does not name the file:\n" + string(out2))
+
+	// And with a field the screens do not have — which is the reason somebody
+	// runs it a second time — it says which, and where it goes.
+	caminhoTipo := filepath.Join(proj, "internal", "docs", "tipo.go")
+	src, err := os.ReadFile(caminhoTipo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag := "`" + `json:"descricao" form:"descricao" validate:"max=200"` + "`"
+	grown := strings.Replace(string(src), "type Tipo struct {",
+		"type Tipo struct {\n\tDescricao string "+tag, 1)
+	mustWrite(t, caminhoTipo, grown)
+	out3 := run(t, proj, cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos")
+	for _, want := range []string{"Descricao", "ui.Field(\"descricao\"", "app/admin/tipos/new/page.go:"} {
+		if !strings.Contains(out3, want) {
+			t.Fatalf("the diff does not say %q:\n%s", want, out3)
+		}
+	}
+	// Still nothing written: the file on disk is the one that was edited.
+	after, err := os.ReadFile(filepath.Join(proj, "app", "admin", "tipos", "new", "page.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(after), "descricao") {
+		t.Fatal("the second run wrote into the form")
 	}
 }
 

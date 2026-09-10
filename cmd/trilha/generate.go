@@ -94,14 +94,32 @@ func crud(arg string, args []string) error {
 	if err != nil {
 		return err
 	}
-	res, err := scaffold.Crud(p.Root, scaffold.CrudOptions{
-		Type: arg, At: *at, Module: p.Module, Lang: *langFlag,
-	})
+	opts := scaffold.CrudOptions{Type: arg, At: *at, Module: p.Module, Lang: *langFlag}
+	res, err := scaffold.Crud(p.Root, opts)
 	switch {
 	case errors.Is(err, scaffold.ErrGenExists):
-		// No --force, and the message says why rather than offering one: the
-		// CRUD is what somebody generates after having edited it.
-		return fmt.Errorf("%w — %s", err, t("crud exists"))
+		// No --force, and no offer of one: the CRUD is what somebody generates
+		// after having edited it. What running it again is worth is the answer
+		// to why they ran it — the struct grew a field — so that is what gets
+		// printed, and it is information and not a failure.
+		faltando, ferr := scaffold.CrudMissing(p.Root, opts)
+		if ferr != nil {
+			return fmt.Errorf("%w — %s", err, t("crud exists"))
+		}
+		if len(faltando) == 0 {
+			fmt.Println(t("crud already") + " " + t("crud complete"))
+			return nil
+		}
+		fmt.Println(t("crud already"))
+		fmt.Println()
+		for _, m := range faltando {
+			where, how := t("crud missing form"), fmt.Sprintf("ui.Field(%q, …)", m.Form)
+			if m.Kind == "list" {
+				where, how = t("crud missing list"), fmt.Sprintf("{Key: %q, …}", m.Form)
+			}
+			fmt.Printf("  %s %s\n    %s %s %s:%d\n", m.Field, where, t("crud missing add"), how, m.File, m.Line)
+		}
+		return nil
 	case err != nil:
 		return err
 	}

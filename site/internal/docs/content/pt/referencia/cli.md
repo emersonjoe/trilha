@@ -466,6 +466,27 @@ sem baixar módulo.
 Arquivo que já existe é recusa nomeando-o. É de propósito: gerador que sobrescreve é gerador que
 ninguém roda duas vezes, e um CRUD é justamente o que se gera **depois** de já ter editado um.
 
+**Rodar de novo vale alguma coisa mesmo assim**, porque o motivo de alguém rodar é que o struct
+ganhou um campo. Com todas as telas no lugar, o comando não escreve nada e diz o que mudou:
+
+```text
+$ trilha generate crud docs.Tipo
+já gerado — nada foi escrito.
+
+  Descricao não está na lista
+    acrescente {Key: "descricao", …} app/tipos/page.go:21
+  Descricao não está no formulário
+    acrescente ui.Field("descricao", …) app/tipos/new/page.go:34
+  Descricao não está no formulário
+    acrescente ui.Field("descricao", …) app/tipos/id_/page.go:37
+```
+
+Ele sai com `0`: rodar de novo é uma coisa normal de se fazer, e o que ele imprime é informação.
+Ele não acrescenta o campo por você — escrever dentro de um arquivo que você já editou é
+sobrescrever com mais passos — ele entrega a linha e o lugar. Com o struct igual, ele diz isso
+também, em uma linha. Meio CRUD no disco continua sendo a recusa que nomeia o arquivo: esse é
+outro problema.
+
 A única exceção é o `app/setup.go`, que o gerador edita em vez de recusar — uma linha, dentro de
 uma função cuja forma o framework define. Sem ela o CRUD compila e responde 500 na primeira
 requisição, que é o pior resultado que um gerador pode ter, porque parece que funcionou. O comando

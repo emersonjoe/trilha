@@ -470,6 +470,26 @@ A file that already exists is a refusal naming it. That is deliberate: a generat
 overwrites is a generator nobody runs twice, and a CRUD is precisely what you generate *after*
 having edited one.
 
+**Running it again is worth something anyway**, because the reason somebody does is that the
+struct grew a field. With every screen in place the command writes nothing and says what changed:
+
+```text
+$ trilha generate crud docs.Tipo
+already generated — nothing was written.
+
+  Descricao is not in the listing
+    add {Key: "descricao", …} app/tipos/page.go:21
+  Descricao is not in the form
+    add ui.Field("descricao", …) app/tipos/new/page.go:34
+  Descricao is not in the form
+    add ui.Field("descricao", …) app/tipos/id_/page.go:37
+```
+
+It exits `0`: running it again is a normal thing to do, and what it prints is information. It does
+not add the field for you — writing inside a file you have edited is overwriting with extra steps
+— it hands you the line and the place. With the struct unchanged it says that too, in one line.
+Half a CRUD on disk is still the refusal that names the file: that is a different problem.
+
 The single exception is `app/setup.go`, which the generator edits rather than refuses — one line,
 into a function whose shape the framework defines. Without it the CRUD compiles and answers 500
 on the first request, which is the worst outcome a generator can have, because it looks like it

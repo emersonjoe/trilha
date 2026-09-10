@@ -233,3 +233,82 @@ func textsFor(lang string) map[string]string {
 	}
 	return texts["en"]
 }
+
+// CrudChange is one field the struct has and a screen does not, with the
+// place to put it.
+type CrudChange struct {
+	Field string // the Go name, as the struct writes it
+	Form  string // the name it has on the wire
+	File  string // the screen it is missing from, relative to the root
+	Line  int    // the line the next one goes after
+	Kind  string // "list" or "form"
+}
+
+// CrudMissing answers what changed in the struct since the screens were
+// written: the fields the screens do not mention, and where each one goes.
+//
+// It is the other half of refusing to overwrite. A generator that refuses and
+// stops tells somebody what they already knew — the file is there — while the
+// reason they ran it again is that the struct grew a field. This says which,
+// and the line to paste it on.
+func CrudMissing(root string, o CrudOptions) ([]CrudChange, error) {
+	info, err := findType(root, o.Module, o.Type)
+	if err != nil {
+		return nil, err
+	}
+	plan, err := planCrud(info, o)
+	if err != nil {
+		return nil, err
+	}
+	// The three screens that name fields, in the order somebody edits them.
+	screens := []struct {
+		rel, kind, anchor string
+	}{
+		{plan.At + "/page.go", "list", "{Key: "},
+		{plan.At + "/new/page.go", "form", "ui.Field("},
+		{plan.At + "/id_/page.go", "form", "ui.Field("},
+	}
+	var out []CrudChange
+	for _, sc := range screens {
+		body, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(sc.rel)))
+		if err != nil {
+			// Half a CRUD on disk is a different problem, and the answer to it
+			// is the refusal that names the file — not a list of fields
+			// missing from screens that were never written.
+			return nil, err
+		}
+		src := string(body)
+		fields := plan.Fields
+		if sc.kind == "list" {
+			fields = plan.Columns
+		}
+		for _, f := range fields {
+			name := f.Form
+			if sc.kind == "list" {
+				name = f.JSON
+			}
+			if strings.Contains(src, sc.anchor+`"`+name+`"`) {
+				continue
+			}
+			out = append(out, CrudChange{
+				Field: f.Name, Form: name, File: sc.rel, Kind: sc.kind,
+				Line: lastLineWith(src, sc.anchor),
+			})
+		}
+	}
+	return out, nil
+}
+
+// lastLineWith is the line of the last anchor in the file — where the next
+// field goes. Zero when the anchor is not there at all, and then the person is
+// looking at a screen this generator did not write.
+func lastLineWith(src, anchor string) int {
+	line, found := 0, 0
+	for i, l := range strings.Split(src, "\n") {
+		if strings.Contains(l, anchor) {
+			found, line = i+1, i+1
+		}
+	}
+	_ = found
+	return line
+}
