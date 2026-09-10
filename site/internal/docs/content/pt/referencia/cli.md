@@ -517,6 +517,7 @@ mexer num projeto que já tem código.
 | `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
 | `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
+| `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
 O `login` é o que as outras esperam — uma tela que convida alguém ou troca o papel dela é uma tela
 sobre uma tabela de gente. Ele não escreve senha nenhuma: o `usuarios.New` lê `ADMIN_EMAIL` e
@@ -525,11 +526,20 @@ semeasse `admin`/`admin` num projeto de verdade seria uma porta deixada aberta p
 em que alguém confiou. Ele também escreve o próprio teste — entrar, ser recusado e sair — que é o
 que o `trilha check` roda um minuto depois.
 
+A `users` é a primeira receita **escrita em cima de outra**: ela acrescenta um arquivo ao pacote
+que a `login` abriu, então `trilha add users` sem ela recusa e diz o que rodar antes, em vez de
+deixar cinco arquivos que não compilam num projeto que alguém agora tem de limpar. Convidar cria a
+pessoa sem senha e entrega um link — um administrador que escolhe a senha de alguém é um
+administrador que sabe a senha de alguém — e o token do link fica guardado como hash, valendo 48
+horas e um uso. Desativar não apaga: a trilha de auditoria aponta para quem fez o quê, e uma linha
+apagada deixa a trilha falando de um id que não existe mais. A página do convite mora fora da
+pasta guardada, porque quem abre o link ainda não tem sessão.
+
 Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisição, e um comentário
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
 guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
 
-Faltam outras — `users`, `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
+Faltam outras — `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
 `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Por que a CI aplica todas elas

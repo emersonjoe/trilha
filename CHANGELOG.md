@@ -3,6 +3,37 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.76.0 — 2026-09-10
+
+Spec 096. Part of [#116](https://github.com/emersonjoe/trilha/issues/116) and
+[#117](https://github.com/emersonjoe/trilha/issues/117), both of which stay open.
+
+### Added
+
+- **`trilha add users`: the screen that names people.** Invite, change a role, deactivate,
+  reset — and the page where an invited person sets their own password. It is the screen the
+  other three of that issue wait for: permissions, organisations and profile are all about the
+  same table of people.
+
+  Every decision in it is one somebody gets wrong the first time. **Inviting creates the row with
+  no password** and hands out a link, because an administrator who picks somebody's password is an
+  administrator who knows it. **The token is stored as a hash**, worth 48 hours and one use, so a
+  dump of what is kept is not a set of keys and a link found later is not a way in. **Deactivating
+  does not delete**: the audit trail points at who did what, and a deleted row leaves the trail
+  talking about an id that is no longer there. **The invitation page lives outside the guarded
+  folder**, because whoever opens it has no session yet — putting it inside would send them to a
+  login they cannot pass.
+
+  It ships its own test, and the test walks the whole thing inside the project that received it:
+  the folder refuses an anonymous browser (302 to the login) and an anonymous API call (401), the
+  admin lists and invites, the link opens with no session, a short password is refused, the chosen
+  one signs in, and the spent link answers 404.
+
+- **`Needs` on a recipe.** `users` is the first recipe written on top of another — it adds a file
+  to the package `login` wrote — so `trilha add users` without it refuses, names the recipe to run
+  first and writes nothing. The field arrived with its first real consumer, which is the condition
+  0.69.0 wrote down when it left the idea out.
+
 ## 0.75.0 — 2026-09-10
 
 Spec 095. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for

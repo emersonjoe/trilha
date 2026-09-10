@@ -407,6 +407,16 @@ func run(t *testing.T, dir, name string, args ...string) string {
 	return string(out)
 }
 
+// runErr is run for a command that is supposed to fail: it hands back the
+// output and the error instead of ending the test.
+func runErr(t *testing.T, dir, name string, args ...string) (string, error) {
+	t.Helper()
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
 func freePort(t *testing.T) int {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -613,15 +623,24 @@ func TestAddE2E(t *testing.T) {
 
 	// The listing is how anybody finds out a recipe exists.
 	lista := run(t, proj, cli, "add")
-	for _, nome := range []string{"audit", "api-keys", "login", "settings"} {
+	for _, nome := range []string{"audit", "api-keys", "login", "settings", "users"} {
 		if !strings.Contains(lista, nome) {
 			t.Fatalf("`trilha add` does not list %s:\n%s", nome, lista)
 		}
 	}
 
+	// A recipe written on top of another refuses before it writes anything:
+	// half a recipe in a project is worse than none, because now there are
+	// files to delete before trying again.
+	if out, err := runErr(t, proj, cli, "add", "users"); err == nil {
+		t.Fatalf("add users wrote without login:\n%s", out)
+	} else if !strings.Contains(out, "login") {
+		t.Fatalf("the refusal does not say what to run first:\n%s", out)
+	}
+
 	// Every recipe into the same project: they have to coexist, because a
 	// project that wants one usually wants two.
-	for _, nome := range []string{"audit", "settings", "api-keys", "login"} {
+	for _, nome := range []string{"audit", "settings", "api-keys", "login", "users"} {
 		out := run(t, proj, cli, "add", nome)
 		if !strings.Contains(out, "  + ") {
 			t.Fatalf("add %s wrote nothing:\n%s", nome, out)

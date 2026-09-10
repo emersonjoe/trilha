@@ -1,6 +1,7 @@
 package recipes
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -265,4 +266,63 @@ func TestReceitaLogin(t *testing.T) {
 	if ses := ler(t, outra, "internal/sessao/sessao.go"); !strings.Contains(ses, `LoginPath:  "/admin/entrar"`) {
 		t.Fatalf("o LoginPath não acompanhou a pasta:\n%s", ses)
 	}
+}
+
+// #116 — a receita users depende da login, e é a primeira que depende de
+// alguma. Recusar é mais barato do que escrever cinco arquivos que não
+// compilam num projeto que a pessoa vai ter de limpar à mão.
+func TestUsersPrecisaDoLogin(t *testing.T) {
+	raiz := projeto(t)
+	r, err := Get("users")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := Add(raiz, r, Options{Module: "example.com/x", Lang: "en"})
+	if err == nil {
+		t.Fatalf("escreveu sem o login: %v", res.Written)
+	}
+	if !errors.Is(err, ErrMissing) {
+		t.Fatalf("err = %v", err)
+	}
+	for _, quero := range []string{"login", "internal/usuarios/usuarios.go"} {
+		if !strings.Contains(err.Error(), quero) {
+			t.Fatalf("a recusa não diz %q: %v", quero, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(raiz, "app", "usuarios")); err == nil {
+		t.Fatal("recusou e escreveu assim mesmo")
+	}
+
+	// Com a receita de que ela depende, passa — e escreve no mesmo pacote que a
+	// outra abriu, que é o motivo de a dependência existir.
+	if _, err := Add(raiz, mustGet(t, "login"), Options{Module: "example.com/x", Lang: "en"}); err != nil {
+		t.Fatal(err)
+	}
+	res, err = Add(raiz, r, Options{Module: "example.com/x", Lang: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	quero := "internal/usuarios/convites.go internal/usuarios/convites_test.go " +
+		"app/usuarios/page.go app/usuarios/middleware.go app/convite/token_/page.go usuarios_test.go"
+	if got := strings.Join(res.Written, " "); got != quero {
+		t.Fatalf("escreveu %q", got)
+	}
+	conv := ler(t, raiz, "internal/usuarios/convites.go")
+	for _, q := range []string{"package usuarios", "sha256", "48 * time.Hour"} {
+		if !strings.Contains(conv, q) {
+			t.Fatalf("faltou %q em convites.go", q)
+		}
+	}
+	if mw := ler(t, raiz, "app/usuarios/middleware.go"); !strings.Contains(mw, `RequireRole("admin")`) {
+		t.Fatalf("a pasta não exige papel:\n%s", mw)
+	}
+}
+
+func mustGet(t *testing.T, nome string) Recipe {
+	t.Helper()
+	r, err := Get(nome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }

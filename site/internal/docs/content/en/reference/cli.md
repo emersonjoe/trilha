@@ -521,6 +521,7 @@ touch a project that already has code.
 | `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
 | `login` | a session of your own: the users table, the sign-in screen and the way out |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
+| `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
 `login` is the one the others wait for — a screen that invites somebody or changes their role is
 a screen about a table of people. It writes no password: `usuarios.New` reads `ADMIN_EMAIL` and
@@ -529,11 +530,20 @@ because a recipe that seeded `admin`/`admin` into a real project would be a door
 tool somebody trusted. It also writes its own test — the sign-in, the refusal and the way out —
 which is what `trilha check` runs a minute later.
 
+`users` is the first recipe **written on top of another**: it adds a file to the package `login`
+wrote, so `trilha add users` without it refuses and says what to run first, instead of leaving
+five files that do not compile in a project somebody now has to clean up. Inviting creates the
+person with no password and hands out a link — an administrator who picks somebody's password is
+an administrator who knows it — and the link's token is stored as a hash, worth 48 hours and one
+use. Deactivating does not delete: the audit trail points at who did what, and a deleted row
+leaves the trail talking about an id that is no longer there. The invitation page lives outside
+the guarded folder, because whoever opens it has no session yet.
+
 Each one comes with memory behind it, so the screen works from the first request, and a comment
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an
 audit trail names people, and a keys screen issues credentials.
 
-More are coming — `users`, `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
+More are coming — `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
 `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Why the CI applies every one of them

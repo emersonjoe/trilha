@@ -32,6 +32,9 @@ import (
 // ErrUnknown is a name no recipe answers to.
 var ErrUnknown = errors.New("recipes: no recipe by that name")
 
+// ErrMissing is a recipe that needs another one first.
+var ErrMissing = errors.New("recipes: this recipe needs another one first")
+
 // Recipe is one pattern: what it is called and what it writes.
 type Recipe struct {
 	Name string
@@ -49,6 +52,21 @@ type Recipe struct {
 	Imports []string
 	// Next is what the person does after this, printed at the end.
 	Next map[string]string
+	// Needs are the recipes that have to be there first, each recognised by a
+	// file it writes. Refusing costs one line; writing five files that do not
+	// compile costs somebody an afternoon of cleaning up after a tool.
+	Needs []Need
+}
+
+// Need is one recipe this one is written on top of.
+type Need struct {
+	// Recipe is the name to run first.
+	Recipe string
+	// File is what proves it ran, relative to the project root. It is a file
+	// that recipe writes and that this one depends on — not a marker in
+	// setup.go, because the dependency here is on the code, and somebody who
+	// deleted the code has the problem this check is about.
+	File string
 }
 
 // File is one file the recipe writes.
@@ -103,7 +121,7 @@ type Result struct {
 
 // All is every recipe, by name.
 func All() []Recipe {
-	out := []Recipe{auditRecipe(), apiKeysRecipe(), loginRecipe(), settingsRecipe()}
+	out := []Recipe{auditRecipe(), apiKeysRecipe(), loginRecipe(), settingsRecipe(), usersRecipe()}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
@@ -122,6 +140,16 @@ func Get(name string) (Recipe, error) {
 func Add(root string, r Recipe, o Options) (Result, error) {
 	var res Result
 	res.Doc = r.Doc
+
+	// What it needs comes before what it writes: half a recipe in a project is
+	// worse than none, because the person now has files to delete before they
+	// can try again.
+	for _, need := range r.Needs {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(need.File))); err != nil {
+			return res, fmt.Errorf("%w: run `trilha add %s` first (%s is not there)",
+				ErrMissing, need.Recipe, need.File)
+		}
+	}
 
 	at := o.At
 	if at == "" {
