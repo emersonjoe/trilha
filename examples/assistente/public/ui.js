@@ -1,4 +1,4 @@
-/* trilha ui cedc4fd6d02fa675 */
+/* trilha ui de2f8bd8741bec47 */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -67,7 +67,17 @@
     const open = e.target.closest("[data-ui-dialog-open]");
     if (open) {
       const d = document.getElementById(open.getAttribute("data-ui-dialog-open"));
-      if (d && typeof d.showModal === "function") d.showModal();
+      if (d && typeof d.showModal === "function") {
+        // The opener may be a link to the page that answers without script —
+        // ui.Assistant's launcher is one. Opening here is what replaces the
+        // navigation, so the default only goes when the dialog cannot open.
+        e.preventDefault();
+        d.showModal();
+        if (open.hasAttribute("aria-expanded")) {
+          open.setAttribute("aria-expanded", "true");
+          d.addEventListener("close", () => open.setAttribute("aria-expanded", "false"), { once: true });
+        }
+      }
       return;
     }
     const close = e.target.closest("[data-ui-dialog-close]");

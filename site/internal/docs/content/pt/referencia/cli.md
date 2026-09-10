@@ -104,6 +104,28 @@ responde qual padrão atenderia um caminho. A página é do supervisor, não do 
 existe no binário que o `trilha build` produz — veja
 [Dev e produção](/pt/aprender/dev-e-producao#o-inspetor-de-rotas).
 
+### O que só o navegador vê
+
+Dois dos erros que mais doem no começo nunca chegam ao terminal sozinhos: a recusa do CSP que
+deixa o iframe cinza, e o fragmento que volta como página inteira e acaba dentro de si mesmo — um
+200, então nada erra em lugar nenhum. Em dev o navegador tem para quem contar:
+
+```text
+⚠ CSP refused frame-src: http://localhost:8080/nota.pdf
+  at /documentos/12 — use ui.Preview to show the file, or allow it with Security.CSPExtra{"frame-src": {…}}
+
+⚠ the fragment of /documentos came back as the whole page
+  the route answered without looking at c.Fragment(): return only the piece when it is asked for
+```
+
+A política ganha `report-uri` e `Reporting-Endpoints` **só em dev**, e o script do kit só reporta
+quando o `window.__trilha` existe — que o script de dev escreve e a produção nunca escreve. No
+binário que o `trilha build` produz não há endpoint de relatório, nem diretiva a mais, nem nada
+para desligar.
+
+O servidor pega um terceiro sozinho: um `c.Flash` numa resposta que não vai a lugar nenhum. A
+mensagem apareceria na navegação seguinte, do nada, e o log diz isso na hora, com a rota.
+
 ## trilha build
 
 O `-o` dá o nome do binário; sem ele, `bin/<pasta do projeto>`. No Windows a saída recebe o

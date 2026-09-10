@@ -3,6 +3,39 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.78.0 — 2026-09-10
+
+Spec 098. Part of [#118](https://github.com/emersonjoe/trilha/issues/118), which stays open for
+the static checks of `audit`, the generated `docs/errors/` and the bench scenario.
+
+### Added
+
+- **`trilha dev` sees what the browser sees.** Two of the errors that hurt most in the beginning
+  never reached the terminal: the CSP refusal that leaves an iframe grey — explained in a console
+  nobody opened — and the fragment that comes back as a whole page and ends up inside itself,
+  which is a 200, so nothing errors anywhere.
+
+  In dev the policy carries `report-uri` and `Reporting-Endpoints`, the supervisor answers at
+  `/_trilha/csp`, and the refusal is printed with the fix beside it: the directive, the resource,
+  the route, and what to do about it (`ui.Preview` for a frame, `c.Asset` for a script,
+  `Security.CSPExtra` when it really is meant to be allowed). Both report shapes are read — the
+  old `application/csp-report` and the Reporting API's array — because telling somebody to debug
+  in another browser is not an answer.
+
+  The kit's script reports the other one: when a `Poll`, `Defer` or `Swap` answer contains
+  `<html`, it tells `/_trilha/report`, and the terminal names the route and says the route
+  answered without looking at `c.Fragment()`.
+
+  **None of it exists in production.** The extra directives are written only in dev, and the
+  script reports only when `window.__trilha` is there — which the dev script writes and a built
+  binary never does.
+
+- **A `c.Flash` on a response that is not going anywhere warns, in dev.** The message would show
+  up on the next navigation, out of nowhere, with nothing connecting it to the button that was
+  pressed. The log says so on the spot, with the route and the two ways out: redirect after the
+  change, or render it here with `c.Flashes()`. In production nothing changes — the message is
+  still delivered, and a log line per flash would be noise.
+
 ## 0.77.0 — 2026-09-10
 
 Spec 097. Closes [#112](https://github.com/emersonjoe/trilha/issues/112).

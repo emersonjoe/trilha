@@ -1,4 +1,4 @@
-/* trilha ui ba1c100683abb623 */
+/* trilha ui 254825a44313b871 */
 // ui.chat.js — the behavior behind ui.Chat: send the message, read the events
 // from ai.Serve and render the answer as it arrives. Without this file the
 // form still submits and the page comes back with the answer; this only makes
@@ -35,8 +35,19 @@
       if (state) state.textContent = s;
     };
     const token = () => {
-      const f = form.querySelector('input[type="hidden"]');
+      const f = form.querySelector('input[name="_csrf"]');
       return f ? f.value : "";
+    };
+
+    // The page's context: the hidden ctx.* fields the server wrote. They ride
+    // with the message here and as plain form fields when this script is not
+    // running, so the route reads one thing either way.
+    const context = () => {
+      const out = {};
+      form.querySelectorAll('input[name^="ctx."]').forEach((i) => {
+        out[i.name.slice(4)] = i.value;
+      });
+      return out;
     };
 
     // bubble keeps the assistant's turn: plain text while it streams, the
@@ -97,7 +108,7 @@
             Accept: "text/event-stream",
             "X-CSRF-Token": token(),
           },
-          body: JSON.stringify({ message: message, history: history }),
+          body: JSON.stringify({ message: message, history: history, context: context() }),
         });
         if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
         const reader = res.body.getReader();

@@ -241,3 +241,15 @@ func TestUiLiveJSKnowsTheAttributes(t *testing.T) {
 		t.Errorf("ui.live.js is %d bytes", len(js))
 	}
 }
+
+// #118 — o fragmento que volta com a página inteira é um 200: nada erra, e só
+// o navegador pode contar. O script conta, e só quando há para quem: o
+// window.__trilha é escrito pelo script de dev, e em produção ele não existe.
+func TestUiLiveJSContaOFragmentoQueVeioPaginaInteira(t *testing.T) {
+	js := string(Asset("ui.live.js"))
+	for _, want := range []string{"window.__trilha", "fragment-html"} {
+		if !strings.Contains(js, want) {
+			t.Fatalf("ui.live.js não fala %q", want)
+		}
+	}
+}

@@ -103,6 +103,29 @@ route, and a box that answers which pattern would serve a given path. The page b
 supervisor, not to the app, so it does not exist in the binary `trilha build` produces — see
 [Development and production](/learn/dev-and-production#the-route-inspector).
 
+### What only the browser can see
+
+Two of the errors that hurt most in the beginning never reach the terminal on their own: the CSP
+refusal that leaves an iframe grey, and the fragment that comes back as a whole page and ends up
+inside itself — a 200, so nothing errors anywhere. In dev the browser has somebody to tell:
+
+```text
+⚠ CSP refused frame-src: http://localhost:8080/nota.pdf
+  at /documentos/12 — use ui.Preview to show the file, or allow it with Security.CSPExtra{"frame-src": {…}}
+
+⚠ the fragment of /documentos came back as the whole page
+  the route answered without looking at c.Fragment(): return only the piece when it is asked for
+```
+
+The policy gains `report-uri` and `Reporting-Endpoints` **only in dev**, and the kit's script only
+reports when `window.__trilha` is there — which the dev script writes and production never does.
+In the binary `trilha build` produces there is no reporting endpoint, no extra directive and
+nothing to switch off.
+
+The server catches a third one by itself: a `c.Flash` on a response that is not going anywhere.
+The message would show up on the next navigation, out of nowhere, and the log says so on the spot
+with the route.
+
 ## trilha build
 
 `-o` names the binary; without it, `bin/<project folder>`. On Windows the output gets the

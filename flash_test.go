@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -228,5 +229,46 @@ func TestFlashLimitaOTamanho(t *testing.T) {
 	}
 	if n := strings.Count(body, "x"); n != maxFlashes*(maxFlashRunes-1) {
 		t.Fatalf("cada aviso é cortado em %d runas; contei %d x", maxFlashRunes, n)
+	}
+}
+
+// #118 — o flash que sobra numa resposta sem desvio aparece na tela seguinte,
+// do nada. Em dev o log diz isso na hora, com a rota; em produção fica como
+// estava, porque a mensagem continua sendo entregue.
+func TestFlashSemRedirectAvisaEmDev(t *testing.T) {
+	logs := func(env Env) string {
+		var buf bytes.Buffer
+		a := New(Config{Env: env, Logger: slog.New(slog.NewTextHandler(&buf, nil))})
+		a.Register(Route{Pattern: "/salvar", Page: func(c *Ctx) (h.Node, error) {
+			c.Flash("ok", "salvo")
+			return h.Div(h.Text("pronto")), nil // sem Redirect, e sem mostrar o flash
+		}})
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/salvar", nil))
+		return buf.String()
+	}
+	dev := logs(Dev)
+	for _, quero := range []string{"flash without redirect", "/salvar", "c.Flashes()"} {
+		if !strings.Contains(dev, quero) {
+			t.Fatalf("falta %q no log de dev:\n%s", quero, dev)
+		}
+	}
+	if prod := logs(Prod); strings.Contains(prod, "flash without redirect") {
+		t.Fatalf("produção avisou:\n%s", prod)
+	}
+}
+
+// E quem redireciona não é avisado de nada: é o caminho certo.
+func TestFlashComRedirectNaoAvisa(t *testing.T) {
+	var buf bytes.Buffer
+	a := New(Config{Env: Dev, Logger: slog.New(slog.NewTextHandler(&buf, nil))})
+	a.Register(Route{Pattern: "/salvar", Page: func(c *Ctx) (h.Node, error) {
+		c.Flash("ok", "salvo")
+		return nil, Redirect("/lista")
+	}})
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/salvar", nil))
+	if strings.Contains(buf.String(), "flash without redirect") {
+		t.Fatalf("avisou quem fez certo:\n%s", buf.String())
 	}
 }

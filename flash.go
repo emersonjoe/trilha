@@ -89,6 +89,18 @@ func (c *Ctx) writeFlashes() {
 		c.w.Header().Set(flashHeader, v)
 		return
 	}
+	// A message left over on a page that is not going anywhere shows up on the
+	// next navigation, out of nowhere, and the person reading it has no way to
+	// connect it to the button they pressed. In dev the log says so on the
+	// spot, with the route; in production it stays as it was — the message is
+	// still delivered, and a log line per flash would be noise.
+	// Location is the redirect the browser follows; Trilha-Location is the one
+	// a fragment answer uses to say the same thing. Neither means the response
+	// stays where it is.
+	if c.Env() == Dev && c.w.Header().Get("Location") == "" && c.w.Header().Get(locationHeader) == "" {
+		c.Log().Warn("flash without redirect: it will show up on the next navigation",
+			"route", c.r.URL.Path, "fix", "redirect after the change, or render the message on this page with c.Flashes()")
+	}
 	_ = c.SetSigned(flashCookie, v, flashTTL)
 }
 

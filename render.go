@@ -249,8 +249,12 @@ type panicError struct {
 func (p *panicError) Error() string { return fmt.Sprintf("panic: %v", p.value) }
 func (p *panicError) Stack() string { return p.stack }
 
-// devScript reconnects to the dev events endpoint and reloads on demand.
-const devScript = `<script{nonce}>(function(){var d=false;function c(){var e=new EventSource('/_trilha/events');e.onmessage=function(m){if(m.data==='reload'){location.reload()}};e.onopen=function(){if(d){location.reload()}};e.onerror=function(){d=true;e.close();setTimeout(c,300)}}c()})();</script>`
+// devScript reconnects to the dev events endpoint and reloads on demand. It
+// also leaves window.__trilha.report behind: the kit's script uses it to tell
+// the terminal what only the browser can see — a fragment that came back as a
+// whole page. It exists in dev and nowhere else, which is what keeps that
+// reporting out of production without a flag anybody has to set.
+const devScript = `<script{nonce}>(function(){var d=false;function c(){var e=new EventSource('/_trilha/events');e.onmessage=function(m){if(m.data==='reload'){location.reload()}};e.onopen=function(){if(d){location.reload()}};e.onerror=function(){d=true;e.close();setTimeout(c,300)}}c();window.__trilha={report:function(k,v){try{v=v||{};v.kind=k;fetch('/_trilha/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v),keepalive:true})}catch(e){}}}})();</script>`
 
 func injectDevScript(out []byte, nonce string) []byte {
 	if bytes.Contains(out, []byte("/_trilha/events")) {

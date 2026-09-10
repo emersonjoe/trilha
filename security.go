@@ -55,6 +55,10 @@ const (
 	defaultReferrer    = "strict-origin-when-cross-origin"
 )
 
+// ReportPath is where a browser sends what a policy refused, in dev. It is
+// answered by trilha dev, not by the application: the point is the terminal.
+const ReportPath = "/_trilha/csp"
+
 // defaultCSP lists the default policy directives in order.
 var defaultCSP = [][2]string{
 	{"default-src", "'self'"},
@@ -130,6 +134,15 @@ func (a *App) applySecurity(c *Ctx) {
 		h.Set("Cross-Origin-Opener-Policy", v)
 	}
 	if v := s.csp(c.Nonce()); v != "" {
+		// In dev the browser has somebody to tell: trilha dev answers at
+		// ReportPath and prints the refusal in the terminal, where the person
+		// is actually looking. In production none of this exists — a policy
+		// that reports to an address nobody serves is noise in the browser of
+		// whoever uses the application.
+		if c.Env() == Dev && !strings.Contains(v, "report-uri") {
+			v += "; report-uri " + ReportPath + "; report-to trilha"
+			h.Set("Reporting-Endpoints", `trilha="`+ReportPath+`"`)
+		}
 		h.Set("Content-Security-Policy", v)
 	}
 	if c.isSecure() {

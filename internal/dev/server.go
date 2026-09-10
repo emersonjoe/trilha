@@ -242,6 +242,16 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveInspector(w, r)
 		return
 	}
+	// What the browser has to say. The two paths are answered here and never
+	// reach the application: the point of them is the terminal.
+	if r.URL.Path == trilha.ReportPath {
+		s.cspReport(w, r)
+		return
+	}
+	if r.URL.Path == BrowserPath {
+		s.browserReport(w, r)
+		return
+	}
 	s.mu.Lock()
 	proxy, buildErr := s.proxy, s.buildErr
 	s.mu.Unlock()

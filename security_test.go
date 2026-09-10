@@ -294,3 +294,30 @@ func TestSecurityNonceFromHost(t *testing.T) {
 		t.Fatalf("empty nonce must render no attribute:\n%s", rec.Body.String())
 	}
 }
+
+// #118 — em dev o navegador tem para quem contar: a política reporta, e o
+// trilha dev imprime. Em produção nada disso existe, porque uma política que
+// reporta para um endereço que não existe é ruído no navegador de quem usa.
+func TestCSPReportaSoEmDev(t *testing.T) {
+	page := func(env Env) *httptest.ResponseRecorder {
+		a := testApp(env, nil)
+		rec := httptest.NewRecorder()
+		a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+		return rec
+	}
+	dev := page(Dev)
+	csp := dev.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "report-uri /_trilha/csp") || !strings.Contains(csp, "report-to trilha") {
+		t.Fatalf("dev sem report: %s", csp)
+	}
+	if got := dev.Header().Get("Reporting-Endpoints"); got != `trilha="/_trilha/csp"` {
+		t.Fatalf("Reporting-Endpoints = %q", got)
+	}
+	prod := page(Prod)
+	if csp := prod.Header().Get("Content-Security-Policy"); strings.Contains(csp, "report") {
+		t.Fatalf("prod reporta: %s", csp)
+	}
+	if got := prod.Header().Get("Reporting-Endpoints"); got != "" {
+		t.Fatalf("prod tem Reporting-Endpoints: %q", got)
+	}
+}

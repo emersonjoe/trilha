@@ -65,7 +65,13 @@
         s.next = Date.now() + (after || Math.min(s.base * 2 ** s.fails, MAX));
         return;
       }
-      swap(id, await res.text());
+      const html = await res.text();
+      // A fragment that came back as a whole page is a 200: nothing errors,
+      // the page ends up inside itself, and only the browser can tell. In dev
+      // there is somebody to tell — window.__trilha is written by the dev
+      // script, and it is not there in production.
+      if (/<html[\s>]/i.test(html) && window.__trilha) window.__trilha.report("fragment-html", { url: res.url, id: id });
+      swap(id, html);
       s.fails = 0;
       if (say === "stop") { s.stop = true; return; }
       const other = ms(say);

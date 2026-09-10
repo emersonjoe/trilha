@@ -15,6 +15,7 @@ pkg trilha, const NoTimeout time.Duration
 pkg trilha, const Off
 pkg trilha, const ProblemMediaType
 pkg trilha, const Prod Env
+pkg trilha, const ReportPath
 pkg trilha, const StatusFail
 pkg trilha, const StatusPass
 pkg trilha, func AddRule(string, func(Field) bool)
