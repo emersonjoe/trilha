@@ -605,6 +605,7 @@ pkg ai, type Result struct, Steps []Step
 pkg ai, type Result struct, Turns int
 pkg ai, type Result struct, Usage Usage
 pkg ai, type ServeOpts struct
+pkg ai, type ServeOpts struct, Context func(*trilha.Ctx, map[string]string) []Message
 pkg ai, type ServeOpts struct, HTML func(string) string
 pkg ai, type ServeOpts struct, MaxHistory int
 pkg ai, type ServeOpts struct, MaxInput int64
@@ -1273,6 +1274,7 @@ pkg ui, func APIKeysTable(*trilha.Ctx, []APIKeyRow, ...APIKeysOpts) h.Node
 pkg ui, func Alert(string, ...h.Node) h.Node
 pkg ui, func AlertDescription(...h.Node) h.Node
 pkg ui, func Asset(string) []byte
+pkg ui, func Assistant(*trilha.Ctx, AssistantOpts) h.Node
 pkg ui, func AuditTable(*trilha.Ctx, []trilha.AuditRecord, ...AuditOpts) h.Node
 pkg ui, func Avatar(string, string) h.Node
 pkg ui, func Badge(...h.Node) h.Node
@@ -1431,6 +1433,15 @@ pkg ui, type APIKeysOpts struct
 pkg ui, type APIKeysOpts struct, CSRF h.Node
 pkg ui, type APIKeysOpts struct, Empty h.Node
 pkg ui, type APIKeysOpts struct, Revoke string
+pkg ui, type AssistantOpts struct
+pkg ui, type AssistantOpts struct, Action string
+pkg ui, type AssistantOpts struct, Chat ChatOpts
+pkg ui, type AssistantOpts struct, Hint string
+pkg ui, type AssistantOpts struct, ID string
+pkg ui, type AssistantOpts struct, Icon string
+pkg ui, type AssistantOpts struct, Label string
+pkg ui, type AssistantOpts struct, Page string
+pkg ui, type AssistantOpts struct, Title string
 pkg ui, type AuditOpts struct
 pkg ui, type AuditOpts struct, Action string
 pkg ui, type AuditOpts struct, Actions []string
@@ -1451,6 +1462,7 @@ pkg ui, type ChatMessage struct, Role string
 pkg ui, type ChatMessage struct, Text string
 pkg ui, type ChatOpts struct
 pkg ui, type ChatOpts struct, Action string
+pkg ui, type ChatOpts struct, Context map[string]string
 pkg ui, type ChatOpts struct, Greeting string
 pkg ui, type ChatOpts struct, History []ChatMessage
 pkg ui, type ChatOpts struct, ID string

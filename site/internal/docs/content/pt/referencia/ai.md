@@ -116,6 +116,19 @@ está lá. É o mesmo conteúdo do `done` como corpo JSON, ou o que o `ServeOpts
 | `MaxInput` | maior corpo de pedido aceito (padrão 256 KB) |
 | `HTML` | renderiza a resposta pronta para o navegador; `ui.ChatHTML` é o que combina com `ui.Chat`. Sem ele a resposta fica em texto |
 | `Page` | responde ao pedido que não pediu fluxo, para o app desenhar a página com a mensagem dentro |
+| `Context` | recebe os campos `ctx.*` que a página mandou junto com a mensagem — o id do registro aberto, a rota em que a pessoa está — e o que devolve entra na frente do histórico |
+
+O `Context` é onde o [`ui.ChatOpts.Context`](/pt/referencia/ui#chat) chega, pelos dois caminhos: o
+JSON que o script manda e os campos escondidos de um formulário que submeteu sozinho.
+
+```go
+ai.ServeOpts{Context: func(c *trilha.Ctx, campos map[string]string) []ai.Message {
+	return []ai.Message{{Role: "user", Content: "A folha aberta é a " + campos["folha"] + "."}}
+}}
+```
+
+Os campos vêm do pedido, então são o que a pessoa mandou e não o que o servidor sabe: confira ali
+o que um id dá acesso, do mesmo jeito que se confere um parâmetro de query.
 
 Falha antes do primeiro byte é erro comum (um [problema](/pt/referencia/erros) com o status
 dele). Depois dele a linha de status já foi: a falha viaja como evento `error` e o fluxo fecha.

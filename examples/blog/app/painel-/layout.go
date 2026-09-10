@@ -7,6 +7,20 @@ import (
 	"github.com/emersonjoe/trilha/ui"
 )
 
+// dica é a linha sob o título do assistente: o que ele sabe agora. Vem da rota
+// porque é a rota que muda — o mesmo painel numa tela e noutra não é a mesma
+// pergunta.
+func dica(rota string) string {
+	switch rota {
+	case "/relatorio":
+		return "Perguntando sobre o relatório"
+	case "/assistente":
+		return "Perguntando sobre a área do app"
+	default:
+		return "Perguntando sobre o painel"
+	}
+}
+
 // Layout wraps the app area with a sidebar.
 func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	area, _ := c.Get("area").(string)
@@ -21,5 +35,22 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 			ui.NavLink("/relatorio", "Relatório", cur == "/relatorio"),
 		)),
 		h.Div(h.Class("app-content"), children),
+		// O assistente é montado uma vez, aqui: quem entra na área do app tem o
+		// botão no canto em todas as telas dela. A dica e o contexto saem da
+		// rota — é o que a página sabe e o modelo não — e o launcher é um link
+		// para /assistente, que é a mesma conversa como página.
+		ui.Assistant(c, ui.AssistantOpts{
+			Action: "/assistente",
+			Page:   "/assistente",
+			Label:  "Assistente",
+			Hint:   dica(cur),
+			Chat: ui.ChatOpts{
+				Greeting:    "Pergunte alguma coisa sobre esta tela.",
+				Placeholder: "Escreva uma mensagem…",
+				Submit:      "Enviar",
+				Context:     map[string]string{"rota": cur},
+			},
+		}),
+		ui.ChatScript(c),
 	), nil
 }

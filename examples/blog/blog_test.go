@@ -1143,3 +1143,43 @@ func TestAnexoVaiParaOBlob(t *testing.T) {
 		t.Fatalf("Content-Disposition = %q", d)
 	}
 }
+
+// #142 — o assistente da área do app. Ele é montado uma vez no layout, o
+// launcher é um link antes de ser um botão, e o que a página sabe — a rota —
+// viaja com a pergunta até o servidor.
+func TestAssistenteDaAreaDoApp(t *testing.T) {
+	c := newClient(t, "prod")
+
+	// Montado no layout: está em todas as telas da área, com a dica da rota.
+	c.Get("/painel").WantStatus(200).WantContains(
+		`aria-expanded="false"`,
+		`aria-controls="assistant-dialog"`,
+		`href="/assistente"`,
+		"Perguntando sobre o painel",
+		`<input type="hidden" name="ctx.rota" value="/painel">`,
+	)
+	c.Get("/relatorio").WantStatus(200).WantContains("Perguntando sobre o relatório",
+		`<input type="hidden" name="ctx.rota" value="/relatorio">`)
+
+	// Sem JavaScript o link é um link: a mesma conversa como página.
+	c.Get("/assistente").WantStatus(200).WantContains(
+		`<h1 class="ui-h1">Assistente</h1>`, `data-trilha-chat="/assistente"`)
+
+	// Perguntar é escrever, e escrever nesta área é de quem entrou: o mesmo
+	// MiddlewarePOST que guarda a meta do mês guarda o assistente.
+	c.postForm("/assistente", "message=onde+estou%3F").WantStatus(403)
+	if rec := c.postForm("/login", "usuario=admin&senha=trilha"); rec.Code != 303 {
+		t.Fatalf("login: %d", rec.Code)
+	}
+
+	// E o contexto chega à rota pelos dois caminhos. Primeiro o do formulário,
+	// que é o que um navegador sem script manda.
+	c.postForm("/assistente", "message=onde+estou%3F&ctx.rota=%2Fpainel").
+		WantStatus(200).WantContains("a partir de", "/painel")
+
+	// Depois o do script, que pede o stream e recebe os mesmos eventos que o
+	// ui.chat.js já sabe ler.
+	rec := c.postForm("/assistente", "message=onde+estou%3F&ctx.rota=%2Frelatorio",
+		trilha.WithHeader("Accept", "text/event-stream"))
+	rec.WantStatus(200).WantContains("event: text", "event: done", "/relatorio")
+}

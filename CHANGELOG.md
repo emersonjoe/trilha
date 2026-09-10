@@ -3,6 +3,45 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.74.0 — 2026-09-10
+
+Spec 093. Closes [#142](https://github.com/emersonjoe/trilha/issues/142).
+
+### Added
+
+- **`ui.Assistant`: the assistant in the corner, without turning the shell into an SPA.** The
+  kit had the conversation inside a page; what every management app asks for is the other shape —
+  a button fixed in a corner that opens a panel over the screen, mounted once for a whole
+  authenticated area.
+
+  ```go
+  ui.Assistant(c, ui.AssistantOpts{
+      Action: "/api/assistant",
+      Page:   "/panel/assistant",           // the same conversation, as a page
+      Hint:   "Asking about invoice " + id, // what it knows right now
+      Chat:   ui.ChatOpts{Context: map[string]string{"invoice": id}},
+  })
+  ```
+
+  The launcher is a link before it is a button: **without JavaScript it goes to `Page`**, which is
+  the same conversation as a whole page. With JavaScript the kit's script opens a native
+  `<dialog>` instead — focus trap and Escape from the browser, not from two hundred lines of ours
+  — and `aria-expanded` follows the panel. It is composition and not a second chat: the panel
+  holds a `ui.Chat`, so the streaming, the Markdown and the errors are the ones that exist.
+
+- **`ui.ChatOpts.Context` and `ai.ServeOpts.Context`: what the page knows and the model does
+  not.** `Context: map[string]string{"invoice": id}` becomes hidden `ctx.*` fields inside the
+  chat's form. The script sends them in the JSON body; a browser with no script sends them as
+  what they are, form fields. `ai.ServeOpts.Context` reads both and returns the messages that go
+  in front of the history — what a field means is the app's decision, and a framework that
+  guessed it would be wrong in every second application.
+
+### Changed
+
+- The `ui.css` budget went to 36 KB. `ui.Assistant` is three rules and about 250 bytes — the
+  corner, the panel that scrolls, the log inside it — and there were 47 bytes left. The reasoning,
+  including what was tried first, is in the test that holds the ceiling.
+
 ## 0.73.0 — 2026-09-10
 
 Spec 092. Closes [#141](https://github.com/emersonjoe/trilha/issues/141).

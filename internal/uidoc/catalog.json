@@ -86,6 +86,70 @@
     ]
   },
   {
+    "name": "AssistantOpts",
+    "kind": "type",
+    "group": "assistant",
+    "signature": "type AssistantOpts struct",
+    "doc": "AssistantOpts describes the assistant in the corner. Action and Page are the\ntwo that have to be filled in: the route that answers, and the page that\nanswers when the script is not there.",
+    "summary": "AssistantOpts describes the assistant in the corner.",
+    "fields": [
+      {
+        "name": "ID",
+        "type": "string",
+        "doc": "ID is the element id and the prefix of every id inside."
+      },
+      {
+        "name": "Action",
+        "type": "string",
+        "doc": "Action is the route that answers, the one running ai.Serve."
+      },
+      {
+        "name": "Page",
+        "type": "string",
+        "doc": "Page is the conversation as a page: where the launcher points when nothing else runs."
+      },
+      {
+        "name": "Label",
+        "type": "string",
+        "doc": "Label is the word on the launcher, and its accessible name."
+      },
+      {
+        "name": "Title",
+        "type": "string",
+        "doc": "Title is the heading of the panel."
+      },
+      {
+        "name": "Hint",
+        "type": "string",
+        "doc": "Hint is the line under the title: what this assistant knows about right now."
+      },
+      {
+        "name": "Icon",
+        "type": "string",
+        "doc": "Icon is the name of a kit icon to put on the launcher — the names `trilha ui describe` lists."
+      },
+      {
+        "name": "Chat",
+        "type": "ChatOpts",
+        "doc": "Chat is the conversation itself."
+      }
+    ]
+  },
+  {
+    "name": "Assistant",
+    "kind": "func",
+    "group": "assistant",
+    "signature": "Assistant(c *trilha.Ctx, o AssistantOpts) h.Node",
+    "doc": "Assistant renders the assistant every management app has: a button fixed in\na corner that opens a panel over the screen, without replacing it.\n\nIt is composition and not a second chat: the panel holds a Chat, so the\nstreaming, the Markdown and the errors are the ones that already exist.\nThe launcher is a link before it is a button. Without JavaScript it goes to\nPage, which is the same conversation as a page; with JavaScript the kit's\nscript opens the dialog instead, and the browser gives the focus trap and\nthe Escape key for free. Mount it once, in the layout of the area that has\nit: it is server HTML, so it does not turn any page into an island.",
+    "summary": "Assistant renders the assistant every management app has: a button fixed in a corner that opens a panel over the screen, without replacing it.",
+    "example": "ui.Assistant(c, ui.AssistantOpts{\n\tAction: \"/api/assistant\",\n\tPage:   \"/panel/assistant\",\n\tHint:   \"Asking about invoice \" + id,\n\tChat:   ui.ChatOpts{Context: map[string]string{\"invoice\": id}},\n})\nui.ChatScript(c)",
+    "see": [
+      "ui.AssistantOpts",
+      "ui.ChatOpts",
+      "ui.ChatScript"
+    ]
+  },
+  {
     "name": "AuditOpts",
     "kind": "type",
     "group": "audit",
@@ -329,6 +393,11 @@
         "name": "Markdown",
         "type": "MarkdownOpts",
         "doc": "Markdown is how the answers are rendered."
+      },
+      {
+        "name": "Context",
+        "type": "map[string]string",
+        "doc": "Context is what the page knows and the model does not: the id of the record that is open, the route the visitor is on."
       }
     ]
   },

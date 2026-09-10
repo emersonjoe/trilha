@@ -159,7 +159,20 @@ func TestHeadAndAssets(t *testing.T) {
 	// it was renamed .ui-inline-form and both screens use it, which is what a
 	// second caller is supposed to do to a rule. The comment that would have
 	// explained it lives in the Go doc, where it costs the reader nothing.
-	if len(Asset("ui.css")) > 34<<10 || len(Asset("ui.js")) > 28<<10 {
+	//
+	// 0.74.0 raised it to 36 KB, and it is the first raise that buys headroom
+	// instead of a component: ui.Assistant is three rules and about 250 bytes
+	// — the corner, the panel that scrolls and the log inside it — and there
+	// were 47 bytes left. Everything else it draws is a .ui-dialog, a .ui-btn
+	// and a ui.Chat.
+	//
+	// What was tried first: sharing the corner with .ui-toaster (it costs more
+	// than it saves, because the toaster keeps four declarations of its own)
+	// and dropping the width override (kept dropped — .ui-dialog's width is
+	// the right one). What was not done is a second stylesheet: a launcher
+	// that has to remember to load its own CSS renders wrong once, which is
+	// the same reason the chat's bubbles are here.
+	if len(Asset("ui.css")) > 36<<10 || len(Asset("ui.js")) > 28<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {

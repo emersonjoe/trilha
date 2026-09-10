@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"sort"
 	"strconv"
 
 	"github.com/emersonjoe/trilha"
@@ -50,6 +51,15 @@ type ChatOpts struct {
 	// Markdown is how the answers are rendered. The zero value is the safe
 	// one: headings demoted, no images, no raw HTML.
 	Markdown MarkdownOpts
+
+	// Context is what the page knows and the model does not: the id of the
+	// record that is open, the route the visitor is on. Each entry becomes a
+	// hidden field named ctx.<key>, sent with the message by the script and by
+	// the plain form alike, and read on the other side by ai.ServeOpts.Context.
+	//
+	// It is a value and never markup: the page decides what goes in, and the
+	// browser receives an escaped attribute.
+	Context map[string]string
 }
 
 // Chat renders a conversation with an agent: the messages, the field and the
@@ -105,6 +115,18 @@ func Chat(c *trilha.Ctx, o ChatOpts) h.Node {
 		attrs = append(attrs, h.Data("trilha-chat-steps", "1"))
 	}
 
+	// The context fields go in name order: two runs of the same app write the
+	// same HTML, which is what makes a page diffable and a cache honest.
+	keys := make([]string, 0, len(o.Context))
+	for k := range o.Context {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	fields := make([]h.Node, 0, len(keys))
+	for _, k := range keys {
+		fields = append(fields, h.Input(h.Type("hidden"), h.Name("ctx."+k), h.Value(o.Context[k])))
+	}
+
 	return h.Div(append(attrs,
 		h.Div(h.Class("ui-chat-log"), h.ID(id+"-log"),
 			h.Attr("role", "log"), h.Aria("live", "polite"), h.Aria("label", label),
@@ -114,6 +136,7 @@ func Chat(c *trilha.Ctx, o ChatOpts) h.Node {
 		h.Form(h.Class("ui-chat-form"), h.ID(id+"-form"),
 			h.Method("post"), h.Action(o.Action),
 			trilha.CSRFInput(c),
+			h.Group(fields...),
 			Input(append(field, h.ID(id+"-input"))...),
 			Submit(h.Text(submit)),
 		),

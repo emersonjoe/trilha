@@ -404,3 +404,7 @@ html.ui-sidebar-collapsed .ui-shell > .ui-sidebar { display: none; }
 .ui-chat-state { margin: 0; min-height: 1rem; color: var(--muted-foreground); font-size: .75rem; }
 .ui-chat-form { display: flex; gap: .5rem; align-items: flex-start; }
 .ui-chat-form .ui-input { flex: 1; }
+
+.ui-assistant-launcher { position: fixed; right: 1rem; bottom: 1rem; z-index: 40; text-decoration: none; }
+.ui-assistant-dialog[open] { display: flex; flex-direction: column; max-height: calc(100vh - 4rem); }
+.ui-assistant-dialog .ui-chat-log { min-height: 0; max-height: 24rem; }

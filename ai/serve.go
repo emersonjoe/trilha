@@ -36,6 +36,21 @@ type ServeOpts struct {
 	// renderer nobody chose.
 	HTML func(text string) string
 
+	// Context receives the opaque fields the page sent with the message — the
+	// ctx.* fields of ui.ChatOpts.Context: the id of the record that is open,
+	// the route the visitor is on. What it returns goes in front of the
+	// history, which is how the page's context reaches the model.
+	//
+	// It is a function and not a template because only the app knows what a
+	// field means: turning "invoice=12" into a sentence, or into nothing, is a
+	// decision, and a framework that guessed it would be wrong in every second
+	// application.
+	//
+	// The fields come from the request, so they are what the visitor sent and
+	// not what the server knows: check what an id gives access to here, the
+	// same way a query parameter is checked.
+	Context func(c *trilha.Ctx, fields map[string]string) []Message
+
 	// Page answers a request that did not ask for text/event-stream — the
 	// form that arrives when JavaScript is not there. It runs after the whole
 	// answer is ready, so the app can render the page with the message in it.
@@ -108,9 +123,10 @@ func (o ServeOpts) Serve(c *trilha.Ctx, cli *Client, agent *Agent) error {
 // stream client uses, and a plain messages list, where the last user turn is
 // the message and everything before it is the history.
 type serveInput struct {
-	Message  string    `json:"message"`
-	History  []Message `json:"history"`
-	Messages []Message `json:"messages"`
+	Message  string            `json:"message"`
+	History  []Message         `json:"history"`
+	Messages []Message         `json:"messages"`
+	Context  map[string]string `json:"context"`
 }
 
 func (o ServeOpts) read(c *trilha.Ctx) (string, []Message, error) {
@@ -126,6 +142,17 @@ func (o ServeOpts) read(c *trilha.Ctx) (string, []Message, error) {
 		}
 	} else {
 		in.Message = c.Form("message")
+		// Without the script the same fields arrive as what they are on the
+		// page: hidden inputs. Reading both here is what keeps the route with
+		// one way to see the context.
+		for name, values := range c.Request().Form {
+			if after, ok := strings.CutPrefix(name, "ctx."); ok && len(values) > 0 {
+				if in.Context == nil {
+					in.Context = map[string]string{}
+				}
+				in.Context[after] = values[0]
+			}
+		}
 	}
 
 	msg, history := in.Message, in.History
@@ -148,6 +175,14 @@ func (o ServeOpts) read(c *trilha.Ctx) (string, []Message, error) {
 	}
 	if len(history) > keep {
 		history = history[len(history)-keep:]
+	}
+	// The context goes in front of the history, and after the trim: it is the
+	// part of the conversation that is not a turn, and losing it because the
+	// conversation got long would be losing the only thing the page knew.
+	if o.Context != nil {
+		if extra := o.Context(c, in.Context); len(extra) > 0 {
+			history = append(append([]Message{}, extra...), history...)
+		}
 	}
 	return msg, history, nil
 }

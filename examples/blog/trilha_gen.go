@@ -34,6 +34,7 @@ import (
 	app_marketing__precos "github.com/emersonjoe/trilha/examples/blog/app/marketing-/precos"
 	app_marketing__sobre "github.com/emersonjoe/trilha/examples/blog/app/marketing-/sobre"
 	app_painel_ "github.com/emersonjoe/trilha/examples/blog/app/painel-"
+	app_painel__assistente "github.com/emersonjoe/trilha/examples/blog/app/painel-/assistente"
 	app_painel__painel "github.com/emersonjoe/trilha/examples/blog/app/painel-/painel"
 	app_painel__relatorio "github.com/emersonjoe/trilha/examples/blog/app/painel-/relatorio"
 	app_tarefas "github.com/emersonjoe/trilha/examples/blog/app/tarefas"
@@ -118,6 +119,18 @@ func newApp() *trilha.App {
 			"GET":    app_api_posts_id_.GET,
 		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_api.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/assistente",
+		Page:    app_painel__assistente.Page,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_painel__assistente.POST,
+		},
+		Layouts:     []trilha.LayoutFunc{app_painel_.Layout, app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_painel_.Middleware},
+		MiddlewaresByMethod: map[string][]trilha.MiddlewareFunc{
+			"POST": {app_painel_.MiddlewarePOST},
+		},
 	})
 	a.Register(trilha.Route{
 		Pattern:     "/blog",

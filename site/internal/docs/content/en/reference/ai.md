@@ -116,6 +116,19 @@ not there. That is the `done` payload as a JSON body, or whatever `ServeOpts.Pag
 | `MaxInput` | the largest request body accepted (default 256 KB) |
 | `HTML` | renders the finished answer for the browser; `ui.ChatHTML` is the one that matches `ui.Chat`. Without it the answer stays text |
 | `Page` | answers a request that did not ask for a stream, so the app can render the page with the message in it |
+| `Context` | receives the `ctx.*` fields the page sent with the message — the id of the record that is open, the route the visitor is on — and what it returns goes in front of the history |
+
+`Context` is where [`ui.ChatOpts.Context`](/reference/ui#chat) lands, by both paths: the JSON the
+script sends and the hidden fields of a form that submitted on its own.
+
+```go
+ai.ServeOpts{Context: func(c *trilha.Ctx, fields map[string]string) []ai.Message {
+	return []ai.Message{{Role: "user", Content: "The open invoice is " + fields["invoice"] + "."}}
+}}
+```
+
+The fields come from the request, so they are what the visitor sent and not what the server
+knows: check what an id gives access to there, the same way a query parameter is checked.
 
 A failure before the first byte is an ordinary error (a [problem](/reference/errors) with its
 status). After it, the status line is gone: the failure travels as an `error` event and the

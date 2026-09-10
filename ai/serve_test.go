@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -226,5 +227,49 @@ func TestServeWithoutStreamReportsAFailureAsAProblem(t *testing.T) {
 	res := cl.Request("POST", "/api/chat", trilha.WithJSON(map[string]any{"message": "oi"}))
 	if res.Code < 400 {
 		t.Fatalf("answered %d: %q", res.Code, res.Body.String())
+	}
+}
+
+// Spec 093 (#142): the page's context reaches the route by both paths — the
+// JSON the script sends and the hidden fields of a form that submitted on its
+// own — because a route that reads two shapes is a route with two behaviours.
+func TestServeLeOContextoDosDoisJeitos(t *testing.T) {
+	agent := &Agent{Name: "assistente", Instructions: "Responda curto."}
+
+	var seen map[string]string
+	ler := func(c *trilha.Ctx, fields map[string]string) []Message {
+		seen = fields
+		return []Message{{Role: "user", Content: "a folha aberta é a " + fields["folha"]}}
+	}
+
+	// The script's way: the fields ride in the JSON body.
+	f := newFake(t, fakeReply{text: "pronto"})
+	cl := serveApp(t, f.client(), agent, ServeOpts{Context: ler})
+	cl.Request("POST", "/api/chat", trilha.WithJSON(map[string]any{
+		"message": "e agora?",
+		"context": map[string]string{"folha": "12", "rota": "/painel/folhas/12"},
+	})).WantStatus(http.StatusOK)
+	if seen["folha"] != "12" || seen["rota"] != "/painel/folhas/12" {
+		t.Fatalf("o contexto do JSON não chegou: %+v", seen)
+	}
+	// And it reaches the model in front of the history, which is the point of
+	// sending it at all.
+	req := f.lastReq()
+	if len(req.Messages) < 2 || !strings.Contains(req.Messages[1].Content, "a folha aberta é a 12") {
+		t.Fatalf("o contexto não chegou ao modelo: %+v", req.Messages)
+	}
+
+	// The form's way: the same fields as the hidden inputs ui.Chat writes,
+	// submitted by a browser with no script running.
+	seen = nil
+	f2 := newFake(t, fakeReply{text: "pronto"})
+	cl2 := serveApp(t, f2.client(), agent, ServeOpts{Context: ler})
+	cl2.Request("POST", "/api/chat", trilha.WithForm(url.Values{
+		"message":   {"e agora?"},
+		"ctx.folha": {"12"},
+		"ctx.rota":  {"/painel/folhas/12"},
+	})).WantStatus(http.StatusOK)
+	if seen["folha"] != "12" || seen["rota"] != "/painel/folhas/12" {
+		t.Fatalf("o contexto do formulário não chegou: %+v", seen)
 	}
 }

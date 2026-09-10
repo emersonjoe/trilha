@@ -328,6 +328,47 @@ ends: pass `ui.ChatHTML` to `ai.ServeOpts.HTML` and the finished bubble looks ex
 reloaded page. Without the script the form still submits and the route answers the whole thing
 at once, so nothing on the screen depends on the script running.
 
+| Field of `ChatOpts` | What it does |
+|---|---|
+| `Context` | what the page knows and the model does not: `{"invoice": id}` becomes hidden `ctx.*` fields, sent with the message and read by `ai.ServeOpts.Context` |
+
+### Assistant
+
+```go
+func Assistant(c *trilha.Ctx, o AssistantOpts) h.Node
+```
+
+The other shape of a chat: a button fixed in a corner that opens a panel over the screen instead
+of replacing it. Mount it once, in the layout of the area that has it.
+
+```go
+ui.Assistant(c, ui.AssistantOpts{
+	Action: "/api/assistant",
+	Page:   "/panel/assistant",           // the same conversation, as a page
+	Hint:   "Asking about invoice " + id, // what it knows right now
+	Chat:   ui.ChatOpts{Context: map[string]string{"invoice": id}},
+})
+ui.ChatScript(c)
+```
+
+| Field of `AssistantOpts` | What it does |
+|---|---|
+| `Action` | the route that answers, the `ai.Serve` one |
+| `Page` | the conversation as a page: where the launcher points when the script is not there |
+| `Label`, `Title`, `Hint` | the word on the launcher, the heading of the panel, and the line under it |
+| `Icon` | a kit icon on the launcher; empty is the label alone |
+| `ID` | the prefix of every id inside (default `assistant`) — two assistants need two |
+| `Chat` | the conversation itself: history, greeting, context |
+
+The launcher is a link before it is a button. **Without JavaScript it goes to `Page`**, which is
+the same conversation as a whole page; with JavaScript the kit's script opens the `<dialog>`
+instead, and the browser gives the focus trap and the Escape key. `aria-expanded` follows the
+panel, `aria-controls` names it, and it is server HTML — a page with an assistant is not an
+island.
+
+It is composition, not a second chat: the panel holds a `Chat`, so the streaming, the Markdown
+and the errors are the ones that already exist.
+
 ## Formatting
 
 A date, a size, a duration and a count are not domain: they are the same in every

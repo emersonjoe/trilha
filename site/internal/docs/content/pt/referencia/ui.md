@@ -329,6 +329,46 @@ mensagem: passe `ui.ChatHTML` para o `ai.ServeOpts.HTML` e a bolha pronta fica i
 página recarregada. Sem o script o formulário submete do mesmo jeito e a rota responde tudo de
 uma vez, então nada na tela depende do script rodar.
 
+| Campo de `ChatOpts` | O que faz |
+|---|---|
+| `Context` | o que a página sabe e o modelo não: `{"folha": id}` vira campos escondidos `ctx.*`, mandados junto com a mensagem e lidos pelo `ai.ServeOpts.Context` |
+
+### Assistant
+
+```go
+func Assistant(c *trilha.Ctx, o AssistantOpts) h.Node
+```
+
+O outro formato de um chat: um botão fixo no canto que abre um painel sobre a tela, em vez de
+trocá-la. Monte uma vez, no layout da área que o tem.
+
+```go
+ui.Assistant(c, ui.AssistantOpts{
+	Action: "/api/assistente",
+	Page:   "/painel/assistente",          // a mesma conversa, como página
+	Hint:   "Perguntando sobre a folha " + id, // o que ele sabe agora
+	Chat:   ui.ChatOpts{Context: map[string]string{"folha": id}},
+})
+ui.ChatScript(c)
+```
+
+| Campo de `AssistantOpts` | O que faz |
+|---|---|
+| `Action` | a rota que responde, a do `ai.Serve` |
+| `Page` | a conversa como página: para onde o launcher aponta quando não há script |
+| `Label`, `Title`, `Hint` | a palavra no botão, o título do painel e a linha embaixo dele |
+| `Icon` | um ícone do kit no botão; vazio é só o rótulo |
+| `ID` | o prefixo de todos os ids de dentro (padrão `assistant`) — dois assistentes precisam de dois |
+| `Chat` | a conversa em si: histórico, saudação, contexto |
+
+O launcher é um link antes de ser um botão. **Sem JavaScript ele vai para o `Page`**, que é a
+mesma conversa como página inteira; com JavaScript o script do kit abre o `<dialog>` no lugar, e
+o foco preso e o Escape vêm do navegador. O `aria-expanded` acompanha o painel, o `aria-controls`
+o nomeia, e tudo é HTML do servidor — uma página com assistente não vira ilha.
+
+É composição, não um segundo chat: o painel tem um `Chat` dentro, então o streaming, o Markdown e
+os erros são os que já existem.
+
 ## Formatação
 
 Data, tamanho, duração e contagem não são domínio: são iguais em toda aplicação, e toda
