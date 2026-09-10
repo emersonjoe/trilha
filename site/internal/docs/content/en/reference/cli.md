@@ -571,6 +571,7 @@ touch a project that already has code.
 | `permissions` | the permission matrix as data, and the screen that edits it |
 | `profile` | the account screen: own name, own password — the id comes from the session |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
+| `tasks` | the work that does not fit in a request: queue, dedupe, retry, and the screen |
 | `webhooks` | what this app announces to the outside: signed delivery with retry, and the screen for it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
@@ -614,7 +615,7 @@ Each one comes with memory behind it, so the screen works from the first request
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an
 audit trail names people, and a keys screen issues credentials.
 
-More are coming — `share-link`, `mail`, `blob`, `tasks` and `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
+More are coming — `share-link`, `mail`, `blob` and `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Why the CI applies every one of them
 

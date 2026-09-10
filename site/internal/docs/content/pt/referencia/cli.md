@@ -567,6 +567,7 @@ mexer num projeto que já tem código.
 | `permissions` | a matriz de permissões como dado, e a tela que a edita |
 | `profile` | a tela da própria conta: nome e senha — o id vem da sessão |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
+| `tasks` | o trabalho que não cabe numa requisição: fila, dedupe, retry, e a tela |
 | `webhooks` | o que este app avisa para fora: entrega assinada com retry, e a tela dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
@@ -608,7 +609,7 @@ Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisi
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
 guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
 
-Faltam outras — `share-link`, `mail`, `blob`, `tasks` e `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
+Faltam outras — `share-link`, `mail`, `blob` e `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Por que a CI aplica todas elas
 

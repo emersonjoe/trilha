@@ -3,6 +3,27 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.84.0 — 2026-09-10
+
+Spec 104. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for
+the recipes that are still to come.
+
+### Added
+
+- **`trilha add tasks`: the work that does not fit in a request.** Same case as `webhooks`: the
+  `task` module has been there since 0.64.0 — queue, dedupe by key, retry, progress, `ui.TaskTable`
+  — and somebody who needs it today writes a loose goroutine instead, which is the version that
+  loses the work on the first deploy and that nobody can retry, because there is nothing to retry.
+
+  The recipe writes the engine as a value the app provides (a suite that stands up one server per
+  test gives each one its own), an example task with **four stages** — a progress bar with one
+  stage says nothing — and the screen: a form that starts one, and the table that reads the state
+  the work left behind. `Setup` sweeps what a previous process left hanging and hangs `Shutdown`
+  on the app, so a deploy in the middle of the work waits instead of cutting it.
+
+  The shipped test starts a task through the screen and polls the screen until it ends, which is
+  exactly how a person uses it.
+
 ## 0.83.0 — 2026-09-10
 
 Spec 103. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for

@@ -84,6 +84,11 @@ var words = func(lang string) map[string]string {
 
 			"hooks_title": "Webhooks",
 			"hooks_desc":  "O que este app avisa para fora. A entrega sai fora da requisição, assinada, e tenta de novo quando o outro lado está fora do ar.",
+
+			"tasks_title": "Tarefas",
+			"tasks_desc":  "O trabalho longo roda fora da requisição; esta tela lê o estado que ele deixou.",
+			"tasks_key":   "Chave (o que está sendo processado)",
+			"tasks_run":   "Rodar",
 		}
 	}
 	return map[string]string{
@@ -162,5 +167,10 @@ var words = func(lang string) map[string]string {
 
 		"hooks_title": "Webhooks",
 		"hooks_desc":  "What this application announces to the outside. The delivery leaves outside the request, signed, and tries again when the other side is down.",
+
+		"tasks_title": "Tasks",
+		"tasks_desc":  "The long work runs outside the request; this screen reads the state it left behind.",
+		"tasks_key":   "Key (what is being worked on)",
+		"tasks_run":   "Run",
 	}
 }
