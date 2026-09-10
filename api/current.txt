@@ -5,6 +5,7 @@ pkg trilha, const DefaultPerPage
 pkg trilha, const Dev Env
 pkg trilha, const ErrFrozen
 pkg trilha, const ErrRedirectAbsolute
+pkg trilha, const ErrSearchKind
 pkg trilha, const ErrSecretShort
 pkg trilha, const IslandRuntime
 pkg trilha, const KindAPI RouteKind
@@ -37,6 +38,7 @@ pkg trilha, func LookupEnum(string) (Enum, bool)
 pkg trilha, func New(Config) *App
 pkg trilha, func NewHint(string, error) *Hint
 pkg trilha, func NewLimiter(RateLimit) *Limiter
+pkg trilha, func NewSearch(SearchOpts) *Search
 pkg trilha, func NewSettings[T any](string, T) *Settings[T]
 pkg trilha, func NewSigner(...[]byte) *Signer
 pkg trilha, func NewTestClient(TestingT, *App) *TestClient
@@ -56,6 +58,8 @@ pkg trilha, func RequireCSRF(*Ctx, Next) error
 pkg trilha, func Run(*App)
 pkg trilha, func SchemaOf[T any]() Schema
 pkg trilha, func Seal([]byte) ([]byte, error)
+pkg trilha, func SearchMemory() SearchStore
+pkg trilha, func SearchTerms(string) []string
 pkg trilha, func SecretFrom([]byte) (Secret, error)
 pkg trilha, func StatusOf(error) int
 pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse
@@ -193,6 +197,11 @@ pkg trilha, method (*Metrics) Histogram(string, string, []float64, ...string) *H
 pkg trilha, method (*Problem) Error() string
 pkg trilha, method (*Problem) MarshalJSON() ([]byte, error)
 pkg trilha, method (*RedirectError) Error() string
+pkg trilha, method (*Search) Delete(*Ctx, string, string) error
+pkg trilha, method (*Search) Kind(string, KindOpts) *Search
+pkg trilha, method (*Search) Put(*Ctx, ...Doc) error
+pkg trilha, method (*Search) Query(*Ctx, string, SearchQuery) (SearchResult, error)
+pkg trilha, method (*Search) Reindex(*Ctx, string, []Doc) error
 pkg trilha, method (*Secret) Scan(any) error
 pkg trilha, method (*Secret) UnmarshalJSON([]byte) error
 pkg trilha, method (*Settings) Bind(*App, SettingsStore) error
@@ -252,6 +261,7 @@ pkg trilha, method (ListParams) Offset() int
 pkg trilha, method (ListParams) PageHref(int) string
 pkg trilha, method (ListParams) TotalPages(int) int
 pkg trilha, method (Schema) Check() error
+pkg trilha, method (SearchResult) Group(string) (SearchGroup, bool)
 pkg trilha, method (Secret) Empty() bool
 pkg trilha, method (Secret) LogValue() slog.Value
 pkg trilha, method (Secret) MarshalJSON() ([]byte, error)
@@ -259,6 +269,7 @@ pkg trilha, method (Secret) Reveal() string
 pkg trilha, method (Secret) Sealed() ([]byte, error)
 pkg trilha, method (Secret) String() string
 pkg trilha, method (Secret) Value() (driver.Value, error)
+pkg trilha, method (Snippet) String() string
 pkg trilha, type Actor struct
 pkg trilha, type Actor struct, Email string
 pkg trilha, type Actor struct, Name string
@@ -365,6 +376,13 @@ pkg trilha, type DeadlineSummary struct, Now time.Time
 pkg trilha, type DeadlineSummary struct, Overdue []Deadline
 pkg trilha, type DeadlineSummary struct, Total int
 pkg trilha, type DeadlineSummary struct, Within map[int][]Deadline
+pkg trilha, type Doc struct
+pkg trilha, type Doc struct, Body string
+pkg trilha, type Doc struct, ID string
+pkg trilha, type Doc struct, Kind string
+pkg trilha, type Doc struct, Tenant string
+pkg trilha, type Doc struct, Title string
+pkg trilha, type Doc struct, URL string
 pkg trilha, type Draft struct
 pkg trilha, type DraftStore interface
 pkg trilha, type DraftStore interface, Delete(string) error
@@ -406,6 +424,13 @@ pkg trilha, type Hint struct, Code string
 pkg trilha, type Hint struct, Docs string
 pkg trilha, type Hint struct, Repair string
 pkg trilha, type Histogram struct
+pkg trilha, type Hit struct
+pkg trilha, type Hit struct, Score float64
+pkg trilha, type Hit struct, Snippet Snippet
+pkg trilha, type Hit struct, embedded Doc
+pkg trilha, type KindOpts struct
+pkg trilha, type KindOpts struct, Label string
+pkg trilha, type KindOpts struct, Module string
 pkg trilha, type LayoutFunc func(*Ctx, h.Node) (h.Node, error)
 pkg trilha, type Limiter struct
 pkg trilha, type Link struct
@@ -482,6 +507,35 @@ pkg trilha, type SchemaField struct, Type string
 pkg trilha, type SchemaOption struct
 pkg trilha, type SchemaOption struct, Label string
 pkg trilha, type SchemaOption struct, Value string
+pkg trilha, type Search struct
+pkg trilha, type SearchGroup struct
+pkg trilha, type SearchGroup struct, Hits []Hit
+pkg trilha, type SearchGroup struct, Kind string
+pkg trilha, type SearchGroup struct, Label string
+pkg trilha, type SearchGroup struct, Total int
+pkg trilha, type SearchOpts struct
+pkg trilha, type SearchOpts struct, Allow func(*Ctx, string) bool
+pkg trilha, type SearchOpts struct, Store SearchStore
+pkg trilha, type SearchOpts struct, Tenant func(*Ctx) string
+pkg trilha, type SearchQuery struct
+pkg trilha, type SearchQuery struct, Kinds []string
+pkg trilha, type SearchQuery struct, Limit int
+pkg trilha, type SearchQuery struct, Rerank func(string, []Hit) []Hit
+pkg trilha, type SearchResult struct
+pkg trilha, type SearchResult struct, Groups []SearchGroup
+pkg trilha, type SearchResult struct, Query string
+pkg trilha, type SearchResult struct, Terms []string
+pkg trilha, type SearchResult struct, Total int
+pkg trilha, type SearchStore interface
+pkg trilha, type SearchStore interface, Delete(context.Context, string, string) error
+pkg trilha, type SearchStore interface, DeleteKind(context.Context, string) error
+pkg trilha, type SearchStore interface, Put(context.Context, []Doc) error
+pkg trilha, type SearchStore interface, Search(context.Context, SearchStoreQuery) ([]Hit, error)
+pkg trilha, type SearchStoreQuery struct
+pkg trilha, type SearchStoreQuery struct, Kind string
+pkg trilha, type SearchStoreQuery struct, Limit int
+pkg trilha, type SearchStoreQuery struct, Tenant string
+pkg trilha, type SearchStoreQuery struct, Terms []string
 pkg trilha, type Secret string
 pkg trilha, type Security struct
 pkg trilha, type Security struct, COOP string
@@ -505,6 +559,10 @@ pkg trilha, type SettingsStore interface, Load(string) ([]byte, bool)
 pkg trilha, type SettingsStore interface, Save(string, []byte) error
 pkg trilha, type Settings[T any] struct
 pkg trilha, type Signer struct
+pkg trilha, type Snippet []SnippetPart
+pkg trilha, type SnippetPart struct
+pkg trilha, type SnippetPart struct, Match bool
+pkg trilha, type SnippetPart struct, Text string
 pkg trilha, type Stream struct
 pkg trilha, type TestClient struct
 pkg trilha, type TestOption func(*testOptions)
@@ -560,6 +618,7 @@ pkg trilha, var ErrNoVersion
 pkg trilha, var ErrNotFound
 pkg trilha, var ErrRateLimited
 pkg trilha, var ErrSealed
+pkg trilha, var ErrUnknownKind
 pkg trilha, var ErrVersionFrozen
 pkg trilha, var MaxItems
 pkg trilha, var ProblemType func(int) string
@@ -1506,6 +1565,8 @@ pkg ui, func Radio(...h.Node) h.Node
 pkg ui, func Relative() FormatOpt
 pkg ui, func Row(...h.Node) h.Node
 pkg ui, func SchemaForm(trilha.Schema, map[string]string, map[string]string, ...h.Node) h.Node
+pkg ui, func SearchBox(*trilha.Ctx, string, SearchBoxOpts) h.Node
+pkg ui, func SearchResults(*trilha.Ctx, trilha.SearchResult, SearchResultsOpts) h.Node
 pkg ui, func Secondary() h.Node
 pkg ui, func SecretField(*trilha.Ctx, string, string, trilha.Secret, ...FieldOpt) h.Node
 pkg ui, func SecretOnce(*trilha.Ctx, string, ...h.Node) h.Node
@@ -1741,6 +1802,15 @@ pkg ui, type PreviewOpts struct, Height string
 pkg ui, type PreviewOpts struct, NoOpen bool
 pkg ui, type PreviewOpts struct, Title string
 pkg ui, type PreviewOpts struct, Type string
+pkg ui, type SearchBoxOpts struct
+pkg ui, type SearchBoxOpts struct, Hint string
+pkg ui, type SearchBoxOpts struct, Name string
+pkg ui, type SearchBoxOpts struct, Placeholder string
+pkg ui, type SearchBoxOpts struct, Value string
+pkg ui, type SearchResultsOpts struct
+pkg ui, type SearchResultsOpts struct, Empty string
+pkg ui, type SearchResultsOpts struct, Hint string
+pkg ui, type SearchResultsOpts struct, More func(string) string
 pkg ui, type Section interface
 pkg ui, type Section interface, Key() string
 pkg ui, type Section interface, Schema() trilha.Schema

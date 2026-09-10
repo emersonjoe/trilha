@@ -46,6 +46,10 @@ const (
 	// ErrFrozen is a write to a published version. The repair is one call —
 	// open a draft — and the failure only reads as a bug without it.
 	ErrFrozen = "E_VERSION_FROZEN"
+	// ErrSearchKind is a search document whose kind nobody declared. Storing it
+	// in silence would be a record that never turns up in the search, with
+	// nothing pointing at why.
+	ErrSearchKind = "E_SEARCH_KIND"
 )
 
 // NewHint wraps err with a code. Fix and Doc add the rest.

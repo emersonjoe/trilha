@@ -70,6 +70,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error) |
+| `SearchBox(c, action, opts)`, `SearchResults(c, res, opts)` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) |
 | `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
 
 ## Trees

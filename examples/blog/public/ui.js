@@ -1,4 +1,4 @@
-/* trilha ui de2f8bd8741bec47 */
+/* trilha ui f9231ecede0ec962 */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -528,5 +528,18 @@
     const antes = b.textContent;
     b.textContent = b.getAttribute("data-ui-copied") || "✓";
     setTimeout(() => { b.textContent = antes; }, 1500);
+  });
+
+  // [data-ui-search]: Ctrl/Cmd+K e "/" levam o foco para a caixa de busca. Sem
+  // JavaScript ela continua sendo um formulário GET; o atalho é conveniência.
+  document.addEventListener("keydown", (e) => {
+    const bar = e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")
+      && !document.activeElement?.isContentEditable;
+    if (!(bar || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k"))) return;
+    const box = document.querySelector("[data-ui-search]");
+    if (!box) return;
+    e.preventDefault();
+    box.focus();
+    box.select?.();
   });
 })();

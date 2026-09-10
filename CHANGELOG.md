@@ -3,6 +3,47 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.95.0 — 2026-09-10
+
+Spec 116. Closes [#149](https://github.com/emersonjoe/trilha/issues/149).
+
+### Added
+
+- **`trilha.Search`: one box over several kinds of thing.** The search in the top bar is the same
+  in every internal application — one field, a handful of types, results grouped by type, a click
+  that goes to the record — and what every application writes instead is one `LIKE` per type,
+  copied, which then does not match "João" when somebody types "joao".
+
+  Kinds are declared once, in the order the groups come back in. `Put`, `Delete` and `Reindex`
+  maintain the index; `Query` answers it grouped, with a count per kind. A kind nobody declared is
+  refused with a `Hint` that lists the ones that are, because a record indexed under a typo is a
+  record that never turns up and nothing pointing at why.
+
+  **The tenant is not optional**: a `Doc` with no `Tenant` inherits the one `SearchOpts.Tenant`
+  answers and the query filters by the same — the filter nobody has to remember is the filter
+  nobody forgets. **A denied module leaves no trace**: the kind disappears from the results, count
+  included, because "3 people" shown to somebody who may not see people has already told them
+  something.
+
+- **`trilha.SearchTerms` and the snippet.** The tokenizer is exported so a store written for SQL
+  folds the same way — two tokenizers that disagree are an index that cannot find what it wrote.
+  The snippet comes back as `[]SnippetPart` and not as a string with `<mark>` in it: HTML built by
+  the runtime out of a field somebody typed is an injection waiting for the first body with a
+  `<script>`. The screen writes the tag.
+
+- **`SearchStore` and `SearchMemory`.** Memory is the default and honest about it: every document
+  is scanned, which is right for the thousands an internal application has. A table behind the same
+  four methods — FTS5, `tsvector` — is the next step, and no screen changes: the store only matches
+  and scores, so the grouping, the tenant, the module and the snippet cannot differ between stores.
+
+- **`ui.SearchBox` and `ui.SearchResults`.** A GET form, so the query ends up in the address and a
+  search can be sent to somebody, bookmarked and found again in the history; Ctrl+K and `/` move
+  the focus to it, and without JavaScript it is still a form. The results are grouped by kind with
+  a count, the matched words in `<mark>`, and an empty state that repeats what was searched.
+
+- **`trilha add search`** writes the index, the `/busca` page and the tests, and leaves the one
+  thing only the project knows: which records go in.
+
 ## 0.94.0 — 2026-09-10
 
 Spec 115. Closes [#150](https://github.com/emersonjoe/trilha/issues/150).

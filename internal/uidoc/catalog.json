@@ -1337,6 +1337,87 @@
     ]
   },
   {
+    "name": "SearchBoxOpts",
+    "kind": "type",
+    "group": "search",
+    "signature": "type SearchBoxOpts struct",
+    "doc": "SearchBoxOpts configures the box.",
+    "summary": "SearchBoxOpts configures the box.",
+    "fields": [
+      {
+        "name": "Name",
+        "type": "string",
+        "doc": "Name is the query parameter (default \"q\")."
+      },
+      {
+        "name": "Value",
+        "type": "string",
+        "doc": "Value is what is already typed — the current query, so the box still holds it after the results load."
+      },
+      {
+        "name": "Placeholder",
+        "type": "string",
+        "doc": "Placeholder overrides the default sentence."
+      },
+      {
+        "name": "Hint",
+        "type": "string",
+        "doc": "Hint is the shortcut written beside the box."
+      }
+    ]
+  },
+  {
+    "name": "SearchBox",
+    "kind": "func",
+    "group": "search",
+    "signature": "SearchBox(c *trilha.Ctx, action string, o SearchBoxOpts) h.Node",
+    "doc": "SearchBox is the search field of the top bar.\n\nIt is a GET form: the query ends up in the address, so a search can be sent\nto somebody, kept in a bookmark and found again in the history. Ctrl+K and\n\"/\" move the focus here, which the kit's script does — without JavaScript the\nbox is still a form, and the shortcut is the only thing missing.",
+    "summary": "SearchBox is the search field of the top bar.",
+    "example": "ui.SearchBox(c, \"/busca\", ui.SearchBoxOpts{Value: c.Query(\"q\")})",
+    "see": [
+      "ui.SearchBoxOpts"
+    ]
+  },
+  {
+    "name": "SearchResultsOpts",
+    "kind": "type",
+    "group": "search",
+    "signature": "type SearchResultsOpts struct",
+    "doc": "SearchResultsOpts configures the results.",
+    "summary": "SearchResultsOpts configures the results.",
+    "fields": [
+      {
+        "name": "Empty",
+        "type": "string",
+        "doc": "Empty is the sentence for a search that found nothing."
+      },
+      {
+        "name": "Hint",
+        "type": "string",
+        "doc": "Hint is the smaller line under it: what to try instead."
+      },
+      {
+        "name": "More",
+        "type": "func(kind string) string",
+        "doc": "More is a link per group, given the kind, for \"see all 42\"."
+      }
+    ]
+  },
+  {
+    "name": "SearchResults",
+    "kind": "func",
+    "group": "search",
+    "signature": "SearchResults(c *trilha.Ctx, res trilha.SearchResult, o SearchResultsOpts) h.Node",
+    "doc": "SearchResults renders what trilha.Search found: one section per kind, in the\norder the kinds were declared, each with its count.\n\nThe matched words are marked with \u003cmark\u003e, and the tag is written here and not\nby the runtime: the snippet arrives cut into parts, so a body containing\n\u003cscript\u003e is text on the way in and text on the way out.",
+    "summary": "SearchResults renders what trilha.Search found: one section per kind, in the order the kinds were declared, each with its count.",
+    "example": "res, _ := Busca.Query(c, c.Query(\"q\"), trilha.SearchQuery{Limit: 10})\nui.SearchResults(c, res, ui.SearchResultsOpts{})",
+    "see": [
+      "trilha.Search",
+      "trilha.SearchQuery",
+      "ui.SearchResultsOpts"
+    ]
+  },
+  {
     "name": "SecretField",
     "kind": "func",
     "group": "secret",
