@@ -206,5 +206,11 @@ var words = func(lang string) map[string]string {
 		"tenant_switched": "Organisation switched.",
 		"tenant_denied":   "You do not belong to that organisation.",
 		"tenant_gone":     "Your session ended.",
+
+		"inbox_title":     "Approvals",
+		"inbox_desc":      "What is waiting for a decision of yours. The deadline expires on its own; the decision is recorded with your name on it.",
+		"inbox_recent":    "Latest decisions",
+		"inbox_done":      "Decision recorded.",
+		"inbox_not_yours": "This request is not yours to decide.",
 	}
 }

@@ -823,6 +823,107 @@
     ]
   },
   {
+    "name": "InboxRow",
+    "kind": "type",
+    "group": "inbox",
+    "signature": "type InboxRow struct",
+    "doc": "InboxRow is one request of an approval queue, as the screen shows it.\n\nIt is a row and not approval.Record because the kit draws data, not another\npackage's types: an application with its own queue gets the same screen by\nfilling these fields.",
+    "summary": "InboxRow is one request of an approval queue, as the screen shows it.",
+    "fields": [
+      {
+        "name": "ID",
+        "type": "string"
+      },
+      {
+        "name": "Kind",
+        "type": "string"
+      },
+      {
+        "name": "Subject",
+        "type": "string"
+      },
+      {
+        "name": "Target",
+        "type": "string",
+        "doc": "Target is where the thing being decided lives."
+      },
+      {
+        "name": "State",
+        "type": "string"
+      },
+      {
+        "name": "Due",
+        "type": "interface{ IsZero() bool }",
+        "doc": "Due is the deadline; zero means none."
+      },
+      {
+        "name": "Late",
+        "type": "bool"
+      },
+      {
+        "name": "Reason",
+        "type": "string",
+        "doc": "Reason and By are the decision, for the rows that have one."
+      },
+      {
+        "name": "By",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "InboxOpts",
+    "kind": "type",
+    "group": "inbox",
+    "signature": "type InboxOpts struct",
+    "doc": "InboxOpts configures the inbox.",
+    "summary": "InboxOpts configures the inbox.",
+    "fields": [
+      {
+        "name": "Decide",
+        "type": "string",
+        "doc": "Decide is where the two buttons post."
+      },
+      {
+        "name": "CSRF",
+        "type": "h.Node",
+        "doc": "CSRF is the token field."
+      },
+      {
+        "name": "Empty",
+        "type": "string",
+        "doc": "Empty is what an empty queue says."
+      },
+      {
+        "name": "Reason",
+        "type": "string",
+        "doc": "Reason names the justification field (default \"reason\")."
+      }
+    ]
+  },
+  {
+    "name": "Inbox",
+    "kind": "func",
+    "group": "inbox",
+    "signature": "Inbox(c *trilha.Ctx, rows []InboxRow, o InboxOpts) h.Node",
+    "doc": "Inbox renders the queue of things waiting for a person: what it is, when it\nis due, and the two buttons.\n\nThere is no JavaScript: it is a table and two forms. The deadline is written\nby ui.Relative, so \"in 3 days\" and \"2 days ago\" are the same sentence in the\nreader's language, and a late row carries ui-late so the theme can shout.",
+    "summary": "Inbox renders the queue of things waiting for a person: what it is, when it is due, and the two buttons.",
+    "example": "ui.Inbox(c, rows, ui.InboxOpts{Decide: \"/admin/tarefas\", CSRF: trilha.CSRFInput(c)})",
+    "see": [
+      "trilha.CSRFInput",
+      "ui.InboxOpts",
+      "ui.Relative"
+    ]
+  },
+  {
+    "name": "InboxBadge",
+    "kind": "func",
+    "group": "inbox",
+    "signature": "InboxBadge(n int) h.Node",
+    "doc": "InboxBadge is the number for a menu item: how many are waiting for whoever\nis reading. Zero draws nothing, because a badge showing zero is a badge that\nteaches people to ignore badges.",
+    "summary": "InboxBadge is the number for a menu item: how many are waiting for whoever is reading."
+  },
+  {
     "name": "Column",
     "kind": "type",
     "group": "list",

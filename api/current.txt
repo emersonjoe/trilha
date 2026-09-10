@@ -672,6 +672,69 @@ pkg ai/mcp, type Transport interface
 pkg ai/mcp, type Transport interface, Close() error
 pkg ai/mcp, type Transport interface, Recv(context.Context) ([]byte, error)
 pkg ai/mcp, type Transport interface, Send(context.Context, []byte) error
+pkg approval, const Approved
+pkg approval, const Expired
+pkg approval, const Pending
+pkg approval, const Rejected
+pkg approval, const Withdrawn
+pkg approval, func Memory() Store
+pkg approval, func New(Options) *Approvals
+pkg approval, func Role(string) Assignee
+pkg approval, func User(string) Assignee
+pkg approval, method (*Approvals) Decide(*trilha.Ctx, string, string, string) error
+pkg approval, method (*Approvals) Expire(context.Context) int
+pkg approval, method (*Approvals) Get(context.Context, string) (Record, error)
+pkg approval, method (*Approvals) Inbox(*trilha.Ctx, ListParams) ([]Record, error)
+pkg approval, method (*Approvals) List(context.Context, ListParams) ([]Record, error)
+pkg approval, method (*Approvals) MayDecide(*trilha.Ctx, Record) bool
+pkg approval, method (*Approvals) On(string, func(*trilha.Ctx, Record) error)
+pkg approval, method (*Approvals) Open(*trilha.Ctx, Request) (string, error)
+pkg approval, method (*Approvals) Setup(*trilha.App) error
+pkg approval, method (*Approvals) Shutdown()
+pkg approval, method (Record) Late(time.Time) bool
+pkg approval, type Approvals struct
+pkg approval, type Assignee struct
+pkg approval, type Assignee struct, Role string
+pkg approval, type Assignee struct, User string
+pkg approval, type ListParams struct
+pkg approval, type ListParams struct, Kind string
+pkg approval, type ListParams struct, Limit int
+pkg approval, type ListParams struct, Roles []string
+pkg approval, type ListParams struct, State string
+pkg approval, type ListParams struct, Subject string
+pkg approval, type Options struct
+pkg approval, type Options struct, Logger *slog.Logger
+pkg approval, type Options struct, Roles func(*trilha.Ctx) []string
+pkg approval, type Options struct, Store Store
+pkg approval, type Options struct, Tick time.Duration
+pkg approval, type Record struct
+pkg approval, type Record struct, Assign Assignee
+pkg approval, type Record struct, By string
+pkg approval, type Record struct, Data map[string]string
+pkg approval, type Record struct, Decided time.Time
+pkg approval, type Record struct, Due time.Time
+pkg approval, type Record struct, ID string
+pkg approval, type Record struct, Kind string
+pkg approval, type Record struct, Opened time.Time
+pkg approval, type Record struct, OpenedBy string
+pkg approval, type Record struct, Reason string
+pkg approval, type Record struct, State string
+pkg approval, type Record struct, Subject string
+pkg approval, type Record struct, Target string
+pkg approval, type Request struct
+pkg approval, type Request struct, Assign Assignee
+pkg approval, type Request struct, Data map[string]string
+pkg approval, type Request struct, Due time.Time
+pkg approval, type Request struct, Kind string
+pkg approval, type Request struct, Subject string
+pkg approval, type Request struct, Target string
+pkg approval, type Store interface
+pkg approval, type Store interface, Get(context.Context, string) (Record, error)
+pkg approval, type Store interface, List(context.Context, ListParams) ([]Record, error)
+pkg approval, type Store interface, Save(context.Context, Record) error
+pkg approval, var ErrNotYours
+pkg approval, var ErrUnknown
+pkg approval, var States
 pkg auth, const DefaultPBKDF2Iterations
 pkg auth, func APIKeys(KeyOptions) *Keys
 pkg auth, func All(string) Grants
@@ -1338,6 +1401,8 @@ pkg ui, func Help(string) FieldOpt
 pkg ui, func Icon(string, ...h.Node) h.Node
 pkg ui, func IconSize() h.Node
 pkg ui, func Icons() []string
+pkg ui, func Inbox(*trilha.Ctx, []InboxRow, InboxOpts) h.Node
+pkg ui, func InboxBadge(int) h.Node
 pkg ui, func Indicator(string) h.Node
 pkg ui, func Input(...h.Node) h.Node
 pkg ui, func Invalid() h.Node
@@ -1530,6 +1595,21 @@ pkg ui, type EmptyOpts struct, Icon string
 pkg ui, type EmptyOpts struct, Title string
 pkg ui, type FieldOpt func(*fieldCfg)
 pkg ui, type FormatOpt func(*formatOpts)
+pkg ui, type InboxOpts struct
+pkg ui, type InboxOpts struct, CSRF h.Node
+pkg ui, type InboxOpts struct, Decide string
+pkg ui, type InboxOpts struct, Empty string
+pkg ui, type InboxOpts struct, Reason string
+pkg ui, type InboxRow struct
+pkg ui, type InboxRow struct, By string
+pkg ui, type InboxRow struct, Due interface{ IsZero() bool }
+pkg ui, type InboxRow struct, ID string
+pkg ui, type InboxRow struct, Kind string
+pkg ui, type InboxRow struct, Late bool
+pkg ui, type InboxRow struct, Reason string
+pkg ui, type InboxRow struct, State string
+pkg ui, type InboxRow struct, Subject string
+pkg ui, type InboxRow struct, Target string
 pkg ui, type ListSelect struct
 pkg ui, type ListSelect struct, Action string
 pkg ui, type ListSelect struct, Bar h.Node

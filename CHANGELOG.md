@@ -3,6 +3,35 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.92.0 — 2026-09-10
+
+Spec 113. Closes [#147](https://github.com/emersonjoe/trilha/issues/147).
+
+### Added
+
+- **`approval`: the queue that waits for a person.** The `task` package runs what a machine can
+  finish on its own; this is the other half — the queue every business application grows anyway,
+  with the four things it always needs and that nobody writes the first time: an owner, a
+  deadline, the reason written down, and who decided.
+
+  `Open` records a request, `Decide` writes the decision **and checks who may make it** — inside
+  the package, not on the screen, because a screen that hides a button is a screen and the address
+  behind it is still an address. `On(kind, fn)` is where the application says what a decision
+  means, and its error does not undo the decision: a person chose, and it is recorded. The
+  deadline expires on a clock in the process, for the same reason the task package sweeps its own.
+
+  Who holds which role is a function the application supplies: this package does not know how you
+  authenticate, and a check it guessed would look like a guarantee without being one.
+
+- **`ui.Inbox` and `ui.InboxBadge`.** A table and two forms, no JavaScript: the deadline written
+  by `ui.Relative`, the late row marked, and the decision and the reason travelling in the same
+  form — a reason typed into a field a second click discards is a reason nobody wrote. The badge
+  draws nothing at zero, because a badge showing zero teaches people to ignore badges.
+
+- **`trilha add approvals`** writes the package wired up, the screen, the middleware and the test.
+  Building the queue inside `Setup` rather than as a package variable is not taste: the recipe's
+  own test found it, because registering the same handler twice panics on the second test.
+
 ## 0.91.0 — 2026-09-10
 
 Spec 112. Closes [#144](https://github.com/emersonjoe/trilha/issues/144); part of

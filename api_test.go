@@ -23,6 +23,7 @@ var pacotesPublicos = []apisurface.Package{
 	{Dir: ".", Name: "trilha"},
 	{Dir: "ai", Name: "ai"},
 	{Dir: "ai/mcp", Name: "ai/mcp"},
+	{Dir: "approval", Name: "approval"},
 	{Dir: "auth", Name: "auth"},
 	{Dir: "blob", Name: "blob"},
 	{Dir: "cache", Name: "cache"},

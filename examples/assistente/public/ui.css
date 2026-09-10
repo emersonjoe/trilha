@@ -1,4 +1,4 @@
-/* trilha ui 62983771e83b65ad */
+/* trilha ui e16ba2669ab044ae */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -409,3 +409,6 @@ html.ui-sidebar-collapsed .ui-shell > .ui-sidebar { display: none; }
 .ui-assistant-launcher { position: fixed; right: 1rem; bottom: 1rem; z-index: 40; text-decoration: none; }
 .ui-assistant-dialog[open] { display: flex; flex-direction: column; max-height: calc(100vh - 4rem); }
 .ui-assistant-dialog .ui-chat-log { min-height: 0; max-height: 24rem; }
+
+.ui-late td { color: var(--destructive); }
+.ui-inbox-badge { margin-inline-start: .375rem; }
