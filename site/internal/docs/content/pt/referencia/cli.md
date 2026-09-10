@@ -63,22 +63,27 @@ Nenhuma senha é escrita dentro do projeto.
 
 ### O que vem no `app`
 
-Além do esqueleto, ele pede ao [`trilha add`](#trilha-add) o login e as três telas que toda
+Além do esqueleto, ele pede ao [`trilha add`](#trilha-add) o login e as telas que toda
 aplicação interna ganha no primeiro mês:
 
 | Tela | O que é |
 |---|---|
 | `/entrar`, `/sair` | a sessão, da receita `login` — o template não tem login próprio |
+| `/perfil` | a conta de quem pede: nome, senha, e-mail confirmado no endereço novo, sessões |
+| `/organizacoes` | em que organização a sessão está: trocar, criar, desativar, as configurações dela |
 | `/admin/auditoria` | a trilha de quem fez o quê, com o `ui.AuditTable` |
 | `/admin/chaves` | chaves de API: emitir, revogar, e a chave mostrada uma vez |
 | `/admin/config` | uma seção de configurações, desenhada do struct que a declara |
+| `/admin/usuarios` | a gente: convidar, papel, desativar, resetar |
+| `/admin/permissoes` | a matriz de permissões, os papéis, e o que quem olha pode fazer |
 
 São **as receitas, e não uma segunda cópia** — uma fonte só, para o template não envelhecer
-separado do que o `trilha add` escreve. Isso inclui o login desde a 0.91.0, que é o que faz o
-`trilha add users` (e `permissions`, `profile`, `tenant`) funcionar num projeto criado por este
-template: elas são escritas sobre a tabela que a receita `login` é dona. O `app/admin/` exige o papel `admin`, e quem está logado
+separado do que o `trilha add` escreve. Isso inclui o login desde a 0.91.0 e, desde a 0.100.0, as
+telas de `users`, `permissions`, `profile` e `tenant`: elas são escritas sobre a tabela que a
+receita `login` é dona. O `app/admin/` exige o papel `admin`, e quem está logado
 sem ele recebe **403, e não um redirecionamento para o login**: a pessoa é conhecida, só não
-autorizada, e mandá-la de volta a um login que ela já passou é um laço sem saída.
+autorizada, e mandá-la de volta a um login que ela já passou é um laço sem saída. O `/perfil` e
+o `/organizacoes` ficam na raiz, porque são sobre quem pede, e não sobre administrar.
 
 O `--with` decide com quais receitas um projeto novo começa, em qualquer template:
 
@@ -600,12 +605,12 @@ mexer num projeto que já tem código.
 | `connections` | os serviços externos com que este app fala: nome, URL, segredo selado e o botão Testar |
 | `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
 | `mail` | o arquivo de onde este app manda e-mail: uma função por mensagem, e teste sem rede |
-| `permissions` | a matriz de permissões como dado, e a tela que a edita |
-| `profile` | a tela da própria conta: nome e senha — o id vem da sessão |
+| `permissions` | a matriz de permissões como dado, a tela que a edita, papéis criados e removidos, quem tem o quê |
+| `profile` | a tela da própria conta: nome, senha, e-mail confirmado no endereço novo, sessões — o id vem da sessão |
 | `share-link` | um link assinado com prazo: acesso a uma coisa, sem conta |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
 | `tasks` | o trabalho que não cabe numa requisição: fila, dedupe, retry, e a tela |
-| `tenant` | organizações: escolher uma, trocar, e onde a coluna entra |
+| `tenant` | organizações: criar, trocar, ativar ou não, membros, configurações por organização |
 | `webhooks` | o que este app avisa para fora: entrega assinada com retry, e a tela dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
@@ -627,15 +632,39 @@ pasta guardada, porque quem abre o link ainda não tem sessão.
 
 A `permissions` é a que tira mais código: com uma matriz, o `if papel == "admin"` espalhado por
 dezoito arquivos deixa de ser escrito. Ela escreve a política como dado — módulos, níveis
-ordenados, o que cada papel tem —, as três funções que a leem e a tela do `ui.PolicyGrid`. A tela
+ordenados, o que cada papel tem —, as funções que a leem e a tela do `ui.PolicyGrid`. A tela
 que edita a matriz é guardada **pela própria matriz**, porque uma tela de permissões atrás de um
-if no papel é uma matriz com uma exceção do lado de fora.
+if no papel é uma matriz com uma exceção do lado de fora. Abaixo da grade vêm os papéis: quem tem
+cada um, um formulário que cria um (nasce com o que o `leitor` tem, para ser seguro antes de alguém
+editar a linha dele) e um botão que remove — recusado enquanto alguém ainda o tem, porque tirar o
+papel de uma pessoa em silêncio é uma pessoa que não consegue fazer nada e não sabe por quê. Por
+fim, *o que eu posso*: a matriz do lado de quem olha, módulo por módulo, que é a resposta ao "por
+que não consigo" antes de virar chamado.
 
-A `profile` é a menor delas e aquela onde mais se escreve o mesmo bug: o formulário manda o id e o
-servidor confia. Nessa tela não existe id em formulário nenhum — ele vem da sessão, o único lugar
-que sabe de quem é a conta. Trocar a senha pede a senha atual mesmo com a sessão aberta (um
-computador destravado por dois minutos não deve virar uma conta perdida) e depois fecha a sessão,
-porque entrar de novo é a prova de que a senha nova é a que a pessoa quis.
+A `profile` é aquela onde mais se escreve o mesmo bug: o formulário manda o id e o servidor
+confia. Nessa tela não existe id em formulário nenhum — ele vem da sessão, o único lugar que sabe
+de quem é a conta. Trocar a senha pede a senha atual mesmo com a sessão aberta (um computador
+destravado por dois minutos não deve virar uma conta perdida), encerra **todas as outras sessões**
+com o `LogoutOthers` e depois esta, porque entrar de novo é a prova de que a senha nova é a que a
+pessoa quis. O cartão de sessões lista onde mais a conta está aberta e oferece encerrar as outras.
+Trocar o e-mail é em dois passos: um link de um uso (`c.Link`, uma hora) vai para o endereço
+**novo**, e só a rota que ele aponta — debaixo de `/perfil`, para a sessão e o link terem de
+concordar — muda alguma coisa. Sem ninguém para mandar o link, a tela recusa e diz isso: um e-mail
+trocado sem confirmação no endereço novo é uma conta entregue a quem digitou.
+
+A `tenant` é o seletor de organização, e o único lugar sobre organizações: criar uma (quem cria
+está nela), trocar — recusado onde a pessoa não é membro, e recusado para uma organização
+desativada —, desativar e ativar de volta (nada é apagado; quem está dentro fica até a sessão
+acabar, porque a troca é a hora em que a checagem roda), a contagem de membros, e as configurações
+da organização em que a sessão está: uma seção `trilha.Settings` por organização, sob a própria
+chave, desenhada com o `ui.SettingsForm`, para o fuso da ACME não virar o de todo mundo.
+
+Algumas receitas **se amarram** quando as duas estão lá. `users` e `permissions`: a matriz é dona
+da lista de papéis, então o `app/setup.go` ganha `usuarios.Papeis = acesso.Papeis` e o formulário
+de convite oferece os papéis da matriz. `profile` e `mail`: a confirmação de e-mail sai pelo
+`correio.Confirmacao`. Cada par carrega a mesma linha sob o mesmo marcador, condicionada ao
+arquivo da outra, então a amarração acontece com qualquer uma sendo a segunda, uma vez só — e
+nunca uma linha que importa um pacote que o projeto não tem.
 
 A `webhooks` é aquela cujas peças estavam mais longe de serem achadas: o módulo `webhook` existe
 desde a 0.65.0 e o `examples/blog` usa. Ela escreve a lista fechada de eventos que a aplicação

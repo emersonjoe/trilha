@@ -71,6 +71,9 @@ func (a *Auth) RequireRole(roles ...string) trilha.MiddlewareFunc
 func (a *Auth) Optional() trilha.MiddlewareFunc
 func (a *Auth) User(c *trilha.Ctx) *User     // nil when anonymous
 func (a *Auth) Session(c *trilha.Ctx) (*User, error)
+func (a *Auth) LoginPath() string            // Options.LoginPath, or its default
+func (a *Auth) Sessions(c *trilha.Ctx) ([]User, error) // every session of whoever is logged in, this one first
+func (a *Auth) LogoutOthers(c *trilha.Ctx) error       // ends the others, keeps this one
 
 func Sessions(o Options) *Auth               // the same type, without a provider
 func (a *Auth) Login(c *trilha.Ctx, u *User) error // session for a user the app authenticated
@@ -292,6 +295,27 @@ With a `Store` the cookie carries only the identifier and the logout takes effec
 immediately for everyone. `MemoryStore` is for a single process: replicas do not share it,
 and a restart drops every session. For several replicas, implement the interface over your
 database or cache.
+
+### Sessions by owner
+
+```go
+type SessionLister interface {
+	Sessions(subject string) []*User // the live sessions of one subject
+}
+
+var ErrNoSessionList error
+```
+
+A store that also implements `SessionLister` gives the account screen two things:
+`Sessions(c)` — every session of whoever is logged in, the current one first, each with
+`IssuedAt`, `Seen` and `SessionID` — and `LogoutOthers(c)`, which deletes every session of
+theirs except this one and writes `auth.logout_others` to the audit trail with the count.
+`MemoryStore` implements it. A store that does not gets `ErrNoSessionList` from both, which
+is what the screen shows instead of an empty list: an empty list would say "nowhere else",
+and that would not be known.
+
+A password change is where `LogoutOthers` belongs: a password changes because somebody may
+have the old one, and that somebody may be signed in right now.
 
 ## Cookies
 

@@ -47,17 +47,22 @@ func writeSetup(root string, r Recipe, linhas []Insert, dados map[string]any, dr
 
 	var feitas []string
 	var bloco strings.Builder
+	var imports []string
 	for _, in := range linhas {
 		if strings.Contains(texto, in.Marker) {
 			continue // já está lá: a marca existe para isto
 		}
 		fmt.Fprintf(&bloco, "\t%s\n%s", in.Marker, in.Line)
 		feitas = append(feitas, in.Marker)
+		imports = append(imports, in.Imports...)
 	}
 	if bloco.Len() == 0 {
 		return nil, nil
 	}
 	texto = texto[:fim] + bloco.String() + texto[fim:]
+	for _, caminho := range imports {
+		texto = addImport(texto, caminho)
+	}
 	for _, imp := range r.Imports {
 		caminho, err := render(imp, dados)
 		if err != nil {

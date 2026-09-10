@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -216,5 +218,65 @@ func TestCheckPBKDF2ReadsBothSpellings(t *testing.T) {
 		if CheckPBKDF2(bad, password) {
 			t.Errorf("accepted %q", bad)
 		}
+	}
+}
+
+// Spec 121 — the sessions of one person are listable, and "end the others"
+// leaves only the one that asked. Without a store that lists, it says so.
+func TestSessionsELogoutOthers(t *testing.T) {
+	store := NewMemoryStore()
+	a := Sessions(Options{LoginPath: "/entrar", Store: store})
+	app := localApp(t, a)
+	app.Register(trilha.Route{Pattern: "/sessoes", Kind: trilha.KindPage, Middlewares: []trilha.MiddlewareFunc{a.Require()},
+		Methods: map[string]trilha.HandlerFunc{"GET": func(c *trilha.Ctx) error {
+			list, err := a.Sessions(c)
+			if err != nil {
+				return err
+			}
+			return c.Text(200, fmt.Sprintf("%d %s", len(list), list[0].SessionID))
+		}}})
+	app.Register(trilha.Route{Pattern: "/outras", Kind: trilha.KindPage, Middlewares: []trilha.MiddlewareFunc{a.Require()},
+		Methods: map[string]trilha.HandlerFunc{"GET": func(c *trilha.Ctx) error {
+			if err := a.LogoutOthers(c); err != nil {
+				return err
+			}
+			return c.Text(200, "ok")
+		}}})
+	// Two browsers, one person.
+	b1, b2 := newBrowser(t, app), newBrowser(t, app)
+	b1.get("/entrar?senha=certa", nil)
+	b2.get("/entrar?senha=certa", nil)
+	rec := b1.get("/sessoes", nil)
+	if rec.Code != 200 || !strings.HasPrefix(rec.Body.String(), "2 ") {
+		t.Fatalf("/sessoes → %d %q", rec.Code, rec.Body.String())
+	}
+	if rec := b1.get("/outras", nil); rec.Code != 200 {
+		t.Fatalf("/outras → %d", rec.Code)
+	}
+	if rec := b1.get("/painel", nil); rec.Code != 200 {
+		t.Fatal("the session that asked was ended too")
+	}
+	if rec := b2.get("/painel", nil); rec.Code == 200 {
+		t.Fatal("the other session survived")
+	}
+	if rec := b1.get("/sessoes", nil); !strings.HasPrefix(rec.Body.String(), "1 ") {
+		t.Fatalf("after: %q", rec.Body.String())
+	}
+
+	// Cookie-only sessions have no list: the answer is an error, not an
+	// empty list that a screen would draw as "no other sessions".
+	a2 := Sessions(Options{LoginPath: "/entrar"})
+	app2 := localApp(t, a2)
+	app2.Register(trilha.Route{Pattern: "/outras", Kind: trilha.KindPage, Middlewares: []trilha.MiddlewareFunc{a2.Require()},
+		Methods: map[string]trilha.HandlerFunc{"GET": func(c *trilha.Ctx) error {
+			if err := a2.LogoutOthers(c); !errors.Is(err, ErrNoSessionList) {
+				return fmt.Errorf("got %v", err)
+			}
+			return c.Text(200, "ok")
+		}}})
+	b3 := newBrowser(t, app2)
+	b3.get("/entrar?senha=certa", nil)
+	if rec := b3.get("/outras", nil); rec.Code != 200 {
+		t.Fatalf("no store: %d %s", rec.Code, rec.Body.String())
 	}
 }

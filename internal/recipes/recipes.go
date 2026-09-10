@@ -89,6 +89,15 @@ type Insert struct {
 	Marker string
 	// Line is the code, as a template.
 	Line string
+	// If is a file, relative to the project root, that has to exist for the
+	// line to go in — the way one recipe ties itself to another when both are
+	// there. The two recipes carry the same line under the same Marker, each
+	// conditioned on the other's file, so the tie happens whichever is added
+	// second, and once.
+	If string
+	// Imports are what this line needs, added only when it goes in: an import
+	// of a package the other recipe writes must not appear without it.
+	Imports []string
 }
 
 // Options is what `trilha add` was asked for.
@@ -216,7 +225,7 @@ func Add(root string, r Recipe, o Options) (Result, error) {
 		return res, err
 	}
 
-	linhas, err := r.setupLines(dados)
+	linhas, err := r.setupLines(root, dados)
 	if err != nil {
 		return res, err
 	}
@@ -228,14 +237,27 @@ func Add(root string, r Recipe, o Options) (Result, error) {
 	return res, nil
 }
 
-func (r Recipe) setupLines(dados map[string]any) ([]Insert, error) {
+func (r Recipe) setupLines(root string, dados map[string]any) ([]Insert, error) {
 	out := make([]Insert, 0, len(r.Setup))
 	for _, in := range r.Setup {
+		if in.If != "" {
+			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(in.If))); err != nil {
+				continue
+			}
+		}
 		linha, err := render(in.Line, dados)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, Insert{Marker: in.Marker, Line: linha})
+		imports := make([]string, 0, len(in.Imports))
+		for _, imp := range in.Imports {
+			caminho, err := render(imp, dados)
+			if err != nil {
+				return nil, err
+			}
+			imports = append(imports, caminho)
+		}
+		out = append(out, Insert{Marker: in.Marker, Line: linha, Imports: imports})
 	}
 	return out, nil
 }

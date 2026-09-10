@@ -63,22 +63,27 @@ says out loud in dev when they are missing. No password is written into the proj
 
 ### What comes in `app`
 
-Beyond the skeleton, it asks [`trilha add`](#trilha-add) for the login and for the three screens
+Beyond the skeleton, it asks [`trilha add`](#trilha-add) for the login and for the screens
 every internal application grows in its first month:
 
 | Screen | What it is |
 |---|---|
 | `/entrar`, `/sair` | the session, from the `login` recipe — the template has no login of its own |
+| `/perfil` | the account of whoever is asking: name, password, e-mail confirmed at the new address, sessions |
+| `/organizacoes` | which organisation the session is in: switch, create, deactivate, its settings |
 | `/admin/auditoria` | the trail of who did what, with `ui.AuditTable` |
 | `/admin/chaves` | API keys: issue, revoke, and the key shown once |
 | `/admin/config` | a settings section, drawn from the struct that declares it |
+| `/admin/usuarios` | the people: invite, role, deactivate, reset |
+| `/admin/permissoes` | the permission matrix, the roles, and what the viewer can do |
 
 They are **the recipes and not a second copy** — one source, so the template cannot age apart
-from what `trilha add` writes. That includes the login since 0.91.0, which is what lets
-`trilha add users` (and `permissions`, `profile`, `tenant`) work in a project made with this
-template: they are written on the table the `login` recipe owns. `app/admin/` requires the `admin` role, and somebody signed in
-without it gets **403 and not a redirect to the login**: they are known, just not permitted, and
-sending them back to a login they already passed is a loop with no exit.
+from what `trilha add` writes. That includes the login since 0.91.0, and since 0.100.0 the
+`users`, `permissions`, `profile` and `tenant` screens: they are written on the table the
+`login` recipe owns. `app/admin/` requires the `admin` role, and somebody signed in without it
+gets **403 and not a redirect to the login**: they are known, just not permitted, and sending
+them back to a login they already passed is a loop with no exit. `/perfil` and `/organizacoes`
+stay at the root, because they are about the person asking and not about administering.
 
 `--with` decides which recipes a new project starts with, on any template:
 
@@ -604,12 +609,12 @@ touch a project that already has code.
 | `connections` | the external services this app talks to: name, URL, sealed secret, and the Test button |
 | `login` | a session of your own: the users table, the sign-in screen and the way out |
 | `mail` | the file this app sends e-mail from: one function per message, and a test with no network |
-| `permissions` | the permission matrix as data, and the screen that edits it |
-| `profile` | the account screen: own name, own password — the id comes from the session |
+| `permissions` | the permission matrix as data, the screen that edits it, roles created and removed, who has what |
+| `profile` | the account screen: own name, password, e-mail confirmed at the new address, sessions — the id comes from the session |
 | `share-link` | a signed link with a deadline: access to one thing, without an account |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
 | `tasks` | the work that does not fit in a request: queue, dedupe, retry, and the screen |
-| `tenant` | organisations: choosing one, switching, and where the column goes |
+| `tenant` | organisations: create, switch, activate or not, members, per-organisation settings |
 | `webhooks` | what this app announces to the outside: signed delivery with retry, and the screen for it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
@@ -631,16 +636,41 @@ the guarded folder, because whoever opens it has no session yet.
 
 `permissions` is the one that removes the most code: with a matrix, the `if role == "admin"`
 spread over eighteen files stops being written. It writes the policy as data — modules, ordered
-levels, what each role has — the three functions that read it, and the `ui.PolicyGrid` screen. The
+levels, what each role has — the functions that read it, and the `ui.PolicyGrid` screen. The
 screen that edits the matrix is guarded **by the matrix itself**, because a permissions screen
-behind an if on the role is a matrix with one exception living outside it.
+behind an if on the role is a matrix with one exception living outside it. Below the grid are
+the roles: who has each one, a form that creates one (born with what `leitor` has, so it is
+safe before anybody edits its row) and a button that removes one — refused while somebody
+still has it, because taking a role away from a person silently is a person who can do nothing
+and does not know why. Last, *what I can do*: the matrix from the viewer's side, module by
+module, which is the answer to "why can't I" before it becomes a ticket.
 
-`profile` is the smallest of them and the one where the same bug is written most often: the form
-carries the id and the server trusts it. There is no id on that screen, in any form — it comes
-from the session, the only place that knows whose account is being changed. Changing the password
-asks for the current one even with a session open (a machine left unlocked for two minutes should
-not become an account somebody lost) and then ends the session, because signing in again is the
-proof that the new password is the one they meant.
+`profile` is the one where the same bug is written most often: the form carries the id and the
+server trusts it. There is no id on that screen, in any form — it comes from the session, the
+only place that knows whose account is being changed. Changing the password asks for the
+current one even with a session open (a machine left unlocked for two minutes should not become
+an account somebody lost), ends **every other session** with `LogoutOthers`, and then this
+one, because signing in again is the proof that the new password is the one they meant. The
+sessions card lists where else the account is open and offers to end the others. Changing the
+e-mail is two steps: a one-use link (`c.Link`, an hour) goes to the **new** address, and only
+the route it points at — under `/perfil`, so the session and the link have to agree — changes
+anything. Without anybody to send the link, the screen refuses and says so: an e-mail changed
+without a confirmation at the new address is an account handed to whoever typed it.
+
+`tenant` is the organisation picker, and the one place about organisations: create one (whoever
+creates it is in it), switch — refused where the person is not a member, and refused into an
+organisation that was deactivated — deactivate and activate back (nothing is deleted; whoever
+is inside stays until the session ends, because the switch is the moment the check runs), the
+member count, and the settings of the organisation the session is in: a `trilha.Settings`
+section per organisation, under its own key, drawn with `ui.SettingsForm`, so that ACME's time
+zone does not become everybody's.
+
+Some recipes **tie themselves together** when both are there. `users` and `permissions`: the
+matrix owns the list of roles, so `app/setup.go` gets `usuarios.Papeis = acesso.Papeis` and the
+invite form offers the matrix's roles. `profile` and `mail`: the e-mail confirmation goes out
+through `correio.Confirmacao`. Each pair carries the same line under the same marker,
+conditioned on the other's file, so the tie happens whichever recipe is added second, once —
+and never a line that imports a package the project does not have.
 
 `webhooks` is the one whose pieces were furthest from being found: the `webhook` module has
 existed since 0.65.0 and `examples/blog` uses it. It writes the closed list of events this

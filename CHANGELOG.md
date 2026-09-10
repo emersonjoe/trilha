@@ -3,6 +3,52 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.100.0 — 2026-09-10
+
+Spec 121. Closes [#154](https://github.com/emersonjoe/trilha/issues/154).
+
+### Added
+
+- **`Auth.Sessions`, `Auth.LogoutOthers`, `Auth.LoginPath`.** `Sessions(c)` lists every open
+  session of the signed-in user, the current one first, with `CreatedAt` and `LastSeen`;
+  `LogoutOthers(c)` ends all but the current one and audits `auth.logout_others` with the count.
+  Both need a store that lists by owner — the new `SessionLister` interface, which
+  `MemoryStore` implements; a store without it answers `ErrNoSessionList` and the screen says
+  so instead of pretending. `LoginPath()` is where `Require` sends an anonymous browser, so a
+  page written by a recipe can redirect there whatever prefix the recipe was added at.
+- **Recipe inserts that wait for another recipe.** `Insert.If` names a file that must exist for
+  the line to go into `app/setup.go`, and `Insert.Imports` are added only when it does. Two
+  recipes that tie together carry the same line under the same marker, each conditioned on the
+  other's file, so the tie happens whichever is added second, once, and never with an import of
+  a package the project does not have.
+- **`trilha add tenant`: organisations as a real screen.** Create (the creator is a member),
+  switch (refused for non-members and for a deactivated organisation), deactivate and activate
+  back — nothing is deleted — the member count, and per-organisation settings: a
+  `trilha.Settings` section per organisation, under its own key, drawn with `ui.SettingsForm`.
+  Every action is audited.
+- **`trilha add permissions`: roles below the grid.** Who has each role, a form that creates
+  one (born with `leitor`'s grants), a button that removes one (refused while somebody still
+  has it), and *what I can do* — the matrix from the viewer's side, module by module. With
+  `users` present, the invite form offers the matrix's roles (`usuarios.Papeis = acesso.Papeis`,
+  wired by either recipe).
+- **`trilha add profile`: sessions and e-mail.** The sessions card lists where else the account
+  is open and ends the others; a password change ends every other session before this one.
+  Changing the e-mail is two steps — a one-use `c.Link` for an hour, sent to the **new**
+  address, claimed under `/perfil/email/` by the same session — and is refused, with the reason
+  on screen, while nothing can send it. With `mail` present, the confirmation goes out through
+  `correio.Confirmacao`, wired by either recipe.
+- **`--template app` is now the month one.** Beyond login, audit, keys and settings it adds
+  `users`, `permissions` (under `/admin/`), `profile` and `tenant` (at the root, because they
+  are about the person asking).
+- Documentation: reference `auth` (sessions by owner) and `cli` (the template, the recipes and
+  how they tie together) — in English and Portuguese; the `tenant` recipe's Portuguese words,
+  which were missing.
+
+### Fixed
+
+- Recipe pages and tests hard-coded `/entrar`, which under `--template app` (recipes under
+  `app/admin/`) was `/admin/entrar` and a 404; they now ask `sessao.Flow.LoginPath()`.
+
 ## 0.99.0 — 2026-09-10
 
 Spec 120. Closes [#153](https://github.com/emersonjoe/trilha/issues/153).

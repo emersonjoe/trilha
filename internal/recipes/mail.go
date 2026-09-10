@@ -19,6 +19,15 @@ func mailRecipe() Recipe {
 			{Rel: "internal/correio/correio.go", Go: true, Body: mailDecl},
 			{Rel: "internal/correio/correio_test.go", Go: true, Body: mailDeclTest},
 		},
+		// With the profile recipe there, the e-mail confirmation goes out
+		// through this file. The same line the profile recipe carries, each
+		// conditioned on the other's file.
+		Setup: []Insert{{
+			Marker:  "// trilha:link profile-mail",
+			Line:    "\tusuarios.EnviarConfirmacao = correio.Confirmacao\n",
+			If:      "internal/usuarios/perfil.go",
+			Imports: []string{"{{.Module}}/internal/correio", "{{.Module}}/internal/usuarios"},
+		}},
 		Next: map[string]string{
 			"en": "In dev nothing leaves: with TRILHA_MAIL_URL empty the messages land as .eml files in " +
 				"./mail. Set TRILHA_MAIL_URL and TRILHA_MAIL_FROM for production — `trilha audit` says so " +
@@ -78,6 +87,21 @@ func Boasvindas(ctx context.Context, para, nome, link string) error {
 		),
 	})
 }
+
+// Confirmacao is the link that confirms a new e-mail, sent to the new
+// address. It has the shape the account screen expects of
+// usuarios.EnviarConfirmacao, and app/setup.go makes the two meet.
+func Confirmacao(ctx context.Context, para, link string) error {
+	return Mailer.Send(ctx, mail.Message{
+		To:      []string{para},
+		Subject: "{{.T.mail_confirm_subject}} " + Marca,
+		Body: mail.Layout(Marca,
+			h.P(h.Text("{{.T.mail_confirm_hi}}")),
+			mail.Button("{{.T.mail_confirm_button}}", link),
+			mail.Muted(h.Text("{{.T.mail_welcome_hint}} "+link)),
+		),
+	})
+}
 `
 
 const mailDeclTest = `package correio
@@ -122,6 +146,22 @@ func TestBoasvindas(t *testing.T) {
 	// uma mensagem, e não um espaço em branco.
 	if strings.TrimSpace(m.Text) == "" {
 		t.Fatal("a mensagem foi sem a versão em texto")
+	}
+}
+
+// A confirmação vai para o endereço novo, com o link no corpo.
+func TestConfirmacao(t *testing.T) {
+	caixa := &mail.Outbox{}
+	antes := Mailer
+	Mailer = mail.New(mail.Options{From: "Teste <no-reply@exemplo.com>", Transport: caixa})
+	t.Cleanup(func() { Mailer = antes })
+
+	if err := Confirmacao(context.Background(), "nova@exemplo.com", "https://exemplo.com/perfil/email/x"); err != nil {
+		t.Fatal(err)
+	}
+	msgs := caixa.Messages()
+	if len(msgs) != 1 || msgs[0].To[0] != "nova@exemplo.com" || !strings.Contains(msgs[0].HTML, "/perfil/email/x") {
+		t.Fatalf("mensagens = %+v", msgs)
 	}
 }
 

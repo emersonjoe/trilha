@@ -19,6 +19,7 @@ func usersRecipe() Recipe {
 		Files: []File{
 			{Rel: "internal/usuarios/convites.go", Go: true, Body: usersInvites},
 			{Rel: "internal/usuarios/convites_test.go", Go: true, Body: usersInvitesTest},
+			{Rel: "internal/usuarios/papeis.go", Go: true, Body: usersRoles},
 			{Rel: "{{.At}}usuarios/page.go", Go: true, Body: usersPage},
 			{Rel: "{{.At}}usuarios/middleware.go", Go: true, Body: usersMiddleware},
 			// The invitation is answered by somebody who is not signed in yet,
@@ -27,6 +28,15 @@ func usersRecipe() Recipe {
 			{Rel: "app/convite/token_/page.go", Go: true, Body: usersAccept},
 			{Rel: "usuarios_test.go", Go: true, Body: usersTest},
 		},
+		// With the permissions recipe there, the matrix owns the role list:
+		// the same line the permissions recipe carries, conditioned on its
+		// file, so the tie happens whichever is added second.
+		Setup: []Insert{{
+			Marker:  "// trilha:link users-permissions",
+			Line:    "\tusuarios.Papeis = acesso.Papeis\n",
+			If:      "internal/acesso/acesso.go",
+			Imports: []string{"{{.Module}}/internal/acesso", "{{.Module}}/internal/usuarios"},
+		}},
 		Next: map[string]string{
 			"en": "Run `trilha dev` and open {{.URL}}usuarios. The invitation link is shown to whoever " +
 				"created it; to send it by e-mail instead, one `mail.Send` in the invite branch is the " +
@@ -217,6 +227,37 @@ func hashToken(token string) string {
 }
 `
 
+const usersRoles = `package usuarios
+
+// Papeis is what this application has. It is a list and not a free field
+// because a role nobody wrote down is a role nobody guards — and it is a
+// function in a variable so that the package which really owns the list can
+// take it over: with the permissions recipe, app/setup.go says
+// usuarios.Papeis = acesso.Papeis, and the invite form offers the matrix's
+// roles.
+var Papeis = func() []string { return []string{"admin", "editor", "leitor"} }
+
+// PapelValido keeps what comes from a form inside the list: a role that
+// arrives from outside is a role nobody declared. What is not on the list
+// becomes "leitor" when there is one — the least — and the last one otherwise.
+func PapelValido(p string) string {
+	papeis := Papeis()
+	menor := ""
+	for _, v := range papeis {
+		if v == p {
+			return p
+		}
+		if v == "leitor" {
+			menor = v
+		}
+	}
+	if menor == "" && len(papeis) > 0 {
+		menor = papeis[len(papeis)-1]
+	}
+	return menor
+}
+`
+
 const usersInvitesTest = `package usuarios
 
 import (
@@ -311,10 +352,6 @@ import (
 	gente "{{.Module}}/internal/usuarios"
 )
 
-// Papeis is what this application has. It is a list and not a free field
-// because a role nobody wrote down is a role nobody guards.
-var Papeis = []string{"admin", "editor", "leitor"}
-
 // Page lists the people at GET {{.URL}}usuarios.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("{{.T.users_title}}")
@@ -341,7 +378,7 @@ func POST(c *trilha.Ctx) error {
 	store := trilha.Use[*gente.Store](c)
 	switch c.Form("acao") {
 	case "papel":
-		if err := store.Papel(c.Form("id"), papelValido(c.Form("papel"))); err != nil {
+		if err := store.Papel(c.Form("id"), gente.PapelValido(c.Form("papel"))); err != nil {
 			return err
 		}
 	case "ativo":
@@ -362,7 +399,7 @@ func POST(c *trilha.Ctx) error {
 			return trilha.Errorf(http.StatusUnprocessableEntity, "%s", "{{.T.users_need_email}}")
 		}
 		conv, err := store.Convidar("u-"+strconv.FormatInt(time.Now().UnixNano(), 36),
-			email, c.Form("nome"), papelValido(c.Form("papel")))
+			email, c.Form("nome"), gente.PapelValido(c.Form("papel")))
 		if err != nil {
 			return trilha.Errorf(http.StatusUnprocessableEntity, "%s", err.Error())
 		}
@@ -370,17 +407,6 @@ func POST(c *trilha.Ctx) error {
 		c.Flash(ui.FlashSuccess, "{{.T.users_invited}}")
 	}
 	return c.Redirect("{{.URL}}usuarios")
-}
-
-// papelValido keeps what comes from the form inside the list above: a role
-// that arrives from outside is a role nobody declared.
-func papelValido(p string) string {
-	for _, v := range Papeis {
-		if v == p {
-			return p
-		}
-	}
-	return Papeis[len(Papeis)-1]
 }
 
 func convidar(c *trilha.Ctx) h.Node {
@@ -391,14 +417,15 @@ func convidar(c *trilha.Ctx) h.Node {
 			h.Type("email"), h.Required())),
 		ui.Field("nome", "{{.T.users_name}}", ui.Input(h.ID("nome"), h.Name("nome"))),
 		ui.Field("papel", "{{.T.users_role}}", ui.Select(h.ID("papel"), h.Name("papel"),
-			ui.SelectOptions(opcoes(), Papeis[len(Papeis)-1]))),
+			ui.SelectOptions(opcoes(), gente.PapelValido("")))),
 		ui.Button(h.Type("submit"), h.Text("{{.T.users_invite}}")),
 	)
 }
 
 func opcoes() []ui.Option {
-	out := make([]ui.Option, 0, len(Papeis))
-	for _, p := range Papeis {
+	papeis := gente.Papeis()
+	out := make([]ui.Option, 0, len(papeis))
+	for _, p := range papeis {
 		out = append(out, ui.Option{Value: p, Label: p})
 	}
 	return out
@@ -504,6 +531,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 	"github.com/emersonjoe/trilha/ui"
 
+	"{{.Module}}/internal/sessao"
 	gente "{{.Module}}/internal/usuarios"
 )
 
@@ -528,7 +556,7 @@ func POST(c *trilha.Ctx) error {
 	if err := store.Definir(c.Param("token"), c.Form("password")); err != nil {
 		return c.Render(http.StatusUnprocessableEntity, formulario(c, u.Email, "{{.T.invite_short}}"))
 	}
-	return c.Redirect("{{.URL}}entrar")
+	return c.Redirect(sessao.Flow.LoginPath())
 }
 
 func formulario(c *trilha.Ctx, email, erro string) h.Node {
@@ -560,6 +588,8 @@ import (
 	"testing"
 
 	"github.com/emersonjoe/trilha"
+
+	"{{.Module}}/internal/sessao"
 )
 
 func TestConvidarEEntrar(t *testing.T) {
@@ -577,7 +607,7 @@ func TestConvidarEEntrar(t *testing.T) {
 	c.Get("{{.URL}}usuarios", trilha.WithHeader("Accept", "text/html")).WantStatus(http.StatusFound)
 	c.Get("{{.URL}}usuarios").WantStatus(http.StatusUnauthorized)
 
-	c.PostForm("{{.URL}}entrar", url.Values{
+	c.PostForm(sessao.Flow.LoginPath(), url.Values{
 		"email":    {"admin@example.com"},
 		"password": {"a-password-nobody-guesses"},
 	}).WantStatus(http.StatusSeeOther)
@@ -609,7 +639,7 @@ func TestConvidarEEntrar(t *testing.T) {
 	// ever knew it.
 	sem.PostForm(link, url.Values{"password": {"uma-senha-longa-o-bastante"}}).WantStatus(http.StatusSeeOther)
 	nova := trilha.NewTestClient(t, a)
-	nova.PostForm("{{.URL}}entrar", url.Values{
+	nova.PostForm(sessao.Flow.LoginPath(), url.Values{
 		"email":    {"bia@example.com"},
 		"password": {"uma-senha-longa-o-bastante"},
 	}).WantStatus(http.StatusSeeOther)

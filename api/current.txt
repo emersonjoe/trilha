@@ -936,7 +936,9 @@ pkg auth, func Tenant(*trilha.Ctx) string
 pkg auth, func UsageMemory() UsageStore
 pkg auth, method (*Auth) Callback(*trilha.Ctx) error
 pkg auth, method (*Auth) Login(*trilha.Ctx, *User) error
+pkg auth, method (*Auth) LoginPath() string
 pkg auth, method (*Auth) Logout(*trilha.Ctx) error
+pkg auth, method (*Auth) LogoutOthers(*trilha.Ctx) error
 pkg auth, method (*Auth) Optional() trilha.MiddlewareFunc
 pkg auth, method (*Auth) Provider() *Provider
 pkg auth, method (*Auth) Require() trilha.MiddlewareFunc
@@ -945,6 +947,7 @@ pkg auth, method (*Auth) RequirePolicy(Policy, string, string) trilha.Middleware
 pkg auth, method (*Auth) RequireRole(...string) trilha.MiddlewareFunc
 pkg auth, method (*Auth) RequireTenant() trilha.MiddlewareFunc
 pkg auth, method (*Auth) Session(*trilha.Ctx) (*User, error)
+pkg auth, method (*Auth) Sessions(*trilha.Ctx) ([]User, error)
 pkg auth, method (*Auth) Start(*trilha.Ctx) error
 pkg auth, method (*Auth) SwitchTenant(*trilha.Ctx, string) error
 pkg auth, method (*Auth) User(*trilha.Ctx) *User
@@ -961,6 +964,7 @@ pkg auth, method (*Keys) User(*trilha.Ctx) *User
 pkg auth, method (*MemoryStore) Delete(string) error
 pkg auth, method (*MemoryStore) Load(string) (*User, bool)
 pkg auth, method (*MemoryStore) Save(string, *User, time.Duration) error
+pkg auth, method (*MemoryStore) Sessions(string) []*User
 pkg auth, method (*User) HasRole(string) bool
 pkg auth, method (Policy) Can(*User, string, string) bool
 pkg auth, method (Policy) Level(*User, string) string
@@ -1036,6 +1040,8 @@ pkg auth, type Provider struct, HTTPClient *http.Client
 pkg auth, type Provider struct, Issuer string
 pkg auth, type Provider struct, LogoutDomain string
 pkg auth, type Provider struct, RedirectURL string
+pkg auth, type SessionLister interface
+pkg auth, type SessionLister interface, Sessions(string) []*User
 pkg auth, type Store interface
 pkg auth, type Store interface, Delete(string) error
 pkg auth, type Store interface, Load(string) (*User, bool)
@@ -1091,6 +1097,7 @@ pkg auth, type User struct, SessionID string
 pkg auth, type User struct, Subject string
 pkg auth, type User struct, Tenant string
 pkg auth, var ErrNoSession
+pkg auth, var ErrNoSessionList
 pkg auth, var ErrNoUsage
 pkg auth, var ErrUnknownKey
 pkg blob, func FromEnv() Store

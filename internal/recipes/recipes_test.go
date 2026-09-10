@@ -303,7 +303,7 @@ func TestUsersPrecisaDoLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	quero := "internal/usuarios/convites.go internal/usuarios/convites_test.go " +
+	quero := "internal/usuarios/convites.go internal/usuarios/convites_test.go internal/usuarios/papeis.go " +
 		"app/usuarios/page.go app/usuarios/middleware.go app/convite/token_/page.go usuarios_test.go"
 	if got := strings.Join(res.Written, " "); got != quero {
 		t.Fatalf("escreveu %q", got)
@@ -326,4 +326,58 @@ func mustGet(t *testing.T, nome string) Recipe {
 		t.Fatal(err)
 	}
 	return r
+}
+
+// Spec 121 — uma linha do setup.go que só entra quando outra receita está lá.
+// As duas receitas carregam a mesma linha com a mesma marca, cada uma
+// condicionada ao arquivo da outra: a ligação acontece em qualquer ordem, e
+// uma vez só.
+func TestInsertIfLigaEmQualquerOrdem(t *testing.T) {
+	a := Recipe{Name: "a", Summary: map[string]string{"en": "a"}, Doc: "/a", Next: map[string]string{"en": "a"},
+		Files: []File{{Rel: "internal/a/a.go", Body: "package a\n"}},
+		Setup: []Insert{
+			{Marker: "// trilha:add a", Line: "\ta.Setup(a)\n"},
+			{Marker: "// trilha:link a-b", Line: "\tb.Usa(a.X)\n", If: "internal/b/b.go", Imports: []string{"{{.Module}}/internal/b"}},
+		},
+		Imports: []string{"{{.Module}}/internal/a"},
+	}
+	b := Recipe{Name: "b", Summary: map[string]string{"en": "b"}, Doc: "/b", Next: map[string]string{"en": "b"},
+		Files: []File{{Rel: "internal/b/b.go", Body: "package b\n"}},
+		Setup: []Insert{
+			{Marker: "// trilha:add b", Line: "\tb.Setup(a)\n"},
+			{Marker: "// trilha:link a-b", Line: "\tb.Usa(a.X)\n", If: "internal/a/a.go", Imports: []string{"{{.Module}}/internal/a"}},
+		},
+		Imports: []string{"{{.Module}}/internal/b"},
+	}
+	o := Options{Module: "example.com/x", Lang: "en"}
+	for nome, ordem := range map[string][]Recipe{"a-b": {a, b}, "b-a": {b, a}} {
+		t.Run(nome, func(t *testing.T) {
+			raiz := projeto(t)
+			res, err := Add(raiz, ordem[0], o)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Sozinha, a ligação não entra — nem a importação do que não existe.
+			setup := ler(t, raiz, "app/setup.go")
+			if strings.Contains(setup, "trilha:link") || len(res.Setup) != 1 {
+				t.Fatalf("ligou sem a outra receita:\n%s", setup)
+			}
+			if _, err := Add(raiz, ordem[1], o); err != nil {
+				t.Fatal(err)
+			}
+			setup = ler(t, raiz, "app/setup.go")
+			for _, want := range []string{"trilha:link a-b", "b.Usa(a.X)", `"example.com/x/internal/a"`, `"example.com/x/internal/b"`} {
+				if !strings.Contains(setup, want) {
+					t.Fatalf("faltou %q:\n%s", want, setup)
+				}
+			}
+			if n := strings.Count(setup, "trilha:link a-b"); n != 1 {
+				t.Fatalf("a ligação entrou %d vezes:\n%s", n, setup)
+			}
+			// De novo, nada muda.
+			if res, _ := Add(raiz, ordem[0], o); len(res.Setup) != 0 {
+				t.Fatalf("segunda vez mexeu no setup: %v", res.Setup)
+			}
+		})
+	}
 }

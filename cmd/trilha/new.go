@@ -135,8 +135,10 @@ func recipeList(with, tmpl string, fs *flag.FlagSet) []string {
 	if !dado {
 		if tmpl == "app" {
 			// login first: the others are screens behind it, and the order is
-			// what the person reads in the output.
-			return []string{"login", "audit", "api-keys", "settings"}
+			// what the person reads in the output. users before permissions
+			// and profile before tenant only for the reading; each pair ties
+			// itself together whichever comes second.
+			return []string{"login", "audit", "api-keys", "settings", "users", "permissions", "profile", "tenant"}
 		}
 		return nil
 	}
@@ -152,10 +154,16 @@ func recipeList(with, tmpl string, fs *flag.FlagSet) []string {
 // recipeDir is where a template wants each recipe. The app template puts the
 // administration screens behind a role — they name people, issue credentials
 // and change how the application behaves for everybody, which is not the same
-// door as a listing of items — and leaves the login at the root, because a
-// login behind /admin is a login most of the application cannot reach.
+// door as a listing of items — and leaves at the root what everybody signed
+// in reaches: the login, because a login behind /admin is a login most of the
+// application cannot reach; the account screen and the organisation picker,
+// because they are about the person asking and not about administering.
 func recipeDir(tmpl, recipe string) string {
-	if tmpl != "app" || recipe == "login" {
+	if tmpl != "app" {
+		return "app/"
+	}
+	switch recipe {
+	case "login", "profile", "tenant":
 		return "app/"
 	}
 	return "app/admin/"

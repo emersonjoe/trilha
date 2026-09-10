@@ -71,6 +71,9 @@ func (a *Auth) RequireRole(roles ...string) trilha.MiddlewareFunc
 func (a *Auth) Optional() trilha.MiddlewareFunc
 func (a *Auth) User(c *trilha.Ctx) *User     // nil quando anônimo
 func (a *Auth) Session(c *trilha.Ctx) (*User, error)
+func (a *Auth) LoginPath() string            // Options.LoginPath, ou o padrão
+func (a *Auth) Sessions(c *trilha.Ctx) ([]User, error) // todas as sessões de quem está logado, esta primeiro
+func (a *Auth) LogoutOthers(c *trilha.Ctx) error       // encerra as outras, mantém esta
 
 func Sessions(o Options) *Auth               // o mesmo tipo, sem provedor
 func (a *Auth) Login(c *trilha.Ctx, u *User) error // sessão para quem o app autenticou
@@ -293,6 +296,27 @@ Com um `Store` o cookie carrega apenas o identificador e o logout tem efeito ime
 todo mundo. `MemoryStore` vale para um processo só: réplicas não compartilham, e um
 reinício derruba todas as sessões. Para várias réplicas, implemente a interface sobre o seu
 banco ou cache.
+
+### Sessões por dono
+
+```go
+type SessionLister interface {
+	Sessions(subject string) []*User // as sessões vivas de um subject
+}
+
+var ErrNoSessionList error
+```
+
+Um store que também implementa `SessionLister` dá à tela da conta duas coisas:
+`Sessions(c)` — todas as sessões de quem está logado, a atual primeiro, cada uma com
+`IssuedAt`, `Seen` e `SessionID` — e `LogoutOthers(c)`, que apaga todas as sessões dessa
+pessoa menos esta e escreve `auth.logout_others` na auditoria com a contagem. `MemoryStore`
+implementa. Um store que não implementa recebe `ErrNoSessionList` das duas, e é isso que a
+tela mostra em vez de uma lista vazia: lista vazia diria "em nenhum outro lugar", e isso não
+se saberia.
+
+Troca de senha é onde `LogoutOthers` mora: a senha muda porque alguém pode ter a antiga, e
+esse alguém pode estar logado agora mesmo.
 
 ## Cookies
 
