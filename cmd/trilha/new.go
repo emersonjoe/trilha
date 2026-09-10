@@ -67,7 +67,7 @@ func cmdNew(args []string) error {
 			return err
 		}
 		res, err := recipes.Add(dir, r, recipes.Options{
-			Module: *module, Lang: *langFlag, At: adminDir(*tmpl),
+			Module: *module, Lang: *langFlag, At: recipeDir(*tmpl, nome),
 		})
 		if err != nil {
 			return err
@@ -134,7 +134,9 @@ func recipeList(with, tmpl string, fs *flag.FlagSet) []string {
 	})
 	if !dado {
 		if tmpl == "app" {
-			return []string{"audit", "api-keys", "settings"}
+			// login first: the others are screens behind it, and the order is
+			// what the person reads in the output.
+			return []string{"login", "audit", "api-keys", "settings"}
 		}
 		return nil
 	}
@@ -147,13 +149,14 @@ func recipeList(with, tmpl string, fs *flag.FlagSet) []string {
 	return out
 }
 
-// adminDir is where a template wants those screens. The app template puts them
-// behind a role: they name people, issue credentials and change how the
-// application behaves for everybody, which is not the same door as a listing
-// of items.
-func adminDir(tmpl string) string {
-	if tmpl == "app" {
-		return "app/admin/"
+// recipeDir is where a template wants each recipe. The app template puts the
+// administration screens behind a role — they name people, issue credentials
+// and change how the application behaves for everybody, which is not the same
+// door as a listing of items — and leaves the login at the root, because a
+// login behind /admin is a login most of the application cannot reach.
+func recipeDir(tmpl, recipe string) string {
+	if tmpl != "app" || recipe == "login" {
+		return "app/"
 	}
-	return "app/"
+	return "app/admin/"
 }

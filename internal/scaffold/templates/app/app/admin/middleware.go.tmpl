@@ -11,13 +11,13 @@ package admin
 import (
 	"github.com/emersonjoe/trilha"
 
-	"{{.Module}}/internal/session"
+	"{{.Module}}/internal/sessao"
 )
 
 // exige is the rule, and Middleware is what the scanner reads: middleware.go
 // has to export a function with that signature, and a var of the right type
 // is not one.
-var exige = session.Flow.RequireRole("admin")
+var exige = sessao.Flow.RequireRole("admin")
 
 // Middleware guards this folder and everything below it — the screens written
 // tomorrow included.

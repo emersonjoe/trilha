@@ -300,7 +300,7 @@ func TestCRUD%s(t *testing.T) {
 	t.Setenv("TRILHA_ENV", "prod")
 	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-%s	c := trilha.NewTestClient(t, newApp())
+%s%s	c := trilha.NewTestClient(t, newApp())
 %s
 	c.Get(%q).WantStatus(200).WantContains(%q)
 
@@ -348,7 +348,7 @@ func depoisDe(corpo, prefixo string) string {
 	}
 	return resto[:fim]
 }
-`, p.testImport(), p.Type, p.Type, p.testSkip(), p.testLogin(),
+`, p.testImport(), p.Type, p.Type, p.testSkip(), p.Env, p.testLogin(),
 		p.URL, p.T["app_empty"],
 		p.URL+"/new", criar,
 		p.URL, procura,

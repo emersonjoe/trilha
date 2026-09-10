@@ -5,13 +5,17 @@ import (
 
 	"github.com/emersonjoe/trilha"
 
-	"{{.Module}}/internal/session"
+	"{{.Module}}/internal/sessao"
 )
 
 // public is what answers without a session. Everything else — every page,
 // every route, the ones written tomorrow included — needs a login, because
 // this middleware is at the root of app/ and is inherited by the whole tree.
-var public = []string{"/login"}
+//
+// /entrar is the login the recipe wrote. /convite is there for the day
+// `trilha add users` arrives: whoever opens an invitation has no session yet,
+// and that is the point of the link.
+var public = []string{"/entrar", "/convite"}
 
 // Middleware requires a session. Hiding a link in the menu is cosmetics; this
 // is what actually keeps somebody out.
@@ -22,5 +26,5 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 			return next()
 		}
 	}
-	return session.Flow.Require()(c, next)
+	return sessao.Flow.Require()(c, next)
 }

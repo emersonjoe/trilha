@@ -31,7 +31,7 @@ func TestWriteApp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"go.mod", "app/middleware.go", "app/login/page.go", "app/items/id_/page.go", "internal/store/store.go"} {
+	for _, want := range []string{"go.mod", "app/middleware.go", "app/items/id_/page.go", "internal/store/store.go"} {
 		if !slices.Contains(written, want) {
 			t.Fatalf("%s not written: %v", want, written)
 		}
@@ -45,7 +45,7 @@ func TestWriteApp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(b), `"example.com/x/internal/session"`) {
+	if !strings.Contains(string(b), `"example.com/x/internal/sessao"`) {
 		t.Fatalf("import not filled in:\n%s", b)
 	}
 }

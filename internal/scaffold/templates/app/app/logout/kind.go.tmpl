@@ -1,8 +1,0 @@
-package logout
-
-import "github.com/emersonjoe/trilha"
-
-// Kind says this branch is pages, not an API: the framework checks the CSRF
-// token on the write, as it does on every form of the app. Without this a
-// route.go is an API, and an API does not check the token.
-var Kind = trilha.KindPage

@@ -159,6 +159,7 @@ type crudPlan struct {
 	Guard  string
 	Helper string // import path of the test helper, "" when there is none
 	Call   string // the call that opens the session
+	Env    string // what the helper needs in the environment, as t.Setenv lines
 
 	T map[string]string
 }
@@ -373,12 +374,16 @@ func (p *crudPlan) findGuard(root, module string) {
 	}
 	// The two helpers this repository writes: the login recipe's and the app
 	// template's. A project with neither gets the Skip that names the file.
-	for _, h := range []struct{ rel, imp, call string }{
-		{"internal/sessao/sessaotest", "/internal/sessao/sessaotest", "sessaotest.Entrar(t, c)"},
-		{"internal/session/sessiontest", "/internal/session/sessiontest", "sessiontest.Login(t, c)"},
+	for _, h := range []struct{ rel, imp, call, env string }{
+		// The login recipe seeds its first administrator from the environment,
+		// so a test that signs in has to set the same two variables before the
+		// app is built — that is the recipe's rule, not this generator's.
+		{"internal/sessao/sessaotest", "/internal/sessao/sessaotest", "sessaotest.Entrar(t, c)",
+			"\tt.Setenv(\"ADMIN_EMAIL\", \"admin@example.com\")\n\tt.Setenv(\"ADMIN_PASSWORD\", \"a-password-nobody-guesses\")\n"},
+		{"internal/session/sessiontest", "/internal/session/sessiontest", "sessiontest.Login(t, c)", ""},
 	} {
 		if fi, err := os.Stat(filepath.Join(root, filepath.FromSlash(h.rel))); err == nil && fi.IsDir() {
-			p.Helper, p.Call = module+h.imp, h.call
+			p.Helper, p.Call, p.Env = module+h.imp, h.call, h.env
 			return
 		}
 	}

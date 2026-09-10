@@ -5,7 +5,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 	"github.com/emersonjoe/trilha/ui"
 
-	"{{.Module}}/internal/session"
+	"{{.Module}}/internal/sessao"
 )
 
 // Layout is the root layout: the <html> document and the frame around every
@@ -16,7 +16,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	if title == "" {
 		title = "{{.Name}}"
 	}
-	u := session.User(c)
+	u := sessao.Atual(c)
 	if u == nil {
 		// The login screen has no shell: there is nothing to navigate yet.
 		return document(c, title, h.Main(ui.Container(children))), nil
@@ -42,7 +42,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 		},
 		Header: []h.Node{ui.ThemeToggle()},
 		User: ui.UserMenu{Name: u.Name, Detail: u.Email, Items: []h.Node{
-			h.Form(h.Method("post"), h.Action("/logout"), trilha.CSRFInput(c),
+			h.Form(h.Method("post"), h.Action("/sair"), trilha.CSRFInput(c),
 				h.Button(h.Type("submit"), h.Role("menuitem"), h.Text("{{.T.app_logout}}"))),
 		}},
 	}, children)), nil

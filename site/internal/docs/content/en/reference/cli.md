@@ -55,23 +55,27 @@ nearest `go.mod`, plus the subfolder, so an app can live inside a larger module.
 | `app` | the management app — login, [shell](/reference/shell), dashboard with [charts](/reference/charts), a [listing](/reference/listings) and a form, with tests |
 
 The `app` project comes green: it compiles, `trilha check` passes and `go test ./...`
-passes without a single edit. Its seeded account is printed on the login page, and every
-route below `app/` is behind a session because the middleware sits at the root of the
-folder — including the routes you add tomorrow.
+passes without a single edit. Every route below `app/` is behind a session because the
+middleware sits at the root of the folder — including the routes you add tomorrow — and the
+first administrator comes from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, which the sign-in screen
+says out loud in dev when they are missing. No password is written into the project.
 
 ### What comes in `app`
 
-Beyond the skeleton, it asks [`trilha add`](#trilha-add) for the three screens every internal
-application grows in its first month, and puts them under `app/admin/`:
+Beyond the skeleton, it asks [`trilha add`](#trilha-add) for the login and for the three screens
+every internal application grows in its first month:
 
 | Screen | What it is |
 |---|---|
+| `/entrar`, `/sair` | the session, from the `login` recipe — the template has no login of its own |
 | `/admin/auditoria` | the trail of who did what, with `ui.AuditTable` |
 | `/admin/chaves` | API keys: issue, revoke, and the key shown once |
 | `/admin/config` | a settings section, drawn from the struct that declares it |
 
 They are **the recipes and not a second copy** — one source, so the template cannot age apart
-from what `trilha add` writes. `app/admin/` requires the `admin` role, and somebody signed in
+from what `trilha add` writes. That includes the login since 0.91.0, which is what lets
+`trilha add users` (and `permissions`, `profile`, `tenant`) work in a project made with this
+template: they are written on the table the `login` recipe owns. `app/admin/` requires the `admin` role, and somebody signed in
 without it gets **403 and not a redirect to the login**: they are known, just not permitted, and
 sending them back to a login they already passed is a loop with no exit.
 

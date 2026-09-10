@@ -1,15 +1,16 @@
-// Package store is the data of {{.Name}}: the items the app is about and the
-// users who sign in. It is a map behind a mutex — swap it for a database and
-// the pages above do not change, because they only ever call these methods.
+// Package store is the data of {{.Name}}: the items the app is about. It is a
+// map behind a mutex — swap it for a database and the pages above do not
+// change, because they only ever call these methods.
+//
+// Who signs in is not here: that table belongs to the login recipe, in
+// internal/usuarios, and it is the same one `trilha add users` grows a screen
+// for.
 package store
 
 import (
-	"errors"
 	"sort"
 	"strings"
 	"sync"
-
-	"github.com/emersonjoe/trilha/auth"
 )
 
 // Item is the record this app manages.
@@ -20,20 +21,6 @@ type Item struct {
 	Amount int64  // cents: money is an integer, never a float
 	Owner  string
 }
-
-// User is a row of the users table. Hash is pbkdf2_sha256$iter$salt$hash, the
-// format Django and hashlib write, so an existing table stays valid.
-type User struct {
-	ID    string
-	Email string
-	Name  string
-	Role  string
-	Hash  string
-}
-
-// ErrCredentials is the one answer to a wrong e-mail and to a wrong password:
-// saying which of the two was wrong tells an attacker who has an account.
-var ErrCredentials = errors.New("wrong e-mail or password")
 
 // Query is what a listing asks for: the filter, the ordering and the page.
 type Query struct {
@@ -49,14 +36,12 @@ type Query struct {
 type Store struct {
 	mu    sync.RWMutex
 	items map[int]Item
-	users map[string]User
 	next  int
 }
 
 // New seeds enough rows for the listing to have more than one page.
 func New() *Store {
-	s := &Store{items: map[int]Item{}, users: map[string]User{}, next: 1}
-	s.AddUser("u-1", "{{.T.app_seed_email}}", "{{.T.app_seed_name}}", "admin", "{{.T.app_seed_password}}")
+	s := &Store{items: map[int]Item{}, next: 1}
 	seed := []struct {
 		name   string
 		status string
@@ -76,38 +61,6 @@ func New() *Store {
 	}
 	return s
 }
-
-// AddUser hashes the password and stores the row.
-func (s *Store) AddUser(id, email, name, role, password string) {
-	hash, err := auth.HashPBKDF2(password)
-	if err != nil {
-		panic(err)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.users[strings.ToLower(email)] = User{ID: id, Email: email, Name: name, Role: role, Hash: hash}
-}
-
-// Verify answers the row when the password checks out. The comparison runs
-// even for an e-mail that does not exist, so the answer takes the same time
-// either way.
-func (s *Store) Verify(email, password string) (User, error) {
-	s.mu.RLock()
-	u, ok := s.users[strings.ToLower(strings.TrimSpace(email))]
-	s.mu.RUnlock()
-	if !ok {
-		auth.CheckPBKDF2(noUser, password)
-		return User{}, ErrCredentials
-	}
-	if !auth.CheckPBKDF2(u.Hash, password) {
-		return User{}, ErrCredentials
-	}
-	return u, nil
-}
-
-// noUser is a valid hash of a password nobody knows, so a wrong e-mail costs
-// the same as a wrong password.
-var noUser, _ = auth.HashPBKDF2("no-such-user")
 
 // List answers the page the query asks for and how many rows there are in all.
 func (s *Store) List(q Query) ([]Item, int) {

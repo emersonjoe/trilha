@@ -15,6 +15,10 @@ func client(t *testing.T) *trilha.TestClient {
 	t.Helper()
 	t.Setenv("TRILHA_ENV", "prod")
 	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	// The first administrator comes from the environment, which is the login
+	// recipe's rule: no password is written into the project.
+	t.Setenv("ADMIN_EMAIL", "admin@example.com")
+	t.Setenv("ADMIN_PASSWORD", "a-password-nobody-guesses")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	return trilha.NewTestClient(t, newApp())
 }
@@ -25,20 +29,20 @@ func browser() trilha.TestOption { return trilha.WithHeader("Accept", "text/html
 
 func signIn(t *testing.T, c *trilha.TestClient) {
 	t.Helper()
-	c.Request("POST", "/login", trilha.WithBody("application/x-www-form-urlencoded",
-		"email={{.T.app_seed_email}}&password={{.T.app_seed_password}}")).WantStatus(http.StatusSeeOther)
+	c.Request("POST", "/entrar", trilha.WithBody("application/x-www-form-urlencoded",
+		"email=admin@example.com&password=a-password-nobody-guesses")).WantStatus(http.StatusSeeOther)
 }
 
 // Nothing but the login answers without a session — the middleware at the root
 // of app/ is inherited by every route, the ones added tomorrow included.
 func TestSessionIsRequired(t *testing.T) {
 	c := client(t)
-	c.Get("/", browser()).WantStatus(http.StatusFound).WantContains("/login")
+	c.Get("/", browser()).WantStatus(http.StatusFound).WantContains("/entrar")
 	c.Get("/items", browser()).WantStatus(http.StatusFound)
-	c.Get("/login").WantStatus(200).WantContains("{{.T.app_login}}")
+	c.Get("/entrar").WantStatus(200)
 
-	c.Request("POST", "/login", trilha.WithBody("application/x-www-form-urlencoded",
-		"email={{.T.app_seed_email}}&password=wrong")).WantStatus(422).WantContains("{{.T.app_bad_credentials}}")
+	c.Request("POST", "/entrar", trilha.WithBody("application/x-www-form-urlencoded",
+		"email=admin@example.com&password=wrong")).WantStatus(422)
 }
 
 // The dashboard: the counters and the drawings the server wrote.
@@ -81,12 +85,11 @@ func TestItemRoundTrip(t *testing.T) {
 	c.Get("/items/24").WantStatus(404)
 }
 
-// A write without the token is refused, which is what the CSRF is for — and
-// the reason /logout has a kind.go saying that branch is pages, not an API.
+// A write without the token is refused, which is what the CSRF is for.
 func TestWriteNeedsTheToken(t *testing.T) {
 	c := client(t)
 	signIn(t, c)
 	c.Request("POST", "/items", trilha.WithoutCSRF(), trilha.WithBody("application/x-www-form-urlencoded", "id=1")).WantStatus(403)
-	c.Request("POST", "/logout").WantStatus(http.StatusSeeOther)
+	c.Request("POST", "/sair").WantStatus(http.StatusSeeOther)
 	c.Get("/", browser()).WantStatus(http.StatusFound)
 }

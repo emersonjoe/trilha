@@ -55,23 +55,27 @@ O `--template` escolhe o formato do projeto:
 | `app` | o app de gestão — login, [shell](/pt/referencia/shell), painel com [gráficos](/pt/referencia/graficos), uma [listagem](/pt/referencia/listagens) e um formulário, com testes |
 
 O projeto `app` já nasce verde: compila, o `trilha check` passa e o `go test ./...` passa
-sem nenhuma edição. A conta de exemplo aparece na própria tela de login, e toda rota
-abaixo de `app/` está atrás de uma sessão porque o middleware está na raiz da pasta —
-inclusive as rotas que você escrever amanhã.
+sem nenhuma edição. Toda rota abaixo de `app/` está atrás de uma sessão porque o middleware está
+na raiz da pasta — inclusive as rotas que você escrever amanhã — e o primeiro administrador sai de
+`ADMIN_EMAIL` e `ADMIN_PASSWORD`, que a tela de entrar diz em voz alta, em dev, quando faltam.
+Nenhuma senha é escrita dentro do projeto.
 
 ### O que vem no `app`
 
-Além do esqueleto, ele pede ao [`trilha add`](#trilha-add) as três telas que toda aplicação
-interna ganha no primeiro mês, e as põe sob `app/admin/`:
+Além do esqueleto, ele pede ao [`trilha add`](#trilha-add) o login e as três telas que toda
+aplicação interna ganha no primeiro mês:
 
 | Tela | O que é |
 |---|---|
+| `/entrar`, `/sair` | a sessão, da receita `login` — o template não tem login próprio |
 | `/admin/auditoria` | a trilha de quem fez o quê, com o `ui.AuditTable` |
 | `/admin/chaves` | chaves de API: emitir, revogar, e a chave mostrada uma vez |
 | `/admin/config` | uma seção de configurações, desenhada do struct que a declara |
 
 São **as receitas, e não uma segunda cópia** — uma fonte só, para o template não envelhecer
-separado do que o `trilha add` escreve. O `app/admin/` exige o papel `admin`, e quem está logado
+separado do que o `trilha add` escreve. Isso inclui o login desde a 0.91.0, que é o que faz o
+`trilha add users` (e `permissions`, `profile`, `tenant`) funcionar num projeto criado por este
+template: elas são escritas sobre a tabela que a receita `login` é dona. O `app/admin/` exige o papel `admin`, e quem está logado
 sem ele recebe **403, e não um redirecionamento para o login**: a pessoa é conhecida, só não
 autorizada, e mandá-la de volta a um login que ela já passou é um laço sem saída.
 

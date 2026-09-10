@@ -769,9 +769,9 @@ func TestTemplateAppE2E(t *testing.T) {
 	proj := filepath.Join(tmp, "gestao")
 	run(t, tmp, cli, "new", proj, "--module", "example.com/gestao", "--template", "app", "--trilha-dir", repo)
 	for _, f := range []string{
-		"app/page.go", "app/middleware.go", "app/login/page.go", "app/logout/route.go",
+		"app/page.go", "app/middleware.go", "app/entrar/page.go", "app/sair/route.go",
 		"app/items/page.go", "app/items/new/page.go", "app/items/id_/page.go",
-		"internal/store/store.go", "internal/session/session.go", "app_test.go",
+		"internal/store/store.go", "internal/sessao/sessao.go", "app_test.go",
 		"go.mod", "trilha_gen.go", "public/ui.css",
 	} {
 		if _, err := os.Stat(filepath.Join(proj, f)); err != nil {
@@ -781,7 +781,7 @@ func TestTemplateAppE2E(t *testing.T) {
 	// The middleware at the root of app/ is what protects the tree, so every
 	// route below it shows up in the listing of routes.
 	out := run(t, proj, cli, "routes")
-	for _, want := range []string{"/login", "/items", "/items/new", "/items/{id}"} {
+	for _, want := range []string{"/entrar", "/items", "/items/new", "/items/{id}"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("route %s missing from:\n%s", want, out)
 		}
@@ -803,12 +803,24 @@ func TestTemplateAppE2E(t *testing.T) {
 		"\tCriadoEm time.Time " + "`" + `json:"criado_em"` + "`" + "\n}\n"
 	mustWrite(t, filepath.Join(proj, "internal", "docs", "tipo.go"), tipoSrc)
 	saida := run(t, proj, cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos")
-	if !strings.Contains(saida, "sessiontest") {
+	if !strings.Contains(saida, "sessaotest") {
 		t.Fatalf("the generator did not notice the guarded folder:\n%s", saida)
 	}
 	if out := run(t, proj, cli, "check"); !strings.Contains(out, "ok") {
 		t.Fatal(out)
 	}
+	// #144: the login of this template is the recipe, so the screens that need
+	// a session can be added to a project made with it — which is the whole
+	// reason the template stopped having a login of its own.
+	run(t, proj, cli, "add", "users")
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "ok") {
+		t.Fatal(out)
+	}
+	// And there is one session package, not two.
+	if _, err := os.Stat(filepath.Join(proj, "internal", "session")); err == nil {
+		t.Fatal("the template still ships a login of its own")
+	}
+
 	// --with "" is a choice and not an absence: somebody who typed it asked
 	// for the skeleton, and gets it.
 	pelado := filepath.Join(tmp, "pelado")

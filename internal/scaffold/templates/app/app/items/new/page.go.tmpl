@@ -9,7 +9,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 	"github.com/emersonjoe/trilha/ui"
 
-	"{{.Module}}/internal/session"
+	"{{.Module}}/internal/sessao"
 	"{{.Module}}/internal/store"
 )
 
@@ -43,7 +43,7 @@ func POST(c *trilha.Ctx) error {
 		return c.Render(http.StatusUnprocessableEntity, Form(c, in, trilha.FieldErrors{"amount": "{{.T.app_bad_amount}}"}, "/items/new", "{{.T.app_new_item}}"))
 	}
 	owner := ""
-	if u := session.User(c); u != nil {
+	if u := sessao.Atual(c); u != nil {
 		owner = u.Name
 	}
 	trilha.Use[*store.Store](c).Create(in.Name, in.Status, cents, owner)
