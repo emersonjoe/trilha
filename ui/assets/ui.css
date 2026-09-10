@@ -410,4 +410,8 @@ html.ui-sidebar-collapsed .ui-shell > .ui-sidebar { display: none; }
 .ui-assistant-dialog .ui-chat-log { min-height: 0; max-height: 24rem; }
 
 .ui-late td { color: var(--destructive); }
-.ui-inbox-badge { margin-inline-start: .375rem; }
+.ui-inbox-badge, .ui-deadline-badge { margin-inline-start: .375rem; }
+.ui-deadline-cards { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.ui-deadline-alarm { border-color: var(--destructive); }
+.ui-deadline-alarm .ui-stat-value { color: var(--destructive); }
+.ui-deadline-next { font-weight: 600; line-height: 1.2; }

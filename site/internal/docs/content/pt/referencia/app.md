@@ -388,3 +388,53 @@ de um campo existir continua sendo lida — com o campo no valor zero, em vez de
 
 O store é memória por padrão; uma tabela atrás de `Save`, `List` e `Get` é o passo seguinte, e
 nenhuma tela muda. A tela é o [`ui.VersionList`](/pt/referencia/ui).
+
+
+## Prazos
+
+Toda aplicação com data de vencimento acaba escrevendo a mesma conta: quantos venceram, quantos
+vencem nos próximos trinta dias, qual é o próximo, e de que cor fica cada faixa.
+
+```go
+resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{
+	Horizons: []int{7, 30, 90},
+	Now:      time.Now().In(c.Location()),
+})
+
+resumo.Overdue      // []Deadline, do mais antigo para o mais novo
+resumo.Within[30]   // tudo que vence nos próximos trinta dias
+resumo.Next         // o mais próximo que ainda não venceu, ou nil
+resumo.ByKind       // por Kind: quantos abertos, quantos vencidos
+```
+
+Um `Deadline` é um `Title`, um `Kind`, um `Due`, uma `URL`, um `Owner` e um `Done`.
+
+**Um prazo é uma data, não um instante.** O que vence hoje não está vencido até hoje acabar.
+Comparar dois `time.Time` direto é o erro que isto existe para remover: marca como atrasada a manhã
+do dia do vencimento, e ninguém percebe até alguém ser cobrado por uma certidão que ainda valia. E
+*qual* é o dia depende de onde está quem lê, então o fuso é o `DeadlineOpts.In` e não o da máquina
+— vazio é o fuso que o `Now` já carrega, que é o que `time.Now().In(c.Location())` dá.
+
+**Item `Done` fica fora de todas as faixas**, inclusive do `Total` e do `ByKind`: um prazo
+resolvido não é um prazo, é história.
+
+As faixas são **cumulativas** — `Within[30]` inclui o que está em `Within[7]`, porque é isso que
+"vence em trinta dias" quer dizer. O que passa da última faixa é o `Later`. A tela que quiser o
+anel entre duas faixas subtrai.
+
+### Dias úteis
+
+```go
+cal := trilha.BusinessDays(feriados...)         // as datas são da aplicação
+prazo := cal.Add(time.Now(), 5)                 // cinco dias úteis a partir de hoje
+cal.IsBusinessDay(d)                            // fim de semana e essas datas não são
+
+resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{Business: cal})
+```
+
+Com um calendário, as faixas contam em dias úteis: trinta dias úteis vão bem mais longe no mês do
+que trinta dias corridos. **Os feriados são seus**, e não existe `HolidaysBR` no framework: essa
+tabela muda por país e por ano, e um calendário que o framework chutasse seria uma conta errada de
+que ninguém desconfia.
+
+As telas são o [`ui.DeadlineCards`, o `ui.DeadlineList` e o `ui.DeadlineBadge`](/pt/referencia/ui).

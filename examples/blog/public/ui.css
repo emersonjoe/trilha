@@ -1,4 +1,4 @@
-/* trilha ui e16ba2669ab044ae */
+/* trilha ui 2ee3a4d709e37796 */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -411,4 +411,8 @@ html.ui-sidebar-collapsed .ui-shell > .ui-sidebar { display: none; }
 .ui-assistant-dialog .ui-chat-log { min-height: 0; max-height: 24rem; }
 
 .ui-late td { color: var(--destructive); }
-.ui-inbox-badge { margin-inline-start: .375rem; }
+.ui-inbox-badge, .ui-deadline-badge { margin-inline-start: .375rem; }
+.ui-deadline-cards { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.ui-deadline-alarm { border-color: var(--destructive); }
+.ui-deadline-alarm .ui-stat-value { color: var(--destructive); }
+.ui-deadline-next { font-weight: 600; line-height: 1.2; }

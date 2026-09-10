@@ -562,6 +562,77 @@
     ]
   },
   {
+    "name": "DeadlineCards",
+    "kind": "func",
+    "group": "deadline",
+    "signature": "DeadlineCards(c *trilha.Ctx, s trilha.DeadlineSummary) h.Node",
+    "doc": "DeadlineCards is the top of a deadline panel: what is late, and how much is\ncoming in each horizon.\n\nThe order is the order of the horizons, so the cards do not move between\nreloads. The overdue card only shouts when there is something to shout about:\na red zero teaches people to ignore the colour.",
+    "summary": "DeadlineCards is the top of a deadline panel: what is late, and how much is coming in each horizon.",
+    "example": "resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{Now: time.Now().In(c.Location())})\nui.DeadlineCards(c, resumo)",
+    "see": [
+      "trilha.DeadlineOpts",
+      "trilha.Deadlines"
+    ]
+  },
+  {
+    "name": "DeadlineListOpts",
+    "kind": "type",
+    "group": "deadline",
+    "signature": "type DeadlineListOpts struct",
+    "doc": "DeadlineListOpts configures the list.",
+    "summary": "DeadlineListOpts configures the list.",
+    "fields": [
+      {
+        "name": "Limit",
+        "type": "int",
+        "doc": "Limit is how many rows to draw."
+      },
+      {
+        "name": "More",
+        "type": "string",
+        "doc": "More is where \"and 12 more\" links to."
+      },
+      {
+        "name": "Empty",
+        "type": "string",
+        "doc": "Empty is what a list with nothing in it says."
+      },
+      {
+        "name": "Now",
+        "type": "time.Time",
+        "doc": "Now is what \"late\" is measured against."
+      },
+      {
+        "name": "Owner",
+        "type": "bool",
+        "doc": "Owner draws the column of who it is on."
+      }
+    ]
+  },
+  {
+    "name": "DeadlineList",
+    "kind": "func",
+    "group": "deadline",
+    "signature": "DeadlineList(c *trilha.Ctx, items []trilha.Deadline, o DeadlineListOpts) h.Node",
+    "doc": "DeadlineList is the list under the cards: what is due, when, and where it\nlives.\n\nThe dates are written by ui.Date with Relative, so \"in 3 days\" and \"2 days\nago\" are one sentence in the reader's language. A row whose day has ended\ncarries ui-late, which is the same class the inbox uses: late looks the same\neverywhere in an application or it looks like a bug.\nThe list is drawn in the order it is given. trilha.Deadlines already answers\nwith the nearest first, which is the order a person reads such a list in.",
+    "summary": "DeadlineList is the list under the cards: what is due, when, and where it lives.",
+    "example": "ui.DeadlineList(c, itens, ui.DeadlineListOpts{Limit: 10})",
+    "see": [
+      "trilha.Deadlines",
+      "ui.Date",
+      "ui.DeadlineListOpts"
+    ]
+  },
+  {
+    "name": "DeadlineBadge",
+    "kind": "func",
+    "group": "deadline",
+    "signature": "DeadlineBadge(c *trilha.Ctx, items []trilha.Deadline) h.Node",
+    "doc": "DeadlineBadge is the number beside a menu item: how many are late.\n\nAn empty list draws nothing. A badge that shows zero is a badge people learn\nto look past, and then the one that says 3 is looked past too.",
+    "summary": "DeadlineBadge is the number beside a menu item: how many are late.",
+    "example": "ui.DeadlineBadge(c, resumo.Overdue)"
+  },
+  {
     "name": "DeferOpts",
     "kind": "type",
     "group": "defer",

@@ -22,11 +22,13 @@ pkg trilha, const StatusPass
 pkg trilha, func AddRule(string, func(Field) bool)
 pkg trilha, func BindCSV(io.Reader, any, ...CSVRules) (CSVResult, error)
 pkg trilha, func BindSchema(*Ctx, Schema) (map[string]string, error)
+pkg trilha, func BusinessDays(...time.Time) *BusinessCalendar
 pkg trilha, func CSRFInput(*Ctx) h.Node
 pkg trilha, func CSRFTokenFrom(*http.Request) string
 pkg trilha, func CanInline(string) bool
 pkg trilha, func CompileErrorPage(string) string
 pkg trilha, func ConfigFromEnv() Config
+pkg trilha, func Deadlines([]Deadline, DeadlineOpts) DeadlineSummary
 pkg trilha, func Errorf(int, string, ...any) error
 pkg trilha, func Fatal(error)
 pkg trilha, func HintOf(error) *Hint
@@ -91,6 +93,8 @@ pkg trilha, method (*App) SetErrorPage(ErrorPageFunc)
 pkg trilha, method (*App) SetNotFound(PageFunc)
 pkg trilha, method (*App) SetRootLayout(LayoutFunc)
 pkg trilha, method (*App) Values() map[string]any
+pkg trilha, method (*BusinessCalendar) Add(time.Time, int) time.Time
+pkg trilha, method (*BusinessCalendar) IsBusinessDay(time.Time) bool
 pkg trilha, method (*Counter) Add(float64)
 pkg trilha, method (*Counter) Inc()
 pkg trilha, method (*Counter) With(...string) *Counter
@@ -227,6 +231,7 @@ pkg trilha, method (*Versioned) Restore(*Ctx, string, int) (int, error)
 pkg trilha, method (*Versioned) Save(*Ctx, string, T, string) (int, error)
 pkg trilha, method (AuditFunc) Write(AuditRecord) error
 pkg trilha, method (CSVResult) OK() bool
+pkg trilha, method (Deadline) Late(time.Time, *time.Location) bool
 pkg trilha, method (Enum) Has(string) bool
 pkg trilha, method (Enum) Label(string) string
 pkg trilha, method (Enum) Labels() []string
@@ -274,6 +279,7 @@ pkg trilha, type AuditRecord struct, Target string
 pkg trilha, type AuditSink interface
 pkg trilha, type AuditSink interface, Write(AuditRecord) error
 pkg trilha, type Bag interface
+pkg trilha, type BusinessCalendar struct
 pkg trilha, type CORS struct
 pkg trilha, type CORS struct, Credentials bool
 pkg trilha, type CORS struct, Expose []string
@@ -333,6 +339,32 @@ pkg trilha, type Config struct, TrustedProxies []string
 pkg trilha, type Config struct, Upstreams map[string]Upstream
 pkg trilha, type Counter struct
 pkg trilha, type Ctx struct
+pkg trilha, type Deadline struct
+pkg trilha, type Deadline struct, Done bool
+pkg trilha, type Deadline struct, Due time.Time
+pkg trilha, type Deadline struct, Kind string
+pkg trilha, type Deadline struct, Owner string
+pkg trilha, type Deadline struct, Title string
+pkg trilha, type Deadline struct, URL string
+pkg trilha, type DeadlineKind struct
+pkg trilha, type DeadlineKind struct, Kind string
+pkg trilha, type DeadlineKind struct, Overdue int
+pkg trilha, type DeadlineKind struct, Total int
+pkg trilha, type DeadlineOpts struct
+pkg trilha, type DeadlineOpts struct, Business *BusinessCalendar
+pkg trilha, type DeadlineOpts struct, Horizons []int
+pkg trilha, type DeadlineOpts struct, In *time.Location
+pkg trilha, type DeadlineOpts struct, Now time.Time
+pkg trilha, type DeadlineSummary struct
+pkg trilha, type DeadlineSummary struct, ByKind map[string]DeadlineKind
+pkg trilha, type DeadlineSummary struct, Horizons []int
+pkg trilha, type DeadlineSummary struct, In *time.Location
+pkg trilha, type DeadlineSummary struct, Later []Deadline
+pkg trilha, type DeadlineSummary struct, Next *Deadline
+pkg trilha, type DeadlineSummary struct, Now time.Time
+pkg trilha, type DeadlineSummary struct, Overdue []Deadline
+pkg trilha, type DeadlineSummary struct, Total int
+pkg trilha, type DeadlineSummary struct, Within map[int][]Deadline
 pkg trilha, type Draft struct
 pkg trilha, type DraftStore interface
 pkg trilha, type DraftStore interface, Delete(string) error
@@ -1401,6 +1433,9 @@ pkg ui, func Container(...h.Node) h.Node
 pkg ui, func DataTable[T any](*trilha.Ctx, Columns[T], []T, ListState) h.Node
 pkg ui, func Date(*trilha.Ctx, any, ...FormatOpt) h.Node
 pkg ui, func DateOnly() FormatOpt
+pkg ui, func DeadlineBadge(*trilha.Ctx, []trilha.Deadline) h.Node
+pkg ui, func DeadlineCards(*trilha.Ctx, trilha.DeadlineSummary) h.Node
+pkg ui, func DeadlineList(*trilha.Ctx, []trilha.Deadline, DeadlineListOpts) h.Node
 pkg ui, func Decimals(int) FormatOpt
 pkg ui, func Defer(*trilha.Ctx, string, string, ...DeferOpts) h.Node
 pkg ui, func Depth(int) h.Node
@@ -1595,6 +1630,12 @@ pkg ui, type Datum struct
 pkg ui, type Datum struct, Label string
 pkg ui, type Datum struct, Text string
 pkg ui, type Datum struct, Value float64
+pkg ui, type DeadlineListOpts struct
+pkg ui, type DeadlineListOpts struct, Empty string
+pkg ui, type DeadlineListOpts struct, Limit int
+pkg ui, type DeadlineListOpts struct, More string
+pkg ui, type DeadlineListOpts struct, Now time.Time
+pkg ui, type DeadlineListOpts struct, Owner bool
 pkg ui, type DeferOpts struct
 pkg ui, type DeferOpts struct, Error string
 pkg ui, type DeferOpts struct, Height string

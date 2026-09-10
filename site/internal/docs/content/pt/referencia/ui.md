@@ -70,6 +70,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação) |
+| `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
 
 ## Árvores
 
@@ -368,6 +369,39 @@ o nomeia, e tudo é HTML do servidor — uma página com assistente não vira il
 
 É composição, não um segundo chat: o painel tem um `Chat` dentro, então o streaming, o Markdown e
 os erros são os que já existem.
+
+### DeadlineCards
+
+```go
+func DeadlineCards(c *trilha.Ctx, s trilha.DeadlineSummary) h.Node
+func DeadlineList(c *trilha.Ctx, items []trilha.Deadline, o DeadlineListOpts) h.Node
+func DeadlineBadge(c *trilha.Ctx, items []trilha.Deadline) h.Node
+```
+
+O painel de um resumo de [`trilha.Deadlines`](/pt/referencia/app#prazos): os cartões em cima, a
+lista embaixo, o número ao lado do item de menu.
+
+```go
+resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{Now: time.Now().In(c.Location())})
+
+ui.DeadlineCards(c, resumo)
+ui.DeadlineList(c, itens, ui.DeadlineListOpts{Limit: 10, More: "/prazos"})
+ui.DeadlineBadge(c, resumo.Overdue)
+```
+
+Os cartões seguem a ordem das faixas, então não trocam de lugar entre recargas, e o de vencidos só
+fica vermelho quando há do que reclamar — um zero vermelho ensina a ignorar a cor, e aí o três
+também é ignorado. O último cartão é o `Next`: uma contagem sem um exemplo ao lado é um número que
+alguém precisa clicar para entender.
+
+O `DeadlineListOpts` recebe `Limit` (com `More` para o link do "e mais 12"), `Owner` para a coluna
+de responsável, `Empty` para a frase de quando não há nada, e `Now` — o relógio contra o qual o
+atraso é medido, para um teste não quebrar sozinho na manhã seguinte. As datas são escritas pelo
+[`ui.Date`](#formatação) com `Relative`, e a linha cujo dia acabou leva `ui-late`, a mesma classe
+da [caixa de aprovações](/pt/referencia/approval): atraso é igual em toda a aplicação, ou parece
+defeito.
+
+O `DeadlineBadge` não desenha nada com a lista vazia, e diz no `aria-label` o que a cor diz.
 
 ### VersionList
 

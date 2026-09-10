@@ -392,3 +392,54 @@ field existed still reads back — with that field at its zero value instead of 
 
 The store is memory by default; a table behind `Save`, `List` and `Get` is the next step, and no
 screen changes. The screen is [`ui.VersionList`](/reference/ui).
+
+
+## Deadlines
+
+Every application with a due date ends up writing the same arithmetic: how many are late, how many
+fall in the next thirty days, which one is next, and what colour each band gets.
+
+```go
+resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{
+	Horizons: []int{7, 30, 90},
+	Now:      time.Now().In(c.Location()),
+})
+
+resumo.Overdue      // []Deadline, oldest first
+resumo.Within[30]   // everything due in the next thirty days
+resumo.Next         // the nearest one that has not run out yet, or nil
+resumo.ByKind       // per Kind: how many are open, how many are late
+```
+
+A `Deadline` is a `Title`, a `Kind`, a `Due`, a `URL`, an `Owner` and a `Done` flag.
+
+**A deadline is a date, not an instant.** Something due today is not late until today is over.
+Comparing two `time.Time` values directly is the bug this exists to remove: it marks the morning of
+the due date as late, and nobody notices until somebody is called about a certificate that was
+still valid. Which day it *is* depends on where the reader is, so the zone is `DeadlineOpts.In`
+and not the machine's — an empty one is the zone `Now` already carries, which is what
+`time.Now().In(c.Location())` gives.
+
+**`Done` items are out of every bucket**, including `Total` and `ByKind`: a resolved deadline is
+not a deadline, it is history.
+
+The bands are **cumulative** — `Within[30]` includes what is in `Within[7]`, because that is what
+"within thirty days" says. What falls past the last band is `Later`. A screen that wants the ring
+between two bands subtracts.
+
+### Working days
+
+```go
+cal := trilha.BusinessDays(feriados...)         // the dates are the application's
+prazo := cal.Add(time.Now(), 5)                 // five working days from today
+cal.IsBusinessDay(d)                            // weekends and those dates are not
+
+resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{Business: cal})
+```
+
+With a calendar, the horizons are counted in working days: thirty working days reach further into
+the month than thirty calendar days. **The holidays are yours**, and there is no `HolidaysBR` in
+the framework: that table changes by country and by year, and a calendar the framework guessed
+would be an arithmetic error nobody thinks to check.
+
+The screens are [`ui.DeadlineCards`, `ui.DeadlineList` and `ui.DeadlineBadge`](/reference/ui).

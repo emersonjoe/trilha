@@ -3,6 +3,36 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.94.0 — 2026-09-10
+
+Spec 115. Closes [#150](https://github.com/emersonjoe/trilha/issues/150).
+
+### Added
+
+- **`trilha.Deadlines`: what expires, when, and in which band.** Every application with a due date
+  writes the same arithmetic — how many are late, how many fall in the next thirty days, which one
+  is next, and what colour each band gets. `Deadlines` answers all of it from a list of
+  `trilha.Deadline`, with the bands cumulative (`Within[30]` includes `Within[7]`), `Later` for
+  what falls past the last one, `Next` for the nearest one still standing, and `ByKind` for the
+  per-kind counts.
+
+  **A deadline is a date, not an instant**: something due today is not late until today is over.
+  Comparing two `time.Time` values directly is the bug this removes — it marks the morning of the
+  due date as late, and nobody notices until somebody is called about a certificate that was still
+  valid. Which day it *is* depends on where the reader is, so the zone is `DeadlineOpts.In` and not
+  the machine's, and `Now` is a parameter so a deadline panel has a test.
+
+- **`trilha.BusinessDays`.** A calendar that counts working days: `Add` walks n of them forward or
+  back, `IsBusinessDay` answers for one date, and `DeadlineOpts.Business` counts the horizons in
+  them. **The holidays are the application's** — that table changes by country and by year, and a
+  calendar the framework guessed would be an arithmetic error nobody thinks to check.
+
+- **`ui.DeadlineCards`, `ui.DeadlineList` and `ui.DeadlineBadge`.** The panel: the cards in the
+  order of the horizons so they do not move between reloads, the list with relative dates and the
+  same `ui-late` class the inbox uses, and the number beside a menu item. The overdue card only
+  turns red when there is something to be red about, and an empty list draws an empty state instead
+  of an empty table.
+
 ## 0.93.0 — 2026-09-10
 
 Spec 114. Closes [#148](https://github.com/emersonjoe/trilha/issues/148).

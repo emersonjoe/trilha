@@ -70,6 +70,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error) |
+| `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
 
 ## Trees
 
@@ -368,6 +369,39 @@ island.
 
 It is composition, not a second chat: the panel holds a `Chat`, so the streaming, the Markdown
 and the errors are the ones that already exist.
+
+### DeadlineCards
+
+```go
+func DeadlineCards(c *trilha.Ctx, s trilha.DeadlineSummary) h.Node
+func DeadlineList(c *trilha.Ctx, items []trilha.Deadline, o DeadlineListOpts) h.Node
+func DeadlineBadge(c *trilha.Ctx, items []trilha.Deadline) h.Node
+```
+
+The panel of a [`trilha.Deadlines`](/reference/app#deadlines) summary: the cards on top, the list
+under them, the number beside a menu item.
+
+```go
+resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{Now: time.Now().In(c.Location())})
+
+ui.DeadlineCards(c, resumo)
+ui.DeadlineList(c, itens, ui.DeadlineListOpts{Limit: 10, More: "/prazos"})
+ui.DeadlineBadge(c, resumo.Overdue)
+```
+
+The cards follow the order of the horizons, so they do not move between reloads, and the overdue
+one only turns red when there is something to be red about — a zero in red teaches people to look
+past the colour, and then the three is looked past too. The last card is `Next`: the count with no
+example beside it is a number somebody has to click to understand.
+
+`DeadlineListOpts` takes `Limit` (with `More` for the "and 12 more" link), `Owner` for the column
+of who it is on, `Empty` for the sentence with nothing to say, and `Now` — the clock `late` is
+measured against, so a test does not fail on its own the next morning. Dates are written by
+[`ui.Date`](#formatting) with `Relative`, and a row whose day has ended carries `ui-late`, the same
+class the [inbox](/reference/approval) uses: late looks the same everywhere in an application, or
+it looks like a bug.
+
+`DeadlineBadge` draws nothing for an empty list, and says in `aria-label` what the colour says.
 
 ### VersionList
 
