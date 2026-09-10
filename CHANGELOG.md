@@ -3,6 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.85.0 — 2026-09-10
+
+Spec 105. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for
+`share-link`, `blob` and `tenant`.
+
+### Added
+
+- **`trilha add mail`: the file an application's messages live in.** The module has been there
+  since 0.63.0 — layout, button, the plain-text half, SMTP, the dev mode that writes `.eml` files.
+  What was missing is the ordinary part: one function per message, with a name, so a handler says
+  *send the invitation* instead of building a multipart in the middle of a request. It is also the
+  file somebody who does not write Go can be asked to read, which is where the wording gets fixed.
+
+  The mailer is a package variable **on purpose**: it is what lets a test put a `mail.Outbox` in
+  its place and assert on what was sent — the whole testing story of the module, with no
+  container, no network and no fake SMTP. The test the recipe writes checks the recipient, the
+  subject, the link inside the body (what breaks silently when a route is renamed) and that the
+  plain-text half is not empty.
+
 ## 0.84.0 — 2026-09-10
 
 Spec 104. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for

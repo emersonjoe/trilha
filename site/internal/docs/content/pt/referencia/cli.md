@@ -564,6 +564,7 @@ mexer num projeto que já tem código.
 | `audit` | o destino que o `Config.Audit` recebe, e a tela que o lê com o `ui.AuditTable` |
 | `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
 | `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
+| `mail` | o arquivo de onde este app manda e-mail: uma função por mensagem, e teste sem rede |
 | `permissions` | a matriz de permissões como dado, e a tela que a edita |
 | `profile` | a tela da própria conta: nome e senha — o id vem da sessão |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
@@ -609,7 +610,7 @@ Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisi
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
 guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
 
-Faltam outras — `share-link`, `mail`, `blob` e `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
+Faltam outras — `share-link`, `blob` e `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Por que a CI aplica todas elas
 

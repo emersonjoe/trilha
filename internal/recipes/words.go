@@ -89,6 +89,12 @@ var words = func(lang string) map[string]string {
 			"tasks_desc":  "O trabalho longo roda fora da requisição; esta tela lê o estado que ele deixou.",
 			"tasks_key":   "Chave (o que está sendo processado)",
 			"tasks_run":   "Rodar",
+
+			"mail_brand":           "Minha aplicação",
+			"mail_welcome_subject": "Bem-vindo ao",
+			"mail_welcome_hi":      "Olá, %s! Sua conta está pronta.",
+			"mail_welcome_button":  "Entrar",
+			"mail_welcome_hint":    "Se o botão não funcionar, cole este endereço no navegador:",
 		}
 	}
 	return map[string]string{
@@ -172,5 +178,11 @@ var words = func(lang string) map[string]string {
 		"tasks_desc":  "The long work runs outside the request; this screen reads the state it left behind.",
 		"tasks_key":   "Key (what is being worked on)",
 		"tasks_run":   "Run",
+
+		"mail_brand":           "My application",
+		"mail_welcome_subject": "Welcome to",
+		"mail_welcome_hi":      "Hello, %s! Your account is ready.",
+		"mail_welcome_button":  "Sign in",
+		"mail_welcome_hint":    "If the button does not work, paste this address into your browser:",
 	}
 }

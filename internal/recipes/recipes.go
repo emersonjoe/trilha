@@ -121,7 +121,7 @@ type Result struct {
 
 // All is every recipe, by name.
 func All() []Recipe {
-	out := []Recipe{auditRecipe(), apiKeysRecipe(), loginRecipe(), permissionsRecipe(), profileRecipe(), settingsRecipe(), tasksRecipe(), usersRecipe(), webhooksRecipe()}
+	out := []Recipe{auditRecipe(), apiKeysRecipe(), loginRecipe(), mailRecipe(), permissionsRecipe(), profileRecipe(), settingsRecipe(), tasksRecipe(), usersRecipe(), webhooksRecipe()}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
