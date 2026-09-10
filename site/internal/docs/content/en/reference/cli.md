@@ -210,8 +210,27 @@ One file, deterministic, committed like `trilha_gen.go`. Inside it: a struct per
 `format: email`, `enum` — the `validate` tags of [Validation](/reference/validation), so the
 same type is the answer of the API and the `Bind` of a form. A method per operation, grouped
 by tag: path parameters in the signature, query parameters in a struct, a JSON body as the
-schema's type, an upload as `io.Reader` plus a filename, and a binary answer as the
-`*http.Response`, so it streams into `c.Pipe`.
+schema's type, and a binary answer as the `*http.Response`, so it streams into `c.Pipe`.
+
+A `multipart/form-data` body is read as the form it is. One binary field and nothing else
+stays two arguments — `file io.Reader, filename string`. Anything else becomes a typed struct,
+so no field of the form is silently dropped:
+
+```go
+_, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
+	File:  api.FilePart{Filename: "cert.pfx", Content: f}, // io.Reader: it streams
+	Senha: "…",                                            // required, so it always travels
+})
+
+_, err = c.Documents().Batch(ctx, api.DocumentsBatchForm{
+	Files: []api.FilePart{a, b, c}, // three parts under the same name, in this order
+})
+```
+
+A `[]FilePart` becomes several parts under one name, in the order of the slice, which is what
+a `list[UploadFile]` on the other side reads. An optional scalar left at its zero value does
+not travel, the same rule the query follows. Nothing is buffered: the body is an `io.Pipe`, so
+a file larger than the memory of the process crosses it.
 
 `New(base, WithHeader(...), WithClient(...))` is the whole surface of the constructor: the
 client holds no credential of its own, and `WithHeader` runs per request, which is where the

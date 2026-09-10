@@ -184,7 +184,9 @@ func TestAgainstServer(t *testing.T) {
 		t.Fatalf("create = %+v (%v)", doc, err)
 	}
 
-	up, err := c.Documents().Upload(ctx, strings.NewReader("conteudo"), "escritura.pdf")
+	up, err := c.Documents().Upload(ctx, api.DocumentsUploadForm{
+		Upload: api.FilePart{Filename: "escritura.pdf", Content: strings.NewReader("conteudo")},
+	})
 	if err != nil || up.ID != "escritura.pdf" || up.Filename != "conteudo" {
 		t.Fatalf("upload = %+v (%v)", up, err)
 	}
@@ -249,7 +251,7 @@ func TestUploadStreams(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := api.New(srv.URL)
-	_, _ = c.Documents().Upload(context.Background(), endless{}, "grande.bin")
+	_ = c.Documents().Thumbnail(context.Background(), "doc-1", endless{}, "grande.bin")
 	if n := <-seen; n != 1<<20 {
 		t.Fatalf("read %d bytes", n)
 	}
@@ -290,7 +292,7 @@ func TestMultipartFieldName(t *testing.T) {
 	fmt.Fprint(fw, "x")
 	mw.Close()
 	src, _ := os.ReadFile(goldenPath)
-	if !strings.Contains(string(src), `multipartBody("upload", filename, file)`) {
+	if !strings.Contains(string(src), `formPart{{field: "image", filename: filename, r: file}}`) {
 		t.Fatal("the upload field name did not come from the document")
 	}
 }
@@ -328,5 +330,154 @@ func TestOptionalBecomesAPointerAndAUnionDoesNot(t *testing.T) {
 	}
 	if notes == 0 {
 		t.Error("the report says nothing about the union it did carry raw")
+	}
+}
+
+// Spec 092 (#141): a multipart operation is a form, not a file. The generator
+// read one binary field and dropped everything else — this document has always
+// declared `folder` beside `upload`, and it never reached the caller.
+func TestMultipartECadaParteDoFormulario(t *testing.T) {
+	type parte struct{ field, filename, value string }
+	got := make(chan []parte, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mr, err := r.MultipartReader()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		var partes []parte
+		for {
+			p, err := mr.NextPart()
+			if err != nil {
+				break
+			}
+			body, _ := io.ReadAll(p)
+			partes = append(partes, parte{p.FormName(), p.FileName(), string(body)})
+		}
+		got <- partes
+		w.WriteHeader(202)
+		json.NewEncoder(w).Encode(api.Document{ID: "ok"})
+	}))
+	defer srv.Close()
+	c := api.New(srv.URL)
+
+	// A file and the scalars beside it, each typed.
+	if _, err := c.Certificates().Upload(context.Background(), api.CertificatesUploadForm{
+		File:  api.FilePart{Filename: "cert.pfx", Content: strings.NewReader("PFX")},
+		Senha: "abre-te",
+		Dias:  30,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// The parts come out in the order of the field names, which is the order of
+	// the struct: the document has none of its own to preserve.
+	want := []parte{{"dias", "", "30"}, {"file", "cert.pfx", "PFX"}, {"senha", "", "abre-te"}}
+	if partes := <-got; !equalPartes(partes, want) {
+		t.Fatalf("as partes do certificado = %+v, quero %+v", partes, want)
+	}
+
+	// The same name, repeated, in the order of the slice: a list[UploadFile] on
+	// the other side is a list, and the order is the answer's order.
+	if _, err := c.Documents().Batch(context.Background(), api.DocumentsBatchForm{
+		Files: []api.FilePart{
+			{Filename: "1.xml", Content: strings.NewReader("um")},
+			{Filename: "2.xml", Content: strings.NewReader("dois")},
+			{Filename: "3.xml", Content: strings.NewReader("tres")},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	want = []parte{{"files", "1.xml", "um"}, {"files", "2.xml", "dois"}, {"files", "3.xml", "tres"}}
+	if partes := <-got; !equalPartes(partes, want) {
+		t.Fatalf("as partes do lote = %+v, quero %+v", partes, want)
+	}
+
+	// An optional scalar that was not filled in does not travel: the same rule
+	// the query already follows, so the server sees the difference between an
+	// empty folder and no folder at all.
+	if _, err := c.Documents().Upload(context.Background(), api.DocumentsUploadForm{
+		Upload: api.FilePart{Filename: "nota.pdf", Content: strings.NewReader("PDF")},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if partes := <-got; !equalPartes(partes, []parte{{"upload", "nota.pdf", "PDF"}}) {
+		t.Fatalf("o campo opcional vazio viajou: %+v", partes)
+	}
+
+	// And the one shape that keeps the signature it had: one binary field and
+	// nothing else stays two arguments.
+	if err := c.Documents().Thumbnail(context.Background(), "doc-1", strings.NewReader("PNG"), "capa.png"); err != nil {
+		t.Fatal(err)
+	}
+	if partes := <-got; !equalPartes(partes, []parte{{"image", "capa.png", "PNG"}}) {
+		t.Fatalf("a miniatura = %+v", partes)
+	}
+}
+
+func equalPartes[T comparable](got, want []T) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// The stream is the promise: a file bigger than the memory of this process has
+// to cross it, and a form with several files must not change that.
+func TestMultipartContinuaEmStreaming(t *testing.T) {
+	seen := make(chan int, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mr, err := r.MultipartReader()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		p, err := mr.NextPart()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		n, _ := io.CopyN(io.Discard, p, 1<<20)
+		seen <- int(n)
+		w.WriteHeader(202)
+		json.NewEncoder(w).Encode(api.Document{ID: "ok"})
+	}))
+	defer srv.Close()
+	c := api.New(srv.URL)
+	_, _ = c.Documents().Batch(context.Background(), api.DocumentsBatchForm{
+		Files: []api.FilePart{{Filename: "grande.bin", Content: endless{}}},
+	})
+	if n := <-seen; n != 1<<20 {
+		t.Fatalf("read %d bytes", n)
+	}
+}
+
+// Two binary fields in one operation: the shape the issue asks to be
+// representable, and the one a signature of positional arguments could not hold
+// without the caller counting readers.
+func TestDoisCamposBinariosNaMesmaOperacao(t *testing.T) {
+	doc := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/envio":{"post":{
+		"operationId":"enviar","requestBody":{"required":true,"content":{"multipart/form-data":{"schema":{
+		"type":"object","properties":{"nota":{"type":"string","format":"binary"},"anexo":{"type":"string","format":"binary"}},
+		"required":["nota","anexo"]}}}},"responses":{"204":{"description":"ok"}}}}}}`
+	res, err := Generate([]byte(doc), Options{Package: "api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(res.Source)
+	for _, want := range []string{
+		"type DefaultEnviarForm struct {",
+		"Anexo FilePart",
+		"Nota  FilePart", // gofmt aligns the pair, which is how we know both are there
+		`formPart{field: "anexo", filename: form.Anexo.Filename, r: form.Anexo.Content}`,
+		`formPart{field: "nota", filename: form.Nota.Filename, r: form.Nota.Content}`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("o cliente gerado não tem %q:\n%s", want, src)
+		}
 	}
 }

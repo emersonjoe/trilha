@@ -32,10 +32,34 @@ type method struct {
 	Query    []queryParam
 	Params   string // name of the params struct, "" when there is none
 	Body     string // Go type of the JSON body, "" when there is none
-	Upload   string // multipart field name, "" when it is not an upload
+	Upload   string // multipart field name when the form is one file and nothing else
+	Form     *form  // the multipart form when it is anything more than that
 	Return   string // Go type of the answer, "" when there is none
 	Binary   bool
 }
+
+// form is a multipart body read as what it is: a list of parts. One binary
+// field and nothing else keeps the two arguments it always had; anything else
+// — a file with a password beside it, fifty files under one name — becomes a
+// struct, because the alternative is a signature nobody can read and a field
+// the generator silently drops.
+type form struct {
+	Type  string // name of the generated struct
+	Parts []formPart
+}
+
+// formPart is one field of the form, in the order the document declares it.
+type formPart struct {
+	Wire     string // the name on the wire
+	Field    string // the Go field
+	Type     string // the scalar Go type; "" when it is a file
+	Many     bool   // repeated under the same name
+	Required bool
+	Doc      string
+}
+
+// File says whether the part carries bytes.
+func (p formPart) File() bool { return p.Type == "" }
 
 type pathVar struct {
 	Name string // Go argument
@@ -152,7 +176,7 @@ func (b *builder) method(op *Operation, gName string, used map[string]bool) (*me
 		switch ct, mt := pickBody(op.RequestBody.Content); ct {
 		case "":
 		case "multipart/form-data":
-			m.Upload = uploadField(mt)
+			m.Upload, m.Form = b.multipart(mt, gName+m.Name+"Form", where)
 		default:
 			if strings.Contains(ct, "json") {
 				m.Body = b.goType(mt.Schema, gName+m.Name+"Body", where+" body")
@@ -275,21 +299,71 @@ func pickBody(content map[string]*MediaType) (string, *MediaType) {
 	return "", nil
 }
 
-// uploadField is the name of the multipart part that carries the file.
-func uploadField(mt *MediaType) string {
-	if mt != nil && mt.Schema != nil {
-		names := make([]string, 0, len(mt.Schema.Properties))
-		for n := range mt.Schema.Properties {
-			names = append(names, n)
-		}
-		sort.Strings(names)
-		for _, n := range names {
-			if s := mt.Schema.Properties[n]; s != nil && s.Format == "binary" {
-				return n
-			}
-		}
+// multipart reads a multipart body as what it is: a list of parts. It answers
+// with the single field name when the form is one binary and nothing else —
+// the shape that keeps the two arguments it always had — and with the form
+// otherwise.
+//
+// The parts come out in the order of the property names, which is the order of
+// the struct fields: the document has no order of its own to preserve, and a
+// generator that answers differently on two runs is a generator nobody can
+// check.
+func (b *builder) multipart(mt *MediaType, name, where string) (string, *form) {
+	if mt == nil || mt.Schema == nil {
+		return "file", nil
 	}
-	return "file"
+	names := make([]string, 0, len(mt.Schema.Properties))
+	for n := range mt.Schema.Properties {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+
+	f := &form{Type: name}
+	files := 0
+	for _, n := range names {
+		s := mt.Schema.Properties[n]
+		if s == nil {
+			continue
+		}
+		part := formPart{Wire: n, Field: exportName(n), Required: mt.Schema.IsRequired(n), Doc: doc(s)}
+		switch {
+		case s.Format == "binary":
+			files++
+		case s.TypeName() == "array" && s.Items != nil && s.Items.Format == "binary":
+			part.Many, files = true, files+1
+		default:
+			t := b.goType(s, name+exportName(n), where+" "+n)
+			if !scalar(t) {
+				// A nested object inside a form is a decision, not a
+				// translation: the note says so instead of the client
+				// inventing an encoding for it.
+				b.note(where, "multipart field "+n+" is not a scalar — send it with the raw client")
+				continue
+			}
+			part.Type = t
+		}
+		f.Parts = append(f.Parts, part)
+	}
+	switch {
+	case len(f.Parts) == 0:
+		return "file", nil
+	case len(f.Parts) == 1 && files == 1 && !f.Parts[0].Many:
+		// One file and nothing else: the call that was already right.
+		return f.Parts[0].Wire, nil
+	}
+	return "", f
+}
+
+// scalar says whether a Go type can be written as one form field. An enum is a
+// string with a name, and it counts.
+func scalar(t string) bool {
+	switch t {
+	case "string", "bool", "int32", "int64", "float32", "float64":
+		return true
+	}
+	// A named enum is a string underneath, and the generator only invents
+	// names for enums out of a string schema.
+	return t != "" && !strings.ContainsAny(t, "[]*.") && t == exportName(t)
 }
 
 // pickResponse is the first 2xx that carries content.

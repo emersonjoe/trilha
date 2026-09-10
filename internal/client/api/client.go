@@ -141,15 +141,42 @@ func detailOf(b []byte) string {
 	return m.Msg
 }
 
-// multipartBody streams one file as multipart/form-data: the upload never sits
-// in memory, however large it is.
-func multipartBody(field, filename string, r io.Reader) (io.Reader, string) {
+// FilePart is one file of a multipart body: the name it goes under and the
+// bytes, which are read while the request is sent.
+type FilePart struct {
+	Filename string
+	Content  io.Reader
+}
+
+// formPart is one part of a multipart body: a file when r is set, a form field
+// otherwise.
+type formPart struct {
+	field    string
+	filename string
+	r        io.Reader
+	value    string
+}
+
+// multipartBody streams the parts as multipart/form-data: no file ever sits in
+// memory, however large it is, and a writer that fails closes the pipe with the
+// error instead of hanging the request.
+func multipartBody(parts []formPart) (io.Reader, string) {
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	go func() {
-		fw, err := mw.CreateFormFile(field, filename)
-		if err == nil {
-			_, err = io.Copy(fw, r)
+		var err error
+		for _, p := range parts {
+			if p.r == nil {
+				err = mw.WriteField(p.field, p.value)
+			} else {
+				var fw io.Writer
+				if fw, err = mw.CreateFormFile(p.field, p.filename); err == nil {
+					_, err = io.Copy(fw, p.r)
+				}
+			}
+			if err != nil {
+				break
+			}
 		}
 		if err == nil {
 			err = mw.Close()
@@ -250,6 +277,35 @@ type DefaultHealthResponse struct {
 	Status string            `json:"status,omitempty"`
 }
 
+// Certificates is the Certificates part of the API.
+type Certificates struct{ c *Client }
+
+// Certificates returns the Certificates part of the API.
+func (c *Client) Certificates() *Certificates { return &Certificates{c: c} }
+
+// CertificatesUploadForm is the multipart body of the request below.
+type CertificatesUploadForm struct {
+	Dias  int64 // how long to keep it
+	File  FilePart
+	Senha string // the password of the certificate
+}
+
+// Upload is POST /api/certificates: send a certificate and the password that opens it.
+func (g *Certificates) Upload(ctx context.Context, form CertificatesUploadForm) (Document, error) {
+	path := "/api/certificates"
+	var q url.Values
+	var out Document
+	parts := make([]formPart, 0, 3)
+	if form.Dias != 0 {
+		parts = append(parts, formPart{field: "dias", value: strconv.FormatInt(form.Dias, 10)})
+	}
+	parts = append(parts, formPart{field: "file", filename: form.File.Filename, r: form.File.Content})
+	parts = append(parts, formPart{field: "senha", value: form.Senha})
+	body, ctype := multipartBody(parts)
+	err := g.c.call(ctx, "POST", path, q, body, ctype, &out)
+	return out, err
+}
+
 // Default is the Default part of the API.
 type Default struct{ c *Client }
 
@@ -270,6 +326,29 @@ type Documents struct{ c *Client }
 
 // Documents returns the Documents part of the API.
 func (c *Client) Documents() *Documents { return &Documents{c: c} }
+
+// DocumentsBatchForm is the multipart body of the request below.
+type DocumentsBatchForm struct {
+	Files  []FilePart
+	Folder string // optional: it travels only when it is set
+}
+
+// Batch is POST /api/documents/batch: send many files at once, under one field.
+func (g *Documents) Batch(ctx context.Context, form DocumentsBatchForm) (Document, error) {
+	path := "/api/documents/batch"
+	var q url.Values
+	var out Document
+	parts := make([]formPart, 0, 2)
+	for _, f := range form.Files {
+		parts = append(parts, formPart{field: "files", filename: f.Filename, r: f.Content})
+	}
+	if form.Folder != "" {
+		parts = append(parts, formPart{field: "folder", value: form.Folder})
+	}
+	body, ctype := multipartBody(parts)
+	err := g.c.call(ctx, "POST", path, q, body, ctype, &out)
+	return out, err
+}
 
 // Create is POST /api/documents: create a document from metadata only.
 func (g *Documents) Create(ctx context.Context, body DocumentIn) (Document, error) {
@@ -334,12 +413,31 @@ func (g *Documents) List(ctx context.Context, p DocumentsListParams) (PagedDocum
 	return out, err
 }
 
+// Thumbnail is POST /api/documents/{document_id}/thumbnail: replace the thumbnail: one file and nothing else.
+func (g *Documents) Thumbnail(ctx context.Context, documentID string, file io.Reader, filename string) error {
+	path := "/api/documents/" + url.PathEscape(documentID) + "/thumbnail"
+	var q url.Values
+	body, ctype := multipartBody([]formPart{{field: "image", filename: filename, r: file}})
+	return g.c.call(ctx, "POST", path, q, body, ctype, nil)
+}
+
+// DocumentsUploadForm is the multipart body of the request below.
+type DocumentsUploadForm struct {
+	Folder string // optional: it travels only when it is set
+	Upload FilePart
+}
+
 // Upload is POST /api/documents/upload: send a file and let the API read it.
-func (g *Documents) Upload(ctx context.Context, file io.Reader, filename string) (Document, error) {
+func (g *Documents) Upload(ctx context.Context, form DocumentsUploadForm) (Document, error) {
 	path := "/api/documents/upload"
 	var q url.Values
 	var out Document
-	body, ctype := multipartBody("upload", filename, file)
+	parts := make([]formPart, 0, 2)
+	if form.Folder != "" {
+		parts = append(parts, formPart{field: "folder", value: form.Folder})
+	}
+	parts = append(parts, formPart{field: "upload", filename: form.Upload.Filename, r: form.Upload.Content})
+	body, ctype := multipartBody(parts)
 	err := g.c.call(ctx, "POST", path, q, body, ctype, &out)
 	return out, err
 }

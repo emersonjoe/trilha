@@ -64,6 +64,43 @@
         "responses": { "202": { "description": "Queued.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } } }
       }
     },
+    "/api/documents/batch": {
+      "post": {
+        "tags": ["documents"],
+        "operationId": "batch_api_documents_batch_post",
+        "summary": "Send many files at once, under one field.",
+        "requestBody": {
+          "required": true,
+          "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "files": { "type": "array", "items": { "type": "string", "format": "binary" } }, "folder": { "type": "string" } }, "required": ["files"] } } }
+        },
+        "responses": { "202": { "description": "Queued.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } } }
+      }
+    },
+    "/api/documents/{document_id}/thumbnail": {
+      "post": {
+        "tags": ["documents"],
+        "operationId": "thumbnail_api_documents__document_id__thumbnail_post",
+        "summary": "Replace the thumbnail: one file and nothing else.",
+        "parameters": [ { "name": "document_id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "image": { "type": "string", "format": "binary" } }, "required": ["image"] } } }
+        },
+        "responses": { "204": { "description": "Replaced." } }
+      }
+    },
+    "/api/certificates": {
+      "post": {
+        "tags": ["certificates"],
+        "operationId": "upload_certificate_api_certificates_post",
+        "summary": "Send a certificate and the password that opens it.",
+        "requestBody": {
+          "required": true,
+          "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "file": { "type": "string", "format": "binary" }, "senha": { "type": "string", "description": "The password of the certificate." }, "dias": { "type": "integer", "description": "How long to keep it." } }, "required": ["file", "senha"] } } }
+        },
+        "responses": { "202": { "description": "Queued.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } } }
+      }
+    },
     "/api/folders/{folder_id}/tree": {
       "get": {
         "tags": ["folders"],

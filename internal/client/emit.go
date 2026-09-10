@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -41,12 +42,19 @@ func (b *builder) imports(groups map[string]*group) []string {
 	need := map[string]bool{"context": true, "encoding/json": true, "fmt": true, "io": true, "net/http": true, "net/url": true, "strings": true}
 	for _, g := range groups {
 		for _, m := range g.Methods {
-			if m.Upload != "" {
+			if m.Upload != "" || m.Form != nil {
 				need["mime/multipart"] = true
 			}
 			for _, q := range m.Query {
 				if strings.HasPrefix(q.Type, "int") || strings.HasPrefix(q.Type, "float") {
 					need["strconv"] = true
+				}
+			}
+			if m.Form != nil {
+				for _, p := range m.Form.Parts {
+					if !p.File() && p.Type != "string" && !isEnumName(p.Type) {
+						need["strconv"] = true
+					}
 				}
 			}
 			if m.Body != "" {
@@ -185,15 +193,42 @@ func detailOf(b []byte) string {
 	return m.Msg
 }
 
-// multipartBody streams one file as multipart/form-data: the upload never sits
-// in memory, however large it is.
-func multipartBody(field, filename string, r io.Reader) (io.Reader, string) {
+// FilePart is one file of a multipart body: the name it goes under and the
+// bytes, which are read while the request is sent.
+type FilePart struct {
+	Filename string
+	Content  io.Reader
+}
+
+// formPart is one part of a multipart body: a file when r is set, a form field
+// otherwise.
+type formPart struct {
+	field    string
+	filename string
+	r        io.Reader
+	value    string
+}
+
+// multipartBody streams the parts as multipart/form-data: no file ever sits in
+// memory, however large it is, and a writer that fails closes the pipe with the
+// error instead of hanging the request.
+func multipartBody(parts []formPart) (io.Reader, string) {
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	go func() {
-		fw, err := mw.CreateFormFile(field, filename)
-		if err == nil {
-			_, err = io.Copy(fw, r)
+		var err error
+		for _, p := range parts {
+			if p.r == nil {
+				err = mw.WriteField(p.field, p.value)
+			} else {
+				var fw io.Writer
+				if fw, err = mw.CreateFormFile(p.field, p.filename); err == nil {
+					_, err = io.Copy(fw, p.r)
+				}
+			}
+			if err != nil {
+				break
+			}
 		}
 		if err == nil {
 			err = mw.Close()
@@ -203,6 +238,104 @@ func multipartBody(field, filename string, r io.Reader) (io.Reader, string) {
 	return pr, mw.FormDataContentType()
 }
 `, title, "`", "`", "`", "`", "`", "`")
+}
+
+// emitForm writes the struct one multipart operation takes. It exists so the
+// caller sees every field the form has — the generator used to read one binary
+// property and drop the rest, and a client that quietly loses a field is worse
+// than no client.
+func (b *builder) emitForm(o *buf, f *form) {
+	o.p("// %s is the multipart body of the request below.", f.Type)
+	o.p("type %s struct {", f.Type)
+	for _, p := range f.Parts {
+		t := p.Type
+		switch {
+		case p.File() && p.Many:
+			t = "[]FilePart"
+		case p.File():
+			t = "FilePart"
+		}
+		line := "	" + p.Field + " " + t
+		switch {
+		case p.Doc != "":
+			line += " // " + lowerFirst(strings.TrimSuffix(p.Doc, "."))
+		case !p.Required:
+			line += " // optional: it travels only when it is set"
+		}
+		o.p("%s", line)
+	}
+	o.p("}")
+	o.p("")
+}
+
+// emitFormParts writes the lines that turn the struct into parts. An optional
+// scalar left at its zero value does not travel, which is the rule the query
+// already follows: the server can tell an empty value from no value.
+func (b *builder) emitFormParts(o *buf, f *form) {
+	o.p("	parts := make([]formPart, 0, %d)", len(f.Parts))
+	for _, p := range f.Parts {
+		field := "form." + p.Field
+		switch {
+		case p.File() && p.Many:
+			o.p("	for _, f := range %s {", field)
+			o.p("		parts = append(parts, formPart{field: %q, filename: f.Filename, r: f.Content})", p.Wire)
+			o.p("	}")
+		case p.File():
+			o.p("	parts = append(parts, formPart{field: %q, filename: %s.Filename, r: %s.Content})", p.Wire, field, field)
+		default:
+			part := fmt.Sprintf("parts = append(parts, formPart{field: %q, value: %s})", p.Wire, formValue(field, p.Type))
+			if p.Required {
+				o.p("	%s", part)
+				continue
+			}
+			o.p("	if %s != %s {", field, zeroOf(p.Type))
+			o.p("		%s", part)
+			o.p("	}")
+		}
+	}
+}
+
+// isEnumName says whether a form field is a named string type, which needs no
+// conversion beyond string().
+func isEnumName(typ string) bool {
+	switch typ {
+	case "string", "bool", "int32", "int64", "float32", "float64":
+		return false
+	}
+	return true
+}
+
+// formValue is the field as a string on the wire.
+func formValue(expr, typ string) string {
+	switch typ {
+	case "string":
+		return expr
+	case "bool":
+		return "strconv.FormatBool(" + expr + ")"
+	case "int32":
+		return "strconv.FormatInt(int64(" + expr + "), 10)"
+	case "int64":
+		return "strconv.FormatInt(" + expr + ", 10)"
+	case "float32":
+		return "strconv.FormatFloat(float64(" + expr + "), 'f', -1, 32)"
+	case "float64":
+		return "strconv.FormatFloat(" + expr + ", 'f', -1, 64)"
+	}
+	return "string(" + expr + ")" // a named enum, which is a string underneath
+}
+
+// zeroOf is what an optional field looks like when nobody filled it in.
+func zeroOf(typ string) string {
+	switch typ {
+	case "string":
+		return `""`
+	case "bool":
+		return "false"
+	}
+	if typ == "int32" || typ == "int64" || typ == "float32" || typ == "float64" {
+		return "0"
+	}
+	return `""`
 }
 
 // emitTypes writes the enums and the structs, in the order they were built.
@@ -257,6 +390,12 @@ func (b *builder) emitGroups(o *buf, order []string, groups map[string]*group) {
 		o.p("func (c *Client) %s() *%s { return &%s{c: c} }", name, name, name)
 		o.p("")
 		for _, m := range groups[name].Methods {
+			// The form comes before the method that takes it: it is the
+			// argument, and a reader arriving at the signature has already
+			// seen what it holds.
+			if m.Form != nil {
+				b.emitForm(o, m.Form)
+			}
 			b.emitMethod(o, name, m)
 		}
 	}
@@ -270,6 +409,9 @@ func (b *builder) emitMethod(o *buf, gName string, m *method) {
 	}
 	if m.Upload != "" {
 		args = append(args, "file io.Reader", "filename string")
+	}
+	if m.Form != nil {
+		args = append(args, "form "+m.Form.Type)
 	}
 	if m.Body != "" {
 		args = append(args, "body "+m.Body)
@@ -325,7 +467,11 @@ func (b *builder) emitMethod(o *buf, gName string, m *method) {
 	body, ctype, assign := "nil", `""`, ":="
 	switch {
 	case m.Upload != "":
-		o.p("\tbody, ctype := multipartBody(%q, filename, file)", m.Upload)
+		o.p("\tbody, ctype := multipartBody([]formPart{{field: %q, filename: filename, r: file}})", m.Upload)
+		body, ctype = "body", "ctype"
+	case m.Form != nil:
+		b.emitFormParts(o, m.Form)
+		o.p("\tbody, ctype := multipartBody(parts)")
 		body, ctype = "body", "ctype"
 	case m.Body != "":
 		o.p("\tenc, err := json.Marshal(body)")

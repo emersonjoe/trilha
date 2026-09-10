@@ -209,8 +209,28 @@ esquema de `components/schemas`, com tags `json` e — onde o documento diz `req
 `minLength`, `format: email`, `enum` — as tags `validate` da [Validação](/pt/referencia/validacao),
 para o mesmo tipo ser a resposta da API e o `Bind` de um formulário. Um método por operação,
 agrupado por tag: parâmetro de caminho na assinatura, parâmetros de query numa struct, corpo
-JSON com o tipo do esquema, upload como `io.Reader` mais o nome do arquivo, e resposta binária
-como o `*http.Response`, que passa em stream para o `c.Pipe`.
+JSON com o tipo do esquema, e resposta binária como o `*http.Response`, que passa em stream
+para o `c.Pipe`.
+
+Um corpo `multipart/form-data` é lido como o formulário que ele é. Um único campo binário e
+mais nada continua sendo dois argumentos — `file io.Reader, filename string`. Qualquer outra
+forma vira um struct tipado, para nenhum campo do formulário sumir em silêncio:
+
+```go
+_, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
+	File:  api.FilePart{Filename: "cert.pfx", Content: f}, // io.Reader: vai em stream
+	Senha: "…",                                            // obrigatório, então sempre viaja
+})
+
+_, err = c.Documents().Batch(ctx, api.DocumentsBatchForm{
+	Files: []api.FilePart{a, b, c}, // três partes com o mesmo nome, nesta ordem
+})
+```
+
+Um `[]FilePart` vira várias partes com um nome só, na ordem do slice, que é o que um
+`list[UploadFile]` do outro lado lê. Escalar opcional deixado no valor zero não viaja — a mesma
+regra da query. Nada fica em memória: o corpo é um `io.Pipe`, então um arquivo maior que a
+memória do processo atravessa.
 
 `New(base, WithHeader(...), WithClient(...))` é toda a superfície do construtor: o cliente não
 guarda credencial nenhuma, e o `WithHeader` roda por requisição, que é onde o token da sessão

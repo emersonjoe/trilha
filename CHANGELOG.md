@@ -3,6 +3,41 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.73.0 — 2026-09-10
+
+Spec 092. Closes [#141](https://github.com/emersonjoe/trilha/issues/141).
+
+### Added
+
+- **`trilha client` reads a multipart body as the form it is.** It used to read one binary
+  property and drop everything else: the synthetic document in this repository has always
+  declared a `folder` beside the `upload`, and it never reached the caller. A generated client
+  that quietly loses a field is worse than no client — nobody sees what is missing until the
+  server refuses it.
+
+  One binary field and nothing else keeps the signature it had — `file io.Reader, filename
+  string`. Anything else becomes a typed struct:
+
+  ```go
+  _, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
+      File:  api.FilePart{Filename: "cert.pfx", Content: f},
+      Senha: "…",
+  })
+  _, err = c.Documents().Batch(ctx, api.DocumentsBatchForm{Files: []api.FilePart{a, b, c}})
+  ```
+
+  A `[]FilePart` becomes several parts under one name, in the order of the slice — what a
+  `list[UploadFile]` reads on the other side. Required scalars always travel; an optional one
+  left at its zero value does not, the same rule the query already follows. The body is still an
+  `io.Pipe`, so a file larger than the memory of the process crosses it, and a writer that fails
+  closes the pipe with the error instead of hanging the request.
+
+### Changed
+
+- A generated method whose multipart body has more than one field now takes a form struct instead
+  of `(file io.Reader, filename string)`. Regenerate with `trilha client` and the compiler names
+  every call that has to change; a single-file operation is untouched.
+
 ## 0.72.0 — 2026-09-10
 
 Spec 091. Closes [#140](https://github.com/emersonjoe/trilha/issues/140).
