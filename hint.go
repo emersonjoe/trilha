@@ -43,6 +43,9 @@ const (
 	// ErrSecretShort is a production app whose signing key is too short to be
 	// worth signing with.
 	ErrSecretShort = "E_SECRET_SHORT"
+	// ErrFrozen is a write to a published version. The repair is one call —
+	// open a draft — and the failure only reads as a bug without it.
+	ErrFrozen = "E_VERSION_FROZEN"
 )
 
 // NewHint wraps err with a code. Fix and Doc add the rest.

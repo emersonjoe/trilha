@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.93.0 — 2026-09-10
+
+Spec 114. Closes [#148](https://github.com/emersonjoe/trilha/issues/148).
+
+### Added
+
+- **`trilha.Versioned[T]`: a numbered history, publish, and go back.** Two different screens of
+  the same application always end up writing this twice — a versions table, "the published one is
+  frozen", and a button that goes back to version N.
+
+  `Draft` opens the next version as a copy of the current one, `Save` writes into it, `Publish`
+  freezes it and makes it the one everybody reads. **A published version does not change**: `Save`
+  on one answers `ErrVersionFrozen` carrying the `Hint` that says to open a draft — the failure
+  only reads as a bug without it. **`Restore` creates**: going back is a thing that happened, and
+  a history that can lose an entry is a history nobody can answer questions with.
+
+  Every write goes into the audit trail, and the value is stored as JSON, so a version written
+  before a field existed still reads back — with that field at its zero value instead of an error.
+
+- **`ui.VersionList`, `ui.VersionBadge` and `ui.Changed`.** The history as a table, newest first,
+  with no JavaScript and no diff library: what changed is a list of field names, which is the
+  honest half of a diff and the half somebody reads before opening a version.
+
 ## 0.92.0 — 2026-09-10
 
 Spec 113. Closes [#147](https://github.com/emersonjoe/trilha/issues/147).

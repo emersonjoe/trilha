@@ -2896,6 +2896,100 @@
     ]
   },
   {
+    "name": "VersionRow",
+    "kind": "type",
+    "group": "version",
+    "signature": "type VersionRow struct",
+    "doc": "VersionRow is one entry of a history, as the screen shows it.\n\nChanged is what this version changed against the one before it — the field\nnames, already worked out by the caller, because only the application knows\nwhat its fields are called in the language of whoever reads them.",
+    "summary": "VersionRow is one entry of a history, as the screen shows it.",
+    "fields": [
+      {
+        "name": "N",
+        "type": "int"
+      },
+      {
+        "name": "By",
+        "type": "string"
+      },
+      {
+        "name": "At",
+        "type": "any"
+      },
+      {
+        "name": "Published",
+        "type": "bool"
+      },
+      {
+        "name": "Note",
+        "type": "string"
+      },
+      {
+        "name": "Changed",
+        "type": "[]string"
+      }
+    ]
+  },
+  {
+    "name": "VersionOpts",
+    "kind": "type",
+    "group": "version",
+    "signature": "type VersionOpts struct",
+    "doc": "VersionOpts configures the list.",
+    "summary": "VersionOpts configures the list.",
+    "fields": [
+      {
+        "name": "Restore",
+        "type": "string",
+        "doc": "Restore is where the button posts, with the version number in a hidden field."
+      },
+      {
+        "name": "Publish",
+        "type": "string",
+        "doc": "Publish is where the publish button posts."
+      },
+      {
+        "name": "CSRF",
+        "type": "h.Node",
+        "doc": "CSRF is the token field; a form that changes what everybody reads carries one."
+      },
+      {
+        "name": "Empty",
+        "type": "string",
+        "doc": "Empty is what a thing with no version says."
+      }
+    ]
+  },
+  {
+    "name": "VersionList",
+    "kind": "func",
+    "group": "version",
+    "signature": "VersionList(c *trilha.Ctx, rows []VersionRow, o VersionOpts) h.Node",
+    "doc": "VersionList renders the history: who, when, what changed, and the buttons.\n\nThere is no JavaScript and no diff library: what changed is a list of field\nnames the caller worked out, which is the honest half of a diff — the half\nsomebody reads before opening the version.",
+    "summary": "VersionList renders the history: who, when, what changed, and the buttons.",
+    "example": "ui.VersionList(c, rows, ui.VersionOpts{Restore: \"/admin/modelos/1/restaurar\",\n\tCSRF: trilha.CSRFInput(c)})",
+    "see": [
+      "trilha.CSRFInput",
+      "ui.VersionOpts"
+    ]
+  },
+  {
+    "name": "VersionBadge",
+    "kind": "func",
+    "group": "version",
+    "signature": "VersionBadge(n int, published bool, words ...map[string]string) h.Node",
+    "doc": "VersionBadge is \"v3\" — with the published mark when it is the one everybody\nreads. It is what goes in the header of a detail screen, so the number on the\nbadge and the number in the list are the same thing.\n\nThe words are optional: pass none and it reads in English, or hand it the\nsame map VersionList uses when the screen is in another language.",
+    "summary": "VersionBadge is \"v3\" — with the published mark when it is the one everybody reads.",
+    "example": "ui.VersionBadge(v.N, v.Published)"
+  },
+  {
+    "name": "Changed",
+    "kind": "func",
+    "group": "version",
+    "signature": "Changed(before, after map[string]string) []string",
+    "doc": "Changed is what two versions of the same struct differ in, by field name.\n\nIt is here and not in the runtime because it is a screen's question: the\nanswer is a list of names somebody reads, and comparing two maps of strings\nis the whole of it — a field that is not a string is compared by how it was\nwritten, which is what the reader sees anyway.",
+    "summary": "Changed is what two versions of the same struct differ in, by field name."
+  },
+  {
     "name": "WebhookRow",
     "kind": "type",
     "group": "webhooks",

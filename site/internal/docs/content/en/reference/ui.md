@@ -369,6 +369,23 @@ island.
 It is composition, not a second chat: the panel holds a `Chat`, so the streaming, the Markdown
 and the errors are the ones that already exist.
 
+### VersionList
+
+```go
+func VersionList(c *trilha.Ctx, rows []VersionRow, o VersionOpts) h.Node
+func VersionBadge(n int, published bool, words ...map[string]string) h.Node
+func Changed(before, after map[string]string) []string
+```
+
+The history of a [`trilha.Versioned[T]`](/reference/app#versionedt): who, when, what changed, and
+the buttons to publish or go back. Newest first, because a history is read from what a thing is
+now backwards.
+
+There is no JavaScript and no diff library: what changed is a list of field names, and `ui.Changed`
+works it out from two maps of strings — the honest half of a diff, and the half somebody reads
+before opening a version. The published row carries no buttons, because it is already the one
+everybody reads.
+
 ## Formatting
 
 A date, a size, a duration and a count are not domain: they are the same in every

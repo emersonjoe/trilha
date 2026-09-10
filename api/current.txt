@@ -3,6 +3,7 @@ pkg trilha, const CSRFField
 pkg trilha, const CSRFHeader
 pkg trilha, const DefaultPerPage
 pkg trilha, const Dev Env
+pkg trilha, const ErrFrozen
 pkg trilha, const ErrRedirectAbsolute
 pkg trilha, const ErrSecretShort
 pkg trilha, const IslandRuntime
@@ -37,6 +38,7 @@ pkg trilha, func NewLimiter(RateLimit) *Limiter
 pkg trilha, func NewSettings[T any](string, T) *Settings[T]
 pkg trilha, func NewSigner(...[]byte) *Signer
 pkg trilha, func NewTestClient(TestingT, *App) *TestClient
+pkg trilha, func NewVersioned[T any](string, VersionedOpts) *Versioned[T]
 pkg trilha, func NonceAttr(*Ctx) h.Node
 pkg trilha, func NonceFrom(*http.Request) string
 pkg trilha, func Open([]byte) ([]byte, error)
@@ -59,6 +61,7 @@ pkg trilha, func TestRequest(TestingT, *App, string, string, ...TestOption) *Tes
 pkg trilha, func TestRoute(TestingT, Route, string, string, ...TestOption) *TestResponse
 pkg trilha, func UseValidationPTBR()
 pkg trilha, func Use[T any](Bag) T
+pkg trilha, func VersionMemory() VersionStore
 pkg trilha, func WithApp(*App) TestOption
 pkg trilha, func WithBody(string, string) TestOption
 pkg trilha, func WithCookie(string, string) TestOption
@@ -215,6 +218,13 @@ pkg trilha, method (*TestResponse) WantStatus(int) *TestResponse
 pkg trilha, method (*Upload) Close() error
 pkg trilha, method (*Upload) Read([]byte) (int, error)
 pkg trilha, method (*Upload) Save(string) (string, error)
+pkg trilha, method (*Versioned) At(context.Context, string, int) (T, Version, error)
+pkg trilha, method (*Versioned) Current(context.Context, string) (T, Version, error)
+pkg trilha, method (*Versioned) Draft(*Ctx, string) (int, error)
+pkg trilha, method (*Versioned) History(context.Context, string) ([]Version, error)
+pkg trilha, method (*Versioned) Publish(*Ctx, string, int) error
+pkg trilha, method (*Versioned) Restore(*Ctx, string, int) (int, error)
+pkg trilha, method (*Versioned) Save(*Ctx, string, T, string) (int, error)
 pkg trilha, method (AuditFunc) Write(AuditRecord) error
 pkg trilha, method (CSVResult) OK() bool
 pkg trilha, method (Enum) Has(string) bool
@@ -494,13 +504,31 @@ pkg trilha, type Upstream struct, Timeout time.Duration
 pkg trilha, type Upstream struct, Transport http.RoundTripper
 pkg trilha, type Validator interface
 pkg trilha, type Validator interface, Validate() error
+pkg trilha, type Version struct
+pkg trilha, type Version struct, At time.Time
+pkg trilha, type Version struct, By string
+pkg trilha, type Version struct, N int
+pkg trilha, type Version struct, Note string
+pkg trilha, type Version struct, Published bool
+pkg trilha, type VersionRecord struct
+pkg trilha, type VersionRecord struct, Data []byte
+pkg trilha, type VersionRecord struct, embedded Version
+pkg trilha, type VersionStore interface
+pkg trilha, type VersionStore interface, Get(context.Context, string, string, int) (VersionRecord, error)
+pkg trilha, type VersionStore interface, List(context.Context, string, string) ([]VersionRecord, error)
+pkg trilha, type VersionStore interface, Save(context.Context, string, string, VersionRecord) error
+pkg trilha, type VersionedOpts struct
+pkg trilha, type VersionedOpts struct, Store VersionStore
+pkg trilha, type Versioned[T any] struct
 pkg trilha, var BindInvalid
 pkg trilha, var ErrNoDraft
 pkg trilha, var ErrNoLink
 pkg trilha, var ErrNoSecret
+pkg trilha, var ErrNoVersion
 pkg trilha, var ErrNotFound
 pkg trilha, var ErrRateLimited
 pkg trilha, var ErrSealed
+pkg trilha, var ErrVersionFrozen
 pkg trilha, var MaxItems
 pkg trilha, var ProblemType func(int) string
 pkg trilha, var SchemaTypes
@@ -1356,6 +1384,7 @@ pkg ui, func CardDescription(string) h.Node
 pkg ui, func CardFooter(...h.Node) h.Node
 pkg ui, func CardHeader(...h.Node) h.Node
 pkg ui, func CardTitle(string) h.Node
+pkg ui, func Changed(map[string]string, map[string]string) []string
 pkg ui, func ChartTitle(string) h.Node
 pkg ui, func Chat(*trilha.Ctx, ChatOpts) h.Node
 pkg ui, func ChatHTML(string) string
@@ -1484,6 +1513,8 @@ pkg ui, func TreeScript(*trilha.Ctx) h.Node
 pkg ui, func UploadBar(...h.Node) h.Node
 pkg ui, func UploadScript(*trilha.Ctx) h.Node
 pkg ui, func UploadTo(string) h.Node
+pkg ui, func VersionBadge(int, bool, ...map[string]string) h.Node
+pkg ui, func VersionList(*trilha.Ctx, []VersionRow, VersionOpts) h.Node
 pkg ui, func WebhooksPanel(*trilha.Ctx, []WebhookRow, []DeliveryRow, WebhooksOpts) h.Node
 pkg ui, func With(...h.Node) FieldOpt
 pkg ui, method (Back) Render(io.Writer) error
@@ -1721,6 +1752,18 @@ pkg ui, type UserMenu struct
 pkg ui, type UserMenu struct, Detail string
 pkg ui, type UserMenu struct, Items []h.Node
 pkg ui, type UserMenu struct, Name string
+pkg ui, type VersionOpts struct
+pkg ui, type VersionOpts struct, CSRF h.Node
+pkg ui, type VersionOpts struct, Empty string
+pkg ui, type VersionOpts struct, Publish string
+pkg ui, type VersionOpts struct, Restore string
+pkg ui, type VersionRow struct
+pkg ui, type VersionRow struct, At any
+pkg ui, type VersionRow struct, By string
+pkg ui, type VersionRow struct, Changed []string
+pkg ui, type VersionRow struct, N int
+pkg ui, type VersionRow struct, Note string
+pkg ui, type VersionRow struct, Published bool
 pkg ui, type WebhookRow struct
 pkg ui, type WebhookRow struct, Created time.Time
 pkg ui, type WebhookRow struct, Events []string

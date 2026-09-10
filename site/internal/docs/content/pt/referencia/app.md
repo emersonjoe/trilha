@@ -359,3 +359,32 @@ mora um token, e uma trilha que o copia é um segundo lugar de onde ele vaza.
 
 O `SchemaOf` explode num campo que nenhum formulário segura — mapa, fatia, struct aninhada —
 porque a alternativa é uma tela que silenciosamente não edita parte da própria configuração.
+
+## Versioned[T]
+
+Um histórico numerado de uma coisa, com uma versão marcada como publicada — o padrão que duas
+telas da mesma aplicação sempre acabam escrevendo duas vezes.
+
+```go
+var Modelos = trilha.NewVersioned[Modelo]("modelos", trilha.VersionedOpts{})
+
+n, _ := Modelos.Draft(c, id)                // n+1, cópia da corrente
+n, _ = Modelos.Save(c, id, m, "ajuste")     // grava no rascunho aberto
+_ = Modelos.Publish(c, id, n)               // congela n e passa a ser a corrente
+
+m, v, _ := Modelos.Current(ctx, id)         // a publicada, ou o rascunho antes do primeiro publish
+hist, _ := Modelos.History(ctx, id)
+n, _ = Modelos.Restore(c, id, 3)            // uma versão nova com o conteúdo da 3
+```
+
+**Versão publicada não muda.** `Save` numa delas devolve `ErrVersionFrozen`, com o `Hint` que diz
+o que fazer — abrir um rascunho. É a regra que uma aplicação escreve na mão, uma vez por tela, um
+pouco diferente em cada. **Restaurar cria**: voltar é uma coisa que aconteceu, e um histórico que
+perde uma linha é um histórico com que ninguém responde pergunta.
+
+Cada `Save`, `Publish` e `Restore` escreve uma linha na trilha de auditoria: quem publicou o quê é
+a pergunta que chega uma semana depois. O valor é guardado em JSON, então uma versão escrita antes
+de um campo existir continua sendo lida — com o campo no valor zero, em vez de um erro.
+
+O store é memória por padrão; uma tabela atrás de `Save`, `List` e `Get` é o passo seguinte, e
+nenhuma tela muda. A tela é o [`ui.VersionList`](/pt/referencia/ui).

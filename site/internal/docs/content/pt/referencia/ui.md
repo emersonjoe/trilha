@@ -369,6 +369,23 @@ o nomeia, e tudo é HTML do servidor — uma página com assistente não vira il
 É composição, não um segundo chat: o painel tem um `Chat` dentro, então o streaming, o Markdown e
 os erros são os que já existem.
 
+### VersionList
+
+```go
+func VersionList(c *trilha.Ctx, rows []VersionRow, o VersionOpts) h.Node
+func VersionBadge(n int, published bool, words ...map[string]string) h.Node
+func Changed(before, after map[string]string) []string
+```
+
+O histórico de um [`trilha.Versioned[T]`](/pt/referencia/app#versionedt): quem, quando, o que
+mudou, e os botões de publicar ou voltar. Do mais novo para o mais velho, porque um histórico se lê
+de agora para trás.
+
+Sem JavaScript e sem biblioteca de diff: o que mudou é uma lista de nomes de campo, e o
+`ui.Changed` a monta a partir de dois mapas de strings — a metade honesta de um diff, e a metade
+que alguém lê antes de abrir a versão. A linha publicada não traz botões: ela já é a que todo mundo
+lê.
+
 ## Formatação
 
 Data, tamanho, duração e contagem não são domínio: são iguais em toda aplicação, e toda

@@ -363,3 +363,32 @@ a token lives, and a trail that copies it is a second place to leak it from.
 
 `SchemaOf` panics on a field no form can hold — a map, a slice, a nested struct — because the
 alternative is a screen that silently cannot edit part of its own configuration.
+
+## Versioned[T]
+
+A numbered history of one kind of thing, with one version marked as published —
+the pattern two screens of the same application always end up writing twice.
+
+```go
+var Modelos = trilha.NewVersioned[Modelo]("modelos", trilha.VersionedOpts{})
+
+n, _ := Modelos.Draft(c, id)                // n+1, a copy of the current one
+n, _ = Modelos.Save(c, id, m, "adjusted")   // writes into the open draft
+_ = Modelos.Publish(c, id, n)               // freezes n and makes it current
+
+m, v, _ := Modelos.Current(ctx, id)         // published, or the draft before the first publish
+hist, _ := Modelos.History(ctx, id)
+n, _ = Modelos.Restore(c, id, 3)            // a new version with the content of 3
+```
+
+**A published version does not change.** `Save` on one answers `ErrVersionFrozen`, carrying the
+`Hint` that says what to do — open a draft. That is the rule an application writes by hand, once
+per screen, slightly differently each time. **Restore creates**: going back is a thing that
+happened, and a history that can lose an entry is a history nobody can answer questions with.
+
+Every `Save`, `Publish` and `Restore` writes a line to the audit trail: who published what is the
+question that arrives a week later. The value is stored as JSON, so a version written before a
+field existed still reads back — with that field at its zero value instead of an error.
+
+The store is memory by default; a table behind `Save`, `List` and `Get` is the next step, and no
+screen changes. The screen is [`ui.VersionList`](/reference/ui).
