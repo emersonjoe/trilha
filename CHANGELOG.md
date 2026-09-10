@@ -3,6 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.87.0 — 2026-09-10
+
+Spec 107. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for
+`tenant`.
+
+### Added
+
+- **`trilha add share-link`: the link that gives access without giving an account.** "Send the
+  client a link so they can see it" is a monthly request, and the hand-written answer is always
+  the same: a sequential id in the URL, no deadline, no use limit, still working two years later
+  and guessable by adding one.
+
+  The recipe writes the public route — **in a folder of its own, outside anything that requires a
+  session**, because whoever opens the link is precisely whoever has no account, and a middleware
+  guards its folder and everything under it. The file says that, and says the other three things
+  that get written wrong: what travels in the token is an id and not a name (it is signed, not
+  secret), the deadline is not optional, and counting uses costs storage while not counting costs
+  nothing.
+
 ## 0.86.0 — 2026-09-10
 
 Spec 106. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for

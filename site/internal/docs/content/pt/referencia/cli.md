@@ -568,6 +568,7 @@ mexer num projeto que já tem código.
 | `mail` | o arquivo de onde este app manda e-mail: uma função por mensagem, e teste sem rede |
 | `permissions` | a matriz de permissões como dado, e a tela que a edita |
 | `profile` | a tela da própria conta: nome e senha — o id vem da sessão |
+| `share-link` | um link assinado com prazo: acesso a uma coisa, sem conta |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
 | `tasks` | o trabalho que não cabe numa requisição: fila, dedupe, retry, e a tela |
 | `webhooks` | o que este app avisa para fora: entrega assinada com retry, e a tela dela |
@@ -611,7 +612,7 @@ Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisi
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
 guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
 
-Faltam outras — `share-link` e `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
+Falta uma — `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Por que a CI aplica todas elas
 

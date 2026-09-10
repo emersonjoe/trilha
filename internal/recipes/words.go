@@ -194,5 +194,9 @@ var words = func(lang string) map[string]string {
 		"blob_type":  "Type",
 		"blob_size":  "Size",
 		"blob_when":  "When",
+
+		"share_title": "Shared with you",
+		"share_desc":  "This link is worth something for a while and then stops. Nobody needed an account to open it.",
+		"share_item":  "Item %s.",
 	}
 }

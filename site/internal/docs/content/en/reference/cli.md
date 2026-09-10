@@ -572,6 +572,7 @@ touch a project that already has code.
 | `mail` | the file this app sends e-mail from: one function per message, and a test with no network |
 | `permissions` | the permission matrix as data, and the screen that edits it |
 | `profile` | the account screen: own name, own password — the id comes from the session |
+| `share-link` | a signed link with a deadline: access to one thing, without an account |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
 | `tasks` | the work that does not fit in a request: queue, dedupe, retry, and the screen |
 | `webhooks` | what this app announces to the outside: signed delivery with retry, and the screen for it |
@@ -617,7 +618,7 @@ Each one comes with memory behind it, so the screen works from the first request
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an
 audit trail names people, and a keys screen issues credentials.
 
-More are coming — `share-link` and `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
+One more is coming — `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Why the CI applies every one of them
 
