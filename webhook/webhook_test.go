@@ -255,7 +255,11 @@ func TestErroDoParceiroEsperaETentaDeNovo(t *testing.T) {
 	}
 	// Passada a hora, tenta.
 	r.anda(31 * time.Second)
-	espera(t, "a segunda tentativa", func() bool { return len(p.recebidas()) == 2 })
+	// Esperar a tentativa ser *gravada*, e não só chegar do outro lado: entre
+	// as duas coisas o motor ainda não marcou a próxima hora, e adiantar o
+	// relógio aí marca-a a partir do futuro — a terceira tentativa nunca
+	// vence, e o teste falha por uma corrida que só ele tem.
+	espera(t, "a segunda tentativa ser gravada", func() bool { return entrega(t, h, d.ID).Attempt == 2 })
 
 	// E quando o parceiro volta, entrega.
 	p.responde(200, "ok")
@@ -279,7 +283,9 @@ func TestDepoisDeTodasAsTentativasDesiste(t *testing.T) {
 
 	d := primeira(t, h)
 	for i := range backoff {
-		espera(t, "a tentativa", func() bool { return len(p.recebidas()) == i+1 })
+		// Gravada, e não só recebida: adiantar o relógio antes de o motor
+		// marcar a próxima hora é marcá-la a partir do futuro.
+		espera(t, "a tentativa ser gravada", func() bool { return entrega(t, h, d.ID).Attempt == i+1 })
 		r.anda(backoff[i] + time.Second)
 	}
 	espera(t, "desistir", func() bool { return entrega(t, h, d.ID).State == Failed })

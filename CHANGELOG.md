@@ -3,6 +3,23 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.74.1 — 2026-09-10
+
+Spec 094. No issue: the CI of 0.73.0 went red and the failure was the test's.
+
+### Fixed
+
+- **The webhook test advanced the clock too early.** `TestErroDoParceiroEsperaETentaDeNovo`
+  waited for the second attempt to *reach the partner* and then moved the clock six minutes. The
+  engine records the attempt's result a moment after the request arrives, and a clock that moves
+  inside that window makes the next attempt be scheduled from the future — the third try never
+  came due, and the test failed under `-race` about once in a run.
+
+  Both tests now wait for the attempt to be *recorded*, which is the state their clock depends
+  on. Nothing in `webhook` changed. `TestDepoisDeTodasAsTentativasDesiste` had the same race in
+  its backoff loop without having failed yet, and was fixed with it: a known race left standing
+  comes back as an intermittent failure on a worse day.
+
 ## 0.74.0 — 2026-09-10
 
 Spec 093. Closes [#142](https://github.com/emersonjoe/trilha/issues/142).
