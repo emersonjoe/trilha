@@ -243,3 +243,48 @@ func TestCrudRodadoDeNovoDizOQueFaltou(t *testing.T) {
 		t.Fatalf("a segunda execução escreveu: %v", err)
 	}
 }
+
+// #145 — três coisas que o CRUD gerado mostrava e que ninguém mostraria a um
+// usuário: rótulo sem acento, booleano escrito "true", e a data que sumia da
+// tela sem aviso.
+func TestCrudMostraOQueAPessoaLe(t *testing.T) {
+	src := `package docs
+
+import "time"
+
+type Tipo struct {
+	ID       string    ` + "`json:\"id\"`" + `
+	Nome     string    ` + "`json:\"nome\" form:\"nome\" validate:\"required,max=80\"`" + `
+	Retencao int       ` + "`json:\"retencao\" form:\"retencao\" validate:\"min=0,max=100\" label:\"Retenção (anos)\"`" + `
+	Ativo    bool      ` + "`json:\"ativo\" form:\"ativo\" label:\"Ativo\"`" + `
+	CriadoEm time.Time ` + "`json:\"criado_em\"`" + `
+}
+`
+	raiz := projetoComTipo(t, src)
+	if _, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", Module: "example.com/loja", Lang: "pt"}); err != nil {
+		t.Fatal(err)
+	}
+	lista := ler(t, raiz, "app/tipos/page.go")
+	// O rótulo vem da tag: acento e unidade não são deriváveis do nome do campo.
+	if !strings.Contains(lista, `Label: "Retenção (anos)"`) {
+		t.Fatalf("a tag label não chegou na coluna:\n%s", lista)
+	}
+	// Booleano é Sim/Não, no idioma pedido.
+	if !strings.Contains(lista, "sim(v.Ativo)") || !strings.Contains(lista, `h.Text("Sim")`) {
+		t.Fatalf("o booleano continua saindo como true/false:\n%s", lista)
+	}
+	// A data que o store carimba aparece na lista, formatada pelo kit.
+	if !strings.Contains(lista, "ui.Date(c, v.CriadoEm)") {
+		t.Fatalf("a data sumiu da tela:\n%s", lista)
+	}
+
+	// E continua fora do formulário: data que alguém digita é bug esperando.
+	form := ler(t, raiz, "app/tipos/new/page.go")
+	if strings.Contains(form, "criado_em") {
+		t.Fatalf("a data entrou no formulário:\n%s", form)
+	}
+	// O rótulo da tag vale também no formulário.
+	if !strings.Contains(form, `ui.Field("retencao", "Retenção (anos)"`) {
+		t.Fatalf("a tag label não chegou no formulário:\n%s", form)
+	}
+}

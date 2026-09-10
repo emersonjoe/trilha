@@ -42,6 +42,10 @@ type typeField struct {
 	JSON     string // json tag name, or the field name lowered
 	Form     string // form tag name, or the json one
 	Validate string // validate tag, as written
+	// Label is the label: tag, which is what the person filling the form
+	// reads. Empty falls back to the field name split into words — and the
+	// tag is the only place an accent or a unit can come from.
+	Label string
 }
 
 // Required reports whether the field has to be sent for the value to pass.
@@ -187,7 +191,8 @@ func fields(fset *token.FileSet, st *ast.StructType) []typeField {
 			if !n.IsExported() {
 				continue
 			}
-			tf := typeField{Name: n.Name, Type: exprString(fset, f.Type), Validate: st.Get("validate")}
+			tf := typeField{Name: n.Name, Type: exprString(fset, f.Type),
+				Validate: st.Get("validate"), Label: st.Get("label")}
 			tf.JSON = tagName(st.Get("json"), strings.ToLower(n.Name))
 			tf.Form = tagName(st.Get("form"), tf.JSON)
 			if tf.JSON == "-" || tf.Form == "-" {

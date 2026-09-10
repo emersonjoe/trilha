@@ -11,8 +11,18 @@ import (
 func (p crudPlan) list() string {
 	var cols strings.Builder
 	for _, f := range p.Columns {
-		fmt.Fprintf(&cols, "\t{Key: %q, Label: %q, Sort: true%s, Cell: func(v %s) h.Node {\n\t\treturn h.Text(%s)\n\t}},\n",
-			f.Form, label(f.Name), numeric(f), p.Ref, cellExpr(f))
+		fmt.Fprintf(&cols, "\t{Key: %q, Label: %q, Sort: true%s, Cell: func(v %s) h.Node {\n\t\treturn %s\n\t}},\n",
+			f.Form, labelOf(f), numeric(f), p.Ref, cellNode(f))
+	}
+	// The dates the store stamps are read-only and belong on the listing: a
+	// field that is in the struct and on no screen is a field somebody looks
+	// for and does not find.
+	for _, f := range p.System {
+		if strings.TrimPrefix(f.Type, "*") != "time.Time" {
+			continue
+		}
+		fmt.Fprintf(&cols, "\t{Key: %q, Label: %q, Sort: true, Cell: func(v %s) h.Node {\n\t\treturn ui.Date(c, v.%s)\n\t}},\n",
+			f.Form, labelOf(f), p.Ref, f.Name)
 	}
 	// The delete button belongs in the table, beside the row it deletes. A
 	// POST handler with no button is a handler nobody can reach, and a delete
@@ -42,8 +52,14 @@ import (
 // columns declares what the table shows and, with Sort, what the store may be
 // ordered by: a column that is not here is dropped before the query, so a
 // crooked address answers unordered instead of reaching the data.
-var columns = ui.Columns[%s]{
-%s}
+//
+// It takes the request because a date belongs to whoever is reading it: the
+// time zone and the language of the app decide how it is written, and both
+// live on the Ctx.
+func columns(c *trilha.Ctx) ui.Columns[%s] {
+	return ui.Columns[%s]{
+%s	}
+}
 
 // Page answers GET %s: the whole screen, or only the table when the script
 // asks for that fragment.
@@ -88,7 +104,7 @@ func list(c *trilha.Ctx, q trilha.ListParams) h.Node {
 	rows, total := trilha.Use[%s.%sStore](c).List(%s.%sQuery{
 		Q: q.Q, Sort: q.Sort, Asc: q.Asc(), Offset: q.Offset(), Limit: q.Limit(),
 	})
-	return ui.DataTable(c, columns, rows, ui.ListState{
+	return ui.DataTable(c, columns(c), rows, ui.ListState{
 		Params:  q,
 		Total:   total,
 		ID:      %q,
@@ -98,12 +114,31 @@ func list(c *trilha.Ctx, q trilha.ListParams) h.Node {
 		Empty:   ui.Muted(h.Text(%q)),
 	})
 }
-`, p.ListPkg, p.Title, p.ListPkg, extra, p.Import, p.Ref, cols.String(), p.URL, p.ListPkg,
+%s`, p.ListPkg, p.Title, p.ListPkg, extra, p.Import, p.Ref, p.Ref, cols.String(), p.URL, p.ListPkg,
 		p.Title, p.Title, p.URL+"/new", p.T["crud_new"]+" "+strings.ToLower(p.One),
 		p.Pkg, p.Type, p.T["not_found"], p.T["app_deleted"], p.URL,
 		p.Ref, p.URL, p.T["crud_delete"]+"?", p.T["crud_no_undo"], p.T["crud_delete"],
 		p.Pkg, p.Type, p.Pkg, p.Type,
-		p.ListPkg, p.T["app_search"], p.Title, p.URL, p.T["app_empty"])
+		p.ListPkg, p.T["app_search"], p.Title, p.URL, p.T["app_empty"], p.simHelper(cols.String()))
+}
+
+// simHelper is the yes/no of a boolean column, in the app's language. It is
+// written into the file only when a column needs it — a helper nobody calls is
+// a compile error, and the generated project has to be green without an edit.
+func (p crudPlan) simHelper(cols string) string {
+	if !strings.Contains(cols, "sim(v.") {
+		return ""
+	}
+	return fmt.Sprintf(`
+// sim writes a boolean the way somebody reads it. "true" on a screen is the
+// name of a variable, not an answer.
+func sim(on bool) h.Node {
+	if on {
+		return ui.Badge(h.Text(%q))
+	}
+	return ui.Badge(ui.Outline(), h.Text(%q))
+}
+`, p.T["crud_yes"], p.T["crud_no"])
 }
 
 // form is both writing screens: /new creates, /{id} edits. They are one
@@ -364,17 +399,29 @@ func numeric(f typeField) string {
 }
 
 // cellExpr is how one value reaches the table as text.
+// cellNode is the node a cell renders. It is a node and not a string because
+// what a person reads is not always the value: a bool written "true" is the
+// name of a variable, and a date is written the way the reader's language and
+// zone write it.
+func cellNode(f typeField) string {
+	t := strings.TrimPrefix(f.Type, "*")
+	switch {
+	case t == "bool":
+		return "sim(v." + f.Name + ")"
+	case t == "time.Time":
+		return "ui.Date(c, v." + f.Name + ")"
+	}
+	return "h.Text(" + cellExpr(f) + ")"
+}
+
+// cellExpr is the value of a cell as a string.
 func cellExpr(f typeField) string {
 	t := strings.TrimPrefix(f.Type, "*")
 	switch {
 	case t == "string":
 		return "v." + f.Name
-	case t == "bool":
-		return "fmt.Sprint(v." + f.Name + ")"
 	case strings.HasPrefix(t, "int"), strings.HasPrefix(t, "uint"), strings.HasPrefix(t, "float"):
 		return "fmt.Sprint(v." + f.Name + ")"
-	case t == "time.Time":
-		return "v." + f.Name + ".Format(\"02/01/2006\")"
 	}
 	return "fmt.Sprint(v." + f.Name + ")"
 }

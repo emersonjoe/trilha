@@ -462,8 +462,16 @@ sem baixar módulo.
   continua o mesmo num update, porque é a única data que as pessoas vão procurar.
 - **`validate:"required,max=80"`** vira `required` e `maxlength` no controle, e a mensagem no
   campo quando falha.
-- O rótulo vem do nome do campo em título, e trocar isso é editar uma string no arquivo que
-  acabou de ser gerado — que é onde ela deve estar.
+- **O rótulo vem da tag `label:`** quando o struct tem uma, e do nome do campo em título quando
+  não tem. Acento e unidade — "Retenção (anos)" — não são deriváveis de um campo chamado
+  `Retencao`, e o mesmo rótulo vai para a coluna e para o campo.
+- **`bool` sai como Sim/Não**, no idioma pedido: `true` numa tela é o nome de uma variável, não uma
+  resposta. **`time.Time` que o store carimba vira coluna somente-leitura**, escrita pelo `ui.Date`
+  no idioma e no fuso do app — e fica fora do formulário, porque data que alguém digita é bug
+  esperando.
+- **Campo que o CRUD ainda não sabe desenhar é dito em voz alta**, uma linha por campo, e o arquivo
+  leva um comentário onde ele entraria. Campo que some em silêncio é campo que alguém procura
+  depois.
 - Os quatro primeiros campos viram as colunas da tabela. Quatro é o que uma tabela mostra antes de
   começar a rolar para o lado.
 

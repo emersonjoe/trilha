@@ -465,8 +465,16 @@ no module download.
   them: created stays created on an update, because that is the one date people go looking for.
 - **`validate:"required,max=80"`** becomes `required` and `maxlength` on the control, and the
   message beside the field when it fails.
-- The label comes from the field name in title case, and changing it is editing a string in the
-  file that was just generated — which is where it belongs.
+- **The label comes from the `label:` tag** when the struct has one, and from the field name in
+  title case when it does not. An accent and a unit — "Retenção (anos)" — are not derivable from
+  a field called `Retencao`, and the same label goes to the column and to the field.
+- **A `bool` is Yes/No**, in the language asked for: `true` on a screen is the name of a variable,
+  not an answer. **A `time.Time` the store stamps is a read-only column**, written by `ui.Date` in
+  the app's language and zone — it stays out of the form, because a date somebody types by hand is
+  a bug waiting.
+- **A field the CRUD cannot draw yet is said out loud**, one line per field, and the file carries
+  a comment where it would have gone. A field that disappears in silence is a field somebody looks
+  for later.
 - The first four fields become the table's columns. Four is what a table shows before it starts
   scrolling sideways.
 

@@ -239,7 +239,7 @@ func formFields(b boundType, t map[string]string) (string, bool) {
 	needsHelper := false
 	for _, f := range b.Fields {
 		name := f.Form
-		label := label(f.Name)
+		label := labelOf(f)
 		switch value, kind := formControl(f); kind {
 		case "text":
 			fmt.Fprintf(&sb, "\t\t\tui.Field(%q, %q,\n\t\t\t\tui.Input(h.ID(%q), h.Name(%q), h.Value(%s), ui.InvalidIf(errs, %q)),\n\t\t\t\tui.Errors(errs, %q)),\n",
@@ -270,6 +270,17 @@ func formControl(f typeField) (value, kind string) {
 		return "fmt.Sprint(in." + f.Name + ")", "number"
 	}
 	return "", ""
+}
+
+// labelOf is what the person filling the form reads: the label: tag when the
+// struct has one, and the field name split into words when it does not. The
+// tag is the only place an accent, a unit or a word the code does not use can
+// come from — "Retenção (anos)" is not derivable from Retencao.
+func labelOf(f typeField) string {
+	if f.Label != "" {
+		return f.Label
+	}
+	return label(f.Name)
 }
 
 // label turns a field name into what the person filling the form reads.

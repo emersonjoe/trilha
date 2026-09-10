@@ -339,6 +339,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"audit anonymous hint":        {"the record exists and does not say who: guard the folder, or the trail names an anonymous actor (%s)", "o registro existe e não diz quem: guarde a pasta, ou a trilha nomeia um ator anônimo (%s)"},
 	"string unbounded":            {"%d string field(s) come from outside with no size limit", "%d campo(s) string vêm de fora sem limite de tamanho"},
 	"string unbounded hint":       {"add max= to the validate tag: without it the column is what refuses, in production, with the driver's message (%s)", "acrescente max= na tag validate: sem ele quem recusa é a coluna, em produção, com a mensagem do driver (%s)"},
+	"crud skipped":                {"left off the screens, the CRUD does not draw this type yet:", "ficou fora das telas, o CRUD ainda não desenha este tipo:"},
 	"crud already":                {"already generated — nothing was written.", "já gerado — nada foi escrito."},
 	"crud complete":               {"The screens have every field of the struct.", "As telas têm todos os campos do struct."},
 	"crud missing form":           {"is not in the form", "não está no formulário"},

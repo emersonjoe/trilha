@@ -3,6 +3,28 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.89.0 — 2026-09-10
+
+Spec 110. Closes [#145](https://github.com/emersonjoe/trilha/issues/145).
+
+### Fixed
+
+- **The generated CRUD shows what a person reads.** Three things it produced that nobody would
+  show a user, all with the same shape: the generator knew less than the struct said.
+
+  - **The `label:` tag is read.** It goes to the column and to the field alike; without it the
+    label is still the field name split into words. An accent and a unit — "Retenção (anos)" — are
+    not derivable from a field called `Retencao`, and the framework already teaches that tag (the
+    `settings` recipe writes one, and `ui.Field` reads it through `SchemaOf`).
+  - **A `bool` is Yes/No**, in the language asked for, as a badge: `true` on a screen is the name
+    of a variable, not an answer.
+  - **A `time.Time` the store stamps is back on the listing**, written by `ui.Date` — so it obeys
+    the app's language and time zone — and stays out of the form, because a date somebody types by
+    hand is a bug waiting. The generated `columns` became a function of the request for exactly
+    that reason: a date belongs to whoever is reading it.
+  - **A field the CRUD cannot draw yet is printed**, one line per field, beside the comment the
+    file already carried. A field that disappears in silence is a field somebody looks for later.
+
 ## 0.88.1 — 2026-09-10
 
 Spec 109. Closes [#146](https://github.com/emersonjoe/trilha/issues/146).

@@ -38,6 +38,11 @@ type CrudResult struct {
 	// because a generator that changes a file you did not ask for owes you
 	// that sentence.
 	Wired string
+	// Skipped names the fields the screens could not draw. The file already
+	// carries a comment where each one would go; this is so the person sees it
+	// without opening the file, because a field that disappears in silence is
+	// a field somebody looks for later.
+	Skipped []string
 }
 
 // Crud writes the screens a struct needs: the listing, the form that creates,
@@ -101,7 +106,20 @@ func Crud(root string, o CrudOptions) (CrudResult, error) {
 		res.Wired = wired
 	}
 	res.Patterns = plan.patterns()
+	res.Skipped = plan.skipped()
 	return res, nil
+}
+
+// skipped is the fields with no control: a type the CRUD does not know how to
+// draw yet.
+func (p crudPlan) skipped() []string {
+	var out []string
+	for _, f := range p.Fields {
+		if _, kind := formControl(f); kind == "" {
+			out = append(out, fmt.Sprintf("%s.%s (%s)", p.Type, f.Name, f.Type))
+		}
+	}
+	return out
 }
 
 // crudPlan is the whole answer worked out before a single byte is written.

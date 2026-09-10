@@ -126,6 +126,12 @@ func crud(arg string, args []string) error {
 	for _, f := range res.Files {
 		fmt.Println("  +", f)
 	}
+	// What could not be drawn is said out loud. The file carries a comment
+	// where the field would go; this is so nobody has to open it to find out
+	// that a field of theirs is on no screen.
+	for _, f := range res.Skipped {
+		fmt.Printf("  %s %s\n", t("crud skipped"), f)
+	}
 	if _, err := generate(p); err != nil {
 		return err
 	}
