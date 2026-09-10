@@ -47,7 +47,11 @@ func pagePaths() []string {
 	return out
 }
 
-func allPaths() []string { return append(homes(), pagePaths()...) }
+// demoPaths lists the runnable demos that are pages of their own (spec 118):
+// they are not chapters, so docs.All() does not know them.
+func demoPaths() []string { return []string{"/demos/assistant", "/pt/demos/assistant"} }
+
+func allPaths() []string { return append(append(homes(), pagePaths()...), demoPaths()...) }
 
 func TestEveryPageResponds(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "")
@@ -96,7 +100,7 @@ func TestLegacyPathsRedirect(t *testing.T) {
 func TestAlternatesAndSwitcher(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "")
 	t.Setenv("SITE_ORIGIN", "")
-	cases := map[string]string{"/learn/forms": "/pt/aprender/formularios", "/reference/ctx": "/pt/referencia/ctx", "/learn": "/pt/aprender", "/": "/pt"}
+	cases := map[string]string{"/learn/forms": "/pt/aprender/formularios", "/reference/ctx": "/pt/referencia/ctx", "/learn": "/pt/aprender", "/demos/assistant": "/pt/demos/assistant", "/": "/pt"}
 	for en, pt := range cases {
 		_, body := get(t, en)
 		for _, want := range []string{
@@ -312,6 +316,32 @@ func TestFormDemoIsInteractive(t *testing.T) {
 		}
 		if !strings.Contains(body, `data-demo-saida`) || !strings.Contains(body, note) {
 			t.Errorf("%s: demo without output area or note", path)
+		}
+	}
+}
+
+// Spec 118: the assistant demo is the real component over a small screen,
+// with the kit's own chat script as the client and a local script answering
+// in ai.Serve's contract. Without JavaScript the launcher is a link to the
+// full conversation on the same page.
+func TestAssistantDemoIsRunnable(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	for _, path := range demoPaths() {
+		code, body := get(t, path)
+		if code != 200 {
+			t.Errorf("%s: %d", path, code)
+			continue
+		}
+		for _, want := range []string{
+			`data-ui-dialog-open="invoice-assistant-dialog"`,
+			`href="#conversation"`, `id="conversation"`,
+			`name="ctx.invoice_id" value="42"`,
+			`data-trilha-chat="/_demo/assistant"`,
+			`src="/ui.chat.js?v=`, `src="/assistant-demo.js?v=`,
+		} {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s misses %s", path, want)
+			}
 		}
 	}
 }

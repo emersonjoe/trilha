@@ -14,6 +14,9 @@ import (
 // declared here, plus the pre-i18n Portuguese paths, which export as
 // redirect stubs so old links keep working.
 func Setup(a *trilha.App) error {
+	// The runnable demos that are pages (spec 118): not chapters, so not in
+	// docs.All().
+	a.AddExportPath("/demos/assistant", "/pt/demos/assistant")
 	for _, p := range docs.All() {
 		a.AddExportPath(p.Path())
 		if pt := docs.LocaleOf("pt"); p.Locale == pt.Code {

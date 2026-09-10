@@ -372,6 +372,10 @@ o nomeia, e tudo é HTML do servidor — uma página com assistente não vira il
 É composição, não um segundo chat: o painel tem um `Chat` dentro, então o streaming, o Markdown e
 os erros são os que já existem.
 
+Veja funcionando na [demo do assistente](/pt/demos/assistant): o componente de verdade sobre uma
+tela pequena, respondido no navegador no contrato do `ai.Serve` — o launcher, o painel, o
+streaming e o contexto são os que uma aplicação recebe.
+
 ### DeadlineCards
 
 ```go

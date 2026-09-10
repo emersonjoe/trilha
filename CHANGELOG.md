@@ -3,6 +3,35 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.97.0 — 2026-09-10
+
+Spec 118. Closes [#155](https://github.com/emersonjoe/trilha/issues/155).
+
+### Added
+
+- **The assistant demo, runnable in the documentation site.** `ui.Assistant` shipped in 0.74.0
+  with a reference and an authenticated example, but what it sells is behaviour — the link that
+  becomes a panel, the answer arriving word by word, the page's context riding along, the
+  fallback when there is no script — and none of that shows in a table of fields.
+  [`/demos/assistant`](https://emersonjoe.github.io/trilha/demos/assistant) (and `/pt/demos/assistant`)
+  put the real component over a small invoice screen. The model is a script that answers in the
+  browser, in `ai.Serve`'s SSE contract (`text` events, one `done` with the rendered answer and
+  the history); `ui.chat.js` reading it is the same file an application ships, so the demo is the
+  component and not a mock of it. Without JavaScript the launcher is a link to the same
+  conversation, a section down the page. The `Assistant` section of the `ui` reference links to
+  it, in both languages.
+
+### Fixed
+
+- **A link that is a button now has the button's colour.** `.ui-body a { color: inherit }` beat
+  `.ui-btn` on specificity, so the launcher of `ui.Assistant` — an `<a class="ui-btn">` — was
+  painted with the page's ink over the primary background: dark on dark in every app using the
+  kit's body. The rule now leaves `.ui-btn` links alone. Run `trilha ui` to take the stylesheet;
+  the site and the examples in this repository already did.
+- **The site's kit assets were behind the kit.** `site/public/ui.js` predated the launcher's
+  `preventDefault` (spec 093) and `ui.css` predated the enum badge tones (spec 064); both are the
+  kit's again, with `trilha ui`'s stamp, and `ui.chat.js` is there for the demo.
+
 ## 0.96.0 — 2026-09-10
 
 Spec 117. Closes [#151](https://github.com/emersonjoe/trilha/issues/151).

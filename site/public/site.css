@@ -97,6 +97,21 @@ h3 { font-size: 1.15rem; margin: 1.8em 0 .5em; }
 .demo-saida h2 { margin: 0; font-size: 1.1rem; }
 @media (max-width: 48rem) { .demo { grid-template-columns: 1fr; } }
 
+/* Spec 118: the assistant demo is a page, not a card — a small screen with
+   the kit's assistant over it, and the same conversation as a section below. */
+.demo-page { max-width: 60rem; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
+.demo-page-header { max-width: 46rem; margin-bottom: 2rem; }
+.demo-page-header p, .assistant-demo-fallback > p { color: var(--fg-2); }
+.assistant-demo-screen { min-height: 18rem; padding: clamp(1rem, 5vw, 4rem); border: 1px solid var(--linha); border-radius: var(--raio); background: var(--bg-2); }
+.assistant-demo-screen > .ui-card { max-width: 34rem; }
+.assistant-demo-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.5rem 0 0; }
+.assistant-demo-facts div { min-width: 0; }
+.assistant-demo-facts dt { color: var(--muted-foreground); font-size: .8rem; }
+.assistant-demo-facts dd { margin: .2rem 0 0; font-weight: 600; }
+.assistant-demo-fallback { margin-top: 3rem; }
+.assistant-demo-fallback .ui-chat { max-width: 42rem; }
+@media (max-width: 40rem) { .assistant-demo-facts { grid-template-columns: 1fr; } }
+
 /* Documentação: 3 colunas */
 .docs { display: grid; grid-template-columns: 15rem minmax(0, 1fr) 13rem; gap: 2.5rem; max-width: var(--largura); margin: 0 auto; padding: 2rem 1.25rem 4rem; }
 .lateral h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-2); margin: 1.4rem 0 .5rem; }

@@ -13,6 +13,7 @@ import (
 	app_aprender_slug_ "github.com/emersonjoe/trilha/site/app/aprender/slug_"
 	app_cookbook "github.com/emersonjoe/trilha/site/app/cookbook"
 	app_cookbook_slug_ "github.com/emersonjoe/trilha/site/app/cookbook/slug_"
+	app_demos_assistant "github.com/emersonjoe/trilha/site/app/demos/assistant"
 	app_learn "github.com/emersonjoe/trilha/site/app/learn"
 	app_learn_slug_ "github.com/emersonjoe/trilha/site/app/learn/slug_"
 	app_llms_full_txt "github.com/emersonjoe/trilha/site/app/llms-full.txt"
@@ -20,6 +21,7 @@ import (
 	app_pt "github.com/emersonjoe/trilha/site/app/pt"
 	app_pt_aprender "github.com/emersonjoe/trilha/site/app/pt/aprender"
 	app_pt_aprender_slug_ "github.com/emersonjoe/trilha/site/app/pt/aprender/slug_"
+	app_pt_demos_assistant "github.com/emersonjoe/trilha/site/app/pt/demos/assistant"
 	app_pt_llms_full_txt "github.com/emersonjoe/trilha/site/app/pt/llms-full.txt"
 	app_pt_llms_txt "github.com/emersonjoe/trilha/site/app/pt/llms.txt"
 	app_pt_receitas "github.com/emersonjoe/trilha/site/app/pt/receitas"
@@ -78,6 +80,12 @@ func newApp() *trilha.App {
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{
+		Pattern:     "/demos/assistant",
+		Page:        app_demos_assistant.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
 		Pattern:     "/learn",
 		Page:        app_learn.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
@@ -118,6 +126,12 @@ func newApp() *trilha.App {
 	a.Register(trilha.Route{
 		Pattern:     "/pt/aprender/{slug}",
 		Page:        app_pt_aprender_slug_.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/pt/demos/assistant",
+		Page:        app_pt_demos_assistant.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})

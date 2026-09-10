@@ -1,4 +1,4 @@
-/* trilha ui e16ba2669ab044ae */
+/* trilha ui 35a35dbc6bfe85df */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -18,7 +18,10 @@
 /* base */
 .ui-body { margin: 0; background: var(--background); color: var(--foreground); font: 14px/1.5 var(--ui-font); -webkit-font-smoothing: antialiased; }
 .ui-body *, .ui-body *::before, .ui-body *::after { box-sizing: border-box; }
-.ui-body a { color: inherit; }
+/* Links inherit the text colour — except the ones that are buttons, whose
+   colour is the button's: ui.Assistant's launcher is an <a>, and inheriting
+   here painted its label with the page's ink over the primary background. */
+.ui-body a:not(.ui-btn) { color: inherit; }
 .ui-container { width: 100%; max-width: 72rem; margin: 0 auto; padding: 0 1rem; }
 .ui-stack { display: flex; flex-direction: column; gap: 1rem; }
 .ui-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
@@ -411,4 +414,16 @@ html.ui-sidebar-collapsed .ui-shell > .ui-sidebar { display: none; }
 .ui-assistant-dialog .ui-chat-log { min-height: 0; max-height: 24rem; }
 
 .ui-late td { color: var(--destructive); }
-.ui-inbox-badge { margin-inline-start: .375rem; }
+.ui-inbox-badge, .ui-deadline-badge { margin-inline-start: .375rem; }
+.ui-deadline-cards { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.ui-deadline-alarm { border-color: var(--destructive); }
+.ui-deadline-alarm .ui-stat-value { color: var(--destructive); }
+.ui-deadline-next { font-weight: 600; line-height: 1.2; }
+.ui-search-box { display: flex; align-items: center; gap: .5rem; }
+.ui-search-box .ui-input { min-width: 0; }
+.ui-search-group + .ui-search-group { margin-top: 1.5rem; }
+.ui-search-heading { display: flex; align-items: baseline; gap: .5rem; font-size: 1rem; margin: 0 0 .5rem; }
+.ui-search-more { font-size: .875rem; font-weight: 400; margin-inline-start: auto; }
+.ui-search-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
+.ui-search-snippet { color: var(--muted-foreground); font-size: .875rem; margin: .125rem 0 0; }
+.ui-search-snippet mark { background: color-mix(in oklch, #d97706 30%, transparent); color: inherit; border-radius: .125rem; }

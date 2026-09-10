@@ -372,6 +372,10 @@ island.
 It is composition, not a second chat: the panel holds a `Chat`, so the streaming, the Markdown
 and the errors are the ones that already exist.
 
+See it running in the [assistant demo](/demos/assistant): the real component over a small
+screen, answered in the browser in `ai.Serve`'s contract — the launcher, the panel, the streaming
+and the context are the ones an application gets.
+
 ### DeadlineCards
 
 ```go
