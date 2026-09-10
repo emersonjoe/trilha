@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.86.0 — 2026-09-10
+
+Spec 106. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for
+`share-link` and `tenant`.
+
+### Added
+
+- **`trilha add blob`: keeping a file somebody sent, and handing it back.** The feature that looks
+  simplest and has the most traps — the client's filename becoming a path, the same file taking
+  space three times, the `Content-Type` a browser executes, a listing pointing at a key that is no
+  longer there.
+
+  The recipe writes the store, the application's own table (the blob keeps bytes; knowing that a
+  key is the attachment of order 12 is the app's job), the upload screen with its rules declared —
+  an upload with no limit is a full disk waiting for a day — and the route that serves, through
+  `Files.Serve`, so an HTML file somebody uploaded is not served as executable HTML on your domain.
+
+  Running the recipe in a real project is what found its two bugs, again: a blob key has slashes in
+  it (`ab/cd/<digest>`, so a bucket listing is not one folder with a million entries), so the route
+  has to be a catch-all — a single-segment parameter answered 404 for every file — and ordering a
+  listing by a millisecond clock does not order anything, so the listing is insertion order
+  reversed.
+
 ## 0.85.0 — 2026-09-10
 
 Spec 105. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for

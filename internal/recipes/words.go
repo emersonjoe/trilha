@@ -184,5 +184,15 @@ var words = func(lang string) map[string]string {
 		"mail_welcome_hi":      "Hello, %s! Your account is ready.",
 		"mail_welcome_button":  "Sign in",
 		"mail_welcome_hint":    "If the button does not work, paste this address into your browser:",
+
+		"blob_title": "Files",
+		"blob_desc":  "What people send is stored by the digest of the content: the same file twice takes space once.",
+		"blob_field": "Files",
+		"blob_send":  "Send",
+		"blob_empty": "Nothing stored yet.",
+		"blob_name":  "Name",
+		"blob_type":  "Type",
+		"blob_size":  "Size",
+		"blob_when":  "When",
 	}
 }

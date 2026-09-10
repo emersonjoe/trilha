@@ -566,6 +566,7 @@ touch a project that already has code.
 | Recipe | What it writes |
 |---|---|
 | `audit` | the sink `Config.Audit` receives, and the screen that reads it with `ui.AuditTable` |
+| `blob` | keeping files somebody sent: upload, list, serve — with the key as the digest |
 | `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
 | `login` | a session of your own: the users table, the sign-in screen and the way out |
 | `mail` | the file this app sends e-mail from: one function per message, and a test with no network |
@@ -616,7 +617,7 @@ Each one comes with memory behind it, so the screen works from the first request
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an
 audit trail names people, and a keys screen issues credentials.
 
-More are coming — `share-link`, `blob` and `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
+More are coming — `share-link` and `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Why the CI applies every one of them
 
