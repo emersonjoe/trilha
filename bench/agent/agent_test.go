@@ -72,8 +72,8 @@ func TestRender(t *testing.T) {
 	if !strings.Contains(Render(Results{}, Scenarios()), "Ainda sem medição") {
 		t.Fatal("empty results must say so")
 	}
-	// Scenarios are the contract: four, in order, each with a hidden test.
-	names := []string{"comments", "contact-form", "cognito", "pagination"}
+	// Scenarios are the contract: five, in order, each with a hidden test.
+	names := []string{"comments", "contact-form", "cognito", "pagination", "port-listing"}
 	for i, s := range Scenarios() {
 		if s.Name != names[i] || len(s.Tests) == 0 || s.Prompt == "" {
 			t.Fatalf("scenario %d = %+v", i, s.Name)
@@ -145,5 +145,35 @@ func TestTailGuardaOCabecalhoDaFalha(t *testing.T) {
 	curta := quebra("--- FAIL: TestX|detalhe|FAIL|")
 	if got := tail(curta, 4000); got != curta {
 		t.Fatalf("saída curta veio mexida: %q", got)
+	}
+}
+
+// #94 — a régua tem de ser atingível, e o cenário de portar tem a prova
+// dentro dele: a tela que o Prepare apaga é uma resposta correta.
+//
+// Sem isto, um cenário pode medir uma barra que ninguém alcança — e uma barra
+// dessas não distingue um agente ruim de um teste impossível.
+func TestPortListingEhAtingivel(t *testing.T) {
+	if testing.Short() {
+		t.Skip("compila e roda um projeto inteiro")
+	}
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc, ok := ScenarioByName("port-listing")
+	if !ok {
+		t.Fatal("o cenário sumiu")
+	}
+	// Sem o Prepare: o exemplo como está, que é a resposta.
+	sc.Prepare = nil
+	dir := t.TempDir()
+	if err := Build(repo, sc, dir, false); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	if ok, why := Verify(ctx, dir, sc); !ok {
+		t.Fatalf("o teste escondido recusa a tela que o exemplo já tem:\n%s", why)
 	}
 }

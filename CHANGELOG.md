@@ -3,6 +3,31 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.71.0 — 2026-09-10
+
+Spec 090. Part of [#94](https://github.com/emersonjoe/trilha/issues/94), which stays open for the
+half that measures the path to the API.
+
+### Added
+
+- **`bench/agent` gained a fifth scenario, `port-listing`.** Phase 7 shipped `ListParams`,
+  `ui.DataTable`, `ui.Poll` and the fragment, and the ruler still ran the four scenarios from
+  before — none of which touch any of them. A ruler that does not measure the thing you changed
+  is a ruler that agrees with any result.
+
+  The scenario hands the agent the `.tsx` the screen used to be, in Next.js, with the matching
+  line of a `MIGRATION.md` beside it, and asks for the Trilha equivalent. The hidden test checks
+  the port and not the typing: the columns are there, `?sort=tamanho&dir=desc` orders for real and
+  says so with `aria-sort`, the page links keep the `?q=` (the classic loss when a
+  `useSearchParams` is ported), the refresh is a fragment that answers the piece and not the whole
+  page inside itself, and nothing of the project's own JavaScript came along for the ride.
+
+  `Prepare` replaces `examples/blog`'s own documents screen with a stub, which is what makes the
+  scenario honest in both directions: the agent has to write the screen, and the screen that was
+  replaced is the proof the bar is reachable. `TestPortListingEhAtingivel` runs the hidden test
+  against the untouched example — without it, a scenario can measure a bar nobody clears, and a
+  bar like that cannot tell a bad agent from an impossible test.
+
 ## 0.70.0 — 2026-09-09
 
 Spec 089. Part of [#117](https://github.com/emersonjoe/trilha/issues/117), which stays open for

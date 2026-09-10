@@ -91,7 +91,7 @@ isso que o `bench/agent` mede.
 
 `make bench-agent` copia `examples/blog` ou `examples/sso` para um módulo próprio, roda um
 agente de código (`claude -p`, sem servidores MCP, plugins ou memória do usuário: só o que
-está dentro do projeto conta) em quatro tarefas fixas e decide passou ou não com um teste
+está dentro do projeto conta) em cinco tarefas fixas e decide passou ou não com um teste
 escondido:
 
 | Cenário | Tarefa |
@@ -100,6 +100,7 @@ escondido:
 | `contact-form` | página `/contato` dentro do layout raiz com formulário do kit `ui` |
 | `cognito` | trocar o provedor de login do exemplo SSO de Keycloak para Cognito |
 | `pagination` | cinco posts por página em `/blog`, com `?page=N` e anterior/próxima |
+| `port-listing` | reescrever no Trilha uma listagem Next.js: filtro, tabela ordenável, paginação, fragmento vivo |
 
 Cada cenário roda três vezes; `bench/agent/RESULTS.md` mostra a mediana de tokens de
 entrada (novos e lidos do cache), de saída, rodadas, chamadas recusadas, tempo e custo, e

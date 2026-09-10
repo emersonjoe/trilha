@@ -90,7 +90,7 @@ what `bench/agent` measures.
 
 `make bench-agent` copies `examples/blog` or `examples/sso` into a module of its own, runs a
 coding agent (`claude -p`, with no MCP servers, plugins or user memory: only what is inside
-the project counts) on four fixed tasks, and decides pass or fail with a hidden test:
+the project counts) on five fixed tasks, and decides pass or fail with a hidden test:
 
 | Scenario | Task |
 |---|---|
@@ -98,6 +98,7 @@ the project counts) on four fixed tasks, and decides pass or fail with a hidden 
 | `contact-form` | a `/contato` page inside the root layout with a `ui` form |
 | `cognito` | switch the login provider of the SSO example from Keycloak to Cognito |
 | `pagination` | five posts per page at `/blog`, with `?page=N` and prev/next |
+| `port-listing` | rewrite a Next.js listing in Trilha: filter, sortable table, pagination, live fragment |
 
 Each scenario runs three times; `bench/agent/RESULTS.md` shows the median of tokens in
 (fresh and read from cache), tokens out, turns, denied tool calls, time and cost, and how

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"os"
@@ -28,7 +29,7 @@ type Scenario struct {
 
 // Scenarios in the order the table shows them.
 func Scenarios() []Scenario {
-	return []Scenario{comments, contactForm, cognito, pagination}
+	return []Scenario{comments, contactForm, cognito, pagination, portListing}
 }
 
 // ScenarioByName finds one; "" is not a name.
@@ -298,3 +299,224 @@ func TestBenchPaginacao(t *testing.T) {
 }
 `},
 }
+
+//go:embed fixtures/documentos.tsx fixtures/MIGRATION.snippet.md
+var fixtures embed.FS
+
+// portListing is the scenario Phase 7 asked for and never got: take a listing
+// that exists as a React page and write it in Trilha.
+//
+// It is the one screen that touches most of what that phase shipped —
+// ListParams, ui.DataTable, ui.Poll, the fragment — and a ruler that does not
+// measure the thing you changed is a ruler that agrees with any result.
+//
+// The example already has this screen, which is what makes the scenario
+// honest in both directions: Prepare puts a stub in its place, so the agent
+// has to write it, and the screen that was replaced is the proof that the
+// hidden test is passable — which TestPortListingEhAtingivel runs.
+var portListing = Scenario{
+	Name:    "port-listing",
+	Title:   "portar uma listagem .tsx para o Trilha",
+	Example: "examples/blog",
+	Prompt: `A tela de documentos deste projeto existia em Next.js e o arquivo original está em ` +
+		`app/documentos/page.tsx.txt, com a linha correspondente do MIGRATION.md ao lado. ` +
+		`Escreva o equivalente em app/documentos/page.go, contra o pacote internal/documentos ` +
+		`que já existe, mantendo o filtro por busca e por tipo, a ordenação por coluna vinda da ` +
+		`URL, a paginação e a atualização automática da tabela. Deixe go vet ./... e ` +
+		`go test ./... verdes.`,
+	Prepare: portListingPrepare,
+	Tests:   map[string]string{"zz_bench_test.go": portListingTest},
+}
+
+// portListingPrepare replaces the page with a stub and leaves the source
+// beside it, with the migration note.
+//
+// Only the page: the folder's other routes read the same store and keep
+// compiling, so what fails afterwards is the screen and not the project.
+func portListingPrepare(dir string) error {
+	page := filepath.Join(dir, "app", "documentos", "page.go")
+	if _, err := os.Stat(page); err != nil {
+		return fmt.Errorf("%s: the screen this scenario asks for is not where it was; update portListingPrepare", page)
+	}
+	// A stub and not an empty folder: a folder with no Go file is a package
+	// that stops existing, and trilha_gen.go still imports it — the fixture
+	// would fail to build for a reason that has nothing to do with the task.
+	// It is also the fairer starting point, because it is how a port actually
+	// begins: the route is there and the screen is not.
+	if err := os.WriteFile(page, []byte(portListingStub), 0o644); err != nil {
+		return err
+	}
+	// .tsx.txt and not .tsx: a stray .tsx in the tree is a file some tool
+	// tries to build, and this one is here to be read.
+	for name, dst := range map[string]string{
+		"fixtures/documentos.tsx":       filepath.Join(dir, "app", "documentos", "page.tsx.txt"),
+		"fixtures/MIGRATION.snippet.md": filepath.Join(dir, "MIGRATION.md"),
+	} {
+		b, err := fixtures.ReadFile(name)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(dst, b, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+const portListingTest = `package main
+
+import (
+	"io"
+	"log/slog"
+	"strings"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+// posicao is where a name shows up in the body, or -1. Comparing two of them
+// is how the test reads the order of the rows without parsing HTML.
+func posicao(body, s string) int { return strings.Index(body, s) }
+
+func TestBenchPortListing(t *testing.T) {
+	t.Setenv("TRILHA_ENV", "dev")
+	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := newApp()
+
+	// The columns the .tsx had.
+	body := trilha.TestRequest(t, a, "GET", "/documentos").WantStatus(200).Body.String()
+	for _, quero := range []string{"Documento", "Tipo", "Tamanho", "Status"} {
+		if !strings.Contains(body, quero) {
+			t.Fatalf("a coluna %q sumiu na porta", quero)
+		}
+	}
+
+	// The ordering is the URL's, and it says so out loud: a table ordered for
+	// whoever sees it and not for whoever listens is half a table.
+	desc := trilha.TestRequest(t, a, "GET", "/documentos?sort=tamanho&dir=desc").WantStatus(200).Body.String()
+	if !strings.Contains(desc, "aria-sort=\"descending\"") {
+		t.Fatalf("sem aria-sort na coluna ordenada:\n%s", primeiroTrecho(desc))
+	}
+	asc := trilha.TestRequest(t, a, "GET", "/documentos?sort=tamanho&dir=asc").WantStatus(200).Body.String()
+	if desc == asc {
+		t.Fatal("dir=asc e dir=desc devolveram a mesma ordem: a ordenação não veio da URL")
+	}
+
+	// The pagination carries the filter. Losing it is the classic port of a
+	// useSearchParams, and what makes page two show something else.
+	comFiltro := trilha.TestRequest(t, a, "GET", "/documentos?q=a&limit=5").WantStatus(200).Body.String()
+	if strings.Contains(comFiltro, "offset=") && !strings.Contains(comFiltro, "q=a") {
+		t.Fatalf("os links de página perderam o filtro:\n%s", primeiroTrecho(comFiltro))
+	}
+
+	// The automatic refresh exists, and it is a fragment: a poll that answers
+	// the whole page puts the page inside itself.
+	if !strings.Contains(body, "data-trilha-poll") && !strings.Contains(body, "data-trilha-live") {
+		t.Fatalf("a tela não se atualiza sozinha:\n%s", primeiroTrecho(body))
+	}
+	if id := fragmentoDe(body); id != "" {
+		// O fragmento se pede pelo cabeçalho, não pela URL: a mesma rota
+		// responde a página ou o pedaço conforme quem pergunta.
+		frag := trilha.TestRequest(t, a, "GET", "/documentos",
+			trilha.WithHeader("Trilha-Fragment", id)).WantStatus(200).Body.String()
+		if strings.Contains(strings.ToLower(frag), "<html") {
+			t.Fatalf("o fragmento %q devolveu a página inteira", id)
+		}
+	}
+
+	// A 'use client' ported to Go that brings the JavaScript along was not
+	// ported. What counts is what the page loads: an island, or a script of
+	// the project's own. The kit's files are the exception — they are what
+	// make the poll and the sortable header work with no JavaScript here.
+	//
+	// Inline scripts are left out on purpose: the shell writes one itself, and
+	// telling it from somebody else's by reading the source is a test that
+	// guesses. The order and the refresh are already proven server-side above.
+	for _, trecho := range []string{body, desc} {
+		if strings.Contains(trecho, "data-trilha-island") {
+			t.Error("a tela carregou uma ilha: esta listagem cabe inteira no servidor")
+		}
+		for _, src := range scriptsDe(trecho) {
+			if !strings.Contains(src, "/ui.") {
+				t.Errorf("apareceu JavaScript próprio na página: %s", src)
+			}
+		}
+	}
+}
+
+// scriptsDe returns the src of every script the page loads. A src into the
+// kit is the kit; anything else is JavaScript somebody wrote.
+func scriptsDe(body string) []string {
+	var out []string
+	resto := body
+	for {
+		i := strings.Index(resto, "<script")
+		if i < 0 {
+			return out
+		}
+		resto = resto[i+7:]
+		fim := strings.IndexByte(resto, '>')
+		if fim < 0 {
+			return out
+		}
+		tag := resto[:fim]
+		resto = resto[fim:]
+		k := strings.Index(tag, "src=\"")
+		if k < 0 {
+			continue // inline: não é o que este teste mede
+		}
+		src := tag[k+5:]
+		if f := strings.IndexByte(src, '"'); f >= 0 {
+			src = src[:f]
+		}
+		out = append(out, src)
+	}
+}
+
+// fragmentoDe reads the id the poll asks for, which is the id of the element
+// that carries it.
+func fragmentoDe(body string) string {
+	i := strings.Index(body, "data-trilha-poll")
+	if i < 0 {
+		return ""
+	}
+	antes := body[:i]
+	j := strings.LastIndex(antes, "id=\"")
+	if j < 0 {
+		return ""
+	}
+	resto := antes[j+4:]
+	fim := strings.IndexByte(resto, '"')
+	if fim < 0 {
+		return ""
+	}
+	return resto[:fim]
+}
+
+func primeiroTrecho(s string) string {
+	if len(s) > 800 {
+		return s[:800]
+	}
+	return s
+}
+`
+
+// portListingStub is what the agent finds where the screen was: the route
+// answers, and there is nothing on it.
+const portListingStub = `// Package documentos is the listing this project used to have in Next.js.
+// The original is in page.tsx.txt, and MIGRATION.md says what each piece of it
+// becomes here.
+package documentos
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+)
+
+// Page answers GET /documentos.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Documentos")
+	return h.Div(h.H1(h.Text("Documentos"))), nil
+}
+`
