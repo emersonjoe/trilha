@@ -61,6 +61,12 @@ var words = func(lang string) map[string]string {
 			"invite_submit":   "Salvar e entrar",
 			"invite_invalid":  "Este convite não vale mais.",
 			"invite_short":    "A senha precisa de pelo menos 12 caracteres.",
+
+			"perms_title": "Permissões",
+			"perms_desc":  "Um papel por linha, um módulo por coluna. Sem JavaScript.",
+			"perms_none":  "sem acesso",
+			"perms_save":  "Salvar",
+			"perms_saved": "Permissões salvas.",
 		}
 	}
 	return map[string]string{
@@ -116,5 +122,11 @@ var words = func(lang string) map[string]string {
 		"invite_submit":   "Save and sign in",
 		"invite_invalid":  "This invitation is no longer valid.",
 		"invite_short":    "The password needs at least 12 characters.",
+
+		"perms_title": "Permissions",
+		"perms_desc":  "A role per row, a module per column. No JavaScript.",
+		"perms_none":  "no access",
+		"perms_save":  "Save",
+		"perms_saved": "Permissions saved.",
 	}
 }

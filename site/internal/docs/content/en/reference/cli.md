@@ -568,6 +568,7 @@ touch a project that already has code.
 | `audit` | the sink `Config.Audit` receives, and the screen that reads it with `ui.AuditTable` |
 | `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
 | `login` | a session of your own: the users table, the sign-in screen and the way out |
+| `permissions` | the permission matrix as data, and the screen that edits it |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
@@ -587,12 +588,17 @@ use. Deactivating does not delete: the audit trail points at who did what, and a
 leaves the trail talking about an id that is no longer there. The invitation page lives outside
 the guarded folder, because whoever opens it has no session yet.
 
+`permissions` is the one that removes the most code: with a matrix, the `if role == "admin"`
+spread over eighteen files stops being written. It writes the policy as data — modules, ordered
+levels, what each role has — the three functions that read it, and the `ui.PolicyGrid` screen. The
+screen that edits the matrix is guarded **by the matrix itself**, because a permissions screen
+behind an if on the role is a matrix with one exception living outside it.
+
 Each one comes with memory behind it, so the screen works from the first request, and a comment
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an
 audit trail names people, and a keys screen issues credentials.
 
-More are coming — `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
-`tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
+More are coming — `share-link`, `webhooks`, `mail`, `blob`, `tasks` and `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Why the CI applies every one of them
 

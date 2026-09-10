@@ -3,6 +3,30 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.81.0 — 2026-09-10
+
+Spec 101. Part of [#116](https://github.com/emersonjoe/trilha/issues/116) and
+[#117](https://github.com/emersonjoe/trilha/issues/117), both of which stay open.
+
+### Added
+
+- **`trilha add permissions`: the matrix, and who may change it.** It is the recipe that removes
+  the most code from an application — with a matrix, the `if role == "admin"` spread over eighteen
+  files stops being written — and the one whose pieces already existed and nobody found:
+  `auth.Policy` and `ui.PolicyGrid` have been there since phase 5.
+
+  It writes the policy as **data in one file** (modules, ordered levels, what each role has), the
+  three functions that read it — the guard for a middleware, the question a page asks before
+  drawing a button, and the save the screen calls — and the grid itself.
+
+  The screen that edits the matrix is guarded **by the matrix**, not by a role written beside it:
+  a permissions screen behind an if on the role is a matrix with one exception living outside it.
+  And the save writes one line to the audit trail, because changing who may do what is exactly the
+  action somebody asks about later.
+
+  Like `users`, it needs `login` — it is the session that says which role somebody has — and says
+  so before writing anything.
+
 ## 0.80.0 — 2026-09-10
 
 Spec 100. Part of [#115](https://github.com/emersonjoe/trilha/issues/115), which stays open for

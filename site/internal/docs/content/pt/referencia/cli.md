@@ -564,6 +564,7 @@ mexer num projeto que já tem código.
 | `audit` | o destino que o `Config.Audit` recebe, e a tela que o lê com o `ui.AuditTable` |
 | `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
 | `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
+| `permissions` | a matriz de permissões como dado, e a tela que a edita |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
@@ -583,12 +584,17 @@ horas e um uso. Desativar não apaga: a trilha de auditoria aponta para quem fez
 apagada deixa a trilha falando de um id que não existe mais. A página do convite mora fora da
 pasta guardada, porque quem abre o link ainda não tem sessão.
 
+A `permissions` é a que tira mais código: com uma matriz, o `if papel == "admin"` espalhado por
+dezoito arquivos deixa de ser escrito. Ela escreve a política como dado — módulos, níveis
+ordenados, o que cada papel tem —, as três funções que a leem e a tela do `ui.PolicyGrid`. A tela
+que edita a matriz é guardada **pela própria matriz**, porque uma tela de permissões atrás de um
+if no papel é uma matriz com uma exceção do lado de fora.
+
 Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisição, e um comentário
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
 guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
 
-Faltam outras — `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
-`tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
+Faltam outras — `share-link`, `webhooks`, `mail`, `blob`, `tasks` e `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Por que a CI aplica todas elas
 
