@@ -3,6 +3,33 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.75.0 — 2026-09-10
+
+Spec 095. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for
+the recipes that are still to come.
+
+### Added
+
+- **`trilha add login`: a session of your own.** It is the recipe the others wait for — a screen
+  that invites somebody or changes their role is a screen about a table of people, and until this
+  there was no table to be about. It writes the users table (e-mail, name, role, a PBKDF2 hash),
+  the session with no provider, the sign-in screen, the way out, and two tests: one for the table
+  and one that signs in for real against the project's own `newApp()`.
+
+  **It writes no password.** `usuarios.New` reads `ADMIN_EMAIL` and `ADMIN_PASSWORD` from the
+  environment; with neither, the table comes up empty, the log says so once and — in dev only —
+  the sign-in screen says which two variables are missing. A recipe that seeded `admin`/`admin`
+  into somebody's project would be a door left open by a tool they trusted, and the repository
+  already has a place for toy credentials: the examples.
+
+  A wrong password and an e-mail nobody has get the same answer and take the same time. Saying
+  which of the two was wrong tells whoever is guessing that the account exists, which is half of
+  what they came for.
+
+  Like the other recipes it follows `--at`, so under `app/admin/` the screen posts to
+  `/admin/entrar` and the session's `LoginPath` says the same — a form that posts to a 404 is the
+  kind of mistake nobody sees until they press the button.
+
 ## 0.74.1 — 2026-09-10
 
 Spec 094. No issue: the CI of 0.73.0 went red and the failure was the test's.

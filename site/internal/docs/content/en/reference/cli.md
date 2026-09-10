@@ -519,13 +519,21 @@ touch a project that already has code.
 |---|---|
 | `audit` | the sink `Config.Audit` receives, and the screen that reads it with `ui.AuditTable` |
 | `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
+| `login` | a session of your own: the users table, the sign-in screen and the way out |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
+
+`login` is the one the others wait for — a screen that invites somebody or changes their role is
+a screen about a table of people. It writes no password: `usuarios.New` reads `ADMIN_EMAIL` and
+`ADMIN_PASSWORD` from the environment, and with neither the table comes up empty and says so,
+because a recipe that seeded `admin`/`admin` into a real project would be a door left open by a
+tool somebody trusted. It also writes its own test — the sign-in, the refusal and the way out —
+which is what `trilha check` runs a minute later.
 
 Each one comes with memory behind it, so the screen works from the first request, and a comment
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an
 audit trail names people, and a keys screen issues credentials.
 
-More are coming — `login`, `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
+More are coming — `users`, `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
 `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Why the CI applies every one of them

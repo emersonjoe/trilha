@@ -613,7 +613,7 @@ func TestAddE2E(t *testing.T) {
 
 	// The listing is how anybody finds out a recipe exists.
 	lista := run(t, proj, cli, "add")
-	for _, nome := range []string{"audit", "api-keys", "settings"} {
+	for _, nome := range []string{"audit", "api-keys", "login", "settings"} {
 		if !strings.Contains(lista, nome) {
 			t.Fatalf("`trilha add` does not list %s:\n%s", nome, lista)
 		}
@@ -621,7 +621,7 @@ func TestAddE2E(t *testing.T) {
 
 	// Every recipe into the same project: they have to coexist, because a
 	// project that wants one usually wants two.
-	for _, nome := range []string{"audit", "settings", "api-keys"} {
+	for _, nome := range []string{"audit", "settings", "api-keys", "login"} {
 		out := run(t, proj, cli, "add", nome)
 		if !strings.Contains(out, "  + ") {
 			t.Fatalf("add %s wrote nothing:\n%s", nome, out)

@@ -27,6 +27,12 @@ var words = func(lang string) map[string]string {
 			"keys_created":   "Chave criada. Copie agora.",
 			"keys_revoked":   "Chave revogada.",
 			"keys_need_name": "dê um nome à chave: é por ele que alguém vai saber qual revogar",
+
+			"login_title":    "Entrar",
+			"login_email":    "E-mail",
+			"login_password": "Senha",
+			"login_wrong":    "E-mail ou senha inválidos.",
+			"login_empty":    "Ninguém pode entrar ainda: defina ADMIN_EMAIL e ADMIN_PASSWORD e reinicie.",
 		}
 	}
 	return map[string]string{
@@ -48,5 +54,11 @@ var words = func(lang string) map[string]string {
 		"keys_created":   "Key created. Copy it now.",
 		"keys_revoked":   "Key revoked.",
 		"keys_need_name": "give the key a name: it is how somebody later knows which one to revoke",
+
+		"login_title":    "Sign in",
+		"login_email":    "E-mail",
+		"login_password": "Password",
+		"login_wrong":    "Wrong e-mail or password.",
+		"login_empty":    "Nobody can sign in yet: set ADMIN_EMAIL and ADMIN_PASSWORD and restart.",
 	}
 }

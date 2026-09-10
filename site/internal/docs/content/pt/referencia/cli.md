@@ -515,13 +515,21 @@ mexer num projeto que já tem código.
 |---|---|
 | `audit` | o destino que o `Config.Audit` recebe, e a tela que o lê com o `ui.AuditTable` |
 | `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
+| `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
+
+O `login` é o que as outras esperam — uma tela que convida alguém ou troca o papel dela é uma tela
+sobre uma tabela de gente. Ele não escreve senha nenhuma: o `usuarios.New` lê `ADMIN_EMAIL` e
+`ADMIN_PASSWORD` do ambiente, e sem os dois a tabela sobe vazia e diz isso, porque uma receita que
+semeasse `admin`/`admin` num projeto de verdade seria uma porta deixada aberta por uma ferramenta
+em que alguém confiou. Ele também escreve o próprio teste — entrar, ser recusado e sair — que é o
+que o `trilha check` roda um minuto depois.
 
 Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisição, e um comentário
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
 guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
 
-Faltam outras — `login`, `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
+Faltam outras — `users`, `share-link`, `webhooks`, `mail`, `blob`, `tasks`, `permissions`,
 `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Por que a CI aplica todas elas

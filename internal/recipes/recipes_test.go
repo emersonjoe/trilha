@@ -213,3 +213,56 @@ func TestAddNaoMoveOQueNaoEhTela(t *testing.T) {
 		t.Fatalf("escreveu %v", res.Written)
 	}
 }
+
+// #116 — a receita login: a tabela de gente, a sessão e as duas telas. É a que
+// as outras esperam, e a que não pode escrever uma senha padrão no projeto de
+// ninguém.
+func TestReceitaLogin(t *testing.T) {
+	raiz := projeto(t)
+	r, err := Get("login")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := Add(raiz, r, Options{Module: "example.com/x", Lang: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	quero := "internal/usuarios/usuarios.go internal/usuarios/usuarios_test.go " +
+		"internal/sessao/sessao.go app/entrar/page.go app/sair/route.go login_test.go"
+	if got := strings.Join(res.Written, " "); got != quero {
+		t.Fatalf("escreveu %q", got)
+	}
+	setup := ler(t, raiz, "app/setup.go")
+	for _, q := range []string{"// trilha:add login", "trilha.Provide(a, usuarios.New(a.Logger()))",
+		`"example.com/x/internal/usuarios"`} {
+		if !strings.Contains(setup, q) {
+			t.Fatalf("faltou %q no setup:\n%s", q, setup)
+		}
+	}
+	// Nenhuma senha vem escrita: o primeiro administrador sai do ambiente, e um
+	// projeto que nasce com admin/admin nasce com uma porta que alguém esquece.
+	store := ler(t, raiz, "internal/usuarios/usuarios.go")
+	for _, q := range []string{"ADMIN_EMAIL", "ADMIN_PASSWORD", "auth.HashPBKDF2", "ErrCredencial"} {
+		if !strings.Contains(store, q) {
+			t.Fatalf("faltou %q na tabela de usuários", q)
+		}
+	}
+	// A tela e a sessão apontam para onde a receita caiu.
+	if pag := ler(t, raiz, "app/entrar/page.go"); !strings.Contains(pag, `h.Action("/entrar")`) {
+		t.Fatalf("o formulário não posta para a própria rota:\n%s", pag)
+	}
+
+	// E sob outra pasta, tudo acompanha: o endereço da tela e o LoginPath da
+	// sessão. Uma receita que escreve /entrar debaixo de /admin manda o
+	// visitante para um 404.
+	outra := projeto(t)
+	if _, err := Add(outra, r, Options{Module: "example.com/x", Lang: "pt", At: "app/admin/"}); err != nil {
+		t.Fatal(err)
+	}
+	if pag := ler(t, outra, "app/admin/entrar/page.go"); !strings.Contains(pag, `h.Action("/admin/entrar")`) {
+		t.Fatalf("o formulário aponta para fora da pasta:\n%s", pag)
+	}
+	if ses := ler(t, outra, "internal/sessao/sessao.go"); !strings.Contains(ses, `LoginPath:  "/admin/entrar"`) {
+		t.Fatalf("o LoginPath não acompanhou a pasta:\n%s", ses)
+	}
+}
