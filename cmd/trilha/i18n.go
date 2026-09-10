@@ -219,6 +219,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"flag migrate dry-run": {"print the report and write nothing", "imprime o relatório e não grava nada"},
 	"flag migrate force":   {"overwrite files that are already there", "sobrescrever arquivos que já existem"},
 	"migrate dry":          {"%d files would be written to %s/, plus %s.", "%d arquivos seriam gravados em %s/, mais o %s."},
+	"migrate where":        {"skeleton: %s (%d screens)\nreport:   %s", "esqueleto: %s (%d telas)\nrelatório: %s"},
 	"migrate done":         {"%d written, %d kept, %d lines in the report with no equivalent here.", "%d gravados, %d mantidos, %d linhas do relatório sem equivalente aqui."},
 
 	// ui describe

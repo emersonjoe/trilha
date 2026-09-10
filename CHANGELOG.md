@@ -3,6 +3,21 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.88.1 — 2026-09-10
+
+Spec 109. Closes [#146](https://github.com/emersonjoe/trilha/issues/146).
+
+### Fixed
+
+- **`trilha migrate next` writes the report beside the tree**, which is what the report's own
+  first line promises. `--report` defaulted to `MIGRATION.md` relative to the working directory,
+  so `--out /tmp/x/mig/app` put the skeleton there and left the report wherever the command was
+  run from — in this repository's case, loose in the repository.
+
+  With no `--out` nothing changes (`./MIGRATION.md` next to `./app`); an explicit `--report` still
+  wins; and the command now ends by printing both paths in full, because where the two things
+  landed is the one thing somebody asks afterwards.
+
 ## 0.88.0 — 2026-09-10
 
 Spec 108. Closes [#116](https://github.com/emersonjoe/trilha/issues/116); part of

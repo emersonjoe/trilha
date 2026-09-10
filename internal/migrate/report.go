@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+// ReportName is what the report is called when nobody says otherwise. It
+// lives here because the command computes the path from it and the report's
+// own first line promises where it is.
+const ReportName = "MIGRATION.md"
+
 // Report writes MIGRATION.md: one row per screen with what the source says
 // about itself, and one list of everything that has no equivalent here. It is
 // the map whoever ports the app reads — a person or an agent — so that the

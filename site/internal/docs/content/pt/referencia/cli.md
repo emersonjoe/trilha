@@ -304,7 +304,13 @@ Lê um projeto Next.js e grava as duas coisas mecânicas de uma migração: a á
 trilha migrate next ../web --dry-run   # imprime o relatório e não grava nada
 trilha migrate next ../web             # grava o app/ e o MIGRATION.md
 trilha migrate next ../web --out app --report MIGRATION.md --force
+trilha migrate next ../web --out /tmp/x/app     # o relatório vai para /tmp/x/MIGRATION.md
 ```
+
+O relatório fica **ao lado da árvore**, que é o que a primeira linha dele promete: sem `--out`
+isso é o `./MIGRATION.md` ao lado do `./app`, e com `--out /tmp/x/app` é o
+`/tmp/x/MIGRATION.md`. Um `--report` explícito continua mandando, e o comando termina imprimindo
+os dois caminhos inteiros.
 
 O que ele grava compila: cada página é uma função `Page` com título e os parâmetros da rota,
 cada `route.ts` vira os handlers que exportava devolvendo `501`, e um `trilha gen` na sequência

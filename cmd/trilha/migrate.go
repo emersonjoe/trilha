@@ -27,7 +27,7 @@ func cmdMigrate(args []string) error {
 func cmdMigrateNext(args []string) error {
 	fs := flag.NewFlagSet("migrate next", flag.ContinueOnError)
 	out := fs.String("out", "app", t("flag migrate out"))
-	report := fs.String("report", "MIGRATION.md", t("flag migrate report"))
+	report := fs.String("report", "", t("flag migrate report"))
 	dryRun := fs.Bool("dry-run", false, t("flag migrate dry-run"))
 	force := fs.Bool("force", false, t("flag migrate force"))
 	lang := fs.String("lang", lang, t("flag lang"))
@@ -50,6 +50,12 @@ func cmdMigrateNext(args []string) error {
 	}
 	if *lang != "en" && *lang != "pt" {
 		return fmt.Errorf(t("bad lang"), *lang)
+	}
+	// The report says "the tree beside this file is the skeleton", so beside is
+	// where it goes: next to --out, and not next to whoever ran the command.
+	// With the default --out app that is ./MIGRATION.md, exactly as before.
+	if *report == "" {
+		*report = filepath.Join(filepath.Dir(filepath.Clean(*out)), migrate.ReportName)
 	}
 	p, err := migrate.Scan(dir)
 	if err != nil {
@@ -80,4 +86,13 @@ func cmdMigrateNext(args []string) error {
 	fmt.Printf("  %-40s %s\n", *report, t("ui created"))
 	fmt.Printf("\n"+t("migrate done")+"\n", created, len(res)-created, len(p.Notes))
 	return nil
+}
+
+// absOf is the path as somebody would paste it into another command.
+func absOf(p string) string {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return filepath.ToSlash(p)
+	}
+	return filepath.ToSlash(abs)
 }

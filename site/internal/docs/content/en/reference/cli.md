@@ -306,7 +306,13 @@ folder tree of `app/`, with one Go file per screen, and a report of everything t
 trilha migrate next ../web --dry-run   # prints the report, writes nothing
 trilha migrate next ../web             # writes app/ and MIGRATION.md
 trilha migrate next ../web --out app --report MIGRATION.md --force
+trilha migrate next ../web --out /tmp/x/app     # report goes to /tmp/x/MIGRATION.md
 ```
+
+The report lands **beside the tree**, which is what its own first line promises: with no
+`--out` that is `./MIGRATION.md` next to `./app`, and with `--out /tmp/x/app` it is
+`/tmp/x/MIGRATION.md`. An explicit `--report` still wins, and the command ends by printing both
+paths in full.
 
 What it writes compiles: each page is a `Page` function with a title and the route's
 parameters, each `route.ts` becomes the handlers it exported returning `501`, and `trilha gen`
