@@ -597,6 +597,7 @@ mexer num projeto que já tem código.
 | `blob` | guardar arquivo que alguém mandou: enviar, listar, servir — com a chave sendo o digest |
 | `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
 | `approvals` | a fila que espera uma pessoa: abrir, decidir, e o prazo que vence |
+| `connections` | os serviços externos com que este app fala: nome, URL, segredo selado e o botão Testar |
 | `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
 | `mail` | o arquivo de onde este app manda e-mail: uma função por mensagem, e teste sem rede |
 | `permissions` | a matriz de permissões como dado, e a tela que a edita |

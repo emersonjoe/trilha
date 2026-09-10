@@ -108,6 +108,7 @@ de documentação hospedado, que continua sendo a
 func Dial(ctx, dial Dialer) (*Client, error)     // abre o transporte e faz initialize
 func Stdio(name string, args ...string) Dialer    // processo filho, JSON por linha
 func HTTP(url string, headers map[string]string) Dialer  // Streamable HTTP (POST por mensagem)
+func HTTPWith(url string, client *http.Client, headers map[string]string) Dialer  // o mesmo, sobre um cliente seu
 ```
 
 | Método | Papel |

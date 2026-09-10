@@ -73,6 +73,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `APIUsage(c, data, opts)` | how much a key was used, where, and when it stopped — see [Auth](/reference/auth) |
 | `SearchBox(c, action, opts)`, `SearchResults(c, res, opts)` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) |
 | `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
+| `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, test)`, `ParseConnectionForm(c)` | the external services and their secrets, with the Test button — see [ConnectionsPanel](#connectionspanel) |
 
 ## Trees
 
@@ -425,6 +426,24 @@ There is no JavaScript and no diff library: what changed is a list of field name
 works it out from two maps of strings — the honest half of a diff, and the half somebody reads
 before opening a version. The published row carries no buttons, because it is already the one
 everybody reads.
+
+### ConnectionsPanel
+
+```go
+func ConnectionsPanel(c *trilha.Ctx, x *trilha.Connections, o ConnectionsOpts) h.Node
+func ConnectionStatus(c *trilha.Ctx, t *trilha.ConnectionTest) h.Node
+func ParseConnectionForm(c *trilha.Ctx) trilha.Connection
+```
+
+The screen of a [`trilha.Connections`](/reference/connections): the list grouped by kind — name,
+URL, auth, the badge of the last test — and the form of one connection, new or being edited
+(`Editing`, with `Errors` from a refused save). Every button is a form that posts to `Path` with a
+hidden `_action` (`save`, `test`, `delete`) and the `id`, plus the `CSRF` node you pass; nothing
+needs script. The user and header-name fields show with `ShowWhen` for the auth that uses them.
+
+The secret is the one thing the screen never contains: the field is [`SecretField`](#components),
+which renders empty and says "leave blank to keep", and `ParseConnectionForm` reads it back as a
+`Secret` so an empty one keeps the previous value on `Save`.
 
 ## Formatting
 

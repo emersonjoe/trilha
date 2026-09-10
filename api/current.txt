@@ -29,6 +29,7 @@ pkg trilha, func CSRFTokenFrom(*http.Request) string
 pkg trilha, func CanInline(string) bool
 pkg trilha, func CompileErrorPage(string) string
 pkg trilha, func ConfigFromEnv() Config
+pkg trilha, func ConnectionMemory() ConnectionStore
 pkg trilha, func Deadlines([]Deadline, DeadlineOpts) DeadlineSummary
 pkg trilha, func Errorf(int, string, ...any) error
 pkg trilha, func Fatal(error)
@@ -36,6 +37,7 @@ pkg trilha, func HintOf(error) *Hint
 pkg trilha, func Limit(float64, int) MiddlewareFunc
 pkg trilha, func LookupEnum(string) (Enum, bool)
 pkg trilha, func New(Config) *App
+pkg trilha, func NewConnections(ConnectionsOpts) *Connections
 pkg trilha, func NewHint(string, error) *Hint
 pkg trilha, func NewLimiter(RateLimit) *Limiter
 pkg trilha, func NewSearch(SearchOpts) *Search
@@ -62,11 +64,13 @@ pkg trilha, func SearchMemory() SearchStore
 pkg trilha, func SearchTerms(string) []string
 pkg trilha, func SecretFrom([]byte) (Secret, error)
 pkg trilha, func StatusOf(error) int
+pkg trilha, func TestHTTP(string, string) func(context.Context, Connection) error
 pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse
 pkg trilha, func TestRequest(TestingT, *App, string, string, ...TestOption) *TestResponse
 pkg trilha, func TestRoute(TestingT, Route, string, string, ...TestOption) *TestResponse
 pkg trilha, func UseValidationPTBR()
 pkg trilha, func Use[T any](Bag) T
+pkg trilha, func ValidateExternalURL(string, Env) error
 pkg trilha, func VersionMemory() VersionStore
 pkg trilha, func WithApp(*App) TestOption
 pkg trilha, func WithBody(string, string) TestOption
@@ -103,6 +107,14 @@ pkg trilha, method (*App) SetRootLayout(LayoutFunc)
 pkg trilha, method (*App) Values() map[string]any
 pkg trilha, method (*BusinessCalendar) Add(time.Time, int) time.Time
 pkg trilha, method (*BusinessCalendar) IsBusinessDay(time.Time) bool
+pkg trilha, method (*Connections) Client(*Ctx, string) (*http.Client, error)
+pkg trilha, method (*Connections) Delete(*Ctx, string) error
+pkg trilha, method (*Connections) Get(*Ctx, string) (Connection, error)
+pkg trilha, method (*Connections) Kind(string) (ConnectionKind, bool)
+pkg trilha, method (*Connections) Kinds() []ConnectionKind
+pkg trilha, method (*Connections) List(*Ctx) ([]Connection, error)
+pkg trilha, method (*Connections) Save(*Ctx, Connection) (Connection, error)
+pkg trilha, method (*Connections) Test(*Ctx, string) (ConnectionTest, error)
 pkg trilha, method (*Counter) Add(float64)
 pkg trilha, method (*Counter) Inc()
 pkg trilha, method (*Counter) With(...string) *Counter
@@ -245,6 +257,7 @@ pkg trilha, method (*Versioned) Restore(*Ctx, string, int) (int, error)
 pkg trilha, method (*Versioned) Save(*Ctx, string, T, string) (int, error)
 pkg trilha, method (AuditFunc) Write(AuditRecord) error
 pkg trilha, method (CSVResult) OK() bool
+pkg trilha, method (Connection) Client(time.Duration) *http.Client
 pkg trilha, method (Deadline) Late(time.Time, *time.Location) bool
 pkg trilha, method (Enum) Has(string) bool
 pkg trilha, method (Enum) Label(string) string
@@ -353,6 +366,39 @@ pkg trilha, type Config struct, TimeZone string
 pkg trilha, type Config struct, Timeouts Timeouts
 pkg trilha, type Config struct, TrustedProxies []string
 pkg trilha, type Config struct, Upstreams map[string]Upstream
+pkg trilha, type Connection struct
+pkg trilha, type Connection struct, Auth string
+pkg trilha, type Connection struct, CreatedAt time.Time
+pkg trilha, type Connection struct, Header string
+pkg trilha, type Connection struct, Headers map[string]string
+pkg trilha, type Connection struct, ID string
+pkg trilha, type Connection struct, Kind string
+pkg trilha, type Connection struct, LastTest *ConnectionTest
+pkg trilha, type Connection struct, Name string
+pkg trilha, type Connection struct, Secret Secret
+pkg trilha, type Connection struct, Tenant string
+pkg trilha, type Connection struct, URL string
+pkg trilha, type Connection struct, UpdatedAt time.Time
+pkg trilha, type Connection struct, Username string
+pkg trilha, type ConnectionKind struct
+pkg trilha, type ConnectionKind struct, Auth []string
+pkg trilha, type ConnectionKind struct, Key string
+pkg trilha, type ConnectionKind struct, Label string
+pkg trilha, type ConnectionKind struct, Test func(context.Context, Connection) error
+pkg trilha, type ConnectionStore interface
+pkg trilha, type ConnectionStore interface, Delete(context.Context, string, string) error
+pkg trilha, type ConnectionStore interface, Get(context.Context, string, string) (Connection, error)
+pkg trilha, type ConnectionStore interface, List(context.Context, string) ([]Connection, error)
+pkg trilha, type ConnectionStore interface, Save(context.Context, Connection) error
+pkg trilha, type ConnectionTest struct
+pkg trilha, type ConnectionTest struct, At time.Time
+pkg trilha, type ConnectionTest struct, Message string
+pkg trilha, type ConnectionTest struct, OK bool
+pkg trilha, type Connections struct
+pkg trilha, type ConnectionsOpts struct
+pkg trilha, type ConnectionsOpts struct, Kinds []ConnectionKind
+pkg trilha, type ConnectionsOpts struct, Store ConnectionStore
+pkg trilha, type ConnectionsOpts struct, Timeout time.Duration
 pkg trilha, type Counter struct
 pkg trilha, type Ctx struct
 pkg trilha, type Deadline struct
@@ -616,6 +662,7 @@ pkg trilha, type VersionedOpts struct
 pkg trilha, type VersionedOpts struct, Store VersionStore
 pkg trilha, type Versioned[T any] struct
 pkg trilha, var BindInvalid
+pkg trilha, var ConnectionAuths
 pkg trilha, var ErrNoDraft
 pkg trilha, var ErrNoLink
 pkg trilha, var ErrNoSecret
@@ -765,6 +812,7 @@ pkg ai/mcp, const ProtocolVersion
 pkg ai/mcp, func Dial(context.Context, Dialer) (*Client, error)
 pkg ai/mcp, func FromRoutes(*trilha.App, FromRoutesOpts) *Server
 pkg ai/mcp, func HTTP(string, map[string]string) Dialer
+pkg ai/mcp, func HTTPWith(string, *http.Client, map[string]string) Dialer
 pkg ai/mcp, func NewServer(string, string, ...*ai.Tool) *Server
 pkg ai/mcp, func Pipe(io.Reader, io.Writer, func() error) Transport
 pkg ai/mcp, func Preview([]byte, map[string][]string, FromRoutesOpts) ([]ToolInfo, []string, error)
@@ -1550,6 +1598,8 @@ pkg ui, func Collapsible(string, ...h.Node) h.Node
 pkg ui, func Combobox(ComboboxOpts, ...h.Node) h.Node
 pkg ui, func ComboboxOptions[T any]([]T, func(T) (string, string)) h.Node
 pkg ui, func Confirm(string, string) h.Node
+pkg ui, func ConnectionStatus(*trilha.Ctx, *trilha.ConnectionTest) h.Node
+pkg ui, func ConnectionsPanel(*trilha.Ctx, *trilha.Connections, ConnectionsOpts) h.Node
 pkg ui, func Container(...h.Node) h.Node
 pkg ui, func DataTable[T any](*trilha.Ctx, Columns[T], []T, ListState) h.Node
 pkg ui, func Date(*trilha.Ctx, any, ...FormatOpt) h.Node
@@ -1618,6 +1668,7 @@ pkg ui, func On(string, string) h.Node
 pkg ui, func Outline() h.Node
 pkg ui, func PageHeader(string, ...h.Node) h.Node
 pkg ui, func Pagination(Pages) h.Node
+pkg ui, func ParseConnectionForm(*trilha.Ctx) trilha.Connection
 pkg ui, func PendingAfter(int) h.Node
 pkg ui, func PolicyGrid(Policy, PolicyGridOpts) h.Node
 pkg ui, func Poll(string, string) h.Node
@@ -1769,6 +1820,11 @@ pkg ui, type ComboboxOpts struct, Required bool
 pkg ui, type ComboboxOpts struct, Source string
 pkg ui, type ComboboxOpts struct, Value string
 pkg ui, type ComboboxOpts struct, With []string
+pkg ui, type ConnectionsOpts struct
+pkg ui, type ConnectionsOpts struct, CSRF h.Node
+pkg ui, type ConnectionsOpts struct, Editing *trilha.Connection
+pkg ui, type ConnectionsOpts struct, Errors map[string]string
+pkg ui, type ConnectionsOpts struct, Path string
 pkg ui, type Crumb struct
 pkg ui, type Crumb struct, Href string
 pkg ui, type Crumb struct, Label string

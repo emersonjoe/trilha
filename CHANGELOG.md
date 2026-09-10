@@ -3,6 +3,37 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.99.0 — 2026-09-10
+
+Spec 120. Closes [#153](https://github.com/emersonjoe/trilha/issues/153).
+
+### Added
+
+- **`trilha.Connections`: the external services an application talks to.** A `Connection` is a
+  name, a URL, an auth (`none`, `bearer`, `header`, `basic`), a `Secret`, fixed headers and the
+  last test. `NewConnections(ConnectionsOpts{Store, Kinds, Timeout})` takes the kinds the app
+  declares — each with the auths it accepts and a `Test` — and answers `List`, `Get`, `Save`,
+  `Delete`, `Test`, `Client`, all by tenant and all audited (`connection.save`, `connection.test`,
+  `connection.delete`, never with the secret). `Save` validates with `ValidateExternalURL`: a
+  private, loopback or `.internal` address is refused in `Prod` and accepted with a warning in
+  `Dev`; an empty secret on update keeps the previous one; `Authorization` is not accepted as a
+  fixed header. `Client(c, id)` is an `*http.Client` with a timeout whose transport is the only
+  place the secret is read — it puts on the credential and the fixed headers and refuses any
+  request to a host other than the connection's, so a redirect cannot carry the token elsewhere.
+  `TestHTTP(method, path)` is the ready-made test for APIs (any status below 400 passes).
+  `ConnectionStore` is the interface; `ConnectionMemory()` the default.
+- **`mcp.HTTPWith(url, client, headers)`** — the Streamable HTTP dialer over a client the caller
+  built, such as a connection's; `mcp.HTTP` is now that with a default client.
+- **`ui.ConnectionsPanel(c, conns, opts)`, `ui.ConnectionStatus`, `ui.ParseConnectionForm`.** The
+  list grouped by kind with the badge of the last test, and the form with `ui.SecretField` — the
+  secret is never in the HTML. Save, Test and Delete are `POST`s to one path with a hidden
+  `_action`; no script needed.
+- **`trilha add connections`** writes `internal/conexoes` with the kinds `api` and `mcp` (the MCP
+  test dials the server through the connection's client and lists the tools), the `/conexoes`
+  page with the three actions, and the tests. `trilha check` is green afterwards.
+- Documentation: reference `connections`, the `ui` and `cli` and `mcp` pages, and the recipe
+  *Talking to a third-party API* — in English and Portuguese.
+
 ## 0.98.0 — 2026-09-10
 
 Spec 119. Closes [#152](https://github.com/emersonjoe/trilha/issues/152).

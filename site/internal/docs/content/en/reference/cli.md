@@ -601,6 +601,7 @@ touch a project that already has code.
 | `blob` | keeping files somebody sent: upload, list, serve — with the key as the digest |
 | `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
 | `approvals` | the queue that waits for a person: open, decide, and the deadline that expires |
+| `connections` | the external services this app talks to: name, URL, sealed secret, and the Test button |
 | `login` | a session of your own: the users table, the sign-in screen and the way out |
 | `mail` | the file this app sends e-mail from: one function per message, and a test with no network |
 | `permissions` | the permission matrix as data, and the screen that edits it |

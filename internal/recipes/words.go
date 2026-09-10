@@ -14,6 +14,15 @@ var words = func(lang string) map[string]string {
 			"search_title": "Busca",
 			"search_kind":  "Exemplos",
 
+			"conn_title":       "Conexões",
+			"conn_desc":        "Os serviços externos com que esta aplicação fala. O segredo fica selado e nunca volta para a tela.",
+			"conn_api":         "APIs",
+			"conn_mcp":         "Servidores MCP",
+			"conn_saved":       "Conexão salva.",
+			"conn_deleted":     "Conexão apagada.",
+			"conn_test_ok":     "Conexão testada: respondeu.",
+			"conn_test_failed": "O teste falhou:",
+
 			"audit_title": "Auditoria",
 			"audit_desc":  "Quem fez o quê, em quê, e de onde.",
 
@@ -107,6 +116,15 @@ var words = func(lang string) map[string]string {
 
 		"search_title": "Search",
 		"search_kind":  "Examples",
+
+		"conn_title":       "Connections",
+		"conn_desc":        "The external services this application talks to. The secret is sealed and never comes back to the screen.",
+		"conn_api":         "APIs",
+		"conn_mcp":         "MCP servers",
+		"conn_saved":       "Connection saved.",
+		"conn_deleted":     "Connection deleted.",
+		"conn_test_ok":     "Connection tested: it answered.",
+		"conn_test_failed": "The test failed:",
 
 		"audit_title": "Audit trail",
 		"audit_desc":  "Who did what, to what, and from where.",

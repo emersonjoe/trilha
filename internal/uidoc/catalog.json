@@ -656,6 +656,67 @@
     "example": "return c.HTML(http.StatusOK, ui.ComboboxOptions(cities, func(c City) (string, string) {\n\treturn strconv.Itoa(c.ID), c.Name\n}))"
   },
   {
+    "name": "ConnectionsOpts",
+    "kind": "type",
+    "group": "connections",
+    "signature": "type ConnectionsOpts struct",
+    "doc": "ConnectionsOpts is what the panel needs to post back.",
+    "summary": "ConnectionsOpts is what the panel needs to post back.",
+    "fields": [
+      {
+        "name": "Path",
+        "type": "string",
+        "doc": "Path is where every button posts: save, test and delete, each with a hidden \"_action\" and the \"id\"."
+      },
+      {
+        "name": "CSRF",
+        "type": "h.Node",
+        "doc": "CSRF is the hidden token field, trilha.CSRFInput(c)."
+      },
+      {
+        "name": "Editing",
+        "type": "*trilha.Connection",
+        "doc": "Editing is the connection the form shows, or nil for a new one."
+      },
+      {
+        "name": "Errors",
+        "type": "map[string]string",
+        "doc": "Errors are the field errors of the last save, by field name."
+      }
+    ]
+  },
+  {
+    "name": "ConnectionsPanel",
+    "kind": "func",
+    "group": "connections",
+    "signature": "ConnectionsPanel(c *trilha.Ctx, x *trilha.Connections, o ConnectionsOpts) h.Node",
+    "doc": "ConnectionsPanel is the screen of trilha.Connections: the list, grouped by\nkind, with the last test as a badge and the buttons; and the form of one\nconnection, new or being edited.\n\nThe secret is never in the HTML: the field is ui.SecretField, which renders\nempty and says \"leave blank to keep\". Everything works without script; the\nauth-specific fields (user, header name) show and hide with ShowWhen when\nit is there.",
+    "summary": "ConnectionsPanel is the screen of trilha.Connections: the list, grouped by kind, with the last test as a badge and the buttons; and the form of one connection, new or being edited.",
+    "example": "ui.ConnectionsPanel(c, conexoes.Conexoes, ui.ConnectionsOpts{\n\tPath: \"/admin/conexoes\", CSRF: trilha.CSRFInput(c), Editing: editing, Errors: errs,\n})",
+    "see": [
+      "trilha.CSRFInput",
+      "trilha.Connections",
+      "ui.ConnectionsOpts",
+      "ui.SecretField"
+    ]
+  },
+  {
+    "name": "ConnectionStatus",
+    "kind": "func",
+    "group": "connections",
+    "signature": "ConnectionStatus(c *trilha.Ctx, t *trilha.ConnectionTest) h.Node",
+    "doc": "ConnectionStatus is the badge of a test result: never run, passed, or\nfailed with the message as the title.",
+    "summary": "ConnectionStatus is the badge of a test result: never run, passed, or failed with the message as the title."
+  },
+  {
+    "name": "ParseConnectionForm",
+    "kind": "func",
+    "group": "connections",
+    "signature": "ParseConnectionForm(c *trilha.Ctx) trilha.Connection",
+    "doc": "ParseConnectionForm reads the panel's form into a Connection, which is\nwhat the page hands to Connections.Save. The fixed headers come one per\nline as \"Name: value\".",
+    "summary": "ParseConnectionForm reads the panel's form into a Connection, which is what the page hands to Connections.Save."
+  },
+  {
     "name": "CSVErrorsOpts",
     "kind": "type",
     "group": "csv",

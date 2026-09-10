@@ -107,6 +107,7 @@ hosted documentation server, which is still
 func Dial(ctx, dial Dialer) (*Client, error)     // opens the transport and runs initialize
 func Stdio(name string, args ...string) Dialer    // child process, JSON per line
 func HTTP(url string, headers map[string]string) Dialer  // Streamable HTTP (POST per message)
+func HTTPWith(url string, client *http.Client, headers map[string]string) Dialer  // the same, over a client you built
 ```
 
 | Method | Role |

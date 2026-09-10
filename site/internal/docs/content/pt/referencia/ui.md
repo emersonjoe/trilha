@@ -73,6 +73,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `APIUsage(c, dados, opts)` | quanto uma chave foi usada, onde, e quando parou — veja [Auth](/pt/referencia/auth) |
 | `SearchBox(c, action, opts)`, `SearchResults(c, res, opts)` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) |
 | `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
+| `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, teste)`, `ParseConnectionForm(c)` | os serviços externos e seus segredos, com o botão Testar — veja [ConnectionsPanel](#connectionspanel) |
 
 ## Árvores
 
@@ -425,6 +426,25 @@ Sem JavaScript e sem biblioteca de diff: o que mudou é uma lista de nomes de ca
 `ui.Changed` a monta a partir de dois mapas de strings — a metade honesta de um diff, e a metade
 que alguém lê antes de abrir a versão. A linha publicada não traz botões: ela já é a que todo mundo
 lê.
+
+### ConnectionsPanel
+
+```go
+func ConnectionsPanel(c *trilha.Ctx, x *trilha.Connections, o ConnectionsOpts) h.Node
+func ConnectionStatus(c *trilha.Ctx, t *trilha.ConnectionTest) h.Node
+func ParseConnectionForm(c *trilha.Ctx) trilha.Connection
+```
+
+A tela de um [`trilha.Connections`](/pt/referencia/conexoes): a lista agrupada por tipo — nome,
+URL, autenticação, o badge do último teste — e o formulário de uma conexão, nova ou em edição
+(`Editing`, com `Errors` de um save recusado). Cada botão é um formulário que posta para `Path`
+com um `_action` oculto (`save`, `test`, `delete`) e o `id`, mais o nó `CSRF` que você passa;
+nada precisa de script. Os campos de usuário e nome do cabeçalho aparecem com `ShowWhen` para a
+autenticação que os usa.
+
+O segredo é a única coisa que a tela nunca contém: o campo é o [`SecretField`](#componentes), que
+renderiza vazio e diz "deixe em branco para manter", e `ParseConnectionForm` o lê de volta como
+`Secret`, de modo que um vazio mantém o valor anterior no `Save`.
 
 ## Formatação
 

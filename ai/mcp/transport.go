@@ -128,8 +128,15 @@ type httpTransport struct {
 // HTTP connects to a Streamable HTTP MCP endpoint (one POST per message;
 // JSON or SSE responses are accepted). headers may carry Authorization.
 func HTTP(url string, headers map[string]string) Dialer {
+	return HTTPWith(url, &http.Client{Timeout: 2 * time.Minute}, headers)
+}
+
+// HTTPWith is HTTP over a client the caller built — one that already carries
+// the credential, such as the client of a trilha.Connection — so the secret
+// never has to be copied into a headers map.
+func HTTPWith(url string, client *http.Client, headers map[string]string) Dialer {
 	return func(ctx context.Context) (Transport, error) {
-		return &httpTransport{url: url, headers: headers, client: &http.Client{Timeout: 2 * time.Minute}, queue: make(chan []byte, 16)}, nil
+		return &httpTransport{url: url, headers: headers, client: client, queue: make(chan []byte, 16)}, nil
 	}
 }
 
