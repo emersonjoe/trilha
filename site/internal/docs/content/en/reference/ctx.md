@@ -201,7 +201,9 @@ of `route.go` if `Config.CSRFForAPI` is on), through the `_csrf` field or the
 ## Bind
 
 `Bind(v any) error` fills a struct from the form (or from JSON, when the `Content-Type` is
-`application/json`). Fields match by the `form:"name"` tag (or by the field name); types:
+`application/json`). Fields match by the `form:"name"` tag, then by `json:"name"`, then by the field name — a struct
+that came from an API carries json tags and no form tags, and a form that posted `nome` to a field
+the binder was calling `Nome` made `required` fire on a value somebody did type; types:
 `string`, `[]string`, `bool` (`on`/`true`/`1`), `int`, `int64`, `float64` (comma or dot),
 `time.Time` (`2006-01-02` or `2006-01-02T15:04`) and pointers (nil when absent). A nested
 struct is flattened, with the tag as prefix (`Billing Address `+"`form:\"bill_\"`"+` reads

@@ -478,6 +478,18 @@ no module download.
 - The first four fields become the table's columns. Four is what a table shows before it starts
   scrolling sideways.
 
+### A CRUD under a closed folder
+
+The generator looks at what is above the destination. If any `middleware.go` sits between `app/`
+and `--at`, the screens are behind something, and the generated test has to open a session before
+its first request — otherwise it answers 401 and reads as "the generator is broken".
+
+When the project has a known way to do that — the `login` recipe's `internal/sessao/sessaotest`,
+or the `app` template's `internal/session/sessiontest` — the test calls it and goes on proving
+what it exists to prove. When it does not, the test carries a `t.Skip` naming the file that closes
+the folder: a Skip that explains is better than a 401 that does not. Either way the command says
+which of the two happened.
+
 ### Nothing is overwritten, and there is no --force
 
 A file that already exists is a refusal naming it. That is deliberate: a generator that

@@ -229,7 +229,8 @@ func TestReceitaLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 	quero := "internal/usuarios/usuarios.go internal/usuarios/usuarios_test.go " +
-		"internal/sessao/sessao.go app/entrar/page.go app/sair/route.go login_test.go"
+		"internal/sessao/sessao.go app/entrar/page.go app/sair/route.go " +
+		"internal/sessao/sessaotest/sessaotest.go login_test.go"
 	if got := strings.Join(res.Written, " "); got != quero {
 		t.Fatalf("escreveu %q", got)
 	}

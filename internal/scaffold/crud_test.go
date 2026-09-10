@@ -288,3 +288,59 @@ type Tipo struct {
 		t.Fatalf("a tag label não chegou no formulário:\n%s", form)
 	}
 }
+
+// #143 — o CRUD gerado dentro do --template app batia em 401: o teste não
+// olhava o que está acima do destino. O gerador passa a olhar.
+func TestCrudSobPastaFechada(t *testing.T) {
+	raiz := projetoComTipo(t, tipoSrc)
+	// Um middleware na raiz do app/, como o do template.
+	if err := os.WriteFile(filepath.Join(raiz, "app", "middleware.go"),
+		[]byte("package app\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Sem helper conhecido, o teste vem com o Skip que nomeia o arquivo.
+	o := CrudOptions{Type: "docs.Tipo", Module: "example.com/loja", Lang: "pt"}
+	res, err := Crud(raiz, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Guard != "app/middleware.go" {
+		t.Fatalf("guard = %q", res.Guard)
+	}
+	teste := ler(t, raiz, "tipo_crud_test.go")
+	if !strings.Contains(teste, "t.Skip(") || !strings.Contains(teste, "app/middleware.go") {
+		t.Fatalf("o teste não explica a pasta fechada:\n%s", teste)
+	}
+
+	// Com o helper da receita login ao lado, ele abre a sessão e testa de
+	// verdade.
+	outra := projetoComTipo(t, tipoSrc)
+	for _, d := range []string{"app", "internal/sessao/sessaotest"} {
+		if err := os.MkdirAll(filepath.Join(outra, filepath.FromSlash(d)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(outra, "app", "middleware.go"), []byte("package app\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outra, filepath.FromSlash("internal/sessao/sessaotest/sessaotest.go")),
+		[]byte("package sessaotest\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Crud(outra, o); err != nil {
+		t.Fatal(err)
+	}
+	teste = ler(t, outra, "tipo_crud_test.go")
+	for _, quero := range []string{
+		`"example.com/loja/internal/sessao/sessaotest"`,
+		"sessaotest.Entrar(t, c)",
+	} {
+		if !strings.Contains(teste, quero) {
+			t.Fatalf("falta %q no teste gerado:\n%s", quero, teste)
+		}
+	}
+	if strings.Contains(teste, "t.Skip(") {
+		t.Fatalf("com helper, o teste não devia pular:\n%s", teste)
+	}
+}

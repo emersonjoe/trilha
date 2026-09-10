@@ -43,6 +43,11 @@ type CrudResult struct {
 	// without opening the file, because a field that disappears in silence is
 	// a field somebody looks for later.
 	Skipped []string
+	// Guard is the middleware.go that closes the folder the screens landed in,
+	// and Helper the package the generated test uses to open a session — empty
+	// when there is none, and then the test carries a Skip that explains.
+	Guard  string
+	Helper string
 }
 
 // Crud writes the screens a struct needs: the listing, the form that creates,
@@ -69,6 +74,10 @@ func Crud(root string, o CrudOptions) (CrudResult, error) {
 	if err != nil {
 		return res, err
 	}
+	// What is above the destination decides whether the generated test can
+	// reach the screens at all.
+	plan.findGuard(root, o.Module)
+	res.Guard, res.Helper = plan.Guard, plan.Helper
 	// Every file is checked before any is written: a refusal that leaves half
 	// a CRUD on disk is a refusal somebody has to clean up by hand.
 	arquivos := plan.files()
@@ -141,6 +150,15 @@ type crudPlan struct {
 	Fields  []typeField // what the form asks for
 	Columns []typeField // what the table shows
 	System  []typeField // what the generator fills in
+
+	// Guard is the middleware.go above the destination, relative to the root,
+	// and Helper is the package that opens a session in a test — the recipe's
+	// or the template's, whichever this project has. A CRUD generated under a
+	// closed folder whose test does not sign in is a test that answers 401 and
+	// blames the generator.
+	Guard  string
+	Helper string // import path of the test helper, "" when there is none
+	Call   string // the call that opens the session
 
 	T map[string]string
 }
@@ -329,4 +347,39 @@ func lastLineWith(src, anchor string) int {
 	}
 	_ = found
 	return line
+}
+
+// findGuard looks up from the destination for a middleware.go, and then for a
+// package that can open a session in a test.
+//
+// The rule is "there is a middleware above", and not "there is authentication
+// above": what a middleware does is somebody else's code, and a generator that
+// read it would be guessing. A folder with a middleware is a folder the test
+// has to assume is closed.
+func (p *crudPlan) findGuard(root, module string) {
+	dir := p.At
+	for dir != "" && dir != "." {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(dir), "middleware.go")); err == nil {
+			p.Guard = dir + "/middleware.go"
+			break
+		}
+		if dir == "app" {
+			break
+		}
+		dir = path.Dir(dir)
+	}
+	if p.Guard == "" {
+		return
+	}
+	// The two helpers this repository writes: the login recipe's and the app
+	// template's. A project with neither gets the Skip that names the file.
+	for _, h := range []struct{ rel, imp, call string }{
+		{"internal/sessao/sessaotest", "/internal/sessao/sessaotest", "sessaotest.Entrar(t, c)"},
+		{"internal/session/sessiontest", "/internal/session/sessiontest", "sessiontest.Login(t, c)"},
+	} {
+		if fi, err := os.Stat(filepath.Join(root, filepath.FromSlash(h.rel))); err == nil && fi.IsDir() {
+			p.Helper, p.Call = module+h.imp, h.call
+			return
+		}
+	}
 }

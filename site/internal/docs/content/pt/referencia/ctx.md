@@ -202,8 +202,10 @@ cabeçalho `X-CSRF-Token`.
 ## Bind
 
 `Bind(v any) error` preenche uma struct a partir do formulário (ou do JSON, quando o
-`Content-Type` é `application/json`). Campos casam pela tag `form:"nome"` (ou pelo nome do
-campo); tipos: `string`, `[]string`, `bool` (`on`/`true`/`1`), `int`, `int64`, `float64`
+`Content-Type` é `application/json`). Campos casam pela tag `form:"nome"`, depois pela `json:"nome"`, depois pelo nome do campo — um
+struct que veio de uma API tem tag json e não tem form, e um formulário que postava `nome` para um
+campo que o binder chamava de `Nome` fazia o `required` disparar sobre um valor que alguém digitou;
+tipos: `string`, `[]string`, `bool` (`on`/`true`/`1`), `int`, `int64`, `float64`
 (vírgula ou ponto), `time.Time` (`2006-01-02` ou `2006-01-02T15:04`) e ponteiros (nil quando
 ausente). Struct aninhada é achatada, com a tag como prefixo (`Cobranca Endereco
 `+"`form:\"cob_\"`"+` lê `cob_cep`…). Valores que não convertem viram `FieldErrors`

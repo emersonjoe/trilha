@@ -793,6 +793,22 @@ func TestTemplateAppE2E(t *testing.T) {
 		t.Fatal(out)
 	}
 
+	// #143: the CRUD generated inside this template lands under a folder the
+	// root middleware closes. What it used to write was a test that answered
+	// 401 and read as "the generator is broken"; what it writes now opens a
+	// session first, with the helper the template ships.
+	tipoSrc := "package docs\n\nimport \"time\"\n\ntype Tipo struct {\n" +
+		"\tID       string    " + "`" + `json:"id"` + "`" + "\n" +
+		"\tNome     string    " + "`" + `json:"nome" validate:"required,max=80" label:"Nome"` + "`" + "\n" +
+		"\tCriadoEm time.Time " + "`" + `json:"criado_em"` + "`" + "\n}\n"
+	mustWrite(t, filepath.Join(proj, "internal", "docs", "tipo.go"), tipoSrc)
+	saida := run(t, proj, cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos")
+	if !strings.Contains(saida, "sessiontest") {
+		t.Fatalf("the generator did not notice the guarded folder:\n%s", saida)
+	}
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "ok") {
+		t.Fatal(out)
+	}
 	// --with "" is a choice and not an absence: somebody who typed it asked
 	// for the skeleton, and gets it.
 	pelado := filepath.Join(tmp, "pelado")

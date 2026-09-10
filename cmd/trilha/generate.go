@@ -132,6 +132,15 @@ func crud(arg string, args []string) error {
 	for _, f := range res.Skipped {
 		fmt.Printf("  %s %s\n", t("crud skipped"), f)
 	}
+	// What is above the destination changes what the generated test can do, so
+	// it is said here instead of being discovered when the test runs.
+	if res.Guard != "" {
+		if res.Helper != "" {
+			fmt.Printf("  "+t("crud guard helper")+"\n", res.Guard, res.Helper)
+		} else {
+			fmt.Printf("  "+t("crud guard skip")+"\n", res.Guard)
+		}
+	}
 	if _, err := generate(p); err != nil {
 		return err
 	}

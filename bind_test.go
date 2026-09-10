@@ -2,6 +2,7 @@ package trilha
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -131,5 +132,40 @@ func TestRenderWithLayouts(t *testing.T) {
 	a.Handler().ServeHTTP(rec, req)
 	if rec.Code != 422 || !strings.Contains(rec.Body.String(), `<div class="layout"><form><p>obrigatório</p></form></div>`) {
 		t.Fatal(rec.Code, rec.Body.String())
+	}
+}
+
+// #143 — o nome do campo no formulário: a tag form, depois a json, depois o
+// campo. Um struct que veio de uma API tem tag json e não tem form, e um
+// formulário que postava "nome" para um campo que o binder chamava de "Nome"
+// era uma regra required disparando sobre um valor que alguém digitou.
+func TestBindFormCaiNaTagJSON(t *testing.T) {
+	var in struct {
+		Nome  string `json:"nome" validate:"required"`
+		Sigla string `json:"sigla,omitempty"`
+		Outro string
+	}
+	a := New(Config{Logger: quiet()})
+	a.Register(Route{Pattern: "/x", Kind: KindAPI, Methods: map[string]HandlerFunc{
+		"POST": func(c *Ctx) error {
+			if err := c.Bind(&in); err != nil {
+				return err
+			}
+			return c.Text(http.StatusOK, "ok")
+		},
+	}})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/x", strings.NewReader("nome=Ana&sigla=AN&Outro=z"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	a.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if in.Nome != "Ana" || in.Sigla != "AN" {
+		t.Fatalf("in = %+v", in)
+	}
+	// Sem tag nenhuma, o nome continua sendo o do campo.
+	if in.Outro != "z" {
+		t.Fatalf("o campo sem tag deixou de ser lido: %+v", in)
 	}
 }

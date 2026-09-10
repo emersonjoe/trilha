@@ -65,10 +65,13 @@ func bindStruct(sv reflect.Value, prefix string, form map[string][]string, errs 
 			continue
 		}
 		fv := sv.Field(i)
+		// The name on the wire: the form tag, then the json one, then the Go
+		// field. The json fallback is not only for JSON — a struct that came
+		// from an API has json tags and no form tags, and a form that posted
+		// "nome" to a field the binder was calling "Nome" was a required rule
+		// firing on a value somebody did type.
 		name := f.Tag.Get("form")
-		if form == nil {
-			// JSON: the field is named the way the client sent it, so the
-			// message comes back under a key the caller recognises.
+		if name == "" {
 			if j, _, _ := strings.Cut(f.Tag.Get("json"), ","); j != "" {
 				name = j
 			}

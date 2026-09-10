@@ -25,6 +25,7 @@ func loginRecipe() Recipe {
 			{Rel: "internal/sessao/sessao.go", Go: true, Body: loginSession},
 			{Rel: "{{.At}}entrar/page.go", Go: true, Body: loginPage},
 			{Rel: "{{.At}}sair/route.go", Go: true, Body: loginLogout},
+			{Rel: "internal/sessao/sessaotest/sessaotest.go", Go: true, Body: loginTestHelper},
 			{Rel: "login_test.go", Go: true, Body: loginTest},
 		},
 		Setup: []Insert{{
@@ -389,5 +390,46 @@ func TestEntrarESair(t *testing.T) {
 
 	// And out again.
 	c.PostForm("{{.URL}}sair", url.Values{}).WantStatus(http.StatusSeeOther)
+}
+`
+
+// loginTestHelper is how a test of a screen behind a middleware opens a
+// session. It is a package of its own because it imports testing: a helper
+// that drags the testing package into the binary costs something in
+// production.
+//
+// The generator looks for this package by name — a CRUD written under a
+// guarded folder calls it instead of walking into a 401.
+const loginTestHelper = `// Package sessaotest opens a session in a test.
+package sessaotest
+
+import (
+	"net/http"
+	"net/url"
+	"os"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+// Entrar signs in as the administrator seeded from the environment, which is
+// what a test of a screen behind a middleware needs before its first request.
+//
+//	c := trilha.NewTestClient(t, newApp())
+//	sessaotest.Entrar(t, c)
+//
+// It posts to the sign-in screen instead of forging a cookie: what it proves
+// along the way is that signing in still works, and a helper that built the
+// session by hand would keep passing after the login stopped.
+func Entrar(t *testing.T, c *trilha.TestClient) {
+	t.Helper()
+	email, senha := os.Getenv("ADMIN_EMAIL"), os.Getenv("ADMIN_PASSWORD")
+	if email == "" || senha == "" {
+		t.Fatal("sessaotest: set ADMIN_EMAIL and ADMIN_PASSWORD with t.Setenv before newApp()")
+	}
+	rec := c.PostForm("{{.URL}}entrar", url.Values{"email": {email}, "password": {senha}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("sessaotest: signing in answered %d, not a redirect", rec.Code)
+	}
 }
 `

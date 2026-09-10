@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.90.0 — 2026-09-10
+
+Spec 111. Closes [#143](https://github.com/emersonjoe/trilha/issues/143).
+
+### Fixed
+
+- **The generated CRUD works under a closed folder.** `generate crud` promises screens that pass
+  `trilha check` with no edit; that was true in an empty project and false where a beginner is
+  most likely to use it — inside `--template app`, whose root `middleware.go` requires a session.
+  The generated test answered 401, and what it read like was "the generator is broken".
+
+  The generator now looks at what is above the destination. With a known way to open a session —
+  the `login` recipe's `internal/sessao/sessaotest`, or the template's new
+  `internal/session/sessiontest` — the test signs in first and goes on proving what it exists to
+  prove. Without one, it carries a `t.Skip` naming the file that closes the folder: a Skip that
+  explains beats a 401 that does not. The command says which of the two happened.
+
+- **`Bind` matches a form field by the `json:` tag too.** This is the bug underneath the one
+  above, and it was found by running the generated CRUD in a real project: a struct that came from
+  an API carries `json:` tags and no `form:` tags, so a form that posted `nome` reached a binder
+  that was looking for `Nome` — and `required` fired on a value somebody had just typed. The order
+  is now `form:`, then `json:`, then the field name, which is what the JSON side already did.
+
 ## 0.89.0 — 2026-09-10
 
 Spec 110. Closes [#145](https://github.com/emersonjoe/trilha/issues/145).

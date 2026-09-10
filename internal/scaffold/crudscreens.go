@@ -288,7 +288,7 @@ import (
 	"testing"
 
 	"github.com/emersonjoe/trilha"
-)
+%s)
 
 // TestCRUD%s walks the whole thing: the empty listing, a creation that shows
 // up in it, an edit that sticks, and a delete that removes it.
@@ -300,8 +300,8 @@ func TestCRUD%s(t *testing.T) {
 	t.Setenv("TRILHA_ENV", "prod")
 	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	c := trilha.NewTestClient(t, newApp())
-
+%s	c := trilha.NewTestClient(t, newApp())
+%s
 	c.Get(%q).WantStatus(200).WantContains(%q)
 
 	c.PostForm(%q, url.Values{
@@ -348,7 +348,7 @@ func depoisDe(corpo, prefixo string) string {
 	}
 	return resto[:fim]
 }
-`, p.Type, p.Type,
+`, p.testImport(), p.Type, p.Type, p.testSkip(), p.testLogin(),
 		p.URL, p.T["app_empty"],
 		p.URL+"/new", criar,
 		p.URL, procura,
@@ -424,4 +424,33 @@ func cellExpr(f typeField) string {
 		return "fmt.Sprint(v." + f.Name + ")"
 	}
 	return "fmt.Sprint(v." + f.Name + ")"
+}
+
+// testImport is the helper's import line, when the project has one.
+func (p crudPlan) testImport() string {
+	if p.Helper == "" {
+		return ""
+	}
+	return fmt.Sprintf("\n\t%q\n", p.Helper)
+}
+
+// testSkip is what a generated test says when the folder is closed and there
+// is no known way to open a session: it names the file that closes it. A Skip
+// that explains is better than a 401 that does not — a test failing for a
+// reason outside itself teaches the wrong lesson.
+func (p crudPlan) testSkip() string {
+	if p.Guard == "" || p.Helper != "" {
+		return ""
+	}
+	razao := p.Guard + ": " + p.T["crud_guard_skip"]
+	return fmt.Sprintf("\t// %s\n\tt.Skip(%q)\n", razao, razao)
+}
+
+// testLogin opens the session before the first request, when the project has
+// a helper that knows how.
+func (p crudPlan) testLogin() string {
+	if p.Call == "" {
+		return ""
+	}
+	return fmt.Sprintf("\t// %s\n\t%s\n", p.T["crud_guard_login"], p.Call)
 }

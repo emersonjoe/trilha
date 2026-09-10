@@ -475,6 +475,18 @@ sem baixar módulo.
 - Os quatro primeiros campos viram as colunas da tabela. Quatro é o que uma tabela mostra antes de
   começar a rolar para o lado.
 
+### Um CRUD debaixo de uma pasta fechada
+
+O gerador olha o que está acima do destino. Se existe um `middleware.go` entre o `app/` e o
+`--at`, as telas estão atrás de alguma coisa, e o teste gerado precisa abrir uma sessão antes da
+primeira requisição — senão ele responde 401 e se lê como "o gerador está quebrado".
+
+Quando o projeto tem um jeito conhecido de fazer isso — o `internal/sessao/sessaotest` da receita
+`login`, ou o `internal/session/sessiontest` do template `app` — o teste chama e segue provando o
+que ele existe para provar. Quando não tem, o teste vem com um `t.Skip` nomeando o arquivo que
+fecha a pasta: um Skip que explica é melhor que um 401 que não explica. Nos dois casos o comando
+diz qual dos dois aconteceu.
+
 ### Nada é sobrescrito, e não há --force
 
 Arquivo que já existe é recusa nomeando-o. É de propósito: gerador que sobrescreve é gerador que
