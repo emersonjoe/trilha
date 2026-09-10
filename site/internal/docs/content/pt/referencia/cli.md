@@ -21,6 +21,7 @@ trilha ui [--force] [--css-only|--js-only]
 trilha ui describe [Nome] [--json]
 trilha agents [--force] [--lang en|pt]
 trilha mcp [--write]
+trilha mcp --from-routes [--include /api/v1/*]
 trilha version
 ```
 
@@ -389,7 +390,8 @@ O que é deduzido e as diretivas `openapi:` estão em [APIs](/pt/aprender/api#do
 
 Seis portões num comando, na ordem que falha mais barato primeiro: `gen`, `gofmt`, `vet`,
 `test`, `audit` (sem a varredura de vulnerabilidades, que precisa de rede) e `openapi` (só se o
-projeto guarda o documento). Ele para na primeira falha — o que vem depois de uma compilação
+projeto guarda o documento — o `openapi.json` da raiz e cada cópia dentro de `app/`, como a
+que [`mcp.FromRoutes`](/pt/referencia/mcp#a-sua-api-como-ferramentas) embute). Ele para na primeira falha — o que vem depois de uma compilação
 quebrada não diz nada sobre o projeto — e os passos que não rodaram dizem isso:
 
 ```text

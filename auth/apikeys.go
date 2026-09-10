@@ -197,6 +197,14 @@ func (ks *Keys) Require(scopes ...string) trilha.MiddlewareFunc {
 			c.Log().Warn("auth: key missing scope", "key", k.ID, "need", strings.Join(scopes, ","))
 			return &trilha.HTTPError{Code: http.StatusForbidden, Message: "the key does not carry " + strings.Join(scopes, ", ")}
 		}
+		// A probe asks whether the key would get through; it is not a call.
+		// It spends no budget and counts nothing: a listing that probes
+		// twenty routes would otherwise use up the key before its first
+		// real request.
+		if c.Probing() {
+			ks.remember(c, k)
+			return next()
+		}
 		if ks.limiter != nil {
 			if ok, after := ks.limiter.Allow(k.ID); !ok {
 				c.Header("Retry-After", fmt.Sprint(after))

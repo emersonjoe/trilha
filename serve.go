@@ -116,7 +116,7 @@ func (a *App) wrap(r *Route, kind routeKind, mws []MiddlewareFunc, final Handler
 		a.applySecurity(c)
 		rw.Header().Set("X-Request-ID", c.requestID)
 
-		if a.limiter != nil {
+		if a.limiter != nil && !c.Probing() {
 			if err := a.limiter.check(c); err != nil {
 				a.handleError(c, err)
 				a.logRequest(c, rw, start)
@@ -136,6 +136,10 @@ func (a *App) wrap(r *Route, kind routeKind, mws []MiddlewareFunc, final Handler
 					err = &panicError{value: v, stack: string(debug.Stack())}
 				}
 			}()
+			if c.Probing() {
+				// The chain let the caller through; that is the whole answer.
+				return nil
+			}
 			if bodyMethods[req.Method] && (kind == kindPage || a.cfg.CSRFForAPI) {
 				if err := a.checkCSRF(c); err != nil {
 					return err
@@ -147,6 +151,9 @@ func (a *App) wrap(r *Route, kind routeKind, mws []MiddlewareFunc, final Handler
 		if !rw.wrote {
 			// Handler returned nil without writing: treat as empty 204.
 			rw.WriteHeader(http.StatusNoContent)
+		}
+		if c.Probing() {
+			return
 		}
 		a.logRequest(c, rw, start)
 		a.observe(req.Method, r.Pattern, rw.status, start)
@@ -292,4 +299,19 @@ func (a *App) allowFor(r *Route) string {
 	}
 	sort.Strings(ms)
 	return strings.Join(ms, ", ")
+}
+
+// Route returns the route registered under pattern, for whoever needs more
+// than Routes says — the Kind, the methods, the chain. The copy is a snapshot:
+// changing it changes nothing.
+func (a *App) Route(pattern string) (Route, bool) {
+	pattern = strings.TrimSuffix(pattern, "/")
+	if pattern == "" {
+		pattern = "/"
+	}
+	r, ok := a.routes[pattern]
+	if !ok {
+		return Route{}, false
+	}
+	return *r, true
 }

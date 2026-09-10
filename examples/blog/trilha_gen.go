@@ -33,6 +33,7 @@ import (
 	app_marketing_ "github.com/emersonjoe/trilha/examples/blog/app/marketing-"
 	app_marketing__precos "github.com/emersonjoe/trilha/examples/blog/app/marketing-/precos"
 	app_marketing__sobre "github.com/emersonjoe/trilha/examples/blog/app/marketing-/sobre"
+	app_mcp "github.com/emersonjoe/trilha/examples/blog/app/mcp"
 	app_painel_ "github.com/emersonjoe/trilha/examples/blog/app/painel-"
 	app_painel__assistente "github.com/emersonjoe/trilha/examples/blog/app/painel-/assistente"
 	app_painel__painel "github.com/emersonjoe/trilha/examples/blog/app/painel-/painel"
@@ -226,6 +227,13 @@ func newApp() *trilha.App {
 			"POST": app_login.POST,
 		},
 		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/mcp",
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_mcp.POST,
+		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{

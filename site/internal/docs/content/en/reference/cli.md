@@ -21,6 +21,7 @@ trilha ui [--force] [--css-only|--js-only]
 trilha ui describe [Name] [--json]
 trilha agents [--force] [--lang en|pt]
 trilha mcp [--write]
+trilha mcp --from-routes [--include /api/v1/*]
 trilha version
 ```
 
@@ -391,7 +392,8 @@ What is deduced and the `openapi:` directives are in [APIs](/learn/api#the-opena
 
 Six gates in one command, in the order that fails cheapest first: `gen`, `gofmt`, `vet`,
 `test`, `audit` (without the vulnerability scan, which needs the network) and `openapi` (only
-if the project keeps the document). It stops at the first failure — what comes after a broken
+if the project keeps the document — the root `openapi.json` and every copy under `app/`, such
+as the one [`mcp.FromRoutes`](/reference/mcp#your-api-as-tools) embeds). It stops at the first failure — what comes after a broken
 build says nothing about the project — and the steps that never ran say so:
 
 ```text

@@ -157,6 +157,12 @@ Proteja a rota como qualquer API (middleware com token, limite de taxa). O servi
 `Mcp-Session-Id` no `initialize` e rejeita mensagens sem sessão. Para hosts que preferem
 stdio, `servidor.ServeStdio(ctx, os.Stdin, os.Stdout)` em um `main` separado.
 
+**A API que você já tem** não precisa de ferramentas escritas à mão. `mcp.FromRoutes(a, opts)`
+publica cada rota sob `/api/` como ferramenta — nome, descrição e esquema do documento
+OpenAPI, a chamada passando pela cadeia da própria rota, o `tools/list` filtrado pelo que a
+chave de quem chama alcança. A receita é [A sua API como ferramentas de agente](/pt/receitas/api-como-ferramentas);
+os detalhes, em [mcp](/pt/referencia/mcp#a-sua-api-como-ferramentas).
+
 ## Seu projeto explicado para um agente
 
 Os capítulos acima falam do agente que a sua aplicação executa. Esta seção fala do agente que

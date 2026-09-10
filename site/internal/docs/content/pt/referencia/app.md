@@ -196,6 +196,8 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 | `ListenAndServe() error` | serve com desligamento gracioso em SIGINT/SIGTERM; depois roda os ganchos de `OnShutdown` |
 | `OnShutdown(func(*App) error)` | registra o que fechar ao encerrar (pool, fila, flush); `setup.go` pode exportar `Shutdown`, que o arquivo gerado registra |
 | `Routes() map[string][]string` | padrões registrados e seus métodos |
+| `Route(pattern) (Route, bool)` | uma rota registrada, em cópia: o `Kind`, os métodos e a cadeia |
+| `Probe(*http.Request) bool` | roda a cadeia da rota sem o handler; `true` quando quem chama passaria (ver "Sondar uma rota") |
 | `AddExportPath(paths...)` | caminhos extras para `Export`; último segmento com ponto exporta como o arquivo, não como `index.html` |
 | `ExportPaths() []string` | o que `Export` vai renderizar |
 | `Export(dir) error` | escreve o site estático |
@@ -205,6 +207,28 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 
 `trilha.Run(a)` é o que o `main` gerado chama: exporta se `TRILHA_EXPORT` estiver definido,
 senão serve. `trilha.Fatal(err)` registra e encerra, ignorando `http.ErrServerClosed`.
+
+### Sondar uma rota
+
+`Probe` responde *esta requisição seria permitida?* sem responder a requisição: a cadeia de
+middlewares roda — sessão, chave de API, política, limite de taxa — e o handler não. É como
+[`mcp.FromRoutes`](/pt/referencia/mcp#a-sua-api-como-ferramentas) lista só as ferramentas que
+quem chama pode usar, e o que um menu pode perguntar antes de desenhar um link.
+
+```go
+req := httptest.NewRequest("POST", "/api/posts", nil)
+req.Header.Set("Authorization", c.Request().Header.Get("Authorization"))
+if a.Probe(req) { /* quem chama pode criar posts */ }
+```
+
+Dentro da cadeia, `c.Probing()` diz isso. As guardas do próprio framework já respeitam — uma
+sonda não gasta token de `Config.RateLimit` nem de `trilha.Limit`, não conta uso de chave de
+API, não emite evento de segurança e não escreve log de requisição — e um middleware seu que
+conta, cobra ou envia alguma coisa deve fazer a mesma pergunta.
+
+`trilha.WithVia(req, "mcp")` marca uma requisição como chegada por uma ponte, e o ator do
+registro de auditoria passa a dizer `Via: "mcp"` em vez de `session` — a tela de auditoria
+filtra por isso.
 
 ### Dependências
 

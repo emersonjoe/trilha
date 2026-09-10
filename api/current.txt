@@ -75,6 +75,7 @@ pkg trilha, func WithForm(url.Values) TestOption
 pkg trilha, func WithHeader(string, string) TestOption
 pkg trilha, func WithJSON(any) TestOption
 pkg trilha, func WithSigned(string, string) TestOption
+pkg trilha, func WithVia(*http.Request, string) *http.Request
 pkg trilha, func WithoutCSRF() TestOption
 pkg trilha, method (*App) AddExportPath(...string)
 pkg trilha, method (*App) Asset(string) string
@@ -90,7 +91,9 @@ pkg trilha, method (*App) ListenAndServe() error
 pkg trilha, method (*App) Logger() *slog.Logger
 pkg trilha, method (*App) Metrics() *Metrics
 pkg trilha, method (*App) OnShutdown(func(*App) error)
+pkg trilha, method (*App) Probe(*http.Request) bool
 pkg trilha, method (*App) Register(Route)
+pkg trilha, method (*App) Route(string) (Route, bool)
 pkg trilha, method (*App) Routes() map[string][]string
 pkg trilha, method (*App) RunShutdown() error
 pkg trilha, method (*App) Security() *Security
@@ -153,6 +156,7 @@ pkg trilha, method (*Ctx) Pattern() string
 pkg trilha, method (*Ctx) Pipe(*http.Response) error
 pkg trilha, method (*Ctx) PollEvery(time.Duration)
 pkg trilha, method (*Ctx) PollStop()
+pkg trilha, method (*Ctx) Probing() bool
 pkg trilha, method (*Ctx) Query(string) string
 pkg trilha, method (*Ctx) Redirect(string) error
 pkg trilha, method (*Ctx) RedirectExternal(string) error
@@ -759,9 +763,11 @@ pkg ai, type Usage struct, TotalTokens int
 pkg ai, var ErrMaxTurns
 pkg ai/mcp, const ProtocolVersion
 pkg ai/mcp, func Dial(context.Context, Dialer) (*Client, error)
+pkg ai/mcp, func FromRoutes(*trilha.App, FromRoutesOpts) *Server
 pkg ai/mcp, func HTTP(string, map[string]string) Dialer
 pkg ai/mcp, func NewServer(string, string, ...*ai.Tool) *Server
 pkg ai/mcp, func Pipe(io.Reader, io.Writer, func() error) Transport
+pkg ai/mcp, func Preview([]byte, map[string][]string, FromRoutesOpts) ([]ToolInfo, []string, error)
 pkg ai/mcp, func Stdio(string, ...string) Dialer
 pkg ai/mcp, method (*Client) CallTool(context.Context, string, json.RawMessage) (CallResult, error)
 pkg ai/mcp, method (*Client) Close() error
@@ -782,6 +788,12 @@ pkg ai/mcp, type Content struct, MimeType string
 pkg ai/mcp, type Content struct, Text string
 pkg ai/mcp, type Content struct, Type string
 pkg ai/mcp, type Dialer func(context.Context) (Transport, error)
+pkg ai/mcp, type FromRoutesOpts struct
+pkg ai/mcp, type FromRoutesOpts struct, Exclude []string
+pkg ai/mcp, type FromRoutesOpts struct, Include []string
+pkg ai/mcp, type FromRoutesOpts struct, Name string
+pkg ai/mcp, type FromRoutesOpts struct, OpenAPI []byte
+pkg ai/mcp, type FromRoutesOpts struct, Version string
 pkg ai/mcp, type Server struct
 pkg ai/mcp, type Server struct, SessionTTL time.Duration
 pkg ai/mcp, type ToolInfo struct

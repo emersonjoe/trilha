@@ -91,6 +91,11 @@ func (l *limiter) check(c *Ctx) error {
 func Limit(rps float64, burst int) MiddlewareFunc {
 	l := newLimiter(RateLimit{RPS: rps, Burst: burst})
 	return func(c *Ctx, next Next) error {
+		// A probe asks whether the caller may pass, not for the answer: it
+		// takes no token, the same as the app-wide limit.
+		if c.Probing() {
+			return next()
+		}
 		if err := l.check(c); err != nil {
 			return err
 		}

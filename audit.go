@@ -68,7 +68,9 @@ type auditActorKey struct{}
 // account — calls it once in its middleware, and every c.Audit below it is
 // attributed without another line.
 func (c *Ctx) SetActor(a Actor) {
-	if a.Via == "" {
+	if via := viaOf(c.r); via != "" {
+		a.Via = via
+	} else if a.Via == "" {
 		a.Via = "session"
 	}
 	c.Set(auditActorKeyName, a)

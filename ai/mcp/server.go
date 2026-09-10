@@ -25,6 +25,15 @@ type Server struct {
 	sessions      map[string]time.Time
 	// SessionTTL expires idle HTTP sessions (default 1h).
 	SessionTTL time.Duration
+	// visible, when set, decides per call which tools this caller sees; a
+	// tool it hides cannot be called either. FromRoutes uses it to ask the
+	// route's chain.
+	visible func(ctx context.Context, t *ai.Tool) bool
+	// build, when set, fills the tool table on the first message instead of
+	// at construction. FromRoutes needs it: app.Setup runs before the routes
+	// are registered, and the routes are what the tools are made of.
+	build func() []*ai.Tool
+	built sync.Once
 }
 
 // NewServer creates a server publishing the given tools.
@@ -39,6 +48,15 @@ func NewServer(name, version string, tools ...*ai.Tool) *Server {
 
 // handle processes one JSON-RPC message; nil means no reply (notification).
 func (s *Server) handle(ctx context.Context, msg []byte) []byte {
+	s.built.Do(func() {
+		if s.build == nil {
+			return
+		}
+		for _, t := range s.build() {
+			s.tools = append(s.tools, t)
+			s.byName[t.Name] = t
+		}
+	})
 	var req request
 	if err := json.Unmarshal(msg, &req); err != nil {
 		return mustJSON(response{JSONRPC: "2.0", Error: &rpcError{Code: codeParse, Message: "parse error"}})
@@ -67,6 +85,9 @@ func (s *Server) handle(ctx context.Context, msg []byte) []byte {
 	case "tools/list":
 		infos := make([]ToolInfo, 0, len(s.tools))
 		for _, t := range s.tools {
+			if s.visible != nil && !s.visible(ctx, t) {
+				continue
+			}
 			schema := t.Parameters
 			if len(schema) == 0 {
 				schema = json.RawMessage(`{"type":"object","properties":{}}`)
@@ -83,7 +104,7 @@ func (s *Server) handle(ctx context.Context, msg []byte) []byte {
 			return fail(codeInvalidParams, "invalid params")
 		}
 		t, ok := s.byName[p.Name]
-		if !ok {
+		if !ok || (s.visible != nil && !s.visible(ctx, t)) {
 			return fail(codeInvalidParams, "unknown tool: "+p.Name)
 		}
 		if len(p.Arguments) == 0 {
@@ -171,7 +192,9 @@ func (s *Server) serve(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		http.Error(w, "missing or expired Mcp-Session-Id; send initialize first", http.StatusNotFound)
 		return nil
 	}
-	out := s.handle(ctx, body)
+	// The request travels with the call so a tool built over the app's own
+	// routes can act in the caller's name.
+	out := s.handle(context.WithValue(ctx, callerKey{}, r), body)
 	if out == nil {
 		w.WriteHeader(http.StatusAccepted)
 		return nil

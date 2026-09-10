@@ -199,6 +199,8 @@ typo in the layout does not take the page down. `ui.Head` and the examples alrea
 | `ListenAndServe() error` | serves with graceful shutdown on SIGINT/SIGTERM; then runs the `OnShutdown` hooks |
 | `OnShutdown(func(*App) error)` | registers what to close on exit (pool, queue, flush); `setup.go` may export `Shutdown`, which the generated file registers |
 | `Routes() map[string][]string` | registered patterns and their methods |
+| `Route(pattern) (Route, bool)` | one registered route, as a copy: its `Kind`, methods and chain |
+| `Probe(*http.Request) bool` | runs the route's chain without the handler; `true` when the caller would get through (see "Probing a route") |
 | `AddExportPath(paths...)` | extra paths for `Export`; a last segment with a dot exports as that file, not as `index.html` |
 | `ExportPaths() []string` | what `Export` will render |
 | `Export(dir) error` | writes the static site |
@@ -208,6 +210,27 @@ typo in the layout does not take the page down. `ui.Head` and the examples alrea
 
 `trilha.Run(a)` is what the generated `main` calls: it exports if `TRILHA_EXPORT` is set,
 otherwise it serves. `trilha.Fatal(err)` logs and exits, ignoring `http.ErrServerClosed`.
+
+### Probing a route
+
+`Probe` answers *would this request be allowed?* without answering the request: the
+middleware chain runs — session, API key, policy, rate limit — and the handler does not. It
+is how [`mcp.FromRoutes`](/reference/mcp#your-api-as-tools) lists only the tools a caller may
+use, and what a menu can ask before drawing a link.
+
+```go
+req := httptest.NewRequest("POST", "/api/posts", nil)
+req.Header.Set("Authorization", c.Request().Header.Get("Authorization"))
+if a.Probe(req) { /* the caller may create posts */ }
+```
+
+Inside the chain `c.Probing()` says so. The framework's own guards already respect it — a
+probe takes no rate-limit token from `Config.RateLimit` or `trilha.Limit`, records no API-key
+usage, raises no security event and writes no request log — and a middleware of yours that
+counts, charges or sends something should ask the same question.
+
+`trilha.WithVia(req, "mcp")` marks a request as arriving through a bridge, so the actor of
+the audit record says `Via: "mcp"` instead of `session` — the audit screen filters on it.
 
 ### Dependencies
 

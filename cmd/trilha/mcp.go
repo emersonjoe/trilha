@@ -12,9 +12,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/emersonjoe/trilha/ai"
 	"github.com/emersonjoe/trilha/ai/mcp"
+	"github.com/emersonjoe/trilha/internal/openapi"
+	"github.com/emersonjoe/trilha/internal/scan"
 	"github.com/emersonjoe/trilha/internal/uidoc"
 )
 
@@ -65,12 +68,17 @@ var (
 func cmdMCP(args []string) error {
 	fs := flag.NewFlagSet("mcp", flag.ContinueOnError)
 	write := fs.Bool("write", false, t("flag mcp write"))
+	fromRoutes := fs.Bool("from-routes", false, t("flag mcp from routes"))
+	include := fs.String("include", "", t("flag mcp include"))
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	p, err := findProject()
 	if err != nil {
 		return err
+	}
+	if *fromRoutes {
+		return mcpFromRoutes(p, *include)
 	}
 	self, err := os.Executable()
 	if err != nil {
@@ -96,6 +104,89 @@ func cmdMCP(args []string) error {
 
 	s := mcp.NewServer("trilha", version, tools...)
 	return s.ServeStdio(context.Background(), os.Stdin, os.Stdout)
+}
+
+// mcpFromRoutes prints what mcp.FromRoutes would publish for this project:
+// the same derivation, from the document the code produces today, so the
+// list can be checked before the server exists.
+func mcpFromRoutes(p *project, include string) error {
+	res, err := scan.Scan(p.Root, p.Module)
+	if err != nil {
+		return err
+	}
+	doc, err := openapi.Generate(p.Root, res, openapi.Options{})
+	if err != nil {
+		return err
+	}
+	routes := map[string][]string{}
+	for _, r := range res.Routes {
+		if r.Kind == "api" {
+			routes[r.Pattern] = r.Methods
+		}
+	}
+	var opts mcp.FromRoutesOpts
+	for _, pat := range strings.Split(include, ",") {
+		if pat = strings.TrimSpace(pat); pat != "" {
+			opts.Include = append(opts.Include, pat)
+		}
+	}
+	tools, warnings, err := mcp.Preview(doc, routes, opts)
+	if err != nil {
+		return err
+	}
+	shown := opts.Include
+	if len(shown) == 0 {
+		shown = []string{"/api/*"}
+	}
+	fmt.Printf(t("mcp from routes head")+"\n", strings.Join(shown, ", "))
+	if len(tools) == 0 {
+		fmt.Println("  " + t("mcp from routes none"))
+	}
+	// The method and the path are in the document's operation, not in the
+	// tool: read them back so the line says what the name stands for.
+	where := map[string]string{}
+	for _, r := range res.Routes {
+		if r.Kind != "api" {
+			continue
+		}
+		for _, m := range r.Methods {
+			where[mcpOperationID(m, r.Pattern)] = m + " " + r.Pattern
+		}
+	}
+	for _, tl := range tools {
+		summary, _, _ := strings.Cut(tl.Description, "\n")
+		fmt.Printf("  %-28s %-32s %s\n", tl.Name, where[tl.Name], summary)
+	}
+	if len(warnings) > 0 {
+		fmt.Println(t("mcp from routes left out"))
+		for _, w := range warnings {
+			fmt.Println("  " + w)
+		}
+	}
+	return nil
+}
+
+// mcpOperationID is trilha openapi's rule, which mcp.FromRoutes shares.
+func mcpOperationID(method, pattern string) string {
+	var sb strings.Builder
+	sb.WriteString(strings.ToLower(method))
+	for _, seg := range strings.Split(pattern, "/") {
+		seg = strings.TrimSuffix(strings.Trim(seg, "{}"), "...")
+		upper := true
+		for _, r := range seg {
+			if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+				upper = true
+				continue
+			}
+			if upper {
+				sb.WriteRune(unicode.ToUpper(r))
+				upper = false
+				continue
+			}
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
 }
 
 // mcpRunner runs this same CLI as a child process. Running the commands in

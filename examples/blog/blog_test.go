@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"html"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/ai/mcp"
 	"github.com/emersonjoe/trilha/examples/blog/internal/anexos"
 	"github.com/emersonjoe/trilha/examples/blog/internal/documentos"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
@@ -1182,4 +1184,51 @@ func TestAssistenteDaAreaDoApp(t *testing.T) {
 	rec := c.postForm("/assistente", "message=onde+estou%3F&ctx.rota=%2Frelatorio",
 		trilha.WithHeader("Accept", "text/event-stream"))
 	rec.WantStatus(200).WantContains("event: text", "event: done", "/relatorio")
+}
+
+// #152 — a /api é também um servidor MCP em /mcp: as ferramentas nascem das
+// rotas e do openapi.json embutido, e chamar uma é chamar a rota.
+func TestAPIComoFerramentasMCP(t *testing.T) {
+	c := newClient(t, "prod")
+	hs := httptest.NewServer(c.app.Handler())
+	defer hs.Close()
+	cl, err := mcp.Dial(context.Background(), mcp.HTTP(hs.URL+"/mcp", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cl.Close()
+	tools, err := cl.ListTools(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, tl := range tools {
+		names = append(names, tl.Name)
+	}
+	if got := strings.Join(names, " "); got != "deleteApiPostsId getApiPosts getApiPostsId postApiPosts" {
+		t.Fatalf("ferramentas: %s", got)
+	}
+	// A descrição e o esquema vêm do documento, não de um segundo cadastro.
+	for _, tl := range tools {
+		if tl.Name == "postApiPosts" && !strings.Contains(string(tl.InputSchema), `"title"`) {
+			t.Fatalf("postApiPosts sem o campo title: %s", tl.InputSchema)
+		}
+	}
+	res, err := cl.CallTool(context.Background(), "getApiPosts", nil)
+	if err != nil || res.IsError {
+		t.Fatal(err, res)
+	}
+	if want := strings.TrimSpace(c.Get("/api/posts").Body.String()); res.Text() != want {
+		t.Fatalf("a ferramenta não respondeu o que a rota responde:\n%s\n%s", res.Text(), want)
+	}
+	res, err = cl.CallTool(context.Background(), "postApiPosts", json.RawMessage(`{"title": "Via MCP", "body": "b"}`))
+	if err != nil || res.IsError {
+		t.Fatal(err, res)
+	}
+	c.Get("/api/posts/via-mcp").WantStatus(200).WantContains(`"title":"Via MCP"`)
+	// Um id que não existe é o mesmo 404 da rota, dentro do resultado.
+	res, _ = cl.CallTool(context.Background(), "getApiPostsId", json.RawMessage(`{"id": "nada"}`))
+	if !res.IsError || !strings.Contains(res.Text(), "404") && !strings.Contains(res.Text(), "Not Found") {
+		t.Fatalf("esperava o 404 da rota: %+v", res)
+	}
 }

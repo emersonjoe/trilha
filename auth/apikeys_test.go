@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -237,5 +238,48 @@ func TestChaveViraAtorNaTrilha(t *testing.T) {
 	}
 	if got := trilhaLog[0].Actor; got.Via != "api_key" || got.Subject != "key:"+k.ID {
 		t.Fatalf("ator = %+v", got)
+	}
+}
+
+// Uma sonda pergunta "esta chave passaria?"; não é uma chamada. Ela não gasta
+// o limite da chave nem entra na contagem de uso — senão listar vinte
+// ferramentas num MCP esgotaria o orçamento antes da primeira de verdade.
+func TestSondaNaoGastaLimiteNemContaUso(t *testing.T) {
+	a, ks := comChaves(t, KeyOptions{
+		Scopes: []string{"docs:read", "docs:write"}, RateLimit: trilha.RateLimit{RPS: 0.001, Burst: 1},
+		Usage: UsageMemory(),
+	})
+	_, secret, _ := ks.Issue(nil, "x", []string{"docs:read"}, 0)
+	a.Register(trilha.Route{Pattern: "/api/coisa", Kind: trilha.KindAPI,
+		Middlewares: []trilha.MiddlewareFunc{ks.Require("docs:read")},
+		Methods:     map[string]trilha.HandlerFunc{"GET": func(c *trilha.Ctx) error { return c.Text(200, "ok") }}})
+	a.Register(trilha.Route{Pattern: "/api/escreve", Kind: trilha.KindAPI,
+		Middlewares: []trilha.MiddlewareFunc{ks.Require("docs:write")},
+		Methods:     map[string]trilha.HandlerFunc{"POST": func(c *trilha.Ctx) error { return c.Text(200, "ok") }}})
+	sonda := func(method, path string) bool {
+		req := httptest.NewRequest(method, path, nil)
+		req.Header.Set("Authorization", "Bearer "+secret)
+		return a.Probe(req)
+	}
+	for i := 0; i < 5; i++ {
+		if !sonda("GET", "/api/coisa") {
+			t.Fatalf("sonda %d recusou uma chave com o escopo", i)
+		}
+	}
+	if sonda("POST", "/api/escreve") {
+		t.Fatal("a sonda deixou passar uma chave sem o escopo")
+	}
+	// A chamada de verdade ainda tem o orçamento inteiro.
+	req := httptest.NewRequest("GET", "/api/coisa", nil)
+	req.Header.Set("Authorization", "Bearer "+secret)
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("depois das sondas a chamada respondeu %d", rec.Code)
+	}
+	_ = ks.Flush(context.Background())
+	rep, err := ks.Usage(context.Background(), UsageQuery{})
+	if err != nil || rep.Total != 1 {
+		t.Fatalf("uso contado = %d (%v); só a chamada de verdade conta", rep.Total, err)
 	}
 }

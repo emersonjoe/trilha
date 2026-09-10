@@ -275,25 +275,59 @@ func checkStepAudit(p *project, _ bool) (string, []problem) {
 
 // checkStepOpenAPI only speaks when the project keeps the document: the title
 // and the version come from the file itself, so the comparison is like for
-// like.
+// like. The document lives at the root, or under app/ when a route embeds it
+// — mcp.FromRoutes reads it from there — and every copy has to be today's.
 func checkStepOpenAPI(p *project, _ bool) (string, []problem) {
-	path := filepath.Join(p.Root, openapi.FileName)
-	cur, err := os.ReadFile(path)
-	if err != nil {
+	paths := openAPIDocs(p.Root)
+	if len(paths) == 0 {
 		return statusSkipped, nil
 	}
 	res, err := scan.Scan(p.Root, p.Module)
 	if err != nil {
 		return statusSkipped, nil
 	}
-	doc, err := openapi.Generate(p.Root, res, optionsOf(cur))
-	if err != nil {
-		return statusFailed, []problem{{Tool: "openapi", File: openapi.FileName, Message: err.Error(), Fix: t("fix openapi")}}
+	var problems []problem
+	for _, path := range paths {
+		rel, _ := filepath.Rel(p.Root, path)
+		rel = filepath.ToSlash(rel)
+		fix := t("fix openapi")
+		if rel != openapi.FileName {
+			fix += " -o " + rel
+		}
+		cur, err := os.ReadFile(path)
+		if err != nil {
+			problems = append(problems, problem{Tool: "openapi", File: rel, Message: err.Error(), Fix: fix})
+			continue
+		}
+		doc, err := openapi.Generate(p.Root, res, optionsOf(cur))
+		if err != nil {
+			problems = append(problems, problem{Tool: "openapi", File: rel, Message: err.Error(), Fix: fix})
+			continue
+		}
+		if string(cur) != string(doc) {
+			problems = append(problems, problem{Tool: "openapi", File: rel, Message: t("openapi stale"), Fix: fix})
+		}
 	}
-	if string(cur) == string(doc) {
-		return statusOK, nil
+	if len(problems) > 0 {
+		return statusFailed, problems
 	}
-	return statusFailed, []problem{{Tool: "openapi", File: openapi.FileName, Message: t("openapi stale"), Fix: t("fix openapi")}}
+	return statusOK, nil
+}
+
+// openAPIDocs is the root document, if any, then every openapi.json under
+// app/, sorted.
+func openAPIDocs(root string) []string {
+	var out []string
+	if _, err := os.Stat(filepath.Join(root, openapi.FileName)); err == nil {
+		out = append(out, filepath.Join(root, openapi.FileName))
+	}
+	_ = filepath.WalkDir(filepath.Join(root, "app"), func(path string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && d.Name() == openapi.FileName {
+			out = append(out, path)
+		}
+		return nil
+	})
+	return out
 }
 
 // optionsOf reads back what only the file knows: the title, the version and

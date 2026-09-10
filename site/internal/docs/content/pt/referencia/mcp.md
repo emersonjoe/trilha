@@ -75,6 +75,25 @@ tools: describe_project, check, routes, ui_describe
 → trilha ctx --json
 ```
 
+### trilha mcp --from-routes
+
+A outra coisa que a CLI responde é *como a minha API ficaria como ferramentas*: a lista que
+[`FromRoutes`](#a-sua-api-como-ferramentas) publicaria, derivada de `app/` e do documento
+OpenAPI, impressa antes de existir servidor.
+
+```text
+$ trilha mcp --from-routes
+ferramentas que mcp.FromRoutes exporia (include: /api/*):
+  deleteApiPostsId   DELETE /api/posts/{id}   DELETE removes a post.
+  getApiPosts        GET /api/posts           GET lists posts.
+  getApiPostsId      GET /api/posts/{id}      GET returns one post by slug.
+  postApiPosts       POST /api/posts          POST creates a post from JSON.
+```
+
+`--include` aceita os mesmos padrões de `FromRoutesOpts.Include`. Uma rota deixada de fora —
+um upload multipart, por exemplo — sai com o motivo, a mesma linha que o servidor registra
+no log.
+
 ### O que ainda não está aqui
 
 Receitas e páginas de referência não são ferramentas deste servidor: são o mesmo Markdown de
@@ -118,6 +137,68 @@ aceito (`405` com `Allow: POST` para o resto). Corpo limitado a 4 MiB.
 
 Erros e pânicos de ferramentas viram resultado com `isError: true`, como manda o protocolo;
 ferramenta desconhecida é erro JSON-RPC `-32602`.
+
+## A sua API como ferramentas
+
+```go
+func FromRoutes(app *trilha.App, o FromRoutesOpts) *Server
+func Preview(openAPI []byte, routes map[string][]string, o FromRoutesOpts) ([]ToolInfo, []string, error)
+
+type FromRoutesOpts struct {
+	Name, Version string   // o que o initialize responde
+	Include       []string // padrões a expor; padrão /api/*
+	Exclude       []string // padrões a esconder, conferidos depois de Include
+	OpenAPI       []byte   // o documento que trilha openapi escreve; obrigatório
+}
+```
+
+Uma API escrita em `app/api/` já é o que um agente precisa: nome, descrição, esquema de
+argumentos, handler. `FromRoutes` a publica como ferramentas MCP sem uma segunda declaração —
+uma ferramenta por (método, rota), com o nome do operation id do documento (`getApiPosts`,
+`postApiPosts`), a descrição do comentário do próprio handler, e os parâmetros do caminho, a
+query e o corpo achatados num esquema de entrada só.
+
+```go
+//go:embed mcp/openapi.json
+var openAPI []byte
+
+func Setup(a *trilha.App) error {
+	trilha.Provide(a, mcp.FromRoutes(a, mcp.FromRoutesOpts{Name: "blog", Version: "1.0", OpenAPI: openAPI}))
+	return nil
+}
+```
+
+```go
+// app/mcp/route.go
+func POST(c *trilha.Ctx) error { return trilha.Use[*mcp.Server](c).ServeHTTP(c) }
+```
+
+O documento é o que dá às ferramentas descrição e esquema — o runtime não os guarda —, por
+isso ele mora ao lado da rota, em `app/mcp/openapi.json`, escrito por
+`trilha openapi -o app/mcp/openapi.json` e embutido. O `trilha check` compara cada
+`openapi.json` dentro de `app/` com as rotas: uma cópia que ficou para trás derruba o build,
+não o agente. Sem documento, `FromRoutes` entra em pânico: ferramenta sem descrição é
+ferramenta que o modelo usa errado.
+
+**Chamar é chamar a rota.** A ferramenta monta a requisição — `{id}` no caminho, `q` na
+query, o resto como corpo JSON — e a passa pelo `app.Handler()`, cadeia incluída: o limite de
+taxa, a chave de API, a auditoria e o log veem a mesma requisição que um `curl` mandaria. O
+`Authorization`, o `X-Forwarded-For`, o `X-Request-ID` e o `Accept-Language` de quem chamou
+viajam junto; o ator do registro de auditoria diz `Via: "mcp"`. Um `4xx`/`5xx` vira resultado
+com `isError: true` e o corpo como texto, para o modelo ler o `422` que o handler escreveu.
+
+**O `tools/list` é por chamador.** Antes de listar uma ferramenta o servidor *sonda* a rota
+com os cabeçalhos de quem chamou — a cadeia roda, o handler não — e uma rota que responderia
+`401` ou `403` não entra na lista. Uma chave com `docs:read` vê as leituras; as escritas não
+ficam escondidas atrás de uma recusa, elas não existem. A sonda não gasta token do limite de
+taxa nem conta uso (ver [`App.Probe`](/pt/referencia/app#sondar-uma-rota)).
+
+**O que fica de fora**, com o motivo no log e no `trilha mcp --from-routes`: páginas
+(`page.go`), rotas fora do `Include`, `OPTIONS`/`HEAD` e handler cujo corpo é multipart — a
+ponte manda JSON. `Include` e `Exclude` são prefixos com `*` no fim ou caminhos exatos.
+
+`Preview` é o mesmo plano sem app: entram o documento, as rotas e as opções; saem a lista e os
+avisos — o que a CLI imprime.
 
 ## Transporte próprio
 

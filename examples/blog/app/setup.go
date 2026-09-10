@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/ai/mcp"
 	"github.com/emersonjoe/trilha/cache"
 	"github.com/emersonjoe/trilha/examples/blog/internal/icones"
 	"github.com/emersonjoe/trilha/examples/blog/internal/posts"
@@ -65,6 +67,13 @@ func Config(cfg *trilha.Config) error {
 	return nil
 }
 
+// openAPI is the document `trilha openapi -o app/mcp/openapi.json` writes.
+// It is what gives the MCP tools below their descriptions and argument
+// schemas; `trilha check` fails when it falls behind the routes.
+//
+//go:embed mcp/openapi.json
+var openAPI []byte
+
 // Setup runs once before the server starts.
 func Setup(a *trilha.App) error {
 	// O app fala português; as mensagens de validação também.
@@ -115,6 +124,10 @@ func Setup(a *trilha.App) error {
 	if err := motor.Setup(a); err != nil {
 		return err
 	}
+	// A /api também é um conjunto de ferramentas MCP, em /mcp: as mesmas
+	// rotas, o mesmo limite, o mesmo JSON. Um agente que só fala o protocolo
+	// lista e cria posts sem que ninguém escreva uma segunda API para ele.
+	trilha.Provide(a, mcp.FromRoutes(a, mcp.FromRoutesOpts{Name: "blog", Version: "1.0", OpenAPI: openAPI}))
 	// Limite global brando; /api tem o seu próprio em app/api/middleware.go.
 	a.Security().CSPExtra = map[string][]string{"img-src": {"https:"}}
 	return nil

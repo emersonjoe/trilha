@@ -75,6 +75,24 @@ tools: describe_project, check, routes, ui_describe
 → trilha ctx --json
 ```
 
+### trilha mcp --from-routes
+
+The other thing the CLI answers is *what would my API look like as tools*: the list
+[`FromRoutes`](#your-api-as-tools) would publish, derived from `app/` and the OpenAPI document,
+printed before any server exists.
+
+```text
+$ trilha mcp --from-routes
+tools mcp.FromRoutes would expose (include: /api/*):
+  deleteApiPostsId   DELETE /api/posts/{id}   DELETE removes a post.
+  getApiPosts        GET /api/posts           GET lists posts.
+  getApiPostsId      GET /api/posts/{id}      GET returns one post by slug.
+  postApiPosts       POST /api/posts          POST creates a post from JSON.
+```
+
+`--include` takes the same patterns as `FromRoutesOpts.Include`. A route left out — a
+multipart upload, for one — is printed with the reason, the same line the server logs.
+
 ### What is not here yet
 
 Recipes and reference pages are not tools of this server: they are the same Markdown the
@@ -118,6 +136,69 @@ Only `POST` is accepted (`405` with `Allow: POST` for the rest). Body limited to
 
 Tool errors and panics become a result with `isError: true`, as the protocol requires; an
 unknown tool is JSON-RPC error `-32602`.
+
+## Your API as tools
+
+```go
+func FromRoutes(app *trilha.App, o FromRoutesOpts) *Server
+func Preview(openAPI []byte, routes map[string][]string, o FromRoutesOpts) ([]ToolInfo, []string, error)
+
+type FromRoutesOpts struct {
+	Name, Version string   // what initialize answers
+	Include       []string // patterns to expose; default /api/*
+	Exclude       []string // patterns to hide, checked after Include
+	OpenAPI       []byte   // the document trilha openapi writes; required
+}
+```
+
+An API written under `app/api/` is already what an agent needs: a name, a description, an
+argument schema, a handler. `FromRoutes` publishes it as MCP tools without a second
+declaration — one tool per (method, route), named by the operation id of the document
+(`getApiPosts`, `postApiPosts`), described by the handler's own doc comment, with the path
+parameters, the query and the body flattened into one input schema.
+
+```go
+//go:embed mcp/openapi.json
+var openAPI []byte
+
+func Setup(a *trilha.App) error {
+	trilha.Provide(a, mcp.FromRoutes(a, mcp.FromRoutesOpts{Name: "blog", Version: "1.0", OpenAPI: openAPI}))
+	return nil
+}
+```
+
+```go
+// app/mcp/route.go
+func POST(c *trilha.Ctx) error { return trilha.Use[*mcp.Server](c).ServeHTTP(c) }
+```
+
+The document is what gives the tools their descriptions and schemas — the runtime does not
+keep them — so it lives next to the route, at `app/mcp/openapi.json`, written by
+`trilha openapi -o app/mcp/openapi.json` and embedded. `trilha check` compares every
+`openapi.json` under `app/` with the routes, so a copy that fell behind fails the build, not
+the agent. Without a document `FromRoutes` panics: a tool with no description is a tool a
+model will misuse.
+
+**A call is the route.** The tool builds the request — `{id}` into the path, `q` into the
+query, the rest as the JSON body — and runs it through `app.Handler()`, chain included: the
+rate limit, the API key, the audit and the log see the same request a `curl` would send. The
+caller's `Authorization`, `X-Forwarded-For`, `X-Request-ID` and `Accept-Language` travel with
+it; the actor of the audit record says `Via: "mcp"`. A `4xx`/`5xx` becomes a tool result with
+`isError: true` and the body as the text, so the model reads the `422` the handler wrote.
+
+**`tools/list` is per caller.** Before listing a tool the server *probes* its route with the
+caller's headers — the chain runs, the handler does not — and a route that would answer `401`
+or `403` is not in the list. A key with `docs:read` sees the reads; the writes are not hidden
+behind a refusal, they are absent. The probe takes no rate-limit token and counts no usage
+(see [`App.Probe`](/reference/app#probing-a-route)).
+
+**What is left out**, with the reason in the log and in `trilha mcp --from-routes`: pages
+(`page.go`), routes outside `Include`, `OPTIONS`/`HEAD`, and a handler whose body is
+multipart — the bridge sends JSON. `Include` and `Exclude` are prefixes with a trailing `*`
+or exact paths.
+
+`Preview` is the same plan without an app: the document, the routes and the options in, the
+list and the warnings out — what the CLI prints.
 
 ## Your own transport
 

@@ -3,6 +3,34 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.98.0 — 2026-09-10
+
+Spec 119. Closes [#152](https://github.com/emersonjoe/trilha/issues/152).
+
+### Added
+
+- **The API as MCP tools, without a second declaration.** `mcp.FromRoutes(app, opts)` publishes
+  every API route under `/api/` (or `FromRoutesOpts.Include`) as a tool of a `*mcp.Server`: one
+  per (method, route), named by the operation id of the OpenAPI document, described by the
+  handler's own doc comment, with path, query and body flattened into one input schema. A call
+  is the route — it runs through `app.Handler()`, chain included, carrying the caller's
+  `Authorization`, `X-Forwarded-For`, `X-Request-ID` and `Accept-Language`; a `4xx`/`5xx` is a
+  result with `isError` and the body as text, and the audit actor says `Via: "mcp"`. `tools/list`
+  is per caller: each route is probed with the caller's headers and one that would answer
+  `401`/`403` is absent, not refused. Pages, `OPTIONS`/`HEAD`, routes outside `Include` and
+  multipart bodies stay out, with the reason in the log. The document lives at
+  `app/mcp/openapi.json` (written by `trilha openapi -o`, embedded by the app) and
+  `trilha check` now verifies every `openapi.json` under `app/` as it did the root one.
+  `mcp.Preview` is the same plan without an app; `trilha mcp --from-routes [--include]` prints
+  it. `examples/blog` serves its `/api` at `/mcp`.
+- **`App.Probe`, `Ctx.Probing`, `App.Route`, `trilha.WithVia`.** `Probe(req)` runs a route's
+  middleware chain without the handler and says whether the caller would get through; inside
+  the chain `c.Probing()` is true, and the framework's guards honour it — `Config.RateLimit`
+  and `trilha.Limit` take no token, `Keys.Require` records no usage and no touch, no security
+  event and no request log are written. `Route(pattern)` returns one registered route as a
+  copy. `WithVia(req, via)` marks how a request arrived, and `SetActor` writes it to
+  `Actor.Via`.
+
 ## 0.97.0 — 2026-09-10
 
 Spec 118. Closes [#155](https://github.com/emersonjoe/trilha/issues/155).

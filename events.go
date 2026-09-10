@@ -21,7 +21,10 @@ func (a *App) securityEventFor(r *http.Request, kind string, status int) {
 
 // securityEvent logs the event and calls the hook, at most once per request.
 func (a *App) securityEvent(c *Ctx, kind string, status int) {
-	if c.secEmitted {
+	// A probe asks "would this get through?"; a no is the answer, not an
+	// attempt worth an alert — and a listing that probes twenty routes would
+	// otherwise raise twenty of them.
+	if c.secEmitted || c.Probing() {
 		return
 	}
 	c.secEmitted = true

@@ -157,6 +157,12 @@ Protect the route like any API (middleware with a token, rate limit). The server
 `Mcp-Session-Id` on `initialize` and rejects messages without a session. For hosts that
 prefer stdio, `server.ServeStdio(ctx, os.Stdin, os.Stdout)` in a separate `main`.
 
+**The API you already have** does not need tools written by hand. `mcp.FromRoutes(a, opts)`
+publishes every route under `/api/` as a tool — name, description and schema from the
+OpenAPI document, the call going through the route's own chain, `tools/list` filtered by
+what the caller's key may reach. The recipe is [Your API as agent tools](/cookbook/api-as-tools);
+the details, in [mcp](/reference/mcp#your-api-as-tools).
+
 ## Your project, explained to an agent
 
 The chapters above are about the agent your app runs. This section is about the agent that
