@@ -92,6 +92,7 @@ pkg trilha, method (*App) Metrics() *Metrics
 pkg trilha, method (*App) OnShutdown(func(*App) error)
 pkg trilha, method (*App) Register(Route)
 pkg trilha, method (*App) Routes() map[string][]string
+pkg trilha, method (*App) RunShutdown() error
 pkg trilha, method (*App) Security() *Security
 pkg trilha, method (*App) SetErrorPage(ErrorPageFunc)
 pkg trilha, method (*App) SetNotFound(PageFunc)
@@ -872,6 +873,7 @@ pkg auth, func PBKDF2([]byte, []byte, int, int) []byte
 pkg auth, func PolicyFrom(context.Context, PolicyStore, Policy) (Policy, error)
 pkg auth, func Sessions(Options) *Auth
 pkg auth, func Tenant(*trilha.Ctx) string
+pkg auth, func UsageMemory() UsageStore
 pkg auth, method (*Auth) Callback(*trilha.Ctx) error
 pkg auth, method (*Auth) Login(*trilha.Ctx, *User) error
 pkg auth, method (*Auth) Logout(*trilha.Ctx) error
@@ -888,9 +890,13 @@ pkg auth, method (*Auth) SwitchTenant(*trilha.Ctx, string) error
 pkg auth, method (*Auth) User(*trilha.Ctx) *User
 pkg auth, method (*Key) Active(time.Time) bool
 pkg auth, method (*Keys) All() ([]*Key, error)
+pkg auth, method (*Keys) Flush(context.Context) error
+pkg auth, method (*Keys) Idle(context.Context, time.Time) ([]*Key, error)
 pkg auth, method (*Keys) Issue(*trilha.Ctx, string, []string, time.Duration) (*Key, string, error)
 pkg auth, method (*Keys) Require(...string) trilha.MiddlewareFunc
 pkg auth, method (*Keys) Revoke(*trilha.Ctx, string) error
+pkg auth, method (*Keys) Setup(*trilha.App) error
+pkg auth, method (*Keys) Usage(context.Context, UsageQuery) (UsageReport, error)
 pkg auth, method (*Keys) User(*trilha.Ctx) *User
 pkg auth, method (*MemoryStore) Delete(string) error
 pkg auth, method (*MemoryStore) Load(string) (*User, bool)
@@ -930,6 +936,9 @@ pkg auth, type KeyOptions struct, Prefix string
 pkg auth, type KeyOptions struct, RateLimit trilha.RateLimit
 pkg auth, type KeyOptions struct, Scopes []string
 pkg auth, type KeyOptions struct, Store KeyStore
+pkg auth, type KeyOptions struct, Usage UsageStore
+pkg auth, type KeyOptions struct, UsageFlush time.Duration
+pkg auth, type KeyOptions struct, UsageKeep time.Duration
 pkg auth, type KeyStore interface
 pkg auth, type KeyStore interface, All() ([]*Key, error)
 pkg auth, type KeyStore interface, Find(string) (*Key, bool)
@@ -971,6 +980,45 @@ pkg auth, type Store interface
 pkg auth, type Store interface, Delete(string) error
 pkg auth, type Store interface, Load(string) (*User, bool)
 pkg auth, type Store interface, Save(string, *User, time.Duration) error
+pkg auth, type UsageDay struct
+pkg auth, type UsageDay struct, Count int
+pkg auth, type UsageDay struct, Day time.Time
+pkg auth, type UsageDay struct, Errors int
+pkg auth, type UsageKeyTotal struct
+pkg auth, type UsageKeyTotal struct, Count int
+pkg auth, type UsageKeyTotal struct, Errors int
+pkg auth, type UsageKeyTotal struct, KeyID string
+pkg auth, type UsageKeyTotal struct, Last time.Time
+pkg auth, type UsageQuery struct
+pkg auth, type UsageQuery struct, Key string
+pkg auth, type UsageQuery struct, Since time.Time
+pkg auth, type UsageQuery struct, Until time.Time
+pkg auth, type UsageReport struct
+pkg auth, type UsageReport struct, ByDay []UsageDay
+pkg auth, type UsageReport struct, ByKey []UsageKeyTotal
+pkg auth, type UsageReport struct, ByRoute []UsageRoute
+pkg auth, type UsageReport struct, Errors int
+pkg auth, type UsageReport struct, Last time.Time
+pkg auth, type UsageReport struct, Total int
+pkg auth, type UsageRoute struct
+pkg auth, type UsageRoute struct, Count int
+pkg auth, type UsageRoute struct, Errors int
+pkg auth, type UsageRoute struct, Last time.Time
+pkg auth, type UsageRoute struct, Method string
+pkg auth, type UsageRoute struct, Route string
+pkg auth, type UsageRow struct
+pkg auth, type UsageRow struct, Count int
+pkg auth, type UsageRow struct, Day time.Time
+pkg auth, type UsageRow struct, Errors int
+pkg auth, type UsageRow struct, KeyID string
+pkg auth, type UsageRow struct, Last time.Time
+pkg auth, type UsageRow struct, LastStatus int
+pkg auth, type UsageRow struct, Method string
+pkg auth, type UsageRow struct, Route string
+pkg auth, type UsageStore interface
+pkg auth, type UsageStore interface, Add(context.Context, []UsageRow) error
+pkg auth, type UsageStore interface, Prune(context.Context, time.Time) error
+pkg auth, type UsageStore interface, Query(context.Context, UsageQuery) (UsageReport, error)
 pkg auth, type User struct
 pkg auth, type User struct, Email string
 pkg auth, type User struct, ExpiresAt time.Time
@@ -983,6 +1031,7 @@ pkg auth, type User struct, SessionID string
 pkg auth, type User struct, Subject string
 pkg auth, type User struct, Tenant string
 pkg auth, var ErrNoSession
+pkg auth, var ErrNoUsage
 pkg auth, var ErrUnknownKey
 pkg blob, func FromEnv() Store
 pkg blob, func New(Store) *Files
@@ -1454,6 +1503,7 @@ pkg ui, const FlashFadeMs
 pkg ui, const FlashInfo
 pkg ui, const FlashSuccess
 pkg ui, func APIKeysTable(*trilha.Ctx, []APIKeyRow, ...APIKeysOpts) h.Node
+pkg ui, func APIUsage(*trilha.Ctx, APIUsageData, APIUsageOpts) h.Node
 pkg ui, func Alert(string, ...h.Node) h.Node
 pkg ui, func AlertDescription(...h.Node) h.Node
 pkg ui, func Asset(string) []byte
@@ -1615,6 +1665,7 @@ pkg ui, func WebhooksPanel(*trilha.Ctx, []WebhookRow, []DeliveryRow, WebhooksOpt
 pkg ui, func With(...h.Node) FieldOpt
 pkg ui, method (Back) Render(io.Writer) error
 pkg ui, type APIKeyRow struct
+pkg ui, type APIKeyRow struct, Calls int
 pkg ui, type APIKeyRow struct, Created time.Time
 pkg ui, type APIKeyRow struct, Handle string
 pkg ui, type APIKeyRow struct, ID string
@@ -1626,6 +1677,28 @@ pkg ui, type APIKeysOpts struct
 pkg ui, type APIKeysOpts struct, CSRF h.Node
 pkg ui, type APIKeysOpts struct, Empty h.Node
 pkg ui, type APIKeysOpts struct, Revoke string
+pkg ui, type APIKeysOpts struct, Usage bool
+pkg ui, type APIKeysOpts struct, UsageDays int
+pkg ui, type APIUsageData struct
+pkg ui, type APIUsageData struct, Days []APIUsageDay
+pkg ui, type APIUsageData struct, Errors int
+pkg ui, type APIUsageData struct, Last time.Time
+pkg ui, type APIUsageData struct, Routes []APIUsageRoute
+pkg ui, type APIUsageData struct, Total int
+pkg ui, type APIUsageDay struct
+pkg ui, type APIUsageDay struct, Count int
+pkg ui, type APIUsageDay struct, Day time.Time
+pkg ui, type APIUsageDay struct, Errors int
+pkg ui, type APIUsageOpts struct
+pkg ui, type APIUsageOpts struct, Days int
+pkg ui, type APIUsageOpts struct, Empty string
+pkg ui, type APIUsageOpts struct, Limit int
+pkg ui, type APIUsageRoute struct
+pkg ui, type APIUsageRoute struct, Count int
+pkg ui, type APIUsageRoute struct, Errors int
+pkg ui, type APIUsageRoute struct, Last time.Time
+pkg ui, type APIUsageRoute struct, Method string
+pkg ui, type APIUsageRoute struct, Route string
 pkg ui, type AssistantOpts struct
 pkg ui, type AssistantOpts struct, Action string
 pkg ui, type AssistantOpts struct, Chat ChatOpts

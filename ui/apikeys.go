@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/emersonjoe/trilha"
@@ -55,6 +56,10 @@ type APIKeyRow struct {
 	Created  time.Time
 	LastUsed time.Time
 	Revoked  bool
+	// Calls is how many times the key was used in the window the screen names,
+	// drawn when APIKeysOpts.Usage is on. It is a number and not a report: the
+	// report is ui.APIUsage, one screen deeper.
+	Calls int
 }
 
 // APIKeysOpts is what the table can do besides list.
@@ -69,6 +74,12 @@ type APIKeysOpts struct {
 	CSRF h.Node
 	// Empty replaces the default empty state.
 	Empty h.Node
+	// Usage draws the calls column. It is a switch and not "draw it when some
+	// row has calls", because zero calls on every key is exactly the answer
+	// somebody opened this screen for.
+	Usage bool
+	// UsageDays names the window in that column's header — "calls (30 d)".
+	UsageDays int
 }
 
 // APIKeysTable lists the keys of an application: what each one is called, what
@@ -98,14 +109,17 @@ func APIKeysTable(c *trilha.Ctx, rows []APIKeyRow, opts ...APIKeysOpts) h.Node {
 				"Uma chave é como outro sistema chama este, sem uma pessoa atrás."),
 		})
 	}
-	head := h.Thead(h.Tr(
+	cols := []h.Node{
 		h.Th(h.Text(word(pt, "Name", "Nome"))),
 		h.Th(h.Text(word(pt, "Key", "Chave"))),
 		h.Th(h.Text(word(pt, "May", "Pode"))),
 		h.Th(h.Text(word(pt, "Created", "Criada"))),
 		h.Th(h.Text(word(pt, "Last used", "Último uso"))),
-		h.Th(h.Text("")),
-	))
+	}
+	if o.Usage {
+		cols = append(cols, h.Th(h.Text(callsHeader(o, pt))))
+	}
+	head := h.Thead(h.Tr(append(cols, h.Th(h.Text("")))...))
 	body := make([]h.Node, 0, len(rows))
 	for _, r := range rows {
 		body = append(body, h.Tr(
@@ -118,10 +132,21 @@ func APIKeysTable(c *trilha.Ctx, rows []APIKeyRow, opts ...APIKeysOpts) h.Node {
 			h.Td(h.IfElse(r.LastUsed.IsZero(),
 				h.Span(h.Class("ui-muted"), h.Text(word(pt, "never", "nunca"))),
 				Date(c, r.LastUsed, Relative()))),
+			h.If(o.Usage, h.Td(Num(), h.Text(strconv.Itoa(r.Calls)))),
 			h.Td(revogar(o, r, pt)),
 		))
 	}
 	return Table(head, h.Tbody(body...))
+}
+
+// callsHeader names the window the number covers. A count with no window is a
+// count nobody can compare with the next one.
+func callsHeader(o APIKeysOpts, pt bool) string {
+	label := word(pt, "Calls", "Chamadas")
+	if o.UsageDays <= 0 {
+		return label
+	}
+	return label + " (" + strconv.Itoa(o.UsageDays) + " d)"
 }
 
 func escopos(scopes []string) h.Node {

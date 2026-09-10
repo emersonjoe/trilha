@@ -77,6 +77,14 @@ type KeyOptions struct {
 	// RateLimit applies per key rather than per address: one caller behind one
 	// key is one budget, whatever their IP is doing.
 	RateLimit trilha.RateLimit
+	// Usage counts the calls per key, method, route and day. Nil counts
+	// nothing, which is what an application that never asked for it pays.
+	Usage UsageStore
+	// UsageFlush is how often the buffer goes to the store (default 30s), and
+	// UsageKeep how long a bucket is worth keeping. Zero keeps for ever, which
+	// is a decision somebody should make on purpose.
+	UsageFlush time.Duration
+	UsageKeep  time.Duration
 }
 
 // Keys is the set of API keys of an application.
@@ -87,6 +95,9 @@ type Keys struct {
 	mu      sync.Mutex
 	touched map[string]time.Time
 	now     func() time.Time
+
+	usageMu sync.Mutex
+	usage   map[usageBucket]*usageCell
 }
 
 // APIKeys wires the keys of an application.
@@ -194,7 +205,11 @@ func (ks *Keys) Require(scopes ...string) trilha.MiddlewareFunc {
 		}
 		ks.remember(c, k)
 		ks.touch(k)
-		return next()
+		err = next()
+		// The counter is written after the answer, so what a request pays for
+		// counting is a map write and never a round trip.
+		ks.record(c, k, err)
+		return err
 	}
 }
 

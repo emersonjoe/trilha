@@ -70,6 +70,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação) |
+| `APIUsage(c, dados, opts)` | quanto uma chave foi usada, onde, e quando parou — veja [Auth](/pt/referencia/auth) |
 | `SearchBox(c, action, opts)`, `SearchResults(c, res, opts)` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) |
 | `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
 

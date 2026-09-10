@@ -3,6 +3,49 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.96.0 — 2026-09-10
+
+Spec 117. Closes [#151](https://github.com/emersonjoe/trilha/issues/151).
+
+### Added
+
+- **`auth.KeyOptions.Usage`: who is using this key, where, and when they stopped.** It is the first
+  question after a key is handed to a partner, and it is not a security question. The key already
+  knew *who* called and when it was last seen; what this adds is the shape of the use — per key,
+  method, route pattern and day.
+
+  **Counting must not cost the request.** `Require` increments a bucket in memory after the answer
+  is written — one map write under a mutex, nothing that can block on a network — and the buckets
+  go to the store in batches. A flush that fails puts its counts back in the buffer, because losing
+  them because a database was restarting is the exact failure the design is avoiding. The route is
+  the pattern (`/documents/{id}`), never the concrete path: a counter per path is a counter with one
+  row per request.
+
+  Without a `Usage` store nothing changes, byte for byte, and `Keys.Usage` answers `ErrNoUsage`
+  rather than an empty report — no data and no counting are different answers.
+
+- **`Keys.Setup`, `Keys.Flush` and `Keys.Idle`.** `Setup` flushes on a timer and on shutdown, and
+  sweeps `UsageKeep`; `Flush` is exported so a test asserting a count does not have to wait for a
+  clock. `Idle` is the keys with no call since a date — the issue wanted that check in `trilha
+  audit`, and it is here instead: that command reads code on somebody's laptop, and a check that
+  cannot see production counters is a check that always says everything is fine.
+
+- **`auth.UsageStore` and `auth.UsageMemory`.** Three methods — add, query, prune. Retention is a
+  decision somebody makes, and a counter table nobody deletes from outgrows what it is worth.
+
+- **`ui.APIUsage`, and the calls column of `ui.APIKeysTable`.** The totals, the shape by day drawn
+  on the server with `ui.Sparkline`, and the table by route with the noisy ones marked. The column
+  is a switch and not "draw it when some row has calls": zero on every key is exactly the answer
+  somebody opened the screen for.
+
+- **`App.RunShutdown`** runs the shutdown hooks now. A flush nobody can trigger is a flush nobody
+  can check.
+
+### Changed
+
+- `trilha add api-keys` now counts and shows it: the recipe wires `Usage`, calls `Setup`, and the
+  screen has the column and the panel.
+
 ## 0.95.0 — 2026-09-10
 
 Spec 116. Closes [#149](https://github.com/emersonjoe/trilha/issues/149).

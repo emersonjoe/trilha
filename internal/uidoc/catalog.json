@@ -44,6 +44,11 @@
       {
         "name": "Revoked",
         "type": "bool"
+      },
+      {
+        "name": "Calls",
+        "type": "int",
+        "doc": "Calls is how many times the key was used in the window the screen names, drawn when APIKeysOpts.Usage is on."
       }
     ]
   },
@@ -69,6 +74,16 @@
         "name": "Empty",
         "type": "h.Node",
         "doc": "Empty replaces the default empty state."
+      },
+      {
+        "name": "Usage",
+        "type": "bool",
+        "doc": "Usage draws the calls column."
+      },
+      {
+        "name": "UsageDays",
+        "type": "int",
+        "doc": "UsageDays names the window in that column's header — \"calls (30 d)\"."
       }
     ]
   },
@@ -83,6 +98,127 @@
     "see": [
       "ui.APIKeysOpts",
       "ui.SecretOnce"
+    ]
+  },
+  {
+    "name": "APIUsageRoute",
+    "kind": "type",
+    "group": "apiusage",
+    "signature": "type APIUsageRoute struct",
+    "doc": "APIUsageRoute is one route's share of the calls, as the screen shows it.\n\nIt repeats what auth.UsageRoute holds instead of importing it, for the reason\nPolicyGrid takes an interface: the kit draws data, and an application with its\nown counters gets the same screen by filling these fields.",
+    "summary": "APIUsageRoute is one route's share of the calls, as the screen shows it.",
+    "fields": [
+      {
+        "name": "Method",
+        "type": "string"
+      },
+      {
+        "name": "Route",
+        "type": "string"
+      },
+      {
+        "name": "Count",
+        "type": "int"
+      },
+      {
+        "name": "Errors",
+        "type": "int"
+      },
+      {
+        "name": "Last",
+        "type": "time.Time"
+      }
+    ]
+  },
+  {
+    "name": "APIUsageDay",
+    "kind": "type",
+    "group": "apiusage",
+    "signature": "type APIUsageDay struct",
+    "doc": "APIUsageDay is one day's calls.",
+    "summary": "APIUsageDay is one day's calls.",
+    "fields": [
+      {
+        "name": "Day",
+        "type": "time.Time"
+      },
+      {
+        "name": "Count",
+        "type": "int"
+      },
+      {
+        "name": "Errors",
+        "type": "int"
+      }
+    ]
+  },
+  {
+    "name": "APIUsageData",
+    "kind": "type",
+    "group": "apiusage",
+    "signature": "type APIUsageData struct",
+    "doc": "APIUsageData is a usage report as the screen reads it.",
+    "summary": "APIUsageData is a usage report as the screen reads it.",
+    "fields": [
+      {
+        "name": "Total",
+        "type": "int"
+      },
+      {
+        "name": "Errors",
+        "type": "int"
+      },
+      {
+        "name": "Last",
+        "type": "time.Time"
+      },
+      {
+        "name": "Days",
+        "type": "[]APIUsageDay"
+      },
+      {
+        "name": "Routes",
+        "type": "[]APIUsageRoute"
+      }
+    ]
+  },
+  {
+    "name": "APIUsageOpts",
+    "kind": "type",
+    "group": "apiusage",
+    "signature": "type APIUsageOpts struct",
+    "doc": "APIUsageOpts configures the panel.",
+    "summary": "APIUsageOpts configures the panel.",
+    "fields": [
+      {
+        "name": "Days",
+        "type": "int",
+        "doc": "Days names the window in the heading — \"last 30 days\"."
+      },
+      {
+        "name": "Empty",
+        "type": "string",
+        "doc": "Empty replaces the sentence a key with no calls gets."
+      },
+      {
+        "name": "Limit",
+        "type": "int",
+        "doc": "Limit is how many routes to list."
+      }
+    ]
+  },
+  {
+    "name": "APIUsage",
+    "kind": "func",
+    "group": "apiusage",
+    "signature": "APIUsage(c *trilha.Ctx, u APIUsageData, o APIUsageOpts) h.Node",
+    "doc": "APIUsage is the answer to \"are they using this key? where? when did they\nstop?\": the totals, the shape by day, and the table by route.\n\nThe chart is drawn on the server with ui.Sparkline — there is no JavaScript\nhere, and the numbers are in the table underneath whether or not the drawing\narrives.",
+    "summary": "APIUsage is the answer to \"are they using this key? where? when did they stop?\": the totals, the shape by day, and the table by route.",
+    "example": "rel, _ := Chaves.Usage(c.Context(), auth.UsageQuery{Key: id, Since: trinta})\nui.APIUsage(c, ui.APIUsageData{…}, ui.APIUsageOpts{Days: 30})",
+    "see": [
+      "ui.APIUsageData",
+      "ui.APIUsageOpts",
+      "ui.Sparkline"
     ]
   },
   {

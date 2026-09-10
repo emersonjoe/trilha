@@ -370,6 +370,58 @@ endpoint into a write per call, and "is this key still in use?" does not need th
 that guards nothing because of a typo, and nobody finding out until they read it in a breach
 report.
 
+### Who is using this key, where, and when did they stop
+
+That is the first question after a key is handed to a partner, and it is not a security question.
+The key already knows *who* called and when it was last seen; what `KeyOptions.Usage` adds is the
+shape of the use.
+
+```go
+var Chaves = auth.APIKeys(auth.KeyOptions{
+	Usage:     auth.UsageMemory(),          // or a table behind the same three methods
+	UsageKeep: 400 * 24 * time.Hour,        // retention, swept on the same loop
+})
+
+func main() { … ; if err := Chaves.Setup(a); err != nil { … } ; … }
+```
+
+```go
+rel, _ := Chaves.Usage(c.Context(), auth.UsageQuery{Key: id, Since: time.Now().AddDate(0, 0, -30)})
+rel.Total, rel.Errors, rel.Last
+rel.ByRoute   // []UsageRoute{Method, Route, Count, Errors, Last}, busiest first
+rel.ByDay     // []UsageDay, oldest first — what a chart draws
+rel.ByKey     // []UsageKeyTotal, when the query was not about one key
+```
+
+**Counting must not cost the request.** `Require` increments a bucket in memory — one map write
+under a mutex, nothing that can block on a network — and the buckets go to the store in batches.
+`Setup` flushes on a timer and on shutdown; without it, `Flush` is yours to call. A store that
+fails on a flush gets its counts back in the buffer, because losing them because a database was
+restarting is the exact failure this design is avoiding.
+
+**The route is the pattern.** `/documents/{id}`, never `/documents/8f2c…`: a counter per concrete
+path is a counter with one row per request. A request the fallback answered has no pattern, and it
+is not counted — the address there is user input, and whoever asks for enough addresses that do
+not exist would be writing rows.
+
+**Without `Usage`, nothing changes**, byte for byte. `Keys.Usage` on such an application answers
+`ErrNoUsage` rather than an empty report: no data and no counting are different answers.
+
+**A revoked key keeps its history.** "Who was using this?" arrives after the revocation, not
+before.
+
+```go
+ociosas, _ := Chaves.Idle(c.Context(), time.Now().AddDate(0, 0, -90))
+```
+
+`Idle` is the keys with no recorded call since that moment. The issue that asked for this wanted it
+in `trilha audit`; it is here instead, because that command reads code on somebody's laptop and the
+counters live in production — a check that cannot see them is a check that always says everything
+is fine.
+
+The screens are [`ui.APIUsage`](/reference/ui) and the calls column of `ui.APIKeysTable`, and
+`trilha add api-keys` writes both.
+
 ## Multi-tenant by column
 
 One column is the most common shape of multi-tenant, and forgetting that column in one query is

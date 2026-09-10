@@ -371,6 +371,58 @@ precisa do segundo.
 rota que não guarda nada por causa de um erro de digitação, e ninguém descobrir até ler num
 relatório de incidente.
 
+### Quem está usando esta chave, onde, e quando parou
+
+É a primeira pergunta depois de entregar uma chave a um parceiro, e não é uma pergunta de
+segurança. A chave já sabe *quem* chamou e quando foi vista pela última vez; o que o
+`KeyOptions.Usage` acrescenta é a forma do uso.
+
+```go
+var Chaves = auth.APIKeys(auth.KeyOptions{
+	Usage:     auth.UsageMemory(),          // ou uma tabela atrás dos mesmos três métodos
+	UsageKeep: 400 * 24 * time.Hour,        // retenção, varrida no mesmo laço
+})
+
+func main() { … ; if err := Chaves.Setup(a); err != nil { … } ; … }
+```
+
+```go
+rel, _ := Chaves.Usage(c.Context(), auth.UsageQuery{Key: id, Since: time.Now().AddDate(0, 0, -30)})
+rel.Total, rel.Errors, rel.Last
+rel.ByRoute   // []UsageRoute{Method, Route, Count, Errors, Last}, a mais chamada primeiro
+rel.ByDay     // []UsageDay, da mais antiga para a mais nova — o que um gráfico desenha
+rel.ByKey     // []UsageKeyTotal, quando a consulta não era sobre uma chave só
+```
+
+**Contar não pode custar a requisição.** O `Require` incrementa um balde em memória — uma escrita
+de mapa sob um mutex, nada que possa travar numa rede — e os baldes vão para o store em lote. O
+`Setup` grava no relógio e no desligamento; sem ele, o `Flush` é seu para chamar. Um store que
+falha na gravação recebe as contagens de volta no buffer, porque perdê-las porque o banco estava
+reiniciando é exatamente a falha que este desenho evita.
+
+**A rota é o padrão.** `/documentos/{id}`, nunca `/documentos/8f2c…`: um contador por caminho
+concreto é um contador com uma linha por requisição. Uma requisição que o fallback respondeu não
+tem padrão, e não é contada — o endereço ali é entrada do usuário, e quem pedir endereços que não
+existem em quantidade suficiente estaria escrevendo linhas.
+
+**Sem `Usage`, nada muda**, byte por byte. O `Keys.Usage` numa aplicação assim responde
+`ErrNoUsage` em vez de um relatório vazio: não ter dado e não contar são respostas diferentes.
+
+**Chave revogada mantém o histórico.** A pergunta "quem estava usando isto?" chega depois da
+revogação, não antes.
+
+```go
+ociosas, _ := Chaves.Idle(c.Context(), time.Now().AddDate(0, 0, -90))
+```
+
+O `Idle` são as chaves sem nenhuma chamada registrada desde aquele momento. A issue que pediu isto
+queria no `trilha audit`; ficou aqui, porque aquele comando lê código na máquina de alguém e os
+contadores estão em produção — uma verificação que não os enxerga é uma verificação que diz sempre
+que está tudo bem.
+
+As telas são o [`ui.APIUsage`](/pt/referencia/ui) e a coluna de chamadas do `ui.APIKeysTable`, e o
+`trilha add api-keys` escreve as duas.
+
 ## Multi-tenant por coluna
 
 Uma coluna é a forma mais comum de multi-tenant, e esquecer essa coluna numa consulta é o bug

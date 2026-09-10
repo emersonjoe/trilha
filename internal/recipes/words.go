@@ -9,6 +9,8 @@ package recipes
 var words = func(lang string) map[string]string {
 	if lang == "pt" {
 		return map[string]string{
+			"keys_usage": "Uso da API",
+
 			"search_title": "Busca",
 			"search_kind":  "Exemplos",
 
@@ -101,6 +103,8 @@ var words = func(lang string) map[string]string {
 		}
 	}
 	return map[string]string{
+		"keys_usage": "API usage",
+
 		"search_title": "Search",
 		"search_kind":  "Examples",
 

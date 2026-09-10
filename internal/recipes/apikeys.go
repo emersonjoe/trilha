@@ -19,12 +19,12 @@ func apiKeysRecipe() Recipe {
 		},
 		Setup: []Insert{{
 			Marker: "// trilha:add api-keys",
-			Line:   "\ttrilha.Provide(a, chaves.Keys)\n",
+			Line:   "\ttrilha.Provide(a, chaves.Keys)\n\tif err := chaves.Keys.Setup(a); err != nil {\n\t\treturn err\n\t}\n",
 		}},
 		Imports: []string{"{{.Module}}/{{.At}}chaves"},
 		Next: map[string]string{
-			"en": "Run `trilha dev` and open {{.URL}}chaves. Guard that folder, and put `chaves.Keys.Require(\"read\")` on the API branch the keys are for.",
-			"pt": "Rode `trilha dev` e abra {{.URL}}chaves. Guarde essa pasta, e ponha `chaves.Keys.Require(\"read\")` no ramo de API que as chaves servem.",
+			"en": "Run `trilha dev` and open {{.URL}}chaves. Guard that folder, and put `chaves.Keys.Require(\"read\")` on the API branch the keys are for — that middleware is also what counts the calls the screen shows.",
+			"pt": "Rode `trilha dev` e abra {{.URL}}chaves. Guarde essa pasta, e ponha `chaves.Keys.Require(\"read\")` no ramo de API que as chaves servem — é esse middleware que conta as chamadas que a tela mostra.",
 		},
 	}
 }
@@ -39,6 +39,7 @@ package chaves
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/auth"
@@ -56,7 +57,17 @@ var Escopos = []string{"read", "write"}
 var Keys = auth.APIKeys(auth.KeyOptions{
 	Scopes:    Escopos,
 	RateLimit: trilha.RateLimit{RPS: 10, Burst: 30},
+	// Usage counts the calls per key, route and day. The counting happens in
+	// memory and goes to the store in batches, so what a request pays for it is
+	// a map write — and Setup, in app/setup.go, is what makes the count survive
+	// a deploy.
+	Usage:     auth.UsageMemory(),
+	UsageKeep: 400 * 24 * time.Hour,
 })
+
+// Janela is how far back the screen looks. Thirty days is the question people
+// actually ask — "are they still using it?" — and not the whole history.
+const Janela = 30 * 24 * time.Hour
 
 // Page lists the keys at GET {{.URL}}chaves, and shows a new one once.
 //
@@ -67,11 +78,23 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The counters are read once, for every key: one query instead of one per
+	// row is the difference between a screen and a screen that gets slower with
+	// each key issued.
+	uso, err := Keys.Usage(c.Context(), auth.UsageQuery{Since: time.Now().Add(-Janela)})
+	if err != nil {
+		return nil, err
+	}
+	chamadas := map[string]int{}
+	for _, k := range uso.ByKey {
+		chamadas[k.KeyID] = k.Count
+	}
 	linhas := make([]ui.APIKeyRow, 0, len(todas))
 	for _, k := range todas {
 		linhas = append(linhas, ui.APIKeyRow{
 			ID: k.ID, Handle: k.Handle, Name: k.Name, Scopes: k.Scopes,
 			Created: k.Created, LastUsed: k.LastUsed, Revoked: !k.RevokedAt.IsZero(),
+			Calls: chamadas[k.ID],
 		})
 	}
 	corpo := []h.Node{
@@ -87,8 +110,25 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	}
 	corpo = append(corpo, criar(c), ui.APIKeysTable(c, linhas, ui.APIKeysOpts{
 		Revoke: "{{.URL}}chaves", CSRF: trilha.CSRFInput(c),
-	}))
+		Usage: true, UsageDays: 30,
+	}), ui.H2(h.Text("{{.T.keys_usage}}")), ui.APIUsage(c, painel(uso), ui.APIUsageOpts{Days: 30}))
 	return h.Div(corpo...), nil
+}
+
+// painel maps what the auth package counts to what the kit draws. The kit does
+// not import auth on purpose — it draws data, not another package's types — so
+// this loop is the seam, and it is four lines.
+func painel(uso auth.UsageReport) ui.APIUsageData {
+	d := ui.APIUsageData{Total: uso.Total, Errors: uso.Errors, Last: uso.Last}
+	for _, r := range uso.ByRoute {
+		d.Routes = append(d.Routes, ui.APIUsageRoute{
+			Method: r.Method, Route: r.Route, Count: r.Count, Errors: r.Errors, Last: r.Last,
+		})
+	}
+	for _, x := range uso.ByDay {
+		d.Days = append(d.Days, ui.APIUsageDay{Day: x.Day, Count: x.Count, Errors: x.Errors})
+	}
+	return d
 }
 
 // POST issues and revokes, dispatched by the form's action field: they are one

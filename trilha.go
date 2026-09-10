@@ -590,6 +590,12 @@ func (a *App) checkSecret() error {
 // registers for you.
 func (a *App) OnShutdown(fn func(*App) error) { a.shutdown = append(a.shutdown, fn) }
 
+// RunShutdown runs the shutdown hooks now, newest first, and answers whatever
+// they answered. ListenAndServe calls it when the server stops; it is exported
+// so a test can assert what a hook writes on the way out — a flush nobody can
+// trigger is a flush nobody can check.
+func (a *App) RunShutdown() error { return a.runShutdown() }
+
 func (a *App) runShutdown() error {
 	var errs []error
 	for i := len(a.shutdown) - 1; i >= 0; i-- {
