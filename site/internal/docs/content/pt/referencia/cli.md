@@ -567,6 +567,7 @@ mexer num projeto que já tem código.
 | `permissions` | a matriz de permissões como dado, e a tela que a edita |
 | `profile` | a tela da própria conta: nome e senha — o id vem da sessão |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
+| `webhooks` | o que este app avisa para fora: entrega assinada com retry, e a tela dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
 O `login` é o que as outras esperam — uma tela que convida alguém ou troca o papel dela é uma tela
@@ -597,11 +598,17 @@ que sabe de quem é a conta. Trocar a senha pede a senha atual mesmo com a sess�
 computador destravado por dois minutos não deve virar uma conta perdida) e depois fecha a sessão,
 porque entrar de novo é a prova de que a senha nova é a que a pessoa quis.
 
+A `webhooks` é aquela cujas peças estavam mais longe de serem achadas: o módulo `webhook` existe
+desde a 0.65.0 e o `examples/blog` usa. Ela escreve a lista fechada de eventos que a aplicação
+avisa, o entregador ligado ao `Env` do app — `http://` só em dev, endereço privado recusado nos
+dois — e a tela de quem integra com você. Ela não escreve middleware, porque não sabe como este
+projeto autentica; a última linha do comando manda guardar a pasta, e o arquivo também.
+
 Cada uma vem com memória atrás, para a tela funcionar desde a primeira requisição, e um comentário
 dizendo onde entra um banco. Cada uma também diz, dentro do arquivo, que a pasta precisa ser
 guardada: uma trilha de auditoria nomeia pessoas, e uma tela de chaves emite credencial.
 
-Faltam outras — `share-link`, `webhooks`, `mail`, `blob`, `tasks` e `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
+Faltam outras — `share-link`, `mail`, `blob`, `tasks` e `tenant` — na [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Por que a CI aplica todas elas
 

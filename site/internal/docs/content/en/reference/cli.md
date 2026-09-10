@@ -571,6 +571,7 @@ touch a project that already has code.
 | `permissions` | the permission matrix as data, and the screen that edits it |
 | `profile` | the account screen: own name, own password — the id comes from the session |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
+| `webhooks` | what this app announces to the outside: signed delivery with retry, and the screen for it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
 `login` is the one the others wait for — a screen that invites somebody or changes their role is
@@ -602,11 +603,18 @@ asks for the current one even with a session open (a machine left unlocked for t
 not become an account somebody lost) and then ends the session, because signing in again is the
 proof that the new password is the one they meant.
 
+`webhooks` is the one whose pieces were furthest from being found: the `webhook` module has
+existed since 0.65.0 and `examples/blog` uses it. It writes the closed list of events this
+application announces, the deliverer wired to the app's `Env` — `http://` only in dev, a private
+address refused either way — and the screen whoever integrates with you uses. It writes no
+middleware, because it cannot know how this project authenticates; the command's last line says
+to guard that folder, and so does the file.
+
 Each one comes with memory behind it, so the screen works from the first request, and a comment
 saying where a database goes. Each also says, in the file, that the folder needs guarding: an
 audit trail names people, and a keys screen issues credentials.
 
-More are coming — `share-link`, `webhooks`, `mail`, `blob`, `tasks` and `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
+More are coming — `share-link`, `mail`, `blob`, `tasks` and `tenant` — on [#116](https://github.com/emersonjoe/trilha/issues/116).
 
 ### Why the CI applies every one of them
 

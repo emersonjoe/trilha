@@ -81,6 +81,9 @@ var words = func(lang string) map[string]string {
 			"profile_wrong":         "A senha atual não confere, ou a nova tem menos de 12 caracteres.",
 			"profile_password_done": "Senha trocada. Entre de novo.",
 			"profile_gone":          "Sua sessão acabou.",
+
+			"hooks_title": "Webhooks",
+			"hooks_desc":  "O que este app avisa para fora. A entrega sai fora da requisição, assinada, e tenta de novo quando o outro lado está fora do ar.",
 		}
 	}
 	return map[string]string{
@@ -156,5 +159,8 @@ var words = func(lang string) map[string]string {
 		"profile_wrong":         "The current password does not match, or the new one is shorter than 12 characters.",
 		"profile_password_done": "Password changed. Sign in again.",
 		"profile_gone":          "Your session ended.",
+
+		"hooks_title": "Webhooks",
+		"hooks_desc":  "What this application announces to the outside. The delivery leaves outside the request, signed, and tries again when the other side is down.",
 	}
 }

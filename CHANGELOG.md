@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.83.0 — 2026-09-10
+
+Spec 103. Part of [#116](https://github.com/emersonjoe/trilha/issues/116), which stays open for
+the recipes that are still to come.
+
+### Added
+
+- **`trilha add webhooks`: what the application announces to the outside.** The `webhook` module
+  has been there since 0.65.0 — signed delivery, retry, backoff, `ui.WebhooksPanel` — and it is
+  the case the issue describes exactly: somebody who needs it today only finds it if they already
+  know it is there, and then still copies six files out of an example changing the module path by
+  hand.
+
+  The recipe writes the **closed list of events** (a typo in an `Emit` is then an error where it is
+  written, not an event nobody subscribed to — which from outside is indistinguishable from a
+  partner who is not listening), the deliverer wired to the app's `Env` (`http://` only in dev, a
+  private address refused either way), and the screen: one GET, and a POST that is `Handle` in
+  full, because register, revoke, retry and test are one form.
+
+  It writes **no middleware**, unlike `users` and `permissions`: it cannot know how this project
+  authenticates, and writing one that imports the `login` recipe would force it on somebody using
+  OIDC. The file says to guard the folder, and so does the command's last line.
+
 ## 0.82.0 — 2026-09-10
 
 Spec 102. Part of [#116](https://github.com/emersonjoe/trilha/issues/116) and
