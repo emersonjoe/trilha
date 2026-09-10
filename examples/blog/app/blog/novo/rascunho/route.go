@@ -14,7 +14,7 @@ import (
 // what the island hears back is what the form would have shown.
 type rascunho struct {
 	Titulo string `json:"titulo" validate:"required,min=3,max=80"`
-	Corpo  string `json:"corpo" validate:"required"`
+	Corpo  string `json:"corpo" validate:"required,max=20000"`
 }
 
 // salvo is what it hears back when the draft is good.

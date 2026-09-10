@@ -25,6 +25,8 @@ What it checks, in its own order:
 | at least one `a.Check` | without one, `ready` says yes while the database is gone |
 | assets `immutable` | the only cache header that is both safe and worth having, because `c.Asset` hashes the name |
 | OIDC secret not hardcoded, callback not cleartext | the two ways a login gets stolen |
+| event streams and audit writes with nothing above them | a route with no middleware sends everything to whoever connects, and records a trail that names nobody |
+| `string` fields from outside without `max=` | the column is what refuses, in production, with the driver's message instead of the field's |
 | `trilha_gen.go` fresh, CLI and library on the same version | a generated file that disagrees with `app/` serves the routes of last week |
 | supported Go, `.gitignore` covering `.env`, `go vet`, `govulncheck` | the ordinary hygiene that is only missed when it fails |
 

@@ -3,6 +3,36 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.79.0 — 2026-09-10
+
+Spec 099. Part of [#118](https://github.com/emersonjoe/trilha/issues/118), which stays open for
+the generated `docs/errors/` and the bench scenario.
+
+### Added
+
+- **`trilha audit` grew three checks — the ones that need no browser.** All three describe code
+  that works: nobody makes a mistake, nobody sees an error, and the problem shows up when somebody
+  outside notices it before you do.
+
+  - **An event stream with nothing above it.** A route that opens `c.Stream()` with no middleware
+    sends everything to whoever connects. The rule the audit applies is printed as it is — *no
+    middleware above*, not *no authentication above*: it sees that there is a chain, not what the
+    chain does, and saying otherwise would be guessing.
+  - **`c.Audit` in a route with nothing above it.** The record exists and does not say who. A
+    route that names the actor itself — `c.SetActor`, which is what an invitation link does for
+    somebody who has no session yet — has already answered this, and is not warned about.
+  - **A `string` field that comes from outside with no `max=`.** The request body has a ceiling,
+    so this is not a way to exhaust memory: it is the column that refuses, in production, with the
+    driver's message instead of the field's. A field with `oneof=` or `len=` is already bounded.
+
+  Each names the routes or the fields that raised it, because a warning that does not say where is
+  a warning nobody acts on.
+
+### Fixed
+
+- `examples/blog` capped the two `Corpo` fields, and `examples/local-login` names the actor when an
+  invitation is accepted — the audit found both, which is what an example is for.
+
 ## 0.78.0 — 2026-09-10
 
 Spec 098. Part of [#118](https://github.com/emersonjoe/trilha/issues/118), which stays open for

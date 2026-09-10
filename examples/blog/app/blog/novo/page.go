@@ -13,7 +13,7 @@ import (
 // rule that depended on the rest of the app would live in Go, next to it.
 type entrada struct {
 	Titulo string `form:"titulo" validate:"required,min=3,max=80"`
-	Corpo  string `form:"corpo" validate:"required"`
+	Corpo  string `form:"corpo" validate:"required,max=20000"`
 }
 
 // EditorProps is what the editor island gets. It is a struct, not a map, so

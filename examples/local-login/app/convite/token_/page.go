@@ -54,6 +54,11 @@ func POST(c *trilha.Ctx) error {
 		nome = strings.SplitN(email, "@", 2)[0]
 	}
 	tabela.Add("u-"+link.ID, email, nome, "leitor", senha, "jwt-"+link.ID)
+	// Quem age aqui não tem sessão — é justamente quem ainda não tem conta —
+	// mas tem nome: o convite diz de quem ele é. Sem esta linha a trilha
+	// registraria "anônimo" no único evento que precisa dizer quem aceitou, e
+	// é isso que o `trilha audit` aponta numa rota aberta que audita.
+	c.SetActor(trilha.Actor{Subject: "u-" + link.ID, Email: email, Name: nome, Via: "convite"})
 	c.Audit("convite.aceitou", email, nil)
 
 	// A confirmação não pode derrubar o cadastro: a conta já existe, e um

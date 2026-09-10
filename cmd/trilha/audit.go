@@ -114,6 +114,14 @@ func runAudit(p *project, vuln bool) []check {
 			add("ok", t("mail ok"), "")
 		}
 	}
+	// A string that comes from outside with no size limit is the column the
+	// database refuses in production, with the driver's message instead of the
+	// field's.
+	if fields := unboundedStrings(src); len(fields) > 0 {
+		sort.Strings(fields)
+		add("warn", fmt.Sprintf(t("string unbounded"), len(fields)),
+			fmt.Sprintf(t("string unbounded hint"), strings.Join(first(fields, 5), ", ")))
+	}
 	if !strings.Contains(src, ".Check(") {
 		add("warn", t("no checks"), t("no checks hint"))
 	} else {
@@ -212,6 +220,17 @@ func runAudit(p *project, vuln bool) []check {
 		if open := openWrites(p, res); len(open) > 0 && !strings.Contains(src, "CSRFForAPI") {
 			add("warn", fmt.Sprintf(t("csrf open writes"), len(open)),
 				fmt.Sprintf(t("csrf open writes hint"), strings.Join(open, ", ")))
+		}
+		// Events with nothing above them: everyone who connects receives
+		// everything the route sends.
+		if open := openStreams(p, res); len(open) > 0 {
+			add("warn", fmt.Sprintf(t("stream open"), len(open)),
+				fmt.Sprintf(t("stream open hint"), strings.Join(open, ", ")))
+		}
+		// A trail that names nobody is an expensive log file.
+		if anon := anonymousAudit(p, res); len(anon) > 0 {
+			add("warn", fmt.Sprintf(t("audit anonymous"), len(anon)),
+				fmt.Sprintf(t("audit anonymous hint"), strings.Join(anon, ", ")))
 		}
 		if out, err := gen.Generate(res); err == nil {
 			cur, _ := os.ReadFile(filepath.Join(p.Root, gen.FileName))
@@ -698,3 +717,114 @@ var (
 // reference layout is unmistakable — 2006, 01, 02, 15:04 — so this does not
 // have to guess.
 var timeFormatRe = regexp.MustCompile(`\.Format\(\s*"[^"]*(2006|15:04|Jan)`)
+
+// routeSource reads the files of one route's folder — the page.go, the
+// route.go, whatever else is there. It is how a check asks what a route
+// actually does without reading the whole project again.
+func routeSource(p *project, r scan.Route) string {
+	dir := filepath.Join(p.Root, filepath.FromSlash(r.Dir))
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		if data, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
+			b.Write(data)
+		}
+	}
+	return b.String()
+}
+
+// openStreams lists the routes that open an event stream with nothing above
+// them. Everyone who connects receives everything the route sends, which is
+// fine for a clock and is a leak for anything with a name in it.
+//
+// The rule is "no middleware above", and not "no authentication above": the
+// audit sees that there is a chain, not what the chain does, and saying
+// otherwise would be guessing.
+func openStreams(p *project, res *scan.Result) []string {
+	var out []string
+	for _, r := range res.Routes {
+		if len(r.Middlewares) > 0 || len(r.MiddlewaresByMethod) > 0 {
+			continue
+		}
+		if strings.Contains(routeSource(p, r), "c.Stream()") {
+			out = append(out, r.Pattern)
+		}
+	}
+	return out
+}
+
+// anonymousAudit lists the routes that write to the trail with nothing above
+// them. The record exists and does not say who: a trail that names nobody is
+// an expensive log file.
+func anonymousAudit(p *project, res *scan.Result) []string {
+	var out []string
+	for _, r := range res.Routes {
+		if len(r.Middlewares) > 0 || len(r.MiddlewaresByMethod) > 0 {
+			continue
+		}
+		src := routeSource(p, r)
+		// A route that names the actor itself has answered this: an invitation
+		// is accepted by somebody with no session and a name — the link says
+		// whose it is — and c.SetActor is how the trail learns it.
+		if strings.Contains(src, "c.Audit(") && !strings.Contains(src, "c.SetActor(") {
+			out = append(out, r.Pattern)
+		}
+	}
+	return out
+}
+
+// fieldTag matches an exported string field with a struct tag: the shape a
+// form or a JSON body arrives in.
+var fieldTag = regexp.MustCompile("(?m)^\\s*([A-Z]\\w*)\\s+string\\s+`([^`]*)`")
+
+// unboundedStrings lists the string fields that come from outside with no
+// size limit. The request body has a ceiling, so this is not a way to run the
+// process out of memory — it is the column the database refuses in production,
+// with the driver's message instead of the field's.
+//
+// A field with oneof= or len= is already bounded, and a field with no form: or
+// json: tag does not come from outside.
+func unboundedStrings(src string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, m := range fieldTag.FindAllStringSubmatch(src, -1) {
+		tag := m[2]
+		if !strings.Contains(tag, "form:") && !strings.Contains(tag, "json:") {
+			continue
+		}
+		i := strings.Index(tag, `validate:"`)
+		if i < 0 {
+			continue // no validation at all is a different conversation
+		}
+		rest := tag[i+len(`validate:"`):]
+		if j := strings.IndexByte(rest, '"'); j >= 0 {
+			rest = rest[:j]
+		}
+		if strings.Contains(rest, "max=") || strings.Contains(rest, "oneof=") || strings.Contains(rest, "len=") {
+			continue
+		}
+		// The same field name in two structs is one thing to fix in the
+		// reader's head, and two lines of noise in the message.
+		if seen[m[1]] {
+			continue
+		}
+		seen[m[1]] = true
+		out = append(out, m[1])
+	}
+	return out
+}
+
+// first is the head of a list, for a message that names examples instead of
+// everything: a warning nobody can read is a warning nobody acts on.
+func first(all []string, n int) []string {
+	if len(all) <= n {
+		return all
+	}
+	return append(append([]string{}, all[:n]...), "…")
+}

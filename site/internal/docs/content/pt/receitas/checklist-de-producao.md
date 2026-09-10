@@ -25,6 +25,8 @@ então o CI pode barrar nele. O que ele confere, na ordem dele:
 | pelo menos um `a.Check` | sem nenhum, o `ready` diz sim com o banco fora do ar |
 | assets com `immutable` | o único cabeçalho de cache que é seguro e vale a pena, porque o `c.Asset` põe hash no nome |
 | segredo OIDC fora do código, callback fora de texto claro | os dois jeitos de um login ser roubado |
+| fluxo de eventos e escrita de auditoria sem nada acima | rota sem middleware manda tudo para quem conectar, e grava uma trilha que não nomeia ninguém |
+| campos `string` vindos de fora sem `max=` | quem recusa é a coluna, em produção, com a mensagem do driver em vez da do campo |
 | `trilha_gen.go` fresco, CLI e biblioteca na mesma versão | um arquivo gerado que discorda do `app/` serve as rotas da semana passada |
 | Go suportado, `.gitignore` cobrindo `.env`, `go vet`, `govulncheck` | a higiene comum, que só faz falta quando falha |
 

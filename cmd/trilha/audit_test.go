@@ -472,3 +472,69 @@ func TestAuditoriaDeUpstreamSemTimeout(t *testing.T) {
 		t.Error("avisou um app que não tem upstream nenhum")
 	}
 }
+
+// #118 — as três linhas da tabela que dá para ver sem rodar. As três
+// funcionam: ninguém erra, ninguém vê erro, e o problema aparece quando
+// alguém de fora percebe antes de você.
+func TestAuditoriaDoQueDaParaVerSemRodar(t *testing.T) {
+	escreve := func(t *testing.T, arquivos map[string]string) (*project, *scan.Result) {
+		t.Helper()
+		dir := t.TempDir()
+		for nome, src := range arquivos {
+			caminho := filepath.Join(dir, filepath.FromSlash(nome))
+			if err := os.MkdirAll(filepath.Dir(caminho), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(caminho, []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		res, err := scan.Scan(dir, "exemplo.com/x")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &project{Root: dir, Module: "exemplo.com/x"}, res
+	}
+	const pagina = "package app\n\nimport (\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n)\n\nfunc Page(c *trilha.Ctx) (h.Node, error) { return h.Div(), nil }\n"
+	const eventos = "package eventos\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc GET(c *trilha.Ctx) error {\n\ts := c.Stream()\n\treturn s.Send(\"tick\", \"1\")\n}\n"
+	const auditando = "package acoes\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc POST(c *trilha.Ctx) error {\n\tc.Audit(\"apagou\", \"doc-1\")\n\treturn c.Text(200, \"ok\")\n}\n"
+	const guarda = "package eventos\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc Middleware(c *trilha.Ctx, next trilha.Next) error { return next() }\n"
+
+	// Um fluxo sem nada acima manda tudo para quem conectar.
+	p, aberto := escreve(t, map[string]string{"app/page.go": pagina, "app/eventos/route.go": eventos})
+	if got := openStreams(p, aberto); len(got) != 1 || got[0] != "/eventos" {
+		t.Errorf("fluxo aberto não apontado: %v", got)
+	}
+	// Com um middleware acima, o audit se cala: ele vê que há uma cadeia, e
+	// dizer o que ela faz seria adivinhar.
+	p, fechado := escreve(t, map[string]string{"app/page.go": pagina, "app/eventos/route.go": eventos, "app/eventos/middleware.go": guarda})
+	if got := openStreams(p, fechado); got != nil {
+		t.Errorf("o middleware acima devia calar o aviso: %v", got)
+	}
+
+	// A rota que nomeia o ator sozinha já respondeu isto: um convite é aceito
+	// por quem não tem sessão e tem nome.
+	const nomeando = "package acoes\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc POST(c *trilha.Ctx) error {\n\tc.SetActor(trilha.Actor{Subject: \"u-1\"})\n\tc.Audit(\"apagou\", \"doc-1\")\n\treturn c.Text(200, \"ok\")\n}\n"
+
+	// A trilha que não nomeia ninguém é um log caro.
+	p, anon := escreve(t, map[string]string{"app/page.go": pagina, "app/acoes/route.go": auditando})
+	if got := anonymousAudit(p, anon); len(got) != 1 || got[0] != "/acoes" {
+		t.Errorf("auditoria anônima não apontada: %v", got)
+	}
+
+	p, nomeado := escreve(t, map[string]string{"app/page.go": pagina, "app/acoes/route.go": nomeando})
+	if got := anonymousAudit(p, nomeado); got != nil {
+		t.Errorf("a rota que nomeia o ator não devia entrar: %v", got)
+	}
+
+	// E o campo que vem de fora sem limite de tamanho.
+	campos := unboundedStrings("package x\n\ntype Form struct {\n" +
+		"\tNome  string `form:\"nome\" validate:\"required\"`\n" +
+		"\tTipo  string `form:\"tipo\" validate:\"oneof=a b\"`\n" +
+		"\tCEP   string `form:\"cep\" validate:\"len=8\"`\n" +
+		"\tTitulo string `json:\"titulo\" validate:\"required,max=80\"`\n" +
+		"\tInterno string `validate:\"required\"`\n}\n")
+	if len(campos) != 1 || campos[0] != "Nome" {
+		t.Errorf("campos sem limite = %v", campos)
+	}
+}
