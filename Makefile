@@ -48,7 +48,8 @@ bench-results:
 	cd bench && sh results.sh > RESULTS.md && cat RESULTS.md
 
 # Régua da Fase 5: quanto um agente gasta para entregar uma feature. Exige
-# `claude auth login`; 4 cenários x 3 execuções, custo real. Veja bench/agent/RESULTS.md.
+# `claude auth login`; um cenário por convenção medida x 3 execuções, custo real.
+# Veja bench/agent/RESULTS.md.
 bench-agent:
 	cd bench/agent && go run . -runs 3 && cat RESULTS.md
 

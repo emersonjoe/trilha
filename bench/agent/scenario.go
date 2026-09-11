@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"embed"
 	"errors"
 	"fmt"
@@ -25,11 +26,19 @@ type Scenario struct {
 	Tests map[string]string
 	// Check is an extra assertion on the source after the tests passed.
 	Check func(dir string) error
+	// Serve brings up what the project talks to — a service that is somewhere
+	// else — and returns the environment saying where it landed, plus the way
+	// to take it down. Nil is a scenario that talks to nobody.
+	//
+	// It runs twice: once around the agent, so it can try what it writes, and
+	// once around the verification. Two runs, two addresses, one at a time:
+	// what the hidden test reads is the API that answered it.
+	Serve func() (env []string, stop func())
 }
 
 // Scenarios in the order the table shows them.
 func Scenarios() []Scenario {
-	return []Scenario{comments, contactForm, cognito, pagination, portListing}
+	return []Scenario{comments, contactForm, cognito, pagination, portListing, apiCall}
 }
 
 // ScenarioByName finds one; "" is not a name.
@@ -300,7 +309,7 @@ func TestBenchPaginacao(t *testing.T) {
 `},
 }
 
-//go:embed fixtures/documentos.tsx fixtures/MIGRATION.snippet.md
+//go:embed fixtures/documentos.tsx fixtures/MIGRATION.snippet.md fixtures/acervo.tsx fixtures/MIGRATION.acervo.md
 var fixtures embed.FS
 
 // portListing is the scenario Phase 7 asked for and never got: take a listing
@@ -518,5 +527,323 @@ import (
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Documentos")
 	return h.Div(h.H1(h.Text("Documentos"))), nil
+}
+`
+
+// apiCall is the other half of #94: port-listing measures the screen, this one
+// measures the path the call takes to get to the API.
+//
+// The app is examples/local-login, which is the one that already has an API
+// somewhere else — Config.Upstreams and a session carrying the credential the
+// API wants. The screen being ported ran in the browser and read the token out
+// of localStorage, which is where a migration usually leaves it: the port is
+// done when the credential comes from the session and the browser never sees
+// it.
+//
+// It is the only scenario with a service of its own up during the run, and
+// that is what it costs to measure a call instead of a page.
+var apiCall = Scenario{
+	Name:    "api-call",
+	Title:   "portar a chamada à API que ficou onde estava",
+	Example: "examples/local-login",
+	Prompt: `A tela de documentos deste app existia em Next.js e rodava no browser: o arquivo ` +
+		`original está em app/painel/documentos/page.tsx.txt, com a linha correspondente do ` +
+		`MIGRATION.md ao lado. Escreva o equivalente em app/painel/documentos/page.go, ` +
+		`renderizado no servidor, contra a API que continua onde estava: a base dela está na ` +
+		`variável API_URL e o documento OpenAPI que ela publica é o openapi.json na raiz do ` +
+		`projeto. A tela lista os documentos com o filtro de busca que vem da URL, e a ` +
+		`credencial da chamada é a da sessão de quem está logado — nunca uma que o browser ` +
+		`mande. Deixe go vet ./... e go test ./... verdes.`,
+	Prepare: apiCallPrepare,
+	Tests:   map[string]string{"zz_bench_test.go": apiCallTest},
+	Serve:   serveAcervo,
+	Check:   clienteGerado,
+}
+
+// apiCallPrepare puts the screen back to a stub, takes the generated client
+// away and leaves what a migration actually starts from: the page as it was in
+// React, the migration note, and the document the API publishes.
+//
+// The client goes because it is the answer: with internal/acervo committed in
+// the tree there is nothing to find out, and what this scenario asks is
+// whether the tool that writes it — `trilha client`, one command over the
+// openapi.json that stays — gets reached for at all.
+func apiCallPrepare(dir string) error {
+	page := filepath.Join(dir, "app", "painel", "documentos", "page.go")
+	if _, err := os.Stat(page); err != nil {
+		return fmt.Errorf("%s: the screen this scenario asks for is not where it was; update apiCallPrepare", page)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "openapi.json")); err != nil {
+		return fmt.Errorf("%s: the API document the task points at is gone; update apiCallPrepare", dir)
+	}
+	if err := os.WriteFile(page, []byte(apiCallStub), 0o644); err != nil {
+		return err
+	}
+	// The generated client, and the example's own test of the screen, which
+	// names the package that just stopped existing.
+	if err := os.RemoveAll(filepath.Join(dir, "internal", "acervo")); err != nil {
+		return err
+	}
+	if err := os.Remove(filepath.Join(dir, "documentos_test.go")); err != nil {
+		return err
+	}
+	// .tsx.txt and not .tsx: a stray .tsx in the tree is a file some tool
+	// tries to build, and this one is here to be read.
+	for name, dst := range map[string]string{
+		"fixtures/acervo.tsx":          filepath.Join(dir, "app", "painel", "documentos", "page.tsx.txt"),
+		"fixtures/MIGRATION.acervo.md": filepath.Join(dir, "MIGRATION.md"),
+	} {
+		b, err := fixtures.ReadFile(name)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(dst, b, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// clienteGerado is the half of the acceptance that no request can show: the
+// call may carry the right credential and still have been written by hand,
+// forty lines of http.NewRequest and json.Decode over a document that was one
+// command away from being types.
+//
+// The other way the issue allows — Config.Upstreams — is not checked here
+// because this app already declares one: a screen rendered on the server does
+// not go through the app's own proxy, so the upstream that is in setup.go says
+// nothing about what the agent did.
+func clienteGerado(dir string) error {
+	found := false
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || found || d.IsDir() || !strings.HasSuffix(path, ".go") {
+			return err
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if bytes.Contains(b, []byte("Code generated by trilha client")) {
+			found = true
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errors.New("no file generated by `trilha client`: the API publishes an openapi.json and the call was written by hand")
+	}
+	return nil
+}
+
+// apiCallStub is what the agent finds where the screen was.
+const apiCallStub = `// Package documentos is the listing this app used to have in Next.js, running
+// in the browser. The original is in page.tsx.txt, MIGRATION.md says what each
+// piece of it becomes here, and openapi.json in the project root is what the
+// API publishes.
+package documentos
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+)
+
+// Page answers GET /painel/documentos.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Documentos")
+	return h.Div(h.Class("cartao"), h.H1(h.Text("Documentos"))), nil
+}
+`
+
+// apiCallTest is the hidden test. It reads the call from the far side: the API
+// the scenario brought up says what arrived, which is the only place the
+// credential is visible.
+const apiCallTest = `package main
+
+import (
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+// recebidaBench is one request as the API saw it.
+type recebidaBench struct {
+	Method string ` + "`json:\"method\"`" + `
+	Path   string ` + "`json:\"path\"`" + `
+	Query  string ` + "`json:\"query\"`" + `
+	Auth   string ` + "`json:\"auth\"`" + `
+}
+
+// baseDoAcervo is where the scenario put the API. Without it there is nothing
+// to measure, and saying so is better than a page that is empty for a reason
+// nobody can see.
+func baseDoAcervo(t *testing.T) string {
+	t.Helper()
+	base := os.Getenv("API_URL")
+	if base == "" {
+		t.Fatal("API_URL vazia: a API do cenário não subiu, e sem ela este teste não mede nada")
+	}
+	return base
+}
+
+// recebidasBench asks the API what came in. The log is the whole run's, so
+// every assertion below takes what appeared since it started looking.
+func recebidasBench(t *testing.T, base string) []recebidaBench {
+	t.Helper()
+	res, err := http.Get(base + "/__bench/received")
+	if err != nil {
+		t.Fatalf("a API do cenário não respondeu: %v", err)
+	}
+	defer res.Body.Close()
+	var out []recebidaBench
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("o log da API não é JSON: %v", err)
+	}
+	return out
+}
+
+func desde(t *testing.T, base string, n int) []recebidaBench {
+	t.Helper()
+	todas := recebidasBench(t, base)
+	if len(todas) < n {
+		t.Fatalf("o log da API encolheu: %d agora, %d antes", len(todas), n)
+	}
+	return todas[n:]
+}
+
+func clienteBench(t *testing.T) *trilha.TestClient {
+	t.Helper()
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return trilha.NewTestClient(t, newApp())
+}
+
+func entrarBench(t *testing.T, c *trilha.TestClient, email, senha string) {
+	t.Helper()
+	c.Request("POST", "/entrar", trilha.WithBody("application/x-www-form-urlencoded",
+		"email="+email+"&senha="+senha)).WantStatus(http.StatusSeeOther)
+}
+
+func TestBenchChamadaComACredencialDaSessao(t *testing.T) {
+	base := baseDoAcervo(t)
+	c := clienteBench(t)
+
+	// Sem sessão não há tela, e a API não fica sabendo que alguém tentou: a
+	// pasta é guardada antes de a página existir.
+	antes := len(recebidasBench(t, base))
+	c.Get("/painel/documentos", trilha.WithHeader("Accept", "text/html"))
+	if novas := desde(t, base, antes); len(novas) > 0 {
+		t.Fatalf("a API foi chamada por quem não tem sessão: %+v", novas)
+	}
+
+	entrarBench(t, c, "ana@exemplo.com", "segredo-da-ana")
+
+	// A tela mostra o que só a API sabe: estes nomes não existem no projeto.
+	antes = len(recebidasBench(t, base))
+	body := c.Get("/painel/documentos").WantStatus(200).Body.String()
+	for _, quero := range []string{"contrato-2026.pdf", "nota-fiscal-9.pdf"} {
+		if !strings.Contains(body, quero) {
+			t.Fatalf("a tela não traz %q, que só a API tem:\n%s", quero, trecho(body))
+		}
+	}
+	novas := desde(t, base, antes)
+	if len(novas) == 0 {
+		t.Fatal("a tela respondeu sem chamar a API")
+	}
+	// A credencial é a da sessão de quem está logado. É esta linha que separa
+	// a porta feita da porta que compila.
+	for _, r := range novas {
+		if r.Auth != "Bearer jwt-da-ana" {
+			t.Fatalf("a API recebeu Authorization %q, queria o token da sessão (Bearer jwt-da-ana)", r.Auth)
+		}
+	}
+	// E ela não passa pela página: um token no HTML é o localStorage de novo,
+	// com outro nome.
+	if strings.Contains(body, "jwt-da-ana") {
+		t.Fatalf("o token da sessão apareceu no HTML:\n%s", trecho(body))
+	}
+
+	// O filtro da URL é o parâmetro da API, e não uma fatia filtrada em Go
+	// depois de pedir tudo.
+	antes = len(recebidasBench(t, base))
+	filtrada := c.Get("/painel/documentos?q=contrato").WantStatus(200).Body.String()
+	novas = desde(t, base, antes)
+	comQ := false
+	for _, r := range novas {
+		if strings.Contains(r.Query, "q=contrato") {
+			comQ = true
+		}
+	}
+	if !comQ {
+		t.Fatalf("a busca da URL não chegou à API: %+v", novas)
+	}
+	if strings.Contains(filtrada, "nota-fiscal-9.pdf") {
+		t.Fatalf("a tela filtrada ainda lista o que a API deixou de mandar:\n%s", trecho(filtrada))
+	}
+
+	// Um Authorization mandado pelo browser não é credencial deste app, e não
+	// é ele que chega à API.
+	antes = len(recebidasBench(t, base))
+	c.Get("/painel/documentos", trilha.WithHeader("Authorization", "Bearer roubado")).WantStatus(200)
+	for _, r := range desde(t, base, antes) {
+		if strings.Contains(r.Auth, "roubado") {
+			t.Fatalf("o token que o browser mandou chegou à API: %q", r.Auth)
+		}
+	}
+
+	// Uma 'use client' portada que trouxe o JavaScript junto não foi portada.
+	// Os arquivos do kit são a exceção: são eles que fazem o resto funcionar
+	// sem JavaScript escrito aqui.
+	if strings.Contains(body, "data-trilha-island") {
+		t.Error("a tela carregou uma ilha: esta listagem cabe inteira no servidor")
+	}
+	for _, src := range scriptsBench(body) {
+		if !strings.Contains(src, "/ui.") {
+			t.Errorf("apareceu JavaScript próprio na página: %s", src)
+		}
+	}
+}
+
+// scriptsBench returns the src of every script the page loads.
+func scriptsBench(body string) []string {
+	var out []string
+	resto := body
+	for {
+		i := strings.Index(resto, "<script")
+		if i < 0 {
+			return out
+		}
+		resto = resto[i+7:]
+		fim := strings.IndexByte(resto, '>')
+		if fim < 0 {
+			return out
+		}
+		tag := resto[:fim]
+		resto = resto[fim:]
+		k := strings.Index(tag, "src=\"")
+		if k < 0 {
+			continue // inline: não é o que este teste mede
+		}
+		src := tag[k+5:]
+		if f := strings.IndexByte(src, '"'); f >= 0 {
+			src = src[:f]
+		}
+		out = append(out, src)
+	}
+}
+
+func trecho(s string) string {
+	if len(s) > 800 {
+		return s[:800]
+	}
+	return s
 }
 `

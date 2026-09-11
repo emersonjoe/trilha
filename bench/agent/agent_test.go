@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -72,8 +74,8 @@ func TestRender(t *testing.T) {
 	if !strings.Contains(Render(Results{}, Scenarios()), "Ainda sem medição") {
 		t.Fatal("empty results must say so")
 	}
-	// Scenarios are the contract: five, in order, each with a hidden test.
-	names := []string{"comments", "contact-form", "cognito", "pagination", "port-listing"}
+	// Scenarios are the contract: six, in order, each with a hidden test.
+	names := []string{"comments", "contact-form", "cognito", "pagination", "port-listing", "api-call"}
 	for i, s := range Scenarios() {
 		if s.Name != names[i] || len(s.Tests) == 0 || s.Prompt == "" {
 			t.Fatalf("scenario %d = %+v", i, s.Name)
@@ -85,7 +87,7 @@ func TestRender(t *testing.T) {
 // something: every fixture vets clean, and every hidden test fails on it.
 func TestFixturesFailWithoutTheAgent(t *testing.T) {
 	if testing.Short() {
-		t.Skip("builds four projects")
+		t.Skip("builds every fixture")
 	}
 	repo, _ := filepath.Abs(filepath.Join("..", ".."))
 	for _, s := range Scenarios() {
@@ -117,11 +119,6 @@ func TestFixturesFailWithoutTheAgent(t *testing.T) {
 	}
 }
 
-// O que a régua lê é a linha "--- FAIL": é ela que separa "o teste escondido
-// rodou e falhou", que é a medição, de "o fixture nem compila", que é a régua
-// quebrada. Uma falha comprida o bastante empurrava essa linha para fora da
-// janela — e um teste escondido que afirma sobre uma página recebe a página
-// inteira na mensagem, que são dois quilobytes de HTML.
 // O que a régua lê é a linha "--- FAIL": é ela que separa "o teste escondido
 // rodou e falhou", que é a medição, de "o fixture nem compila", que é a régua
 // quebrada. Uma falha comprida o bastante empurrava essa linha para fora da
@@ -175,5 +172,129 @@ func TestPortListingEhAtingivel(t *testing.T) {
 	defer cancel()
 	if ok, why := Verify(ctx, dir, sc); !ok {
 		t.Fatalf("o teste escondido recusa a tela que o exemplo já tem:\n%s", why)
+	}
+}
+
+// #94 — a outra metade: a régua que mede o caminho até a API também tem de ser
+// atingível, e a prova é a mesma que a do port-listing — a tela que o Prepare
+// troca por um esqueleto é uma resposta correta.
+//
+// Este é o único cenário com um serviço de pé durante a verificação, então ele
+// prova duas coisas de uma vez: que a barra existe, e que o `Serve` chega ao
+// teste escondido pelo ambiente.
+func TestApiCallEhAtingivel(t *testing.T) {
+	if testing.Short() {
+		t.Skip("compila e roda um projeto inteiro")
+	}
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc, ok := ScenarioByName("api-call")
+	if !ok {
+		t.Fatal("o cenário sumiu")
+	}
+	// Sem o Prepare: o exemplo como está, que é a resposta.
+	sc.Prepare = nil
+	dir := t.TempDir()
+	if err := Build(repo, sc, dir, false); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	if ok, why := Verify(ctx, dir, sc); !ok {
+		t.Fatalf("o teste escondido recusa a tela que o exemplo já tem:\n%s", why)
+	}
+}
+
+// O stub é uma API e um gravador: o que ele responde não depende da
+// credencial, de propósito, porque uma API que recusasse o anônimo faria
+// "saiu sem o token da sessão" e "não saiu" parecerem a mesma tela — e são
+// esses dois que o cenário existe para separar.
+func TestStubDoAcervoGravaOQueRecebe(t *testing.T) {
+	env, stop := serveAcervo()
+	defer stop()
+	base := strings.TrimPrefix(env[0], "API_URL=")
+
+	req, _ := http.NewRequest("GET", base+"/api/documents?q=contrato", nil)
+	req.Header.Set("Authorization", "Bearer jwt-da-ana")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var page struct {
+		Items []map[string]any `json:"items"`
+		Total int              `json:"total"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&page); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if len(page.Items) != 1 || page.Items[0]["filename"] != "contrato-2026.pdf" {
+		t.Fatalf("o filtro q não filtrou: %+v", page.Items)
+	}
+
+	// Sem credencial a resposta é a mesma, e é isso que deixa a falha legível.
+	res, err = http.Get(base + "/api/documents")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 200 {
+		t.Fatalf("chamada anônima = %d, queria 200", res.StatusCode)
+	}
+	res.Body.Close()
+
+	res, err = http.Get(base + InspectPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var recs []Recebida
+	if err := json.NewDecoder(res.Body).Decode(&recs); err != nil {
+		t.Fatal(err)
+	}
+	if len(recs) != 2 {
+		t.Fatalf("gravou %d chamadas, queria 2", len(recs))
+	}
+	if recs[0].Auth != "Bearer jwt-da-ana" || recs[0].Query != "q=contrato" {
+		t.Fatalf("a primeira chamada veio errada: %+v", recs[0])
+	}
+	if recs[1].Auth != "" {
+		t.Fatalf("a segunda chamada não era anônima: %+v", recs[1])
+	}
+	// O caminho de inspeção não entra no log: ele não é da API.
+	for _, r := range recs {
+		if r.Path == InspectPath {
+			t.Fatal("o próprio gravador apareceu no log")
+		}
+	}
+}
+
+// A metade da aceitação que pedido nenhum mostra: a chamada pode levar a
+// credencial certa e ainda ter sido escrita à mão sobre um documento que
+// estava a um comando de virar tipos.
+func TestClienteGeradoExigeOComando(t *testing.T) {
+	dir := t.TempDir()
+	mao := filepath.Join(dir, "app", "documentos")
+	if err := os.MkdirAll(mao, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mao, "page.go"), []byte("package documentos\n// http.NewRequest e json.Decode na mão\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := clienteGerado(dir); err == nil {
+		t.Fatal("um projeto sem cliente gerado passou")
+	}
+
+	gerado := filepath.Join(dir, "internal", "api")
+	if err := os.MkdirAll(gerado, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(gerado, "client.go"),
+		[]byte("// Code generated by trilha client from openapi.json. DO NOT EDIT.\npackage api\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := clienteGerado(dir); err != nil {
+		t.Fatalf("o cliente gerado não foi reconhecido: %v", err)
 	}
 }

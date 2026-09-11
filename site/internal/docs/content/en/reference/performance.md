@@ -88,9 +88,9 @@ by whoever writes the app with an AI tool: the tokens an agent spends discoverin
 project already has, getting a signature wrong, running five checks one at a time. That is
 what `bench/agent` measures.
 
-`make bench-agent` copies `examples/blog` or `examples/sso` into a module of its own, runs a
-coding agent (`claude -p`, with no MCP servers, plugins or user memory: only what is inside
-the project counts) on five fixed tasks, and decides pass or fail with a hidden test:
+`make bench-agent` copies one of the examples into a module of its own, runs a coding agent
+(`claude -p`, with no MCP servers, plugins or user memory: only what is inside the project
+counts) on six fixed tasks, and decides pass or fail with a hidden test:
 
 | Scenario | Task |
 |---|---|
@@ -99,6 +99,12 @@ the project counts) on five fixed tasks, and decides pass or fail with a hidden 
 | `cognito` | switch the login provider of the SSO example from Keycloak to Cognito |
 | `pagination` | five posts per page at `/blog`, with `?page=N` and prev/next |
 | `port-listing` | rewrite a Next.js listing in Trilha: filter, sortable table, pagination, live fragment |
+| `api-call` | rewrite a listing that called an API from the browser: the call leaves from the server, with the session's credential |
+
+`api-call` is the one with a service of its own up during the run — the API the app does not
+own, brought up before the agent and again before the verification, its address handed to
+both in `API_URL`. It records what arrived, because the credential a call carries is only
+visible from the far side: from this side you see the code that says it sends one.
 
 Each scenario runs three times; `bench/agent/RESULTS.md` shows the median of tokens in
 (fresh and read from cache), tokens out, turns, denied tool calls, time and cost, and how

@@ -1,0 +1,74 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Acervo API",
+    "version": "1.0.0",
+    "description": "The API this app does not own. It stayed where it was; what changed is who calls it."
+  },
+  "paths": {
+    "/api/documents": {
+      "get": {
+        "tags": ["documents"],
+        "operationId": "list_documents",
+        "summary": "List documents, newest first.",
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1, "minimum": 1}},
+          {"name": "page_size", "in": "query", "schema": {"type": "integer", "default": 20, "maximum": 200}},
+          {"name": "q", "in": "query", "description": "Full text search.", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of documents.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PagedDocument"}}}
+          }
+        }
+      }
+    },
+    "/api/documents/{document_id}": {
+      "get": {
+        "tags": ["documents"],
+        "operationId": "get_document",
+        "summary": "One document.",
+        "parameters": [
+          {"name": "document_id", "in": "path", "required": true, "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "The document.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Document"}}}
+          },
+          "404": {"description": "No such document."}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Status": {
+        "type": "string",
+        "description": "Where the document is in the pipeline.",
+        "enum": ["pending", "processed", "failed"]
+      },
+      "Document": {
+        "type": "object",
+        "required": ["id", "filename", "status", "pages"],
+        "properties": {
+          "id": {"type": "string"},
+          "filename": {"type": "string"},
+          "status": {"$ref": "#/components/schemas/Status"},
+          "pages": {"type": "integer"},
+          "owner": {"type": "string", "description": "Who uploaded it."}
+        }
+      },
+      "PagedDocument": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/Document"}},
+          "total": {"type": "integer"},
+          "page": {"type": "integer"}
+        }
+      }
+    }
+  }
+}

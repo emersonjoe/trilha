@@ -53,6 +53,11 @@ Mediana de cada coluna sobre as execuções; *Passou* é quantas execuções dei
   `trilha`, `make` e utilitários de leitura). Uma recusa é o agente pedindo algo fora dela; a
   coluna existe para que um vão na lista apareça em vez de virar custo do framework, e
   `results.json` guarda o comando recusado.
+- **O serviço de fora.** Um cenário pode ter uma API própria de pé — o `api-call` tem. Ela
+  sobe antes do agente e de novo antes da verificação, e o endereço vai nas duas pelo
+  ambiente (`API_URL`): o agente experimenta contra a mesma API que o teste escondido vai
+  perguntar depois. Ela grava o que recebeu, porque a credencial de uma chamada só é visível
+  do lado de lá — do lado de cá se vê o código que diz mandá-la.
 - **Passou.** Depois do agente, um teste escondido é copiado para a cópia e `go vet ./...` +
   `go test ./...` rodam. Verde é passou; o resto, não. O teste falha na fixture intocada, e
   `go test ./...` do módulo `bench` prova isso sem agente nenhum.
@@ -63,8 +68,8 @@ Mediana de cada coluna sobre as execuções; *Passou* é quantas execuções dei
 - **Duas fixtures.** `make bench-agent` mede o projeto cru; `make bench-agent-agents` mede o
   mesmo projeto com o `AGENTS.md` que a 0.36.0 escreve (`trilha new --agents`). Cada uma tem
   sua tabela e sua mediana; a seção *Diferença* é a segunda contra a primeira.
-- **Reproduzir.** `claude auth login`, depois `make bench-agent` (12 execuções, dezenas de minutos e
-  custo real). `make bench-agent-dry` monta os cenários sem gastar token.
+- **Reproduzir.** `claude auth login`, depois `make bench-agent` (três execuções por cenário,
+  dezenas de minutos e custo real). `make bench-agent-dry` monta os cenários sem gastar token.
 
 ## Cenários
 
@@ -91,4 +96,16 @@ Fixture: `examples/sso`.
 Fixture: `examples/blog`.
 
 > A página /blog lista todos os posts de uma vez. Faça-a mostrar 5 posts por página: ?page=N escolhe a página (1 por padrão), e abaixo da lista aparecem os links para a página anterior e a próxima quando existem, com a página atual indicada, usando o componente de paginação do kit ui ou a receita do cookbook do Trilha. Deixe go vet ./... e go test ./... verdes.
+
+### `port-listing` — portar uma listagem .tsx para o Trilha
+
+Fixture: `examples/blog`.
+
+> A tela de documentos deste projeto existia em Next.js e o arquivo original está em app/documentos/page.tsx.txt, com a linha correspondente do MIGRATION.md ao lado. Escreva o equivalente em app/documentos/page.go, contra o pacote internal/documentos que já existe, mantendo o filtro por busca e por tipo, a ordenação por coluna vinda da URL, a paginação e a atualização automática da tabela. Deixe go vet ./... e go test ./... verdes.
+
+### `api-call` — portar a chamada à API que ficou onde estava
+
+Fixture: `examples/local-login`.
+
+> A tela de documentos deste app existia em Next.js e rodava no browser: o arquivo original está em app/painel/documentos/page.tsx.txt, com a linha correspondente do MIGRATION.md ao lado. Escreva o equivalente em app/painel/documentos/page.go, renderizado no servidor, contra a API que continua onde estava: a base dela está na variável API_URL e o documento OpenAPI que ela publica é o openapi.json na raiz do projeto. A tela lista os documentos com o filtro de busca que vem da URL, e a credencial da chamada é a da sessão de quem está logado — nunca uma que o browser mande. Deixe go vet ./... e go test ./... verdes.
 

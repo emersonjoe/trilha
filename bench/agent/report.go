@@ -260,6 +260,11 @@ const methodology = `## Metodologia
   ` + "`trilha`" + `, ` + "`make`" + ` e utilitários de leitura). Uma recusa é o agente pedindo algo fora dela; a
   coluna existe para que um vão na lista apareça em vez de virar custo do framework, e
   ` + "`results.json`" + ` guarda o comando recusado.
+- **O serviço de fora.** Um cenário pode ter uma API própria de pé — o ` + "`api-call`" + ` tem. Ela
+  sobe antes do agente e de novo antes da verificação, e o endereço vai nas duas pelo
+  ambiente (` + "`API_URL`" + `): o agente experimenta contra a mesma API que o teste escondido vai
+  perguntar depois. Ela grava o que recebeu, porque a credencial de uma chamada só é visível
+  do lado de lá — do lado de cá se vê o código que diz mandá-la.
 - **Passou.** Depois do agente, um teste escondido é copiado para a cópia e ` + "`go vet ./...`" + ` +
   ` + "`go test ./...`" + ` rodam. Verde é passou; o resto, não. O teste falha na fixture intocada, e
   ` + "`go test ./...`" + ` do módulo ` + "`bench`" + ` prova isso sem agente nenhum.
@@ -270,6 +275,6 @@ const methodology = `## Metodologia
 - **Duas fixtures.** ` + "`make bench-agent`" + ` mede o projeto cru; ` + "`make bench-agent-agents`" + ` mede o
   mesmo projeto com o ` + "`AGENTS.md`" + ` que a 0.36.0 escreve (` + "`trilha new --agents`" + `). Cada uma tem
   sua tabela e sua mediana; a seção *Diferença* é a segunda contra a primeira.
-- **Reproduzir.** ` + "`claude auth login`" + `, depois ` + "`make bench-agent`" + ` (12 execuções, dezenas de minutos e
-  custo real). ` + "`make bench-agent-dry`" + ` monta os cenários sem gastar token.
+- **Reproduzir.** ` + "`claude auth login`" + `, depois ` + "`make bench-agent`" + ` (três execuções por cenário,
+  dezenas de minutos e custo real). ` + "`make bench-agent-dry`" + ` monta os cenários sem gastar token.
 `

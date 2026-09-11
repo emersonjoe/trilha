@@ -89,10 +89,9 @@ quem escreve o app com uma ferramenta de IA: os tokens que um agente gasta desco
 que o projeto já tem, errando uma assinatura, rodando cinco verificações uma de cada vez. É
 isso que o `bench/agent` mede.
 
-`make bench-agent` copia `examples/blog` ou `examples/sso` para um módulo próprio, roda um
-agente de código (`claude -p`, sem servidores MCP, plugins ou memória do usuário: só o que
-está dentro do projeto conta) em cinco tarefas fixas e decide passou ou não com um teste
-escondido:
+`make bench-agent` copia um dos exemplos para um módulo próprio, roda um agente de código
+(`claude -p`, sem servidores MCP, plugins ou memória do usuário: só o que está dentro do
+projeto conta) em seis tarefas fixas e decide passou ou não com um teste escondido:
 
 | Cenário | Tarefa |
 |---|---|
@@ -101,6 +100,12 @@ escondido:
 | `cognito` | trocar o provedor de login do exemplo SSO de Keycloak para Cognito |
 | `pagination` | cinco posts por página em `/blog`, com `?page=N` e anterior/próxima |
 | `port-listing` | reescrever no Trilha uma listagem Next.js: filtro, tabela ordenável, paginação, fragmento vivo |
+| `api-call` | reescrever uma listagem que chamava a API do browser: a chamada sai do servidor, com a credencial da sessão |
+
+O `api-call` é o único com um serviço próprio de pé durante a execução — a API que o app não
+é dono, que sobe antes do agente e de novo antes da verificação, com o endereço entregue aos
+dois em `API_URL`. Ela grava o que chegou, porque a credencial de uma chamada só é visível do
+lado de lá: deste lado se vê o código que diz mandá-la.
 
 Cada cenário roda três vezes; `bench/agent/RESULTS.md` mostra a mediana de tokens de
 entrada (novos e lidos do cache), de saída, rodadas, chamadas recusadas, tempo e custo, e

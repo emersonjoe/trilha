@@ -112,50 +112,66 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 	results.Machine = machine()
 	results.Date = time.Now().UTC().Format("2006-01-02")
 	for _, s := range selected {
-		for n := 1; n <= runs; n++ {
-			dir := filepath.Join(work, fmt.Sprintf("%s-%d", s.Name, n))
-			if err := Build(repo, s, dir, agentsMD); err != nil {
-				return err
-			}
-			fmt.Printf("%-14s run %d/%d … ", s.Name, n, runs)
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			u, raw, err := RunAgent(ctx, dir, s.Prompt, AgentOptions{Command: agent, Model: model, MaxTurns: maxTurns, Path: bin, Dirs: []string{repo}})
-			if err != nil {
-				cancel()
-				return err
-			}
-			r := Run{Scenario: s.Name, N: n, At: time.Now().UTC(), Variant: variant(agentsMD), Usage: u, Summary: summary(raw)}
-			// The raw result lives next to the fixture: with -keep it is
-			// there to read, without it it goes with the rest.
-			_ = os.WriteFile(dir+".agent.json", raw, 0o644)
-			if u.Error == "" {
-				r.Passed, r.Verify = Verify(ctx, dir, s)
-			}
-			cancel()
-			if u.Model != "" {
-				results.Model = u.Model
-			}
-			results.Runs = append(results.Runs, r)
-			if err := Save(out, results); err != nil {
-				return err
-			}
-			status := "PASS"
-			if !r.Passed {
-				status = "FAIL"
-			}
-			if u.Error != "" {
-				status = "ERROR: " + firstLine(u.Error)
-			}
-			fmt.Printf("%s  in=%d cache=%d out=%d turns=%d %.0fs\n", status, u.Input, u.CacheRead, u.Output, u.Turns, float64(u.DurationMs)/1000)
-			if keep {
-				fmt.Printf("%-14s %s\n", "", dir)
-			}
-			if u.Error != "" {
-				return fmt.Errorf("agent error: %s", u.Error)
-			}
+		if err := runScenario(&results, s, runs, model, agent, maxTurns, timeout, out, repo, work, bin, keep, agentsMD); err != nil {
+			return err
 		}
 	}
 	return os.WriteFile(md, []byte(Render(results, all)), 0o644)
+}
+
+// runScenario is one scenario's block of runs, with whatever it serves up for
+// the length of it: the agent tries what it writes against the same API the
+// verification will ask afterwards, one instance for the block.
+func runScenario(results *Results, s Scenario, runs int, model, agent string, maxTurns int, timeout time.Duration, out, repo, work, bin string, keep, agentsMD bool) error {
+	var agentEnv []string
+	if s.Serve != nil {
+		env, stop := s.Serve()
+		defer stop()
+		agentEnv = env
+	}
+	for n := 1; n <= runs; n++ {
+		dir := filepath.Join(work, fmt.Sprintf("%s-%d", s.Name, n))
+		if err := Build(repo, s, dir, agentsMD); err != nil {
+			return err
+		}
+		fmt.Printf("%-14s run %d/%d … ", s.Name, n, runs)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		u, raw, err := RunAgent(ctx, dir, s.Prompt, AgentOptions{Command: agent, Model: model, MaxTurns: maxTurns, Path: bin, Dirs: []string{repo}, Env: agentEnv})
+		if err != nil {
+			cancel()
+			return err
+		}
+		r := Run{Scenario: s.Name, N: n, At: time.Now().UTC(), Variant: variant(agentsMD), Usage: u, Summary: summary(raw)}
+		// The raw result lives next to the fixture: with -keep it is
+		// there to read, without it it goes with the rest.
+		_ = os.WriteFile(dir+".agent.json", raw, 0o644)
+		if u.Error == "" {
+			r.Passed, r.Verify = Verify(ctx, dir, s)
+		}
+		cancel()
+		if u.Model != "" {
+			results.Model = u.Model
+		}
+		results.Runs = append(results.Runs, r)
+		if err := Save(out, *results); err != nil {
+			return err
+		}
+		status := "PASS"
+		if !r.Passed {
+			status = "FAIL"
+		}
+		if u.Error != "" {
+			status = "ERROR: " + firstLine(u.Error)
+		}
+		fmt.Printf("%s  in=%d cache=%d out=%d turns=%d %.0fs\n", status, u.Input, u.CacheRead, u.Output, u.Turns, float64(u.DurationMs)/1000)
+		if keep {
+			fmt.Printf("%-14s %s\n", "", dir)
+		}
+		if u.Error != "" {
+			return fmt.Errorf("agent error: %s", u.Error)
+		}
+	}
+	return nil
 }
 
 // repoRoot finds the repository from wherever the command runs: this file

@@ -102,6 +102,10 @@ type AgentOptions struct {
 	MaxTurns int
 	Path     string   // prepended to PATH so `trilha` resolves
 	Dirs     []string // extra directories the agent may read (--add-dir)
+	// Env is added to the agent's environment: where the service a scenario
+	// brought up is listening. The agent gets the same address the
+	// verification will use, so what it tries against is the API itself.
+	Env []string
 }
 
 // allowedTools is what the agent may run without asking. In -p mode a tool
@@ -138,6 +142,7 @@ func RunAgent(ctx context.Context, dir, prompt string, o AgentOptions) (Usage, [
 	c := exec.CommandContext(ctx, cmd, args...)
 	c.Dir = dir
 	c.Env = append(os.Environ(), "PATH="+o.Path+string(os.PathListSeparator)+os.Getenv("PATH"))
+	c.Env = append(c.Env, o.Env...)
 	var out, errb bytes.Buffer
 	c.Stdout, c.Stderr = &out, &errb
 	err := c.Run()

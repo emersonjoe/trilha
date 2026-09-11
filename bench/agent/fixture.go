@@ -61,7 +61,18 @@ func BuildCLI(repo, bin string) error {
 // Verify copies the hidden tests in and runs vet, test and the scenario's
 // check. The output of the first failure comes back, trimmed to its tail:
 // that is what a person reads to see why a run did not pass.
+//
+// A scenario with a Serve brings its service up for the length of the run and
+// hands the address to `go test` through the environment: the hidden test
+// talks to the same API the app does, which is how it can read the credential
+// that arrived instead of the one the code says it sends.
 func Verify(ctx context.Context, dir string, sc Scenario) (bool, string) {
+	env := []string{"TRILHA_LANG=en"}
+	if sc.Serve != nil {
+		e, stop := sc.Serve()
+		defer stop()
+		env = append(env, e...)
+	}
 	for rel, src := range sc.Tests {
 		p := filepath.Join(dir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -74,7 +85,7 @@ func Verify(ctx context.Context, dir string, sc Scenario) (bool, string) {
 	for _, args := range [][]string{{"go", "vet", "./..."}, {"go", "test", "-count=1", "./..."}} {
 		c := exec.CommandContext(ctx, args[0], args[1:]...)
 		c.Dir = dir
-		c.Env = append(os.Environ(), "TRILHA_LANG=en")
+		c.Env = append(os.Environ(), env...)
 		if out, err := c.CombinedOutput(); err != nil {
 			return false, tail(strings.Join(args, " ")+": "+err.Error()+"\n"+string(out), 4000)
 		}
