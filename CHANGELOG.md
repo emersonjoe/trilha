@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.104.0 — 2026-09-11
+
+Spec 125. Closes [#172](https://github.com/emersonjoe/trilha/issues/172).
+
+### Changed
+
+- **`scripts/release.sh` says what it left behind, and can be run again to finish.** The two
+  previous releases stopped at the same place: the credential in use could push a branch — the
+  `main` merge included — and not create a tag, so `set -e` killed the script right after the
+  one step that cannot be taken back. What was left was a merged `main`, no tag, no release and
+  the issues still open, and the only thing on screen was a `curl` error. The order is not the
+  problem and does not change: the tag comes after the merge so that a rejected merge does not
+  leave a tag pointing at a commit nobody has. Predicting the failure is not available either —
+  `git push --dry-run` reports success for a tag push that the real one refuses with 403,
+  because it never reaches the authorisation of the ref write. So what changed is the cost of
+  the failure. A trap that speaks only after the merge prints the commit `main` was moved to
+  and the commands still missing; and a tag that already exists **at this commit** is now a
+  step already taken rather than a refusal, so running the script again finishes the ritual.
+  The same version pointing at a different commit is still refused, before anything is written
+  to the remote. The release step asks `gh release view` first and edits instead of creating
+  when it is already there, which also fixes a release published with an empty body — running
+  the script again writes the notes into it.
+
 ## 0.103.0 — 2026-09-11
 
 Spec 124. Closes [#164](https://github.com/emersonjoe/trilha/issues/164) and
