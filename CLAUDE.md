@@ -28,7 +28,22 @@ shell commands, and other important information, read the current plan
 - Toda convenção nova precisa de: teste no scanner, rota no `examples/blog` e teste de integração.
 - Gerador determinístico; arquivo gerado é commitado.
 - Código, identificadores e mensagens de erro em inglês. Público (site, README, comunidade, CLI, scaffold) em inglês por padrão com tradução pt-BR no mesmo commit (site em `/` e `/pt`, `README.pt-BR.md`, `docs/pt-BR/`, `TRILHA_LANG`). Specs e constituição em pt-BR.
-- Commits sem trailer de coautoria.
+- **Commits sem trailer de coautoria**: nada de `Co-Authored-By`, em nenhum commit, venha
+  ele de uma pessoa ou de uma sessão automática.
+
+## Automação de issues
+
+Uma issue com a label `auto` é resolvida sem humano no circuito: o Claude Code roda no
+GitHub Actions, um job independente roda a suíte e o lint, a PR é mesclada e a issue fecha
+na mesclagem. `complexa` na mesma issue troca o modelo para o maior.
+
+- Workflow: `.github/workflows/auto-issue.yml`. Scripts: `scripts/auto/` (`resolve-issue.sh`
+  escolhe a issue e monta o prompt, `garantir-pr.sh`, `mesclar-e-encadear.sh`,
+  `proxima-issue.sh` encadeia a próxima).
+- Como ligar, como acompanhar, o que fazer quando trava e as decisões de desenho estão em
+  `docs/automacao-issues.md`.
+- A label é a fronteira de confiança: o corpo da issue vira prompt de um agente com shell,
+  e só quem pode escrever no repositório pode rotular. Não troque o gatilho para `opened`.
 
 ## Fluxo de trabalho
 
