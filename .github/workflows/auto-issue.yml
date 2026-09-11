@@ -1,0 +1,206 @@
+name: auto
+run-name: "auto · issue #${{ inputs.issue || github.event.issue.number || 'mais antiga' }}"
+
+# Resolve uma issue sem humano no circuito: o Claude Code escreve o código numa branch, um
+# job independente roda gofmt + vet + `go test` (+ race) como o ci.yml e a PR é
+# mesclada por squash. O "Closes #n" fecha a issue na mesclagem.
+#
+# Pré-requisitos (uma vez, veja .github/AUTOMACAO.md):
+#   1. Um segredo: ANTHROPIC_API_KEY (plataforma, cobrada por uso; tem prioridade) ou
+#      CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`, assinatura Max).
+#   2. Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+#
+# Disparo:  basta pôr a label `auto` na issue; ou `gh workflow run auto-issue.yml -f issue=123`.
+#
+# Guardrails contra laço infinito e gasto inútil (detalhes em .github/AUTOMACAO.md):
+#   - uma execução por issue (concurrency) e recusa de issue que já tem PR ou run em andamento;
+#   - teto de tentativas por issue (AUTO_MAX_TENTATIVAS, padrão 2) → label `auto-parada`;
+#   - teto de sessões por dia no repositório (AUTO_MAX_SESSOES_DIA, padrão 6);
+#   - sessão limitada por --max-turns, --max-budget-usd e timeout-minutes;
+#   - branch publicada sem diferença para a branch padrão conta como falha, não como PR;
+#   - encadeamento só por workflow_dispatch, uma issue por vez; o schedule é a rede de segurança.
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Número da issue (vazio = a mais antiga com a label auto)"
+        required: false
+        default: ""
+      modelo:
+        description: "Modelo (vazio = claude-sonnet-5, ou claude-opus-5 se a issue tem a label complexa)"
+        required: false
+        default: ""
+  schedule:
+    # De hora em hora pega a issue `auto` mais antiga sem PR em andamento. Se um encadeamento
+    # morrer (runner cancelado, API fora), a fila volta a andar sozinha na hora seguinte.
+    - cron: "23 * * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+  id-token: write
+
+# Uma execução por issue. O agendamento não sabe o número antes de resolver, então tem um
+# grupo próprio, e o `resolve` recusa uma issue que já está sendo trabalhada.
+concurrency:
+  group: auto-issue-${{ github.event.issue.number || inputs.issue || 'agendado' }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    # A label `auto` é a fronteira de confiança: só quem pode rotular uma issue deste
+    # repositório consegue mandar o corpo dela para um agente com shell.
+    if: github.event_name != 'issues' || github.event.label.name == 'auto'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      issue: ${{ steps.cfg.outputs.issue }}
+      branch: ${{ steps.cfg.outputs.branch }}
+      modelo: ${{ steps.cfg.outputs.modelo }}
+      prompt: ${{ steps.cfg.outputs.prompt }}
+      prosseguir: ${{ steps.cfg.outputs.prosseguir }}
+      tentativa: ${{ steps.cfg.outputs.tentativa }}
+      pr_existente: ${{ steps.cfg.outputs.pr_existente }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Escolher a issue, aplicar os guardrails e montar o prompt
+        id: cfg
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENTO: ${{ github.event_name }}
+          PEDIDA: ${{ inputs.issue }}
+          ROTULADA: ${{ github.event.issue.number }}
+          MODELO_OVERRIDE: ${{ inputs.modelo }}
+          PADRAO: ${{ github.event.repository.default_branch }}
+          MAX_TENTATIVAS: ${{ vars.AUTO_MAX_TENTATIVAS }}
+          MAX_SESSOES_DIA: ${{ vars.AUTO_MAX_SESSOES_DIA }}
+          TEM_SEGREDO: ${{ secrets.ANTHROPIC_API_KEY != '' || secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: bash scripts/auto/resolve-issue.sh
+
+  sessao:
+    needs: resolve
+    if: needs.resolve.outputs.prosseguir == 'sim'
+    runs-on: ubuntu-latest
+    # Teto de tempo da sessão: uma issue deste tamanho cabe em bem menos; passar disto é
+    # sinal de laço, e o job morre antes de queimar o dia inteiro de runner.
+    timeout-minutes: 150
+    outputs:
+      pr: ${{ steps.pr.outputs.numero }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Aquecer o cache do módulo
+        run: go build ./... && go vet ./... || true
+
+      # Registra a tentativa ANTES de gastar tokens: é este comentário que o resolve conta.
+      - name: Registrar a tentativa na issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ needs.resolve.outputs.issue }}
+          TENTATIVA: ${{ needs.resolve.outputs.tentativa }}
+          MAX_TENTATIVAS: ${{ vars.AUTO_MAX_TENTATIVAS }}
+          MODELO: ${{ needs.resolve.outputs.modelo }}
+          EXECUCAO: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf '🤖 auto · tentativa %s/%s · modelo %s · %s\n' "$TENTATIVA" "${MAX_TENTATIVAS:-2}" "$MODELO" "$EXECUCAO" |
+            gh issue comment "$ISSUE" --body-file -
+
+      - name: Claude Code — issue #${{ needs.resolve.outputs.issue }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          # A chave da plataforma tem prioridade; sem ela, o token da assinatura Max.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Sem isto, a execução disparada pelo próprio workflow (schedule, dispatch do
+          # encadeamento) é recusada com "Workflow initiated by non-human actor".
+          allowed_bots: "github-actions"
+          show_full_output: true
+          prompt: ${{ needs.resolve.outputs.prompt }}
+          # --max-turns e --max-budget-usd são os dois freios da sessão: o primeiro contra o
+          # laço de tentativa-erro, o segundo contra o gasto (só conta com chave da plataforma;
+          # com token de assinatura o custo é 0 e o freio que vale é o de turnos).
+          claude_args: |
+            --model ${{ needs.resolve.outputs.modelo }}
+            --max-turns 400
+            --max-budget-usd ${{ vars.AUTO_MAX_USD || '15' }}
+            --allowedTools "Bash,Read,Edit,Write,MultiEdit,Glob,Grep,WebFetch"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Garantir a PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ needs.resolve.outputs.branch }}
+          ISSUE: ${{ needs.resolve.outputs.issue }}
+          PADRAO: ${{ github.event.repository.default_branch }}
+        run: bash scripts/auto/garantir-pr.sh
+
+  verifica:
+    needs: [resolve, sessao]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # Checkout limpo da branch: o que é testado é o que está publicado, não a árvore que a
+      # sessão deixou para trás.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.branch }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      # Uma PR aberta com o GITHUB_TOKEN não dispara o ci.yml, então este job é o único
+      # portão que a PR tem. São os mesmos passos do job `test` + `race` do ci.yml.
+      - run: test -z "$(gofmt -l *.go h internal cmd examples tmpl ui)"
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go test -race ./...
+      - run: cd bench && go test ./...
+
+  mescla:
+    needs: [resolve, sessao, verifica]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mesclar, limpar a label e chamar a próxima
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.sessao.outputs.pr }}
+          ISSUE: ${{ needs.resolve.outputs.issue }}
+        run: bash scripts/auto/mesclar-e-encadear.sh
+
+  falha:
+    # Qualquer job anterior que falhou (sessão sem branch, PR sem diff, suíte vermelha) passa
+    # por aqui: registra o motivo na issue/PR e, esgotadas as tentativas, aposenta a issue da
+    # fila com a label `auto-parada`. É o que impede o schedule de repetir o mesmo erro para
+    # sempre.
+    needs: [resolve, sessao, verifica]
+    if: failure() && needs.resolve.outputs.prosseguir == 'sim'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Registrar a falha e decidir se a issue continua na fila
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ needs.resolve.outputs.issue }}
+          BRANCH: ${{ needs.resolve.outputs.branch }}
+          PR: ${{ needs.sessao.outputs.pr }}
+          TENTATIVA: ${{ needs.resolve.outputs.tentativa }}
+          MAX_TENTATIVAS: ${{ vars.AUTO_MAX_TENTATIVAS }}
+          EXECUCAO: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/auto/registrar-falha.sh

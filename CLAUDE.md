@@ -42,3 +42,15 @@ shell commands, and other important information, read the current plan
 - **Ler estreito**: `grep -n -A5` ou `sed -n 'X,Yp'` em vez de ler arquivo grande inteiro.
 - **`make test` por bloco de tarefas**, não por arquivo, e não repita a suíte sem ter mudado
   código.
+
+## Automação de issues
+
+Uma issue com a label `auto` é resolvida **sem humano no circuito**: o Claude Code roda no
+GitHub Actions, um job independente repete gofmt + vet + test + race, a PR é mesclada por
+squash e a issue fecha na mesclagem. `complexa` troca o modelo para o maior. A sessão
+automática **nunca faz release** — versão, tag e `make release` são da sessão humana.
+
+- Workflow `.github/workflows/auto-issue.yml`; scripts em `scripts/auto/`; manual, guardrails
+  e decisões em `.github/AUTOMACAO.md`.
+- A label é a fronteira de confiança: o corpo da issue vira prompt de um agente com shell.
+  Não troque o gatilho para `opened`.
