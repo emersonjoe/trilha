@@ -83,6 +83,7 @@ func cmdGenerate(args []string) error {
 func crud(arg string, args []string) error {
 	fs := flag.NewFlagSet("generate crud", flag.ContinueOnError)
 	at := fs.String("at", "", t("flag crud at"))
+	store := fs.String("store", "", t("flag crud store"))
 	langFlag := fs.String("lang", lang, t("flag lang"))
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -94,9 +95,13 @@ func crud(arg string, args []string) error {
 	if err != nil {
 		return err
 	}
-	opts := scaffold.CrudOptions{Type: arg, At: *at, Module: p.Module, Lang: *langFlag}
+	opts := scaffold.CrudOptions{Type: arg, At: *at, Store: *store, Module: p.Module, Lang: *langFlag}
 	res, err := scaffold.Crud(p.Root, opts)
 	switch {
+	case errors.Is(err, scaffold.ErrCrudNoStore):
+		// The recipe is the thing this would be written against, and it is one
+		// command away — so the refusal is that command and not a diagnosis.
+		return fmt.Errorf("%w — %s", err, t("crud add store"))
 	case errors.Is(err, scaffold.ErrGenExists):
 		// No --force, and no offer of one: the CRUD is what somebody generates
 		// after having edited it. What running it again is worth is the answer
@@ -131,6 +136,11 @@ func crud(arg string, args []string) error {
 	// that a field of theirs is on no screen.
 	for _, f := range res.Skipped {
 		fmt.Printf("  %s %s\n", t("crud skipped"), f)
+	}
+	// A column the table did not get is the same kind of silence, and worse:
+	// the screens at least carry a comment where the field would have gone.
+	for _, f := range res.NoColumn {
+		fmt.Printf("  %s %s\n", t("crud no column"), f)
 	}
 	// What is above the destination changes what the generated test can do, so
 	// it is said here instead of being discovered when the test runs.

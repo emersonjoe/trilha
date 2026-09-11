@@ -3,6 +3,54 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.106.0 — 2026-09-11
+
+Spec 127. Another part of [#115](https://github.com/emersonjoe/trilha/issues/115), which stays
+open for the flags it still lists.
+
+### Changed
+
+- **The store `trilha generate crud` emits takes the request's context, and says "not found"
+  with an error.** It was `List(q Query)` / `Get(id) (T, bool)`, and both halves of that had to
+  change before any SQL could be written against it — the reason is recorded on the issue.
+  Without a context a query goes on running after the person who asked for it closed the tab,
+  and a listing with a search box is a scan per visitor who gave up; the route's deadline does
+  not reach the database either. Without an error there is no way to tell a row that is not
+  there from a database that is not answering, so an outage is served as a 404 — the one lie a
+  screen must not tell. The interface is now
+  `List(ctx, q) ([]T, int, error)`, `Get(ctx, id) (T, error)`, `Create`, `Update` and `Delete`
+  the same way, with `trilha.ErrNotFound` for the row that is gone: the same error the store
+  recipe answers with for `sql.ErrNoRows`, so the two implementations are indistinguishable
+  from a screen, and a handler forwards it in one line. The memory store checks the context
+  too, rather than taking a parameter it ignores. The screens, the memory store and the
+  generated test all move with it.
+
+### Added
+
+- **`trilha generate crud <Type> --store sqlite|postgres` — the SQL half of the CRUD.** It
+  writes `<type>_store_sql.go`, its test, and `migrations/NNNN_<table>.sql` with the table in
+  the dialect asked for, numbered one past the highest on disk because name order is apply
+  order. It is written **against the `store` recipe** the previous release added, which is what
+  that recipe exists for: `store.Sortable` with `store.OrderBy` for the ordering that came from
+  the URL, `store.Paginate` for the page ceiling, `store.Like` for the search box, `d.Arg(n)`
+  for every value, `store.NotFound` for `sql.ErrNoRows`. Nothing a visitor types is ever
+  concatenated into a statement. Without the recipe in the project the flag is a refusal naming
+  `trilha add store`, before a single file is written: a generator that writes against a package
+  that is not there hands somebody a project that does not compile.
+
+  Three decisions worth recording. The **memory store is still written** — it is the reference
+  implementation of the five signatures and the store a unit test gets without a database, and
+  a compile-time `var _ TipoStore = (*TipoSQL)(nil)` keeps the two from drifting apart. The
+  **`Provide` goes at the end of `Setup`**, after `store.Setup(a)`, because `store.DB` does not
+  exist before it and a pool captured as nil fails on the first request — the exact failure the
+  rest of this generator is written to avoid; a `Setup` that does not call the recipe is a
+  refusal naming the line to add. And the **generated CRUD test skips without `DATABASE_URL`**:
+  booting the app opens the database, and the driver behind it is a `go get` the project makes
+  and the framework cannot make for it, so `trilha check` is green with no driver installed.
+  What runs regardless is the generated store's own test, which needs no database because what
+  it asserts is the statement that leaves — every attack string in `?sort=` comes back as the
+  default ordering, the search box travels as an escaped argument, the page keeps its ceiling.
+
 ## 0.105.0 — 2026-09-11
 
 Spec 126. The decision [#115](https://github.com/emersonjoe/trilha/issues/115) and

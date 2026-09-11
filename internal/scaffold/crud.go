@@ -27,6 +27,10 @@ type CrudOptions struct {
 	// the generator writes on its own.
 	Module string
 	Lang   string
+	// Store is which implementation of the store to write: "" or "memory" is
+	// the in-memory one alone, "sqlite" and "postgres" add the database/sql
+	// one and the migration that makes its table.
+	Store string
 }
 
 // CrudResult is what was written and what the routes came out as.
@@ -43,6 +47,10 @@ type CrudResult struct {
 	// without opening the file, because a field that disappears in silence is
 	// a field somebody looks for later.
 	Skipped []string
+	// NoColumn names the fields the table has no column for, for the same
+	// reason Skipped exists: a field that vanishes without a word is a field
+	// somebody goes looking for a month later.
+	NoColumn []string
 	// Guard is the middleware.go that closes the folder the screens landed in,
 	// and Helper the package the generated test uses to open a session — empty
 	// when there is none, and then the test carries a Skip that explains.
@@ -78,9 +86,14 @@ func Crud(root string, o CrudOptions) (CrudResult, error) {
 	// reach the screens at all.
 	plan.findGuard(root, o.Module)
 	res.Guard, res.Helper = plan.Guard, plan.Helper
+	if plan.sql() {
+		if err := plan.needsStoreRecipe(root); err != nil {
+			return res, err
+		}
+	}
 	// Every file is checked before any is written: a refusal that leaves half
 	// a CRUD on disk is a refusal somebody has to clean up by hand.
-	arquivos := plan.files()
+	arquivos := append(plan.files(), plan.sqlFiles(root)...)
 	for _, f := range arquivos {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(f.rel))); err == nil {
 			return res, fmt.Errorf("%s: %w", f.rel, ErrGenExists)
@@ -91,6 +104,9 @@ func Crud(root string, o CrudOptions) (CrudResult, error) {
 	// produced broken Go fails here, naming the file, instead of at the first
 	// compile with a line number into generated code.
 	for i, f := range arquivos {
+		if f.raw {
+			continue // a migration is SQL, and gofmt has nothing to say about it
+		}
 		src, err := format.Source([]byte(f.body))
 		if err != nil {
 			return res, fmt.Errorf("%s: %w", f.rel, err)
@@ -116,7 +132,32 @@ func Crud(root string, o CrudOptions) (CrudResult, error) {
 	}
 	res.Patterns = plan.patterns()
 	res.Skipped = plan.skipped()
+	if plan.sql() {
+		res.NoColumn = plan.NoColumn
+	}
 	return res, nil
+}
+
+// needsStoreRecipe is the refusal that comes before the first write: --store
+// emits against the recipe — its dialect, its query kit, its migration runner
+// — and writing against a package that is not there hands somebody a project
+// that does not compile.
+func (p crudPlan) needsStoreRecipe(root string) error {
+	for _, d := range []string{"internal/store", "migrations"} {
+		if fi, err := os.Stat(filepath.Join(root, filepath.FromSlash(d))); err != nil || !fi.IsDir() {
+			return fmt.Errorf("%s: %w", d, ErrCrudNoStore)
+		}
+	}
+	// A migration for this table, from an earlier run, is the same half-a-CRUD
+	// problem the file checks answer — and writing a second CREATE TABLE
+	// numbered after the first is the one mistake the runner cannot undo.
+	entradas, _ := os.ReadDir(filepath.Join(root, "migrations"))
+	for _, e := range entradas {
+		if strings.HasSuffix(e.Name(), "_"+p.Table+".sql") {
+			return fmt.Errorf("migrations/%s: %w", e.Name(), ErrGenExists)
+		}
+	}
+	return nil
 }
 
 // skipped is the fields with no control: a type the CRUD does not know how to
@@ -151,6 +192,16 @@ type crudPlan struct {
 	Columns []typeField // what the table shows
 	System  []typeField // what the generator fills in
 
+	// Store is "", "memory", "sqlite" or "postgres"; the last two also decide
+	// the column types of the migration. StoreImport is the recipe's package,
+	// Table the table the rows land in, Cols its columns in one order, and
+	// NoColumn the fields that got none.
+	Store       string
+	StoreImport string
+	Table       string
+	Cols        []sqlColumn
+	NoColumn    []string
+
 	// Guard is the middleware.go above the destination, relative to the root,
 	// and Helper is the package that opens a session in a test — the recipe's
 	// or the template's, whichever this project has. A CRUD generated under a
@@ -167,6 +218,9 @@ type crudPlan struct {
 type crudFile struct {
 	rel  string
 	body string
+	// raw is a file that is not Go: it is written as it was built, because
+	// gofmt would refuse it and there is nothing for gofmt to do.
+	raw bool
 }
 
 // planCrud decides everything: which field is the key, which are the form's,
@@ -175,6 +229,12 @@ func planCrud(info typeInfo, o CrudOptions) (crudPlan, error) {
 	p := crudPlan{
 		Type: info.Name, Pkg: info.Pkg, Ref: info.Pkg + "." + info.Name,
 		Import: info.Import, StoreDir: info.Dir, T: textsFor(o.Lang),
+		Store: o.Store, StoreImport: o.Module + "/internal/store",
+	}
+	switch p.Store {
+	case "", "memory", "sqlite", "postgres":
+	default:
+		return p, fmt.Errorf("scaffold: --store is memory, sqlite or postgres, got %q", o.Store)
 	}
 	p.Var = strings.ToLower(info.Name[:1]) + info.Name[1:]
 	for _, f := range info.Fields {
@@ -216,6 +276,7 @@ func planCrud(info typeInfo, o CrudOptions) (crudPlan, error) {
 	p.ListPkg = packageName(path.Base(p.At))
 	p.Title = title(plural(info.Name))
 	p.One = title(info.Name)
+	p.planSQL()
 	return p, nil
 }
 

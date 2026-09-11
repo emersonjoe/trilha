@@ -22,9 +22,19 @@ func (p crudPlan) wireSetup(root string) (string, error) {
 	abs := filepath.Join(root, filepath.FromSlash(rel))
 	linha := fmt.Sprintf("\ttrilha.Provide[%s.%sStore](a, %s.New%sMemory())\n",
 		p.Pkg, p.Type, p.Pkg, p.Type)
+	if p.sql() {
+		linha = fmt.Sprintf("\ttrilha.Provide[%s.%sStore](a, %s.New%sSQL(store.DB, store.D))\n",
+			p.Pkg, p.Type, p.Pkg, p.Type)
+	}
 
 	src, err := os.ReadFile(abs)
 	if os.IsNotExist(err) {
+		if p.sql() {
+			// There is no Setup to put this in, which means there is no
+			// store.Setup either — and the recipe's pool is what this line
+			// reads. Saying so beats writing a file that boots on a nil DB.
+			return "", fmt.Errorf("%s does not exist; run `trilha add store` in a project that has one", rel)
+		}
 		novo, err := format.Source([]byte(p.newSetup(linha)))
 		if err != nil {
 			return "", fmt.Errorf("%s: %w", rel, err)
@@ -50,8 +60,28 @@ func (p crudPlan) wireSetup(root string) (string, error) {
 			rel, strings.TrimRight(linha, "\n"))
 	}
 	fim := strings.Index(texto[i:], "{") + i + 2 // depois de "{\n"
+	if p.sql() {
+		// The SQL store reads store.DB, and store.DB exists only after
+		// store.Setup has run. A Provide above it would hand the pages a nil
+		// pool — and that failure waits for the first request, which is the
+		// one way of breaking this the rest of the generator is written to
+		// avoid. So this line goes last, and if the recipe is not started
+		// here there is nothing to go after.
+		if !strings.Contains(texto, "store.Setup(a)") {
+			return "", fmt.Errorf("%s does not call store.Setup(a); add it, and then this line after it:\n\n%s",
+				rel, strings.TrimRight(linha, "\n"))
+		}
+		fim = endOfSetup(texto, i)
+		if fim < 0 {
+			return "", fmt.Errorf("%s: could not find the end of Setup; add this line at the end of it:\n\n%s",
+				rel, strings.TrimRight(linha, "\n"))
+		}
+	}
 	novo := texto[:fim] + linha + texto[fim:]
 	novo = addImport(novo, p.Import)
+	if p.sql() {
+		novo = addImport(novo, p.StoreImport)
+	}
 	formatado, err := format.Source([]byte(novo))
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", rel, err)
@@ -60,6 +90,23 @@ func (p crudPlan) wireSetup(root string) (string, error) {
 		return "", err
 	}
 	return rel, nil
+}
+
+// endOfSetup is the offset of the last return in the function that starts at
+// i — where a line that has to run after everything else goes. It answers -1
+// when the function does not end the way every Setup this framework writes
+// does, and then the generator says the line instead of guessing.
+func endOfSetup(texto string, i int) int {
+	fecha := strings.Index(texto[i:], "\n}\n")
+	if fecha < 0 {
+		return -1
+	}
+	fecha += i + 1
+	ret := strings.LastIndex(texto[i:fecha], "\n\treturn ")
+	if ret < 0 {
+		return -1
+	}
+	return i + ret + 1
 }
 
 // newSetup is the file for a project that has none. It is the smallest Setup

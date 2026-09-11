@@ -29,26 +29,26 @@ func (p crudPlan) patterns() []string {
 // implementing five methods whose signatures are already written.
 func (p crudPlan) store() string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, `package %s
-
-import (
-	"sort"
-	"strings"
-	"sync"
-)
-
-// %sStore is where the %s rows live. Five methods, which is what a screen
+	fmt.Fprintf(&sb, `// %sStore is where the %s rows live. Five methods, which is what a screen
 // needs: the listing with its filter, one row, and the three writes.
+//
+// Every one of them takes the request's context and answers an error, and
+// neither is ceremony. The context is what stops a query when the person who
+// asked for it closed the tab, or when the route's deadline ran out —
+// without it a listing goes on scanning for somebody who left. The error is
+// what tells a row that is not there from a database that is not answering:
+// a store that can only say "no" turns an outage into a 404, which is the one
+// lie a screen must not tell.
 //
 // It is an interface with an in-memory implementation because that is what
 // makes this compile and run the moment it is generated. A database is the
-// same five methods over your own SQL — see the database recipe.
+// same five methods over SQL, and --store sqlite writes that one too.
 type %sStore interface {
-	List(q %sQuery) ([]%s, int)
-	Get(id string) (%s, bool)
-	Create(v %s) (%s, error)
-	Update(id string, v %s) (%s, error)
-	Delete(id string) bool
+	List(ctx context.Context, q %sQuery) ([]%s, int, error)
+	Get(ctx context.Context, id string) (%s, error)
+	Create(ctx context.Context, v %s) (%s, error)
+	Update(ctx context.Context, id string, v %s) (%s, error)
+	Delete(ctx context.Context, id string) error
 }
 
 // %sQuery is what the listing screen asks for: the search box, the ordering
@@ -72,13 +72,21 @@ type %sMemory struct {
 // New%sMemory is the empty store.
 func New%sMemory() *%sMemory { return &%sMemory{} }
 
-`, p.Pkg, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type,
+`, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type,
 		p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type)
 
 	// List
 	fmt.Fprintf(&sb, `// List filters, orders and pages, and answers how many passed the filter —
 // the two numbers the pagination needs.
-func (s *%sMemory) List(q %sQuery) ([]%s, int) {
+//
+// The context is checked even here, where the data is in the process: a
+// memory store that ignores it would let a screen pass a cancelled request
+// and still look right, and then the same screen over SQL would be the one
+// that behaves differently.
+func (s *%sMemory) List(ctx context.Context, q %sQuery) ([]%s, int, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, 0, err
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -98,13 +106,13 @@ func (s *%sMemory) List(q %sQuery) ([]%s, int) {
 	})
 	total := len(out)
 	if q.Offset >= total {
-		return nil, total
+		return nil, total, nil
 	}
 	out = out[q.Offset:]
 	if q.Limit > 0 && len(out) > q.Limit {
 		out = out[:q.Limit]
 	}
-	return out, total
+	return out, total, nil
 }
 
 // %sMatches is the search box: it looks in the text fields, which is what
@@ -137,23 +145,32 @@ func %sLess(a, b %s, sort string) bool {
 	return a.ID < b.ID
 }
 
-// Get answers one row.
-func (s *%sMemory) Get(id string) (%s, bool) {
+// Get answers one row, or trilha.ErrNotFound: "it is not here" is an error
+// and not a second return value, so a handler that forwards it gets the 404 without
+// deciding anything, and a store that cannot answer at all is not mistaken
+// for one that answered "no".
+func (s *%sMemory) Get(ctx context.Context, id string) (%s, error) {
+	var zero %s
+	if err := ctx.Err(); err != nil {
+		return zero, err
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, v := range s.rows {
 		if v.ID == id {
-			return v, true
+			return v, nil
 		}
 	}
-	var zero %s
-	return zero, false
+	return zero, trilha.ErrNotFound
 }
 
 // Create files a new row and gives it the key. The key is made here and never
 // taken from the form: an id the visitor chose is an id the visitor can
 // collide with somebody else's.
-func (s *%sMemory) Create(v %s) (%s, error) {
+func (s *%sMemory) Create(ctx context.Context, v %s) (%s, error) {
+	if err := ctx.Err(); err != nil {
+		return v, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.seq++
@@ -163,7 +180,10 @@ func (s *%sMemory) Create(v %s) (%s, error) {
 }
 
 // Update replaces the fields of a row, keeping its key.
-func (s *%sMemory) Update(id string, v %s) (%s, error) {
+func (s *%sMemory) Update(ctx context.Context, id string, v %s) (%s, error) {
+	if err := ctx.Err(); err != nil {
+		return v, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i, old := range s.rows {
@@ -175,38 +195,50 @@ func (s *%sMemory) Update(id string, v %s) (%s, error) {
 		return v, nil
 	}
 	var zero %s
-	return zero, errors.New("%s: not found")
+	return zero, trilha.ErrNotFound
 }
 
-// Delete answers whether there was anything to delete, which is what tells a
-// 404 from a 303.
-func (s *%sMemory) Delete(id string) bool {
+// Delete removes the row, and says trilha.ErrNotFound when there was none —
+// which is what tells a 404 from a 303.
+func (s *%sMemory) Delete(ctx context.Context, id string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i, v := range s.rows {
 		if v.ID == id {
 			s.rows = append(s.rows[:i], s.rows[i+1:]...)
-			return true
+			return nil
 		}
 	}
-	return false
+	return trilha.ErrNotFound
 }
-`, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.systemOnCreate(), p.Type, p.Type, p.Type,
-		p.systemOnUpdate(), p.Type, strings.ToLower(p.Type), p.Type)
+`, p.Type, p.Type, p.Type, p.Type, p.Type, p.Type, p.systemOnCreate(),
+		p.Type, p.Type, p.Type, p.systemOnUpdate(), p.Type, p.Type)
 
-	body := sb.String()
-	// The imports are decided by what the body ended up needing, which is the
-	// only way to keep them honest across every shape of struct.
-	imps := []string{"sort", "strconv", "strings", "sync"}
-	if strings.Contains(body, "errors.New") {
-		imps = append(imps, "errors")
+	return p.storeHeader(sb.String()) + sb.String()
+}
+
+// storeHeader is the package clause and the imports the body ended up
+// needing. Deciding them from the body is the only way they stay honest
+// across every shape of struct.
+func (p crudPlan) storeHeader(body string) string {
+	std := []string{"context", "sort", "strconv", "strings", "sync"}
+	if strings.Contains(body, "time.Now()") || strings.Contains(body, "time.Time") {
+		std = append(std, "time")
 	}
-	if strings.Contains(body, "time.Now()") {
-		imps = append(imps, "time")
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "package %s\n\nimport (\n", p.Pkg)
+	for _, s := range sorted(std) {
+		fmt.Fprintf(&sb, "\t%q\n", s)
 	}
-	return strings.Replace(body,
-		"import (\n\t\"sort\"\n\t\"strings\"\n\t\"sync\"\n)",
-		"import (\n\t\""+strings.Join(sorted(imps), "\"\n\t\"")+"\"\n)", 1)
+	// The framework's not-found is the store's way of saying it: the handler
+	// returns the error and the app answers its own 404 page. It is the same
+	// error the store recipe hands back for sql.ErrNoRows, so the two
+	// implementations of this interface are indistinguishable from a screen.
+	sb.WriteString("\n\t\"github.com/emersonjoe/trilha\"\n)\n\n")
+	return sb.String()
 }
 
 // systemOnCreate and systemOnUpdate stamp the fields the form never asks for.

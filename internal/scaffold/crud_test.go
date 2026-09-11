@@ -344,3 +344,197 @@ func TestCrudSobPastaFechada(t *testing.T) {
 		t.Fatalf("com helper, o teste não devia pular:\n%s", teste)
 	}
 }
+
+// #115 — o contexto na interface, antes de qualquer SQL. Sem ele o store não
+// honra o prazo da requisição nem cancela quando o navegador desliga, e sem
+// erro no lugar do bool um banco fora do ar vira "não existe" — que é a
+// mentira mais cara que uma tela pode contar.
+func TestCrudInterfaceLevaContextoEErro(t *testing.T) {
+	raiz := projetoComTipo(t, tipoSrc)
+	if _, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/tipos",
+		Module: "example.com/loja", Lang: "en"}); err != nil {
+		t.Fatal(err)
+	}
+	store := ler(t, raiz, "internal/docs/tipo_store.go")
+	for _, quero := range []string{
+		"List(ctx context.Context, q TipoQuery) ([]Tipo, int, error)",
+		"Get(ctx context.Context, id string) (Tipo, error)",
+		"Create(ctx context.Context, v Tipo) (Tipo, error)",
+		"Update(ctx context.Context, id string, v Tipo) (Tipo, error)",
+		"Delete(ctx context.Context, id string) error",
+	} {
+		if !strings.Contains(store, quero) {
+			t.Errorf("a interface não tem %q:\n%s", quero, store)
+		}
+	}
+	// "Não achou" é o erro que o framework já sabe transformar em 404, e não
+	// um bool paralelo que cada tela interpreta do seu jeito.
+	if !strings.Contains(store, "trilha.ErrNotFound") {
+		t.Error("o store de memória não diz não-achou com o erro do framework")
+	}
+}
+
+// Toda chamada ao store, em toda tela, leva o contexto da requisição — que é
+// o que faz a consulta parar quando quem pediu foi embora. Uma que não leve é
+// a que sobra rodando, e ela não aparece em teste de tela nenhum.
+func TestCrudTelasPassamOContextoDaRequisicao(t *testing.T) {
+	raiz := projetoComTipo(t, tipoSrc)
+	if _, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/tipos",
+		Module: "example.com/loja", Lang: "en"}); err != nil {
+		t.Fatal(err)
+	}
+	const chamada = "trilha.Use[docs.TipoStore](c)."
+	total := 0
+	for _, tela := range []string{"app/tipos/page.go", "app/tipos/new/page.go", "app/tipos/id_/page.go"} {
+		src := ler(t, raiz, tela)
+		for i := 0; ; {
+			j := strings.Index(src[i:], chamada)
+			if j < 0 {
+				break
+			}
+			i += j + len(chamada)
+			resto := src[i:]
+			abre := strings.IndexByte(resto, '(')
+			if abre < 0 || !strings.HasPrefix(resto[abre+1:], "c.Context()") {
+				t.Errorf("%s: %s%s… não leva o contexto da requisição", tela, chamada,
+					resto[:min(abre+12, len(resto))])
+			}
+			total++
+		}
+	}
+	if total < 6 {
+		t.Fatalf("as telas chamam o store %d vezes, esperava as seis do CRUD", total)
+	}
+}
+
+// projetoComReceitaStore é o projeto do teste anterior mais o que a receita
+// `trilha add store` deixa: o gerador escreve contra ele, e não contra um
+// banco que ele mesmo tenha escolhido.
+func projetoComReceitaStore(t *testing.T, src string) string {
+	t.Helper()
+	raiz := projetoComTipo(t, src)
+	for _, d := range []string{"internal/store", "migrations"} {
+		if err := os.MkdirAll(filepath.Join(raiz, filepath.FromSlash(d)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	escrever := func(rel, body string) {
+		if err := os.WriteFile(filepath.Join(raiz, filepath.FromSlash(rel)), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	escrever("internal/store/store.go", "package store\n")
+	escrever("migrations/0001_init.sql", "CREATE TABLE exemplo (id TEXT PRIMARY KEY);\n")
+	escrever("app/setup.go", `package app
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"example.com/loja/internal/store"
+)
+
+func Setup(a *trilha.App) error {
+	// trilha:add store
+	if err := store.Setup(a); err != nil {
+		return err
+	}
+	return nil
+}
+`)
+	return raiz
+}
+
+// #115 — a outra metade: o store SQL sai contra o kit da receita, e a tabela
+// sai como a próxima migração.
+func TestCrudStoreSQL(t *testing.T) {
+	raiz := projetoComReceitaStore(t, tipoSrc)
+	res, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/tipos",
+		Module: "example.com/loja", Lang: "en", Store: "sqlite"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, quero := range []string{
+		"internal/docs/tipo_store.go",
+		"internal/docs/tipo_store_sql.go",
+		"internal/docs/tipo_store_sql_test.go",
+		"migrations/0002_tipos.sql",
+	} {
+		if !strings.Contains(strings.Join(res.Files, " "), quero) {
+			t.Errorf("%s não foi escrito: %v", quero, res.Files)
+		}
+	}
+	sql := ler(t, raiz, "internal/docs/tipo_store_sql.go")
+	// A implementação e a interface não podem andar separadas, e quem diz
+	// isso é o compilador e não uma revisão.
+	if !strings.Contains(sql, "var _ TipoStore = (*TipoSQL)(nil)") {
+		t.Error("nada amarra o store SQL à interface")
+	}
+	// Tudo o que a 126 escreveu para ser usado é usado: ordenação por tabela
+	// declarada, teto de página, LIKE escapado, placeholder por dialeto, e o
+	// sql.ErrNoRows virando o 404 do framework.
+	for _, quero := range []string{
+		"store.Sortable{", "store.OrderBy(", "store.Paginate(", "store.Like(",
+		"s.d.Arg(", "store.NotFound(", "context.Context",
+	} {
+		if !strings.Contains(sql, quero) {
+			t.Errorf("o store SQL não usa %s:\n%s", quero, sql)
+		}
+	}
+	// E nada do que vem de fora entra no texto de um comando.
+	for _, proibido := range []string{`+ q.Sort`, `+q.Sort`, `+ q.Q`, `+q.Q`} {
+		if strings.Contains(sql, proibido) {
+			t.Errorf("o store SQL concatena %s na consulta", proibido)
+		}
+	}
+	mig := ler(t, raiz, "migrations/0002_tipos.sql")
+	for _, quero := range []string{"CREATE TABLE IF NOT EXISTS tipos", "TEXT PRIMARY KEY",
+		"nome      TEXT NOT NULL", "sigla", "retencao  INTEGER", "criado_em TIMESTAMP"} {
+		if !strings.Contains(mig, quero) {
+			t.Errorf("a migração não tem %q:\n%s", quero, mig)
+		}
+	}
+	// O Provide do store SQL tem de vir depois do store.Setup: store.DB só
+	// existe depois dele, e um pool nulo guardado aqui só aparece na primeira
+	// requisição.
+	setup := ler(t, raiz, "app/setup.go")
+	if !strings.Contains(setup, "docs.NewTipoSQL(store.DB, store.D)") {
+		t.Fatalf("o setup não liga o store SQL:\n%s", setup)
+	}
+	if strings.Index(setup, "store.Setup(a)") > strings.Index(setup, "NewTipoSQL") {
+		t.Fatalf("o Provide veio antes do store.Setup:\n%s", setup)
+	}
+}
+
+// O dialeto muda o placeholder e o tipo das colunas, e é só isso que ele
+// muda — o resto do store é o mesmo.
+func TestCrudStorePostgres(t *testing.T) {
+	raiz := projetoComReceitaStore(t, tipoSrc)
+	if _, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/tipos",
+		Module: "example.com/loja", Lang: "en", Store: "postgres"}); err != nil {
+		t.Fatal(err)
+	}
+	mig := ler(t, raiz, "migrations/0002_tipos.sql")
+	if !strings.Contains(mig, "retencao  BIGINT") {
+		t.Errorf("a migração não está no dialeto pedido:\n%s", mig)
+	}
+}
+
+// Sem a receita no projeto, o --store é recusa antes da primeira escrita: um
+// gerador que escreve contra um pacote que não existe entrega um projeto que
+// não compila.
+func TestCrudStoreSemAReceitaRecusa(t *testing.T) {
+	raiz := projetoComTipo(t, tipoSrc)
+	_, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/tipos",
+		Module: "example.com/loja", Lang: "en", Store: "sqlite"})
+	if !errors.Is(err, ErrCrudNoStore) {
+		t.Fatalf("erro = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(raiz, filepath.FromSlash("app/tipos/page.go"))); err == nil {
+		t.Fatal("a recusa deixou tela escrita")
+	}
+	// E um dialeto que não existe é recusa também, e não um store em branco.
+	if _, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/tipos",
+		Module: "example.com/loja", Lang: "en", Store: "mysql"}); err == nil {
+		t.Fatal("--store mysql passou")
+	}
+}

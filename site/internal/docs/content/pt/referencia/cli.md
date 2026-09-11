@@ -30,7 +30,7 @@ trilha version
 | `new` | cria um projeto com `go.mod`, layout, página inicial, 404, uma rota de API, `public/style.css` e `.gitignore`; roda `go mod tidy` e `gen` |
 | `gen` | varre `app/` e escreve `trilha_gen.go`; falha com uma linha por convenção violada |
 | `generate` | grava um esqueleto — página, rota de API ou componente — na pasta que a convenção pede |
-| `generate crud` | lê um struct e escreve tudo: lista, criar, editar, excluir, um store e um teste |
+| `generate crud` | lê um struct e escreve tudo: lista, criar, editar, excluir, um store — em memória ou em SQL — e um teste |
 | `add` | escreve uma receita do framework no projeto: a trilha de auditoria, chaves de API, uma seção de configurações |
 | `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE + inspetor de rotas em `/_trilha/routes` |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` com `CGO_ENABLED=0` |
@@ -573,20 +573,67 @@ uma função cuja forma o framework define. Sem ela o CRUD compila e responde 50
 requisição, que é o pior resultado que um gerador pode ter, porque parece que funcionou. O comando
 nomeia esse arquivo na saída, porque um gerador que mexe no que você não pediu deve essa frase.
 
-### O store é interface com memória atrás
+### O store é interface, com memória atrás e SQL ao lado
 
 A mesma escolha de todo store deste framework, e aqui ela vale duas vezes: **o que sai do gerador
-roda** — a tela abre, o formulário grava, o teste gerado passa — e trocar a memória por um banco é
-implementar cinco métodos cujas assinaturas já estão escritas. A
-[receita de banco de dados](/pt/receitas/banco-de-dados) é a outra metade.
+roda** — a tela abre, o formulário grava, o teste gerado passa — e o banco são os mesmos cinco
+métodos, que o `--store` escreve para você.
+
+```go
+type TipoStore interface {
+	List(ctx context.Context, q TipoQuery) ([]Tipo, int, error)
+	Get(ctx context.Context, id string) (Tipo, error)
+	Create(ctx context.Context, v Tipo) (Tipo, error)
+	Update(ctx context.Context, id string, v Tipo) (Tipo, error)
+	Delete(ctx context.Context, id string) error
+}
+```
+
+As duas metades dessa assinatura se pagam. **O contexto é o da requisição**, tirado do
+`c.Context()` por toda tela: quando a pessoa fecha a aba, ou o prazo da rota estoura, a consulta
+para em vez de seguir para ninguém. **"Não está lá" é um erro** — o `trilha.ErrNotFound`, que o
+framework já transforma na página de 404 do app — e não um segundo valor de retorno: o handler o
+devolve em uma linha, e um banco *fora do ar* nunca é registrado como uma linha que *sumiu*. Essa
+é a mentira que uma tela não pode contar, e um store que só sabe dizer sim ou não não tem como
+evitá-la.
+
+### --store sqlite|postgres
+
+```bash
+trilha add store                 # uma vez por projeto: pool, dialeto, migrações
+trilha generate crud docs.Tipo --at app/admin/tipos --store sqlite
+```
+
+```text
+  + internal/docs/tipo_store_sql.go        a mesma interface em database/sql
+  + internal/docs/tipo_store_sql_test.go   os comandos, conferidos sem banco
+  + migrations/0002_tipos.sql              a tabela, no dialeto pedido
+  ~ app/setup.go                           o store SQL, depois do store.Setup
+```
+
+Ele é escrito **contra a [receita `store`](/pt/referencia/store)**, que é para isso que ela
+existe: `store.Sortable` e `store.OrderBy` para a ordenação que veio da URL, `store.Paginate`
+para o teto de página, `store.Like` para a caixa de busca, `d.Arg(n)` para todo valor,
+`store.NotFound` para o `sql.ErrNoRows`. Nada do que um visitante digita é concatenado em um
+comando, e o teste gerado afirma exatamente isso, no seu projeto, sem banco nenhum para rodar.
+Sem a receita, a bandeira é uma recusa que nomeia o `trilha add store`: um gerador que escreve
+contra um pacote que não existe entrega um projeto que não compila.
+
+Três coisas que vale saber antes de rodar:
+
+- **O store de memória continua sendo escrito**, de propósito: é a implementação de referência
+  das cinco assinaturas, e o store que um teste de unidade seu pega sem subir banco. Um
+  `var _ TipoStore = (*TipoSQL)(nil)` em tempo de compilação impede que os dois se separem.
+- **O `Provide` vai no fim do `Setup`**, depois do `store.Setup(a)` — o `store.DB` não existe
+  antes dele, e um pool guardado nulo falha na primeira requisição em vez de no boot.
+- **O teste gerado do CRUD pula sem `DATABASE_URL`.** Subir o app é abrir o banco, e o driver
+  atrás dele é um `go get` que o seu projeto faz e o framework não pode fazer por ele. O
+  `trilha check` fica verde do mesmo jeito, e o teste do store — o dos comandos — roda sempre.
 
 ### O que ainda não está aqui
 
-`--store sqlite|postgres` com migração gerada, `--tenant`, `--policy`, a versão compacta com
-`ui.SchemaForm`, e rodar de novo para imprimir o diff dos campos que você acrescentou ao struct
-depois. Estão na [#115](https://github.com/emersonjoe/trilha/issues/115); o store em SQL, em
-particular, teria de escolher dialeto de placeholder e ser dono de um DDL, que é a coisa que este
-framework não faz em nenhum outro lugar.
+`--tenant`, `--policy` e a versão compacta do formulário com `ui.SchemaForm`. Estão na
+[#115](https://github.com/emersonjoe/trilha/issues/115).
 
 ## trilha add
 

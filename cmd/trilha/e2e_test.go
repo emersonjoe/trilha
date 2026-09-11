@@ -827,6 +827,99 @@ func TestGenerateCrudE2E(t *testing.T) {
 	}
 }
 
+// TestGenerateCrudStoreE2E is the other half of #115: the CRUD written
+// against the store recipe, in SQL.
+//
+// What it proves is the thing that cannot be proved by reading the templates:
+// that the generated store compiles against the recipe's kit, that the
+// migration it writes is applied by the recipe's runner, and that a project
+// that has neither a driver nor a DATABASE_URL is still green — because the
+// framework cannot run `go get` for anybody, and a skeleton that is red until
+// you do is not a starting point.
+func TestGenerateCrudStoreE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	t.Setenv("TRILHA_SECRET", "um-segredo-de-teste-com-mais-de-32-bytes")
+	cli := buildCLI(t, repo, tmp)
+
+	proj := filepath.Join(tmp, "acervo")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/acervo", "--trilha-dir", repo)
+	tipo, err := os.ReadFile(filepath.Join(repo, "testdata", "crud", "tipo.go.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(proj, "internal", "docs", "tipo.go"), string(tipo))
+
+	// Without the recipe there is nothing to write against, and the refusal is
+	// the command that fixes it — before a single file is written.
+	saida, err := runErr(t, proj, cli, "generate", "crud", "docs.Tipo", "--store", "sqlite")
+	if err == nil || !strings.Contains(saida, "trilha add store") {
+		t.Fatalf("--store without the recipe did not say what to run:\n%s", saida)
+	}
+	if _, err := os.Stat(filepath.Join(proj, "app", "tipos", "page.go")); err == nil {
+		t.Fatal("the refusal left a screen on disk")
+	}
+
+	run(t, proj, cli, "add", "store")
+	out := run(t, proj, cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos", "--store", "sqlite")
+	for _, quero := range []string{
+		"internal/docs/tipo_store_sql.go", "internal/docs/tipo_store_sql_test.go",
+		"migrations/0002_tipos.sql", "app/setup.go",
+	} {
+		if !strings.Contains(out, quero) {
+			t.Fatalf("generate crud --store did not report %s:\n%s", quero, out)
+		}
+	}
+
+	// The migration is numbered after the recipe's own, because name order is
+	// apply order: a file numbered behind one that already ran never runs.
+	mig, err := os.ReadFile(filepath.Join(proj, "migrations", "0002_tipos.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(mig), "CREATE TABLE IF NOT EXISTS tipos") {
+		t.Fatalf("the migration does not create the table:\n%s", mig)
+	}
+
+	// The pool exists only after the recipe's Setup ran, so the line that
+	// reads it comes after — a Provide above it would hand the screens a nil
+	// database, and that failure waits for the first request.
+	setup, err := os.ReadFile(filepath.Join(proj, "app", "setup.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	texto := string(setup)
+	if i, j := strings.Index(texto, "store.Setup(a)"), strings.Index(texto, "NewTipoSQL"); i < 0 || j < i {
+		t.Fatalf("the SQL store is not provided after store.Setup:\n%s", texto)
+	}
+
+	// Green with no driver installed and no DATABASE_URL: the generated CRUD
+	// test skips with a sentence that says why, and the store's own test —
+	// the one that reads the statements — runs anyway.
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "ok") {
+		t.Fatal(out)
+	}
+	if _, err := os.Stat(filepath.Join(proj, "internal", "store", "driver.go")); err == nil {
+		t.Fatal("the generator picked a driver, which is the project's choice")
+	}
+	// And the statements the store builds are asserted in the project itself,
+	// without a database — run here by name so a template that stopped
+	// producing them fails this test and not somebody's afternoon.
+	prova := run(t, proj, "go", "test", "./internal/docs/", "-run", "TestTipoSQL", "-v")
+	for _, quero := range []string{
+		"TestTipoSQLOrderingComesFromTheTable", "TestTipoSQLPageHasACeiling",
+		"TestTipoSQLSearchTravelsAsAnArgument",
+	} {
+		if !strings.Contains(prova, "PASS: "+quero) {
+			t.Fatalf("%s did not run:\n%s", quero, prova)
+		}
+	}
+}
+
 // TestTemplateAppE2E is issue #65 end to end: `trilha new --template app` has
 // to produce a project that is already green — it compiles, `trilha check`
 // passes and the tests that come with it pass — without a single edit. A
