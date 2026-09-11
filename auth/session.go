@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"sort"
@@ -14,12 +15,21 @@ import (
 // User is the authenticated person. It is what the app reads; the ID token
 // itself never leaves this package, and the refresh token is never stored.
 type User struct {
-	Subject   string    `json:"sub"`
-	Email     string    `json:"email,omitempty"`
-	Name      string    `json:"name,omitempty"`
-	Roles     []string  `json:"roles,omitempty"`
-	IssuedAt  time.Time `json:"iat"`
-	ExpiresAt time.Time `json:"exp"`
+	Subject string `json:"sub"`
+	Email   string `json:"email,omitempty"`
+	// EmailVerified is the provider's word that the address is this person's,
+	// and not merely what they typed into a form. Callback fills it from the
+	// id_token; a session written before this field existed loads as false,
+	// which is the safe value.
+	//
+	// With a provider it is read-only information. With auth.Sessions there is
+	// no provider and no claim: it is the application's to set, and only the
+	// application knows whether it confirmed the address.
+	EmailVerified bool      `json:"email_verified,omitempty"`
+	Name          string    `json:"name,omitempty"`
+	Roles         []string  `json:"roles,omitempty"`
+	IssuedAt      time.Time `json:"iat"`
+	ExpiresAt     time.Time `json:"exp"`
 	// Seen is the last activity, used for the idle timeout.
 	Seen time.Time `json:"seen"`
 	// SessionID changes on every login (session fixation).
@@ -60,8 +70,80 @@ type Store interface {
 	Delete(id string) error
 }
 
-// ErrNoSession is returned by Session when nobody is logged in.
+// StoreContext is what a Store implements when it talks to something that can
+// be slow, fail, or be worth cancelling — a table in Postgres, Redis, a
+// service. The flow uses it when the Store has it and the three methods above
+// when it does not, so no Store written against the older interface breaks.
+//
+// It exists because the three methods of Store have neither a context nor,
+// for Load, an error. Without a context a remote store cannot honour the
+// request's deadline, cancel the query when the browser goes away, or carry
+// the trace: it is reduced to context.Background() and a made-up timeout, on
+// every authenticated request. Without an error, a database that is down
+// looks exactly like a session that does not exist, and everybody is sent to
+// the login while no log says why.
+//
+//	func (s *PGStore) LoadContext(ctx context.Context, id string) (*auth.User, error) {
+//		var blob []byte
+//		err := s.db.QueryRowContext(ctx, "select u from sessoes where id = $1", id).Scan(&blob)
+//		if errors.Is(err, sql.ErrNoRows) {
+//			return nil, auth.ErrNoSession   // não existe
+//		}
+//		if err != nil {
+//			return nil, err                 // o banco falhou: 503, não login
+//		}
+//		...
+//	}
+//
+// LoadContext answers ErrNoSession when there is no such session. Any other
+// error is the store having failed, and the guards turn it into 503 instead of
+// a redirect to the login.
+//
+//	see: auth.Store, auth.SessionLister
+type StoreContext interface {
+	SaveContext(ctx context.Context, id string, u *User, ttl time.Duration) error
+	LoadContext(ctx context.Context, id string) (*User, error)
+	DeleteContext(ctx context.Context, id string) error
+}
+
+// ErrNoSession is returned by Session when nobody is logged in. It is also
+// what a StoreContext answers for a session that is not there, which is what
+// separates it from the store having failed.
 var ErrNoSession = errors.New("auth: no session")
+
+// storeLoad reads the session, through StoreContext when the Store has it.
+// The error it gives back is ErrNoSession or the store's own.
+func (a *Auth) storeLoad(ctx context.Context, id string) (*User, error) {
+	if sc, ok := a.opts.Store.(StoreContext); ok {
+		u, err := sc.LoadContext(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if u == nil {
+			return nil, ErrNoSession
+		}
+		return u, nil
+	}
+	u, ok := a.opts.Store.Load(id)
+	if !ok {
+		return nil, ErrNoSession
+	}
+	return u, nil
+}
+
+func (a *Auth) storeSave(ctx context.Context, id string, u *User, ttl time.Duration) error {
+	if sc, ok := a.opts.Store.(StoreContext); ok {
+		return sc.SaveContext(ctx, id, u, ttl)
+	}
+	return a.opts.Store.Save(id, u, ttl)
+}
+
+func (a *Auth) storeDelete(ctx context.Context, id string) error {
+	if sc, ok := a.opts.Store.(StoreContext); ok {
+		return sc.DeleteContext(ctx, id)
+	}
+	return a.opts.Store.Delete(id)
+}
 
 // Session reads and validates the session cookie. It renews the idle window
 // when more than a minute has passed, so a busy session does not rewrite the
@@ -73,9 +155,9 @@ func (a *Auth) Session(c *trilha.Ctx) (*User, error) {
 	}
 	var u User
 	if a.opts.Store != nil {
-		stored, ok := a.opts.Store.Load(raw)
-		if !ok {
-			return nil, ErrNoSession
+		stored, err := a.storeLoad(c.Context(), raw)
+		if err != nil {
+			return nil, err
 		}
 		u = *stored
 	} else if err := json.Unmarshal([]byte(raw), &u); err != nil {
@@ -111,7 +193,7 @@ func (a *Auth) write(c *trilha.Ctx, u *User) error {
 		return errors.New("auth: session already expired")
 	}
 	if a.opts.Store != nil {
-		if err := a.opts.Store.Save(u.SessionID, u, ttl); err != nil {
+		if err := a.storeSave(c.Context(), u.SessionID, u, ttl); err != nil {
 			return err
 		}
 		return c.SetSigned(a.opts.CookieName, u.SessionID, ttl)
@@ -127,7 +209,7 @@ func (a *Auth) write(c *trilha.Ctx, u *User) error {
 func (a *Auth) clear(c *trilha.Ctx) {
 	if a.opts.Store != nil {
 		if id, ok := c.Signed(a.opts.CookieName); ok {
-			_ = a.opts.Store.Delete(id)
+			_ = a.storeDelete(c.Context(), id)
 		}
 	}
 	c.ClearCookie(a.opts.CookieName)
@@ -247,7 +329,7 @@ func (a *Auth) LogoutOthers(c *trilha.Ctx) error {
 		if u.SessionID == me.SessionID {
 			continue
 		}
-		if err := a.opts.Store.Delete(u.SessionID); err != nil {
+		if err := a.storeDelete(c.Context(), u.SessionID); err != nil {
 			return err
 		}
 		n++

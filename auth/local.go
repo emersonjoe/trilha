@@ -66,7 +66,7 @@ func (a *Auth) RequireFunc(pred func(*User, *trilha.Ctx) bool) trilha.Middleware
 	return func(c *trilha.Ctx, next trilha.Next) error {
 		u, err := a.Session(c)
 		if err != nil {
-			return a.challenge(c)
+			return a.refuse(c, err)
 		}
 		if pred == nil || !pred(u, c) {
 			return trilha.Errorf(403, "forbidden")

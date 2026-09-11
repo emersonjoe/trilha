@@ -977,6 +977,7 @@ pkg auth, type Claims struct
 pkg auth, type Claims struct, All map[string]any
 pkg auth, type Claims struct, Audience []string
 pkg auth, type Claims struct, Email string
+pkg auth, type Claims struct, EmailVerified bool
 pkg auth, type Claims struct, ExpiresAt time.Time
 pkg auth, type Claims struct, IssuedAt time.Time
 pkg auth, type Claims struct, Issuer string
@@ -1022,6 +1023,7 @@ pkg auth, type Options struct, Idle time.Duration
 pkg auth, type Options struct, IdleOff bool
 pkg auth, type Options struct, LoginPath string
 pkg auth, type Options struct, OnLogin func(*trilha.Ctx, *User) error
+pkg auth, type Options struct, RequireVerifiedEmail bool
 pkg auth, type Options struct, RoleClaims []string
 pkg auth, type Options struct, Scopes []string
 pkg auth, type Options struct, Store Store
@@ -1046,6 +1048,10 @@ pkg auth, type Store interface
 pkg auth, type Store interface, Delete(string) error
 pkg auth, type Store interface, Load(string) (*User, bool)
 pkg auth, type Store interface, Save(string, *User, time.Duration) error
+pkg auth, type StoreContext interface
+pkg auth, type StoreContext interface, DeleteContext(context.Context, string) error
+pkg auth, type StoreContext interface, LoadContext(context.Context, string) (*User, error)
+pkg auth, type StoreContext interface, SaveContext(context.Context, string, *User, time.Duration) error
 pkg auth, type UsageDay struct
 pkg auth, type UsageDay struct, Count int
 pkg auth, type UsageDay struct, Day time.Time
@@ -1087,6 +1093,7 @@ pkg auth, type UsageStore interface, Prune(context.Context, time.Time) error
 pkg auth, type UsageStore interface, Query(context.Context, UsageQuery) (UsageReport, error)
 pkg auth, type User struct
 pkg auth, type User struct, Email string
+pkg auth, type User struct, EmailVerified bool
 pkg auth, type User struct, ExpiresAt time.Time
 pkg auth, type User struct, Extra map[string]string
 pkg auth, type User struct, IssuedAt time.Time

@@ -13,6 +13,10 @@ O que ensina:
   quem está logado sem ele recebe 403 (401 mandaria de volta ao login, num laço).
 - **API e navegador**: `app/api/eu` responde 401 em JSON; `/painel` redireciona para
   `/entrar?next=/painel`.
+- **Exigir e-mail verificado**: `RequireVerifiedEmail: true` no `internal/sso`. O provedor
+  mandar o `email` não quer dizer que ele o conferiu — `email_verified: false` é alguém que
+  digitou aquele endereço —, e quem autoriza por lista de e-mails está autorizando o que a
+  pessoa digitou se não olhar a claim.
 - **Nenhum segredo no código**: tudo vem do ambiente, e sem configuração o app sobe e
   explica o que falta.
 

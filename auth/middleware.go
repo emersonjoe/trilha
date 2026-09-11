@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -34,7 +35,7 @@ func (a *Auth) guard(roles []string) trilha.MiddlewareFunc {
 	return func(c *trilha.Ctx, next trilha.Next) error {
 		u, err := a.Session(c)
 		if err != nil {
-			return a.challenge(c)
+			return a.refuse(c, err)
 		}
 		if len(roles) > 0 && !anyRole(u, roles) {
 			c.Log().Warn("auth: access denied", "sub", u.Subject, "need", strings.Join(roles, ","))
@@ -43,6 +44,29 @@ func (a *Auth) guard(roles []string) trilha.MiddlewareFunc {
 		remember(c, u)
 		return next()
 	}
+}
+
+// refuse answers a Session that did not produce a user. Not being logged in is
+// the login page; anything else is the store having failed, and sending
+// somebody to the login because the database is down turns an incident into a
+// login loop that no log explains.
+func (a *Auth) refuse(c *trilha.Ctx, err error) error {
+	if storeFailed(c, err) {
+		return &trilha.HTTPError{Code: http.StatusServiceUnavailable, Message: "session store unavailable"}
+	}
+	return a.challenge(c)
+}
+
+// storeFailed reports whether the error is the session store breaking rather
+// than there being no session, and logs it when it is. It is logged here, in
+// the one place every path goes through, so that Optional and User — which
+// answer "anonymous" either way — do not swallow an outage silently.
+func storeFailed(c *trilha.Ctx, err error) bool {
+	if err == nil || errors.Is(err, ErrNoSession) {
+		return false
+	}
+	c.Log().Error("auth: session store failed", "err", err.Error())
+	return true
 }
 
 // challenge sends the browser to the login page and everything else a 401.
@@ -65,6 +89,7 @@ func (a *Auth) User(c *trilha.Ctx) *User {
 	}
 	u, err := a.Session(c)
 	if err != nil {
+		storeFailed(c, err)
 		return nil
 	}
 	remember(c, u)
@@ -75,8 +100,14 @@ func (a *Auth) User(c *trilha.Ctx) *User {
 // requests through, for pages that only change a greeting.
 func (a *Auth) Optional() trilha.MiddlewareFunc {
 	return func(c *trilha.Ctx, next trilha.Next) error {
-		if u, err := a.Session(c); err == nil {
+		u, err := a.Session(c)
+		if err == nil {
 			remember(c, u)
+		} else {
+			// Anonymous is the point of Optional, so a broken store still lets
+			// the page render — but it says so, instead of the outage looking
+			// like everybody having logged out at once.
+			storeFailed(c, err)
 		}
 		return next()
 	}

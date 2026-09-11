@@ -186,7 +186,7 @@ func (a *Auth) RequirePolicy(p Policy, module, level string) trilha.MiddlewareFu
 	return func(c *trilha.Ctx, next trilha.Next) error {
 		u, err := a.Session(c)
 		if err != nil {
-			return a.challenge(c)
+			return a.refuse(c, err)
 		}
 		if !p.Can(u, module, level) {
 			c.Log().Warn("auth: policy denied",

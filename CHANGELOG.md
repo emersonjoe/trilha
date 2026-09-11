@@ -3,6 +3,50 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.103.0 — 2026-09-11
+
+Spec 124. Closes [#164](https://github.com/emersonjoe/trilha/issues/164) and
+[#165](https://github.com/emersonjoe/trilha/issues/165).
+
+Both come from one migration off `go-oidc`, and both say the same thing from two sides: the
+`auth` package was written for the session that fits in a cookie and the provider you trust
+whole. Step outside either and something is lost quietly.
+
+### Added
+
+- **`User.EmailVerified`, `Claims.EmailVerified` and `Options.RequireVerifiedEmail`.** A
+  provider answering with `email` is not saying the address belongs to this person; it says
+  that with a second claim, `email_verified` (OIDC Core §5.1). Google — and any provider where
+  somebody can type an address into a profile — sends it as false when nobody checked. That
+  claim used to stop at `claims.All` and never reach `OnLogin`, so authorising by an allow-list
+  of e-mails authorised whatever the person typed. Now the flow carries it, and
+  `RequireVerifiedEmail: true` refuses such a login **before** `OnLogin` runs, so the
+  application's own rule never sees an address it should not have. Off by default, because
+  turning it on changes who gets in. Two details that decide the result: the string `"true"`
+  counts, since providers send both forms and an app refusing unverified mail cannot depend on
+  which one it is talking to; and an e-mail that came from `preferred_username` — the fallback
+  for a provider that sends no `email` at all — is never verified, because a username is not an
+  address anybody vouched for. `examples/sso` turns the option on, and a session written before
+  the field existed loads as false, which is the safe value.
+- **`StoreContext`, the session store that is somewhere else.** `Store` has no context and its
+  `Load` has no error. For a map in this process that is right; for a table in Postgres it
+  means the store cannot honour the request's deadline, cancel the query when the browser goes
+  away, or carry the trace — `context.Background()` and a made-up timeout, on every
+  authenticated request — and it means a database that is down is indistinguishable from a
+  session that does not exist. Implement `StoreContext` as well and the flow uses it, the same
+  optional-interface shape `SessionLister` already had here, so no existing `Store` breaks and
+  `MemoryStore` stays as it is.
+
+### Changed
+
+- **A session store that fails is a 503, not the login page.** `Session` now tells the two
+  apart, and `Require`, `RequireRole`, `RequireFunc` and `RequirePolicy` answer accordingly:
+  `ErrNoSession` is the login, anything else is 503 with one `Error` line naming the cause.
+  Sending everybody to the login because the database is down turns an incident into a login
+  loop and hides it from every log. `Optional()` still renders the page as anonymous — that is
+  what it is for — but it logs the failure instead of letting an outage read as everybody
+  having logged out at once.
+
 ## 0.102.0 — 2026-09-11
 
 Spec 123. Closes [#94](https://github.com/emersonjoe/trilha/issues/94).

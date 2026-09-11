@@ -53,6 +53,19 @@ type Options struct {
 	// written: it is where the app loads permissions or records the audit
 	// line, and where an error stops the login.
 	OnLogin func(c *trilha.Ctx, u *User) error
+	// RequireVerifiedEmail refuses a login whose e-mail the provider does not
+	// vouch for — it answered with the address and email_verified false, which
+	// means somebody typed it and nobody checked it. The refusal happens
+	// before OnLogin, so an allow-list by e-mail never sees an address it
+	// should not have.
+	//
+	// Default off, because turning it on changes who gets in. Off, the claim
+	// still arrives as User.EmailVerified and the application decides.
+	//
+	// An e-mail that came from preferred_username, the fallback for a provider
+	// that sends no e-mail at all, is never verified: a username is not an
+	// address anybody vouched for.
+	RequireVerifiedEmail bool
 }
 
 // Auth is the configured login flow.
@@ -184,12 +197,18 @@ func (a *Auth) Callback(c *trilha.Ctx) error {
 	// login where every guarded page answers 403 for no visible reason.
 	a.p.rolesFromAccess(c.Context(), tok.AccessToken, claims)
 	u := &User{Subject: claims.Subject, Email: claims.Email, Name: claims.Name,
-		Roles: a.p.roles(claims, a.opts.RoleClaims)}
+		EmailVerified: claims.Email != "" && claims.EmailVerified,
+		Roles:         a.p.roles(claims, a.opts.RoleClaims)}
 
 	if u.Email == "" {
 		if pref, ok := claims.All["preferred_username"].(string); ok {
 			u.Email = pref
 		}
+	}
+	// Before OnLogin, so the application's own rule — an allow-list, most of
+	// the time — never runs on an address the provider did not vouch for.
+	if a.opts.RequireVerifiedEmail && u.Email != "" && !u.EmailVerified {
+		return a.fail(c, fmt.Errorf("provider did not verify the e-mail of %q", claims.Subject))
 	}
 	if a.opts.OnLogin != nil {
 		if err := a.opts.OnLogin(c, u); err != nil {

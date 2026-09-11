@@ -80,6 +80,14 @@ func Configure() {
 		AfterLogin: "/painel",
 		// Papéis fora do lugar padrão do provedor entram por aqui.
 		RoleClaims: split(os.Getenv("SSO_ROLE_CLAIMS")),
+		// O provedor mandar o e-mail não quer dizer que ele o conferiu: um
+		// `email_verified: false` é alguém que digitou aquele endereço. Quem
+		// autoriza por e-mail — lista de permitidos, domínio da empresa —
+		// está autorizando o que a pessoa digitou se não olhar esta claim.
+		//
+		// Ligado aqui de propósito, para ser a convenção visível. Desligar é
+		// escolha de quem tem provedor próprio e sabe que ele confere.
+		RequireVerifiedEmail: true,
 	})
 	motivo = ""
 }

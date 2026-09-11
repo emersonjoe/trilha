@@ -35,16 +35,20 @@ var allowedAlgs = map[string]crypto.Hash{
 // Claims is the decoded payload of an ID token. Everything the standard
 // defines is typed; the rest stays in All.
 type Claims struct {
-	Issuer    string
-	Subject   string
-	Audience  []string
-	Email     string
-	Name      string
-	Nonce     string
-	ExpiresAt time.Time
-	IssuedAt  time.Time
-	NotBefore time.Time
-	All       map[string]any
+	Issuer   string
+	Subject  string
+	Audience []string
+	Email    string
+	// EmailVerified is the provider saying it checked the address, and not
+	// only that somebody typed it (OIDC Core §5.1). Authorising by a list of
+	// allowed e-mails without reading it accepts whoever can spell one.
+	EmailVerified bool
+	Name          string
+	Nonce         string
+	ExpiresAt     time.Time
+	IssuedAt      time.Time
+	NotBefore     time.Time
+	All           map[string]any
 }
 
 type jwtHeader struct {
@@ -135,6 +139,7 @@ func decodeClaims(payload []byte) (*Claims, error) {
 	c.Issuer, _ = raw["iss"].(string)
 	c.Subject, _ = raw["sub"].(string)
 	c.Email, _ = raw["email"].(string)
+	c.EmailVerified = verifiedClaim(raw["email_verified"])
 	c.Name, _ = raw["name"].(string)
 	c.Nonce, _ = raw["nonce"].(string)
 	switch aud := raw["aud"].(type) {
@@ -193,4 +198,17 @@ func (c *Claims) validate(issuer, clientID, nonce string, now time.Time) error {
 		return errors.New("nonce differs from the one sent")
 	}
 	return nil
+}
+
+// verifiedClaim reads email_verified. The specification says boolean and some
+// providers send the string; an application that refuses an unverified address
+// must not depend on which one it is talking to.
+func verifiedClaim(v any) bool {
+	switch t := v.(type) {
+	case bool:
+		return t
+	case string:
+		return t == "true"
+	}
+	return false
 }

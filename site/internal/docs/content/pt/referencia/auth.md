@@ -58,6 +58,43 @@ primeiro uso e vale por uma hora; um emissor divergente entre a configuração e
 | `RoleClaims []string` | — | claims adicionais de onde ler papéis |
 | `Store Store` | `nil` | persiste a sessão; `nil` = cookie assinado, sem estado |
 | `OnLogin func(c, *User) error` | — | roda dentro de `Login` e `Callback`, com a sessão ainda não gravada; o erro dele impede o login |
+| `RequireVerifiedEmail bool` | `false` | recusa o login cujo e-mail o provedor não garante |
+
+### O e-mail que o provedor não garantiu
+
+Um provedor que responde com `email` não está dizendo que aquele endereço é desta pessoa.
+Isso ele diz numa segunda claim: `email_verified` (OIDC Core §5.1). O Google, e qualquer
+provedor onde alguém pode digitar um endereço no perfil, manda `email_verified: false` — a
+pessoa escreveu, ninguém conferiu.
+
+Isso importa para quem autoriza por e-mail, que é quase toda ferramenta interna: uma lista de
+permitidos, ou o domínio da empresa. O `u.Email` sozinho autoriza o que alguém digitou.
+
+O `User.EmailVerified` carrega a claim, então o `OnLogin` decide. `RequireVerifiedEmail: true`
+decide por você, e a recusa acontece **antes** do `OnLogin` — a sua regra nunca vê um endereço
+que não devia existir:
+
+```go
+auth.New(p, auth.Options{
+	RequireVerifiedEmail: true,
+	OnLogin: func(c *trilha.Ctx, u *auth.User) error {
+		if !permitidos[u.Email] {
+			return errors.New("e-mail fora da lista")
+		}
+		return nil
+	},
+})
+```
+
+Vem desligado porque ligar muda quem entra. Dois detalhes que valem saber:
+
+- a forma em string conta. Alguns provedores mandam `"true"` em vez do booleano do JSON, e as
+  duas são lidas como verificado;
+- um e-mail que veio do `preferred_username` — a saída para o provedor que não manda `email`
+  nenhum — **nunca** é verificado. Um nome de usuário não é um endereço que alguém garantiu.
+
+O `auth.Sessions` não tem provedor nem claim: ali o `EmailVerified` é seu para preencher, e só
+a sua aplicação sabe se confirmou o endereço.
 
 ## Auth
 
@@ -296,6 +333,52 @@ Com um `Store` o cookie carrega apenas o identificador e o logout tem efeito ime
 todo mundo. `MemoryStore` vale para um processo só: réplicas não compartilham, e um
 reinício derruba todas as sessões. Para várias réplicas, implemente a interface sobre o seu
 banco ou cache.
+
+### Um store que está em outro lugar
+
+```go
+type StoreContext interface {
+	SaveContext(ctx context.Context, id string, u *User, ttl time.Duration) error
+	LoadContext(ctx context.Context, id string) (*User, error) // ErrNoSession quando não há
+	DeleteContext(ctx context.Context, id string) error
+}
+```
+
+O `Store` não tem contexto e o `Load` dele não tem erro, o que serve para um mapa dentro deste
+processo e não serve para uma tabela no Postgres. Sem contexto o store não consegue honrar o
+prazo da requisição, cancelar a consulta quando o navegador desliga, nem levar o trace junto —
+ele fica reduzido a `context.Background()` com um tempo inventado, **em toda requisição
+autenticada**. Sem erro, um banco fora do ar é indistinguível de uma sessão que não existe:
+todo mundo é mandado para o login e nenhum log diz por quê.
+
+Implemente também o `StoreContext` e o fluxo passa a usá-lo — a mesma forma de interface
+opcional do `SessionLister` acima, então nada escrito contra o `Store` quebra:
+
+```go
+func (s *PGStore) LoadContext(ctx context.Context, id string) (*auth.User, error) {
+	var blob []byte
+	err := s.db.QueryRowContext(ctx, "select u from sessoes where id = $1", id).Scan(&blob)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, auth.ErrNoSession // não existe essa sessão
+	}
+	if err != nil {
+		return nil, err // o banco falhou: 503, e não a tela de login
+	}
+	var u auth.User
+	return &u, json.Unmarshal(blob, &u)
+}
+```
+
+Os dois erros têm dois destinos:
+
+| O que aconteceu | O que a pessoa recebe |
+|---|---|
+| não está logada | o login, como sempre |
+| o store falhou | **503**, e uma linha de `Error` no log com a causa |
+
+O `Optional()` continua deixando passar como anônimo quando o store está fora do ar — é para
+isso que ele existe —, mas registra a falha, para que um incidente não se leia como todo mundo
+tendo deslogado ao mesmo tempo.
 
 ### Sessões por dono
 

@@ -58,6 +58,44 @@ the document is an error, not a warning.
 | `RoleClaims []string` | — | additional claims to read roles from |
 | `Store Store` | `nil` | persists the session; `nil` = signed cookie, stateless |
 | `OnLogin func(c, *User) error` | — | runs inside `Login` and `Callback`, session not yet written; its error stops the login |
+| `RequireVerifiedEmail bool` | `false` | refuses a login whose e-mail the provider does not vouch for |
+
+### The e-mail the provider did not vouch for
+
+A provider that answers with `email` is not saying the address belongs to this person. It
+says so with a second claim: `email_verified` (OIDC Core §5.1). Google, and any provider
+where somebody can type an address into a profile, will send `email_verified: false` — the
+person wrote it, nobody checked it.
+
+That matters to whoever authorises by e-mail, which is most internal tools: an allow-list, or
+a company domain. `u.Email` alone authorises what somebody typed.
+
+`User.EmailVerified` carries the claim, so `OnLogin` can decide. `RequireVerifiedEmail: true`
+decides for you, and the refusal happens **before** `OnLogin` — your rule never sees an
+address it should not have:
+
+```go
+auth.New(p, auth.Options{
+	RequireVerifiedEmail: true,
+	OnLogin: func(c *trilha.Ctx, u *auth.User) error {
+		if !allowed[u.Email] {
+			return errors.New("e-mail not on the list")
+		}
+		return nil
+	},
+})
+```
+
+It is off by default because turning it on changes who gets in. Two details it is worth
+knowing:
+
+- the string form counts. Some providers send `"true"` rather than the JSON boolean, and both
+  are read as verified;
+- an e-mail that came from `preferred_username` — the fallback for a provider that sends no
+  `email` at all — is **never** verified. A username is not an address anybody vouched for.
+
+`auth.Sessions` has no provider and no claim: there, `EmailVerified` is yours to set, and only
+your application knows whether it confirmed the address.
 
 ## Auth
 
@@ -295,6 +333,52 @@ With a `Store` the cookie carries only the identifier and the logout takes effec
 immediately for everyone. `MemoryStore` is for a single process: replicas do not share it,
 and a restart drops every session. For several replicas, implement the interface over your
 database or cache.
+
+### A store that is somewhere else
+
+```go
+type StoreContext interface {
+	SaveContext(ctx context.Context, id string, u *User, ttl time.Duration) error
+	LoadContext(ctx context.Context, id string) (*User, error) // ErrNoSession when there is none
+	DeleteContext(ctx context.Context, id string) error
+}
+```
+
+`Store` has no context and its `Load` has no error, which is fine for a map in this process
+and wrong for a table in Postgres. Without a context the store cannot honour the request's
+deadline, cancel the query when the browser goes away, or carry the trace — it is reduced to
+`context.Background()` and a made-up timeout, on **every authenticated request**. Without an
+error, a database that is down is indistinguishable from a session that does not exist, so
+everybody is sent to the login and no log says why.
+
+Implement `StoreContext` as well and the flow uses it — same optional-interface shape as
+`SessionLister` above, so nothing written against `Store` breaks:
+
+```go
+func (s *PGStore) LoadContext(ctx context.Context, id string) (*auth.User, error) {
+	var blob []byte
+	err := s.db.QueryRowContext(ctx, "select u from sessions where id = $1", id).Scan(&blob)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, auth.ErrNoSession // there is no such session
+	}
+	if err != nil {
+		return nil, err // the database failed: 503, not the login page
+	}
+	var u auth.User
+	return &u, json.Unmarshal(blob, &u)
+}
+```
+
+The two errors have two destinations:
+
+| What happened | What the person gets |
+|---|---|
+| not logged in | the login page, as always |
+| the store failed | **503**, and one `Error` line in the log with the cause |
+
+`Optional()` still lets the request through as anonymous when the store is down — that is what
+`Optional` is for — but it logs the failure, so an outage does not read as everybody having
+logged out at once.
 
 ### Sessions by owner
 
