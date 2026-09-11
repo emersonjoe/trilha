@@ -12,8 +12,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/emersonjoe/trilha/internal/client/api"
 )
@@ -479,5 +481,128 @@ func TestDoisCamposBinariosNaMesmaOperacao(t *testing.T) {
 		if !strings.Contains(src, want) {
 			t.Errorf("o cliente gerado não tem %q:\n%s", want, src)
 		}
+	}
+}
+
+// Spec 122 (#160): the comment of a schema was cut at byte 107, and a document
+// written in Portuguese puts an accent there sooner or later. Cutting a string
+// in the middle of a UTF-8 sequence gives a file the parser refuses, so the
+// command failed and wrote nothing — with `illegal UTF-8 encoding` as the only
+// explanation.
+func TestDescricaoComAcentoNoCorte(t *testing.T) {
+	// 106 times "a" and then "ção": the ç takes bytes 107 and 108, so the old
+	// cut fell inside it.
+	long := strings.Repeat("a", 106) + "ção — descrição comprida o bastante para passar de 110 bytes"
+	doc := `{"openapi":"3.1.0","info":{"title":"repro","version":"1"},
+		"paths":{"/x":{"get":{"operationId":"x","description":` + quote(long) + `,
+		"responses":{"200":{"description":"ok","content":{"application/json":{"schema":{"$ref":"#/components/schemas/X"}}}}}}}},
+		"components":{"schemas":{"X":{"type":"object","title":"X","description":` + quote(long) + `,
+		"properties":{"k":{"type":"string"}}}}}}`
+	res, err := Generate([]byte(doc), Options{Package: "api"})
+	if err != nil {
+		t.Fatalf("a description with an accent at the cut broke the generator: %v", err)
+	}
+	if !utf8.Valid(res.Source) {
+		t.Fatal("the generated file is not valid UTF-8")
+	}
+	// Both cuts: the schema's comment and the method's.
+	src := string(res.Source)
+	if n := strings.Count(src, "aaa...") + strings.Count(src, "ç..."); n < 2 {
+		t.Fatalf("the two comments were not shortened:\n%s", src)
+	}
+	if strings.Contains(src, "�") {
+		t.Fatal("the cut left a replacement character behind")
+	}
+}
+
+// Spec 122 (#157): a FastAPI without response_model declares no schema for the
+// answer, and every operation comes back as json.RawMessage. The file compiles
+// and types nothing, and until now the command said so about schemas but never
+// about how much of the API that was.
+func TestContaAsOperacoesSemSchema(t *testing.T) {
+	doc := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{
+		"/api/folhas":{"get":{"operationId":"listar","tags":["folhas"],"responses":{"200":{"description":"ok",
+			"content":{"application/json":{"schema":{}}}}}}},
+		"/api/folhas/{id}":{"get":{"operationId":"ler","tags":["folhas"],
+			"parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],
+			"responses":{"200":{"description":"ok","content":{"application/json":{"schema":{}}}}}}},
+		"/api/saude":{"get":{"operationId":"saude","tags":["sistema"],"responses":{"200":{"description":"ok",
+			"content":{"application/json":{"schema":{"type":"object","properties":{"ok":{"type":"boolean"}}}}}}}}}}}`
+	res, err := Generate([]byte(doc), Options{Package: "api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Ops != 3 {
+		t.Errorf("Ops = %d, want 3", res.Ops)
+	}
+	want := []string{"GET /api/folhas", "GET /api/folhas/{id}"}
+	if !reflect.DeepEqual(res.Untyped, want) {
+		t.Errorf("Untyped = %q, want %q", res.Untyped, want)
+	}
+	// And the same fact is not also a line of the per-schema report: with
+	// ninety-seven of them the report was the noise, which is why the count
+	// exists at all.
+	for _, n := range res.Notes {
+		if strings.HasSuffix(n.Where, " response") {
+			t.Errorf("the untyped answer is on the count and on the report: %s: %s", n.Where, n.What)
+		}
+	}
+}
+
+// Spec 122 (#158): the 422 of a FastAPI is a list of messages, one per field.
+// It used to become one sentence — and the sentence was the whole object,
+// serialized — so a form that wanted to mark the field had to parse Body by
+// hand on every page.
+func TestErro422ChegaPorCampo(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		io.WriteString(w, `{"detail":[
+			{"loc":["body","email"],"msg":"value is not a valid email address","type":"value_error"},
+			{"loc":["body","itens",0,"valor"],"msg":"must be positive","type":"value_error"},
+			{"loc":["query","page"],"msg":"input should be greater than 0","type":"greater_than"},
+			{"loc":[],"msg":"orphan"}]}`)
+	}))
+	defer srv.Close()
+
+	_, err := api.New(srv.URL).Documents().Create(context.Background(), api.DocumentIn{Filename: "x"})
+	e, ok := api.AsError(err)
+	if !ok {
+		t.Fatalf("err = %v", err)
+	}
+	if e.Status != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d", e.Status)
+	}
+	want := map[string]string{
+		"email":         "value is not a valid email address",
+		"itens.0.valor": "must be positive",
+		"page":          "input should be greater than 0",
+	}
+	if !reflect.DeepEqual(e.Fields, want) {
+		t.Errorf("Fields = %#v, want %#v", e.Fields, want)
+	}
+	// Detail stays the first message, and it is a sentence now, not the whole
+	// object serialized.
+	if e.Detail != "value is not a valid email address" {
+		t.Errorf("Detail = %q", e.Detail)
+	}
+
+	// An error that is not a list of fields keeps everything it had, and Fields
+	// stays nil rather than empty-and-meaningless.
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, `{"detail":"no document with that id"}`)
+	}))
+	defer plain.Close()
+	_, err = api.New(plain.URL).Documents().Create(context.Background(), api.DocumentIn{Filename: "x"})
+	e, ok = api.AsError(err)
+	if !ok {
+		t.Fatalf("err = %v", err)
+	}
+	if e.Fields != nil || e.Detail != "no document with that id" {
+		t.Errorf("plain error = %+v", e)
+	}
+	if _, ok := api.AsError(nil); ok {
+		t.Error("AsError(nil) said yes")
 	}
 }

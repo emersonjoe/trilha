@@ -234,6 +234,8 @@ publica. É o sentido contrário do `trilha openapi`, que escreve o documento da
 trilha client openapi.json                       # grava internal/api/client.go
 trilha client https://api.example.com/openapi.json --out internal/acervo
 trilha client openapi.json --check               # falha quando o arquivo está desatualizado
+trilha client openapi.json --verbose             # nomeia cada operação sem tipo
+trilha client openapi.json --fail-on-untyped     # código de saída, para a CI
 ```
 
 Um arquivo só, determinístico, commitado como o `trilha_gen.go`. Dentro dele: uma struct por
@@ -266,15 +268,48 @@ memória do processo atravessa.
 
 `New(base, WithHeader(...), WithClient(...))` é toda a superfície do construtor: o cliente não
 guarda credencial nenhuma, e o `WithHeader` roda por requisição, que é onde o token da sessão
-entra. Status fora de 2xx vira um `*Error` com `Status`, `Body` e o `Detail` tirado do
-`problem+json` ou do `{"detail": ...}` que uma FastAPI escreve. O arquivo gerado importa a
-biblioteca padrão e mais nada — nem a Trilha — então serve também num job, num teste, num
-binário que não é web.
+entra. O arquivo gerado importa a biblioteca padrão e mais nada — nem a Trilha — então serve
+também num job, num teste, num binário que não é web.
+
+Status fora de 2xx vira um `*Error` com `Status`, `Body`, o `Detail` tirado do `problem+json`
+ou do `{"detail": ...}` que uma FastAPI escreve, e — quando a resposta é o erro de validação de
+uma FastAPI, `{"detail": [{"loc": [...], "msg": "..."}]}` — uma mensagem por campo em `Fields`.
+`AsError` é o `errors.As` sem a variável, e `Fields` é um `map[string]string`, que é o
+[`FieldErrors`](/pt/referencia/validacao) por baixo: o formulário se redesenha com cada
+mensagem ao lado do seu campo em vez de reparsear o `Body` à mão em toda página:
+
+```go
+if _, err := c.Usuarios().Criar(ctx, in); err != nil {
+	if e, ok := api.AsError(err); ok && e.Status == 422 {
+		return c.Render(pagina(in, trilha.FieldErrors(e.Fields)))
+	}
+	return err
+}
+```
+
+O `loc` perde a parte que só diz por onde o valor viajou — `body`, `query`, `path`, `header`,
+`cookie` — então a chave é o nome que o formulário usa: `email`, `itens.0.valor`. Um erro fora
+dessa forma deixa `Fields` nulo e o `Detail` exatamente como era.
 
 O que ele não vai adivinhar, ele diz: `oneOf`, `anyOf` e esquema sem tipo chegam como
 `json.RawMessage`, e cada um é uma linha do relatório que o comando imprime. `allOf` é achatado
 numa struct só, um `$ref` que fecha ciclo vira ponteiro, e operação sem `operationId` ganha o
 nome do método e do caminho — também uma linha do relatório.
+
+Operação cuja *resposta* não tem esquema é a mesma coisa uma ordem de grandeza maior: uma API
+escrita sem `response_model` não tipa nada, e um cliente que devolve `json.RawMessage` cem
+vezes compila e não ajuda em nada. Por isso o comando termina com a conta:
+
+```
+  97/110 operações sem schema de resposta — devolvidas como json.RawMessage.
+  Na FastAPI, declare response_model=... para o cliente tipar a resposta.
+  internal/api/client.go gravado, pacote api.
+```
+
+`--verbose` nomeia cada uma — elas entram na conta em vez do relatório acima, porque noventa
+e sete linhas dizendo a mesma coisa não são um relatório — e `--fail-on-untyped` transforma a
+conta em código de saída para uma CI que quer vê-la chegar a zero. O arquivo é gravado nos
+dois casos.
 
 A receita [Um app na frente de uma API que já existe](/pt/receitas/api-existente) tem as duas
 metades lado a lado: a página lendo a API por este cliente, as ilhas lendo pelo
@@ -331,7 +366,9 @@ gravados e quantos foram mantidos.
 O comentário acima de cada função é a parte que importa: diz de qual arquivo veio, quantas
 linhas tinha, quais hooks usava, quais endpoints chamava e qual dos três formatos a tela
 provavelmente é — **A** formulário ou lista sem ilha, **B** página com uma ilha, **C** app que
-é cliente de verdade. É uma sugestão impressa com o motivo, não um veredito. O `MIGRATION.md`
+é cliente de verdade. É uma sugestão impressa com o motivo e com a linha de onde o motivo saiu
+— `C — live svg (fluxos/FlowCanvas.tsx:12)` —, não um veredito; a linha está ali para a
+sugestão errada ser descartada sem abrir o arquivo. O `MIGRATION.md`
 junta isso numa tabela só, mais a lista do que não tem equivalente aqui: estados de
 carregamento, templates, rotas paralelas e interceptadoras, middleware e rewrites, cada um com
 a frase que explica o que ocupa o lugar.
@@ -344,6 +381,13 @@ em **Dependências globais**, e não promove as páginas que envolve. O barril t
 e mais nenhuma, porque reexportar não é usar. Sem essas duas regras, um shell que carrega um chat
 com `<svg>` classificou todas as telas da aplicação como **C** — uma ordem de trabalho que manda
 começar por qualquer lugar.
+
+Pelo mesmo motivo, um `<svg>` sozinho não é superfície de desenho. Um logo, um ícone, uma
+seta: quase toda tela tem um, e ler a tag como **C** colocou quatro das vinte telas de uma
+migração real na classe mais difícil que existe. O que faz dela **C** é algo trabalhando nela
+— `ref` no elemento, `onWheel`, `requestAnimationFrame`, biblioteca de desenho — ou um
+tratador de ponteiro e uma biblioteca de gráfico, que já classificam sozinhos de todo jeito.
+Um `<canvas>` continua contando por si: ninguém põe um ali de enfeite.
 
 As telas em si não são traduzidas. O corpo de uma página é regra de negócio, e máquina
 chutando isso custa mais para revisar do que para escrever — o guia

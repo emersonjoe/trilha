@@ -359,11 +359,15 @@ export { default as DataTable } from "./DataTable"
 import Chat from "./Chat"
 export default function Shell({ children }) { return <div>{children}<Chat /></div> }
 `)
+	// The chat streams, which is what makes it work and not decoration —
+	// spec 122 (#156) stopped reading the 16px <svg> beside it as a signal,
+	// and a component that only draws an icon is not what this test is about.
 	write("components/Chat.tsx", `'use client'
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 export default function Chat() {
   const [m, setM] = useState([])
   const r = useRef(null)
+  useEffect(() => { const es = new EventSource("/api/chat"); return () => es.close() }, [])
   return <aside ref={r}><svg viewBox="0 0 16 16" /></aside>
 }
 `)
@@ -438,5 +442,86 @@ export default function Mapa() { return <canvas onPointerMove={() => {}} /> }
 	md := Report(p, "pt")
 	if n := strings.Count(md, "components/Chat.tsx"); n != 1 {
 		t.Errorf("o chat aparece %d vezes no relatório; é para aparecer uma", n)
+	}
+}
+
+// Spec 122 (#156): an inline <svg> is a logo. Reading it as a drawing surface
+// sent four of the twenty screens of a real migration to C — the most
+// conservative class there is — and pushed whoever was migrating to write an
+// island where a server-rendered form was enough. What makes an <svg> a
+// drawing is something working on it, not the tag.
+func TestSvgDecorativoNaoEhDesenho(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, body string) {
+		t.Helper()
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// The logo of a login form: no handler, no ref, nothing draws on it.
+	write("app/login/page.tsx", `'use client'
+import { useState } from "react"
+export default function Login() {
+  const [email, setEmail] = useState("")
+  return (
+    <form method="post">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+        <path d="M4 4h16v16H4z" />
+      </svg>
+      <input value={email} onChange={e => setEmail(e.target.value)} />
+    </form>
+  )
+}
+`)
+	// The same tag with a ref on it is a surface somebody writes into.
+	write("app/grafo/page.tsx", `'use client'
+import { useRef } from "react"
+export default function Grafo() {
+  const r = useRef(null)
+  return <svg ref={r} viewBox="0 0 800 600" />
+}
+`)
+	// And the two that never depended on the <svg> to be C.
+	write("app/mapa/page.tsx", `'use client'
+export default function Mapa() { return <canvas /> }
+`)
+	write("app/desenho/page.tsx", `'use client'
+export default function Desenho() {
+  return <svg onPointerMove={() => {}}><circle r="4" /></svg>
+}
+`)
+
+	p, err := Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"login":   ClassForm,
+		"grafo":   ClassSPA,
+		"mapa":    ClassSPA,
+		"desenho": ClassSPA,
+	}
+	for _, pg := range p.Pages {
+		w, ok := want[pg.Dir]
+		if !ok {
+			continue
+		}
+		delete(want, pg.Dir)
+		if pg.Class != w {
+			t.Errorf("%s = %s — %s, want %s", pg.Dir, pg.Class, pg.Why, w)
+		}
+		// The reason carries the line, so a false positive can be thrown out
+		// without opening the file.
+		if pg.Class == ClassSPA && !strings.Contains(pg.Why, "line ") {
+			t.Errorf("%s: the reason does not say where: %q", pg.Dir, pg.Why)
+		}
+	}
+	for dir := range want {
+		t.Errorf("%s was not scanned", dir)
 	}
 }

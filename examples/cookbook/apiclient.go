@@ -98,6 +98,38 @@ func DownloadDocument(c *trilha.Ctx) error {
 	return c.Inline(c.Param("id")+".pdf", resp.Body, resp.Header.Get("Content-Type"))
 }
 
+// CreateDocument is the write. A 422 is not an error page: it is the same form
+// again, with the API's own messages next to the fields that earned them.
+func CreateDocument(c *trilha.Ctx) (h.Node, error) {
+	var in api.DocumentIn
+	if err := c.Bind(&in); err != nil {
+		return nil, err
+	}
+	doc, err := Acervo.Documents().Create(Calling(c), in)
+	if e, ok := api.AsError(err); ok && e.Status == http.StatusUnprocessableEntity {
+		return documentForm(in, trilha.FieldErrors(e.Fields)), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nil, c.Redirect("/documents/" + doc.ID)
+}
+
+// documentForm is the form the page draws, with whatever the API refused
+// marked on the field that earned it. ui.Errors takes the map straight, so
+// nothing here restates the API's validation rules.
+func documentForm(in api.DocumentIn, errs trilha.FieldErrors) h.Node {
+	return h.Form(h.Method("post"),
+		ui.Field("filename", "File",
+			ui.Input(h.ID("filename"), h.Name("filename"), h.Value(in.Filename), ui.InvalidIf(errs, "filename")),
+			ui.Errors(errs, "filename")),
+		ui.Field("folder", "Folder",
+			ui.Input(h.ID("folder"), h.Name("folder"), h.Value(in.Folder), ui.InvalidIf(errs, "folder")),
+			ui.Errors(errs, "folder")),
+		ui.Button(h.Text("Create")),
+	)
+}
+
 // ProxyAPI is the other half. The page uses the client above; the islands and
 // any fetch still call /api/* on the same origin, and the upstream puts the
 // same credential on the request. One API, one token, two doors.

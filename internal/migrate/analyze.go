@@ -5,6 +5,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -62,7 +63,14 @@ var spaSignals = []signal{
 	// them as pointer sent the upload screen to the hardest class there is.
 	// Dragging something that is not a file (a row being reordered) stays.
 	{name: "pointer", re: regexp.MustCompile(`onPointer(Down|Move|Up)|onMouseMove|onDragStart|draggable=`)},
-	{name: "drawing", re: regexp.MustCompile(`<svg\b|<canvas\b|getContext\(`)},
+	{name: "drawing", re: regexp.MustCompile(`<canvas\b|getContext\(`)},
+	// An <svg> is a logo until something works on it. Reading the tag alone as
+	// a drawing surface classified four screens of a real migration as C — a
+	// form with a 22px icon in it — and C is the class that says "write an
+	// island". What counts is the ref that points at the element, the wheel
+	// and the frame loop that redraw it, or a library that draws for you;
+	// a pointer handler and d3 already classify on their own, above and below.
+	{name: "live svg", re: svgRe, and: svgWorkRe},
 	{name: "editor", re: regexp.MustCompile(`contentEditable|execCommand|Slate|ProseMirror|Tiptap`)},
 	{name: "chart", re: regexp.MustCompile(`\bd3[-.]|recharts|chart\.js|Chart\(`)},
 }
@@ -99,6 +107,12 @@ var (
 	// is a pointer. The two together are what tell them apart.
 	dropRe = regexp.MustCompile(`onDrop|onDragOver|onDragEnter|onDragLeave`)
 	fileRe = regexp.MustCompile(`dataTransfer\.files|type="file"`)
+	// An <svg> and what would be working on it. The ref is looked for inside
+	// the opening tag, because a ref somewhere else in the file belongs to
+	// something else — an <aside>, an input — and the whole point here is not
+	// to call a logo a drawing.
+	svgRe     = regexp.MustCompile(`<svg\b`)
+	svgWorkRe = regexp.MustCompile(`<svg[^>]*\bref=|onPointer(Down|Move|Up)|onMouse(Down|Move|Up)|onWheel|requestAnimationFrame\(|\bkonva|\bpixi|\bfabric\.|\bthree\b`)
 )
 
 // analyze reads one source file and the ones it imports. deps is keyed by the
@@ -280,9 +294,14 @@ func endpointStrings(es []Endpoint) []string {
 	return out
 }
 
-// hit is a signal that matched, and where. The path is empty when the page
-// itself carried it.
-type hit struct{ name, path string }
+// hit is one signal that matched: what it was, which file it was in — "" when
+// the page itself carried it — and the line, so the reason in the report can be
+// thrown out without opening the file. A decorative <svg> read as a drawing
+// surface is the case that made the line worth printing.
+type hit struct {
+	name, path string
+	line       int
+}
 
 // scan looks for each signal in the page and then in what it imports, keeping
 // the first place it found each one: a signal the page carries is the page's,
@@ -291,10 +310,12 @@ func scan(signals []signal, from []struct{ path, src string }) []hit {
 	var out []hit
 	for _, s := range signals {
 		for _, f := range from {
-			if s.re.MatchString(f.src) && (s.and == nil || s.and.MatchString(f.src)) {
-				out = append(out, hit{s.name, f.path})
-				break
+			loc := s.re.FindStringIndex(f.src)
+			if loc == nil || (s.and != nil && !s.and.MatchString(f.src)) {
+				continue
 			}
+			out = append(out, hit{s.name, f.path, 1 + strings.Count(f.src[:loc[0]], "\n")})
+			break
 		}
 	}
 	return out
@@ -315,10 +336,10 @@ func why(hits []hit) string {
 	parts := make([]string, 0, len(hits))
 	for _, h := range hits {
 		if h.path == "" {
-			parts = append(parts, h.name)
+			parts = append(parts, h.name+" (line "+strconv.Itoa(h.line)+")")
 			continue
 		}
-		parts = append(parts, h.name+" ("+path.Base(path.Dir(h.path))+"/"+path.Base(h.path)+")")
+		parts = append(parts, h.name+" ("+path.Base(path.Dir(h.path))+"/"+path.Base(h.path)+":"+strconv.Itoa(h.line)+")")
 	}
 	return strings.Join(parts, " and ")
 }

@@ -236,6 +236,8 @@ routes.
 trilha client openapi.json                       # writes internal/api/client.go
 trilha client https://api.example.com/openapi.json --out internal/acervo
 trilha client openapi.json --check               # fails when the file is out of date
+trilha client openapi.json --verbose             # names every untyped operation
+trilha client openapi.json --fail-on-untyped     # exit code, for CI
 ```
 
 One file, deterministic, committed like `trilha_gen.go`. Inside it: a struct per schema of
@@ -267,16 +269,51 @@ a file larger than the memory of the process crosses it.
 
 `New(base, WithHeader(...), WithClient(...))` is the whole surface of the constructor: the
 client holds no credential of its own, and `WithHeader` runs per request, which is where the
-session's token goes. A status outside 2xx is an `*Error` with `Status`, `Body` and the
-`Detail` pulled out of `problem+json` or of the `{"detail": ...}` a FastAPI writes. The
-generated file imports the standard library and nothing else — not even Trilha — so it also
-works in a job, in a test, in a binary that is not a web app.
+session's token goes. The generated file imports the standard library and nothing else — not
+even Trilha — so it also works in a job, in a test, in a binary that is not a web app.
+
+A status outside 2xx is an `*Error` with `Status`, `Body`, the `Detail` pulled out of
+`problem+json` or of the `{"detail": ...}` a FastAPI writes, and — when the answer is the
+validation error of a FastAPI, `{"detail": [{"loc": [...], "msg": "..."}]}` — one message per
+field in `Fields`. `AsError` is `errors.As` without the variable, and `Fields` is a
+`map[string]string`, which is [`FieldErrors`](/reference/validation) underneath, so the form
+re-renders itself with each message beside its input instead of parsing `Body` by hand on
+every page:
+
+```go
+if _, err := c.Users().Create(ctx, in); err != nil {
+	if e, ok := api.AsError(err); ok && e.Status == 422 {
+		return c.Render(page(in, trilha.FieldErrors(e.Fields)))
+	}
+	return err
+}
+```
+
+The `loc` loses the part that only says where the value travelled — `body`, `query`, `path`,
+`header`, `cookie` — so the key is the name the form uses: `email`, `itens.0.valor`. An error
+that is not that shape leaves `Fields` nil and `Detail` exactly as before.
 
 What it will not guess at, it says out loud: `oneOf` and `anyOf` and a schema with no type
 come through as `json.RawMessage`, and each one is a line of the report the command prints.
 `allOf` is flattened into one struct, a `$ref` that closes a cycle becomes a pointer, and an
 operation with no `operationId` gets its name from the method and the path — also a line of
 the report.
+
+An operation whose *answer* has no schema is the same thing, one order of magnitude bigger: an
+API written without `response_model` types nothing at all, and a client that gives back
+`json.RawMessage` a hundred times compiles and helps with nothing. So the command ends with the
+count:
+
+```
+  97/110 operations have no response schema — returned as json.RawMessage.
+  In FastAPI, declare response_model=... so the client can type the answer.
+  internal/api/client.go written, package api.
+```
+
+`--verbose` names each one — they are on the count instead of on the report above, because
+ninety-seven lines saying the same thing is not a report — and `--fail-on-untyped` turns the
+count into an exit code for a CI that wants it to reach zero. The file is still written either
+way.
 
 The recipe [An app in front of an existing API](/cookbook/existing-api) has the two halves
 side by side: the page reading the API through this client, the islands reading it through
@@ -333,8 +370,9 @@ at the end says how many were written and how many were kept.
 The doc comment above each function is the part that matters: it says which file it came from,
 how many lines it had, which hooks it used, which endpoints it called, and which of three
 shapes the screen probably is — **A** a form or a list with no island, **B** a page with one
-island, **C** an app that really is a client. That is a suggestion printed with its reason, not
-a verdict. `MIGRATION.md` gathers the same thing in one table, plus the list of what has no
+island, **C** an app that really is a client. That is a suggestion printed with its reason and
+the line the reason came from — `C — live svg (fluxos/FlowCanvas.tsx:12)` — not a verdict, and
+the line is there so a wrong one can be thrown out without opening the file. `MIGRATION.md` gathers the same thing in one table, plus the list of what has no
 equivalent here: loading states, templates, parallel and intercepting routes, middleware and
 rewrites, each with the sentence explaining what takes its place.
 
@@ -346,6 +384,13 @@ under **Global dependencies**, and does not promote the pages it wraps. Neither 
 `DataTable` and no other, because re-exporting is not using. Without those two rules a shell
 carrying a chat with an `<svg>` classified every screen of the application as **C**, which is
 an order of work that says start anywhere.
+
+For the same reason an `<svg>` on its own is not a drawing surface. A logo, an icon, a chevron:
+almost every screen has one, and reading the tag as **C** put four of the twenty screens of a
+real migration in the hardest class there is. What makes it **C** is something working on it —
+a `ref` on the element, `onWheel`, `requestAnimationFrame`, a drawing library — or a pointer
+handler and a chart library, which classify on their own anyway. A `<canvas>` still counts by
+itself: nobody puts one there for decoration.
 
 The screens themselves are not translated. A page's body is business logic, and a machine
 guessing at it would cost more to review than to write — the guide

@@ -11,29 +11,37 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.41.0)
+## Onde o Trilha está (setembro de 2026, v0.101.0)
+
+> Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
+> título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
+> envelhecer ([#159](https://github.com/emersonjoe/trilha/issues/159), que a pegou anunciando
+> a 0.41.0 com o framework na 0.100.0).
 
 | Área da avaliação | Estado | Onde |
 |---|---|---|
 | Arquitetura | roteamento por arquivos, layouts aninhados, middleware por subárvore, erros como valores, `Setup`/`Config` (com erro)/`Shutdown` | specs 001, 007, 008, 021 |
 | Simplicidade | zero dependências no runtime e na CLI, garantido por teste | princípio II |
-| Coerência com Go | `http.ServeMux` 1.22, `context`, `log/slog`, `embed`, erros explícitos | princípio III |
-| DX | `new`, `gen` (com `--check`), `dev` (recarga ~1 s, erro de build na página), `build`, `routes`, `export`, `audit`, `ui` | specs 001, 003, 004, 006, 021 |
-| Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors` e validação por tag, fragmentos, ilhas, navegação no cliente e upload com progresso | specs 006, 009, 018, 022, 023, 024, 027 |
-| Dados | funções Go comuns, sem loader mágico; `cache` com prazo, tags, invalidação, voo único e memo por requisição; `ETag`/`Last-Modified`/`304` no `Ctx` e no estático | por decisão, specs 025 e 026 |
-| Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak, Cognito) com PKCE, sessão, papéis e logout | specs 004, 016, 020 |
-| Segurança | CSP com nonce, HSTS, COOP, `Permissions-Policy`, proxies confiáveis, timeouts, limite de corpo (global e por rota), upload com tipo pelo conteúdo e nome seguro, CORS configurável, `trilha audit` | specs 004, 024, 028, 029 |
-| Observabilidade | sondas de vida e prontidão, métricas Prometheus, `traceparent`, eventos de segurança, log de requisição com filtro | specs 014, 021 |
-| API | JSON, erro RFC 9457 (`problem+json`), negociação por `Accept`, SSE, `route.go` com `Kind` | specs 001, 005, 008, 030 |
+| Coerência com Go | `http.ServeMux` 1.22, `context`, `log/slog`, `embed`, erros explícitos, genéricos onde pagam (`Settings[T]`, `Versioned[T]`, `ui.Columns[T]`) | princípio III |
+| DX | `new`, `gen`, `dev`, `build`, `routes`, `export`, `audit`, `ui`, `check` (o portão único), `add <receita>`, `vendor`, `i18n`, `openapi`, `client`, `migrate next`, `agents`, `mcp` | specs 001, 003, 004, 006, 021, 065, 091, 119 |
+| Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors` e validação por tag, fragmentos, ilhas, navegação no cliente, upload com progresso, `ui.Live`, `ui.Assistant` | specs 006, 009, 018, 022, 023, 024, 027, 118 |
+| Dados | funções Go comuns, sem loader mágico; `cache` com prazo, tags, invalidação, voo único e memo por requisição; `ETag`/`Last-Modified`/`304`; `Settings`, `Versioned`, `Draft`, `Search`, `Deadlines` | specs 025, 026, 114, 115, 116 |
+| Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak, Cognito, Clerk) com PKCE, sessão, papéis, `auth.Policy`, sessões abertas e logout das outras, multi-organização | specs 004, 016, 020, 063, 108, 121 |
+| Segurança | CSP com nonce, HSTS, COOP, `Permissions-Policy`, proxies confiáveis, timeouts, limite de corpo, upload com tipo pelo conteúdo, CORS, `trilha audit`, segredo selado nas `Connections`, trilha de auditoria | specs 004, 024, 028, 029, 120 |
+| Observabilidade | sondas de vida e prontidão, métricas Prometheus, `traceparent`, eventos de segurança, log de requisição com filtro, uso por chave de API | specs 014, 021, 117 |
+| API | JSON, erro RFC 9457 (`problem+json`), negociação por `Accept`, SSE, `route.go` com `Kind`, `trilha openapi` dos seus handlers, `trilha client` do OpenAPI alheio, as rotas como ferramentas MCP | specs 001, 005, 008, 030, 092, 119, 122 |
 | SSG | `trilha export`, `AddExportPath`, `BasePath` | spec 003 |
-| UI | kit `ui` com ~40 componentes, tema compatível com shadcn/ui, ícones Lucide | specs 006, 023, 024 |
-| IA | `ai` (protocolo OpenAI: OpenAI, Ollama, OpenRouter, vLLM…), `ai/mcp` cliente e servidor | spec 005 |
-| Testes | unitários, golden, integração por exemplo, e2e da CLI | princípio VI |
+| UI | kit `ui` com ~60 componentes, tema compatível com shadcn/ui, ícones Lucide, gráficos sem bundle, listagens, fila de aprovação | specs 006, 023, 024, 113 |
+| IA | `ai` (protocolo OpenAI: OpenAI, Ollama, OpenRouter, vLLM…), `ai/mcp` cliente e servidor, `mcp.FromRoutes` | specs 005, 119 |
+| Migração | `trilha migrate next`: a árvore de `app/`, o relatório com classe e motivo por linha, o que não tem equivalente | specs 091, 122 |
+| Testes | unitários, golden, integração por exemplo, e2e da CLI, fuzz | princípio VI |
 | Desempenho | módulo `bench/`, resultados publicados, metodologia | spec 011 |
 | Comunidade | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, GOVERNANCE, templates, CODEOWNERS | spec 004 |
 
 Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.21.0 — a
-avaliação enxergou o projeto num ponto anterior. O que sobra, sobra de verdade.
+avaliação enxergou o projeto num ponto anterior. O que sobra, sobra de verdade, e desde a
+Fase 7 boa parte do que entra vem medido em app real: as fases 7 a 9 e a **Fase Verba** são
+issues abertas por quem estava migrando, não por quem estava lendo o código.
 
 ## O que vamos fazer
 

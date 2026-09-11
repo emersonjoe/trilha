@@ -15,10 +15,16 @@ type Options struct {
 	Source  string // what the header says the document was (a path or a URL)
 }
 
-// Result is what Generate produced: the file and the lines of the report.
+// Result is what Generate produced: the file, the lines of the report, and the
+// count that says how much of the API the client actually types. An API written
+// without response_model declares no schema for the answer, and every operation
+// comes back as json.RawMessage — the file compiles, types nothing, and whoever
+// is migrating used to find out by opening it.
 type Result struct {
-	Source []byte
-	Notes  []Note
+	Source  []byte
+	Notes   []Note
+	Ops     int      // operations in the document
+	Untyped []string // the ones whose answer is json.RawMessage, as "GET /path"
 }
 
 // method is one generated method: everything the template needs, already
@@ -125,7 +131,7 @@ func Generate(data []byte, opt Options) (*Result, error) {
 	if err != nil {
 		return nil, fmtErr("the generated file does not parse: %w", err)
 	}
-	return &Result{Source: out, Notes: b.sortedNotes()}, nil
+	return &Result{Source: out, Notes: b.sortedNotes(), Ops: len(ops), Untyped: b.untyped}, nil
 }
 
 // method resolves one operation into everything the emission needs.
@@ -189,7 +195,17 @@ func (b *builder) method(op *Operation, gName string, used map[string]bool) (*me
 	if ct, mt := pickResponse(op.Responses); ct != "" {
 		switch {
 		case strings.Contains(ct, "json"):
+			before := len(b.notes)
 			m.Return = b.goType(mt.Schema, gName+m.Name+"Response", where+" response")
+			// A schema the generator could not name is an answer the caller
+			// has to unmarshal by hand. One of those is a note; ninety-seven
+			// of them is the shape of the API, and that is a count — so the
+			// operation goes on the count and its own line comes back only
+			// under --verbose, instead of the same fact twice.
+			if m.Return == "json.RawMessage" {
+				b.untyped = append(b.untyped, where)
+				b.dropNotes(before, where+" response")
+			}
 		default:
 			m.Binary = true
 		}
@@ -405,11 +421,7 @@ func firstSentence(summary, description string) string {
 	if s == "" {
 		s = description
 	}
-	s = strings.TrimSpace(strings.ReplaceAll(s, "\n", " "))
-	if len(s) > 110 {
-		s = s[:107] + "..."
-	}
-	return s
+	return clip(strings.TrimSpace(strings.ReplaceAll(s, "\n", " ")), 110)
 }
 
 // argName is a path parameter as a Go argument.

@@ -121,11 +121,12 @@ func reportText(lang string) map[string]string {
 		"yes":        "yes",
 		"no":         "no",
 
-		"rule": "The suggestion is mechanical, and it is here to be argued with: **C** when the file " +
-			"shows a pointer handler, a drawing surface (`<svg>`, `<canvas>`) or an editor — the browser is " +
-			"doing the work, so it becomes an island; **B** when it polls, opens a modal, has tabs or takes " +
-			"a file — the kit does that without a bundle; **A** otherwise, which is a form and a list, and " +
-			"the whole screen fits on the server.",
+		"rule": "The suggestion is mechanical, and it is here to be argued with — the reason beside each " +
+			"class says which line it came from: **C** when the file shows a pointer handler, a drawing " +
+			"surface (`<canvas>`, or an `<svg>` something actually draws on — an icon is an icon) or an " +
+			"editor — the browser is doing the work, so it becomes an island; **B** when it polls, opens a " +
+			"modal, has tabs or takes a file — the kit does that without a bundle; **A** otherwise, which " +
+			"is a form and a list, and the whole screen fits on the server.",
 
 		"globals": "Global dependencies",
 		"globals.intro": "Reached from a `layout.tsx`: the frame around every screen, not the work of any one " +
@@ -174,10 +175,12 @@ func reportText(lang string) map[string]string {
 		"yes":        "sim",
 		"no":         "não",
 
-		"rule": "A sugestão é mecânica, e está aqui para ser contestada: **C** quando o arquivo mostra " +
-			"tratador de ponteiro, superfície de desenho (`<svg>`, `<canvas>`) ou editor — quem trabalha é o " +
-			"browser, então vira ilha; **B** quando faz polling, abre modal, tem abas ou recebe arquivo — o " +
-			"kit faz isso sem bundle; **A** no resto, que é formulário e lista, e cabe inteiro no servidor.",
+		"rule": "A sugestão é mecânica, e está aqui para ser contestada — o motivo ao lado de cada classe " +
+			"diz de que linha ela saiu: **C** quando o arquivo mostra tratador de ponteiro, superfície de " +
+			"desenho (`<canvas>`, ou um `<svg>` em que algo de fato desenha — ícone é ícone) ou editor — " +
+			"quem trabalha é o browser, então vira ilha; **B** quando faz polling, abre modal, tem abas ou " +
+			"recebe arquivo — o kit faz isso sem bundle; **A** no resto, que é formulário e lista, e cabe " +
+			"inteiro no servidor.",
 
 		"globals": "Dependências globais",
 		"globals.intro": "Alcançadas a partir de um `layout.tsx`: a moldura de todas as telas, e trabalho de " +

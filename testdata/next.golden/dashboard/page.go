@@ -10,7 +10,7 @@ import (
 //
 // Source: 15 lines, 'use client', 1 useMemo, 1 useState.
 // Calls: GET /api/metrics?range=:range.
-// Suggested: C — pointer and drawing.
+// Suggested: C — pointer (line 10) and live svg (line 10).
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Dashboard")
 	return ui.Container(

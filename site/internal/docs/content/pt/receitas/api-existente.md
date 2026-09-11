@@ -247,8 +247,36 @@ func ProxyAPI(cfg *trilha.Config) {
 }
 ```
 
+Uma escrita recusada volta como um `*Error`, e quando a API é uma FastAPI o 422 que ela
+escreve já é uma mensagem por campo. `Fields` é essa lista, com a chave que o formulário usa,
+então a página que falhou se redesenha com cada mensagem ao lado do seu campo:
+
+```go
+// CreateDocument is the write. A 422 is not an error page: it is the same form
+// again, with the API's own messages next to the fields that earned them.
+func CreateDocument(c *trilha.Ctx) (h.Node, error) {
+	var in api.DocumentIn
+	if err := c.Bind(&in); err != nil {
+		return nil, err
+	}
+	doc, err := Acervo.Documents().Create(Calling(c), in)
+	if e, ok := api.AsError(err); ok && e.Status == http.StatusUnprocessableEntity {
+		return documentForm(in, trilha.FieldErrors(e.Fields)), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nil, c.Redirect("/documents/" + doc.ID)
+}
+```
+
+`trilha.FieldErrors` é um `map[string]string` e `Fields` também, então a conversão é o
+adaptador inteiro: nenhuma segunda validação das mesmas regras deste lado, e nenhuma versão
+delas para divergir da API.
+
 O que o gerador não vai fingir que entende — um `oneOf`, um esquema sem tipo — chega como
-`json.RawMessage` e sai como uma linha do relatório na hora de gerar. Veja
+`json.RawMessage` e sai como uma linha do relatório na hora de gerar; uma API sem
+`response_model` em lugar nenhum ganha a conta de quanto dela ficou sem tipo. Veja
 [`trilha client`](/pt/referencia/cli#trilha-client).
 
 ## O que vem de graça

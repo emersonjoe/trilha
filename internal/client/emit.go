@@ -31,32 +31,35 @@ func (b *builder) emit(d *Doc, opt Options, order []string, groups map[string]*g
 	}
 	o.p(")")
 	o.p("")
-	b.emitRuntime(&o, title)
+	b.emitRuntime(&o, title, b.needsMultipart(groups))
 	b.emitTypes(&o)
 	b.emitGroups(&o, order, groups)
 	return o.Bytes()
 }
 
-// imports is the fixed list minus what this document did not need.
-func (b *builder) imports(groups map[string]*group) []string {
-	need := map[string]bool{"context": true, "encoding/json": true, "fmt": true, "io": true, "net/http": true, "net/url": true, "strings": true}
+// needsMultipart reports whether any operation sends a form: it decides both
+// the import and the part of the runtime that uses it.
+func (b *builder) needsMultipart(groups map[string]*group) bool {
 	for _, g := range groups {
 		for _, m := range g.Methods {
 			if m.Upload != "" || m.Form != nil {
-				need["mime/multipart"] = true
+				return true
 			}
-			for _, q := range m.Query {
-				if strings.HasPrefix(q.Type, "int") || strings.HasPrefix(q.Type, "float") {
-					need["strconv"] = true
-				}
-			}
-			if m.Form != nil {
-				for _, p := range m.Form.Parts {
-					if !p.File() && p.Type != "string" && !isEnumName(p.Type) {
-						need["strconv"] = true
-					}
-				}
-			}
+		}
+	}
+	return false
+}
+
+// imports is the fixed list minus what this document did not need.
+func (b *builder) imports(groups map[string]*group) []string {
+	// errors is AsError, strconv is the index inside a validation "loc": both
+	// belong to the runtime, so every generated client has them.
+	need := map[string]bool{"context": true, "encoding/json": true, "errors": true, "fmt": true, "io": true, "net/http": true, "net/url": true, "strconv": true, "strings": true}
+	if b.needsMultipart(groups) {
+		need["mime/multipart"] = true
+	}
+	for _, g := range groups {
+		for _, m := range g.Methods {
 			if m.Body != "" {
 				need["bytes"] = true
 			}
@@ -71,7 +74,7 @@ func (b *builder) imports(groups map[string]*group) []string {
 }
 
 // emitRuntime writes the part that does not depend on the document.
-func (b *builder) emitRuntime(o *buf, title string) {
+func (b *builder) emitRuntime(o *buf, title string, multipart bool) {
 	o.p(`// Client is a connection to %s. It is safe for concurrent use.
 type Client struct {
 	base   string
@@ -102,13 +105,31 @@ func New(base string, opts ...Option) *Client {
 	return c
 }
 
-// Error is a response the API refused. Body is what came back, and Detail is
-// the sentence inside it when the answer is problem+json (RFC 9457) or the
-// {"detail": ...} of a FastAPI.
+// Error is a response the API refused. Body is what came back, Detail is the
+// sentence inside it when the answer is problem+json (RFC 9457) or the
+// {"detail": ...} of a FastAPI, and Fields is one message per field when the
+// answer is the validation error of a FastAPI — {"detail": [{"loc": [...],
+// "msg": "..."}]}. It is nil for anything else.
+//
+// Fields is a map[string]string so it converts straight to trilha.FieldErrors,
+// which is what a form re-rendered with a message next to each input takes:
+//
+//	if e, ok := AsError(err); ok && e.Status == 422 {
+//		return c.Render(page(in, trilha.FieldErrors(e.Fields)))
+//	}
 type Error struct {
 	Status int
 	Body   []byte
 	Detail string
+	Fields map[string]string
+}
+
+// AsError is errors.As without the variable: the *Error inside err, when there
+// is one.
+func AsError(err error) (*Error, bool) {
+	var e *Error
+	ok := errors.As(err, &e)
+	return e, ok
 }
 
 func (e *Error) Error() string {
@@ -147,7 +168,8 @@ func (c *Client) do(ctx context.Context, method, path string, q url.Values, body
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		defer resp.Body.Close()
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-		return nil, &Error{Status: resp.StatusCode, Body: b, Detail: detailOf(b)}
+		detail, fields := problemOf(b)
+		return nil, &Error{Status: resp.StatusCode, Body: b, Detail: detail, Fields: fields}
 	}
 	return resp, nil
 }
@@ -166,34 +188,92 @@ func (c *Client) call(ctx context.Context, method, path string, q url.Values, bo
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// detailOf pulls the sentence out of an error body without caring which of the
-// two shapes it is.
-func detailOf(b []byte) string {
+// problemOf pulls the sentence out of an error body without caring which of the
+// shapes it is, and the per-field messages when the body is the validation
+// error of a FastAPI. The sentence is the first message, never the object it
+// came in.
+func problemOf(b []byte) (string, map[string]string) {
 	var m struct {
 		Detail any    %sjson:"detail"%s
 		Title  string %sjson:"title"%s
 		Msg    string %sjson:"message"%s
 	}
 	if json.Unmarshal(b, &m) != nil {
-		return ""
+		return "", nil
 	}
 	switch d := m.Detail.(type) {
 	case string:
-		return d
+		return d, nil
 	case []any:
-		if len(d) > 0 {
-			if s, err := json.Marshal(d[0]); err == nil {
-				return string(s)
+		detail, fields := "", map[string]string{}
+		for _, item := range d {
+			obj, _ := item.(map[string]any)
+			msg, _ := obj["msg"].(string)
+			if msg == "" {
+				continue
+			}
+			if detail == "" {
+				detail = msg
+			}
+			if k := fieldKey(obj["loc"]); k != "" {
+				if _, seen := fields[k]; !seen {
+					fields[k] = msg
+				}
 			}
 		}
+		if len(fields) == 0 {
+			fields = nil
+		}
+		if detail == "" && len(d) > 0 {
+			// Not the shape we know: say what came, rather than nothing.
+			if s, err := json.Marshal(d[0]); err == nil {
+				detail = string(s)
+			}
+		}
+		return detail, fields
 	}
 	if m.Title != "" {
-		return m.Title
+		return m.Title, nil
 	}
-	return m.Msg
+	return m.Msg, nil
 }
 
-// FilePart is one file of a multipart body: the name it goes under and the
+// fieldKey turns the "loc" of a FastAPI message into the name of the form
+// field: ["body", "email"] is email, ["body", "itens", 0, "valor"] is
+// itens.0.valor, and the part that only says where the value travelled — body,
+// query, path, header, cookie — is dropped because the form does not have it.
+func fieldKey(loc any) string {
+	parts, _ := loc.([]any)
+	var out []string
+	for i, p := range parts {
+		var seg string
+		switch v := p.(type) {
+		case string:
+			if i == 0 {
+				switch v {
+				case "body", "query", "path", "header", "cookie":
+					continue
+				}
+			}
+			seg = v
+		case float64:
+			seg = strconv.FormatInt(int64(v), 10)
+		default:
+			continue
+		}
+		out = append(out, seg)
+	}
+	return strings.Join(out, ".")
+}
+`, title, "`", "`", "`", "`", "`", "`")
+	if !multipart {
+		return
+	}
+	// Only a document with a multipart operation gets the part that sends one.
+	// Emitting it always left `mime/multipart` undefined in the client of every
+	// API that takes no file — which is most of them — and the file did not
+	// compile.
+	o.p(`// FilePart is one file of a multipart body: the name it goes under and the
 // bytes, which are read while the request is sent.
 type FilePart struct {
 	Filename string
@@ -237,7 +317,7 @@ func multipartBody(parts []formPart) (io.Reader, string) {
 	}()
 	return pr, mw.FormDataContentType()
 }
-`, title, "`", "`", "`", "`", "`", "`")
+`)
 }
 
 // emitForm writes the struct one multipart operation takes. It exists so the

@@ -3,6 +3,61 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.101.0 — 2026-09-11
+
+Spec 122. Closes [#156](https://github.com/emersonjoe/trilha/issues/156),
+[#157](https://github.com/emersonjoe/trilha/issues/157),
+[#158](https://github.com/emersonjoe/trilha/issues/158),
+[#159](https://github.com/emersonjoe/trilha/issues/159) and
+[#160](https://github.com/emersonjoe/trilha/issues/160).
+
+Five findings from one real migration — a FastAPI with 110 operations and a Next.js project
+with 20 routes — and every one of them is something the tools said wrong, not something they
+could not do.
+
+### Added
+
+- **`Error.Fields` and `AsError` in the generated client.** A FastAPI answers validation with
+  `{"detail": [{"loc": ["body", "email"], "msg": "..."}]}`, which used to become one sentence.
+  Now it is also one message per field: the `loc` loses the part that only says where the
+  value travelled — `body`, `query`, `path`, `header`, `cookie` — so the key is the name the
+  form uses (`email`, `itens.0.valor`). `Fields` is a `map[string]string`, which is what
+  `trilha.FieldErrors` is underneath, so the page that failed re-renders itself with each
+  message beside its input in one conversion and no second copy of the API's rules.
+  `AsError(err)` is `errors.As` without the variable. An answer that is not that shape leaves
+  `Fields` nil and `Detail` exactly as it was.
+- **`trilha client --verbose` and `--fail-on-untyped`.** An API written without
+  `response_model` declares no schema for the answer, so every method gives back
+  `json.RawMessage`: the client compiles and types nothing, and the only way to find out was
+  to open the file. The command now ends with the count — `97/110 operations have no response
+  schema` — `--verbose` names each operation, and `--fail-on-untyped` turns the count into an
+  exit code for a CI that wants it to reach zero. The file is written either way. Those
+  operations are on the count instead of on the per-schema report above it: ninety-seven lines
+  saying the same thing was not a report.
+- **The line in the migration report's reason.** `C — live svg (fluxos/FlowCanvas.tsx:12)`
+  instead of `C — drawing`: the suggestion was always meant to be argued with, and now it can
+  be, without opening the file.
+
+### Fixed
+
+- **`trilha client` refused a description with an accent in the wrong place.** The comment of
+  a schema was cut at byte 107, and a `ç` that straddles it left a file the Go parser rejects
+  — the command failed with `illegal UTF-8 encoding` and wrote nothing. The cut walks back to
+  the start of a character now. Any document written in Portuguese hit this eventually.
+- **A `<svg>` on its own no longer means "the browser is doing the work".** A logo, an icon, a
+  chevron: `trilha migrate next` read the tag as a drawing surface and put four of twenty
+  screens in **C**, the class that says "write an island", where a server-rendered form was
+  enough. `<canvas>` and `getContext(` still classify by themselves; an `<svg>` needs
+  something working on it — a `ref` on the element, `onWheel`, `requestAnimationFrame`, a
+  drawing library — and a pointer handler or a chart library still classify on their own.
+- **A client generated from a document with no multipart operation did not compile.** The part
+  of the runtime that sends a form was emitted always, and `mime/multipart` was imported only
+  when an operation used one, so `multipart` came out undefined in the client of every API
+  that takes no file — which is most of them. Found while testing the count above.
+- **`ROADMAP.md` said v0.41.0 with the framework on 0.100.0.** The summary at the top is back
+  on the current version, and `scripts/release.sh` now refuses a release whose version the
+  section does not name, the same way it already refuses a missing `CHANGELOG` section.
+
 ## 0.100.0 — 2026-09-10
 
 Spec 121. Closes [#154](https://github.com/emersonjoe/trilha/issues/154).

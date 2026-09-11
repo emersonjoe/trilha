@@ -203,13 +203,23 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"ui kept own":   {"kept (yours)", "mantido (seu)"},
 
 	// client
-	"client needs a doc":  {"give the OpenAPI document: trilha client openapi.json", "informe o documento OpenAPI: trilha client openapi.json"},
-	"flag client out":     {"folder of the generated client", "pasta do cliente gerado"},
-	"flag client package": {"package clause of the generated file (default: the folder name)", "cláusula package do arquivo gerado (padrão: o nome da pasta)"},
-	"flag client check":   {"fail if the file on disk is out of date", "falha se o arquivo no disco estiver desatualizado"},
-	"client fresh":        {"%s is up to date", "%s está em dia"},
-	"client stale":        {"%s is out of date; run trilha client again", "%s está desatualizado; rode trilha client de novo"},
-	"client done":         {"%s written, package %s.", "%s gravado, pacote %s."},
+	"client needs a doc":          {"give the OpenAPI document: trilha client openapi.json", "informe o documento OpenAPI: trilha client openapi.json"},
+	"flag client out":             {"folder of the generated client", "pasta do cliente gerado"},
+	"flag client package":         {"package clause of the generated file (default: the folder name)", "cláusula package do arquivo gerado (padrão: o nome da pasta)"},
+	"flag client check":           {"fail if the file on disk is out of date", "falha se o arquivo no disco estiver desatualizado"},
+	"client fresh":                {"%s is up to date", "%s está em dia"},
+	"client stale":                {"%s is out of date; run trilha client again", "%s está desatualizado; rode trilha client de novo"},
+	"client done":                 {"%s written, package %s.", "%s gravado, pacote %s."},
+	"flag client verbose":         {"list every operation with no response schema", "lista cada operação sem schema de resposta"},
+	"flag client fail on untyped": {"exit with an error when an operation has no response schema", "sai com erro quando alguma operação não tem schema de resposta"},
+	"client untyped": {
+		"  %d/%d operations have no response schema — returned as json.RawMessage.\n  In FastAPI, declare response_model=... so the client can type the answer.",
+		"  %d/%d operações sem schema de resposta — devolvidas como json.RawMessage.\n  Na FastAPI, declare response_model=... para o cliente tipar a resposta.",
+	},
+	"client untyped fail": {
+		"%d operations with no response schema (--fail-on-untyped)",
+		"%d operações sem schema de resposta (--fail-on-untyped)",
+	},
 	"client bad scheme":   {"%s:// is not a scheme this reads; give a file or an http(s) URL", "%s:// não é um esquema que dá para ler; informe um arquivo ou uma URL http(s)"},
 	"client fetch failed": {"%s answered %d", "%s respondeu %d"},
 

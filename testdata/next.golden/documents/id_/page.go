@@ -10,7 +10,7 @@ import (
 //
 // Source: 24 lines, 'use client', 1 useEffect, 1 useRef, 2 useState.
 // Calls: GET /api/documents/:id, POST /api/documents/:id/reprocess, GET /api/documents/:id/status.
-// Suggested: B — polling.
+// Suggested: B — polling (line 12).
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Documents")
 	return ui.Container(

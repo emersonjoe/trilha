@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Field is one field of a generated struct.
@@ -55,7 +56,10 @@ type builder struct {
 	enums  map[string]*Enum
 	eOrder []string
 	notes  []Note
-	stack  map[string]bool
+	// untyped are the operations whose answer stayed json.RawMessage, in the
+	// order the document declares them.
+	untyped []string
+	stack   map[string]bool
 	// alias maps a component schema that is not a struct (a bare string, an
 	// array) to the Go type it expands to, so a $ref to it reads naturally.
 	alias map[string]string
@@ -282,6 +286,19 @@ func (b *builder) note(where, what string) {
 	b.notes = append(b.notes, Note{Where: where, What: what})
 }
 
+// dropNotes removes the lines added since from about exactly that place. It is
+// how an operation counted as untyped stops also being a note: the count says
+// the same thing, for all of them at once.
+func (b *builder) dropNotes(since int, where string) {
+	kept := b.notes[:since]
+	for _, n := range b.notes[since:] {
+		if n.Where != where {
+			kept = append(kept, n)
+		}
+	}
+	b.notes = kept
+}
+
 // validateTag turns what the schema promises into the tags of spec 027, so the
 // same type can be the answer of the API and the Bind of a form.
 func validateTag(s *Schema, required bool) string {
@@ -336,11 +353,22 @@ func doc(s *Schema) string {
 	if d == "" {
 		d = s.Title
 	}
-	d = strings.TrimSpace(strings.ReplaceAll(d, "\n", " "))
-	if len(d) > 110 {
-		d = d[:107] + "..."
+	return clip(strings.TrimSpace(strings.ReplaceAll(d, "\n", " ")), 110)
+}
+
+// clip shortens a comment to max bytes. The cut walks back to the start of a
+// character: a document written in Portuguese puts an accent at byte 107 sooner
+// or later, and cutting inside a UTF-8 sequence gave a file the Go parser
+// refuses — the whole command failed and wrote nothing.
+func clip(s string, max int) string {
+	if len(s) <= max {
+		return s
 	}
-	return d
+	cut := max - 3
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "..."
 }
 
 // exportName turns anything a document can call a thing into a Go identifier:

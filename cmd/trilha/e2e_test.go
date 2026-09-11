@@ -927,6 +927,38 @@ func TestMigrateNextE2E(t *testing.T) {
 	if out, err := stale.CombinedOutput(); err == nil || !strings.Contains(string(out), "out of date") {
 		t.Fatal(string(out), err)
 	}
+
+	// Spec 122 (#157): an API written without response_model declares no schema
+	// for the answer, so every method gives back json.RawMessage. The file
+	// compiles and types nothing, and the count is the only thing that says so
+	// before somebody opens it.
+	semSchema := filepath.Join(tmp, "sem-schema.json")
+	os.WriteFile(semSchema, []byte(`{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{
+		"/api/folhas":{"get":{"operationId":"listar","tags":["folhas"],"responses":{"200":{"description":"ok",
+			"content":{"application/json":{"schema":{}}}}}}},
+		"/api/saude":{"get":{"operationId":"saude","tags":["sistema"],"responses":{"200":{"description":"ok",
+			"content":{"application/json":{"schema":{"type":"object","properties":{"ok":{"type":"boolean"}}}}}}}}}}}`), 0o644)
+	out = run(t, proj, cli, "client", semSchema, "--out", "internal/sem", "--verbose")
+	for _, want := range []string{"1/2 operations have no response schema", "response_model", "GET /api/folhas"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("the report says nothing about the untyped operation (%q):\n%s", want, out)
+		}
+	}
+	// --fail-on-untyped is the same run with an exit code, for the CI of
+	// whoever is migrating: the file is still written.
+	fail := exec.Command(cli, "client", semSchema, "--out", "internal/sem", "--fail-on-untyped")
+	fail.Dir = proj
+	if out, err := fail.CombinedOutput(); err == nil || !strings.Contains(string(out), "--fail-on-untyped") {
+		t.Fatalf("--fail-on-untyped did not fail: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(proj, "internal", "sem", "client.go")); err != nil {
+		t.Fatal("--fail-on-untyped must still write the client")
+	}
+	run(t, proj, "go", "build", "./...")
+	// And a document that types every answer says nothing at all.
+	if out := run(t, proj, cli, "client", doc, "--out", "internal/tipado"); strings.Contains(out, "no response schema") {
+		t.Fatalf("a document with schemas got the warning anyway:\n%s", out)
+	}
 }
 
 // Issue #70: the types of the islands come out of the same command that keeps

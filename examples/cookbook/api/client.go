@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -50,13 +51,31 @@ func New(base string, opts ...Option) *Client {
 	return c
 }
 
-// Error is a response the API refused. Body is what came back, and Detail is
-// the sentence inside it when the answer is problem+json (RFC 9457) or the
-// {"detail": ...} of a FastAPI.
+// Error is a response the API refused. Body is what came back, Detail is the
+// sentence inside it when the answer is problem+json (RFC 9457) or the
+// {"detail": ...} of a FastAPI, and Fields is one message per field when the
+// answer is the validation error of a FastAPI — {"detail": [{"loc": [...],
+// "msg": "..."}]}. It is nil for anything else.
+//
+// Fields is a map[string]string so it converts straight to trilha.FieldErrors,
+// which is what a form re-rendered with a message next to each input takes:
+//
+//	if e, ok := AsError(err); ok && e.Status == 422 {
+//		return c.Render(page(in, trilha.FieldErrors(e.Fields)))
+//	}
 type Error struct {
 	Status int
 	Body   []byte
 	Detail string
+	Fields map[string]string
+}
+
+// AsError is errors.As without the variable: the *Error inside err, when there
+// is one.
+func AsError(err error) (*Error, bool) {
+	var e *Error
+	ok := errors.As(err, &e)
+	return e, ok
 }
 
 func (e *Error) Error() string {
@@ -95,7 +114,8 @@ func (c *Client) do(ctx context.Context, method, path string, q url.Values, body
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		defer resp.Body.Close()
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-		return nil, &Error{Status: resp.StatusCode, Body: b, Detail: detailOf(b)}
+		detail, fields := problemOf(b)
+		return nil, &Error{Status: resp.StatusCode, Body: b, Detail: detail, Fields: fields}
 	}
 	return resp, nil
 }
@@ -114,42 +134,120 @@ func (c *Client) call(ctx context.Context, method, path string, q url.Values, bo
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// detailOf pulls the sentence out of an error body without caring which of the
-// two shapes it is.
-func detailOf(b []byte) string {
+// problemOf pulls the sentence out of an error body without caring which of the
+// shapes it is, and the per-field messages when the body is the validation
+// error of a FastAPI. The sentence is the first message, never the object it
+// came in.
+func problemOf(b []byte) (string, map[string]string) {
 	var m struct {
 		Detail any    `json:"detail"`
 		Title  string `json:"title"`
 		Msg    string `json:"message"`
 	}
 	if json.Unmarshal(b, &m) != nil {
-		return ""
+		return "", nil
 	}
 	switch d := m.Detail.(type) {
 	case string:
-		return d
+		return d, nil
 	case []any:
-		if len(d) > 0 {
-			if s, err := json.Marshal(d[0]); err == nil {
-				return string(s)
+		detail, fields := "", map[string]string{}
+		for _, item := range d {
+			obj, _ := item.(map[string]any)
+			msg, _ := obj["msg"].(string)
+			if msg == "" {
+				continue
+			}
+			if detail == "" {
+				detail = msg
+			}
+			if k := fieldKey(obj["loc"]); k != "" {
+				if _, seen := fields[k]; !seen {
+					fields[k] = msg
+				}
 			}
 		}
+		if len(fields) == 0 {
+			fields = nil
+		}
+		if detail == "" && len(d) > 0 {
+			// Not the shape we know: say what came, rather than nothing.
+			if s, err := json.Marshal(d[0]); err == nil {
+				detail = string(s)
+			}
+		}
+		return detail, fields
 	}
 	if m.Title != "" {
-		return m.Title
+		return m.Title, nil
 	}
-	return m.Msg
+	return m.Msg, nil
 }
 
-// multipartBody streams one file as multipart/form-data: the upload never sits
-// in memory, however large it is.
-func multipartBody(field, filename string, r io.Reader) (io.Reader, string) {
+// fieldKey turns the "loc" of a FastAPI message into the name of the form
+// field: ["body", "email"] is email, ["body", "itens", 0, "valor"] is
+// itens.0.valor, and the part that only says where the value travelled — body,
+// query, path, header, cookie — is dropped because the form does not have it.
+func fieldKey(loc any) string {
+	parts, _ := loc.([]any)
+	var out []string
+	for i, p := range parts {
+		var seg string
+		switch v := p.(type) {
+		case string:
+			if i == 0 {
+				switch v {
+				case "body", "query", "path", "header", "cookie":
+					continue
+				}
+			}
+			seg = v
+		case float64:
+			seg = strconv.FormatInt(int64(v), 10)
+		default:
+			continue
+		}
+		out = append(out, seg)
+	}
+	return strings.Join(out, ".")
+}
+
+// FilePart is one file of a multipart body: the name it goes under and the
+// bytes, which are read while the request is sent.
+type FilePart struct {
+	Filename string
+	Content  io.Reader
+}
+
+// formPart is one part of a multipart body: a file when r is set, a form field
+// otherwise.
+type formPart struct {
+	field    string
+	filename string
+	r        io.Reader
+	value    string
+}
+
+// multipartBody streams the parts as multipart/form-data: no file ever sits in
+// memory, however large it is, and a writer that fails closes the pipe with the
+// error instead of hanging the request.
+func multipartBody(parts []formPart) (io.Reader, string) {
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	go func() {
-		fw, err := mw.CreateFormFile(field, filename)
-		if err == nil {
-			_, err = io.Copy(fw, r)
+		var err error
+		for _, p := range parts {
+			if p.r == nil {
+				err = mw.WriteField(p.field, p.value)
+			} else {
+				var fw io.Writer
+				if fw, err = mw.CreateFormFile(p.field, p.filename); err == nil {
+					_, err = io.Copy(fw, p.r)
+				}
+			}
+			if err != nil {
+				break
+			}
 		}
 		if err == nil {
 			err = mw.Close()
@@ -187,15 +285,20 @@ type Base struct {
 type Document struct {
 	Archived  bool                       `json:"archived,omitempty"`
 	CreatedAt string                     `json:"created_at,omitempty"`
+	Either    json.RawMessage            `json:"either,omitempty"`
 	Filename  string                     `json:"filename" validate:"required,min=1,max=255"`
 	ID        string                     `json:"id" validate:"required"`
 	Metadata  map[string]json.RawMessage `json:"metadata,omitempty"`
+	Owner     *DocumentIn                `json:"owner,omitempty"`
+	PageCount *int64                     `json:"page_count,omitempty"`
 	Pages     int32                      `json:"pages,omitempty"`
 	Payload   json.RawMessage            `json:"payload,omitempty"`
 	Score     float64                    `json:"score,omitempty"`
 	SizeBytes int64                      `json:"size_bytes,omitempty"`
 	Status    Status                     `json:"status" validate:"required"`
 	Tags      []string                   `json:"tags,omitempty"`
+	// Tenant Id
+	TenantID *string `json:"tenant_id,omitempty"`
 }
 
 // DocumentIn is a schema of the API.
@@ -245,6 +348,35 @@ type DefaultHealthResponse struct {
 	Status string            `json:"status,omitempty"`
 }
 
+// Certificates is the Certificates part of the API.
+type Certificates struct{ c *Client }
+
+// Certificates returns the Certificates part of the API.
+func (c *Client) Certificates() *Certificates { return &Certificates{c: c} }
+
+// CertificatesUploadForm is the multipart body of the request below.
+type CertificatesUploadForm struct {
+	Dias  int64 // how long to keep it
+	File  FilePart
+	Senha string // the password of the certificate
+}
+
+// Upload is POST /api/certificates: send a certificate and the password that opens it.
+func (g *Certificates) Upload(ctx context.Context, form CertificatesUploadForm) (Document, error) {
+	path := "/api/certificates"
+	var q url.Values
+	var out Document
+	parts := make([]formPart, 0, 3)
+	if form.Dias != 0 {
+		parts = append(parts, formPart{field: "dias", value: strconv.FormatInt(form.Dias, 10)})
+	}
+	parts = append(parts, formPart{field: "file", filename: form.File.Filename, r: form.File.Content})
+	parts = append(parts, formPart{field: "senha", value: form.Senha})
+	body, ctype := multipartBody(parts)
+	err := g.c.call(ctx, "POST", path, q, body, ctype, &out)
+	return out, err
+}
+
 // Default is the Default part of the API.
 type Default struct{ c *Client }
 
@@ -265,6 +397,29 @@ type Documents struct{ c *Client }
 
 // Documents returns the Documents part of the API.
 func (c *Client) Documents() *Documents { return &Documents{c: c} }
+
+// DocumentsBatchForm is the multipart body of the request below.
+type DocumentsBatchForm struct {
+	Files  []FilePart
+	Folder string // optional: it travels only when it is set
+}
+
+// Batch is POST /api/documents/batch: send many files at once, under one field.
+func (g *Documents) Batch(ctx context.Context, form DocumentsBatchForm) (Document, error) {
+	path := "/api/documents/batch"
+	var q url.Values
+	var out Document
+	parts := make([]formPart, 0, 2)
+	for _, f := range form.Files {
+		parts = append(parts, formPart{field: "files", filename: f.Filename, r: f.Content})
+	}
+	if form.Folder != "" {
+		parts = append(parts, formPart{field: "folder", value: form.Folder})
+	}
+	body, ctype := multipartBody(parts)
+	err := g.c.call(ctx, "POST", path, q, body, ctype, &out)
+	return out, err
+}
 
 // Create is POST /api/documents: create a document from metadata only.
 func (g *Documents) Create(ctx context.Context, body DocumentIn) (Document, error) {
@@ -329,12 +484,31 @@ func (g *Documents) List(ctx context.Context, p DocumentsListParams) (PagedDocum
 	return out, err
 }
 
+// Thumbnail is POST /api/documents/{document_id}/thumbnail: replace the thumbnail: one file and nothing else.
+func (g *Documents) Thumbnail(ctx context.Context, documentID string, file io.Reader, filename string) error {
+	path := "/api/documents/" + url.PathEscape(documentID) + "/thumbnail"
+	var q url.Values
+	body, ctype := multipartBody([]formPart{{field: "image", filename: filename, r: file}})
+	return g.c.call(ctx, "POST", path, q, body, ctype, nil)
+}
+
+// DocumentsUploadForm is the multipart body of the request below.
+type DocumentsUploadForm struct {
+	Folder string // optional: it travels only when it is set
+	Upload FilePart
+}
+
 // Upload is POST /api/documents/upload: send a file and let the API read it.
-func (g *Documents) Upload(ctx context.Context, file io.Reader, filename string) (Document, error) {
+func (g *Documents) Upload(ctx context.Context, form DocumentsUploadForm) (Document, error) {
 	path := "/api/documents/upload"
 	var q url.Values
 	var out Document
-	body, ctype := multipartBody("upload", filename, file)
+	parts := make([]formPart, 0, 2)
+	if form.Folder != "" {
+		parts = append(parts, formPart{field: "folder", value: form.Folder})
+	}
+	parts = append(parts, formPart{field: "upload", filename: form.Upload.Filename, r: form.Upload.Content})
+	body, ctype := multipartBody(parts)
 	err := g.c.call(ctx, "POST", path, q, body, ctype, &out)
 	return out, err
 }

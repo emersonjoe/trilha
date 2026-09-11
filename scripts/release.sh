@@ -50,6 +50,12 @@ grep -q "^const version = \"$VERSION\"$" cmd/trilha/main.go ||
 	{ echo "cmd/trilha/main.go não está na versão $VERSION" >&2; exit 1; }
 grep -q "^## $VERSION — " CHANGELOG.md ||
 	{ echo "CHANGELOG.md não tem a seção '## $VERSION — <data>'" >&2; exit 1; }
+# O resumo do topo do ROADMAP.md anunciou a 0.41.0 até a 0.100.0 sair (#159): quem chegava
+# pelo roadmap planejava contra uma fronteira de sessenta versões atrás. Conferir aqui é o
+# que impede isso de acontecer de novo — o script não escreve o arquivo porque exige árvore
+# limpa, então quem fecha a spec atualiza a linha e a release confirma.
+grep -qE "^## Onde o Trilha está \(.*v$VERSION\)$" ROADMAP.md ||
+	{ echo "ROADMAP.md: a seção 'Onde o Trilha está' não nomeia a $VERSION" >&2; exit 1; }
 ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null ||
 	{ echo "a tag $TAG já existe" >&2; exit 1; }
 command -v gh >/dev/null || { echo "gh não encontrado no PATH" >&2; exit 1; }
@@ -109,5 +115,5 @@ fi
 
 echo
 echo "Falta o que nenhum script escreve por você:"
-echo "  - ROADMAP.md: riscar o item e marcar 'Entregue na $TAG'"
+echo "  - ROADMAP.md: riscar o item da fase e marcar 'Entregue na $TAG'"
 echo "  - avisar a outra sessão, se houver uma trabalhando neste repositório"

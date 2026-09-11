@@ -248,8 +248,36 @@ func ProxyAPI(cfg *trilha.Config) {
 }
 ```
 
+A refused write comes back as an `*Error`, and when the API is a FastAPI the 422 it writes is
+already one message per field. `Fields` is that list, keyed by the name the form uses, so the
+page that failed re-renders itself with each message beside its input:
+
+```go
+// CreateDocument is the write. A 422 is not an error page: it is the same form
+// again, with the API's own messages next to the fields that earned them.
+func CreateDocument(c *trilha.Ctx) (h.Node, error) {
+	var in api.DocumentIn
+	if err := c.Bind(&in); err != nil {
+		return nil, err
+	}
+	doc, err := Acervo.Documents().Create(Calling(c), in)
+	if e, ok := api.AsError(err); ok && e.Status == http.StatusUnprocessableEntity {
+		return documentForm(in, trilha.FieldErrors(e.Fields)), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nil, c.Redirect("/documents/" + doc.ID)
+}
+```
+
+`trilha.FieldErrors` is a `map[string]string` and so is `Fields`, so the conversion is the
+whole adapter: no second validation of the same rules on this side, and no version of them
+that drifts from the API's.
+
 What the generator will not pretend to understand — a `oneOf`, a schema with no type — comes
-through as `json.RawMessage` and is printed as a line of the report when it runs. See
+through as `json.RawMessage` and is printed as a line of the report when it runs; an API with
+no `response_model` anywhere gets the count of how much of it stayed untyped. See
 [`trilha client`](/reference/cli#trilha-client).
 
 ## What you get for free
