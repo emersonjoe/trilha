@@ -668,6 +668,80 @@ func TestAddE2E(t *testing.T) {
 	run(t, proj, cli, "check")
 }
 
+// TestAddStoreE2E is the SQL store, end to end. It is a project of its own and
+// not one more name in the loop above, because this recipe changes what the
+// app needs to boot: `store.Setup` refuses without DATABASE_URL, on purpose,
+// and every other recipe's test builds an app.
+//
+// What it proves is what the recipe is for — the generated project vets, and
+// the tests the recipe writes pass. Those tests are the interesting part: they
+// run against a fake database/sql/driver, so they assert on the statement that
+// left rather than on the code that wrote it.
+func TestAddStoreE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	cli := buildCLI(t, repo, tmp)
+
+	proj := filepath.Join(tmp, "acervo")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/acervo", "--trilha-dir", repo)
+	out := run(t, proj, cli, "add", "store")
+	for _, f := range []string{
+		"internal/store/store.go", "internal/store/dialeto.go", "internal/store/consulta.go",
+		"internal/store/migrar.go", "migrations/migrations.go", "migrations/0001_init.sql",
+	} {
+		if !strings.Contains(out, f) {
+			t.Errorf("add store did not write %s:\n%s", f, out)
+		}
+		if _, err := os.Stat(filepath.Join(proj, filepath.FromSlash(f))); err != nil {
+			t.Errorf("%s is not there", f)
+		}
+	}
+	// The driver is the project's to pick, and the recipe says so instead of
+	// choosing one — that is what keeps the framework free of dependencies.
+	if !strings.Contains(out, "go get modernc.org/sqlite") {
+		t.Errorf("the next step does not say how to pick a driver:\n%s", out)
+	}
+	if _, err := os.Stat(filepath.Join(proj, "internal", "store", "driver.go")); err == nil {
+		t.Error("the recipe chose a driver for the project")
+	}
+
+	// The gate, which runs the tests the recipe wrote.
+	if out := run(t, proj, cli, "check"); !strings.Contains(out, "test") {
+		t.Fatal(out)
+	}
+	// And they are the ones that matter: named here so that deleting one is a
+	// failure and not a quieter test run.
+	testOut := run(t, proj, "go", "test", "./internal/store/", "-v")
+	for _, nome := range []string{
+		"TestOrderByNaoDeixaAURLEscreverSQL",
+		"TestPaginateLimitaOQueVemDeFora",
+		"TestErroNaoCarregaOSegredoDoDSN",
+		"TestMigrateRecusaArquivoQueMudouDepoisDeAplicado",
+		"TestMigrateNuncaConcatenaValor",
+	} {
+		if !strings.Contains(testOut, "PASS: "+nome) {
+			t.Errorf("%s did not run:\n%s", nome, testOut)
+		}
+	}
+
+	// A second run writes nothing and does not duplicate the setup line.
+	again := run(t, proj, cli, "add", "store")
+	if strings.Contains(again, "  + ") {
+		t.Fatalf("running it again wrote a file:\n%s", again)
+	}
+	setup, err := os.ReadFile(filepath.Join(proj, "app", "setup.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(string(setup), "trilha:add store"); n != 1 {
+		t.Fatalf("the marker appears %d times:\n%s", n, setup)
+	}
+}
+
 // TestGenerateCrudE2E is issue #115 end to end: from a struct to the screens,
 // with nobody editing anything in between. It is the only place that proves
 // the five generated files agree with each other — the store the pages use,

@@ -3,6 +3,43 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.105.0 — 2026-09-11
+
+Spec 126. The decision [#115](https://github.com/emersonjoe/trilha/issues/115) and
+[#117](https://github.com/emersonjoe/trilha/issues/117) were both waiting on; neither closes
+here, but what blocked them does.
+
+### Added
+
+- **`trilha add store` — the SQL database as a recipe.** Both issues stopped at the same
+  question: what it means for a framework with no dependencies to own a DDL and a placeholder
+  dialect. The answer is the one this repository already gives elsewhere — the store is an
+  interface plus memory and the SQL lives in a recipe — carried one step further, so that the
+  recipe owns the dialect, the migration convention and the runner, and a generator can emit
+  against them. The framework stays standard library; the project picks its driver in one file
+  with one import, and the recipe refuses to pick for it.
+
+  Three of the four files it writes exist because of a way applications break, not because of
+  convenience. `consulta.go` answers the `ORDER BY` that comes from the URL — the injection
+  every listing invites, since an identifier cannot be a placeholder — by not building SQL out
+  of input at all: what arrives selects a column from a table the code declared, and anything
+  else falls back. It also caps the page size, because a limit nobody bounds is a way for a
+  visitor to ask one query to read the whole table, and escapes `%` and `_` in the search box.
+  `migrar.go` applies migrations in name order, one transaction each with its receipt, and adds
+  the two things a loop over the files does not: a checksum, so a migration edited after it was
+  applied is refused by name rather than leaving every environment with a different schema, and
+  a lock, so two instances of a deploy booting together do not race on the same `CREATE TABLE`.
+  `store.go` pings on open — so a wrong password fails the deploy instead of the first
+  visitor — bounds the pool, and keeps the DSN out of errors, because the driver that cannot
+  connect is exactly the one that puts the whole connection string, password included, into the
+  message.
+
+  The tests the recipe writes run against a fake `database/sql/driver`, which is what makes
+  those claims checkable rather than stated: the assertions are about the statement that left,
+  not the code that wrote it. Every attack string put through `OrderBy` comes back as the
+  fallback; the migration's name and checksum travel as arguments and never appear inside the
+  SQL. All standard library, so proving it costs no dependency.
+
 ## 0.104.0 — 2026-09-11
 
 Spec 125. Closes [#172](https://github.com/emersonjoe/trilha/issues/172).

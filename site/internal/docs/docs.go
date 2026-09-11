@@ -40,12 +40,12 @@ type Locale struct {
 var Locales = []Locale{
 	{Code: "en", Prefix: "", Lang: "en", Name: "English", Sections: []Section{
 		{"learn", "Learn", []string{"", "pages-and-routes", "layouts", "html-with-h", "forms", "api", "data", "middleware", "security", "observability", "authentication", "ui-kit", "interactivity", "the-ceiling", "from-htmx-and-templ", "ai-and-agents", "examples", "testing", "dev-and-production", "troubleshooting"}},
-		{"reference", "Reference", []string{"", "conventions", "ctx", "h", "tmpl", "errors", "validation", "app", "security", "observability", "auth", "mail", "task", "approval", "search", "webhook", "connections", "upstreams", "cache", "ui", "shell", "charts", "listings", "live", "ai", "mcp", "cli", "performance"}},
+		{"reference", "Reference", []string{"", "conventions", "ctx", "h", "tmpl", "errors", "validation", "app", "security", "observability", "auth", "mail", "task", "approval", "search", "store", "webhook", "connections", "upstreams", "cache", "ui", "shell", "charts", "listings", "live", "ai", "mcp", "cli", "performance"}},
 		{"cookbook", "Cookbook", []string{"", "database", "sessions", "uploads", "csv", "wizard", "public-link", "files", "pagination", "email", "tasks", "webhooks", "scheduled-tasks", "docker", "production-checklist", "existing-api", "api-as-tools", "third-party-api", "listing", "migration", "from-next", "react-island"}},
 	}},
 	{Code: "pt", Prefix: "/pt", Lang: "pt-BR", Name: "Português", Sections: []Section{
 		{"aprender", "Aprender", []string{"", "paginas-e-rotas", "layouts", "html-com-h", "formularios", "api", "dados", "middleware", "seguranca", "observabilidade", "autenticacao", "interface-com-ui", "interatividade", "o-teto", "vindo-do-htmx-e-templ", "ia-e-agentes", "exemplos", "testes", "dev-e-producao", "problemas-comuns"}},
-		{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "validacao", "app", "seguranca", "observabilidade", "auth", "mail", "task", "approval", "search", "webhook", "conexoes", "upstreams", "cache", "ui", "shell", "graficos", "listagens", "vivo", "ai", "mcp", "cli", "desempenho"}},
+		{"referencia", "Referência", []string{"", "convencoes", "ctx", "h", "tmpl", "erros", "validacao", "app", "seguranca", "observabilidade", "auth", "mail", "task", "approval", "search", "store", "webhook", "conexoes", "upstreams", "cache", "ui", "shell", "graficos", "listagens", "vivo", "ai", "mcp", "cli", "desempenho"}},
 		{"receitas", "Receitas", []string{"", "banco-de-dados", "sessoes", "uploads", "planilhas", "formulario-em-passos", "link-publico", "arquivos", "paginacao", "email", "tarefas", "webhooks", "tarefas-agendadas", "docker", "checklist-de-producao", "api-existente", "api-como-ferramentas", "api-de-terceiros", "listagem", "migracao", "do-next", "ilha-react"}},
 	}},
 }
