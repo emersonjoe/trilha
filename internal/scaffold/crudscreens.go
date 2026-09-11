@@ -33,16 +33,16 @@ func (p crudPlan) list() string {
 	// not import it.
 	extra := ""
 	if strings.Contains(cols.String(), "fmt.Sprint") {
-		extra = "\t\"fmt\"\n"
+		// A blank line keeps the standard library its own group: gofmt sorts
+		// inside a group and never moves a line between them.
+		extra = "\t\"fmt\"\n\n"
 	}
 	return fmt.Sprintf(`// Package %s is the listing of %s: filter, sortable table and pagination,
 // all of it in the address.
 package %s
 
 import (
-%s	"net/http"
-
-	"github.com/emersonjoe/trilha"
+%s	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
 	"github.com/emersonjoe/trilha/ui"
 
@@ -68,7 +68,10 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	if err := c.Bind(&q); err != nil {
 		return nil, err
 	}
-	table := list(c, q)
+	table, err := list(c, q)
+	if err != nil {
+		return nil, err
+	}
 	if c.Fragment() == %q {
 		return table, nil
 	}
@@ -81,9 +84,13 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 
 // POST deletes the row the form names and lands back on the listing, which is
 // what makes reloading the page harmless.
+//
+// The store's error is forwarded as it is: a row that is not there answers
+// the app's own 404, and a database that is not answering says so instead of
+// being written down as "it was already gone".
 func POST(c *trilha.Ctx) error {
-	if !trilha.Use[%s.%sStore](c).Delete(c.Form("id")) {
-		return trilha.Errorf(http.StatusNotFound, "%%s", %q)
+	if err := trilha.Use[%s.%sStore](c).Delete(c.Context(), c.Form("id")); err != nil {
+		return err
 	}
 	c.Flash(ui.FlashSuccess, %q)
 	return c.Redirect(%q)
@@ -100,10 +107,16 @@ func excluir(v %s) h.Node {
 	)
 }
 
-func list(c *trilha.Ctx, q trilha.ListParams) h.Node {
-	rows, total := trilha.Use[%s.%sStore](c).List(%s.%sQuery{
+// list is the table on its own. It takes the request's context to the store:
+// when the person closes the tab, the query stops instead of going on for
+// nobody.
+func list(c *trilha.Ctx, q trilha.ListParams) (h.Node, error) {
+	rows, total, err := trilha.Use[%s.%sStore](c).List(c.Context(), %s.%sQuery{
 		Q: q.Q, Sort: q.Sort, Asc: q.Asc(), Offset: q.Offset(), Limit: q.Limit(),
 	})
+	if err != nil {
+		return nil, err
+	}
 	return ui.DataTable(c, columns(c), rows, ui.ListState{
 		Params:  q,
 		Total:   total,
@@ -112,11 +125,11 @@ func list(c *trilha.Ctx, q trilha.ListParams) h.Node {
 		Caption: %q,
 		RowHref: func(i int) string { return %q + "/" + rows[i].ID },
 		Empty:   ui.Muted(h.Text(%q)),
-	})
+	}), nil
 }
 %s`, p.ListPkg, p.Title, p.ListPkg, extra, p.Import, p.Ref, p.Ref, cols.String(), p.URL, p.ListPkg,
 		p.Title, p.Title, p.URL+"/new", p.T["crud_new"]+" "+strings.ToLower(p.One),
-		p.Pkg, p.Type, p.T["not_found"], p.T["app_deleted"], p.URL,
+		p.Pkg, p.Type, p.T["app_deleted"], p.URL,
 		p.Ref, p.URL, p.T["crud_delete"]+"?", p.T["crud_no_undo"], p.T["crud_delete"],
 		p.Pkg, p.Type, p.Pkg, p.Type,
 		p.ListPkg, p.T["app_search"], p.Title, p.URL, p.T["app_empty"], p.simHelper(cols.String()))
@@ -202,7 +215,7 @@ func POST(c *trilha.Ctx) error {
 		}
 		return c.Render(http.StatusUnprocessableEntity, form(c, in, errs, %q, %q))
 	}
-	if _, err := trilha.Use[%s.%sStore](c).Create(in); err != nil {
+	if _, err := trilha.Use[%s.%sStore](c).Create(c.Context(), in); err != nil {
 		return err
 	}
 	c.Flash(ui.FlashSuccess, %q)
@@ -214,9 +227,9 @@ func POST(c *trilha.Ctx) error {
 	return fmt.Sprintf(`
 // Page renders GET %s/{id} with the row already in the fields.
 func Page(c *trilha.Ctx) (h.Node, error) {
-	v, ok := trilha.Use[%s.%sStore](c).Get(c.Param("id"))
-	if !ok {
-		return nil, trilha.ErrNotFound
+	v, err := trilha.Use[%s.%sStore](c).Get(c.Context(), c.Param("id"))
+	if err != nil {
+		return nil, err
 	}
 	return form(c, v, nil, c.Request().URL.Path, %q), nil
 }
@@ -225,8 +238,10 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 // form: an id the browser sends is an id the browser can change.
 func POST(c *trilha.Ctx) error {
 	id := c.Param("id")
-	if _, ok := trilha.Use[%s.%sStore](c).Get(id); !ok {
-		return trilha.ErrNotFound
+	// The row is read before the form is: an edit of something that is gone
+	// is a 404, and not a form that fails validation on its way to nowhere.
+	if _, err := trilha.Use[%s.%sStore](c).Get(c.Context(), id); err != nil {
+		return err
 	}
 	var in %s
 	if err := c.Bind(&in); err != nil {
@@ -236,7 +251,7 @@ func POST(c *trilha.Ctx) error {
 		}
 		return c.Render(http.StatusUnprocessableEntity, form(c, in, errs, c.Request().URL.Path, %q))
 	}
-	if _, err := trilha.Use[%s.%sStore](c).Update(id, in); err != nil {
+	if _, err := trilha.Use[%s.%sStore](c).Update(c.Context(), id, in); err != nil {
 		return err
 	}
 	c.Flash(ui.FlashSuccess, %q)
@@ -284,7 +299,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"strings"
+%s	"strings"
 	"testing"
 
 	"github.com/emersonjoe/trilha"
@@ -348,7 +363,7 @@ func depoisDe(corpo, prefixo string) string {
 	}
 	return resto[:fim]
 }
-`, p.testImport(), p.Type, p.Type, p.testSkip(), p.Env, p.testLogin(),
+`, p.testOSImport(), p.testImport(), p.Type, p.Type, p.testDBSkip()+p.testSkip(), p.Env, p.testLogin(),
 		p.URL, p.T["app_empty"],
 		p.URL+"/new", criar,
 		p.URL, procura,
@@ -432,6 +447,30 @@ func (p crudPlan) testImport() string {
 		return ""
 	}
 	return fmt.Sprintf("\n\t%q\n", p.Helper)
+}
+
+// testOSImport is there when a Skip in the body has to read the environment.
+func (p crudPlan) testOSImport() string {
+	if !p.sql() {
+		return ""
+	}
+	return "\t\"os\"\n"
+}
+
+// testDBSkip is what the test says when the store it was generated against is
+// a database. Building the app runs the recipe's Setup, which opens the pool
+// and refuses to boot without DATABASE_URL — and the driver behind it is a
+// `go get` this project makes and the framework cannot make for it.
+//
+// So the test skips instead of failing, for the same reason the guard skip
+// exists: a test that fails for something outside itself teaches the wrong
+// lesson. What still runs everywhere is the store's own test, which asserts
+// on the statements and needs no database at all.
+func (p crudPlan) testDBSkip() string {
+	if !p.sql() {
+		return ""
+	}
+	return fmt.Sprintf("\tif os.Getenv(\"DATABASE_URL\") == \"\" {\n\t\tt.Skip(%q)\n\t}\n", p.T["crud_db_skip"])
 }
 
 // testSkip is what a generated test says when the folder is closed and there

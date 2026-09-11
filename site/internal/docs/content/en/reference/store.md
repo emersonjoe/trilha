@@ -103,8 +103,22 @@ that wrote it: that no value is ever concatenated, that the migration name trave
 argument, that every attack string put through `OrderBy` comes back as the fallback. It is all
 standard library, so proving it costs no dependency.
 
+## The generator writes against this
+
+`trilha generate crud <Type> --store sqlite|postgres` emits the SQL half of a CRUD — the store,
+its test and the migration for its table — and it emits it **against this recipe**: the dialect
+for the placeholders, `Sortable`/`OrderBy` for the ordering that came from the URL, `Paginate`
+for the page ceiling, `Like` for the search box, `NotFound` for `sql.ErrNoRows`. That is what
+this recipe is for: a generator cannot own a DDL or pick a placeholder dialect, and here both
+already have an owner. See [`trilha generate crud`](/reference/cli#trilha-generate-crud).
+
+The generated store also numbers its migration one past the highest on disk, because name order
+is apply order — and without this recipe in the project, the flag is a refusal that names
+`trilha add store`.
+
 ## What is yours
 
 The schema. This recipe owns how migrations are applied, not what is in them — `migrations/0001_init.sql`
 is a placeholder to replace with your first table. And the queries: there is no ORM here, and a
-`WHERE` this package wrote would be a `WHERE` nobody could read.
+`WHERE` this package wrote would be a `WHERE` nobody could read — with one exception, and it is
+the generator above, which writes them into your project for you to read and edit.

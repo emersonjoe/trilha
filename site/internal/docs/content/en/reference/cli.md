@@ -30,7 +30,7 @@ trilha version
 | `new` | creates a project with `go.mod`, layout, home page, 404, one API route, `public/style.css` and `.gitignore`; runs `go mod tidy` and `gen` |
 | `gen` | scans `app/` and writes `trilha_gen.go`; fails with one line per violated convention |
 | `generate` | writes one skeleton — a page, an API route or a component — in the folder the convention asks for |
-| `generate crud` | reads a struct and writes the whole thing: listing, create, edit, delete, a store and a test |
+| `generate crud` | reads a struct and writes the whole thing: listing, create, edit, delete, a store — in memory or in SQL — and a test |
 | `add` | writes a framework recipe into the project: the audit trail, API keys, a settings section |
 | `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE + route inspector on `/_trilha/routes` |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` |
@@ -578,20 +578,68 @@ on the first request, which is the worst outcome a generator can have, because i
 worked. The command names that file in its output, because a generator that changes something you
 did not ask for owes you the sentence.
 
-### The store is an interface with memory behind it
+### The store is an interface, with memory behind it and SQL beside it
 
 The same choice every store in this framework makes, and here it pays twice: **what comes out of
-the generator runs** — the screen opens, the form saves, the generated test passes — and swapping
-memory for a database is implementing five methods whose signatures are already written. The
-[database recipe](/cookbook/database) is the other half.
+the generator runs** — the screen opens, the form saves, the generated test passes — and the
+database is the same five methods, which `--store` writes for you.
+
+```go
+type TipoStore interface {
+	List(ctx context.Context, q TipoQuery) ([]Tipo, int, error)
+	Get(ctx context.Context, id string) (Tipo, error)
+	Create(ctx context.Context, v Tipo) (Tipo, error)
+	Update(ctx context.Context, id string, v Tipo) (Tipo, error)
+	Delete(ctx context.Context, id string) error
+}
+```
+
+Both halves of that signature earn their place. **The context is the request's**, taken from
+`c.Context()` by every screen: when the person closes the tab or the route's deadline runs out,
+the query stops instead of going on for nobody. **"It is not there" is an error** —
+`trilha.ErrNotFound`, which the framework already turns into the app's own 404 — and not a
+second return value, so a handler forwards it in one line and a database that is *down* is
+never written down as a row that is *gone*. That is the one lie a screen must not tell, and a
+store that can only answer yes or no has no way to avoid it.
+
+### --store sqlite|postgres
+
+```bash
+trilha add store                 # once per project: the pool, the dialect, the migrations
+trilha generate crud docs.Tipo --at app/admin/tipos --store sqlite
+```
+
+```text
+  + internal/docs/tipo_store_sql.go        the same interface over database/sql
+  + internal/docs/tipo_store_sql_test.go   the statements, asserted without a database
+  + migrations/0002_tipos.sql              the table, in the dialect you asked for
+  ~ app/setup.go                           the SQL store, after store.Setup
+```
+
+It is written **against the [`store` recipe](/reference/store)**, which is what that recipe
+exists for: `store.Sortable` and `store.OrderBy` for the ordering that came from the URL,
+`store.Paginate` for the page ceiling, `store.Like` for the search box, `d.Arg(n)` for every
+value, `store.NotFound` for `sql.ErrNoRows`. Nothing a visitor types is ever concatenated into a
+statement, and the generated test asserts exactly that, in your project, with no database to
+run. Without the recipe the flag is a refusal naming `trilha add store`: a generator that writes
+against a package that is not there hands you a project that does not compile.
+
+Three things worth knowing before you run it:
+
+- **The memory store is still written**, and on purpose: it is the reference implementation of
+  the five signatures, and the store a unit test of yours gets without booting a database. A
+  compile-time `var _ TipoStore = (*TipoSQL)(nil)` keeps the two from drifting apart.
+- **The `Provide` goes at the end of `Setup`**, after `store.Setup(a)` — `store.DB` does not
+  exist before it, and a pool captured as nil fails on the first request rather than at boot.
+- **The generated CRUD test skips without `DATABASE_URL`.** Booting the app means opening the
+  database, and the driver behind it is a `go get` your project makes and the framework cannot
+  make for it. `trilha check` is green anyway, and the store's own test — the one about the
+  statements — runs regardless.
 
 ### Not here yet
 
-`--store sqlite|postgres` with a generated migration, `--tenant`, `--policy`, the compact
-`ui.SchemaForm` version, and re-running to print the diff of fields you added to the struct
-later. They are on [#115](https://github.com/emersonjoe/trilha/issues/115); the SQL store in
-particular would have to pick a placeholder dialect and own a DDL, which is the thing this
-framework does not do anywhere else.
+`--tenant`, `--policy` and the compact `ui.SchemaForm` version of the form. They are on
+[#115](https://github.com/emersonjoe/trilha/issues/115).
 
 ## trilha add
 

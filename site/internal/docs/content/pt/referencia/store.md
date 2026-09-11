@@ -101,8 +101,24 @@ código que o escreveu: que nenhum valor é concatenado, que o nome da migraçã
 argumento, que toda string de ataque passada pelo `OrderBy` volta como o padrão. É tudo
 biblioteca padrão, então provar isso não custa dependência.
 
+## O gerador escreve contra ela
+
+O `trilha generate crud <Tipo> --store sqlite|postgres` emite a metade em SQL de um CRUD — o
+store, o teste dele e a migração da tabela — e emite **contra esta receita**: o dialeto para os
+placeholders, o `Sortable`/`OrderBy` para a ordenação que veio da URL, o `Paginate` para o teto
+de página, o `Like` para a caixa de busca, o `NotFound` para o `sql.ErrNoRows`. É para isto que
+a receita existe: um gerador não pode ser dono de um DDL nem escolher dialeto de placeholder, e
+aqui os dois já têm dono. Veja
+[`trilha generate crud`](/pt/referencia/cli#trilha-generate-crud).
+
+O store gerado numera a migração dele uma acima da maior que houver no disco, porque ordem de
+nome é ordem de aplicação — e sem esta receita no projeto, a bandeira é uma recusa que nomeia o
+`trilha add store`.
+
 ## O que é seu
 
 O schema. Esta receita é dona de como as migrações são aplicadas, não do que há dentro delas —
 o `migrations/0001_init.sql` é um lugar para a sua primeira tabela. E as consultas: não há ORM
-aqui, e um `WHERE` que este pacote escrevesse seria um `WHERE` que ninguém consegue ler.
+aqui, e um `WHERE` que este pacote escrevesse seria um `WHERE` que ninguém consegue ler — com
+uma exceção, que é o gerador acima: ele as escreve dentro do seu projeto, para você ler e
+editar.
