@@ -151,6 +151,11 @@ func TestReleaseDizOQueFicouParaTras(t *testing.T) {
 			t.Errorf("a saída não diz o que falta (%q):\n%s", quero, out)
 		}
 	}
+	// E não manda criar a tag que o próprio script acabou de criar: o passo
+	// que falhou foi o push, e `git tag -a` numa tag que existe erra.
+	if strings.Contains(out, "git tag -a v9.9.9") {
+		t.Errorf("a saída manda criar a tag que já existe:\n%s", out)
+	}
 	// E a main foi mesmo: é isso que torna a mensagem necessária.
 	if got := revParse(t, origin, "refs/heads/main"); got != revParse(t, dir, "HEAD") {
 		t.Fatal("a main não foi fundida, então este teste não está medindo o caso")

@@ -100,7 +100,11 @@ restante() {
 	echo "  scripts/release.sh $VERSION${ISSUES:+ --issues \"$ISSUES\"}" >&2
 	echo >&2
 	echo "Ou à mão:" >&2
-	[ "$RETOMANDO" = 1 ] || echo "  git tag -a $TAG -m $TAG" >&2
+	# A tag agora, e não o RETOMANDO do começo: o passo que falhou foi o push,
+	# e nesse caso a tag local já existe — mandar criá-la de novo é mandar
+	# rodar um comando que erra.
+	git rev-parse -q --verify "refs/tags/$TAG" >/dev/null ||
+		echo "  git tag -a $TAG -m $TAG" >&2
 	echo "  git push origin $TAG" >&2
 	echo "  gh release create $TAG --title $TAG --notes-file -   # a seção $VERSION do CHANGELOG" >&2
 	for n in $ISSUES; do
