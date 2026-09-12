@@ -279,6 +279,11 @@ tell whoever forged it which name to try next.
 Guard that screen with the module that administers the application. It is the most valuable
 screen there is.
 
+[`trilha add permissions`](/reference/cli#trilha-add) writes the policy, this screen, the guard
+and the test.
+
+@demo ui-permissoes
+
 ### What this does not express
 
 A rule about one record — the owner of a document, a row of a tenant — stays `RequireFunc`,
@@ -512,6 +517,10 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
 | `ui.SecretOnce(c, secret)` | the card that shows it once, with the sentence that has to be there |
 | `ui.APIKeysTable(c, []ui.APIKeyRow, ui.APIKeysOpts{...})` | the list, with the handle and never the key |
 
+[`trilha add api-keys`](/reference/cli#trilha-add) writes the package, this screen and the test.
+
+@demo ui-chaves-api
+
 **Only the hash is stored**, peppered with `trilha.Pepper` — HMAC-SHA256 under a key derived
 from the app's secret. A stolen table of digests is not a list anybody can attack offline, and
 without a secret `Issue` refuses rather than writing an unkeyed hash that would look like it
@@ -589,11 +598,13 @@ counters live in production — a check that cannot see them is a check that alw
 is fine.
 
 The screens are [`ui.APIUsage`](/reference/ui) and the calls column of `ui.APIKeysTable`, and
-`trilha add api-keys` writes both. The panel takes the kit's own shape — an
-`ui.APIUsageData{Total, Errors, Last, Days []ui.APIUsageDay, Routes []ui.APIUsageRoute}` with
-an `ui.APIUsageOpts{Days, Limit, Empty}` — and not the report of this package: a component of
+[`trilha add api-keys`](/reference/cli#trilha-add) writes both. The panel takes the kit's own
+shape — an `ui.APIUsageData{Total, Errors, Last, Days []ui.APIUsageDay, Routes []ui.APIUsageRoute}`
+with an `ui.APIUsageOpts{Days, Limit, Empty}` — and not the report of this package: a component of
 the kit that imported `auth` would drag authentication into every application that draws a
 button. Copying five fields across is the price of that, and it is the right price.
+
+@demo ui-uso-api
 
 ## Multi-tenant by column
 

@@ -115,12 +115,13 @@ framework has no driver.
 ## The screen and the recipe
 
 [`ui.ConnectionsPanel`](/reference/ui#connectionspanel) is the list grouped by kind, the badge of
-the last test, and the form. Every button is a `POST` to one path with a hidden `_action` (`save`,
-`test`, `delete`), so it works with no script.
+the last test, and the form — [demo there](/reference/ui#connectionspanel). Every button is a
+`POST` to one path with a hidden `_action` (`save`, `test`, `delete`), so it works with no script.
 
 ```
 trilha add connections
 ```
 
 writes `internal/conexoes` with the kinds `api` and `mcp`, the `/conexoes` page with the three
-actions, and the tests — see [Talking to a third-party API](/cookbook/third-party-api).
+actions, and the tests — see [`trilha add`](/reference/cli#trilha-add) and
+[Talking to a third-party API](/cookbook/third-party-api).

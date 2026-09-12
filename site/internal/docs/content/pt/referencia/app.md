@@ -398,6 +398,10 @@ mora um token, e uma trilha que o copia é um segundo lugar de onde ele vaza.
 O `SchemaOf` explode num campo que nenhum formulário segura — mapa, fatia, struct aninhada —
 porque a alternativa é uma tela que silenciosamente não edita parte da própria configuração.
 
+O [`trilha add settings`](/pt/referencia/cli#trilha-add) escreve a seção e esta tela.
+
+@demo ui-configuracoes
+
 ## Versioned[T]
 
 Um histórico numerado de uma coisa, com uma versão marcada como publicada — o padrão que duas
@@ -429,9 +433,9 @@ O store é o `trilha.VersionMemory()` por padrão; um `trilha.VersionStore` — 
 struct, então uma tabela serve toda espécie de coisa da aplicação — é o passo seguinte, e
 nenhuma tela muda. Um id ou um número sem versão atrás responde `trilha.ErrNoVersion`, e o
 `Hint` do `ErrVersionFrozen` leva o código `trilha.ErrFrozen` (`E_VERSION_FROZEN`), que é o que
-uma tela casa quando quer oferecer o botão de abrir rascunho em vez da mensagem. A tela é o
-[`ui.VersionList`](/pt/referencia/ui).
-
+uma tela casa quando quer oferecer o botão de abrir rascunho em vez da mensagem. A tela, com uma
+demo, é o [`ui.VersionList`](/pt/referencia/ui#versionlist). Nenhuma receita a escreve: não há
+`trilha add` para esta, é o primitivo do framework usado direto na página da aplicação.
 
 ## Prazos
 
@@ -464,6 +468,9 @@ resolvido não é um prazo, é história.
 As faixas são **cumulativas** — `Within[30]` inclui o que está em `Within[7]`, porque é isso que
 "vence em trinta dias" quer dizer. O que passa da última faixa é o `Later`. A tela que quiser o
 anel entre duas faixas subtrai.
+
+A tela, com uma demo, é o [`ui.DeadlineCards`](/pt/referencia/ui#deadlinecards). Nenhuma receita
+a escreve: é o primitivo do framework, usado direto na página da aplicação.
 
 ### Dias úteis
 

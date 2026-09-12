@@ -276,6 +276,11 @@ qual nome tentar em seguida.
 
 Guarde essa tela com o módulo que administra a aplicação. Ela é a tela mais valiosa que existe.
 
+O [`trilha add permissions`](/pt/referencia/cli#trilha-add) escreve a política, esta tela, o
+guarda e o teste.
+
+@demo ui-permissoes
+
 ### O que isto não expressa
 
 Regra sobre um registro — o dono de um documento, a linha de um inquilino — continua sendo
@@ -511,6 +516,10 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
 | `ui.SecretOnce(c, segredo)` | o cartão que mostra uma vez, com a frase que precisa estar lá |
 | `ui.APIKeysTable(c, []ui.APIKeyRow, ui.APIKeysOpts{...})` | a lista, com o identificador e nunca a chave |
 
+O [`trilha add api-keys`](/pt/referencia/cli#trilha-add) escreve o pacote, esta tela e o teste.
+
+@demo ui-chaves-api
+
 **Só o hash é guardado**, com pimenta do `trilha.Pepper` — HMAC-SHA256 sob uma chave derivada do
 segredo da app. Uma tabela de digests roubada não é uma lista que alguém ataca offline, e sem
 segredo o `Issue` recusa em vez de gravar um hash sem chave que pareceria ter funcionado.
@@ -588,11 +597,13 @@ contadores estão em produção — uma verificação que não os enxerga é uma
 que está tudo bem.
 
 As telas são o [`ui.APIUsage`](/pt/referencia/ui) e a coluna de chamadas do `ui.APIKeysTable`, e o
-`trilha add api-keys` escreve as duas. O painel recebe a forma do próprio kit — um
-`ui.APIUsageData{Total, Errors, Last, Days []ui.APIUsageDay, Routes []ui.APIUsageRoute}` com um
-`ui.APIUsageOpts{Days, Limit, Empty}` — e não o relatório deste pacote: um componente do kit que
-importasse `auth` arrastaria autenticação para toda aplicação que desenha um botão. Copiar cinco
-campos é o preço disso, e é o preço certo.
+[`trilha add api-keys`](/pt/referencia/cli#trilha-add) escreve as duas. O painel recebe a forma do
+próprio kit — um `ui.APIUsageData{Total, Errors, Last, Days []ui.APIUsageDay, Routes []ui.APIUsageRoute}`
+com um `ui.APIUsageOpts{Days, Limit, Empty}` — e não o relatório deste pacote: um componente do
+kit que importasse `auth` arrastaria autenticação para toda aplicação que desenha um botão.
+Copiar cinco campos é o preço disso, e é o preço certo.
+
+@demo ui-uso-api
 
 ## Multi-tenant por coluna
 

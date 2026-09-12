@@ -115,12 +115,14 @@ não tem driver.
 ## A tela e a receita
 
 [`ui.ConnectionsPanel`](/pt/referencia/ui#connectionspanel) é a lista agrupada por tipo, o badge do
-último teste e o formulário. Cada botão é um `POST` para um caminho só com um `_action` oculto
-(`save`, `test`, `delete`), então funciona sem script.
+último teste e o formulário — [demo lá](/pt/referencia/ui#connectionspanel). Cada botão é um
+`POST` para um caminho só com um `_action` oculto (`save`, `test`, `delete`), então funciona sem
+script.
 
 ```
 trilha add connections
 ```
 
 escreve o `internal/conexoes` com os tipos `api` e `mcp`, a página `/conexoes` com as três ações
-e os testes — veja [Falar com uma API de terceiros](/pt/receitas/api-de-terceiros).
+e os testes — veja [`trilha add`](/pt/referencia/cli#trilha-add) e
+[Falar com uma API de terceiros](/pt/receitas/api-de-terceiros).

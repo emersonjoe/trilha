@@ -206,6 +206,11 @@ return ui.AuditTable(c, regs, ui.AuditOpts{
 }), nil
 ```
 
+[`trilha add audit`](/reference/cli#trilha-add) writes the package wired up, this screen and the
+test.
+
+@demo ui-auditoria
+
 It is a `ui.DataTable` underneath, and that is the point: the filter form, the ordering links,
 the pagination and the fragment swap are the ones every other listing already has. A trail that
 behaved differently from the rest of the app would be a second thing to learn.

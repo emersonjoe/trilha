@@ -177,6 +177,10 @@ leitura), `CSRF`, `Events` e `Secret`. Ele desenha linhas simples, então a apli
 o módulo guarda para o que a tela mostra — e o `ui.WebhookRow` não tem campo para o segredo, que
 é o motivo de ele não conseguir vazar numa listagem.
 
+O [`trilha add webhooks`](/pt/referencia/cli#trilha-add) escreve o pacote, esta tela e o teste.
+
+@demo ui-webhooks
+
 ## O que não está aqui
 
 Assinatura assimétrica e mais de um segredo ativo por assinatura — rotação é real e é a próxima

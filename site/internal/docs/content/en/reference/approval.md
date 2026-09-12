@@ -74,7 +74,10 @@ A table and two forms, no JavaScript. The deadline is written by `ui.Relative`, 
 decision and the reason travel in **the same form**: a reason typed into a field that a second
 click discards is a reason nobody wrote.
 
-`trilha add approvals` writes the package wired up, the screen and the test.
+[`trilha add approvals`](/reference/cli#trilha-add) writes the package wired up, the screen and
+the test.
+
+@demo ui-aprovacoes
 
 ## Store
 

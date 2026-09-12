@@ -316,6 +316,12 @@ não a mesma mensagem em toda linha; cabeçalho que nenhum campo reivindica é a
 planilha ganha coluna o tempo todo. O `ui.CSVErrors` desenha a lista — veja
 [Planilhas (CSV)](/pt/receitas/planilhas) para a ida e a volta inteiras.
 
+Junto com o `ui.Flashes(c)` — a linha de resumo, e a tabela do que corrigir embaixo — é a
+resposta que uma tela de importação dá sem a pessoa abrir a planilha para achar uma data errada
+no olho.
+
+@demo ui-avisos-csv
+
 ## Mandando um arquivo
 
 O `File` recebe; estes cinco mandam. O nome, o tipo e os dois cabeçalhos que impedem um

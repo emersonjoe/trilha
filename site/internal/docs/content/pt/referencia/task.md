@@ -143,6 +143,10 @@ O `TaskTableOpts` recebe `Retry` (para onde o botão posta; sem ele, não há bo
 (`trilha.CSRFInput(c)`, obrigatório com o `Retry`) e `Empty`. O botão só aparece para tarefas que
 já acabaram — "tentar de novo" numa que está rodando é um segundo disparo.
 
+O [`trilha add tasks`](/pt/referencia/cli#trilha-add) escreve o motor, as duas telas e o teste.
+
+@demo ui-tarefas
+
 ## Erros
 
 O `ErrUnknownTask` é um nome que ninguém registrou: erro no `Run`, e não uma tarefa parada para

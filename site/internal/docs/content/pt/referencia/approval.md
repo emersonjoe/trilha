@@ -73,7 +73,10 @@ dias" e "há 2 dias" são a mesma frase no idioma de quem lê, e a linha atrasad
 decisão e o motivo viajam **no mesmo formulário**: um motivo digitado num campo que um segundo
 clique descarta é um motivo que ninguém escreveu.
 
-O `trilha add approvals` escreve o pacote ligado, a tela e o teste.
+O [`trilha add approvals`](/pt/referencia/cli#trilha-add) escreve o pacote ligado, a tela e o
+teste.
+
+@demo ui-aprovacoes
 
 ## Store
 

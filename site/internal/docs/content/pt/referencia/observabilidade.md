@@ -206,6 +206,11 @@ return ui.AuditTable(c, regs, ui.AuditOpts{
 }), nil
 ```
 
+O [`trilha add audit`](/pt/referencia/cli#trilha-add) escreve o pacote ligado, esta tela e o
+teste.
+
+@demo ui-auditoria
+
 Por baixo é um `ui.DataTable`, e é esse o ponto: o formulário de filtro, os links de ordem, a
 paginação e a troca de fragmento são os mesmos de qualquer outra listagem. Uma trilha que se
 comportasse diferente do resto do app seria uma segunda coisa para aprender.

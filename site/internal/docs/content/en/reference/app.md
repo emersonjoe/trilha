@@ -400,6 +400,10 @@ a token lives, and a trail that copies it is a second place to leak it from.
 `SchemaOf` panics on a field no form can hold — a map, a slice, a nested struct — because the
 alternative is a screen that silently cannot edit part of its own configuration.
 
+[`trilha add settings`](/reference/cli#trilha-add) writes the section and this screen.
+
+@demo ui-configuracoes
+
 ## Versioned[T]
 
 A numbered history of one kind of thing, with one version marked as published —
@@ -432,8 +436,9 @@ struct, so one table serves every kind in the application — is the next step, 
 changes. An id or a number with no version behind it answers `trilha.ErrNoVersion`, and the
 `Hint` on `ErrVersionFrozen` carries the code `trilha.ErrFrozen` (`E_VERSION_FROZEN`), which is
 what a screen matches on when it wants to offer the "open a draft" button instead of the
-message. The screen is [`ui.VersionList`](/reference/ui).
-
+message. The screen, with a demo, is [`ui.VersionList`](/reference/ui#versionlist). No recipe
+writes it: there is no `trilha add` for this one, it is the runtime primitive used straight from
+an app's own page.
 
 ## Deadlines
 
@@ -467,6 +472,9 @@ not a deadline, it is history.
 The bands are **cumulative** — `Within[30]` includes what is in `Within[7]`, because that is what
 "within thirty days" says. What falls past the last band is `Later`. A screen that wants the ring
 between two bands subtracts.
+
+The screen, with a demo, is [`ui.DeadlineCards`](/reference/ui#deadlinecards). No recipe writes
+it: it is the runtime primitive, used straight from an app's own page.
 
 ### Working days
 

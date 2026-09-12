@@ -180,6 +180,10 @@ func ui.WebhooksPanel(c *trilha.Ctx, subs []ui.WebhookRow, deliveries []ui.Deliv
 what the screen shows — and `ui.WebhookRow` has no field for the secret, which is why it cannot
 leak into a listing.
 
+[`trilha add webhooks`](/reference/cli#trilha-add) writes the package, this screen and the test.
+
+@demo ui-webhooks
+
 ## Not here
 
 Asymmetric signatures and more than one active secret per subscription — rotation is real and is

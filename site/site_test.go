@@ -371,6 +371,76 @@ func TestKitDemosDataRender(t *testing.T) {
 	}
 }
 
+// Spec 141: the twelve pattern-screen demos live inside the package chapter
+// that already documents each component, not in the ui-kit chapter — each
+// renders with a mark of its component, and where a `trilha add` recipe
+// writes the screen, the chapter names it, so a page that lost its demo or a
+// recipe mention that quietly dropped fails here instead of shipping wrong.
+func TestKitPatternDemosRender(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	cases := []struct {
+		en, pt string
+		common []string
+		enOnly []string
+		ptOnly []string
+	}{
+		{"/reference/observability", "/pt/referencia/observabilidade",
+			[]string{"trilha add audit", "Ana Souza", "invoice/2024-093"},
+			[]string{"updated", "revoked"}, []string{"atualizou", "revogou"}},
+		{"/reference/auth", "/pt/referencia/auth",
+			[]string{
+				"trilha add api-keys", "trilha add permissions",
+				"ak_live_9f2c3d4e5b6a7c8d9e0f1a2b3c4d5e6f", "docs-integration",
+				"/documents/{id}",
+			},
+			[]string{"Documents integration", "Copy it now", "Documents"},
+			[]string{"Integração de documentos", "Copie agora", "Documentos"}},
+		{"/reference/app", "/pt/referencia/app",
+			[]string{"trilha add settings"},
+			[]string{"Model", "Temperature", "Let it use the tools"},
+			[]string{"Modelo", "Temperatura", "Deixar usar as ferramentas"}},
+		{"/reference/approval", "/pt/referencia/approval",
+			[]string{"trilha add approvals", "Ana Souza"},
+			[]string{"Contract renewal — Acme"}, []string{"Renovação de contrato — Acme"}},
+		{"/reference/task", "/pt/referencia/task",
+			[]string{"trilha add tasks", "doc-93", "batch-12"},
+			[]string{"Classify"}, []string{"Classificar"}},
+		{"/reference/webhook", "/pt/referencia/webhook",
+			[]string{"trilha add webhooks", "order.paid", "order.refunded"},
+			[]string{"Billing sync"}, []string{"Sincronização de faturamento"}},
+		{"/reference/ui", "/pt/referencia/ui",
+			[]string{"trilha add connections", "timeout", "v3"},
+			[]string{"Billing API", "Docs MCP", "Title", "SSL certificate — api.example.com"},
+			[]string{"API de faturamento", "MCP de documentos", "Título", "Certificado SSL — api.example.com"}},
+		{"/reference/ctx", "/pt/referencia/ctx",
+			[]string{`due_date`},
+			[]string{"3 rows imported, 2 rejected", "not a valid date"},
+			[]string{"3 linhas importadas, 2 rejeitadas", "não é uma data válida"}},
+	}
+	for _, c := range cases {
+		_, enBody := get(t, c.en)
+		_, ptBody := get(t, c.pt)
+		for _, m := range c.common {
+			if !strings.Contains(enBody, m) {
+				t.Errorf("%s: missing %q", c.en, m)
+			}
+			if !strings.Contains(ptBody, m) {
+				t.Errorf("%s: missing %q", c.pt, m)
+			}
+		}
+		for _, m := range c.enOnly {
+			if !strings.Contains(enBody, m) {
+				t.Errorf("%s: missing %q", c.en, m)
+			}
+		}
+		for _, m := range c.ptOnly {
+			if !strings.Contains(ptBody, m) {
+				t.Errorf("%s: missing %q", c.pt, m)
+			}
+		}
+	}
+}
+
 // Spec 118: the assistant demo is the real component over a small screen,
 // with the kit's own chat script as the client and a local script answering
 // in ai.Serve's contract. Without JavaScript the launcher is a link to the

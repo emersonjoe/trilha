@@ -313,6 +313,12 @@ than the same message on every row; a heading no field claims is a warning, beca
 spreadsheet grows a column all the time. `ui.CSVErrors` renders the list — see
 [CSV](/cookbook/csv) for the whole round trip.
 
+Together with `ui.Flashes(c)` — the summary line, and the table of what to fix underneath — this
+is the answer an import screen gives without a person opening the spreadsheet to find one bad
+date by eye.
+
+@demo ui-avisos-csv
+
 ## Sending a file
 
 `File` receives; these five send. The name, the type and the two headers that keep a download

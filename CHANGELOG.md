@@ -3,6 +3,30 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.120.0 — 2026-09-12
+
+Spec 141. Closes [#191](https://github.com/emersonjoe/trilha/issues/191).
+
+### Documentation
+
+- **Twelve new live demos for the kit's pattern screens** — the third and last of the demo
+  issues; spec 139 covered layout and navigation, spec 140 covered data and charts. Unlike
+  those two, these twelve live inside the chapter that already documents each component —
+  `reference/observability.md`, `reference/auth.md` (three: API keys, usage, permissions),
+  `reference/app.md` (settings), `reference/approval.md`, `reference/task.md`,
+  `reference/webhook.md`, `reference/ui.md` (deadlines and connections, where the prose already
+  goes beyond the catalog row) and `reference/ctx.md` (flashes and CSV errors together, the way
+  an import screen actually answers) — not in `learn/ui-kit.md`, because that is where an app
+  already reads about the screen a `trilha add` recipe writes. Each demo with a recipe names it
+  (`trilha add audit`, `api-keys`, `permissions`, `settings`, `approvals`, `tasks`, `webhooks`,
+  `connections`) with a link to [`trilha add`](/reference/cli#trilha-add); `DeadlineCards` and
+  `VersionList` say plainly that they have none — `trilha.Deadlines` and `trilha.Versioned[T]`
+  are runtime primitives, not a recipe's output. The tasks demo seeds a `task.Memory()` store
+  directly instead of running a task through a worker, so the page shows a real running, a
+  real finished and a real failed task without a goroutine racing the render.
+- **`reference/ui.md` links a demo next to the row or the section it documents**, in both
+  locales.
+
 ## 0.119.0 — 2026-09-12
 
 Spec 140. Closes [#190](https://github.com/emersonjoe/trilha/issues/190).

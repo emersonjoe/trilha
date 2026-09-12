@@ -1,6 +1,7 @@
 package demos
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -9,7 +10,9 @@ import (
 	"time"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/auth"
 	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/task"
 	kit "github.com/emersonjoe/trilha/ui"
 )
 
@@ -319,6 +322,332 @@ func liveDemo(pt bool) h.Node {
 	}
 	return wrap(h.Div(h.ID("kit-fila"), kit.Poll("6s", "#"), kit.On(event, "#"),
 		kit.Stat(label, "3", kit.StatHint(hint))))
+}
+
+// demoRefDate is the fixed "now" the pattern-screen demos compute against, so
+// an absolute date or a deadline bucket reads the same on every build instead
+// of drifting with the day the site happens to be generated.
+var demoRefDate = time.Date(2024, time.March, 4, 9, 30, 0, 0, time.UTC)
+
+// auditDemo builds ui-auditoria: trilha add audit's own screen, over two rows
+// that show the shape ui.AuditTable is for — a person, and a key acting as
+// itself.
+func auditDemo(pt bool) h.Node {
+	action1, action2, target, subject := "updated", "revoked", "invoice/2024-093", "svc-billing"
+	if pt {
+		action1, action2 = "atualizou", "revogou"
+	}
+	records := []trilha.AuditRecord{
+		{At: demoRefDate, Action: action1, Target: target, Actor: trilha.Actor{Name: "Ana Souza"}, IP: "203.0.113.9"},
+		{At: demoRefDate.Add(-40 * time.Minute), Action: action2, Target: "api-key/ak_92f", Actor: trilha.Actor{Subject: subject, Via: "api_key"}},
+	}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(kit.AuditTable(c, records, kit.AuditOpts{
+			Total: len(records), Actions: []string{action1, action2}, Export: "#",
+		}))
+	})
+}
+
+// apiKeysDemo builds ui-chaves-api: the card that shows a freshly issued key
+// once, and the list underneath it — the two `trilha add api-keys` writes.
+func apiKeysDemo(pt bool) h.Node {
+	name1, name2 := "Documents integration", "Nightly export"
+	if pt {
+		name1, name2 = "Integração de documentos", "Exportação noturna"
+	}
+	rows := []kit.APIKeyRow{
+		{ID: "1", Handle: "docs-integration", Name: name1, Scopes: []string{"docs:read", "docs:write"},
+			Created: demoRefDate.AddDate(0, -1, 0), LastUsed: demoRefDate.Add(-2 * time.Hour)},
+		{ID: "2", Handle: "nightly-export", Name: name2, Scopes: []string{"docs:read"},
+			Created: demoRefDate.AddDate(0, 0, -9), Revoked: true},
+	}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(h.Div(h.Class("ui-stack"),
+			kit.SecretOnce(c, "ak_live_9f2c3d4e5b6a7c8d9e0f1a2b3c4d5e6f"),
+			kit.APIKeysTable(c, rows, kit.APIKeysOpts{Revoke: "#"}),
+		))
+	})
+}
+
+// apiUsageDemo builds ui-uso-api: the calls column's own screen, one panel
+// with the total, the shape by day and the busiest routes.
+func apiUsageDemo(pt bool) h.Node {
+	days := make([]kit.APIUsageDay, 7)
+	for i := range days {
+		days[i] = kit.APIUsageDay{Day: demoRefDate.AddDate(0, 0, -6+i), Count: 220 + i*30, Errors: i % 3}
+	}
+	data := kit.APIUsageData{
+		Total: 1842, Errors: 6, Last: demoRefDate, Days: days,
+		Routes: []kit.APIUsageRoute{
+			{Method: "GET", Route: "/documents/{id}", Count: 1210, Errors: 2, Last: demoRefDate},
+			{Method: "POST", Route: "/documents", Count: 632, Errors: 4, Last: demoRefDate},
+		},
+	}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(kit.APIUsage(c, data, kit.APIUsageOpts{Days: 30}))
+	})
+}
+
+// policyGridDemo builds ui-permissoes: the matrix trilha add permissions
+// writes, over the same three roles and three modules the auth chapter's own
+// example declares.
+func policyGridDemo(pt bool) h.Node {
+	p := auth.Policy{
+		Modules: []string{"docs", "processes", "hr"},
+		Levels:  auth.Levels{"view", "edit", "manage"},
+		Roles: map[string]auth.Grants{
+			"admin":   auth.All("manage"),
+			"analyst": {"docs": "edit", "processes": "view"},
+			"reader":  auth.All("view"),
+		},
+	}
+	labels := map[string]string{"docs": "Documents"}
+	if pt {
+		p = auth.Policy{
+			Modules: []string{"docs", "processos", "rh"},
+			Levels:  auth.Levels{"ver", "editar", "administrar"},
+			Roles: map[string]auth.Grants{
+				"admin":    auth.All("administrar"),
+				"analista": {"docs": "editar", "processos": "ver"},
+				"leitor":   auth.All("ver"),
+			},
+		}
+		labels = map[string]string{"docs": "Documentos"}
+	}
+	return wrap(kit.PolicyGrid(p, kit.PolicyGridOpts{Action: "#", Labels: labels}))
+}
+
+// demoAssistantEN/PT are the settings section the app.md chapter's own
+// example declares — two structs and not one, because label and help are
+// tags, read once and never translated at request time.
+type demoAssistantEN struct {
+	Model       string  `json:"model" form:"model" validate:"required,max=60" label:"Model" help:"the name the provider knows"`
+	Temperature float64 `json:"temperature" form:"temperature" validate:"min=0,max=2" label:"Temperature"`
+	Tools       bool    `json:"tools" form:"tools" label:"Let it use the tools"`
+}
+
+type demoAssistantPT struct {
+	Modelo      string  `json:"modelo" form:"modelo" validate:"required,max=60" label:"Modelo" help:"o nome que o provedor conhece"`
+	Temperatura float64 `json:"temperatura" form:"temperatura" validate:"min=0,max=2" label:"Temperatura"`
+	Ferramentas bool    `json:"ferramentas" form:"ferramentas" label:"Deixar usar as ferramentas"`
+}
+
+var demoSettingsEN = trilha.NewSettings("assistant", demoAssistantEN{Temperature: 0.7, Tools: true})
+var demoSettingsPT = trilha.NewSettings("assistente", demoAssistantPT{Temperatura: 0.7, Ferramentas: true})
+
+// settingsFormDemo builds ui-configuracoes: the section trilha add settings
+// writes, drawn straight from the struct that declares it.
+func settingsFormDemo(pt bool) h.Node {
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+		return demoCtx(locale, func(c *trilha.Ctx) h.Node { return wrap(kit.SettingsForm(c, demoSettingsPT, nil)) })
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node { return wrap(kit.SettingsForm(c, demoSettingsEN, nil)) })
+}
+
+// inboxDemo builds ui-aprovacoes: the queue trilha add approvals writes, one
+// row waiting and one already decided.
+func inboxDemo(pt bool) h.Node {
+	subject1, subject2, kind1, kind2 := "Contract renewal — Acme", "Expense report — March", "contract", "expense"
+	if pt {
+		subject1, subject2, kind1, kind2 = "Renovação de contrato — Acme", "Relatório de despesas — Março", "contrato", "despesa"
+	}
+	rows := []kit.InboxRow{
+		{ID: "1", Kind: kind1, Subject: subject1, State: "pending", Due: demoRefDate.AddDate(0, 0, 3)},
+		{ID: "2", Kind: kind2, Subject: subject2, State: "approved", Due: demoRefDate.AddDate(0, 0, -2), By: "Ana Souza"},
+	}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(h.Div(h.Class("ui-stack"),
+			kit.Inbox(c, rows, kit.InboxOpts{Decide: "#"}),
+			kit.InboxBadge(1),
+		))
+	})
+}
+
+// deadlineDemo builds ui-prazos: the cards, the list and the badge of a
+// trilha.Deadlines summary — no recipe writes this one, it is the runtime
+// primitive used straight from an app's own page.
+func deadlineDemo(pt bool) h.Node {
+	title1, title2, kind1, kind2 := "SSL certificate — api.example.com", "Vendor contract — Acme", "certificate", "contract"
+	if pt {
+		title1, title2, kind1, kind2 = "Certificado SSL — api.example.com", "Contrato de fornecedor — Acme", "certificado", "contrato"
+	}
+	items := []trilha.Deadline{
+		{Title: title1, Kind: kind1, Due: demoRefDate.AddDate(0, 0, -2), URL: "#"},
+		{Title: title2, Kind: kind2, Due: demoRefDate.AddDate(0, 0, 5), URL: "#"},
+		{Title: title2, Kind: kind2, Due: demoRefDate.AddDate(0, 0, 20), URL: "#"},
+	}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		summary := trilha.Deadlines(items, trilha.DeadlineOpts{Now: demoRefDate})
+		return wrap(h.Div(h.Class("ui-stack"),
+			kit.DeadlineCards(c, summary),
+			kit.DeadlineList(c, items, kit.DeadlineListOpts{Limit: 10}),
+			kit.DeadlineBadge(c, summary.Overdue),
+		))
+	})
+}
+
+// versionListDemo builds ui-versoes: the history over trilha.Versioned[T],
+// with ui.Changed working out the one field that actually moved between two
+// versions — no recipe writes this one either.
+func versionListDemo(pt bool) h.Node {
+	by, note, titleKey, bodyKey := "Ana Souza", "first draft", "Title", "Body"
+	if pt {
+		note, titleKey, bodyKey = "primeiro rascunho", "Título", "Corpo"
+	}
+	changed := kit.Changed(
+		map[string]string{titleKey: "SLA — Enterprise", bodyKey: "v1"},
+		map[string]string{titleKey: "SLA — Enterprise (revised)", bodyKey: "v1"},
+	)
+	rows := []kit.VersionRow{
+		{N: 3, By: by, At: demoRefDate, Published: true, Changed: changed},
+		{N: 2, By: by, At: demoRefDate.AddDate(0, 0, -6), Note: note},
+	}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(kit.VersionList(c, rows, kit.VersionOpts{Restore: "#", Publish: "#"}))
+	})
+}
+
+// taskDemo builds ui-tarefas: the two screens trilha add tasks writes, seeded
+// straight into a task.Memory() store so the page shows a real running task,
+// a finished one and a failed one without a worker goroutine racing the test
+// that renders it.
+func taskDemo(pt bool) h.Node {
+	step, failure := "Classify", "the OCR could not read page 3"
+	if pt {
+		step, failure = "Classificar", "o OCR não leu a página 3"
+	}
+	store := task.Memory()
+	ctx := context.Background()
+	store.Save(ctx, task.Task{ID: "t-1", Name: "ocr", Key: "doc-93", State: task.Running,
+		Step: step, N: 2, Of: 4, Queued: demoRefDate, Started: demoRefDate, By: "ana"})
+	store.Save(ctx, task.Task{ID: "t-2", Name: "export", Key: "batch-12", State: task.Done,
+		Queued: demoRefDate.Add(-time.Hour), Started: demoRefDate.Add(-time.Hour), Ended: demoRefDate.Add(-50 * time.Minute), By: "ana"})
+	store.Save(ctx, task.Task{ID: "t-3", Name: "ocr", Key: "doc-77", State: task.Failed, Err: failure,
+		Queued: demoRefDate.Add(-2 * time.Hour), Started: demoRefDate.Add(-2 * time.Hour), Ended: demoRefDate.Add(-118 * time.Minute), By: "ana"})
+	list, _ := store.List(ctx, task.ListParams{})
+	tasks := task.New(task.Options{Store: store})
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(h.Div(h.Class("ui-stack"),
+			kit.TaskProgress(c, tasks, "t-1"),
+			kit.TaskTable(c, list, kit.TaskTableOpts{Retry: "#"}),
+		))
+	})
+}
+
+// webhooksDemo builds ui-webhooks: the panel trilha add webhooks writes, one
+// subscription and two deliveries — one that worked, one the partner
+// rejected.
+func webhooksDemo(pt bool) h.Node {
+	label, event1, event2 := "Billing sync", "order.paid", "order.refunded"
+	if pt {
+		label = "Sincronização de faturamento"
+	}
+	subs := []kit.WebhookRow{
+		{ID: "1", Label: label, URL: "https://billing.example.com/hooks/trilha", Events: []string{event1, event2}, Created: demoRefDate.AddDate(0, -1, 0)},
+	}
+	deliveries := []kit.DeliveryRow{
+		{ID: "d1", Event: event1, State: "delivered", Attempt: 1, Status: 200, When: demoRefDate.Add(-3 * time.Hour)},
+		{ID: "d2", Event: event2, State: "failed", Attempt: 3, Status: 422,
+			Response: "{\"error\":\"unknown field amount_cents\"}", When: demoRefDate.Add(-2 * time.Hour), Next: demoRefDate.Add(2 * time.Hour)},
+	}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(kit.WebhooksPanel(c, subs, deliveries, kit.WebhooksOpts{Action: "#", Events: []string{event1, event2}}))
+	})
+}
+
+// connectionsDemo builds ui-conexoes: the list and the form trilha add
+// connections writes — two kinds, one that tested fine and one that did not.
+// The form's own secret field is ui.SecretField, drawn by ConnectionsPanel
+// itself and never carrying the secret in the HTML.
+func connectionsDemo(pt bool) h.Node {
+	apiLabel, mcpLabel, billing, docs := "API", "MCP server", "Billing API", "Docs MCP"
+	if pt {
+		mcpLabel, billing, docs = "Servidor MCP", "API de faturamento", "MCP de documentos"
+	}
+	store := trilha.ConnectionMemory()
+	ctx := context.Background()
+	store.Save(ctx, trilha.Connection{ID: "1", Kind: "api", Name: billing, URL: "https://billing.example.com", Auth: "bearer",
+		Secret: trilha.Secret("tok-abc123"), LastTest: &trilha.ConnectionTest{At: demoRefDate, OK: true}})
+	store.Save(ctx, trilha.Connection{ID: "2", Kind: "mcp", Name: docs, URL: "https://docs.example.com/mcp", Auth: "none",
+		LastTest: &trilha.ConnectionTest{At: demoRefDate, OK: false, Message: "timeout"}})
+	x := trilha.NewConnections(trilha.ConnectionsOpts{
+		Store: store,
+		Kinds: []trilha.ConnectionKind{{Key: "api", Label: apiLabel}, {Key: "mcp", Label: mcpLabel}},
+	})
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(kit.ConnectionsPanel(c, x, kit.ConnectionsOpts{Path: "#"}))
+	})
+}
+
+// flashesCSVDemo builds ui-avisos-csv: the toast a save leaves for the next
+// request and the per-cell table an import leaves on the spot — two screens
+// with no recipe of their own, shown together because that is how a CSV
+// import actually answers: a flash for the summary, the table for what to
+// fix.
+func flashesCSVDemo(pt bool) h.Node {
+	title := "3 rows imported, 2 rejected"
+	msg1, msg2, warn := "not a valid date", `"canceled" is not a known status`, `column "notes" is not used`
+	if pt {
+		title = "3 linhas importadas, 2 rejeitadas"
+		msg1, msg2, warn = "não é uma data válida", `"cancelado" não é um status conhecido`, `coluna "notas" não é usada`
+	}
+	res := trilha.CSVResult{
+		Rows: 5,
+		Errors: []trilha.CSVError{
+			{Line: 4, Column: "due_date", Message: msg1},
+			{Line: 9, Column: "status", Message: msg2},
+		},
+		Warnings: []string{warn},
+	}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		c.Flash(kit.FlashSuccess, title)
+		return wrap(h.Div(h.Class("ui-stack"),
+			kit.Flashes(c),
+			kit.CSVErrors(c, res),
+		))
+	})
 }
 
 func init() {
@@ -882,6 +1211,125 @@ ui.On("fila:mudou", "/tarefas/fila/status")  // também acorda por evento
 ui.Live("/eventos")                          // aberto uma vez, no layout`,
 		Node: func() h.Node { return liveDemo(true) },
 	})
+	add("pt", Demo{
+		Name:  "ui-auditoria",
+		Title: "Quem fez o quê, numa DataTable",
+		Source: `regs, total := auditoria.Buscar(q)
+return ui.AuditTable(c, regs, ui.AuditOpts{
+	Params:  q.ListParams,
+	Total:   total,
+	Actions: auditoria.Acoes(),
+	Export:  "/auditoria/csv",
+}), nil`,
+		Node: func() h.Node { return auditDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-chaves-api",
+		Title: "O segredo, uma vez, e a lista que nunca o repete",
+		Source: `k, segredo, err := Chaves.Issue(c, f.Nome, f.Escopos, 0)
+if err != nil {
+	return err
+}
+return c.Render(200, ui.SecretOnce(c, segredo))
+// ...
+return ui.APIKeysTable(c, linhas, ui.APIKeysOpts{Revoke: "/chaves/revogar"})`,
+		Node: func() h.Node { return apiKeysDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-uso-api",
+		Title: "Quantas chamadas, onde, e quando paravam",
+		Source: `rel, _ := Chaves.Usage(c.Context(), auth.UsageQuery{Key: id, Since: trinta})
+ui.APIUsage(c, ui.APIUsageData{
+	Total: rel.Total, Errors: rel.Errors, Last: rel.Last,
+	Days: rel.ByDay, Routes: rel.ByRoute,
+}, ui.APIUsageOpts{Days: 30})`,
+		Node: func() h.Node { return apiUsageDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-permissoes",
+		Title: "Papel × módulo × nível, como um formulário",
+		Source: `ui.PolicyGrid(acesso.Policy, ui.PolicyGridOpts{
+	Action: "/admin/permissoes",
+	CSRF:   trilha.CSRFInput(c),
+	Labels: map[string]string{"docs": "Documentos"},
+})`,
+		Node: func() h.Node { return policyGridDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-configuracoes",
+		Title: "Um campo por campo da struct, com validação embutida",
+		Source: `var Cfg = trilha.NewSettings("assistente", Assistente{Temperatura: 0.7, Ferramentas: true})
+
+func Page(c *trilha.Ctx) (h.Node, error) { return ui.SettingsForm(c, Cfg, nil), nil }
+func POST(c *trilha.Ctx) error           { return Cfg.Update(c) }`,
+		Node: func() h.Node { return settingsFormDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-aprovacoes",
+		Title: "A fila que espera uma pessoa",
+		Source: `ui.Inbox(c, linhas, ui.InboxOpts{Decide: "/admin/aprovacoes", CSRF: trilha.CSRFInput(c)})
+ui.InboxBadge(len(pendentes))   // o número no item de menu; zero não desenha nada`,
+		Node: func() h.Node { return inboxDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-prazos",
+		Title: "O que vence, quando, e o que já venceu",
+		Source: `resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{Now: time.Now().In(c.Location())})
+
+ui.DeadlineCards(c, resumo)
+ui.DeadlineList(c, itens, ui.DeadlineListOpts{Limit: 10, More: "/prazos"})
+ui.DeadlineBadge(c, resumo.Overdue)`,
+		Node: func() h.Node { return deadlineDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-versoes",
+		Title: "Quem publicou o quê, com o que mudou de verdade",
+		Source: `n, _ := Modelos.Save(c, id, m, "ajuste")
+_ = Modelos.Publish(c, id, n)
+
+ui.VersionList(c, linhas, ui.VersionOpts{Restore: "/admin/modelos/1/restaurar", CSRF: trilha.CSRFInput(c)})
+// linha.Changed = ui.Changed(antes, depois)`,
+		Node: func() h.Node { return versionListDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-tarefas",
+		Title: "Uma barra que para sozinha, e a lista de tudo que rodou",
+		Source: `if c.Fragment() == "tarefa" {
+	return ui.TaskProgress(c, app.Tarefas, id), nil
+}
+// ...
+ui.TaskTable(c, tarefas, ui.TaskTableOpts{Retry: "/tarefas/retry", CSRF: trilha.CSRFInput(c)})`,
+		Node: func() h.Node { return taskDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-webhooks",
+		Title: "O que este app avisa para fora, e como cada entrega foi",
+		Source: `ui.WebhooksPanel(c, assinaturas, entregas, ui.WebhooksOpts{
+	Action: "/webhooks", CSRF: trilha.CSRFInput(c),
+	Events: app.Hooks.Events(), Secret: webhook.TakeSecret(c),
+})`,
+		Node: func() h.Node { return webhooksDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-conexoes",
+		Title: "A lista por tipo, o badge do último teste, e o formulário",
+		Source: `ui.ConnectionsPanel(c, conexoes.Conexoes, ui.ConnectionsOpts{
+	Path: "/admin/conexoes", CSRF: trilha.CSRFInput(c), Editing: editando, Errors: errs,
+})`,
+		Node: func() h.Node { return connectionsDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-avisos-csv",
+		Title: "O aviso da importação, e a célula que não passou",
+		Source: `res, err := trilha.BindCSV(up, &linhas)
+if !res.OK() {
+	return c.Render(422, page(ui.CSVErrors(c, res, ui.CSVErrorsOpts{
+		Action: ui.ButtonLink("/importar", h.Text("Escolher outro arquivo")),
+	})))
+}
+c.Flash(ui.FlashSuccess, "3 linhas importadas, 2 rejeitadas")`,
+		Node: func() h.Node { return flashesCSVDemo(true) },
+	})
 
 	// ---- en ----
 	add("en", Demo{
@@ -1438,5 +1886,124 @@ ui.Number(c, price, ui.Decimals(2))       // 1,234.56
 ui.On("queue:changed", "/jobs/queue/status")  // wakes on an SSE event too
 ui.Live("/events")                            // opened once, in the layout`,
 		Node: func() h.Node { return liveDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-auditoria",
+		Title: "Who did what, in a DataTable",
+		Source: `records, total := auditoria.Search(q)
+return ui.AuditTable(c, records, ui.AuditOpts{
+	Params:  q.ListParams,
+	Total:   total,
+	Actions: auditoria.Actions(),
+	Export:  "/audit/csv",
+}), nil`,
+		Node: func() h.Node { return auditDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-chaves-api",
+		Title: "The secret, once, and the list that never repeats it",
+		Source: `k, secret, err := Keys.Issue(c, f.Name, f.Scopes, 0)
+if err != nil {
+	return err
+}
+return c.Render(200, ui.SecretOnce(c, secret))
+// ...
+return ui.APIKeysTable(c, rows, ui.APIKeysOpts{Revoke: "/keys/revoke"})`,
+		Node: func() h.Node { return apiKeysDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-uso-api",
+		Title: "How many calls, from where, and when they stopped",
+		Source: `rel, _ := Keys.Usage(c.Context(), auth.UsageQuery{Key: id, Since: thirty})
+ui.APIUsage(c, ui.APIUsageData{
+	Total: rel.Total, Errors: rel.Errors, Last: rel.Last,
+	Days: rel.ByDay, Routes: rel.ByRoute,
+}, ui.APIUsageOpts{Days: 30})`,
+		Node: func() h.Node { return apiUsageDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-permissoes",
+		Title: "Role × module × level, as a form",
+		Source: `ui.PolicyGrid(access.Policy, ui.PolicyGridOpts{
+	Action: "/admin/permissions",
+	CSRF:   trilha.CSRFInput(c),
+	Labels: map[string]string{"docs": "Documents"},
+})`,
+		Node: func() h.Node { return policyGridDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-configuracoes",
+		Title: "One field per field of the struct, with validation built in",
+		Source: `var Cfg = trilha.NewSettings("assistant", Assistant{Temperature: 0.7, Tools: true})
+
+func Page(c *trilha.Ctx) (h.Node, error) { return ui.SettingsForm(c, Cfg, nil), nil }
+func POST(c *trilha.Ctx) error           { return Cfg.Update(c) }`,
+		Node: func() h.Node { return settingsFormDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-aprovacoes",
+		Title: "The queue that waits for a person",
+		Source: `ui.Inbox(c, rows, ui.InboxOpts{Decide: "/admin/approvals", CSRF: trilha.CSRFInput(c)})
+ui.InboxBadge(len(pending))   // the number on a menu item; zero draws nothing`,
+		Node: func() h.Node { return inboxDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-prazos",
+		Title: "What is due, when, and what already ran out",
+		Source: `summary := trilha.Deadlines(items, trilha.DeadlineOpts{Now: time.Now().In(c.Location())})
+
+ui.DeadlineCards(c, summary)
+ui.DeadlineList(c, items, ui.DeadlineListOpts{Limit: 10, More: "/deadlines"})
+ui.DeadlineBadge(c, summary.Overdue)`,
+		Node: func() h.Node { return deadlineDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-versoes",
+		Title: "Who published what, and what actually changed",
+		Source: `n, _ := Models.Save(c, id, m, "adjusted")
+_ = Models.Publish(c, id, n)
+
+ui.VersionList(c, rows, ui.VersionOpts{Restore: "/admin/models/1/restore", CSRF: trilha.CSRFInput(c)})
+// row.Changed = ui.Changed(before, after)`,
+		Node: func() h.Node { return versionListDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-tarefas",
+		Title: "A bar that stops on its own, and the list of what ran",
+		Source: `if c.Fragment() == "task" {
+	return ui.TaskProgress(c, app.Tasks, id), nil
+}
+// ...
+ui.TaskTable(c, tasks, ui.TaskTableOpts{Retry: "/tasks/retry", CSRF: trilha.CSRFInput(c)})`,
+		Node: func() h.Node { return taskDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-webhooks",
+		Title: "What this app tells the outside, and how each delivery went",
+		Source: `ui.WebhooksPanel(c, subs, deliveries, ui.WebhooksOpts{
+	Action: "/webhooks", CSRF: trilha.CSRFInput(c),
+	Events: app.Hooks.Events(), Secret: webhook.TakeSecret(c),
+})`,
+		Node: func() h.Node { return webhooksDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-conexoes",
+		Title: "The list by kind, the badge of the last test, and the form",
+		Source: `ui.ConnectionsPanel(c, connections.Connections, ui.ConnectionsOpts{
+	Path: "/admin/connections", CSRF: trilha.CSRFInput(c), Editing: editing, Errors: errs,
+})`,
+		Node: func() h.Node { return connectionsDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-avisos-csv",
+		Title: "The note the import leaves, and the cell that did not pass",
+		Source: `res, err := trilha.BindCSV(up, &rows)
+if !res.OK() {
+	return c.Render(422, page(ui.CSVErrors(c, res, ui.CSVErrorsOpts{
+		Action: ui.ButtonLink("/import", h.Text("Choose another file")),
+	})))
+}
+c.Flash(ui.FlashSuccess, "3 rows imported, 2 rejected")`,
+		Node: func() h.Node { return flashesCSVDemo(false) },
 	})
 }

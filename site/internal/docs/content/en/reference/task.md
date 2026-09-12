@@ -144,6 +144,10 @@ letting them watch somebody else's work.
 (`trilha.CSRFInput(c)`, required with `Retry`) and `Empty`. The button is drawn only for tasks
 that have ended — "try again" on a running one is a second run.
 
+[`trilha add tasks`](/reference/cli#trilha-add) writes the runner, both screens and the test.
+
+@demo ui-tarefas
+
 ## Errors
 
 `ErrUnknownTask` is a name nobody registered: an error at `Run` rather than a task sitting queued

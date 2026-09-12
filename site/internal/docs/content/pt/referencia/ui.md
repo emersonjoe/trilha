@@ -45,7 +45,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `SchemaForm(esquema, values, errs, ...)` | formulário definido por dado: um campo por `trilha.SchemaField` — veja [Validação](/pt/referencia/validacao) |
 | `Badge`, `Alert(título, ...)`, `AlertDescription(...)` | selo e aviso (`role=alert`) |
 | `Toaster(...)`, `Toast(tipo, texto, fadeMs)` | pilha de avisos; `tipo` = `""`, `success`, `error`; `fadeMs > 0` some sozinho |
-| `Flashes(c)` | o toaster com os avisos do [`c.Flash`](/pt/referencia/ctx) — ponha no layout; `FlashInfo`, `FlashSuccess` e `FlashError` são os tipos, e o `FlashFadeMs` é quanto tempo um deles fica antes de sumir |
+| `Flashes(c)` | o toaster com os avisos do [`c.Flash`](/pt/referencia/ctx) — ponha no layout; `FlashInfo`, `FlashSuccess` e `FlashError` são os tipos, e o `FlashFadeMs` é quanto tempo um deles fica antes de sumir — veja [demo](/pt/referencia/ctx#planilhas) |
 | `Table(...)`, `Cards()`, `Num()`, `Depth(n)` | tabela rolável; linha vira cartão abaixo de 640px — veja [Listagens](/pt/referencia/listagens); célula numérica; indentação de linha (árvore) |
 | `Tabs(id, Tab{Label, Content}...)` | abas acessíveis (setas, Home/End); a primeira começa aberta — veja [demo](/pt/aprender/interface-com-ui#mais-conteudo-atras-de-um-clique) |
 | `Dialog(id, título, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | `<dialog>` nativo com `showModal` |
@@ -58,13 +58,13 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Breadcrumb(Crumb{Label, Href}...)`, `Avatar(iniciais, src)` | trilha de navegação e a foto (ou as iniciais) de quem está logado — veja [demo](/pt/aprender/interface-com-ui#onde-voce-esta-e-quem-esta-logado) |
 | `Collapsible(resumo, ...)` | um `<details>` com estilo — veja [demo](/pt/aprender/interface-com-ui#mais-conteudo-atras-de-um-clique) |
 | `ThemeToggle()` | botão que alterna claro/escuro (`localStorage["ui-theme"]`) |
-| `CSVErrors(c, res, CSVErrorsOpts{...})` | o que o `trilha.BindCSV` recusou, por linha e coluna — veja [Planilhas (CSV)](/pt/receitas/planilhas) |
+| `CSVErrors(c, res, CSVErrorsOpts{...})` | o que o `trilha.BindCSV` recusou, por linha e coluna — veja [Planilhas (CSV)](/pt/receitas/planilhas) e [demo](/pt/referencia/ctx#planilhas) |
 | `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) e [demo](/pt/aprender/interface-com-ui#tabelas-que-vivem-na-url) |
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
-| `SecretOnce(c, segredo)`, `APIKeysTable(c, linhas, opts)` | a chave mostrada uma vez, e a lista delas — veja [Auth](/pt/referencia/auth) |
-| `SettingsForm(c, seção, errs)` | a tela de administração de uma seção do `trilha.Settings`, desenhada da struct — veja [App](/pt/referencia/app) |
+| `SecretOnce(c, segredo)`, `APIKeysTable(c, linhas, opts)` | a chave mostrada uma vez, e a lista delas — veja [Auth](/pt/referencia/auth) e [demo](/pt/referencia/auth#chaves-de-api) |
+| `SettingsForm(c, seção, errs)` | a tela de administração de uma seção do `trilha.Settings`, desenhada da struct — veja [App](/pt/referencia/app) e [demo](/pt/referencia/app#configuracoes) |
 | `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarquia que abre nó a nó, e o campo que escolhe um — veja [Árvores](#árvores) e [demo](/pt/aprender/interface-com-ui#uma-hierarquia-que-abre-no-a-no) |
-| `AuditTable(c, registros, AuditOpts{...})` | a trilha que o c.Audit escreve, com filtro, paginação e exportação CSV — veja [Observabilidade](/pt/referencia/observabilidade) |
+| `AuditTable(c, registros, AuditOpts{...})` | a trilha que o c.Audit escreve, com filtro, paginação e exportação CSV — veja [Observabilidade](/pt/referencia/observabilidade) e [demo](/pt/referencia/observabilidade#a-tela) |
 | `Steps([]Step{Label, Href}, atual)` | o indicador de um formulário em várias telas — veja [Formulário em passos](/pt/receitas/formulario-em-passos) e [demo](/pt/aprender/interface-com-ui#um-formulario-em-varias-telas) |
 | `Preview(c, src, PreviewOpts{...})` | o arquivo ao lado do que se sabe dele: barra, quadro, imagem ou "não dá para pré-visualizar" — veja [Ctx](/pt/referencia/ctx), [Uploads](/pt/receitas/uploads) e [demo](/pt/aprender/interface-com-ui#um-arquivo-ao-lado-dos-seus-metadados) |
 | `Defer(c, id, src, DeferOpts{...})` | serve a página agora e preenche esta parte um instante depois — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#a-parte-lenta-um-instante-depois) |
@@ -73,16 +73,16 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação). `NavItem.IconNode`/`EmptyOpts.IconNode` desenham o próprio nó do app para um ícone fora do conjunto — veja [Shell](/pt/referencia/shell) |
-| `APIUsage(c, dados, opts)` | quanto uma chave foi usada, onde, e quando parou — veja [Auth](/pt/referencia/auth) |
+| `APIUsage(c, dados, opts)` | quanto uma chave foi usada, onde, e quando parou — veja [Auth](/pt/referencia/auth) e [demo](/pt/referencia/auth#quem-esta-usando-esta-chave-onde-e-quando-parou) |
 | `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) e [demo](/pt/aprender/interface-com-ui#uma-caixa-varios-tipos-de-coisa) |
 | `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, teste)`, `ParseConnectionForm(c)` | os serviços externos e seus segredos, com o botão Testar — veja [ConnectionsPanel](#connectionspanel) |
 | `Shell(c, ShellOpts{...}, children...)`, `PageHeader(título, ações...)` | a moldura de um app com seções: navegação lateral, barra de cima e o título da tela com seus botões — veja [Shell](/pt/referencia/shell) e [demo](/pt/aprender/interface-com-ui#a-moldura-de-um-app-interno) |
 | `Stat(rótulo, valor, ...)`, `StatHint(texto, ...)`, `Sparkline(valores, SparkOpts{...})`, `SparklineTitle(valores, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(nome)` | um número no painel e o desenho ao lado, em SVG escrito pelo servidor; `ChartTitle` é o que faz o desenho ser uma imagem com nome em vez de enfeite — veja [Gráficos](/pt/referencia/graficos) e [demo](/pt/aprender/interface-com-ui#quatro-numeros-e-os-desenhos-ao-lado) |
-| `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | o que espera decisão de quem está lendo, e a contagem ao lado do item de menu (zero não desenha nada) — veja [Approval](/pt/referencia/approval) |
-| `PolicyGrid(policy, PolicyGridOpts{...})` | a grade papel × módulo de um `auth.Policy`, como formulário — veja [Auth](/pt/referencia/auth) |
-| `TaskTable(c, tarefas, TaskTableOpts{...})`, `TaskProgress(c, tarefas, id)` | o trabalho em segundo plano: a lista com seus estados e o progresso de uma execução — veja [Tarefas](/pt/referencia/task) |
-| `WebhooksPanel(c, hooks, entregas, WebhooksOpts{...})` | as assinaturas, o segredo e o registro de entregas de um `webhook.Hooks` — veja [Webhook](/pt/referencia/webhook) |
+| `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | o que espera decisão de quem está lendo, e a contagem ao lado do item de menu (zero não desenha nada) — veja [Approval](/pt/referencia/approval) e [demo](/pt/referencia/approval#a-tela) |
+| `PolicyGrid(policy, PolicyGridOpts{...})` | a grade papel × módulo de um `auth.Policy`, como formulário — veja [Auth](/pt/referencia/auth) e [demo](/pt/referencia/auth#matriz-que-se-edita) |
+| `TaskTable(c, tarefas, TaskTableOpts{...})`, `TaskProgress(c, tarefas, id)` | o trabalho em segundo plano: a lista com seus estados e o progresso de uma execução — veja [Tarefas](/pt/referencia/task) e [demo](/pt/referencia/task#as-telas) |
+| `WebhooksPanel(c, hooks, entregas, WebhooksOpts{...})` | as assinaturas, o segredo e o registro de entregas de um `webhook.Hooks` — veja [Webhook](/pt/referencia/webhook) e [demo](/pt/referencia/webhook#a-tela) |
 | `Empty(EmptyOpts{...})`, `EmptyError(c, título, err, ação)` | a tela sem nada para mostrar, e a que não conseguiu carregar: a mensagem é o que a pessoa lê, e o `err` aparece só em desenvolvimento — veja [demo](/pt/aprender/interface-com-ui#nada-para-mostrar-e-o-que-nao-deu-para-carregar) |
 | `Status(enum, valor)` | um valor de um `trilha.Enum` como selo, com seu rótulo e seu tom; valor que o enum não conhece mais sai discreto em vez de derrubar a tela — veja [demo](/pt/aprender/interface-com-ui#um-valor-do-enum-como-emblema) |
 
@@ -422,6 +422,10 @@ da [caixa de aprovações](/pt/referencia/approval): atraso é igual em toda a a
 defeito.
 
 O `DeadlineBadge` não desenha nada com a lista vazia, e diz no `aria-label` o que a cor diz.
+Nenhuma receita escreve esta tela — `trilha.Deadlines` é um primitivo do framework, usado direto
+na página da aplicação.
+
+@demo ui-prazos
 
 ### VersionList
 
@@ -438,7 +442,9 @@ de agora para trás.
 Sem JavaScript e sem biblioteca de diff: o que mudou é uma lista de nomes de campo, e o
 `ui.Changed` a monta a partir de dois mapas de strings — a metade honesta de um diff, e a metade
 que alguém lê antes de abrir a versão. A linha publicada não traz botões: ela já é a que todo mundo
-lê.
+lê. Nenhuma receita escreve esta tela também — `trilha.Versioned[T]` é um primitivo do framework.
+
+@demo ui-versoes
 
 ### ConnectionsPanel
 
@@ -458,6 +464,11 @@ autenticação que os usa.
 O segredo é a única coisa que a tela nunca contém: o campo é o [`SecretField`](#componentes), que
 renderiza vazio e diz "deixe em branco para manter", e `ParseConnectionForm` o lê de volta como
 `Secret`, de modo que um vazio mantém o valor anterior no `Save`.
+
+O [`trilha add connections`](/pt/referencia/cli#trilha-add) escreve o pacote, esta tela e o
+teste.
+
+@demo ui-conexoes
 
 ## Formatação
 

@@ -45,7 +45,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `SchemaForm(schema, values, errs, ...)` | a form defined by data: one field per `trilha.SchemaField` — see [Validation](/reference/validation) |
 | `Badge`, `Alert(title, ...)`, `AlertDescription(...)` | badge and alert (`role=alert`) |
 | `Toaster(...)`, `Toast(kind, text, fadeMs)` | toast stack; `kind` = `""`, `success`, `error`; `fadeMs > 0` disappears on its own |
-| `Flashes(c)` | the toaster with the messages of [`c.Flash`](/reference/ctx) — put it in the layout; `FlashInfo`, `FlashSuccess` and `FlashError` are the kinds, and `FlashFadeMs` is how long one stays before it fades |
+| `Flashes(c)` | the toaster with the messages of [`c.Flash`](/reference/ctx) — put it in the layout; `FlashInfo`, `FlashSuccess` and `FlashError` are the kinds, and `FlashFadeMs` is how long one stays before it fades — see [demo](/reference/ctx#spreadsheets) |
 | `Table(...)`, `Cards()`, `Num()`, `Depth(n)` | scrollable table; row-as-card below 640px — see [Listings](/reference/listings); numeric cell; row indentation (tree) |
 | `Tabs(id, Tab{Label, Content}...)` | accessible tabs (arrows, Home/End); the first starts open — see [demo](/learn/ui-kit#more-content-behind-one-click) |
 | `Dialog(id, title, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | native `<dialog>` with `showModal` |
@@ -58,13 +58,13 @@ description: The kit's components, variants, assets and the theme contract.
 | `Breadcrumb(Crumb{Label, Href}...)`, `Avatar(initials, src)` | navigation trail and the picture (or initials) of who is signed in — see [demo](/learn/ui-kit#where-you-are-and-who-is-signed-in) |
 | `Collapsible(summary, ...)` | a styled `<details>` — see [demo](/learn/ui-kit#more-content-behind-one-click) |
 | `ThemeToggle()` | button that switches light/dark (`localStorage["ui-theme"]`) |
-| `CSVErrors(c, res, CSVErrorsOpts{...})` | what `trilha.BindCSV` rejected, by line and column — see [CSV](/cookbook/csv) |
+| `CSVErrors(c, res, CSVErrorsOpts{...})` | what `trilha.BindCSV` rejected, by line and column — see [CSV](/cookbook/csv) and [demo](/reference/ctx#spreadsheets) |
 | `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) and [demo](/learn/ui-kit#tables-that-live-in-the-url) |
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
-| `SecretOnce(c, secret)`, `APIKeysTable(c, rows, opts)` | a key shown once, and the list of them — see [Auth](/reference/auth) |
-| `SettingsForm(c, section, errs)` | the administration screen of a `trilha.Settings` section, drawn from the struct — see [App](/reference/app) |
+| `SecretOnce(c, secret)`, `APIKeysTable(c, rows, opts)` | a key shown once, and the list of them — see [Auth](/reference/auth) and [demo](/reference/auth#api-keys) |
+| `SettingsForm(c, section, errs)` | the administration screen of a `trilha.Settings` section, drawn from the struct — see [App](/reference/app) and [demo](/reference/app#settings) |
 | `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarchy that opens node by node, and the field that picks one — see [Trees](#trees) and [demo](/learn/ui-kit#a-hierarchy-that-opens-node-by-node) |
-| `AuditTable(c, records, AuditOpts{...})` | the trail c.Audit writes, with filter, pagination and CSV export — see [Observability](/reference/observability) |
+| `AuditTable(c, records, AuditOpts{...})` | the trail c.Audit writes, with filter, pagination and CSV export — see [Observability](/reference/observability) and [demo](/reference/observability#the-screen) |
 | `Steps([]Step{Label, Href}, current)` | the indicator of a form in several screens — see [A form in steps](/cookbook/wizard) and [demo](/learn/ui-kit#a-form-in-several-screens) |
 | `Preview(c, src, PreviewOpts{...})` | a file shown beside its metadata: bar, frame, image or "cannot be previewed" — see [Ctx](/reference/ctx), [Uploads](/cookbook/uploads) and [demo](/learn/ui-kit#a-file-next-to-its-metadata) |
 | `Defer(c, id, src, DeferOpts{...})` | serves the page now and fills this part a moment later — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#the-slow-part-a-moment-later) |
@@ -73,16 +73,16 @@ description: The kit's components, variants, assets and the theme contract.
 | `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error). `NavItem.IconNode`/`EmptyOpts.IconNode` draw the app's own node for an icon outside the set — see [Shell](/reference/shell) |
-| `APIUsage(c, data, opts)` | how much a key was used, where, and when it stopped — see [Auth](/reference/auth) |
+| `APIUsage(c, data, opts)` | how much a key was used, where, and when it stopped — see [Auth](/reference/auth) and [demo](/reference/auth#who-is-using-this-key-where-and-when-did-they-stop) |
 | `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) and [demo](/learn/ui-kit#one-box-several-kinds-of-thing) |
 | `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, test)`, `ParseConnectionForm(c)` | the external services and their secrets, with the Test button — see [ConnectionsPanel](#connectionspanel) |
 | `Shell(c, ShellOpts{...}, children...)`, `PageHeader(title, actions...)` | the frame of an application with sections: side navigation, top bar, and the title of the screen with its buttons — see [Shell](/reference/shell) and [demo](/learn/ui-kit#the-frame-of-an-internal-app) |
 | `Stat(label, value, ...)`, `StatHint(text, ...)`, `Sparkline(values, SparkOpts{...})`, `SparklineTitle(values, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(name)` | a number on a panel and the drawing next to it, in SVG written by the server; `ChartTitle` is what makes the drawing an image with a name instead of decoration — see [Charts](/reference/charts) and [demo](/learn/ui-kit#four-numbers-and-the-drawings-beside-them) |
-| `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | what is waiting for whoever is reading, and the count beside the menu item (zero draws nothing) — see [Approval](/reference/approval) |
-| `PolicyGrid(policy, PolicyGridOpts{...})` | the role × module grid of an `auth.Policy`, as a form — see [Auth](/reference/auth) |
-| `TaskTable(c, tasks, TaskTableOpts{...})`, `TaskProgress(c, tasks, id)` | the background work: the list with its states and the progress of one run — see [Tasks](/reference/task) |
-| `WebhooksPanel(c, hooks, deliveries, WebhooksOpts{...})` | the subscriptions, the secret and the delivery log of a `webhook.Hooks` — see [Webhook](/reference/webhook) |
+| `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | what is waiting for whoever is reading, and the count beside the menu item (zero draws nothing) — see [Approval](/reference/approval) and [demo](/reference/approval#the-screen) |
+| `PolicyGrid(policy, PolicyGridOpts{...})` | the role × module grid of an `auth.Policy`, as a form — see [Auth](/reference/auth) and [demo](/reference/auth#a-matrix-people-edit) |
+| `TaskTable(c, tasks, TaskTableOpts{...})`, `TaskProgress(c, tasks, id)` | the background work: the list with its states and the progress of one run — see [Tasks](/reference/task) and [demo](/reference/task#the-screens) |
+| `WebhooksPanel(c, hooks, deliveries, WebhooksOpts{...})` | the subscriptions, the secret and the delivery log of a `webhook.Hooks` — see [Webhook](/reference/webhook) and [demo](/reference/webhook#the-screen) |
 | `Empty(EmptyOpts{...})`, `EmptyError(c, title, err, action)` | the screen with nothing to show, and the one that could not load: the message is what the person reads, and `err` appears only in development — see [demo](/learn/ui-kit#nothing-to-show-and-what-could-not-load) |
 | `Status(enum, value)` | one value of a `trilha.Enum` as a badge with its label and its tone; a value the enum no longer knows renders muted instead of taking the screen down — see [demo](/learn/ui-kit#one-value-of-an-enum-as-a-badge) |
 
@@ -422,6 +422,10 @@ class the [inbox](/reference/approval) uses: late looks the same everywhere in a
 it looks like a bug.
 
 `DeadlineBadge` draws nothing for an empty list, and says in `aria-label` what the colour says.
+No recipe writes this screen — `trilha.Deadlines` is a runtime primitive, used straight from an
+app's own page.
+
+@demo ui-prazos
 
 ### VersionList
 
@@ -438,7 +442,10 @@ now backwards.
 There is no JavaScript and no diff library: what changed is a list of field names, and `ui.Changed`
 works it out from two maps of strings — the honest half of a diff, and the half somebody reads
 before opening a version. The published row carries no buttons, because it is already the one
-everybody reads.
+everybody reads. No recipe writes this screen either — `trilha.Versioned[T]` is a runtime
+primitive.
+
+@demo ui-versoes
 
 ### ConnectionsPanel
 
@@ -457,6 +464,11 @@ needs script. The user and header-name fields show with `ShowWhen` for the auth 
 The secret is the one thing the screen never contains: the field is [`SecretField`](#components),
 which renders empty and says "leave blank to keep", and `ParseConnectionForm` reads it back as a
 `Secret` so an empty one keeps the previous value on `Save`.
+
+[`trilha add connections`](/reference/cli#trilha-add) writes the package, this screen and the
+test.
+
+@demo ui-conexoes
 
 ## Formatting
 
