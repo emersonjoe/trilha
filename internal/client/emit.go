@@ -463,20 +463,27 @@ func (b *builder) emitTypes(o *buf) {
 // emitGroups writes one struct per tag and one method per operation.
 func (b *builder) emitGroups(o *buf, order []string, groups map[string]*group) {
 	for _, name := range order {
-		o.p("// %s is the %s part of the API.", name, name)
-		o.p("type %s struct{ c *Client }", name)
+		g := groups[name]
+		o.p("// %s is the %s part of the API.", g.Type, g.Name)
+		// What the document called this tag, when the Go name is not it: the
+		// label is worth reading and the identifier is worth typing, and after
+		// an accent falls or a suffix lands they are no longer the same string.
+		for _, line := range g.Doc {
+			o.p("// %s", line)
+		}
+		o.p("type %s struct{ c *Client }", g.Type)
 		o.p("")
-		o.p("// %s returns the %s part of the API.", name, name)
-		o.p("func (c *Client) %s() *%s { return &%s{c: c} }", name, name, name)
+		o.p("// %s returns the %s part of the API.", g.Name, g.Name)
+		o.p("func (c *Client) %s() *%s { return &%s{c: c} }", g.Name, g.Type, g.Type)
 		o.p("")
-		for _, m := range groups[name].Methods {
+		for _, m := range g.Methods {
 			// The form comes before the method that takes it: it is the
 			// argument, and a reader arriving at the signature has already
 			// seen what it holds.
 			if m.Form != nil {
 				b.emitForm(o, m.Form)
 			}
-			b.emitMethod(o, name, m)
+			b.emitMethod(o, g.Type, m)
 		}
 	}
 }

@@ -3,6 +3,37 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.108.0 — 2026-09-12
+
+Spec 129. Closes [#166](https://github.com/emersonjoe/trilha/issues/166) and
+[#177](https://github.com/emersonjoe/trilha/issues/177).
+
+### Fixed
+
+- **`trilha client`: a tag that spells the name of a schema no longer redeclares it.** The tag
+  `auditoria` and the schema `Auditoria` gave the same Go name to two different types, so the
+  generated file had `type Auditoria` twice and did not compile — and the command still ended
+  with `client.go written`, which left the news for the `go build` of whoever called the
+  client. The group is the one that yields now, because the schema's name came from the
+  document and the group's is the generator's invention: the type becomes `AuditoriaAPI`
+  (`API2`, `API3`, if that is taken too) while the call stays `c.Auditoria()` and the query
+  struct stays `AuditoriaListarParams`. The suffix exists for the compiler; nobody types it.
+- **`trilha client`: names from the document become ASCII identifiers.** A tag is the label of
+  a page, so every FastAPI written in Portuguese has `verificação de assinaturas` and `dados
+  públicos (MCP)` in it, and the generator kept the accents: `c.VerificaçãoDeAssinaturas()`
+  compiles, which is exactly why it went unnoticed until someone had to type it on a keyboard
+  with no dead key, or grep for it in NFC and in NFD. The accented letter now falls to the
+  letter underneath it — `DadosPublicosMCP`, `VerificacaoDeAssinaturas`, `FormularioExterno` —
+  by the same rule everywhere: tag, schema, field, enum value, path argument. A field whose
+  first letter carried the accent was not even exported (`área` had no ASCII byte to upcase),
+  so `encoding/json` could not see it; it is `Area` now.
+- **`trilha client`: the report names the identifiers it invented.** One line per renamed tag,
+  next to the ones about schemas it could not type, and the document's own label stays in the
+  comment of the group's type.
+
+A client already generated from a document with no accented name and no collision does not
+change by a byte.
+
 ## 0.107.0 — 2026-09-12
 
 Spec 128. Closes [#169](https://github.com/emersonjoe/trilha/issues/169).

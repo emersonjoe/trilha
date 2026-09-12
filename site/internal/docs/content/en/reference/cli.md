@@ -252,6 +252,17 @@ in the tag `documents` is `Documents.List()`. That cut happens on a word boundar
 else: a tag that merely spells the start of a word — `config` in `configurar_regra` — leaves
 the name whole, `Config.ConfigurarRegra()`.
 
+Every identifier in the file is ASCII, and no two of them are the same. A tag is the label of
+a page — `verificação de assinaturas` is what the API's `/docs` shows — so an accented letter
+falls to the letter underneath it: the group is `c.DadosPublicosMCP()`, not a name anyone has
+to type with a dead key, and the label the document wrote stays in the comment of the type,
+which is where it is read. When a tag spells the name of a schema — the tag `auditoria` and
+the schema `Auditoria` — the group is the one that yields, because the schema's name came from
+the document and the group's is this generator's invention: the type becomes `AuditoriaAPI`,
+while the call stays `c.Auditoria()` and the query struct stays `AuditoriaListarParams`. Each
+name the command had to invent is a line of the report, instead of news that waits for the
+`go build` of whoever calls the client.
+
 A `multipart/form-data` body is read as the form it is. One binary field and nothing else
 stays two arguments — `file io.Reader, filename string`. Anything else becomes a typed struct,
 so no field of the form is silently dropped:

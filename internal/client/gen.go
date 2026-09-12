@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/format"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -81,10 +82,14 @@ type queryParam struct {
 	Required bool
 }
 
-// group is a tag: the methods of one part of the API, on one struct.
+// group is a tag: the methods of one part of the API, on one struct. Two names
+// come out of one tag — the one the caller types, c.Auditoria(), and the type
+// behind it — and they are the same name until the document already gave that
+// name to a type of its own.
 type group struct {
-	Name    string
-	Doc     string
+	Name    string   // the tag as a Go name: the accessor on Client, and what a method name drops
+	Type    string   // the struct that carries the methods
+	Doc     []string // comment lines: the document's label, the reason for a renamed type
 	Methods []*method
 }
 
@@ -105,13 +110,14 @@ func Generate(data []byte, opt Options) (*Result, error) {
 	var order []string
 	used := map[string]bool{}
 	for _, op := range ops {
-		gName := "Default"
+		tag, gName := "", "Default"
 		if len(op.Tags) > 0 && strings.TrimSpace(op.Tags[0]) != "" {
-			gName = exportName(op.Tags[0])
+			tag = strings.TrimSpace(op.Tags[0])
+			gName = exportName(tag)
 		}
 		g := groups[gName]
 		if g == nil {
-			g = &group{Name: gName}
+			g = b.newGroup(gName, tag)
 			groups[gName] = g
 			order = append(order, gName)
 		}
@@ -134,6 +140,36 @@ func Generate(data []byte, opt Options) (*Result, error) {
 		return nil, fmtErr("the generated file does not parse: %w", err)
 	}
 	return &Result{Source: out, Notes: b.sortedNotes(), Ops: len(ops), Untyped: b.untyped}, nil
+}
+
+// newGroup names the struct that carries a tag's methods. When the tag already
+// spells the name of a type the document declares — the tag `auditoria` and the
+// schema `Auditoria` — the group is the one that yields: the schema's name came
+// from the document and the group's is an invention of this generator. The
+// suffix lands on the type and nowhere else, so the call stays c.Auditoria() and
+// the query struct stays AuditoriaListarParams.
+func (b *builder) newGroup(name, tag string) *group {
+	g := &group{Name: name, Type: name}
+	where := "the operations with no tag"
+	if tag != "" {
+		where = "tag " + strconv.Quote(tag)
+	}
+	if !isASCII(tag) {
+		g.Doc = append(g.Doc, fmt.Sprintf("The document's tag is %q.", tag))
+		b.note(where, "the group is "+name)
+	}
+	for i := 0; b.taken(g.Type); i++ {
+		g.Type = name + "API"
+		if i > 0 {
+			g.Type += strconv.Itoa(i + 1)
+		}
+	}
+	if g.Type != name {
+		g.Doc = append(g.Doc, name+" is already a type of the document, so the group carries the suffix.")
+		b.note(where, name+" is already a type of the document — the group is "+g.Type)
+	}
+	b.reserved[g.Type] = true
+	return g
 }
 
 // method resolves one operation into everything the emission needs.
@@ -159,7 +195,7 @@ func (b *builder) method(op *Operation, gName string, used map[string]bool) (*me
 	}
 	if len(qs) > 0 {
 		sort.SliceStable(qs, func(i, j int) bool { return qs[i].Name < qs[j].Name })
-		name := gName + m.Name + "Params"
+		name := b.freeName(gName + m.Name + "Params")
 		st := &Struct{Name: name, Doc: "Query of " + where + "."}
 		for _, p := range qs {
 			t := b.goType(p.Schema, name+exportName(p.Name), where+"?"+p.Name)
@@ -184,7 +220,11 @@ func (b *builder) method(op *Operation, gName string, used map[string]bool) (*me
 		switch ct, mt := pickBody(op.RequestBody.Content); ct {
 		case "":
 		case "multipart/form-data":
-			m.Upload, m.Form = b.multipart(mt, gName+m.Name+"Form", where)
+			formName := b.freeName(gName + m.Name + "Form")
+			m.Upload, m.Form = b.multipart(mt, formName, where)
+			if m.Form != nil {
+				b.reserved[formName] = true
+			}
 		default:
 			if strings.Contains(ct, "json") {
 				m.Body = b.goType(mt.Schema, gName+m.Name+"Body", where+" body")

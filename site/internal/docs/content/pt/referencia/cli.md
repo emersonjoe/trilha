@@ -251,6 +251,17 @@ O nome do método é o `operationId` menos o que só repete a tag: `list_documen
 outro lugar — uma tag que é apenas o começo de uma palavra (`config` em `configurar_regra`)
 deixa o nome inteiro, `Config.ConfigurarRegra()`.
 
+Todo identificador do arquivo é ASCII, e não há dois iguais. A tag é o rótulo de uma página —
+`verificação de assinaturas` é o que aparece no `/docs` da API —, então a letra acentuada cai
+para a letra debaixo dela: o grupo é `c.DadosPublicosMCP()`, e não um nome que alguém precise
+digitar com acento morto, e o rótulo que o documento escreveu fica no comentário do tipo, que
+é onde ele é lido. Quando a tag tem o nome de um esquema — a tag `auditoria` e o esquema
+`Auditoria` —, quem cede é o grupo, porque o nome do esquema veio do documento e o do grupo é
+invenção deste gerador: o tipo vira `AuditoriaAPI`, enquanto a chamada continua `c.Auditoria()`
+e a struct de query continua `AuditoriaListarParams`. Cada nome que o comando teve de inventar
+é uma linha do relatório, em vez de uma notícia que espera o `go build` de quem chama o
+cliente.
+
 Um corpo `multipart/form-data` é lido como o formulário que ele é. Um único campo binário e
 mais nada continua sendo dois argumentos — `file io.Reader, filename string`. Qualquer outra
 forma vira um struct tipado, para nenhum campo do formulário sumir em silêncio:

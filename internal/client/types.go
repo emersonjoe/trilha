@@ -63,6 +63,9 @@ type builder struct {
 	// alias maps a component schema that is not a struct (a bare string, an
 	// array) to the Go type it expands to, so a $ref to it reads naturally.
 	alias map[string]string
+	// reserved are the names of types the emission writes without recording
+	// them as schemas: the struct of a group, the struct of a form.
+	reserved map[string]bool
 }
 
 func newBuilder(d *Doc) *builder {
@@ -72,7 +75,31 @@ func newBuilder(d *Doc) *builder {
 		enums:  map[string]*Enum{},
 		stack:  map[string]bool{},
 		alias:  map[string]string{},
+
+		reserved: map[string]bool{},
 	}
+}
+
+// taken says whether a name is already the name of a type in the file. An alias
+// is not one: it expands where it is used and declares nothing.
+func (b *builder) taken(name string) bool {
+	if _, ok := b.byName[name]; ok {
+		return true
+	}
+	if _, ok := b.enums[name]; ok {
+		return true
+	}
+	return b.reserved[name]
+}
+
+// freeName is a name the generator invents — a query struct, a form — moved out
+// of the way of a name that came from the document.
+func (b *builder) freeName(name string) string {
+	out := name
+	for i := 2; b.taken(out); i++ {
+		out = name + strconv.Itoa(i)
+	}
+	return out
 }
 
 // components turns every named schema into a type, in name order.
@@ -372,28 +399,31 @@ func clip(s string, max int) string {
 }
 
 // exportName turns anything a document can call a thing into a Go identifier:
-// user-id, user_id, "user id", 2fa → UserID, UserID, UserID, N2fa.
+// user-id, user_id, "user id", 2fa → UserID, UserID, UserID, N2fa. The result is
+// always ASCII — see asciiFold.
 func exportName(s string) string {
 	var parts []string
 	cur := strings.Builder{}
 	var prev rune
-	for _, r := range s {
-		switch {
-		case r == '_' || r == '-' || r == ' ' || r == '.' || r == '/' || r == '[' || r == ']' || r == '{' || r == '}':
-			if cur.Len() > 0 {
-				parts = append(parts, cur.String())
-				cur.Reset()
+	for _, raw := range s {
+		for _, r := range asciiFold(raw) {
+			switch {
+			case r == '_' || r == '-' || r == ' ' || r == '.' || r == '/' || r == '[' || r == ']' || r == '{' || r == '}':
+				if cur.Len() > 0 {
+					parts = append(parts, cur.String())
+					cur.Reset()
+				}
+			case unicode.IsUpper(r) && unicode.IsLower(prev):
+				if cur.Len() > 0 {
+					parts = append(parts, cur.String())
+					cur.Reset()
+				}
+				cur.WriteRune(r)
+			case unicode.IsLetter(r) || unicode.IsDigit(r):
+				cur.WriteRune(r)
 			}
-		case unicode.IsUpper(r) && unicode.IsLower(prev):
-			if cur.Len() > 0 {
-				parts = append(parts, cur.String())
-				cur.Reset()
-			}
-			cur.WriteRune(r)
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			cur.WriteRune(r)
+			prev = r
 		}
-		prev = r
 	}
 	if cur.Len() > 0 {
 		parts = append(parts, cur.String())
@@ -414,6 +444,70 @@ func exportName(s string) string {
 		return "N" + name
 	}
 	return name
+}
+
+// asciiFold is the ASCII spelling of a rune: the accented letter falls to the
+// letter underneath it, and anything with no Latin base is dropped, the way
+// punctuation already was.
+//
+// A tag is the label of a page — `verificação de assinaturas` in every FastAPI
+// written in Portuguese — and Go accepts a Unicode letter in an identifier, so
+// the name went through whole and compiled. What it cost came later: every call
+// site typing `c.VerificaçãoDeAssinaturas()` on a keyboard with no dead key, a
+// grep that depends on NFC and NFD being the same bytes, and a `ç` for a `c`
+// that only fails in the caller's build. The document's label stays in the
+// comment, which is where it is read instead of typed.
+func asciiFold(r rune) string {
+	if r < utf8.RuneSelf {
+		return string(r)
+	}
+	for _, f := range latinFolds {
+		if strings.ContainsRune(f.from, r) {
+			return f.to
+		}
+	}
+	return ""
+}
+
+// latinFolds is the accented Latin alphabet — Latin-1 Supplement and Latin
+// Extended-A, which is Portuguese, Spanish, French, German, Italian, Polish and
+// Czech — with the letter each one falls to. The table is written by hand
+// because the decomposition that would build it lives outside the standard
+// library, and the constitution says the CLI has no dependencies.
+var latinFolds = []struct{ to, from string }{
+	{"A", "ÀÁÂÃÄÅĀĂĄ"}, {"a", "àáâãäåāăą"},
+	{"AE", "Æ"}, {"ae", "æ"},
+	{"C", "ÇĆĈĊČ"}, {"c", "çćĉċč"},
+	{"D", "ĎĐÐ"}, {"d", "ďđð"},
+	{"E", "ÈÉÊËĒĔĖĘĚ"}, {"e", "èéêëēĕėęě"},
+	{"G", "ĜĞĠĢ"}, {"g", "ĝğġģ"},
+	{"H", "ĤĦ"}, {"h", "ĥħ"},
+	{"I", "ÌÍÎÏĨĪĬĮİ"}, {"i", "ìíîïĩīĭįı"},
+	{"IJ", "Ĳ"}, {"ij", "ĳ"},
+	{"J", "Ĵ"}, {"j", "ĵ"},
+	{"K", "Ķ"}, {"k", "ķĸ"},
+	{"L", "ĹĻĽĿŁ"}, {"l", "ĺļľŀł"},
+	{"N", "ÑŃŅŇŊ"}, {"n", "ñńņňŉŋ"},
+	{"O", "ÒÓÔÕÖØŌŎŐ"}, {"o", "òóôõöøōŏő"},
+	{"OE", "Œ"}, {"oe", "œ"},
+	{"R", "ŔŖŘ"}, {"r", "ŕŗř"},
+	{"S", "ŚŜŞŠ"}, {"s", "śŝşš"}, {"ss", "ß"},
+	{"T", "ŢŤŦ"}, {"t", "ţťŧ"},
+	{"TH", "Þ"}, {"th", "þ"},
+	{"U", "ÙÚÛÜŨŪŬŮŰŲ"}, {"u", "ùúûüũūŭůűų"},
+	{"W", "Ŵ"}, {"w", "ŵ"},
+	{"Y", "ÝŶŸ"}, {"y", "ýÿŷ"},
+	{"Z", "ŹŻŽ"}, {"z", "źżž"},
+}
+
+// isASCII says whether a string is already the alphabet the generated file uses.
+func isASCII(s string) bool {
+	for _, r := range s {
+		if r >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 // initialisms are the words Go writes in caps. The list is short on purpose:

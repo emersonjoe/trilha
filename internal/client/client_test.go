@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -664,6 +666,173 @@ func TestPrefixoDaTagSoCaiEmFronteiraDePalavra(t *testing.T) {
 			t.Errorf("no %s.%s in the generated client; %s has %v", want.group, want.method, want.group, groups[want.group])
 		}
 	}
+}
+
+// Spec 129 (#166): a tag and a schema of the document can spell the same Go
+// name — `auditoria` and `Auditoria` — and the generator gave both to the same
+// identifier, so the file had `type Auditoria` twice and did not compile. The
+// command still ended with `client.go written`, so the error only surfaced in
+// the `go build` of whoever called it. The group is the name the generator
+// invents, so the group is the one that yields.
+func TestTagQueColideComSchema(t *testing.T) {
+	doc := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{
+		"/api/auditoria":{"get":{"operationId":"listar_auditoria","tags":["auditoria"],
+			"parameters":[{"name":"pagina","in":"query","schema":{"type":"integer"}}],
+			"responses":{"200":{"description":"ok","content":{"application/json":{
+				"schema":{"$ref":"#/components/schemas/Auditoria"}}}}}}}},
+		"components":{"schemas":{"Auditoria":{"type":"object","title":"the audit log",
+			"properties":{"total":{"type":"integer"},"acoes":{"type":"array","items":{"type":"string"}}},
+			"required":["total"]}}}}`
+	res, err := Generate([]byte(doc), Options{Package: "api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compile(t, res.Source)
+
+	f, err := parser.ParseFile(token.NewFileSet(), "client.go", res.Source, 0)
+	if err != nil {
+		t.Fatalf("the generated client does not parse: %v", err)
+	}
+	seen := map[string]bool{}
+	for _, name := range declaredTypes(f) {
+		if seen[name] {
+			t.Errorf("type %s is declared twice", name)
+		}
+		seen[name] = true
+	}
+	for _, want := range []string{"Auditoria", "AuditoriaAPI", "AuditoriaListarParams"} {
+		if !seen[want] {
+			t.Errorf("no type %s in the generated client; it has %v", want, declaredTypes(f))
+		}
+	}
+	// The schema keeps the name the document gave it, fields and all.
+	src := string(res.Source)
+	for _, want := range []string{
+		"type Auditoria struct {",
+		"Total int64    `json:\"total\" validate:\"required\"`",
+		// The call does not carry the suffix: it exists for the compiler.
+		"func (c *Client) Auditoria() *AuditoriaAPI { return &AuditoriaAPI{c: c} }",
+		"func (g *AuditoriaAPI) Listar(ctx context.Context, p AuditoriaListarParams) (Auditoria, error) {",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("generated client missing %q:\n%s", want, src)
+		}
+	}
+	// And the report says which name it had to invent, instead of ending with
+	// `client.go written` and leaving the news for the caller's build.
+	var notes []string
+	for _, n := range res.Notes {
+		notes = append(notes, n.Where+": "+n.What)
+	}
+	if joined := strings.Join(notes, "\n"); !strings.Contains(joined, "AuditoriaAPI") {
+		t.Errorf("the report does not name the group it renamed:\n%s", joined)
+	}
+}
+
+// Spec 129 (#177): a tag with an accent is the rule and not the exception in a
+// FastAPI written in Portuguese — the tag is the label of the /docs page. The
+// generator kept the accent in the identifier, which compiles, and that is why
+// it went unnoticed until someone had to type `c.VerificaçãoDeAssinaturas()`.
+// A name the generator invents is ASCII, like every exported identifier in this
+// repository; the label stays in the comment, where it is read and not typed.
+func TestIdentificadorDoDocumentoEASCII(t *testing.T) {
+	ok := `"responses":{"200":{"description":"OK","content":{"application/json":{"schema":{}}}}}`
+	code := `"parameters":[{"name":"code","in":"path","required":true,"schema":{"type":"string"}}]`
+	doc := `{"openapi":"3.1.0","info":{"title":"repro","version":"1"},"paths":{
+		"/api/mcp/servers":{"get":{"tags":["dados públicos (MCP)"],
+			"operationId":"listar_servers_api_mcp_servers_get",` + ok + `}},
+		"/api/verificacao/{code}":{"get":{"tags":["verificação de assinaturas"],
+			"operationId":"verificar_api_verificacao__code__get",` + code + `,` + ok + `}},
+		"/api/formulario/{token}":{"get":{"tags":["formulário externo"],
+			"operationId":"abrir_formulario_api_formulario__token__get",
+			"parameters":[{"name":"token","in":"path","required":true,"schema":{"type":"string"}}],` + ok + `}}},
+		"components":{"schemas":{"Endereço":{"type":"object",
+			"properties":{"número":{"type":"string"},"código_postal":{"type":"string"},"área":{"type":"string"}},
+			"required":["número"]}}}}`
+	res, err := Generate([]byte(doc), Options{Package: "api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compile(t, res.Source)
+
+	f, err := parser.ParseFile(token.NewFileSet(), "client.go", res.Source, 0)
+	if err != nil {
+		t.Fatalf("the generated client does not parse: %v", err)
+	}
+	// Every identifier, not only the ones named below: the rule is the alphabet.
+	ast.Inspect(f, func(n ast.Node) bool {
+		id, isIdent := n.(*ast.Ident)
+		if !isIdent {
+			return true
+		}
+		for _, r := range id.Name {
+			if r >= utf8.RuneSelf {
+				t.Errorf("identifier %q is not ASCII", id.Name)
+				break
+			}
+		}
+		return true
+	})
+	types := declaredTypes(f)
+	for _, want := range []string{"DadosPublicosMCP", "VerificacaoDeAssinaturas", "FormularioExterno", "Endereco"} {
+		if !slices.Contains(types, want) {
+			t.Errorf("no type %s in the generated client; it has %v", want, types)
+		}
+	}
+	src := string(res.Source)
+	for _, want := range []string{
+		"Numero       string `json:\"número\" validate:\"required\"`",
+		"CodigoPostal string `json:\"código_postal,omitempty\"`",
+		// A field whose first letter carried the accent was not even exported:
+		// the first byte was part of a UTF-8 sequence, so there was nothing for
+		// ToUpper to raise, and `área` stayed a field encoding/json cannot see.
+		"Area         string `json:\"área,omitempty\"`",
+		// The label the document wrote stays where it is read.
+		`// The document's tag is "dados públicos (MCP)".`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("generated client missing %q:\n%s", want, src)
+		}
+	}
+}
+
+// compile builds the generated client in a module of its own. The generator
+// imports the standard library and nothing else, so this needs no network — and
+// it is the only check that means what the issues mean: `it does not compile`.
+func compile(t *testing.T, src []byte) {
+	t.Helper()
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module gen\n\ngo 1.22\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "client.go"), src, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("go", "build", "./...")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("the generated client does not compile: %v\n%s\n%s", err, out, src)
+	}
+}
+
+// declaredTypes are the names of the top-level types, in the order they appear.
+func declaredTypes(f *ast.File) []string {
+	var out []string
+	for _, d := range f.Decls {
+		gen, isGen := d.(*ast.GenDecl)
+		if !isGen || gen.Tok != token.TYPE {
+			continue
+		}
+		for _, s := range gen.Specs {
+			if ts, ok := s.(*ast.TypeSpec); ok {
+				out = append(out, ts.Name.Name)
+			}
+		}
+	}
+	return out
 }
 
 // recvName is the type a method hangs on, pointer or not.
