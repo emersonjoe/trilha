@@ -323,3 +323,9 @@ func POST(c *trilha.Ctx) error {
 }
 ```
 :::
+
+## What comes next: the ready-made screens
+
+The catalogue above is the pieces. [Ready-made screens](/learn/ui-screens) is one screen built
+out of them, end to end — the frame, the numbers, the table that lives in the URL, the slow
+part, the file, the form in steps — with the reason each piece is where it is.

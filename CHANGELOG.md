@@ -3,6 +3,28 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.121.0 — 2026-09-12
+
+Spec 142. Closes [#192](https://github.com/emersonjoe/trilha/issues/192).
+
+### Documentation
+
+- **A second chapter about the kit: [Ready-made screens](/learn/ui-screens)** (pt:
+  `aprender/telas-prontas`), right after the catalogue. `learn/ui-kit.md` documents thirty
+  components one at a time; this one builds a single screen — the orders console of an
+  internal app — in the order somebody actually writes it: `ui.Shell` and `ui.PageHeader` for
+  the frame, four `ui.Stat` with a `ui.Sparkline` on top, a `ui.DataTable` whose whole state is
+  in the URL (`trilha.ListParams`, with `Restrict` before the repository sees `Sort`),
+  `ui.Empty` for the filter that matched nothing, `ui.Defer` for the query that takes two
+  seconds, `ui.Preview` for the file a row opens, `ui.Steps` with `Ctx.Draft` for the form that
+  takes three screens, `ui.Status` over a `trilha.Enum` declared once, and `ui.On` for the one
+  cell that changes with nobody clicking. Each section links the live demo of the piece and its
+  reference page, and the chapter ends with a challenge and its solution, like the others.
+- **The code of the chapter compiles**: every Go block is a declaration of
+  `examples/cookbook/screens.go`, and a site test checks that it still is — the same rule the
+  Cookbook has had since spec 038.
+- `learn/ui-kit.md` ends with the link to what comes next, in both locales.
+
 ## 0.120.0 — 2026-09-12
 
 Spec 141. Closes [#191](https://github.com/emersonjoe/trilha/issues/191).

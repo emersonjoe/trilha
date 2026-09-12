@@ -594,9 +594,68 @@ func TestAIAgentRecipeIsReachable(t *testing.T) {
 	}
 }
 
-// cookbookSection is the position of the Cookbook in every locale's list of
-// sections; the keys differ per language, the position does not.
-const cookbookSection = 2
+// learnSection and cookbookSection are the positions of Learn and the
+// Cookbook in every locale's list of sections; the keys differ per language,
+// the position does not.
+const (
+	learnSection    = 0
+	cookbookSection = 2
+)
+
+// kitChapter is the catalogue of the kit and screensChapter is the chapter
+// that assembles one screen out of it, per locale.
+var (
+	kitChapter     = map[string]string{"en": "ui-kit", "pt": "interface-com-ui"}
+	screensChapter = map[string]string{"en": "ui-screens", "pt": "telas-prontas"}
+)
+
+// Spec 142: the chapter that assembles a screen reads as the sequel of the
+// catalogue, so it sits right after it — in both locales, or the language
+// switcher lands somewhere else.
+func TestScreensChapterFollowsTheKit(t *testing.T) {
+	for _, l := range docs.Locales {
+		slugs := l.Sections[learnSection].Slugs
+		kit := -1
+		for i, s := range slugs {
+			if s == kitChapter[l.Code] {
+				kit = i
+			}
+		}
+		if kit < 0 {
+			t.Fatalf("%s: no kit chapter %q in the navigation", l.Code, kitChapter[l.Code])
+		}
+		if kit+1 >= len(slugs) || slugs[kit+1] != screensChapter[l.Code] {
+			t.Errorf("%s: the chapter after %q is not %q", l.Code, kitChapter[l.Code], screensChapter[l.Code])
+			continue
+		}
+		if _, ok := docs.Get(l.Code, l.Sections[learnSection].Key, screensChapter[l.Code]); !ok {
+			t.Errorf("%s: no page for %q", l.Code, screensChapter[l.Code])
+		}
+	}
+}
+
+// Spec 142: the screen of the chapter is code somebody can run, so its blocks
+// obey the rule of the cookbook — every one of them is a declaration of a .go
+// file that compiles with the rest of the repository.
+func TestScreensChapterIsBuiltFromCode(t *testing.T) {
+	sources := repoGoSources(t)
+	fence := regexp.MustCompile("(?s)```go\n(.*?)\n```")
+	for _, l := range docs.Locales {
+		p, ok := docs.Get(l.Code, l.Sections[learnSection].Key, screensChapter[l.Code])
+		if !ok {
+			t.Fatalf("%s: no page for %q", l.Code, screensChapter[l.Code])
+		}
+		blocks := fence.FindAllStringSubmatch(p.Body, -1)
+		if len(blocks) < 8 {
+			t.Errorf("%s: %d Go blocks — that is not a screen from the frame to the live cell", p.Path(), len(blocks))
+		}
+		for _, b := range blocks {
+			if !strings.Contains(sources, b[1]) {
+				t.Errorf("%s: block is in no .go file of the repository:\n%s", p.Path(), b[1])
+			}
+		}
+	}
+}
 
 // Spec 038: every Go block of the cookbook is a declaration copied from a
 // file that compiles with the rest of the repository. A block that stops

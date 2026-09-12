@@ -328,3 +328,9 @@ func POST(c *trilha.Ctx) error {
 }
 ```
 :::
+
+## O que vem depois: as telas prontas
+
+O catálogo acima são as peças. [Telas prontas](/pt/aprender/telas-prontas) é uma tela montada
+com elas, de ponta a ponta — a moldura, os números, a tabela que vive na URL, a parte lenta, o
+arquivo, o formulário em etapas —, com o motivo de cada peça estar onde está.
