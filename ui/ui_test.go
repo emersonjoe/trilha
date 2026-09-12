@@ -97,6 +97,31 @@ func TestMisc(t *testing.T) {
 	Icon("nope")
 }
 
+// #174 — the title has to read before the description, with or without an
+// icon: variant() appended the H4 after the children, so the description
+// (already among children) came first in the DOM.
+func TestAlertTitleComesBeforeDescription(t *testing.T) {
+	got := render(t, Alert("Desatualizada", AlertDescription(h.Text("Refaça a análise."))))
+	title, desc := strings.Index(got, `class="ui-alert-title"`), strings.Index(got, `class="ui-alert-description"`)
+	if title < 0 || desc < 0 || title > desc {
+		t.Fatalf("título não vem antes da descrição: %s", got)
+	}
+	if strings.Contains(got, "ui-icon") {
+		t.Fatalf("sem Icon, não deveria haver célula de ícone: %s", got)
+	}
+
+	// A grade posiciona por CSS (grid-column/grid-row), não pela ordem no DOM,
+	// então o que importa com ícone é o mesmo: título antes da descrição.
+	withIcon := render(t, Alert("Desatualizada", Icon("triangle-alert"), AlertDescription(h.Text("Refaça a análise."))))
+	titleI, descI := strings.Index(withIcon, `class="ui-alert-title"`), strings.Index(withIcon, `class="ui-alert-description"`)
+	if titleI < 0 || descI < 0 || titleI > descI {
+		t.Fatalf("com ícone, título não vem antes da descrição: %s", withIcon)
+	}
+	if !strings.Contains(withIcon, "ui-icon") {
+		t.Fatalf("com Icon, deveria haver a célula do ícone: %s", withIcon)
+	}
+}
+
 func TestHeadAndAssets(t *testing.T) {
 	a := trilha.New(trilha.Config{BasePath: "/app", Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	var out string

@@ -892,8 +892,11 @@ func TestOrdemDosPostsAtravessaOTeto(t *testing.T) {
 func TestListagemComDataTable(t *testing.T) {
 	documentos.Reset()
 	c := newClient(t, "prod")
+	// Spec 132 (#175): o app fala português (Locale pt-BR em setup.go), então
+	// as palavras do próprio kit — o botão de filtro, a contagem — têm que
+	// acompanhar, não só o texto que a tela escreve.
 	c.Get("/documentos").WantStatus(200).WantContains(`class="ui-list" id="lista"`,
-		"23 results", `data-trilha-target="lista"`, "Documentos recebidos")
+		"23 resultados", "Filtrar", `data-trilha-target="lista"`, "Documentos recebidos")
 
 	// Ordenar por uma coluna declarada marca a coluna e inverte o link; a
 	// página volta para a primeira, senão a ordem nova cai numa página que

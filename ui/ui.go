@@ -404,8 +404,8 @@ func Badge(children ...h.Node) h.Node { return h.Span(variant("ui-badge", childr
 // Alert renders a titled notice; add Destructive() for errors and an Icon first.
 func Alert(title string, children ...h.Node) h.Node {
 	n := variant("ui-alert", children)
-	n = append(n, h.Role("alert"), h.H4(h.Class("ui-alert-title"), h.Text(title)))
-	return h.Div(n...)
+	head := []h.Node{n[0], h.Role("alert"), h.H4(h.Class("ui-alert-title"), h.Text(title))}
+	return h.Div(append(head, n[1:]...)...)
 }
 
 // AlertDescription is the body of an Alert.

@@ -3,6 +3,30 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.111.0 — 2026-09-12
+
+Spec 132. Closes [#174](https://github.com/emersonjoe/trilha/issues/174) and
+[#175](https://github.com/emersonjoe/trilha/issues/175).
+
+### Fixed
+
+- **`ui.Alert`: the title reads before the description, with or without an icon.** `Alert`
+  built the `<h4>` of the title after the children the caller passed, so a description
+  (`AlertDescription`) already among those children came first in the DOM — a screen reader
+  read the explanation before the title it explains, and without an icon the CSS grid's first
+  column, meant for it, sat empty on the title's row while the title itself fell to the row
+  below, flush left. The title is now written right after the base class, before any child;
+  `.ui-alert-title`, `.ui-alert-description` and `.ui-alert .ui-icon` also carry an explicit
+  `grid-column`/`grid-row` in `ui.css`, so the layout no longer depends on source order at
+  all — with no icon, the column reserved for it collapses to nothing instead of leaving a
+  gap.
+- **`ui.DataTable`: the filter button and the row count follow `Config.Locale`.** `ui.Date`,
+  `ui.Number` and most of the kit already write `pt-BR` when the application asks for it;
+  `DataTable` — the screen every management app repeats — kept `Submit(h.Text("Filter"))` and
+  `"N results"` fixed in English, predating that habit. A `pt-BR` application now reads
+  "Filtrar" and "1 resultado" / "N resultados", the same `word(pt, en, br)` pair `csv.go` and
+  `settings.go` already use; English is unchanged.
+
 ## 0.110.0 — 2026-09-12
 
 Spec 131. Closes [#167](https://github.com/emersonjoe/trilha/issues/167),

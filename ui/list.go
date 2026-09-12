@@ -87,11 +87,12 @@ func DataTable[T any](c *trilha.Ctx, cols Columns[T], rows []T, st ListState) h.
 			table)
 	}
 
+	pt := langOf(c) == "pt-BR"
 	return h.Div(h.Class("ui-list"), listID(st.ID),
-		filterForm(p, st),
+		filterForm(p, st, pt),
 		table,
 		h.Footer(h.Class("ui-list-foot"),
-			Muted(h.Text(count(st.Total))),
+			Muted(h.Text(count(pt, st.Total))),
 			Pagination(Pages{
 				Page:  p.Page,
 				Total: pagesOf(p, st.Total),
@@ -130,11 +131,11 @@ func caption(st ListState) h.Node {
 	return h.Caption(h.Text(st.Caption))
 }
 
-func count(total int) string {
+func count(pt bool, total int) string {
 	if total == 1 {
-		return "1 result"
+		return word(pt, "1 result", "1 resultado")
 	}
-	return strconv.Itoa(total) + " results"
+	return strconv.Itoa(total) + " " + word(pt, "results", "resultados")
 }
 
 func pagesOf(p trilha.ListParams, total int) int {
@@ -226,7 +227,7 @@ func bodyRows[T any](cols Columns[T], rows []T, st ListState) []h.Node {
 // filterForm is a GET form: what the visitor types becomes the address, so the
 // filtered listing can be shared and reloaded. What is not a field of the form
 // travels in hidden inputs, or ordering would be lost at every search.
-func filterForm(p trilha.ListParams, st ListState) h.Node {
+func filterForm(p trilha.ListParams, st ListState, pt bool) h.Node {
 	if st.Search == "" && st.Filters == nil {
 		return h.Group()
 	}
@@ -246,6 +247,6 @@ func filterForm(p trilha.ListParams, st ListState) h.Node {
 	if p.PerPage != trilha.DefaultPerPage {
 		fields = append(fields, h.Input(h.Type("hidden"), h.Name("per_page"), h.Value(strconv.Itoa(p.PerPage))))
 	}
-	fields = append(fields, Submit(h.Text("Filter")))
+	fields = append(fields, Submit(h.Text(word(pt, "Filter", "Filtrar"))))
 	return h.Form(fields...)
 }

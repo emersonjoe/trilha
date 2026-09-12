@@ -28,7 +28,13 @@ var docCols = Columns[doc]{
 // from the query the way an app reads it.
 func listing(t *testing.T, query string, rows []doc, tune func(*ListState)) string {
 	t.Helper()
-	a := trilha.New(trilha.Config{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	return listingIn(t, trilha.Config{}, query, rows, tune)
+}
+
+func listingIn(t *testing.T, cfg trilha.Config, query string, rows []doc, tune func(*ListState)) string {
+	t.Helper()
+	cfg.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	a := trilha.New(cfg)
 	var out string
 	a.Register(trilha.Route{Pattern: "/docs", Page: func(c *trilha.Ctx) (h.Node, error) {
 		var q struct {
@@ -125,6 +131,25 @@ func TestDataTableCountsAndPaginates(t *testing.T) {
 	}
 	many := listing(t, "?per_page=1", docs, func(st *ListState) { st.Total = 9 })
 	has(t, many, "9 results", `class="ui-pagination"`, `href="?page=2&amp;per_page=1"`)
+}
+
+// #175 — Locale: "pt-BR" is what ui.Date already reads; ui.List's own words
+// (the filter button, the count) were the two left writing English no matter
+// what the app configured.
+func TestDataTableFilterAndCountFollowLocale(t *testing.T) {
+	pt := listingIn(t, trilha.Config{Locale: "pt-BR"}, "", docs, func(st *ListState) { st.Search = "Buscar" })
+	has(t, pt, "Filtrar", "2 resultados")
+	if strings.Contains(pt, ">Filter<") || strings.Contains(pt, "results") {
+		t.Fatalf("ui.List ficou em inglês com Locale pt-BR: %s", pt)
+	}
+	one := listingIn(t, trilha.Config{Locale: "pt-BR"}, "", docs[:1], nil)
+	has(t, one, "1 resultado")
+	if strings.Contains(one, "resultados") {
+		t.Fatalf("singular usou o plural: %s", one)
+	}
+
+	en := listing(t, "", docs, func(st *ListState) { st.Search = "Search" })
+	has(t, en, "Filter", "2 results")
 }
 
 func TestDataTableEmptyStateFillsTheTable(t *testing.T) {
