@@ -246,6 +246,11 @@ agrupado por tag: parâmetro de caminho na assinatura, parâmetros de query numa
 JSON com o tipo do esquema, e resposta binária como o `*http.Response`, que passa em stream
 para o `c.Pipe`.
 
+O nome do método é o `operationId` menos o que só repete a tag: `list_documents` na tag
+`documents` vira `Documents.List()`. O corte acontece em fronteira de palavra e em nenhum
+outro lugar — uma tag que é apenas o começo de uma palavra (`config` em `configurar_regra`)
+deixa o nome inteiro, `Config.ConfigurarRegra()`.
+
 Um corpo `multipart/form-data` é lido como o formulário que ele é. Um único campo binário e
 mais nada continua sendo dois argumentos — `file io.Reader, filename string`. Qualquer outra
 forma vira um struct tipado, para nenhum campo do formulário sumir em silêncio:

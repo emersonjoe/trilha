@@ -247,6 +247,11 @@ same type is the answer of the API and the `Bind` of a form. A method per operat
 by tag: path parameters in the signature, query parameters in a struct, a JSON body as the
 schema's type, and a binary answer as the `*http.Response`, so it streams into `c.Pipe`.
 
+The method's name is the `operationId` minus what only repeats the tag, so `list_documents`
+in the tag `documents` is `Documents.List()`. That cut happens on a word boundary and nowhere
+else: a tag that merely spells the start of a word — `config` in `configurar_regra` — leaves
+the name whole, `Config.ConfigurarRegra()`.
+
 A `multipart/form-data` body is read as the form it is. One binary field and nothing else
 stays two arguments — `file io.Reader, filename string`. Anything else becomes a typed struct,
 so no field of the form is silently dropped:
