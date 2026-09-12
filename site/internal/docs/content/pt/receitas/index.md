@@ -13,6 +13,7 @@ mailer — o que ele tem é um lugar para os seus, e é aqui que esse lugar est�
 
 | Página | O que responde | Receita |
 |---|---|---|
+| [O app administrável](/pt/receitas/app-administravel) | o que o `trilha new --template app` escreve, e a tarde que vai do comando à produção | oito delas |
 | [Banco de dados](/pt/receitas/banco-de-dados) | pool, consultas, transação, migrações, sqlc | `store` |
 | [Sessões](/pt/receitas/sessoes) | login, cookie assinado, usuário atual, flash | `login` |
 | [Uploads](/pt/receitas/uploads) | receber um arquivo, validar, guardar, devolver | `blob` |

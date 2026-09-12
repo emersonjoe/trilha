@@ -15,6 +15,7 @@ The code is the same Trilha you read about in English here; only the words diffe
 
 | Level | Folder | What it teaches |
 |---|---|---|
+| Complete app | `trilha new --template app` | not in `examples/`: the command writes it. Login of its own, shell, users, permission matrix, profile, audit, API keys, settings, organisations — [The management app in one afternoon](/cookbook/admin-app) is the tour |
 | Basic | `examples/blog` | every file convention, nested layouts, route groups, JSON API, middleware, signed session, `tmpl` |
 | Medium | `examples/cadastro` | a form with rules: conditional fields, server-side validation with per-field errors, dependent select, disappearing toast, responsive layout |
 | Complex | `examples/orcamento` | tree-shaped domain (chart of accounts), aggregation, drill-down through a dynamic route, nested and recursive components, dialog with a form, period filter, CSV |

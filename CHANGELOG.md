@@ -3,6 +3,34 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.123.0 — 2026-09-12
+
+Spec 144. Closes [#194](https://github.com/emersonjoe/trilha/issues/194).
+
+### Documentation
+
+- **New cookbook page: "The management app in one afternoon"** (`/cookbook/admin-app`, pt:
+  `/pt/receitas/app-administravel`). What `trilha new --template app` writes, in seven steps
+  with the real output of every command: the tree and the `// trilha:add` markers in
+  `app/setup.go`; the first run (`TRILHA_SECRET`, `ADMIN_EMAIL`/`ADMIN_PASSWORD`, the first
+  organisation); the permission matrix and a folder of your own guarded by it; the eight
+  screens the template ships and the four recipes it does not; `trilha generate crud` for your
+  own entity, with and without a database; the tenant filter and what `trilha audit` counts;
+  and the production checklist. The page is listed in the cookbook index and in
+  `learn/examples.md`, both locales.
+- The page's Go blocks live in `examples/cookbook/adminapp.go`, so they compile with the rest
+  of the repository like every other cookbook snippet.
+- `auth.Tenant`'s doc comment showed `db.QueryContext(c, ...)`, which does not compile —
+  `*trilha.Ctx` is not a `context.Context`. It is `c.Context()`.
+
+### Fixed
+
+- `trilha generate crud` into a folder closed by a `middleware.go` printed the message key and
+  a Go formatting dump — `crud guard helper` followed by `%!(EXTRA string=...)` — because the
+  two keys it uses were never added to the CLI's message table. Both are there now, in English
+  and Portuguese, and a test walks `cmd/trilha` for every key passed to `t()` so the next
+  missing one fails the build instead of reaching a terminal.
+
 ## 0.122.0 — 2026-09-12
 
 Spec 143. Closes [#193](https://github.com/emersonjoe/trilha/issues/193).

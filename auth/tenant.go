@@ -18,7 +18,7 @@ import (
 // Tenant is the organisation of the current session, or "" when there is no
 // session or the session has no tenant.
 //
-//	rows, err := db.QueryContext(c, `SELECT … FROM documents WHERE tenant_id = $1`, auth.Tenant(c))
+//	rows, err := db.QueryContext(c.Context(), `SELECT … FROM documents WHERE tenant_id = $1`, auth.Tenant(c))
 //
 // Reading it is one call so that the WHERE reads like a WHERE. Nothing here
 // writes SQL: a clause this package generated would be a clause nobody could

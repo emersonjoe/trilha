@@ -1,6 +1,12 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+)
 
 func TestDetectLang(t *testing.T) {
 	cases := []struct {
@@ -32,5 +38,37 @@ func TestEveryMessageHasBothLanguages(tt *testing.T) {
 	}
 	if t("no such key") != "no such key" {
 		tt.Error("unknown key must echo itself")
+	}
+}
+
+// tCall finds every t("key") in the sources of this command.
+var tCall = regexp.MustCompile(`\bt\("([^"]+)"\)`)
+
+// TestEveryKeyIsInMsgs is what would have caught the `generate crud` output
+// inside a guarded folder: the key `crud guard helper` was never written into
+// msgs, so t() echoed it back — a string with no verb in it — and the Printf
+// below it dumped its arguments as %!(EXTRA string=...). An unknown key
+// echoing itself is the right behaviour at run time and the wrong one to find
+// out about from a user's terminal.
+func TestEveryKeyIsInMsgs(tt *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		tt.Fatal(err)
+	}
+	for _, f := range files {
+		// The tests are where an unknown key is passed on purpose, to prove
+		// that t() echoes it instead of panicking.
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			tt.Fatal(err)
+		}
+		for _, m := range tCall.FindAllStringSubmatch(string(raw), -1) {
+			if _, ok := msgs[m[1]]; !ok {
+				tt.Errorf("%s: t(%q) has no entry in msgs", f, m[1])
+			}
+		}
 	}
 }

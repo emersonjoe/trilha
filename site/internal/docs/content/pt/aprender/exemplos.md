@@ -15,6 +15,7 @@ mesma coisa para quem chega por lá.
 
 | Nível | Pasta | O que ensina |
 |---|---|---|
+| App completo | `trilha new --template app` | não está em `examples/`: o comando escreve. Login próprio, shell, usuários, matriz de permissões, perfil, auditoria, chaves de API, configurações, organizações — [O app administrável numa tarde](/pt/receitas/app-administravel) é o passeio |
 | Básico | `examples/blog` | todas as convenções de arquivo, layouts aninhados, grupos de rota, API JSON, middleware, sessão assinada, `tmpl` |
 | Médio | `examples/cadastro` | formulário com regras: campos condicionais, validação no servidor com erros por campo, seleção dependente, aviso que some, layout responsivo |
 | Complexo | `examples/orcamento` | domínio em árvore (plano de contas), agregação, drill-down por rota dinâmica, componentes aninhados e recursivos, diálogo com formulário, filtro por período, CSV |

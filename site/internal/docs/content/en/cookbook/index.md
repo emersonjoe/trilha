@@ -13,6 +13,7 @@ what it has is a place for yours, and this is where the placing is written down.
 
 | Page | What it answers | Recipe |
 |---|---|---|
+| [The management app](/cookbook/admin-app) | what `trilha new --template app` writes, and the afternoon from the command to production | eight of them |
 | [Database](/cookbook/database) | pool, queries, transaction, migrations, sqlc | `store` |
 | [Sessions](/cookbook/sessions) | login, signed cookie, current user, flash | `login` |
 | [Uploads](/cookbook/uploads) | receive a file, validate it, store it, hand it back | `blob` |

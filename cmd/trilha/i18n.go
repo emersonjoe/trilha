@@ -361,6 +361,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"string unbounded":            {"%d string field(s) come from outside with no size limit", "%d campo(s) string vêm de fora sem limite de tamanho"},
 	"string unbounded hint":       {"add max= to the validate tag: without it the column is what refuses, in production, with the driver's message (%s)", "acrescente max= na tag validate: sem ele quem recusa é a coluna, em produção, com a mensagem do driver (%s)"},
 	"crud no column":              {"has no column in the table, the generator does not map this type:", "ficou sem coluna na tabela, o gerador não mapeia este tipo:"},
+	"crud guard helper":           {"%s closes this folder: the generated test opens a session first, with %s", "%s fecha esta pasta: o teste gerado abre uma sessão antes, com %s"},
+	"crud guard skip":             {"%s closes this folder and there is no test helper to open a session: the generated test is skipped until you point it at your login", "%s fecha esta pasta e não há ajudante de teste para abrir uma sessão: o teste gerado fica pulado até você apontá-lo para o seu login"},
 	"crud skipped":                {"left off the screens, the CRUD does not draw this type yet:", "ficou fora das telas, o CRUD ainda não desenha este tipo:"},
 	"crud already":                {"already generated — nothing was written.", "já gerado — nada foi escrito."},
 	"crud complete":               {"The screens have every field of the struct.", "As telas têm todos os campos do struct."},
