@@ -52,6 +52,7 @@ the document is an error, not a warning.
 | `Absolute time.Duration` | 8 h | maximum session lifetime, counted from the login |
 | `Idle time.Duration` | 30 min | ends an idle session; `IdleOff: true` disables it |
 | `CookieName string` | `trilha_session` | session cookie name |
+| `Audience string` | — | names the public this `Auth` serves, for two of them in one process |
 | `LoginPath string` | `/entrar` | where `Require` sends an anonymous browser |
 | `AfterLogin string` | `/` | destination after the callback, when there is no `next` |
 | `AfterLogout string` | `/` | destination after the logout |
@@ -122,6 +123,40 @@ func (a *Auth) RequireFunc(pred func(*User, *trilha.Ctx) bool) trilha.Middleware
 `text/html`, outside `/api/`) and **401** otherwise. `RequireRole` answers **403** to
 someone authenticated without the role. **One** of the listed roles is enough; the
 comparison ignores case.
+
+### Two publics in one process
+
+The internal area and the portal are routes of the same tree with a middleware each, which
+is the shape this framework encourages. Give each `Auth` its **`Audience`**:
+
+```go
+var (
+	Portal  = auth.Sessions(auth.Options{Audience: "portal", CookieName: "portal_session", Store: lojaPortal})
+	Interno = auth.Sessions(auth.Options{Audience: "interno", CookieName: "interno_session", Store: lojaInterna})
+)
+```
+
+A cookie of its own and a `Store` of its own are **not** enough to separate them. Without an
+audience every `Auth` in the binary parks the user of the request in the same slot of the
+`Ctx`, so one call to `Interno.User(c)` from the portal side — a helper, a layout, a handler
+that took the wrong instance — answers with the person the other side has just let in, and
+the page is drawn with the wrong identity. Nothing fails and nothing is logged.
+
+Naming the public separates them in the two places that matter:
+
+| | With `Audience` |
+|---|---|
+| the slot of the `Ctx` | one per instance: `Interno.User(c)` does not read what `Portal` wrote |
+| the session | carries the audience (`User.Audience`), and `Session` refuses one from another public — the same cookie name, or a shared `Store`, stops being a door |
+
+An application with a single `Auth` — the great majority — does not see any of this: with no
+`Audience` the slot and the session are exactly what they are today. Turning the option on in
+an application that is already running ends the open sessions once, because they were written
+without an audience.
+
+`auth.Tenant(c)` keeps answering for the session the request went through, and `Keys.User(c)`
+is unchanged: an API key is not a session and has no public, so an `Auth` with an `Audience`
+does not answer with the caller of a key.
 
 ## User
 
@@ -397,6 +432,23 @@ theirs except this one and writes `auth.logout_others` to the audit trail with t
 `MemoryStore` implements it. A store that does not gets `ErrNoSessionList` from both, which
 is what the screen shows instead of an empty list: an empty list would say "nowhere else",
 and that would not be known.
+
+A store that lives somewhere else implements the contextual one instead, the same
+optional-interface shape as `StoreContext`:
+
+```go
+type SessionListerContext interface {
+	SessionsContext(ctx context.Context, subject string) ([]*User, error)
+}
+```
+
+The query then honours the request's deadline and is cancelled when the browser hangs up, and
+— the part that decides — a database that is down becomes an **error** in both operations
+instead of an empty slice. Without it the two lie in two different ways: the account screen
+draws "no other sessions" over the outage, and `LogoutOthers` answers success without having
+ended anything, to somebody who has just changed their password precisely to end them. Both
+callers already handle an error (`ErrNoSessionList`), so there is no new path in the
+application: there is a value that stops being false.
 
 A password change is where `LogoutOthers` belongs: a password changes because somebody may
 have the old one, and that somebody may be signed in right now.

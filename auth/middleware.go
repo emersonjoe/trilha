@@ -9,8 +9,29 @@ import (
 	"github.com/emersonjoe/trilha"
 )
 
-// ctxKey is where the user is parked for the rest of the request.
+// ctxKey is where the user of the request is parked for the rest of it. It is
+// the slot of an application with one Auth — the great majority — and the
+// shared slot that auth.Tenant and the API keys read, because a function with
+// no instance has nowhere else to look.
 const ctxKey = "auth.user"
+
+// ctxKey is where this Auth parks its user. An application with two publics in
+// the same process — the internal area and the portal, routes of the same tree
+// with a middleware each — gets a slot per instance, so that the other one's
+// User(c) does not answer with the person this one has just let in. Without
+// Options.Audience the slot is the one above and nothing changes.
+func (a *Auth) ctxKey() string {
+	if a.opts.Audience == "" {
+		return ctxKey
+	}
+	return ctxKey + "." + a.opts.Audience
+}
+
+// mine reports whether a user found on the request belongs to this Auth. The
+// slot already separates the instances; this separates what got into it by
+// another door — the same cookie name, a shared Store, an Auth reused in the
+// wrong place — and turns an identity mistake into a nil.
+func (a *Auth) mine(u *User) bool { return u != nil && u.Audience == a.opts.Audience }
 
 // Require blocks anonymous requests. A browser navigation is sent to the
 // login page carrying next; anything else gets 401, because redirecting an
@@ -41,7 +62,7 @@ func (a *Auth) guard(roles []string) trilha.MiddlewareFunc {
 			c.Log().Warn("auth: access denied", "sub", u.Subject, "need", strings.Join(roles, ","))
 			return &trilha.HTTPError{Code: http.StatusForbidden, Message: "access denied"}
 		}
-		remember(c, u)
+		a.remember(c, u)
 		return next()
 	}
 }
@@ -84,7 +105,7 @@ func (a *Auth) challenge(c *trilha.Ctx) error {
 // User returns the authenticated user, or nil. Handlers under Require can
 // rely on it being present; anywhere else, check for nil.
 func (a *Auth) User(c *trilha.Ctx) *User {
-	if u, ok := c.Get(ctxKey).(*User); ok {
+	if u, ok := c.Get(a.ctxKey()).(*User); ok && a.mine(u) {
 		return u
 	}
 	u, err := a.Session(c)
@@ -92,7 +113,7 @@ func (a *Auth) User(c *trilha.Ctx) *User {
 		storeFailed(c, err)
 		return nil
 	}
-	remember(c, u)
+	a.remember(c, u)
 	return u
 }
 
@@ -102,7 +123,7 @@ func (a *Auth) Optional() trilha.MiddlewareFunc {
 	return func(c *trilha.Ctx, next trilha.Next) error {
 		u, err := a.Session(c)
 		if err == nil {
-			remember(c, u)
+			a.remember(c, u)
 		} else {
 			// Anonymous is the point of Optional, so a broken store still lets
 			// the page render — but it says so, instead of the outage looking
@@ -135,7 +156,15 @@ func wantsHTML(r *http.Request) bool {
 // that c.Audit below this middleware is attributed without the application
 // writing a line. It is one function because the same two things were being
 // set in five places, and the fifth is where one of them gets forgotten.
-func remember(c *trilha.Ctx, u *User) {
+//
+// It writes two slots: the one of this instance, which is what User reads, and
+// the shared one, which is what auth.Tenant reads — the tenant of the session
+// the request went through, which is the only question a function with no
+// instance can be asking.
+func (a *Auth) remember(c *trilha.Ctx, u *User) {
+	if k := a.ctxKey(); k != ctxKey {
+		c.Set(k, u)
+	}
 	c.Set(ctxKey, u)
 	c.SetActor(trilha.Actor{Subject: u.Subject, Email: u.Email, Name: u.Name, Via: "session", Tenant: u.Tenant})
 }

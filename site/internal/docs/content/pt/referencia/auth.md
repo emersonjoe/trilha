@@ -52,6 +52,7 @@ primeiro uso e vale por uma hora; um emissor divergente entre a configuração e
 | `Absolute time.Duration` | 8 h | prazo máximo da sessão, contado do login |
 | `Idle time.Duration` | 30 min | encerra sessão parada; `IdleOff: true` desliga |
 | `CookieName string` | `trilha_session` | nome do cookie de sessão |
+| `Audience string` | — | nomeia o público que este `Auth` atende, para dois deles no mesmo processo |
 | `LoginPath string` | `/entrar` | para onde `Require` manda um navegador anônimo |
 | `AfterLogin string` | `/` | destino após o retorno, quando não há `next` |
 | `AfterLogout string` | `/` | destino após o logout |
@@ -121,6 +122,39 @@ func (a *Auth) RequireFunc(pred func(*User, *trilha.Ctx) bool) trilha.Middleware
 `text/html`, fora de `/api/`) e **401** caso contrário. `RequireRole` responde **403** para
 quem está autenticado sem o papel. Basta **um** dos papéis listados; a comparação ignora
 maiúsculas.
+
+### Dois públicos no mesmo processo
+
+A área interna e o portal são rotas da mesma árvore, com um middleware cada — o desenho que
+este framework incentiva. Dê a cada `Auth` o seu **`Audience`**:
+
+```go
+var (
+	Portal  = auth.Sessions(auth.Options{Audience: "portal", CookieName: "portal_session", Store: lojaPortal})
+	Interno = auth.Sessions(auth.Options{Audience: "interno", CookieName: "interno_session", Store: lojaInterna})
+)
+```
+
+Cookie próprio e `Store` próprio **não** bastam para separá-los. Sem audience, todo `Auth` do
+binário guarda o usuário da requisição no mesmo slot do `Ctx`: uma chamada de
+`Interno.User(c)` a partir do lado do portal — um helper, um layout, um handler que pegou a
+instância errada — responde com a pessoa que o outro lado acabou de deixar entrar, e a página
+é desenhada com a identidade errada. Nada falha e nada é registrado.
+
+Nomear o público separa os dois nos dois lugares que decidem:
+
+| | Com `Audience` |
+|---|---|
+| o slot do `Ctx` | um por instância: o `Interno.User(c)` não lê o que o `Portal` gravou |
+| a sessão | carrega o público (`User.Audience`), e o `Session` recusa a de outro — o mesmo nome de cookie, ou um `Store` compartilhado, deixa de ser porta |
+
+Uma aplicação com um `Auth` só — a esmagadora maioria — não vê nada disso: sem `Audience`, o
+slot e a sessão são exatamente os de hoje. Ligar a opção num app que já está no ar encerra as
+sessões abertas uma vez, porque elas foram gravadas sem público.
+
+O `auth.Tenant(c)` continua respondendo pela sessão por onde a requisição passou, e o
+`Keys.User(c)` não muda: uma chave de API não é sessão e não tem público, então um `Auth` com
+`Audience` não responde com o chamador de uma chave.
 
 ## User
 
@@ -397,6 +431,23 @@ pessoa menos esta e escreve `auth.logout_others` na auditoria com a contagem. `M
 implementa. Um store que não implementa recebe `ErrNoSessionList` das duas, e é isso que a
 tela mostra em vez de uma lista vazia: lista vazia diria "em nenhum outro lugar", e isso não
 se saberia.
+
+Um store que mora em outro lugar implementa a versão com contexto, a mesma forma de interface
+opcional do `StoreContext`:
+
+```go
+type SessionListerContext interface {
+	SessionsContext(ctx context.Context, subject string) ([]*User, error)
+}
+```
+
+A consulta passa a honrar o prazo da requisição e a ser cancelada quando o navegador desliga
+e — a parte que decide — um banco fora do ar vira **erro** nas duas operações, em vez de uma
+slice vazia. Sem isso as duas mentem de formas diferentes: a tela da conta desenha "nenhuma
+outra sessão" por cima do incidente, e o `LogoutOthers` responde sucesso sem ter encerrado
+nada, para quem acabou de trocar a senha justamente para encerrá-las. Quem chama já trata erro
+nas duas (`ErrNoSessionList`), então não há caminho novo na aplicação: há um valor que deixa
+de ser mentira.
 
 Troca de senha é onde `LogoutOthers` mora: a senha muda porque alguém pode ter a antiga, e
 esse alguém pode estar logado agora mesmo.

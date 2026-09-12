@@ -3,6 +3,45 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.113.0 — 2026-09-12
+
+Spec 134. Closes [#176](https://github.com/emersonjoe/trilha/issues/176) and
+[#180](https://github.com/emersonjoe/trilha/issues/180).
+
+### Added
+
+- **`auth.SessionListerContext`, the session list of a store that is somewhere else.**
+  `SessionLister` had neither a context nor an error, which is fine for `MemoryStore` and
+  wrong for the same store in Postgres. Implement `SessionsContext(ctx, subject) ([]*User,
+  error)` — optional, next to `SessionLister`, the same shape as `StoreContext` — and
+  `Sessions(c)` and `LogoutOthers(c)` go through it with the request's context, so the query
+  honours the deadline and is cancelled when the browser hangs up. A `Store` that implements
+  only `SessionLister`, `MemoryStore` included, behaves exactly as before.
+- **`auth.Options.Audience`, for two publics in the same process.** Naming the public an
+  `Auth` serves gives it a slot of its own in the `Ctx` and stamps the session with the
+  audience (`User.Audience`). Empty — the default, and what an application with a single
+  `Auth` wants — changes nothing. Turning it on in an application that is already running
+  ends the open sessions once: they were written without an audience, and the `Auth` that now
+  has one does not recognise them.
+
+### Fixed
+
+- **`Sessions(c)` and `LogoutOthers(c)` no longer swallow a store failure.** With a store that
+  implements `SessionListerContext`, its error comes back instead of an empty list and
+  instead of `nil`: the account screen stops drawing "no other sessions" over an outage, and
+  `LogoutOthers` stops answering success without having ended anything — which was the worse
+  of the two, because somebody who has just changed their password believed the old sessions
+  were gone. Both callers already had to handle `ErrNoSessionList`, so there is no new path
+  in the application.
+- **Two `auth.Auth` in one binary no longer share the request's user.** The user of the
+  request was parked under the package constant `"auth.user"`, so every `Auth` in the process
+  wrote and read the same slot: a handler or a layout on one side calling the other side's
+  `User(c)` got the person the other `Auth` had just let in, and the page was drawn with the
+  wrong identity — silently, with nothing in the log. With `Options.Audience` each instance
+  reads its own slot and refuses a session that belongs to another public, so a cookie of the
+  same name or a shared `Store` is no longer a door between them. `auth.Tenant(c)` still
+  answers for the session the request went through, and `Keys.User(c)` is unchanged.
+
 ## 0.112.0 — 2026-09-12
 
 Spec 133. Closes [#173](https://github.com/emersonjoe/trilha/issues/173).

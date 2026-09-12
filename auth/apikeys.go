@@ -256,6 +256,11 @@ func (ks *Keys) unauthorized(c *trilha.Ctx, msg string) error {
 
 // remember puts the key in the request the way a session would, so everything
 // downstream — c.Audit, the policy, the log — sees a caller and not a hole.
+//
+// It writes the shared slot: a key is not a session and has no public, so an
+// Auth that names one (Options.Audience) does not answer with the caller of a
+// key in User(c), which is the right answer — the key was not issued to that
+// public's session.
 func (ks *Keys) remember(c *trilha.Ctx, k *Key) {
 	u := &User{
 		Subject:   "key:" + k.ID,

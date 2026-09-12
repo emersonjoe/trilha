@@ -196,7 +196,7 @@ func (a *Auth) RequirePolicy(p Policy, module, level string) trilha.MiddlewareFu
 				Message: "needs " + level + " on " + module,
 			}
 		}
-		remember(c, u)
+		a.remember(c, u)
 		return next()
 	}
 }

@@ -1017,6 +1017,7 @@ pkg auth, type Options struct
 pkg auth, type Options struct, Absolute time.Duration
 pkg auth, type Options struct, AfterLogin string
 pkg auth, type Options struct, AfterLogout string
+pkg auth, type Options struct, Audience string
 pkg auth, type Options struct, ChooseTenantPath string
 pkg auth, type Options struct, CookieName string
 pkg auth, type Options struct, Idle time.Duration
@@ -1044,6 +1045,8 @@ pkg auth, type Provider struct, LogoutDomain string
 pkg auth, type Provider struct, RedirectURL string
 pkg auth, type SessionLister interface
 pkg auth, type SessionLister interface, Sessions(string) []*User
+pkg auth, type SessionListerContext interface
+pkg auth, type SessionListerContext interface, SessionsContext(context.Context, string) ([]*User, error)
 pkg auth, type Store interface
 pkg auth, type Store interface, Delete(string) error
 pkg auth, type Store interface, Load(string) (*User, bool)
@@ -1092,6 +1095,7 @@ pkg auth, type UsageStore interface, Add(context.Context, []UsageRow) error
 pkg auth, type UsageStore interface, Prune(context.Context, time.Time) error
 pkg auth, type UsageStore interface, Query(context.Context, UsageQuery) (UsageReport, error)
 pkg auth, type User struct
+pkg auth, type User struct, Audience string
 pkg auth, type User struct, Email string
 pkg auth, type User struct, EmailVerified bool
 pkg auth, type User struct, ExpiresAt time.Time

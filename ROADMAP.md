@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.112.0)
+## Onde o Trilha está (setembro de 2026, v0.113.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -26,7 +26,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | DX | `new`, `gen`, `dev`, `build`, `routes`, `export`, `audit`, `ui`, `check` (o portão único), `add <receita>`, `vendor`, `i18n`, `openapi`, `client`, `migrate next`, `agents`, `mcp` | specs 001, 003, 004, 006, 021, 065, 091, 119 |
 | Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors` e validação por tag, fragmentos, ilhas, navegação no cliente, upload com progresso, `ui.Live`, `ui.Assistant` | specs 006, 009, 018, 022, 023, 024, 027, 118 |
 | Dados | funções Go comuns, sem loader mágico; `cache` com prazo, tags, invalidação, voo único e memo por requisição; `ETag`/`Last-Modified`/`304`; `Settings`, `Versioned`, `Draft`, `Search`, `Deadlines`; `trilha add store` (pool, dialeto, migrações conferidas) | specs 025, 026, 114, 115, 116, 126 |
-| Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak, Cognito, Clerk) com PKCE, sessão, papéis, `auth.Policy`, sessões abertas e logout das outras, multi-organização, e-mail verificado pelo provedor, sessão em store remoto com contexto | specs 004, 016, 020, 063, 108, 121, 124 |
+| Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak, Cognito, Clerk) com PKCE, sessão, papéis, `auth.Policy`, sessões abertas e logout das outras (com contexto e erro no store remoto), multi-organização, e-mail verificado pelo provedor, sessão em store remoto com contexto, dois públicos no mesmo processo por `Options.Audience` | specs 004, 016, 020, 063, 108, 121, 124, 134 |
 | Segurança | CSP com nonce, HSTS, COOP, `Permissions-Policy`, proxies confiáveis, timeouts, limite de corpo, upload com tipo pelo conteúdo, CORS, `trilha audit`, segredo selado nas `Connections`, trilha de auditoria | specs 004, 024, 028, 029, 120 |
 | Observabilidade | sondas de vida e prontidão, métricas Prometheus, `traceparent`, eventos de segurança, log de requisição com filtro, uso por chave de API | specs 014, 021, 117 |
 | API | JSON, erro RFC 9457 (`problem+json`), negociação por `Accept`, SSE, `route.go` com `Kind`, `trilha openapi` dos seus handlers, `trilha client` do OpenAPI alheio, as rotas como ferramentas MCP | specs 001, 005, 008, 030, 092, 119, 122 |

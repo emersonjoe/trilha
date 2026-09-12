@@ -33,6 +33,22 @@ type Options struct {
 	IdleOff bool
 	// CookieName is the session cookie (default "trilha_session").
 	CookieName string
+	// Audience names the public this Auth serves, for an application that has
+	// more than one in the same process — the internal area and the portal,
+	// routes of the same tree with a middleware each. Empty (the default, and
+	// what an application with a single Auth wants) changes nothing.
+	//
+	// Naming it separates the two in the two places where a cookie of its own
+	// and a Store of its own are not enough: the session carries the audience
+	// (User.Audience) and Session refuses one that belongs to another public,
+	// and the user of the request is parked in a slot of this instance, so
+	// that the other one's User(c) does not answer with the person this one
+	// has just let in.
+	//
+	// Turning it on in an application that is already running ends the open
+	// sessions once: they were written without an audience, and this Auth does
+	// not recognise them.
+	Audience string
 	// LoginPath is where Require sends an anonymous browser (default "/entrar").
 	LoginPath string
 	// ChooseTenantPath is where RequireTenant sends somebody who is logged in

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -278,5 +279,134 @@ func TestSessionsELogoutOthers(t *testing.T) {
 	b3.get("/entrar?senha=certa", nil)
 	if rec := b3.get("/outras", nil); rec.Code != 200 {
 		t.Fatalf("no store: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// #176 — the store that lists sessions from somewhere else: it is given the
+// request's context and it is allowed to fail.
+type listStore struct {
+	*MemoryStore
+	fail     error
+	calls    int
+	canceled bool
+}
+
+func (l *listStore) SessionsContext(ctx context.Context, subject string) ([]*User, error) {
+	l.calls++
+	if err := ctx.Err(); err != nil {
+		l.canceled = true
+		return nil, err
+	}
+	if l.fail != nil {
+		return nil, l.fail
+	}
+	return l.MemoryStore.Sessions(subject), nil
+}
+
+// Spec 134 — a store with SessionListerContext is asked through it, with the
+// context of the request; and the database being down is an error in both
+// operations, not an empty list and not a silent success.
+func TestSessionsContextLevaOPrazoEOErro(t *testing.T) {
+	store := &listStore{MemoryStore: NewMemoryStore()}
+	a := Sessions(Options{LoginPath: "/entrar", Store: store})
+	app := localApp(t, a)
+	app.Register(trilha.Route{Pattern: "/sessoes", Kind: trilha.KindPage, Middlewares: []trilha.MiddlewareFunc{a.Require()},
+		Methods: map[string]trilha.HandlerFunc{"GET": func(c *trilha.Ctx) error {
+			list, err := a.Sessions(c)
+			if err != nil {
+				return err
+			}
+			return c.Text(200, fmt.Sprintf("%d", len(list)))
+		}}})
+	app.Register(trilha.Route{Pattern: "/outras", Kind: trilha.KindPage, Middlewares: []trilha.MiddlewareFunc{a.Require()},
+		Methods: map[string]trilha.HandlerFunc{"GET": func(c *trilha.Ctx) error {
+			if err := a.LogoutOthers(c); err != nil {
+				return err
+			}
+			return c.Text(200, "ok")
+		}}})
+	b := newBrowser(t, app)
+	b.get("/entrar?senha=certa", nil)
+	if rec := b.get("/sessoes", nil); rec.Code != 200 || rec.Body.String() != "1" {
+		t.Fatalf("/sessoes → %d %q", rec.Code, rec.Body.String())
+	}
+	if store.calls == 0 {
+		t.Fatal("the store implements SessionListerContext and was asked through the older interface")
+	}
+
+	// The database is down. Answering "no other sessions" would be a lie on
+	// the screen; answering ok to LogoutOthers would be a lie about security,
+	// to somebody who has just changed their password.
+	store.fail = errors.New("dial tcp: connection refused")
+	if rec := b.get("/sessoes", nil); rec.Code == 200 {
+		t.Fatalf("/sessoes with the store down → %d %q, wanted the store's error", rec.Code, rec.Body.String())
+	}
+	if rec := b.get("/outras", nil); rec.Code == 200 {
+		t.Fatal("LogoutOthers answered ok without having ended a single session")
+	}
+	store.fail = nil
+
+	// And the context is the request's: one that has already died — the client
+	// hanging up mid-request — arrives dead at the store, which is what lets
+	// the query be aborted instead of running against a browser that left.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest("GET", "/sessoes", nil).WithContext(ctx)
+	req.Header.Set("Accept", "text/html")
+	for k, v := range b.cookies {
+		req.AddCookie(&http.Cookie{Name: k, Value: v})
+	}
+	app.Handler().ServeHTTP(httptest.NewRecorder(), req)
+	if !store.canceled {
+		t.Fatal("the cancellation of the request did not reach the store")
+	}
+
+	// A store that only has the older interface keeps working exactly as it
+	// did — MemoryStore included, which this spec leaves as it is.
+	if _, ok := any(NewMemoryStore()).(SessionListerContext); ok {
+		t.Fatal("MemoryStore now implements SessionListerContext; this spec leaves it alone")
+	}
+}
+
+// Spec 134, #180 — two publics in one process. The portal and the internal
+// area are routes of the same tree with an Auth each; this is the worst case,
+// the two sharing the cookie name and the Store, and still what belongs to one
+// is not read by the other.
+func TestDoisPublicosNoMesmoProcesso(t *testing.T) {
+	store := NewMemoryStore()
+	portal := Sessions(Options{Audience: "portal", LoginPath: "/entrar", Store: store})
+	interno := Sessions(Options{Audience: "interno", LoginPath: "/interno/entrar", Store: store})
+
+	app := trilha.New(trilha.Config{Env: trilha.Prod, Secret: []byte("0123456789abcdef0123456789abcdef"),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	route := func(pattern string, h trilha.HandlerFunc, mw ...trilha.MiddlewareFunc) {
+		app.Register(trilha.Route{Pattern: pattern, Kind: trilha.KindPage,
+			Methods: map[string]trilha.HandlerFunc{"GET": h}, Middlewares: mw})
+	}
+	route("/entrar", func(c *trilha.Ctx) error {
+		return portal.Login(c, &User{Subject: "fornecedor", Tenant: "acme"})
+	})
+	// The shell of the portal, the page that found the bug: it is guarded by
+	// the portal and, somewhere below, something asks the other Auth who is
+	// there — a layout, a menu, a helper that took the wrong instance.
+	route("/casca", func(c *trilha.Ctx) error {
+		quem := "nil"
+		if u := interno.User(c); u != nil {
+			quem = u.Subject
+		}
+		return c.Text(200, fmt.Sprintf("portal=%s interno=%s tenant=%s", portal.User(c).Subject, quem, Tenant(c)))
+	}, portal.Require())
+	route("/interno/painel", func(c *trilha.Ctx) error { return c.Text(200, "interno") }, interno.Require())
+
+	b := newBrowser(t, app)
+	b.get("/entrar?senha=certa", nil)
+	rec := b.get("/casca", nil)
+	if want := "portal=fornecedor interno=nil tenant=acme"; rec.Code != 200 || rec.Body.String() != want {
+		t.Fatalf("/casca → %d %q, wanted %q", rec.Code, rec.Body.String(), want)
+	}
+	// And the session of one public does not open the door of the other, even
+	// carried in a cookie of the same name.
+	if rec := b.get("/interno/painel", nil); rec.Code == 200 {
+		t.Fatal("the portal session got into the internal area")
 	}
 }

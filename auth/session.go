@@ -44,6 +44,15 @@ type User struct {
 	// query is yours: there is no ORM here, and a WHERE this package wrote
 	// would be a WHERE nobody could read.
 	Tenant string `json:"tenant,omitempty"`
+	// Audience is the public this session belongs to: Options.Audience of the
+	// Auth that wrote it, empty when the application never named one. It is
+	// what an application with two publics in the same process — the internal
+	// area and the portal — has to be able to tell apart, and it is a field of
+	// its own for the same reason Tenant is: what the framework checks on
+	// every request has to be in the same place in every application.
+	//
+	// The check is Session's: a session of another public is no session here.
+	Audience string `json:"aud,omitempty"`
 	// Extra carries what this app's session needs and OIDC has no claim for:
 	// the token the upstream wants, the tenant, the plan. It travels where the
 	// rest of the session travels — the signed cookie, or the Store — so keep
@@ -99,7 +108,7 @@ type Store interface {
 // error is the store having failed, and the guards turn it into 503 instead of
 // a redirect to the login.
 //
-//	see: auth.Store, auth.SessionLister
+//	see: auth.Store, auth.SessionLister, auth.SessionListerContext
 type StoreContext interface {
 	SaveContext(ctx context.Context, id string, u *User, ttl time.Duration) error
 	LoadContext(ctx context.Context, id string) (*User, error)
@@ -163,6 +172,13 @@ func (a *Auth) Session(c *trilha.Ctx) (*User, error) {
 	} else if err := json.Unmarshal([]byte(raw), &u); err != nil {
 		return nil, ErrNoSession
 	}
+	// A session of another public is no session here. It is what makes two
+	// Auth in the same process separate even when they share the cookie name
+	// or the Store, and it is the difference between a screen drawn for the
+	// wrong person and a nil the guard knows what to do with.
+	if u.Audience != a.opts.Audience {
+		return nil, ErrNoSession
+	}
 	now := time.Now()
 	if now.After(u.ExpiresAt) {
 		return nil, ErrNoSession
@@ -192,6 +208,10 @@ func (a *Auth) write(c *trilha.Ctx, u *User) error {
 	if ttl <= 0 {
 		return errors.New("auth: session already expired")
 	}
+	// Stamped here, in the one place every session goes through — login,
+	// callback and the renewal of the idle window — so that no path can write
+	// a session with no owner.
+	u.Audience = a.opts.Audience
 	if a.opts.Store != nil {
 		if err := a.storeSave(c.Context(), u.SessionID, u, ttl); err != nil {
 			return err
@@ -282,18 +302,54 @@ type SessionLister interface {
 	Sessions(subject string) []*User
 }
 
+// SessionListerContext is SessionLister for a store that is somewhere else,
+// the same optional-interface shape StoreContext is to Store: implement it and
+// Sessions and LogoutOthers go through it, do not and the three lines above
+// keep working.
+//
+// It exists for the two things the older signature cannot say. Without a
+// context the query does not honour the request's deadline and is not
+// cancelled when the browser hangs up, so a remote store is reduced to
+// context.Background() and a made-up timeout. Without an error a database that
+// is down answers an empty slice, and the two operations built on it lie in
+// two different ways: the account screen draws "no other sessions" over an
+// outage, and LogoutOthers answers success without having ended anything — to
+// somebody who has just changed their password precisely to end them.
+//
+//	func (s *PGStore) SessionsContext(ctx context.Context, sub string) ([]*auth.User, error) {
+//		rows, err := s.db.QueryContext(ctx, "select u from sessoes where sub = $1", sub)
+//		...
+//	}
+type SessionListerContext interface {
+	SessionsContext(ctx context.Context, subject string) ([]*User, error)
+}
+
+// listSessions is the one place that chooses between the two interfaces, so
+// that Sessions and LogoutOthers cannot drift apart on which store they ask or
+// on what they do with a failure.
+func (a *Auth) listSessions(ctx context.Context, subject string) ([]*User, error) {
+	if lc, ok := a.opts.Store.(SessionListerContext); ok {
+		return lc.SessionsContext(ctx, subject)
+	}
+	if l, ok := a.opts.Store.(SessionLister); ok {
+		return l.Sessions(subject), nil
+	}
+	return nil, ErrNoSessionList
+}
+
 // Sessions lists the sessions of whoever is logged in, the current one first
-// so a screen can mark it. Expired ones are not in it.
+// so a screen can mark it. Expired ones are not in it. A store that fails
+// gives its error back, because an empty list is a screen saying "nowhere
+// else", which is not what happened.
 func (a *Auth) Sessions(c *trilha.Ctx) ([]User, error) {
 	me, err := a.Session(c)
 	if err != nil {
 		return nil, err
 	}
-	lister, ok := a.opts.Store.(SessionLister)
-	if !ok {
-		return nil, ErrNoSessionList
+	all, err := a.listSessions(c.Context(), me.Subject)
+	if err != nil {
+		return nil, err
 	}
-	all := lister.Sessions(me.Subject)
 	out := make([]User, 0, len(all))
 	for _, u := range all {
 		if u.SessionID == me.SessionID {
@@ -315,17 +371,21 @@ func (a *Auth) LoginPath() string { return a.opts.LoginPath }
 // this one. It is what a password change calls, and what the account screen
 // offers as a button: the machine somebody forgot to lock stops being a
 // session without the person having to find it.
+//
+// A store that fails gives its error back and nothing is reported as ended:
+// answering nil there would tell somebody who has just changed their password
+// that the old sessions are gone when they are still open.
 func (a *Auth) LogoutOthers(c *trilha.Ctx) error {
 	me, err := a.Session(c)
 	if err != nil {
 		return err
 	}
-	lister, ok := a.opts.Store.(SessionLister)
-	if !ok {
-		return ErrNoSessionList
+	all, err := a.listSessions(c.Context(), me.Subject)
+	if err != nil {
+		return err
 	}
 	n := 0
-	for _, u := range lister.Sessions(me.Subject) {
+	for _, u := range all {
 		if u.SessionID == me.SessionID {
 			continue
 		}

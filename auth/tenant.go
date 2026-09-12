@@ -23,6 +23,11 @@ import (
 // Reading it is one call so that the WHERE reads like a WHERE. Nothing here
 // writes SQL: a clause this package generated would be a clause nobody could
 // read in a review, which is the opposite of what a tenant filter needs.
+//
+// It answers for the session the request went through — the shared slot, the
+// only one a function with no instance can read. With two Auth in the same
+// process it is the guard that ran on this route, which is the one whose
+// tenant the query below is about.
 func Tenant(c *trilha.Ctx) string {
 	if u, ok := c.Get(ctxKey).(*User); ok && u != nil {
 		return u.Tenant
@@ -84,7 +89,7 @@ func (a *Auth) SwitchTenant(c *trilha.Ctx, tenant string) error {
 	if err := a.write(c, u); err != nil {
 		return err
 	}
-	remember(c, u)
+	a.remember(c, u)
 	c.Audit("tenant.trocou", tenant, trilha.Fields{"de": before, "para": tenant})
 	return nil
 }
