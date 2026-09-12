@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // emit writes the file. The runtime — New, the options, the error, do and
@@ -687,6 +688,9 @@ func quote(s string) string {
 func isUpperLetter(b byte) bool { return b >= 'A' && b <= 'Z' }
 
 // lowerFirst makes a description read as the rest of a doc comment sentence.
+// The first character is a rune, not a byte: a description that starts with a
+// curly quote or an accented capital used to be sliced mid-sequence and the
+// generated file failed go/parser with "illegal UTF-8 encoding" (#200).
 func lowerFirst(s string) string {
 	if s == "" {
 		return s
@@ -695,5 +699,6 @@ func lowerFirst(s string) string {
 	if len(s) > 1 && isUpperLetter(s[0]) && isUpperLetter(s[1]) {
 		return s
 	}
-	return strings.ToLower(s[:1]) + s[1:]
+	_, size := utf8.DecodeRuneInString(s)
+	return strings.ToLower(s[:size]) + s[size:]
 }
