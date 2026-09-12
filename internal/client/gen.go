@@ -6,6 +6,8 @@ import (
 	"go/format"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Options are what the CLI passes down: where the file goes and what it is
@@ -232,7 +234,7 @@ func methodName(op *Operation, gName string) string {
 	for _, word := range []string{gName, singular(gName)} {
 		for _, cut := range []func(string) string{
 			func(s string) string { return strings.TrimSuffix(s, word) },
-			func(s string) string { return strings.TrimPrefix(s, word) },
+			func(s string) string { return trimWordPrefix(s, word) },
 		} {
 			if trimmed := cut(name); trimmed != "" && trimmed != name {
 				name = trimmed
@@ -240,6 +242,24 @@ func methodName(op *Operation, gName string) string {
 		}
 	}
 	return name
+}
+
+// trimWordPrefix drops word from the front of a PascalCase name, but only when
+// what is left starts a word of its own. Cutting the tag `config` off
+// ConfigurarRegra leaves `urarRegra`: a method that is not exported, which the
+// caller's package cannot see, from a name that is not in the document either.
+// When the tag is merely the start of the first word there is no repetition to
+// remove, so the name stays whole. The suffix side needs no such guard: the cut
+// is case-sensitive, so a match already lands on the start of a word.
+func trimWordPrefix(s, word string) string {
+	rest := strings.TrimPrefix(s, word)
+	if rest == s {
+		return s
+	}
+	if r, _ := utf8.DecodeRuneInString(rest); !unicode.IsUpper(r) {
+		return s
+	}
+	return rest
 }
 
 // verbs name an operation that has no operationId.

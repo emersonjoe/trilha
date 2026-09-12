@@ -3,6 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.107.0 — 2026-09-12
+
+Spec 128. Closes [#169](https://github.com/emersonjoe/trilha/issues/169).
+
+### Fixed
+
+- **`trilha client`: a tag that spells the start of a word no longer takes that word apart.**
+  The group's name is cut off the front of a method's name so that
+  `Documents.ListDocuments` reads `Documents.List`, and the cut was literal: the tag `config`
+  over `operationId: configurar_regra` left `urarRegra`, a method the caller's package cannot
+  see. Nothing failed — an unexported method is valid Go, so the generated file compiles and
+  the operation is simply missing from the client, which is how this reached a real migration
+  and a hand-written wrapper. The cut now happens on a word boundary and nowhere else: what
+  is left has to start a word of its own, so `configurar_regra` in the tag `config` stays
+  `Config.ConfigurarRegra` while `config_reset` is still `Config.Reset`. Names are not
+  recapitalized after the cut — `UrarRegra` is in neither the document nor anyone's head, and
+  a generated client is worth the name you can recognize. No committed client changes: this
+  only ever fired on the tag that is a prefix of the first word.
+
 ## 0.106.0 — 2026-09-11
 
 Spec 127. Another part of [#115](https://github.com/emersonjoe/trilha/issues/115), which stays

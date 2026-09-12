@@ -7,12 +7,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -605,4 +609,71 @@ func TestErro422ChegaPorCampo(t *testing.T) {
 	if _, ok := api.AsError(nil); ok {
 		t.Error("AsError(nil) said yes")
 	}
+}
+
+// Spec 128 (#169): the group's name is cut off the front of the method's name
+// so that Documents.ListDocuments reads Documents.List. The cut was literal, so
+// a tag that happens to spell the start of the first word took that word apart:
+// `config` + `configurar_regra` gave `urarRegra`, a method nobody outside the
+// package can call. The file still compiles — an unexported method is valid Go
+// — and that is why the bug reached a real migration: it only shows up in the
+// `go build` of the caller, or never, if nobody calls that route.
+func TestPrefixoDaTagSoCaiEmFronteiraDePalavra(t *testing.T) {
+	ok := `"responses":{"200":{"description":"ok","content":{"application/json":{"schema":{"type":"object","properties":{"ok":{"type":"boolean"}}}}}}}`
+	key := `"parameters":[{"name":"regra_key","in":"path","required":true,"schema":{"type":"string"}}]`
+	doc := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{
+		"/api/regras/{regra_key}":{
+			"put":{"operationId":"configurar_regra","tags":["config"],` + key + `,` + ok + `},
+			"delete":{"operationId":"restaurar_regra","tags":["config"],` + key + `,` + ok + `}},
+		"/api/config/reset":{"post":{"operationId":"config_reset","tags":["config"],` + ok + `}},
+		"/api/regras":{"get":{"operationId":"listar_regras","tags":["regras"],` + ok + `}}}}`
+	res, err := Generate([]byte(doc), Options{Package: "api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := parser.ParseFile(token.NewFileSet(), "client.go", res.Source, 0)
+	if err != nil {
+		t.Fatalf("the generated client does not parse: %v", err)
+	}
+	// The method set of each group, read from the AST: an operation that is
+	// there under another name is not the same as one that is there.
+	groups := map[string][]string{}
+	for _, d := range f.Decls {
+		fn, isFunc := d.(*ast.FuncDecl)
+		if !isFunc || fn.Recv == nil {
+			continue
+		}
+		recv := recvName(fn)
+		if recv == "Client" || recv == "Error" {
+			continue // the runtime, whose do/call are unexported on purpose
+		}
+		groups[recv] = append(groups[recv], fn.Name.Name)
+		// The whole point: a method the caller's package cannot see is the
+		// same as an operation the generator did not write.
+		if !fn.Name.IsExported() {
+			t.Errorf("%s.%s is not exported — nobody outside the package can call it", recv, fn.Name.Name)
+		}
+	}
+	for _, want := range []struct{ group, method string }{
+		{"Config", "ConfigurarRegra"}, // Config is not a word of ConfigurarRegra: no cut
+		{"Config", "RestaurarRegra"},  // never matched the tag, and is the neighbour that hid the bug
+		{"Config", "Reset"},           // ConfigReset does start with the word Config: still cut
+		{"Regras", "Listar"},          // and the suffix side, untouched: ListarRegras in tag regras
+	} {
+		if !slices.Contains(groups[want.group], want.method) {
+			t.Errorf("no %s.%s in the generated client; %s has %v", want.group, want.method, want.group, groups[want.group])
+		}
+	}
+}
+
+// recvName is the type a method hangs on, pointer or not.
+func recvName(fn *ast.FuncDecl) string {
+	t := fn.Recv.List[0].Type
+	if star, ok := t.(*ast.StarExpr); ok {
+		t = star.X
+	}
+	if id, ok := t.(*ast.Ident); ok {
+		return id.Name
+	}
+	return ""
 }
