@@ -3,6 +3,24 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.112.0 — 2026-09-12
+
+Spec 133. Closes [#173](https://github.com/emersonjoe/trilha/issues/173).
+
+### Fixed
+
+- **`AllowedHosts` in production no longer rejects liveness/readiness probes.** With
+  `Config.AllowedHosts` set and `Env: Prod`, `checkHost` ran before every request, including
+  the built-in health probe — but every infrastructure probe (Docker `HEALTHCHECK`, Traefik's
+  `healthcheck.path`, kubelet's `livenessProbe`/`readinessProbe`, an ALB/NLB target health
+  check) addresses the process by IP, never by a name in the list, so the probe's `Host` was
+  always rejected with 400 and the container never went healthy. `/_trilha/health`,
+  `/_trilha/health/live` and `/_trilha/health/ready` (or the configured prefix) now answer
+  before `checkHost`, with any `Host`: the probe never reflects the `Host` back (no link, no
+  cookie, no redirect, no Host-keyed cache), so a forged `Host` cannot turn it into an
+  attack. Every other path — the app's routes, CORS, the metrics endpoint, a health route the
+  app writes itself — is still checked exactly as before.
+
 ## 0.111.0 — 2026-09-12
 
 Spec 132. Closes [#174](https://github.com/emersonjoe/trilha/issues/174) and

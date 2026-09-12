@@ -74,7 +74,7 @@ the [security reference](https://emersonjoe.github.io/trilha/reference/security)
 | Key rotation without logging everyone out | `Config.PreviousSecret` still verifies while the new key signs. |
 | Forged identity from the IdP | OIDC with `state`, `nonce`, PKCE `S256` and signature checked against the provider's JWKS (`auth`). |
 | Forged client IP | `X-Forwarded-For` honoured only from `TrustedProxies`. |
-| **Forged `Host`** (poisoned cache, password-reset link pointing at the attacker) | `Config.AllowedHosts`: a `Host` outside the list gets 400 before the router. **Off by default** — an empty list keeps today's behaviour. |
+| **Forged `Host`** (poisoned cache, password-reset link pointing at the attacker) | `Config.AllowedHosts`: a `Host` outside the list gets 400 before the router. **Off by default** — an empty list keeps today's behaviour. The health probe (`/_trilha/health`, `/live`, `/ready`) answers before this check: it never reflects the `Host` back, and an orchestrator addresses it by IP. |
 
 ### Tampering
 

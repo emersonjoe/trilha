@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -155,6 +157,29 @@ func TestHealthCanBeDisabled(t *testing.T) {
 	a := obsApp(t, Prod, Observability{Health: Off})
 	if rec := get(t, a, "GET", "/_trilha/health", "", nil); rec.Code != 404 {
 		t.Fatal(rec.Code)
+	}
+}
+
+// spec 133: a probe addressed by IP must not be turned away by AllowedHosts,
+// but a route the app owns still is.
+func TestHealthProbeAnswersBeforeAllowedHosts(t *testing.T) {
+	a := New(Config{Env: Prod, Logger: quiet(), AllowedHosts: []string{"app.example.com"}})
+	a.Register(Route{Pattern: "/", Methods: map[string]HandlerFunc{"GET": func(c *Ctx) error { return c.Text(200, "ok") }}})
+
+	req := httptest.NewRequest("GET", "/_trilha/health/live", nil)
+	req.Host = "10.0.0.7"
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("probe with a forged Host = %d, queria 200", rec.Code)
+	}
+
+	req = httptest.NewRequest("GET", "/", nil)
+	req.Host = "10.0.0.7"
+	rec = httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("rota do app com o mesmo Host = %d, queria 400", rec.Code)
 	}
 }
 

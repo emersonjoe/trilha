@@ -67,8 +67,10 @@ func pedeComHost(handler http.Handler, alvo, host string) *httptest.ResponseReco
 	return rec
 }
 
-// TestHostNaBorda: o pedido com Host de fora morre antes da rota, do health e
-// da métrica, e deixa rastro.
+// TestHostNaBorda: o pedido com Host de fora morre antes da rota e da
+// métrica, e deixa rastro. A sonda de saúde (spec 133) é a exceção: ela
+// responde antes da conferência de Host, porque quem a chama endereça o
+// processo por IP.
 func TestHostNaBorda(t *testing.T) {
 	var eventos []SecurityEvent
 	handler := hostApp(t, []string{"exemplo.com", "*.exemplo.com"}, &eventos)
@@ -82,7 +84,13 @@ func TestHostNaBorda(t *testing.T) {
 		t.Errorf("host da lista não é evento de segurança: %v", eventos)
 	}
 
-	for _, alvo := range []string{"/api/x", "/_trilha/health", "/_trilha/metrics", "/nao-existe"} {
+	for _, alvo := range []string{"/_trilha/health", "/_trilha/health/live", "/_trilha/health/ready"} {
+		if rec := pedeComHost(handler, alvo, "atacante.example"); rec.Code != http.StatusOK {
+			t.Errorf("sonda %s com Host de fora = %d, queria 200", alvo, rec.Code)
+		}
+	}
+
+	for _, alvo := range []string{"/api/x", "/_trilha/metrics", "/nao-existe"} {
 		rec := pedeComHost(handler, alvo, "atacante.example")
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("%s com Host de fora = %d, queria 400", alvo, rec.Code)
@@ -91,7 +99,7 @@ func TestHostNaBorda(t *testing.T) {
 			t.Errorf("%s: o handler rodou mesmo com o Host recusado", alvo)
 		}
 	}
-	if len(eventos) != 4 {
+	if len(eventos) != 3 {
 		t.Fatalf("queria um evento por recusa, veio %d: %v", len(eventos), eventos)
 	}
 	ev := eventos[0]

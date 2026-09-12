@@ -470,10 +470,19 @@ func (a *App) Handler() http.Handler {
 	return http.HandlerFunc(a.serveHTTP)
 }
 
-// serveHTTP answers the observability endpoints first, then routes.
+// serveHTTP answers the health probe, then the observability endpoints, then
+// routes.
 func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	// Before everything: a Host the app does not answer for gets no route, no
-	// probe and no CORS answer.
+	// Before the Host check, and so before everything else: the probe arrives
+	// by IP, never reflects the Host back (no link, no cookie, no redirect,
+	// no Host-keyed cache), and a container an orchestrator cannot probe is
+	// worse than a forged Host on an endpoint that only ever answers
+	// pass/fail (spec 133).
+	if a.obsHealth != "" && a.serveHealthProbe(w, r) {
+		return
+	}
+	// A Host the app does not answer for gets no route, no metrics and no
+	// CORS answer.
 	if len(a.cfg.AllowedHosts) > 0 && a.checkHost(w, r) {
 		return
 	}
@@ -484,7 +493,7 @@ func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if a.cors != nil && !a.routeOwnsCORS(r) && a.cors.handle(w, r) {
 		return
 	}
-	if (a.obsHealth != "" || a.obsMetrics != "") && a.serveObservability(w, r) {
+	if a.obsMetrics != "" && a.serveMetricsEndpoint(w, r) {
 		return
 	}
 	if a.instrument {

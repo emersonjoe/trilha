@@ -63,8 +63,8 @@ proxy), `X-Forwarded-Proto: https` turns on HSTS and marks cookies as `Secure`.
 ## Allowed hosts
 
 `Config.AllowedHosts []string` or `TRILHA_ALLOWED_HOSTS=a,b`. A request whose `Host` is not in
-the list is answered with 400 before the router, the probes and CORS, and emits a `host`
-event. Empty list = no check.
+the list is answered with 400 before the router and CORS, and emits a `host` event. Empty
+list = no check.
 
 | Pattern | Allows | Does not allow |
 |---|---|---|
@@ -73,6 +73,12 @@ event. Empty list = no check.
 
 In `Dev`, `localhost`, `127.0.0.1` and `::1` always pass. The value compared is the host the
 app receives — behind a proxy that rewrites `Host`, list what the proxy sends.
+
+The health probe (`/_trilha/health`, `/live`, `/ready`) answers before this check, with any
+`Host`: a liveness/readiness probe is addressed by IP (the container's, the pod's), never by
+a name in the list, and it never reflects the `Host` back — no link, no cookie, no redirect,
+no Host-keyed cache. Point your orchestrator's probe at one of these three paths; a health
+route the app writes itself is a route like any other and stays behind this check.
 
 ## Rate limiting
 

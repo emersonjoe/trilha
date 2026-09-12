@@ -42,7 +42,9 @@ Corrija tudo que for crítico. Um aviso é uma decisão: escreva por que, ou cor
 // internet — which is exactly the list worth reviewing before a deploy.
 func Config(cfg *trilha.Config) error {
 	// Who may say which Host: without this, a request with someone else's
-	// Host is answered with your session cookie in it.
+	// Host is answered with your session cookie in it. The container/pod
+	// probe still works: /_trilha/health/live and /ready answer before this
+	// check, because an orchestrator addresses the process by IP.
 	cfg.AllowedHosts = strings.Split(os.Getenv("ALLOWED_HOSTS"), ",")
 	// The proxy in front. Only these addresses may set X-Forwarded-For, so
 	// ClientIP is the visitor and not whatever the visitor typed.
@@ -89,6 +91,10 @@ volta, e a falha parece "o site está lento" até parecer "o site está fora".
   e-mail ou chame um modelo.
 - **`AllowedHosts` e HSTS** juntos — o HSTS é uma promessa que o navegador guarda por um ano,
   então ligue depois que o certificado funciona, nunca antes.
+- **Aponte a sonda do orquestrador para `/_trilha/health/live` ou `/ready`**, não para uma
+  rota escrita pelo próprio app: esses dois caminhos respondem antes do `AllowedHosts`, e
+  toda checagem de liveness/readiness endereça o contêiner pelo IP, não por um nome da
+  lista.
 
 ### O que você vai olhar quando quebrar
 

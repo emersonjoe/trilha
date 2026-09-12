@@ -276,6 +276,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"hosts unset":                 {"AllowedHosts not set", "AllowedHosts não definido"},
 	"hosts unset hint":            {"list the hosts the app answers for (Config.AllowedHosts or TRILHA_ALLOWED_HOSTS); without it a forged Host header poisons caches and reset links", "liste os hosts que o app atende (Config.AllowedHosts ou TRILHA_ALLOWED_HOSTS); sem isso um cabeçalho Host forjado envenena caches e links de redefinição"},
 	"hosts ok":                    {"AllowedHosts set", "AllowedHosts definido"},
+	"hosts ok hint":               {"point the container/proxy probe at /_trilha/health/live or /ready (exempt from the list) instead of a route of the app, or send a Host from the list", "aponte a sonda do contêiner/proxy para /_trilha/health/live ou /ready (isentos da lista) em vez de uma rota do app, ou mande um Host da lista"},
 	"proxies unset":               {"TRILHA_TRUSTED_PROXIES not set", "TRILHA_TRUSTED_PROXIES não definido"},
 	"proxies unset hint":          {"behind a proxy (nginx, load balancer) set the CIDRs so HSTS, client IP and rate limit are right", "atrás de um proxy (nginx, load balancer) defina os CIDRs para HSTS, IP do cliente e rate limit corretos"},
 	"proxies ok":                  {"TRILHA_TRUSTED_PROXIES set", "TRILHA_TRUSTED_PROXIES definido"},

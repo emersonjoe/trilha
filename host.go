@@ -59,8 +59,8 @@ func hostMatches(pattern, host string) bool {
 }
 
 // checkHost answers 400 and reports true when the request must not go on. It
-// runs before anything else: a forged Host deserves no route, no probe and no
-// CORS answer.
+// runs before everything except the health probe (spec 133): a forged Host
+// deserves no route, no metrics and no CORS answer.
 func (a *App) checkHost(w http.ResponseWriter, r *http.Request) bool {
 	if hostAllowed(a.cfg.AllowedHosts, r.Host, a.cfg.Env) {
 		return false

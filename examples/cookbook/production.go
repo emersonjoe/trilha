@@ -13,7 +13,9 @@ import (
 // internet — which is exactly the list worth reviewing before a deploy.
 func Config(cfg *trilha.Config) error {
 	// Who may say which Host: without this, a request with someone else's
-	// Host is answered with your session cookie in it.
+	// Host is answered with your session cookie in it. The container/pod
+	// probe still works: /_trilha/health/live and /ready answer before this
+	// check, because an orchestrator addresses the process by IP.
 	cfg.AllowedHosts = strings.Split(os.Getenv("ALLOWED_HOSTS"), ",")
 	// The proxy in front. Only these addresses may set X-Forwarded-For, so
 	// ClientIP is the visitor and not whatever the visitor typed.

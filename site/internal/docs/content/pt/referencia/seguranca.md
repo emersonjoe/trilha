@@ -63,8 +63,8 @@ proxy), `X-Forwarded-Proto: https` liga HSTS e marca cookies como `Secure`.
 ## Hosts permitidos
 
 `Config.AllowedHosts []string` ou `TRILHA_ALLOWED_HOSTS=a,b`. A requisição cujo `Host` não
-está na lista é respondida com 400 antes do roteador, das sondas e do CORS, e emite um evento
-`host`. Lista vazia = sem conferência.
+está na lista é respondida com 400 antes do roteador e do CORS, e emite um evento `host`.
+Lista vazia = sem conferência.
 
 | Padrão | Libera | Não libera |
 |---|---|---|
@@ -73,6 +73,13 @@ está na lista é respondida com 400 antes do roteador, das sondas e do CORS, e 
 
 Em `Dev`, `localhost`, `127.0.0.1` e `::1` passam sempre. O que se compara é o host que o app
 recebe — atrás de um proxy que reescreve o `Host`, liste o que o proxy manda.
+
+A sonda de saúde (`/_trilha/health`, `/live`, `/ready`) responde antes dessa conferência, com
+qualquer `Host`: uma sonda de liveness/readiness é endereçada por IP (o do contêiner, o do
+pod), nunca por um nome da lista, e nunca reflete o `Host` de volta — sem link, sem cookie,
+sem redirect, sem cache por Host. Aponte a sonda do orquestrador para um destes três
+caminhos; uma rota de saúde escrita pelo próprio app é uma rota como outra qualquer e
+continua atrás desta conferência.
 
 ## Limite de taxa
 

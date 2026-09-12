@@ -82,7 +82,7 @@ func runAudit(p *project, vuln bool) []check {
 	if os.Getenv("TRILHA_ALLOWED_HOSTS") == "" && !strings.Contains(src, "AllowedHosts") {
 		add("warn", t("hosts unset"), t("hosts unset hint"))
 	} else {
-		add("ok", t("hosts ok"), "")
+		add("ok", t("hosts ok"), t("hosts ok hint"))
 	}
 
 	// Observability (NIST SP 800-53 AU-9: audit information is protected;

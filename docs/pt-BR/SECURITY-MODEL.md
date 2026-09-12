@@ -75,7 +75,7 @@ recopiada aqui.
 | Trocar a chave sem deslogar todo mundo | `Config.PreviousSecret` continua verificando enquanto a nova assina. |
 | Identidade forjada vinda do IdP | OIDC com `state`, `nonce`, PKCE `S256` e assinatura conferida contra o JWKS do provedor (`auth`). |
 | IP de cliente forjado | `X-Forwarded-For` só é honrado vindo de `TrustedProxies`. |
-| **`Host` forjado** (cache envenenado, link de redefinição apontando para o atacante) | `Config.AllowedHosts`: `Host` fora da lista leva 400 antes do roteador. **Desligado por padrão** — lista vazia mantém o comportamento de hoje. |
+| **`Host` forjado** (cache envenenado, link de redefinição apontando para o atacante) | `Config.AllowedHosts`: `Host` fora da lista leva 400 antes do roteador. **Desligado por padrão** — lista vazia mantém o comportamento de hoje. A sonda de saúde (`/_trilha/health`, `/live`, `/ready`) responde antes dessa conferência: ela nunca reflete o `Host` de volta, e um orquestrador a endereça pelo IP. |
 
 ### Adulteração
 

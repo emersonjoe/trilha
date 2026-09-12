@@ -42,7 +42,9 @@ Fix everything critical. A warning is a decision: write down why, or fix it.
 // internet — which is exactly the list worth reviewing before a deploy.
 func Config(cfg *trilha.Config) error {
 	// Who may say which Host: without this, a request with someone else's
-	// Host is answered with your session cookie in it.
+	// Host is answered with your session cookie in it. The container/pod
+	// probe still works: /_trilha/health/live and /ready answer before this
+	// check, because an orchestrator addresses the process by IP.
 	cfg.AllowedHosts = strings.Split(os.Getenv("ALLOWED_HOSTS"), ",")
 	// The proxy in front. Only these addresses may set X-Forwarded-For, so
 	// ClientIP is the visitor and not whatever the visitor typed.
@@ -89,6 +91,9 @@ returns, and the failure looks like "the site is slow" until it looks like "the 
   calls a model.
 - **`AllowedHosts` and HSTS** together — HSTS is a promise the browser remembers for a year,
   so turn it on after the certificate works, never before.
+- **Point the orchestrator's probe at `/_trilha/health/live` or `/ready`**, not at a route
+  the app wrote itself: those two paths answer before `AllowedHosts`, and every liveness or
+  readiness check addresses the container by IP, not by a name in the list.
 
 ### What you will look at when it breaks
 

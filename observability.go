@@ -76,38 +76,65 @@ func (a *App) applyObservability() {
 	}
 }
 
-// serveObservability answers the probe and metrics endpoints before the
-// router sees the request. They run outside the middleware chain on purpose:
-// no CSRF, no layouts and, above all, no rate limiter — a liveness probe that
-// gets a 429 kills a healthy process.
-func (a *App) serveObservability(w http.ResponseWriter, r *http.Request) bool {
+// serveHealthProbe answers the liveness/readiness probes outside the
+// middleware chain and, on purpose, before checkHost (spec 133): no CSRF, no
+// layouts, no rate limiter — a probe that gets a 429 or a 400 for the Host it
+// was never given a say in kills a healthy process.
+func (a *App) serveHealthProbe(w http.ResponseWriter, r *http.Request) bool {
 	path := r.URL.Path
-	metrics := a.obsMetrics != "" && path == a.obsMetrics
-	health := a.obsHealth != "" && (path == a.obsHealth ||
-		path == a.obsHealth+"/live" || path == a.obsHealth+"/ready")
-	if !metrics && !health {
+	if path != a.obsHealth && path != a.obsHealth+"/live" && path != a.obsHealth+"/ready" {
 		return false
 	}
-	start := time.Now()
+	rw, start := a.beginObservabilityResponse(w)
+	if !a.observabilityMethodAllowed(rw, r) {
+		a.logProbe(r, rw, path, start)
+		return true
+	}
+	a.writeHealth(rw, r, strings.HasSuffix(path, "/live"))
+	a.logProbe(r, rw, path, start)
+	return true
+}
+
+// serveMetricsEndpoint answers the Prometheus endpoint, behind checkHost like
+// any other route: it is not a probe an orchestrator addresses by IP.
+func (a *App) serveMetricsEndpoint(w http.ResponseWriter, r *http.Request) bool {
+	path := r.URL.Path
+	if path != a.obsMetrics {
+		return false
+	}
+	rw, start := a.beginObservabilityResponse(w)
+	if !a.observabilityMethodAllowed(rw, r) {
+		a.logProbe(r, rw, path, start)
+		return true
+	}
+	a.writeMetrics(rw, r)
+	a.logProbe(r, rw, path, start)
+	return true
+}
+
+func (a *App) beginObservabilityResponse(w http.ResponseWriter) (*responseWriter, time.Time) {
 	rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 	hdr := rw.Header()
 	hdr.Set("Cache-Control", "no-store")
 	hdr.Set("X-Robots-Tag", "noindex")
 	hdr.Set("X-Content-Type-Options", "nosniff")
-	switch {
-	case r.Method != http.MethodGet && r.Method != http.MethodHead:
-		hdr.Set("Allow", "GET, HEAD")
-		rw.WriteHeader(http.StatusMethodNotAllowed)
-	case metrics:
-		a.writeMetrics(rw, r)
-	default:
-		a.writeHealth(rw, r, strings.HasSuffix(path, "/live"))
+	return rw, time.Now()
+}
+
+func (a *App) observabilityMethodAllowed(rw *responseWriter, r *http.Request) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
 	}
-	// Debug, not Info: a probe every second must not bury the audit trail
-	// (NIST SP 800-92).
+	rw.Header().Set("Allow", "GET, HEAD")
+	rw.WriteHeader(http.StatusMethodNotAllowed)
+	return false
+}
+
+// logProbe records the request at Debug, not Info: a probe every second must
+// not bury the audit trail (NIST SP 800-92).
+func (a *App) logProbe(r *http.Request, rw *responseWriter, path string, start time.Time) {
 	a.log.Debug("probe", "method", r.Method, "path", path, "status", rw.status,
 		"dur", time.Since(start).Round(time.Microsecond).String())
-	return true
 }
 
 func (a *App) writeMetrics(w *responseWriter, r *http.Request) {
