@@ -281,6 +281,18 @@ type Base struct {
 	ID        string `json:"id" validate:"required"`
 }
 
+// BodyAttachAPIDocumentsDocumentIDAttachmentPost is body_attach_api_documents__document_id__attachment_post
+type BodyAttachAPIDocumentsDocumentIDAttachmentPost struct {
+	File string `json:"file" validate:"required"`
+}
+
+// BodyImportDocumentsAPIDocumentsImportPost is body_import_documents_api_documents_import_post
+type BodyImportDocumentsAPIDocumentsImportPost struct {
+	// What the batch is.
+	Comment string   `json:"comment,omitempty"`
+	Files   []string `json:"files" validate:"required"`
+}
+
 // Document is a document the API stores.
 type Document struct {
 	Archived  bool                       `json:"archived,omitempty"`
@@ -334,12 +346,18 @@ type User struct {
 
 // DocumentsListParams is query of GET /api/documents.
 type DocumentsListParams struct {
-	Archived bool     `json:"archived,omitempty"`
-	Page     int64    `json:"page,omitempty" validate:"min=1"`
-	PageSize int64    `json:"page_size,omitempty" validate:"max=200"`
-	Q        string   `json:"q,omitempty"`
-	Status   Status   `json:"status,omitempty"`
-	Tag      []string `json:"tag,omitempty"`
+	Archived bool      `json:"archived,omitempty"`
+	Draft    *bool     `json:"draft,omitempty"`
+	Label    *[]string `json:"label,omitempty"`
+	Page     int64     `json:"page,omitempty" validate:"min=1"`
+	PageSize int64     `json:"page_size,omitempty" validate:"max=200"`
+	Q        string    `json:"q,omitempty"`
+	// Only what changed after this.
+	Since  *string  `json:"since,omitempty"`
+	State  *Status  `json:"state,omitempty"`
+	Status Status   `json:"status,omitempty"`
+	Tag    []string `json:"tag,omitempty"`
+	Year   *int64   `json:"year,omitempty"`
 }
 
 // DefaultHealthResponse is a schema of the API.
@@ -397,6 +415,14 @@ type Documents struct{ c *Client }
 
 // Documents returns the Documents part of the API.
 func (c *Client) Documents() *Documents { return &Documents{c: c} }
+
+// Attach is POST /api/documents/{document_id}/attachment: one file and nothing else, also by reference.
+func (g *Documents) Attach(ctx context.Context, documentID string, file io.Reader, filename string) error {
+	path := "/api/documents/" + url.PathEscape(documentID) + "/attachment"
+	var q url.Values
+	body, ctype := multipartBody([]formPart{{field: "file", filename: filename, r: file}})
+	return g.c.call(ctx, "POST", path, q, body, ctype, nil)
+}
 
 // DocumentsBatchForm is the multipart body of the request below.
 type DocumentsBatchForm struct {
@@ -457,12 +483,43 @@ func (g *Documents) Get(ctx context.Context, documentID string) (Document, error
 	return out, err
 }
 
+// DocumentsImportForm is the multipart body of the request below.
+type DocumentsImportForm struct {
+	Comment string // what the batch is
+	Files   []FilePart
+}
+
+// Import is POST /api/documents/import: the same batch, declared the way FastAPI declares one: a Body_ component, by reference.
+func (g *Documents) Import(ctx context.Context, form DocumentsImportForm) (Document, error) {
+	path := "/api/documents/import"
+	var q url.Values
+	var out Document
+	parts := make([]formPart, 0, 2)
+	if form.Comment != "" {
+		parts = append(parts, formPart{field: "comment", value: form.Comment})
+	}
+	for _, f := range form.Files {
+		parts = append(parts, formPart{field: "files", filename: f.Filename, r: f.Content})
+	}
+	body, ctype := multipartBody(parts)
+	err := g.c.call(ctx, "POST", path, q, body, ctype, &out)
+	return out, err
+}
+
 // List is GET /api/documents: list documents, newest first.
 func (g *Documents) List(ctx context.Context, p DocumentsListParams) (PagedDocument, error) {
 	path := "/api/documents"
 	q := url.Values{}
 	if p.Archived {
 		q.Set("archived", "true")
+	}
+	if p.Draft != nil {
+		q.Set("draft", strconv.FormatBool(*p.Draft))
+	}
+	if p.Label != nil {
+		for _, v := range *p.Label {
+			q.Add("label", v)
+		}
 	}
 	if p.Page != 0 {
 		q.Set("page", strconv.FormatInt(int64(p.Page), 10))
@@ -473,11 +530,20 @@ func (g *Documents) List(ctx context.Context, p DocumentsListParams) (PagedDocum
 	if p.Q != "" {
 		q.Set("q", p.Q)
 	}
+	if p.Since != nil {
+		q.Set("since", *p.Since)
+	}
+	if p.State != nil {
+		q.Set("state", string(*p.State))
+	}
 	if p.Status != "" {
 		q.Set("status", string(p.Status))
 	}
 	for _, v := range p.Tag {
 		q.Add("tag", v)
+	}
+	if p.Year != nil {
+		q.Set("year", strconv.FormatInt(*p.Year, 10))
 	}
 	var out PagedDocument
 	err := g.c.call(ctx, "GET", path, q, nil, "", &out)

@@ -796,6 +796,136 @@ func TestIdentificadorDoDocumentoEASCII(t *testing.T) {
 	}
 }
 
+// Spec 130 (#170): Pydantic writes `competencia: str | None = None` as anyOf
+// [string, null], which this generator already turns into *string — and then
+// the URL was built with fmt.Sprint of the pointer, which prints the address
+// when it is set and `<nil>` when it is not. Both differ from "", so the guard
+// that should leave the parameter out was always true: the filter travelled on
+// every request, always with garbage in it.
+func TestQueryOpcionalMandaOValorENaoOPonteiro(t *testing.T) {
+	var lastQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lastQuery = r.URL.RawQuery
+		json.NewEncoder(w).Encode(api.PagedDocument{Total: 0, Page: 1})
+	}))
+	defer srv.Close()
+	c := api.New(srv.URL)
+	ctx := context.Background()
+
+	// Nothing filled in: nothing of the optional part reaches the URL.
+	if _, err := c.Documents().List(ctx, api.DocumentsListParams{Page: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if lastQuery != "page=1" {
+		t.Fatalf("query = %q", lastQuery)
+	}
+
+	since, year, state, draft := "2026-09", int64(2026), api.StatusReady, false
+	label := []string{"a", "b"}
+	if _, err := c.Documents().List(ctx, api.DocumentsListParams{
+		Page:  1,
+		Since: &since,
+		Year:  &year,
+		State: &state,
+		// False is a value somebody chose: with a pointer there is already a
+		// way to say "absent", so it travels.
+		Draft: &draft,
+		// A nullable list is still a list: one parameter per element.
+		Label: &label,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if lastQuery != "draft=false&label=a&label=b&page=1&since=2026-09&state=ready&year=2026" {
+		t.Fatalf("query = %q", lastQuery)
+	}
+	src, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(src), "fmt.Sprint(p.") {
+		t.Error("a query parameter is still printed with fmt.Sprint of whatever it is")
+	}
+}
+
+// Spec 130 (#171): the form came from the schema since spec 092, but a FastAPI
+// never writes that schema inline — it declares a Body_<operation> component
+// and points at it. Reading mt.Schema.Properties straight found nothing there,
+// so every one of those operations fell back to "one file called file": a
+// `files: list[UploadFile]` was unreachable (422 Field required: files) and a
+// password beside the file vanished from the signature.
+func TestMultipartPorRefVemDoSchema(t *testing.T) {
+	type parte struct{ field, filename, value string }
+	got := make(chan []parte, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Error(err)
+			return
+		}
+		var partes []parte
+		for _, hdr := range r.MultipartForm.File["files"] {
+			f, err := hdr.Open()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			b, _ := io.ReadAll(f)
+			f.Close()
+			partes = append(partes, parte{field: "files", filename: hdr.Filename, value: string(b)})
+		}
+		for _, v := range r.MultipartForm.Value["comment"] {
+			partes = append(partes, parte{field: "comment", value: v})
+		}
+		got <- partes
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(api.Document{ID: "lote"})
+	}))
+	defer srv.Close()
+
+	c := api.New(srv.URL)
+	doc, err := c.Documents().Import(context.Background(), api.DocumentsImportForm{
+		Files: []api.FilePart{
+			{Filename: "a.xml", Content: strings.NewReader("primeiro")},
+			{Filename: "b.xml", Content: strings.NewReader("segundo")},
+		},
+		Comment: "lote de setembro",
+	})
+	if err != nil || doc.ID != "lote" {
+		t.Fatalf("import = %+v (%v)", doc, err)
+	}
+	want := []parte{
+		{field: "files", filename: "a.xml", value: "primeiro"},
+		{field: "files", filename: "b.xml", value: "segundo"},
+		{field: "comment", value: "lote de setembro"},
+	}
+	if partes := <-got; !reflect.DeepEqual(partes, want) {
+		t.Fatalf("parts = %+v, want %+v", partes, want)
+	}
+}
+
+// One binary property and nothing else, declared by reference: the shortcut of
+// two arguments is about what the form holds, not about how the document spells
+// it — so it survives the $ref, and this call is the proof it still compiles.
+func TestMultipartPorRefComUmArquivoSoContinuaDoisArgumentos(t *testing.T) {
+	got := make(chan string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f, hdr, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		b, _ := io.ReadAll(f)
+		got <- hdr.Filename + ":" + string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	if err := api.New(srv.URL).Documents().Attach(context.Background(), "d1", strings.NewReader("bytes"), "anexo.pdf"); err != nil {
+		t.Fatal(err)
+	}
+	if s := <-got; s != "anexo.pdf:bytes" {
+		t.Fatalf("part = %q", s)
+	}
+}
+
 // compile builds the generated client in a module of its own. The generator
 // imports the standard library and nothing else, so this needs no network — and
 // it is the only check that means what the issues mean: `it does not compile`.

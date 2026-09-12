@@ -263,9 +263,27 @@ while the call stays `c.Auditoria()` and the query struct stays `AuditoriaListar
 name the command had to invent is a line of the report, instead of news that waits for the
 `go build` of whoever calls the client.
 
-A `multipart/form-data` body is read as the form it is. One binary field and nothing else
-stays two arguments — `file io.Reader, filename string`. Anything else becomes a typed struct,
-so no field of the form is silently dropped:
+A query parameter the document declares as `T | null` — which is how Pydantic writes every
+`competencia: str | None = None` — is a pointer in the struct, and the pointer is the answer to
+"is this one being sent?". `nil` leaves the parameter out of the URL; anything else sends the
+value behind it, the empty string included, which is how you filter by the empty value. A
+field that is not a pointer keeps the rule it had: the zero value stays out, because there it
+is the only way to say "not this one". A nullable list is still a list — one parameter per
+element, none of them when it is nil.
+
+```go
+since := "2026-09"
+page, err := c.Documents().List(ctx, api.DocumentsListParams{
+	Page:  1,
+	Since: &since, // ?since=2026-09
+	State: nil,    // not in the URL at all
+})
+```
+
+A `multipart/form-data` body is read as the form it is — through the `$ref`, because a FastAPI
+never writes that schema inline: it declares a `Body_<operation>` component and points at it.
+One binary field and nothing else stays two arguments — `file io.Reader, filename string`.
+Anything else becomes a typed struct, so no field of the form is silently dropped:
 
 ```go
 _, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
@@ -273,8 +291,9 @@ _, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
 	Senha: "…",                                            // required, so it always travels
 })
 
-_, err = c.Documents().Batch(ctx, api.DocumentsBatchForm{
-	Files: []api.FilePart{a, b, c}, // three parts under the same name, in this order
+_, err = c.Documents().Import(ctx, api.DocumentsImportForm{
+	Files:   []api.FilePart{a, b, c}, // three parts under the same name, in this order
+	Comment: "September batch",       // a text field of the same form
 })
 ```
 

@@ -380,6 +380,13 @@ func pickBody(content map[string]*MediaType) (string, *MediaType) {
 // the shape that keeps the two arguments it always had — and with the form
 // otherwise.
 //
+// The schema is read through the $ref, because a FastAPI never writes this one
+// inline: it declares a `Body_<operation>` component and points at it. Reading
+// the properties of the reference itself found none, and the operation fell
+// back to "one file called file" — so a `files: list[UploadFile]` was
+// unreachable from the generated client and a password beside the file was
+// dropped from the signature, both without a word from the compiler.
+//
 // The parts come out in the order of the property names, which is the order of
 // the struct fields: the document has no order of its own to preserve, and a
 // generator that answers differently on two runs is a generator nobody can
@@ -388,8 +395,14 @@ func (b *builder) multipart(mt *MediaType, name, where string) (string, *form) {
 	if mt == nil || mt.Schema == nil {
 		return "file", nil
 	}
-	names := make([]string, 0, len(mt.Schema.Properties))
-	for n := range mt.Schema.Properties {
+	schema, _ := b.doc.Resolve(mt.Schema)
+	schema = b.flatten(schema)
+	if schema == nil {
+		b.note(where, "the multipart body points outside the document — sending one file called file")
+		return "file", nil
+	}
+	names := make([]string, 0, len(schema.Properties))
+	for n := range schema.Properties {
 		names = append(names, n)
 	}
 	sort.Strings(names)
@@ -397,11 +410,11 @@ func (b *builder) multipart(mt *MediaType, name, where string) (string, *form) {
 	f := &form{Type: name}
 	files := 0
 	for _, n := range names {
-		s := mt.Schema.Properties[n]
+		s := schema.Properties[n]
 		if s == nil {
 			continue
 		}
-		part := formPart{Wire: n, Field: exportName(n), Required: mt.Schema.IsRequired(n), Doc: doc(s)}
+		part := formPart{Wire: n, Field: exportName(n), Required: schema.IsRequired(n), Doc: doc(s)}
 		switch {
 		case s.Format == "binary":
 			files++

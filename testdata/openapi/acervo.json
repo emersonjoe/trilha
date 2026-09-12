@@ -13,7 +13,12 @@
           { "name": "q", "in": "query", "description": "Full text search.", "schema": { "type": "string" } },
           { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/Status" } },
           { "name": "tag", "in": "query", "schema": { "type": "array", "items": { "type": "string" } } },
-          { "name": "archived", "in": "query", "schema": { "type": "boolean" } }
+          { "name": "archived", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "since", "in": "query", "schema": { "anyOf": [ { "type": "string" }, { "type": "null" } ], "description": "Only what changed after this." } },
+          { "name": "year", "in": "query", "schema": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] } },
+          { "name": "state", "in": "query", "schema": { "anyOf": [ { "$ref": "#/components/schemas/Status" }, { "type": "null" } ] } },
+          { "name": "draft", "in": "query", "schema": { "anyOf": [ { "type": "boolean" }, { "type": "null" } ] } },
+          { "name": "label", "in": "query", "schema": { "anyOf": [ { "type": "array", "items": { "type": "string" } }, { "type": "null" } ] } }
         ],
         "responses": {
           "200": { "description": "A page of documents.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedDocument" } } } }
@@ -76,6 +81,31 @@
         "responses": { "202": { "description": "Queued.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } } }
       }
     },
+    "/api/documents/import": {
+      "post": {
+        "tags": ["documents"],
+        "operationId": "import_documents_api_documents_import_post",
+        "summary": "The same batch, declared the way FastAPI declares one: a Body_ component, by reference.",
+        "requestBody": {
+          "required": true,
+          "content": { "multipart/form-data": { "schema": { "$ref": "#/components/schemas/Body_import_documents_api_documents_import_post" } } }
+        },
+        "responses": { "202": { "description": "Queued.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Document" } } } } }
+      }
+    },
+    "/api/documents/{document_id}/attachment": {
+      "post": {
+        "tags": ["documents"],
+        "operationId": "attach_api_documents__document_id__attachment_post",
+        "summary": "One file and nothing else, also by reference.",
+        "parameters": [ { "name": "document_id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "multipart/form-data": { "schema": { "$ref": "#/components/schemas/Body_attach_api_documents__document_id__attachment_post" } } }
+        },
+        "responses": { "204": { "description": "Attached." } }
+      }
+    },
     "/api/documents/{document_id}/thumbnail": {
       "post": {
         "tags": ["documents"],
@@ -126,6 +156,21 @@
   "components": {
     "schemas": {
       "Status": { "type": "string", "title": "Status of a document in the pipeline.", "enum": ["pending", "processing", "ready", "failed"] },
+      "Body_import_documents_api_documents_import_post": {
+        "type": "object",
+        "title": "Body_import_documents_api_documents_import_post",
+        "properties": {
+          "files": { "type": "array", "items": { "type": "string", "format": "binary" } },
+          "comment": { "type": "string", "description": "What the batch is." }
+        },
+        "required": ["files"]
+      },
+      "Body_attach_api_documents__document_id__attachment_post": {
+        "type": "object",
+        "title": "Body_attach_api_documents__document_id__attachment_post",
+        "properties": { "file": { "type": "string", "format": "binary" } },
+        "required": ["file"]
+      },
       "Base": {
         "type": "object",
         "properties": { "id": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" } },

@@ -262,9 +262,28 @@ e a struct de query continua `AuditoriaListarParams`. Cada nome que o comando te
 é uma linha do relatório, em vez de uma notícia que espera o `go build` de quem chama o
 cliente.
 
-Um corpo `multipart/form-data` é lido como o formulário que ele é. Um único campo binário e
-mais nada continua sendo dois argumentos — `file io.Reader, filename string`. Qualquer outra
-forma vira um struct tipado, para nenhum campo do formulário sumir em silêncio:
+Um parâmetro de query que o documento declara como `T | null` — que é como o Pydantic escreve
+todo `competencia: str | None = None` — é um ponteiro na struct, e o ponteiro é a resposta para
+"este vai ser mandado?". `nil` deixa o parâmetro fora da URL; qualquer outra coisa manda o
+valor que está atrás dele, inclusive a string vazia, que é como se filtra pelo valor vazio. Um
+campo que não é ponteiro mantém a regra que já tinha: o valor zero fica de fora, porque ali
+essa é a única forma de dizer "este não". Uma lista anulável continua sendo uma lista — um
+parâmetro por elemento, nenhum quando é nil.
+
+```go
+competencia := "2026-09"
+page, err := c.Folhas().Listar(ctx, api.FolhasListarParams{
+	Page:        1,
+	Competencia: &competencia, // ?competencia=2026-09
+	Situacao:    nil,          // não aparece na URL
+})
+```
+
+Um corpo `multipart/form-data` é lido como o formulário que ele é — através do `$ref`, porque
+uma FastAPI nunca escreve esse esquema inline: ela declara um componente `Body_<operação>` e
+aponta para ele. Um único campo binário e mais nada continua sendo dois argumentos — `file
+io.Reader, filename string`. Qualquer outra forma vira um struct tipado, para nenhum campo do
+formulário sumir em silêncio:
 
 ```go
 _, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
@@ -272,8 +291,9 @@ _, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
 	Senha: "…",                                            // obrigatório, então sempre viaja
 })
 
-_, err = c.Documents().Batch(ctx, api.DocumentsBatchForm{
-	Files: []api.FilePart{a, b, c}, // três partes com o mesmo nome, nesta ordem
+_, err = c.Documents().Import(ctx, api.DocumentsImportForm{
+	Files:   []api.FilePart{a, b, c}, // três partes com o mesmo nome, nesta ordem
+	Comment: "lote de setembro",      // um campo de texto do mesmo formulário
 })
 ```
 

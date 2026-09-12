@@ -3,6 +3,56 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.109.0 — 2026-09-12
+
+Spec 130. Closes [#170](https://github.com/emersonjoe/trilha/issues/170) and
+[#171](https://github.com/emersonjoe/trilha/issues/171).
+
+### Fixed
+
+- **`trilha client`: an optional query parameter sends its value, not the pointer.** Pydantic
+  writes every `competencia: str | None = None` as `anyOf: [string, null]`, which this
+  generator already turns into a `*string` — and then built the URL with
+  `fmt.Sprint(p.Competencia)`, which for a pointer to a basic type prints the address
+  (`0xc0000a1b40`) when it is set and `<nil>` when it is not. Both differ from `""`, so the
+  guard that should leave the parameter out was always true: the filter travelled on every
+  request, always with garbage in it, and a filter by that field could not work. The pointer is
+  now read as what the document means by it — `nil` is the parameter left out, anything else is
+  the value behind it, the empty string included, which is how you filter by the empty value —
+  and the value is converted like every other type (`strconv` for a number or a boolean,
+  `string()` for an enum). A nullable list — `tags: list[str] | None`, as common in a FastAPI as
+  the string — is still a list: one parameter per element, none of them when it is nil, instead
+  of `?tags=[a b]`. A field that is not a pointer keeps the rule it had: the zero value stays
+  out of the URL.
+
+  ```go
+  since := "2026-09"
+  page, err := c.Documents().List(ctx, api.DocumentsListParams{Since: &since}) // ?since=2026-09
+  ```
+
+- **`trilha client`: a multipart body declared by `$ref` is read as the form it is.** Reading
+  the form from the schema arrived in 0.73.0, but a FastAPI never writes that schema inline: it
+  declares a `Body_<operation>` component and points at it. The generator read the properties of
+  the reference itself, found none, and fell back to the oldest shape it had — one file, in a
+  field called `file`. So `files: list[UploadFile]` was **unreachable** from the generated
+  client (the API answers `422 Field required: files`) and a `senha` beside the certificate
+  vanished from the signature, neither of them with a word from the compiler. The `$ref` is
+  followed now (and an `allOf` flattened) before the properties are read, so both spellings of
+  the same body give the same client: one part per property, `array` of `binary` as
+  `[]FilePart`, a scalar property as a text part. One binary property and nothing else still
+  takes `(file io.Reader, filename string)`.
+
+  ```go
+  _, err := c.Documents().Import(ctx, api.DocumentsImportForm{
+      Files:   []api.FilePart{a, b, c},
+      Comment: "September batch",
+  })
+  ```
+
+Regenerate with `trilha client`: an operation whose multipart body is a `$ref` changes
+signature, and the compiler names every call that has to change. A client whose document has
+neither shape does not change by a byte.
+
 ## 0.108.0 — 2026-09-12
 
 Spec 129. Closes [#166](https://github.com/emersonjoe/trilha/issues/166) and

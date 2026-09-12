@@ -600,6 +600,20 @@ func (b *builder) queryCode(q queryParam) string {
 		return "\tq.Set(" + quote(q.Wire) + ", " + expr + ")"
 	}
 	base := "p." + q.Field
+	// A pointer is how the document says "this one may be absent" — Pydantic
+	// writes every `str | None = None` as anyOf [string, null] — so nil is the
+	// parameter left out and anything else is a value the caller chose, the
+	// empty string included. What travels is the value behind the pointer:
+	// fmt.Sprint of the pointer itself printed the address, which is never "",
+	// so the guard was always true and the filter always garbage.
+	if inner, ok := strings.CutPrefix(q.Type, "*"); ok {
+		if strings.HasPrefix(inner, "[]") {
+			// A nullable list — `tags: list[str] | None` — is still a list: one
+			// parameter per element, and nil is none of them.
+			return "\tif " + base + " != nil {\n\t" + indent(b.repeat(q.Wire, "*"+base, inner)) + "\n\t}"
+		}
+		return "\tif " + base + " != nil {\n\t" + set(b.queryValue("*"+base, inner)) + "\n\t}"
+	}
 	var expr, guard string
 	switch {
 	case q.Type == "string":
@@ -612,10 +626,8 @@ func (b *builder) queryCode(q queryParam) string {
 		expr, guard = "strconv.FormatInt(int64("+base+"), 10)", base+" != 0"
 	case strings.HasPrefix(q.Type, "float"):
 		expr, guard = "strconv.FormatFloat(float64("+base+"), 'f', -1, 64)", base+" != 0"
-	case q.Type == "[]string":
-		return "\tfor _, v := range " + base + " {\n\t\tq.Add(" + quote(q.Wire) + ", v)\n\t}"
 	case strings.HasPrefix(q.Type, "[]"):
-		return "\tfor _, v := range " + base + " {\n\t\tq.Add(" + quote(q.Wire) + ", fmt.Sprint(v))\n\t}"
+		return b.repeat(q.Wire, base, q.Type)
 	default:
 		// A defined string type (an enum) or anything else: fmt.Sprint is the
 		// honest answer, and the zero value stays out of the URL.
@@ -625,6 +637,32 @@ func (b *builder) queryCode(q queryParam) string {
 		return set(expr)
 	}
 	return "\tif " + guard + " {\n\t" + set(expr) + "\n\t}"
+}
+
+// repeat writes a list as what a list is in a URL: the same name, once per
+// element.
+func (b *builder) repeat(wire, base, typ string) string {
+	elem := strings.TrimPrefix(typ, "[]")
+	return "\tfor _, v := range " + base + " {\n\t\tq.Add(" + quote(wire) + ", " + b.queryValue("v", elem) + ")\n\t}"
+}
+
+// indent pushes a block one tab in, so a loop nested inside an `if` reads as
+// the rest of the generated file does.
+func indent(s string) string { return strings.ReplaceAll(s, "\n", "\n\t") }
+
+// queryValue is one value as a string on the wire. It is what a form field
+// already does, plus the enum, which in a query is a defined string type.
+func (b *builder) queryValue(expr, typ string) string {
+	switch typ {
+	case "string", "bool", "int32", "int64", "float32", "float64":
+		return formValue(expr, typ)
+	}
+	if b.enums[typ] != nil {
+		return "string(" + expr + ")"
+	}
+	// Anything else — an object somebody put in a query — is what it always
+	// was: fmt.Sprint of the value, which at least is the value.
+	return "fmt.Sprint(" + expr + ")"
 }
 
 // quote is strconv.Quote without the import.
