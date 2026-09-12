@@ -26,9 +26,9 @@ description: The kit's components, variants, assets and the theme contract.
 
 | Function | Renders |
 |---|---|
-| `Container, Stack, Row, Grid, Spacer` | layout: max width, column, row, responsive grid |
+| `Container, Stack, Row, Grid, Spacer` | layout: max width, column, row, responsive grid — see [the layout boxes](/learn/ui-kit#the-boxes-layout-is-built-from) |
 | `Header(children...)`, `Brand(href, name)`, `Nav(...)`, `NavLink(href, label, current)`, `Sidebar(...)` | sticky top bar, brand, navigation (with `aria-current`), side column |
-| `H1, H2, H3, Lead, Muted, Code(s), Kbd(s)` | typography |
+| `H1, H2, H3, Lead, Muted, Code(s), Kbd(s)` | typography — see [a key and a snippet](/learn/ui-kit#a-key-and-a-snippet) |
 | `Button, Submit, ButtonLink(href, ...)` | `<button type=button>`, `<button type=submit>`, `<a>` styled as a button |
 | `Card, CardHeader, CardTitle(s), CardDescription(s), CardContent, CardFooter` | card |
 | `Input, Textarea, Select, Checkbox, Radio, Switch, Label` | controls (`Switch` has `role=switch`) |
@@ -47,13 +47,16 @@ description: The kit's components, variants, assets and the theme contract.
 | `Toaster(...)`, `Toast(kind, text, fadeMs)` | toast stack; `kind` = `""`, `success`, `error`; `fadeMs > 0` disappears on its own |
 | `Flashes(c)` | the toaster with the messages of [`c.Flash`](/reference/ctx) — put it in the layout; `FlashInfo`, `FlashSuccess` and `FlashError` are the kinds, and `FlashFadeMs` is how long one stays before it fades |
 | `Table(...)`, `Cards()`, `Num()`, `Depth(n)` | scrollable table; row-as-card below 640px — see [Listings](/reference/listings); numeric cell; row indentation (tree) |
-| `Tabs(id, Tab{Label, Content}...)` | accessible tabs (arrows, Home/End); the first starts open |
+| `Tabs(id, Tab{Label, Content}...)` | accessible tabs (arrows, Home/End); the first starts open — see [demo](/learn/ui-kit#more-content-behind-one-click) |
 | `Dialog(id, title, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | native `<dialog>` with `showModal` |
-| `Confirm(title, description)` | attributes for a `<form>`: `ui.js` asks in a dialog before submitting, fragment forms included. The confirming button repeats the pressed button's label; the other says `Cancel`, or what `h.Data("ui-confirm-cancel", "…")` says. Without JavaScript the form submits straight away |
-| `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu with the native `popover` attribute |
+| `Confirm(title, description)` | attributes for a `<form>`: `ui.js` asks in a dialog before submitting, fragment forms included. The confirming button repeats the pressed button's label; the other says `Cancel`, or what `h.Data("ui-confirm-cancel", "…")` says. Without JavaScript the form submits straight away — see [demo](/learn/ui-kit#saying-what-happened-and-asking-before-destroying) |
+| `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu with the native `popover` attribute — see [demo](/learn/ui-kit#where-you-are-and-who-is-signed-in) |
 | `Pagination(Pages{Page, Total, Href, Prev, Next, Label, Attrs})` | page navigation as links; the current page is a `<span>` with `aria-current`, the edges are absent instead of disabled, and a window of seven slots keeps the first and last page with `…` over each gap; one page renders nothing |
 | `Tooltip(text, ...)` | hint on what it wraps: `title` plus `data-ui-tooltip`, upgraded by `ui.js` into a bubble with `role=tooltip` and `aria-describedby` |
-| `Separator, Skeleton, Progress(value, max), Breadcrumb(Crumb{Label, Href}...), Avatar(initials, src), Collapsible(summary, ...)` | miscellaneous |
+| `Separator` | rule between sections — see [the layout boxes](/learn/ui-kit#the-boxes-layout-is-built-from) |
+| `Skeleton, Progress(value, max)` | loading placeholders — see [demo](/learn/ui-kit#before-the-data-arrives) |
+| `Breadcrumb(Crumb{Label, Href}...)`, `Avatar(initials, src)` | navigation trail and the picture (or initials) of who is signed in — see [demo](/learn/ui-kit#where-you-are-and-who-is-signed-in) |
+| `Collapsible(summary, ...)` | a styled `<details>` — see [demo](/learn/ui-kit#more-content-behind-one-click) |
 | `ThemeToggle()` | button that switches light/dark (`localStorage["ui-theme"]`) |
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | what `trilha.BindCSV` rejected, by line and column — see [CSV](/cookbook/csv) |
 | `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) |
@@ -62,9 +65,9 @@ description: The kit's components, variants, assets and the theme contract.
 | `SettingsForm(c, section, errs)` | the administration screen of a `trilha.Settings` section, drawn from the struct — see [App](/reference/app) |
 | `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarchy that opens node by node, and the field that picks one — see [Trees](#trees) |
 | `AuditTable(c, records, AuditOpts{...})` | the trail c.Audit writes, with filter, pagination and CSV export — see [Observability](/reference/observability) |
-| `Steps([]Step{Label, Href}, current)` | the indicator of a form in several screens — see [A form in steps](/cookbook/wizard) |
-| `Preview(c, src, PreviewOpts{...})` | a file shown beside its metadata: bar, frame, image or "cannot be previewed" — see [Ctx](/reference/ctx) and [Uploads](/cookbook/uploads) |
-| `Defer(c, id, src, DeferOpts{...})` | serves the page now and fills this part a moment later — see [Live fragments](/reference/live) |
+| `Steps([]Step{Label, Href}, current)` | the indicator of a form in several screens — see [A form in steps](/cookbook/wizard) and [demo](/learn/ui-kit#a-form-in-several-screens) |
+| `Preview(c, src, PreviewOpts{...})` | a file shown beside its metadata: bar, frame, image or "cannot be previewed" — see [Ctx](/reference/ctx), [Uploads](/cookbook/uploads) and [demo](/learn/ui-kit#a-file-next-to-its-metadata) |
+| `Defer(c, id, src, DeferOpts{...})` | serves the page now and fills this part a moment later — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#the-slow-part-a-moment-later) |
 | `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) |
 | `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |
 | `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
@@ -74,14 +77,14 @@ description: The kit's components, variants, assets and the theme contract.
 | `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) |
 | `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, test)`, `ParseConnectionForm(c)` | the external services and their secrets, with the Test button — see [ConnectionsPanel](#connectionspanel) |
-| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(title, actions...)` | the frame of an application with sections: side navigation, top bar, and the title of the screen with its buttons — see [Shell](/reference/shell) |
+| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(title, actions...)` | the frame of an application with sections: side navigation, top bar, and the title of the screen with its buttons — see [Shell](/reference/shell) and [demo](/learn/ui-kit#the-frame-of-an-internal-app) |
 | `Stat(label, value, ...)`, `StatHint(text, ...)`, `Sparkline(values, SparkOpts{...})`, `SparklineTitle(values, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(name)` | a number on a panel and the drawing next to it, in SVG written by the server; `ChartTitle` is what makes the drawing an image with a name instead of decoration — see [Charts](/reference/charts) |
 | `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | what is waiting for whoever is reading, and the count beside the menu item (zero draws nothing) — see [Approval](/reference/approval) |
 | `PolicyGrid(policy, PolicyGridOpts{...})` | the role × module grid of an `auth.Policy`, as a form — see [Auth](/reference/auth) |
 | `TaskTable(c, tasks, TaskTableOpts{...})`, `TaskProgress(c, tasks, id)` | the background work: the list with its states and the progress of one run — see [Tasks](/reference/task) |
 | `WebhooksPanel(c, hooks, deliveries, WebhooksOpts{...})` | the subscriptions, the secret and the delivery log of a `webhook.Hooks` — see [Webhook](/reference/webhook) |
-| `Empty(EmptyOpts{...})`, `EmptyError(c, title, err, action)` | the screen with nothing to show, and the one that could not load: the message is what the person reads, and `err` appears only in development |
-| `Status(enum, value)` | one value of a `trilha.Enum` as a badge with its label and its tone; a value the enum no longer knows renders muted instead of taking the screen down |
+| `Empty(EmptyOpts{...})`, `EmptyError(c, title, err, action)` | the screen with nothing to show, and the one that could not load: the message is what the person reads, and `err` appears only in development — see [demo](/learn/ui-kit#nothing-to-show-and-what-could-not-load) |
+| `Status(enum, value)` | one value of a `trilha.Enum` as a badge with its label and its tone; a value the enum no longer knows renders muted instead of taking the screen down — see [demo](/learn/ui-kit#one-value-of-an-enum-as-a-badge) |
 
 ## Trees
 
@@ -177,6 +180,8 @@ promise: the replacement may be running inside a view transition). See
 | `ui.PendingAfter(ms)` | the threshold on the trigger; default 120 ms, zero or less means the default |
 | `ui.NoTransition()` | no crossfade on this trigger |
 | `ui.Spinner(attrs…)` | a turning ring sized by the font it sits in, hidden from assistive technology |
+
+See it live: [demo](/learn/ui-kit#what-happens-during-a-swap).
 
 While a target waits, `data-trilha-pending` is on the target, the trigger and every indicator
 of that target, and `aria-busy` is on the target; `trilha:pending` and `trilha:settled` fire

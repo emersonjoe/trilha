@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.118.0 — 2026-09-12
+
+Spec 139. Closes [#189](https://github.com/emersonjoe/trilha/issues/189).
+
+### Documentation
+
+- **Fifteen new live demos for the kit's layout and navigation components** — the first of
+  three demo issues; the other two cover data/charts and the pattern screens. Before this,
+  `site/internal/demos/kit.go` carried six demos (buttons, form, card, dialog, table,
+  pagination) and everything shipped since 0.6x only had a row in `reference/ui.md`'s
+  catalogue. `learn/ui-kit.md` (and its `pt` mirror) now show `Shell`+`PageHeader` (the frame
+  of an internal app, with the active nav item), `Breadcrumb`+`Avatar`, `MenuTrigger`/
+  `MenuItem`, `Collapsible`, a dedicated `Tabs` demo, `Grid`/`Row`/`Stack`/`Separator`,
+  `Skeleton`+`Progress`, `Kbd`+`Code`, `Status`, `Empty`/`EmptyError`, `Steps`, `Defer`,
+  `Preview`, `Confirm` and `Indicator`/`Spinner`/`NoTransition`, each with the exact Go code
+  beside the rendered result — the same `@demo` mechanism the six existing ones already use,
+  no new route per demo.
+- **`reference/ui.md` links a demo next to the row it documents**, in both locales, so the
+  catalogue is no longer a dead end for anything covered by a demo.
+- `site/public/site.css` gained one rule scoping `ui.Shell`'s `min-height: 100dvh` to a
+  sensible height inside a demo card — the frame is meant to fill an app's viewport, not the
+  documentation site's.
+
 ## 0.117.0 — 2026-09-12
 
 Spec 138. Closes [#188](https://github.com/emersonjoe/trilha/issues/188).

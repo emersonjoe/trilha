@@ -83,6 +83,8 @@ O `ui.js` segura o envio, abre o diálogo do kit e só então deixa passar. Sem 
 formulário envia direto; quando isso não serve, pergunte numa página própria (`GET
 /blog/{slug}/apagar` renderizando o mesmo formulário), que funciona dos dois jeitos.
 
+@demo ui-confirmar
+
 ## Cards, abas, progresso
 
 @demo ui-card
@@ -120,6 +122,112 @@ responde ao mouse, ao foco do teclado e ao toque, fechando com Escape.
 A dica é uma string de propósito. Dica com link dentro é *popover*, e para isso existe o
 `ui.Menu`.
 :::
+
+## A moldura de um app interno
+
+O `ui.Shell` é a barra lateral, o topo e o menu de quem está logado, escritos uma vez só. O
+item cujo `Href` é o prefixo mais longo de `Current` ganha `aria-current="page"` — um match
+exato sempre vence, então `/items/42/edit` acende `/items`, não `/`. O `ui.PageHeader` é o
+título da tela dentro dele, com a volta e as ações da tela. Veja [Shell](/pt/referencia/shell)
+para `Hide`, a barra que colapsa e o `IconNode`.
+
+@demo ui-shell
+
+## Onde você está, e quem está logado
+
+O `ui.Breadcrumb` desenha a trilha com links de verdade, com a página atual num `<span
+aria-current="page">` em vez de um link para ela mesma. O `ui.Avatar` cai para as iniciais
+quando não há foto.
+
+@demo ui-breadcrumb
+
+Um menu que abre uma lista pequena de ações é o `ui.MenuTrigger` e o `ui.Menu` dividindo um
+`id`, sobre o atributo `popover` do próprio navegador — sem script nenhum.
+
+@demo ui-menu
+
+## Mais conteúdo atrás de um clique
+
+O `ui.Collapsible` é um `<details>` com estilo: nenhum script decide se está aberto, o
+navegador já faz isso.
+
+@demo ui-colapsavel
+
+O `ui.Tabs` funciona igual onde quer que apareça — as setas e Home/End movem a seleção, a
+primeira aba começa aberta:
+
+@demo ui-abas
+
+## Os blocos com que o layout é construído
+
+`ui.Row`, `ui.Stack` e `ui.Grid` são `<div>`s com uma classe cada — linha, coluna, grade
+responsiva — e `ui.Separator` é o traço entre seções de uma tela.
+
+@demo ui-grade
+
+## Antes do dado chegar
+
+O `ui.Skeleton` é a forma do que está por vir; o `ui.Progress` é uma barra numa posição
+conhecida. Nenhum dos dois precisa de script — o `ui.Defer`, mais adiante, é o que troca um
+skeleton pelo conteúdo de verdade.
+
+@demo ui-carregamento
+
+## Uma tecla, e um trecho
+
+`ui.Kbd` e `ui.Code` ficam em linha com a frase ao redor.
+
+@demo ui-tipografia
+
+## Um valor do enum, como emblema
+
+`ui.Status(enum, valor)` lê o rótulo e o tom que um `trilha.Enum` declarou uma vez só — a
+mesma declaração que as opções de um `<select>` e a validação de um formulário já usam. Um
+valor que o enum não conhece mais renderiza discreto, não em branco.
+
+@demo ui-status
+
+## Nada para mostrar, e o que não deu para carregar
+
+O `ui.Empty` é a tela sem nada nela: ícone, título, uma dica do que fazer a seguir e uma
+saída. O `ui.EmptyError` é a mesma forma para uma tela que falhou ao carregar — o erro em si
+só aparece em desenvolvimento, nunca na tela de quem está visitando.
+
+@demo ui-vazio
+
+## Um formulário em várias telas
+
+O `ui.Steps` desenha onde alguém está: o que ficou para trás linka de volta, o que está à
+frente é texto simples, e a etapa atual carrega `aria-current="step"`. O estado entre as
+telas é o `Ctx.Draft` — veja [o formulário em etapas](/pt/receitas/formulario-em-passos).
+
+@demo ui-etapas
+
+## A parte lenta, um instante depois
+
+Um painel que precisa de sete consultas não deveria segurar a página inteira pela que demora
+dois segundos. O `ui.Defer` desenha um placeholder agora e pede o fragmento assim que a
+página carregou; veja [Fragmentos vivos](/pt/referencia/vivo) para a rota que ele espera do
+outro lado.
+
+@demo ui-atraso
+
+## Um arquivo ao lado dos seus metadados
+
+O `ui.Preview` mostra uma imagem como `<img>` que abre em tamanho cheio, um documento que o
+navegador desenha embutido, ou — quando o tipo não dá para mostrar no lugar — um cartão com
+botão de download em vez de um quadro em branco.
+
+@demo ui-preview
+
+## O que acontece durante uma troca
+
+O `ui.Indicator(id)` marca qualquer coisa — um emblema, um spinner — para aparecer só
+enquanto o alvo daquele `id` estiver esperando além do limite do `ui.PendingAfter` (120 ms
+por padrão), e o `ui.NoTransition()` desliga o esmaecimento cruzado de um gatilho que dispara
+com frequência, como uma busca ao vivo.
+
+@demo ui-espera
 
 ## Atualizar e customizar
 

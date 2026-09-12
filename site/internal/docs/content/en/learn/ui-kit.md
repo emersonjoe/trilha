@@ -82,6 +82,8 @@ h.Form(h.Method("post"), h.Action("/blog/"+p.Slug), trilha.CSRFInput(c),
 JavaScript the form submits straight away; when that is not good enough, ask on a page of
 its own (`GET /blog/{slug}/delete` rendering the same form), which works either way.
 
+@demo ui-confirmar
+
 ## Cards, tabs, progress
 
 @demo ui-card
@@ -119,6 +121,110 @@ and the hint answers to hover, keyboard focus and touch, closing with Escape.
 The hint is a string on purpose. A hint with a link inside is a popover, and that is what
 `ui.Menu` is for.
 :::
+
+## The frame of an internal app
+
+`ui.Shell` is the sidebar, the top bar and the user's menu, written once. The item whose
+`Href` is the longest prefix of `Current` gets `aria-current="page"` — an exact match always
+wins, so `/items/42/edit` lights up `/items`, not `/`. `ui.PageHeader` is the title of the
+screen inside it, with the way back and the actions of the screen. See
+[Shell](/reference/shell) for `Hide`, the collapsing sidebar and `IconNode`.
+
+@demo ui-shell
+
+## Where you are, and who is signed in
+
+`ui.Breadcrumb` renders the trail as real links, with the current page as a `<span
+aria-current="page">` instead of a link to itself. `ui.Avatar` falls back to initials when
+there is no picture.
+
+@demo ui-breadcrumb
+
+A menu that opens a small list of actions is `ui.MenuTrigger` and `ui.Menu` sharing an `id`,
+on the browser's own `popover` attribute — no script of its own.
+
+@demo ui-menu
+
+## More content behind one click
+
+`ui.Collapsible` is a styled `<details>`: no script decides whether it is open, the browser
+already does.
+
+@demo ui-colapsavel
+
+`ui.Tabs` works the same wherever it appears — arrows and Home/End move the selection, the
+first tab starts open:
+
+@demo ui-abas
+
+## The boxes layout is built from
+
+`ui.Row`, `ui.Stack` and `ui.Grid` are `<div>`s with one class each — a row, a column, a
+responsive grid — and `ui.Separator` is the rule between sections of a screen.
+
+@demo ui-grade
+
+## Before the data arrives
+
+`ui.Skeleton` is the placeholder shape; `ui.Progress` is a bar at a known position. Neither
+needs a script — `ui.Defer`, further down, is what swaps a skeleton for the real thing.
+
+@demo ui-carregamento
+
+## A key, and a snippet
+
+`ui.Kbd` and `ui.Code` sit inline with the sentence around them.
+
+@demo ui-tipografia
+
+## One value of an enum, as a badge
+
+`ui.Status(enum, value)` reads the label and the tone a `trilha.Enum` declared once — the
+same declaration a `<select>`'s options and a form's validation already use. A value the
+enum no longer knows renders muted, not blank.
+
+@demo ui-status
+
+## Nothing to show, and what could not load
+
+`ui.Empty` is the screen with nothing on it: an icon, a title, a hint that says what to do
+next, and a way out. `ui.EmptyError` is the same shape for a screen that failed to load — the
+error itself only appears in development, never on the page a visitor sees.
+
+@demo ui-vazio
+
+## A form in several screens
+
+`ui.Steps` draws where somebody is: what is behind them links back, what is ahead is plain
+text, and the current step carries `aria-current="step"`. The state between screens is
+`Ctx.Draft` — see [the wizard recipe](/cookbook/wizard).
+
+@demo ui-etapas
+
+## The slow part, a moment later
+
+A dashboard that needs seven queries should not hold the whole page for the one that takes
+two seconds. `ui.Defer` renders a placeholder now and asks for the fragment once the page has
+loaded; see [Live fragments](/reference/live) for the route it expects on the other end.
+
+@demo ui-atraso
+
+## A file next to its metadata
+
+`ui.Preview` shows an image as an `<img>` you can open at full size, a document a browser
+renders inline, or — when the type cannot be shown in place — a card with a download button
+instead of a frame that renders blank.
+
+@demo ui-preview
+
+## What happens during a swap
+
+`ui.Indicator(id)` marks anything — a badge, a spinner — to appear only while the target with
+that `id` has been waiting past `ui.PendingAfter`'s threshold (120 ms by default), and
+`ui.NoTransition()` turns off the crossfade for a trigger that fires often, like a live
+search.
+
+@demo ui-espera
 
 ## Updating and customizing
 

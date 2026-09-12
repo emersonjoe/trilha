@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.117.0)
+## Onde o Trilha está (setembro de 2026, v0.118.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -31,7 +31,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Observabilidade | sondas de vida e prontidão, métricas Prometheus, `traceparent`, eventos de segurança, log de requisição com filtro, uso por chave de API | specs 014, 021, 117 |
 | API | JSON, erro RFC 9457 (`problem+json`), negociação por `Accept`, SSE, `route.go` com `Kind`, `trilha openapi` dos seus handlers, `trilha client` do OpenAPI alheio, as rotas como ferramentas MCP | specs 001, 005, 008, 030, 092, 119, 122 |
 | SSG | `trilha export`, `AddExportPath`, `BasePath` | spec 003 |
-| UI | kit `ui` com ~60 componentes, tema compatível com shadcn/ui, ícones Lucide (com `IconNode` para um ícone próprio), gráficos sem bundle, listagens (com `Cards` para virar cartão no celular), fila de aprovação | specs 006, 023, 024, 113, 135 |
+| UI | kit `ui` com ~60 componentes, tema compatível com shadcn/ui, ícones Lucide (com `IconNode` para um ícone próprio), gráficos sem bundle, listagens (com `Cards` para virar cartão no celular), fila de aprovação, demos vivas de layout e navegação no site | specs 006, 023, 024, 113, 135, 139 |
 | IA | `ai` (protocolo OpenAI: OpenAI, Ollama, OpenRouter, vLLM…), `ai/mcp` cliente e servidor, `mcp.FromRoutes`, as receitas do chat de IA e do agente que age sobre os dados do app | specs 005, 119, 136, 137 |
 | Migração | `trilha migrate next`: a árvore de `app/`, o relatório com classe e motivo por linha, a seção *Server Actions*, o que não tem equivalente | specs 091, 122, 131 |
 | Testes | unitários, golden, integração por exemplo, e2e da CLI, fuzz | princípio VI |

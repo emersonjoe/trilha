@@ -26,9 +26,9 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 
 | Função | Renderiza |
 |---|---|
-| `Container, Stack, Row, Grid, Spacer` | layout: largura máxima, coluna, linha, grade responsiva |
+| `Container, Stack, Row, Grid, Spacer` | layout: largura máxima, coluna, linha, grade responsiva — veja [os blocos do layout](/pt/aprender/interface-com-ui#os-blocos-com-que-o-layout-e-construido) |
 | `Header(children...)`, `Brand(href, nome)`, `Nav(...)`, `NavLink(href, rótulo, atual)`, `Sidebar(...)` | barra fixa no topo, marca, navegação (com `aria-current`), coluna lateral |
-| `H1, H2, H3, Lead, Muted, Code(s), Kbd(s)` | tipografia |
+| `H1, H2, H3, Lead, Muted, Code(s), Kbd(s)` | tipografia — veja [uma tecla e um trecho](/pt/aprender/interface-com-ui#uma-tecla-e-um-trecho) |
 | `Button, Submit, ButtonLink(href, ...)` | `<button type=button>`, `<button type=submit>`, `<a>` com cara de botão |
 | `Card, CardHeader, CardTitle(s), CardDescription(s), CardContent, CardFooter` | cartão |
 | `Input, Textarea, Select, Checkbox, Radio, Switch, Label` | controles (`Switch` tem `role=switch`) |
@@ -47,13 +47,16 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Toaster(...)`, `Toast(tipo, texto, fadeMs)` | pilha de avisos; `tipo` = `""`, `success`, `error`; `fadeMs > 0` some sozinho |
 | `Flashes(c)` | o toaster com os avisos do [`c.Flash`](/pt/referencia/ctx) — ponha no layout; `FlashInfo`, `FlashSuccess` e `FlashError` são os tipos, e o `FlashFadeMs` é quanto tempo um deles fica antes de sumir |
 | `Table(...)`, `Cards()`, `Num()`, `Depth(n)` | tabela rolável; linha vira cartão abaixo de 640px — veja [Listagens](/pt/referencia/listagens); célula numérica; indentação de linha (árvore) |
-| `Tabs(id, Tab{Label, Content}...)` | abas acessíveis (setas, Home/End); a primeira começa aberta |
+| `Tabs(id, Tab{Label, Content}...)` | abas acessíveis (setas, Home/End); a primeira começa aberta — veja [demo](/pt/aprender/interface-com-ui#mais-conteudo-atras-de-um-clique) |
 | `Dialog(id, título, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | `<dialog>` nativo com `showModal` |
-| `Confirm(título, descrição)` | atributos para um `<form>`: o `ui.js` pergunta num diálogo antes de enviar, inclusive em formulário de fragmento. O botão que confirma repete o rótulo do botão apertado; o outro diz `Cancel`, ou o que estiver em `h.Data("ui-confirm-cancel", "…")`. Sem JavaScript o formulário envia direto |
-| `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu com o atributo `popover` nativo |
+| `Confirm(título, descrição)` | atributos para um `<form>`: o `ui.js` pergunta num diálogo antes de enviar, inclusive em formulário de fragmento. O botão que confirma repete o rótulo do botão apertado; o outro diz `Cancel`, ou o que estiver em `h.Data("ui-confirm-cancel", "…")`. Sem JavaScript o formulário envia direto — veja [demo](/pt/aprender/interface-com-ui#contar-o-que-aconteceu-e-perguntar-antes-de-destruir) |
+| `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu com o atributo `popover` nativo — veja [demo](/pt/aprender/interface-com-ui#onde-voce-esta-e-quem-esta-logado) |
 | `Pagination(Pages{Page, Total, Href, Prev, Next, Label, Attrs})` | navegação de páginas em links; a página atual é um `<span>` com `aria-current`, as pontas somem em vez de virarem link desabilitado, e uma janela de sete casas guarda a primeira e a última página com `…` sobre cada buraco; uma página só não desenha nada |
 | `Tooltip(texto, ...)` | dica no que ele embrulha: `title` mais `data-ui-tooltip`, promovido pelo `ui.js` a uma bolha com `role=tooltip` e `aria-describedby` |
-| `Separator, Skeleton, Progress(valor, máx), Breadcrumb(Crumb{Label, Href}...), Avatar(iniciais, src), Collapsible(resumo, ...)` | diversos |
+| `Separator` | traço entre seções — veja [os blocos do layout](/pt/aprender/interface-com-ui#os-blocos-com-que-o-layout-e-construido) |
+| `Skeleton, Progress(valor, máx)` | espaços reservados de carregamento — veja [demo](/pt/aprender/interface-com-ui#antes-do-dado-chegar) |
+| `Breadcrumb(Crumb{Label, Href}...)`, `Avatar(iniciais, src)` | trilha de navegação e a foto (ou as iniciais) de quem está logado — veja [demo](/pt/aprender/interface-com-ui#onde-voce-esta-e-quem-esta-logado) |
+| `Collapsible(resumo, ...)` | um `<details>` com estilo — veja [demo](/pt/aprender/interface-com-ui#mais-conteudo-atras-de-um-clique) |
 | `ThemeToggle()` | botão que alterna claro/escuro (`localStorage["ui-theme"]`) |
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | o que o `trilha.BindCSV` recusou, por linha e coluna — veja [Planilhas (CSV)](/pt/receitas/planilhas) |
 | `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) |
@@ -62,9 +65,9 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `SettingsForm(c, seção, errs)` | a tela de administração de uma seção do `trilha.Settings`, desenhada da struct — veja [App](/pt/referencia/app) |
 | `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarquia que abre nó a nó, e o campo que escolhe um — veja [Árvores](#árvores) |
 | `AuditTable(c, registros, AuditOpts{...})` | a trilha que o c.Audit escreve, com filtro, paginação e exportação CSV — veja [Observabilidade](/pt/referencia/observabilidade) |
-| `Steps([]Step{Label, Href}, atual)` | o indicador de um formulário em várias telas — veja [Formulário em passos](/pt/receitas/formulario-em-passos) |
-| `Preview(c, src, PreviewOpts{...})` | o arquivo ao lado do que se sabe dele: barra, quadro, imagem ou "não dá para pré-visualizar" — veja [Ctx](/pt/referencia/ctx) e [Uploads](/pt/receitas/uploads) |
-| `Defer(c, id, src, DeferOpts{...})` | serve a página agora e preenche esta parte um instante depois — veja [Fragmentos vivos](/pt/referencia/vivo) |
+| `Steps([]Step{Label, Href}, atual)` | o indicador de um formulário em várias telas — veja [Formulário em passos](/pt/receitas/formulario-em-passos) e [demo](/pt/aprender/interface-com-ui#um-formulario-em-varias-telas) |
+| `Preview(c, src, PreviewOpts{...})` | o arquivo ao lado do que se sabe dele: barra, quadro, imagem ou "não dá para pré-visualizar" — veja [Ctx](/pt/referencia/ctx), [Uploads](/pt/receitas/uploads) e [demo](/pt/aprender/interface-com-ui#um-arquivo-ao-lado-dos-seus-metadados) |
+| `Defer(c, id, src, DeferOpts{...})` | serve a página agora e preenche esta parte um instante depois — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#a-parte-lenta-um-instante-depois) |
 | `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) |
 | `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |
 | `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
@@ -74,14 +77,14 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) |
 | `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, teste)`, `ParseConnectionForm(c)` | os serviços externos e seus segredos, com o botão Testar — veja [ConnectionsPanel](#connectionspanel) |
-| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(título, ações...)` | a moldura de um app com seções: navegação lateral, barra de cima e o título da tela com seus botões — veja [Shell](/pt/referencia/shell) |
+| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(título, ações...)` | a moldura de um app com seções: navegação lateral, barra de cima e o título da tela com seus botões — veja [Shell](/pt/referencia/shell) e [demo](/pt/aprender/interface-com-ui#a-moldura-de-um-app-interno) |
 | `Stat(rótulo, valor, ...)`, `StatHint(texto, ...)`, `Sparkline(valores, SparkOpts{...})`, `SparklineTitle(valores, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(nome)` | um número no painel e o desenho ao lado, em SVG escrito pelo servidor; `ChartTitle` é o que faz o desenho ser uma imagem com nome em vez de enfeite — veja [Gráficos](/pt/referencia/graficos) |
 | `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | o que espera decisão de quem está lendo, e a contagem ao lado do item de menu (zero não desenha nada) — veja [Approval](/pt/referencia/approval) |
 | `PolicyGrid(policy, PolicyGridOpts{...})` | a grade papel × módulo de um `auth.Policy`, como formulário — veja [Auth](/pt/referencia/auth) |
 | `TaskTable(c, tarefas, TaskTableOpts{...})`, `TaskProgress(c, tarefas, id)` | o trabalho em segundo plano: a lista com seus estados e o progresso de uma execução — veja [Tarefas](/pt/referencia/task) |
 | `WebhooksPanel(c, hooks, entregas, WebhooksOpts{...})` | as assinaturas, o segredo e o registro de entregas de um `webhook.Hooks` — veja [Webhook](/pt/referencia/webhook) |
-| `Empty(EmptyOpts{...})`, `EmptyError(c, título, err, ação)` | a tela sem nada para mostrar, e a que não conseguiu carregar: a mensagem é o que a pessoa lê, e o `err` aparece só em desenvolvimento |
-| `Status(enum, valor)` | um valor de um `trilha.Enum` como selo, com seu rótulo e seu tom; valor que o enum não conhece mais sai discreto em vez de derrubar a tela |
+| `Empty(EmptyOpts{...})`, `EmptyError(c, título, err, ação)` | a tela sem nada para mostrar, e a que não conseguiu carregar: a mensagem é o que a pessoa lê, e o `err` aparece só em desenvolvimento — veja [demo](/pt/aprender/interface-com-ui#nada-para-mostrar-e-o-que-nao-deu-para-carregar) |
+| `Status(enum, valor)` | um valor de um `trilha.Enum` como selo, com seu rótulo e seu tom; valor que o enum não conhece mais sai discreto em vez de derrubar a tela — veja [demo](/pt/aprender/interface-com-ui#um-valor-do-enum-como-emblema) |
 
 ## Árvores
 
@@ -177,6 +180,8 @@ estar rodando dentro de uma transição de visualização). Veja
 | `ui.PendingAfter(ms)` | o limiar, no gatilho; padrão 120 ms, zero ou menos significa o padrão |
 | `ui.NoTransition()` | sem *crossfade* neste gatilho |
 | `ui.Spinner(attrs…)` | um anel girando do tamanho da fonte em que está, escondido da tecnologia assistiva |
+
+Veja funcionando: [demo](/pt/aprender/interface-com-ui#o-que-acontece-durante-uma-troca).
 
 Enquanto um alvo espera, o `data-trilha-pending` está no alvo, no gatilho e em todo indicador
 daquele alvo, e o `aria-busy` está no alvo; `trilha:pending` e `trilha:settled` disparam no

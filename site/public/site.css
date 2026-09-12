@@ -192,6 +192,11 @@ th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color:
 .demo-saida .kit { padding: .25rem; border-radius: var(--radius-lg); }
 .demo-saida .kit ul { padding-left: 1.2rem; }
 
+/* ui.Shell fills the viewport by design (min-height: 100dvh); inside a demo
+   card it only needs to show the frame, not take over the page. */
+.demo-saida .kit .ui-shell { min-height: 22rem; border: 1px solid var(--linha); border-radius: var(--radius-lg); overflow: hidden; }
+.demo-saida .kit .ui-shell > .ui-sidebar { position: static; height: auto; }
+
 /* saída simulada das demos de formulário */
 .demo-nota { display: block; margin-top: .7rem; font-size: .85rem; color: var(--fg-); line-height: 1.5; }
 .demo-nota-ok { font-family: var(--mono); font-size: .8rem; color: var(--fg); }
