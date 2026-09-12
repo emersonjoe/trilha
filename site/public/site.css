@@ -111,6 +111,16 @@ h3 { font-size: 1.15rem; margin: 1.8em 0 .5em; }
 .assistant-demo-fallback { margin-top: 3rem; }
 .assistant-demo-fallback .ui-chat { max-width: 42rem; }
 @media (max-width: 40rem) { .assistant-demo-facts { grid-template-columns: 1fr; } }
+/* Demo do chat de IA (spec 136): a tela, o código dela e a nota, empilhados. */
+.chat-demo-screen { padding: clamp(1rem, 5vw, 3rem); border: 1px solid var(--linha); border-radius: var(--raio); background: var(--bg-2); }
+.chat-demo-screen > .ui-card, .chat-demo-screen > .ui-chat { max-width: 42rem; margin-inline: auto; }
+.chat-demo-facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1rem 0 0; }
+.chat-demo-facts div { min-width: 0; }
+.chat-demo-facts dt { color: var(--muted-foreground); font-size: .8rem; }
+.chat-demo-facts dd { margin: .2rem 0 0; font-weight: 600; }
+.chat-demo-code, .chat-demo-note { margin-top: 2.5rem; }
+.chat-demo-note p { color: var(--fg-2); }
+@media (max-width: 40rem) { .chat-demo-facts { grid-template-columns: 1fr 1fr; } }
 
 /* Documentação: 3 colunas */
 .docs { display: grid; grid-template-columns: 15rem minmax(0, 1fr) 13rem; gap: 2.5rem; max-width: var(--largura); margin: 0 auto; padding: 2rem 1.25rem 4rem; }

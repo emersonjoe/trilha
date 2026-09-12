@@ -25,6 +25,7 @@ mailer — o que ele tem é um lugar para os seus, e é aqui que esse lugar est�
 | [Tarefas agendadas](/pt/receitas/tarefas-agendadas) | um ticker que sobe com o app e para com ele |
 | [Docker](/pt/receitas/docker) | uma imagem pequena, as variáveis, a sonda de saúde |
 | [Checklist de produção](/pt/receitas/checklist-de-producao) | o que conferir antes de publicar, em ordem |
+| [Chat de IA](/pt/receitas/chat-de-ia) | a chave, o contexto da página, o histórico, o teste sem chave |
 | [Migração](/pt/receitas/migracao) | de `net/http` puro para Trilha, e entre versões menores |
 | [Do Next.js](/pt/receitas/do-next) | o padrão de React que você conhece, e o que ocupa o lugar dele |
 

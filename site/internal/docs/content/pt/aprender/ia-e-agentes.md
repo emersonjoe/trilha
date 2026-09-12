@@ -129,6 +129,11 @@ Texto de modelo é Markdown, e quem põe isso na tela é o `ui.Markdown`: um `<s
 resposta é texto na página, não uma tag no documento. O histórico é do app; o framework não
 guarda sessão de conversa.
 
+Tudo isso montado — a chave, a configuração que o administrador muda, o contexto da página, o
+histórico, o limite e o teste que roda sem chave — é a
+[receita do chat de IA](/pt/receitas/chat-de-ia), que termina numa
+[demo rodando](/pt/demos/ai-chat).
+
 ## MCP: usar e expor ferramentas
 
 O *Model Context Protocol* padroniza como hosts (Claude, Cursor, VS Code...) descobrem e

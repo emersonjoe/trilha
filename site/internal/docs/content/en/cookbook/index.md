@@ -25,6 +25,7 @@ what it has is a place for yours, and this is where the placing is written down.
 | [Scheduled tasks](/cookbook/scheduled-tasks) | a ticker that starts with the app and stops with it |
 | [Docker](/cookbook/docker) | a small image, the variables, the health probe |
 | [Production checklist](/cookbook/production-checklist) | what to check before publishing, in order |
+| [AI chat](/cookbook/ai-chat) | the key, the page's context, the history, the test with no key |
 | [Migration](/cookbook/migration) | plain `net/http` to Trilha, and between minor versions |
 | [From Next.js](/cookbook/from-next) | the React pattern you know, and what replaces it here |
 

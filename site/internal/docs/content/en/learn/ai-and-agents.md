@@ -129,6 +129,10 @@ Model text is Markdown, and `ui.Markdown` is what puts it on the screen: a `<scr
 answer is text on the page, not a tag in the document. The history belongs to the app; the
 framework keeps no chat session.
 
+The whole thing assembled — the key, the settings an administrator changes, the page's
+context, the history, the limit and the test that runs with no key — is the
+[AI chat recipe](/cookbook/ai-chat), and it ends at [a running demo](/demos/ai-chat).
+
 ## MCP: use and expose tools
 
 The *Model Context Protocol* standardizes how hosts (Claude, Cursor, VS Code...) discover

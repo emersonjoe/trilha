@@ -3,6 +3,35 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.115.0 — 2026-09-12
+
+Spec 136. Closes [#186](https://github.com/emersonjoe/trilha/issues/186).
+
+### Documentation
+
+- **A Cookbook recipe for an AI chat inside your app** — `/cookbook/ai-chat`, and
+  `/pt/receitas/chat-de-ia` in Portuguese. Learn taught the pieces (`ai.Serve`, `ui.Chat`)
+  and `examples/assistente` is a whole application; what was missing was the path from zero
+  to the screen with the decisions every app makes and no page wrote down: the key in the
+  environment and the model, temperature and instructions in a `trilha.Settings` section an
+  administrator changes without a deploy; the route as `ai.ServeOpts{HTML, Context, Page}`
+  and what happens with JavaScript off; `ui.Chat` with the page's context in `ctx.*` fields;
+  the history as the app's, with a store, a ceiling and the route that keeps it; a rate limit
+  per visitor, an audit line per question, and the sentence the visitor reads when the
+  provider answers 429 or times out; a test that runs in `make test` with no key and no
+  network; and `ui.Assistant` as the same chat in the corner. Every Go block compiles:
+  `examples/cookbook/aichat.go` plus its test.
+- **Two things the recipe writes down because nothing else did.** `ai.ServeOpts.Context`
+  should return *user* messages, not system ones: the history arrives from the browser, and a
+  run drops every system message it finds there — which is what stops a page from being
+  talked into new instructions. And a transcript that survives the page needs the two lines
+  `ai.Serve` leaves no room for (read the store, write the turn), so the recipe shows that
+  route beside the short one.
+- **A runnable demo at `/demos/ai-chat`** (and `/pt/demos/ai-chat`), scripted in the browser
+  like the assistant's: the component, the streaming client and the context the page sends
+  are the real ones, so the static site answers with no API key and no network.
+- `learn/ai-and-agents` § "A chat, ready-made" now points at the recipe in both languages.
+
 ## 0.114.0 — 2026-09-12
 
 Spec 135. Closes [#168](https://github.com/emersonjoe/trilha/issues/168) and

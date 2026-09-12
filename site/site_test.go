@@ -49,7 +49,9 @@ func pagePaths() []string {
 
 // demoPaths lists the runnable demos that are pages of their own (spec 118):
 // they are not chapters, so docs.All() does not know them.
-func demoPaths() []string { return []string{"/demos/assistant", "/pt/demos/assistant"} }
+func demoPaths() []string {
+	return []string{"/demos/assistant", "/pt/demos/assistant", "/demos/ai-chat", "/pt/demos/ai-chat"}
+}
 
 func allPaths() []string { return append(append(homes(), pagePaths()...), demoPaths()...) }
 
@@ -100,7 +102,7 @@ func TestLegacyPathsRedirect(t *testing.T) {
 func TestAlternatesAndSwitcher(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "")
 	t.Setenv("SITE_ORIGIN", "")
-	cases := map[string]string{"/learn/forms": "/pt/aprender/formularios", "/reference/ctx": "/pt/referencia/ctx", "/learn": "/pt/aprender", "/demos/assistant": "/pt/demos/assistant", "/": "/pt"}
+	cases := map[string]string{"/learn/forms": "/pt/aprender/formularios", "/reference/ctx": "/pt/referencia/ctx", "/learn": "/pt/aprender", "/demos/assistant": "/pt/demos/assistant", "/demos/ai-chat": "/pt/demos/ai-chat", "/": "/pt"}
 	for en, pt := range cases {
 		_, body := get(t, en)
 		for _, want := range []string{
@@ -326,7 +328,7 @@ func TestFormDemoIsInteractive(t *testing.T) {
 // full conversation on the same page.
 func TestAssistantDemoIsRunnable(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "")
-	for _, path := range demoPaths() {
+	for _, path := range []string{"/demos/assistant", "/pt/demos/assistant"} {
 		code, body := get(t, path)
 		if code != 200 {
 			t.Errorf("%s: %d", path, code)
@@ -342,6 +344,64 @@ func TestAssistantDemoIsRunnable(t *testing.T) {
 			if !strings.Contains(body, want) {
 				t.Errorf("%s misses %s", path, want)
 			}
+		}
+	}
+}
+
+// Spec 136: the chat demo answers with no API key and no network. The page,
+// the component and the streaming client are the real ones; only the model is
+// scripted, in the browser, the way the assistant demo does it.
+func TestChatDemoIsRunnable(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	t.Setenv("OPENAI_API_KEY", "")
+	for _, path := range []string{"/demos/ai-chat", "/pt/demos/ai-chat"} {
+		code, body := get(t, path)
+		if code != 200 {
+			t.Errorf("%s: %d", path, code)
+			continue
+		}
+		for _, want := range []string{
+			`data-trilha-chat="/_demo/ai-chat"`,
+			`name="ctx.order_id" value="1043"`,
+			`src="/ui.chat.js?v=`, `src="/chat-demo.js?v=`,
+		} {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s misses %s", path, want)
+			}
+		}
+	}
+}
+
+// Spec 136: the chat recipe is one page per locale, listed in the Cookbook
+// index and pointed at by the chapter that teaches the pieces — a recipe
+// nobody is sent to is a recipe nobody reads.
+func TestAIChatRecipeIsReachable(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	slug := map[string]string{"en": "ai-chat", "pt": "chat-de-ia"}
+	chapter := map[string]string{"en": "ai-and-agents", "pt": "ia-e-agentes"}
+	for _, l := range docs.Locales {
+		section := l.Sections[cookbookSection]
+		p, ok := docs.Get(l.Code, section.Key, slug[l.Code])
+		if !ok {
+			t.Errorf("%s: no chat recipe under %s", l.Code, section.Key)
+			continue
+		}
+		if code, _ := get(t, p.Path()); code != 200 {
+			t.Errorf("%s → %d", p.Path(), code)
+		}
+		index, ok := docs.Get(l.Code, section.Key, "")
+		if !ok {
+			t.Fatalf("%s: no index for %s", l.Code, section.Key)
+		}
+		if !strings.Contains(index.Body, "]("+p.Path()+")") {
+			t.Errorf("%s: %s is not in the index table", l.Code, p.Path())
+		}
+		ch, ok := docs.Get(l.Code, l.Sections[0].Key, chapter[l.Code])
+		if !ok {
+			t.Fatalf("%s: no AI chapter", l.Code)
+		}
+		if !strings.Contains(ch.Body, "]("+p.Path()+")") {
+			t.Errorf("%s: the AI chapter does not point at %s", l.Code, p.Path())
 		}
 	}
 }
