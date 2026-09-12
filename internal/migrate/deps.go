@@ -35,14 +35,29 @@ const (
 	maxFiles = 30
 )
 
+// dep is one file a page pulls in: its source with the part the page does not
+// use blanked out, and whether the page asked for the whole thing. The flag is
+// printed beside the reason, because a module read whole is a reason worth
+// arguing with.
+type dep struct {
+	src   string
+	whole bool
+	want  map[string]bool // what was asked of it, so a second import can add to it
+}
+
 // deps returns the sources a page pulls in through its own imports, keyed by
 // the path each was read from, relative to root and slash-separated.
 //
 // It exists because in a real Next application the page is thin: the screen
 // that is hardest to port is a fifty-line page.tsx importing a component of
 // three hundred lines, and reading the page alone puts it in the easiest class.
-func deps(root, source string) map[string]string {
-	out := map[string]string{}
+//
+// What comes back is not the file: it is the file as this page uses it. The
+// names of the import clause decide which declarations of the module count, at
+// every hop, so that a module's other work stops being attributed to whoever
+// imported two functions from it (#167).
+func deps(root, source string) map[string]dep {
+	out := map[string]dep{}
 	// "@/x" is the alias every Next project sets up, and it points at src/
 	// when there is one and at the root when there is not.
 	base := ""
@@ -55,8 +70,21 @@ func deps(root, source string) map[string]string {
 	var take func(file string, want map[string]bool, depth int)
 
 	take = func(file string, want map[string]bool, depth int) {
-		if depth > maxDepth || len(out) >= maxFiles || file == "" || out[file] != "" || file == source {
+		if depth > maxDepth || len(out) >= maxFiles || file == "" || file == source {
 			return
+		}
+		if d, seen := out[file]; seen {
+			// The same file reached twice. Read whole it already covers every
+			// name; read by name it is read again only if this import asked
+			// for something the first one did not.
+			if d.whole {
+				return
+			}
+			more := union(d.want, want)
+			if len(more) == len(d.want) {
+				return
+			}
+			want = more
 		}
 		b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
 		if err != nil {
@@ -72,23 +100,34 @@ func deps(root, source string) map[string]string {
 			}
 			return
 		}
-		out[file] = body
+		used, whole := usedSource(body, want)
+		out[file] = dep{src: used, whole: whole, want: union(want, nil)}
 		if len(out) >= maxFiles {
 			return
 		}
-		walk(file, body, depth+1)
+		walk(file, used, depth+1)
 	}
 
 	walk = func(from, body string, depth int) {
 		if depth > maxDepth || len(out) >= maxFiles {
 			return
 		}
+		// What the file uses, with the import statements themselves taken out:
+		// a name that appears only in the line that brought it in is a name
+		// nothing here calls, and the module behind it is not this page's work.
+		used := identsIn(importRe.ReplaceAllString(body, " "))
 		for _, m := range importRe.FindAllStringSubmatch(body, -1) {
 			spec := m[2]
 			if !local(spec) {
 				continue
 			}
-			take(resolve(root, join(base, from, spec)), wanted(m[1]), depth)
+			b := bindings(m[1])
+			// An `export … from` forwards outwards, so it is followed whatever
+			// this file does with it; an `import` has to be used to count.
+			if !strings.HasPrefix(strings.TrimSpace(m[0]), "export") && !anyUsed(b.local, used) {
+				continue
+			}
+			take(resolve(root, join(base, from, spec)), b.want, depth)
 		}
 	}
 
@@ -123,30 +162,83 @@ func join(base, from, spec string) string {
 	return target
 }
 
-// wanted reads the names an import clause asked for. A default import and a
-// namespace import both ask for everything the module has, and say so.
-func wanted(clause string) map[string]bool {
-	out := map[string]bool{}
+// binding is what one import clause brought in: the names the module was asked
+// for, and what they answer to in the file that asked. The two are not the same
+// list — `import { Chat as Widget }` asks the module for Chat and calls it
+// Widget — and both are needed: the first says which part of the module counts,
+// the second whether anything here uses it at all.
+type binding struct {
+	want  map[string]bool
+	local []string
+}
+
+// bindings reads an import clause. A default import and a namespace import both
+// ask for everything the module has, and say so.
+func bindings(clause string) binding {
+	b := binding{want: map[string]bool{}}
 	rest := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(clause), "type"))
+	head := rest
 	if i := strings.Index(rest, "{"); i >= 0 {
+		head = rest[:i]
 		j := strings.Index(rest[i:], "}")
 		if j < 0 {
-			return all
+			return binding{want: all, local: outerNames(rest)}
 		}
 		for _, part := range strings.Split(rest[i+1:i+j], ",") {
-			// "Chat as ChatWidget" is asking the module for Chat.
-			if f := strings.Fields(strings.TrimSpace(part)); len(f) > 0 {
-				out[strings.TrimPrefix(f[0], "type")] = true
+			// "Chat as ChatWidget" is asking the module for Chat, under the
+			// name ChatWidget.
+			f := strings.Fields(strings.TrimSpace(part))
+			if len(f) == 0 {
+				continue
 			}
+			b.want[strings.TrimPrefix(f[0], "type")] = true
+			b.local = append(b.local, f[len(f)-1])
 		}
 		// `import Shell, { Chat } from "x"` asks for both, and the default
-		// half has no name of its own here.
-		if strings.Contains(rest[:i], ",") || strings.Contains(rest[:i], "*") {
-			out["*"] = true
+		// half has no name of its own in the module.
+		if strings.Contains(head, ",") || strings.Contains(head, "*") {
+			b.want["*"] = true
 		}
 	}
-	if len(out) == 0 {
-		return all
+	b.local = append(b.local, outerNames(head)...)
+	if len(b.want) == 0 {
+		b.want = all
+	}
+	return b
+}
+
+// outerNames is the identifiers of the clause outside the braces: the default
+// import, and the name a namespace import goes by.
+func outerNames(clause string) []string {
+	var out []string
+	for _, w := range wordRe.FindAllString(clause, -1) {
+		if w == "as" || w == "type" || w == "import" || w == "export" {
+			continue
+		}
+		out = append(out, w)
+	}
+	return out
+}
+
+// anyUsed says whether any of the names is used in the set.
+func anyUsed(names []string, used map[string]bool) bool {
+	for _, n := range names {
+		if used[n] {
+			return true
+		}
+	}
+	return false
+}
+
+// union is a and b together, as a new map.
+func union(a, b map[string]bool) map[string]bool {
+	out := make(map[string]bool, len(a)+len(b))
+	for _, m := range []map[string]bool{a, b} {
+		for k, v := range m {
+			if v {
+				out[k] = true
+			}
+		}
 	}
 	return out
 }

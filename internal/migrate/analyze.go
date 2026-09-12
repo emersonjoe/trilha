@@ -28,6 +28,22 @@ type Analysis struct {
 	// made of it, and counting them classified twenty listings as the chat
 	// that sits beside them.
 	Reaches []string
+	// Actions are the Server Actions this screen imports: what it writes. They
+	// are not a signal and do not change the class — an action is the opposite
+	// of JavaScript in the browser — but a screen with four of them is not the
+	// "nothing to do" that an A on its own reads like.
+	Actions []Action
+}
+
+// Action is one Server Action: a function a form calls, with no URL of its own.
+// Here it becomes a write handler and a form that posts to it.
+type Action struct {
+	Path string // the file it is declared in, relative to the project root
+	Name string // the exported function
+	Line int    // where the declaration starts
+	// Screens are the URLs of the screens that import it. It is filled on
+	// Project.Actions, where the same action of two screens is one line.
+	Screens []string
 }
 
 // Endpoint is one address the screen calls, with the method it calls it with.
@@ -39,8 +55,8 @@ type Endpoint struct {
 // The classes, in the order the report explains them.
 const (
 	ClassForm   = "A" // form and list: no island signal, no polling
-	ClassIsland = "B" // small island: polling, modal, tabs, upload
-	ClassSPA    = "C" // pointer, drawing surface or editor
+	ClassIsland = "B" // small island: polling, modal, tabs, upload, playing audio
+	ClassSPA    = "C" // pointer, drawing surface, editor or capturing media
 )
 
 // hookNames are counted because the count is the size of the job: a screen
@@ -73,6 +89,14 @@ var spaSignals = []signal{
 	{name: "live svg", re: svgRe, and: svgWorkRe},
 	{name: "editor", re: regexp.MustCompile(`contentEditable|execCommand|Slate|ProseMirror|Tiptap`)},
 	{name: "chart", re: regexp.MustCompile(`\bd3[-.]|recharts|chart\.js|Chart\(`)},
+	// Recording voice is the purest case of the browser doing the work there
+	// is: a device permission, a stream, an object with a life of its own and a
+	// Blob at the end. There is no PRG that replaces it, and a screen like that
+	// came back A — a form — because none of the signals above mentions a
+	// microphone. Capturing is C; playing is B, below: the difference is that
+	// one needs permission and a live object, and the other is an element the
+	// server can draw.
+	{name: "media capture", re: regexp.MustCompile(`getUserMedia\(|new MediaRecorder\(|\bSpeechRecognition\b|\bwebkitSpeechRecognition\b|new AudioContext\(`)},
 }
 
 // islandSignals are what a form cannot do alone, but the kit can.
@@ -84,6 +108,9 @@ var islandSignals = []signal{
 	{name: "storage", re: regexp.MustCompile(`localStorage|sessionStorage`)},
 	{name: "drop area", re: dropRe, and: fileRe},
 	{name: "raw html", re: regexp.MustCompile(`dangerouslySetInnerHTML`)},
+	// Playing is not capturing: the element is one the server draws, and the
+	// position and the controls around it are what the kit covers.
+	{name: "media playback", re: regexp.MustCompile(`new Audio\(|<audio\b|<video\b|HTMLMediaElement`)},
 }
 
 var (
@@ -127,7 +154,12 @@ var (
 // in it is the frame around the screen, not the screen. Its signals belong to
 // the application once — the report says so in its own section — and letting
 // them decide a class is how every screen of an app came back C.
-func analyze(src string, deps map[string]string, global map[string]bool) Analysis {
+//
+// self is the path of src, used where a finding has to name a file. Inside the
+// classification the page is still the file with no name: a signal it carries
+// itself prints without one, because the reason only names a file when the
+// reason is somewhere else.
+func analyze(self, src string, deps map[string]dep, global map[string]bool) Analysis {
 	a := Analysis{Client: useClientRe.MatchString(src), Hooks: map[string]int{}}
 	for _, h := range hookNames {
 		// useRef<any>(null) is a useRef: the type argument sits between the
@@ -142,7 +174,7 @@ func analyze(src string, deps map[string]string, global map[string]bool) Analysi
 	// The page is looked at first and named "", so a signal it carries itself
 	// is printed without a file: the reason only names a file when the reason
 	// is somewhere else.
-	from := []struct{ path, src string }{{"", src}}
+	from := []sourceFile{{src: src}}
 	for _, p := range sortedKeys(deps) {
 		if global[p] {
 			// The frame around the screen is not the screen. Its signals are
@@ -151,10 +183,14 @@ func analyze(src string, deps map[string]string, global map[string]bool) Analysi
 			a.Reaches = append(a.Reaches, p)
 			continue
 		}
-		from = append(from, struct{ path, src string }{p, deps[p]})
+		from = append(from, sourceFile{path: p, src: deps[p].src, whole: deps[p].whole})
 		a.Deps = append(a.Deps, p)
-		a.DepLines += strings.Count(deps[p], "\n") + 1
+		// The size is the file, not the part of it that counts for the class:
+		// it is the file somebody is going to open. Reading a module by name is
+		// about whose work the behaviour is, not about how long the module is.
+		a.DepLines += strings.Count(deps[p].src, "\n") + 1
 	}
+	a.Actions = actionsOf(self, from)
 	spa, island := scan(spaSignals, from), scan(islandSignals, from)
 
 	a.Signals = append(append([]string{}, names(spa)...), names(island)...)
@@ -294,6 +330,25 @@ func endpointStrings(es []Endpoint) []string {
 	return out
 }
 
+// sourceFile is one file the classification reads: where it came from — "" for
+// the page itself — its text as the page uses it, and whether that text is the
+// whole module or only the declarations the page asked for.
+type sourceFile struct {
+	path  string
+	src   string
+	whole bool
+}
+
+// actionStrings renders the Server Actions of one screen for the generated
+// comment: the name, and the file it is declared in.
+func actionStrings(as []Action) []string {
+	out := make([]string, 0, len(as))
+	for _, a := range as {
+		out = append(out, a.Name+" ("+a.Path+":"+strconv.Itoa(a.Line)+")")
+	}
+	return out
+}
+
 // hit is one signal that matched: what it was, which file it was in — "" when
 // the page itself carried it — and the line, so the reason in the report can be
 // thrown out without opening the file. A decorative <svg> read as a drawing
@@ -301,12 +356,13 @@ func endpointStrings(es []Endpoint) []string {
 type hit struct {
 	name, path string
 	line       int
+	whole      bool // the module was read whole: nobody said which names came in
 }
 
 // scan looks for each signal in the page and then in what it imports, keeping
 // the first place it found each one: a signal the page carries is the page's,
 // and one it does not is named after the file that does.
-func scan(signals []signal, from []struct{ path, src string }) []hit {
+func scan(signals []signal, from []sourceFile) []hit {
 	var out []hit
 	for _, s := range signals {
 		for _, f := range from {
@@ -314,8 +370,61 @@ func scan(signals []signal, from []struct{ path, src string }) []hit {
 			if loc == nil || (s.and != nil && !s.and.MatchString(f.src)) {
 				continue
 			}
-			out = append(out, hit{s.name, f.path, 1 + strings.Count(f.src[:loc[0]], "\n")})
+			out = append(out, hit{
+				name:  s.name,
+				path:  f.path,
+				line:  1 + strings.Count(f.src[:loc[0]], "\n"),
+				whole: f.path != "" && f.whole,
+			})
 			break
+		}
+	}
+	return out
+}
+
+// useServerRe is the directive that makes a function a Server Action: at the
+// top of a file it says every export of it is one, and in the body of a
+// function it says that one is.
+var useServerRe = regexp.MustCompile(`(?m)^\s*['"]use server['"]`)
+
+// actionsOf collects the Server Actions of the page and of what it imports, in
+// the order the files were read. It is a section of its own in the report
+// because a screen with no island signal and four actions is not the "nothing
+// to do" that an A on its own reads like: those four are a write handler, a
+// contract and a form each, and nothing in the report used to say so.
+//
+// The directive decides the scope, the way Next defines it: at the top of the
+// file every exported function is an action; inside a function body, only that
+// one. Reading each module by the names the page imported (#167) is what keeps
+// this from listing the fifty-three actions of a module the screen took two
+// functions from.
+func actionsOf(self string, from []sourceFile) []Action {
+	var out []Action
+	for _, f := range from {
+		path := f.path
+		if path == "" {
+			path = self
+		}
+		ds := declsOf(f.src)
+		loc := useServerRe.FindStringIndex(f.src)
+		if loc == nil {
+			continue
+		}
+		// The file-level directive is the first statement of the module, so it
+		// sits before every declaration in it.
+		file := len(ds) == 0 || loc[0] < ds[0].start
+		for _, d := range ds {
+			switch {
+			case file && !d.exported:
+				continue
+			case !file && !useServerRe.MatchString(f.src[d.start:d.end]):
+				continue
+			}
+			out = append(out, Action{
+				Path: path,
+				Name: d.name,
+				Line: 1 + strings.Count(f.src[:d.start], "\n"),
+			})
 		}
 	}
 	return out
@@ -339,12 +448,19 @@ func why(hits []hit) string {
 			parts = append(parts, h.name+" (line "+strconv.Itoa(h.line)+")")
 			continue
 		}
-		parts = append(parts, h.name+" ("+path.Base(path.Dir(h.path))+"/"+path.Base(h.path)+":"+strconv.Itoa(h.line)+")")
+		where := path.Base(path.Dir(h.path)) + "/" + path.Base(h.path) + ":" + strconv.Itoa(h.line)
+		// A module nobody named — a default or a namespace import — counts
+		// whole, and the reason says so: otherwise the line printed is a line
+		// of a file the screen may never call into.
+		if h.whole {
+			where += ", whole module"
+		}
+		parts = append(parts, h.name+" ("+where+")")
 	}
 	return strings.Join(parts, " and ")
 }
 
-func sortedKeys(m map[string]string) []string {
+func sortedKeys[V any](m map[string]V) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
 		out = append(out, k)

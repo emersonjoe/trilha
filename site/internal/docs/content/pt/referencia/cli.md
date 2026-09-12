@@ -386,6 +386,7 @@ trilha migrate next ../web --dry-run   # imprime o relatório e não grava nada
 trilha migrate next ../web             # grava o app/ e o MIGRATION.md
 trilha migrate next ../web --out app --report MIGRATION.md --force
 trilha migrate next ../web --out /tmp/x/app     # o relatório vai para /tmp/x/MIGRATION.md
+trilha migrate next ../web --actions   # só a tabela de Server Actions, não grava nada
 ```
 
 O relatório fica **ao lado da árvore**, que é o que a primeira linha dele promete: sem `--out`
@@ -418,12 +419,43 @@ e mais nenhuma, porque reexportar não é usar. Sem essas duas regras, um shell 
 com `<svg>` classificou todas as telas da aplicação como **C** — uma ordem de trabalho que manda
 começar por qualquer lugar.
 
+Um módulo conta pelo **que a página importou dele**, pelo nome. `import { entrarNoPortal,
+portalPublico } from "@/lib/portalApi"` é lido como essas duas funções e como o que elas chamam
+dentro do arquivo; o `portalUpload` ao lado é a tela de outra pessoa. Sem isso, um formulário
+que lê um convite e define uma senha voltava como ilha de upload, e o motivo apontava uma linha
+que ela nunca executa. O que o módulo faz por conta própria continua contando: corpo de função
+só roda quando alguém chama, mas um valor de topo — `const es = new EventSource("/api/chat")`
+ao lado das funções — é avaliado no instante em que qualquer coisa importa o arquivo, então é
+de toda tela que o toca. Import default ou de namespace (`import * as api`) não diz nome nenhum,
+então ali o módulo conta inteiro e o motivo diz `whole module` — é a marca a procurar quando
+uma sugestão parece conservadora demais.
+
+As Server Actions ganham uma tabela própria. Uma página que escreve por `"use server"` não
+chama endpoint nenhum, então um relatório organizado por URL descrevia o que cada tela desenha
+e não dizia nada sobre o que ela muda — numa aplicação de App Router isso é metade do produto,
+e o **A** impresso ao lado dessas telas se lê como "não há o que fazer". A seção **Server
+Actions** lista cada ação que as telas importam, com o arquivo, a linha e as telas que a
+chamam; a célula da classe carrega a contagem (`A — no island signal · 4 server actions`); e o
+`--actions` imprime só essa tabela, que é por onde começa quem vai escrever os contratos. Cada
+uma vira um handler de escrita e um formulário que posta nele — o handler grava e redireciona,
+a página desenha. Ação não é sinal de ilha: é o oposto de JavaScript no cliente, e não muda a
+classe.
+
 Pelo mesmo motivo, um `<svg>` sozinho não é superfície de desenho. Um logo, um ícone, uma
 seta: quase toda tela tem um, e ler a tag como **C** colocou quatro das vinte telas de uma
 migração real na classe mais difícil que existe. O que faz dela **C** é algo trabalhando nela
 — `ref` no elemento, `onWheel`, `requestAnimationFrame`, biblioteca de desenho — ou um
 tratador de ponteiro e uma biblioteca de gráfico, que já classificam sozinhos de todo jeito.
 Um `<canvas>` continua contando por si: ninguém põe um ali de enfeite.
+
+Mídia puxa para o outro lado, e a direção do erro é o que importa. Uma tela que grava voz —
+`getUserMedia`, `MediaRecorder`, `SpeechRecognition` — não tem `<canvas>` e pode não ter
+tratador nenhum, e voltava **A**: um formulário. Mas permissão de dispositivo, stream e um
+objeto com ciclo de vida próprio são o caso mais puro de "quem trabalha é o browser" que
+existe, e não há post-redirect-get que ocupe esse lugar: capturar é **C**. Reproduzir não é
+capturar: `new Audio(`, um `<audio>` ou um `<video>` é um elemento que o servidor desenha,
+então é **B**. Um falso positivo custa uma conferência; um falso negativo faz alguém portar
+meia tela como formulário antes de achar o microfone.
 
 As telas em si não são traduzidas. O corpo de uma página é regra de negócio, e máquina
 chutando isso custa mais para revisar do que para escrever — o guia

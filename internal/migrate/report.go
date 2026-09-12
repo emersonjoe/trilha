@@ -46,6 +46,12 @@ func Report(p Project, lang string) string {
 		class := "—"
 		if pg.Kind == KindPage && pg.Class != "" {
 			class = pg.Class + " — " + pg.Why
+			// The class is about what the screen draws. A screen with four
+			// Server Actions and no island signal is an A, and it is not
+			// nothing to do: the count is here so the A is not read as one.
+			if n := len(pg.Actions); n > 0 {
+				class += " · " + countOf(t, n)
+			}
 		}
 		// The size is the page plus what it imports, because that is the size of
 		// the job: a fifty-line page in front of a three-hundred-line component
@@ -58,6 +64,13 @@ func Report(p Project, lang string) string {
 			pg.Source, size, file, pg.URL, client, calls, class)
 	}
 	fmt.Fprintf(&b, "\n%s\n\n", t["rule"])
+	// What the screens write. The table above says what they draw, and in an
+	// App Router application that is half the product: the other half has no
+	// URL, so nothing in a report organised by URL used to mention it.
+	if len(p.Actions) > 0 {
+		b.WriteString(ActionsTable(p, lang))
+		b.WriteString("\n")
+	}
 	// The frame, once. Without this section the chat the shell carries has two
 	// bad places to be: inside every row of the table above, or nowhere.
 	if len(p.Globals) > 0 {
@@ -78,6 +91,53 @@ func Report(p Project, lang string) string {
 	}
 	fmt.Fprintf(&b, "\n## %s\n\n%s\n", t["next"], t["next.body"])
 	return b.String()
+}
+
+// ActionsTable is the Server Actions section: one line per action, with the
+// file it is declared in and the screens that call it. It is a function of its
+// own because it is also the whole output of `--actions`, which is the list
+// whoever writes the contracts starts from.
+func ActionsTable(p Project, lang string) string {
+	t := reportText(lang)
+	var b strings.Builder
+	fmt.Fprintf(&b, "## %s\n\n", t["actions"])
+	if len(p.Actions) == 0 {
+		fmt.Fprintf(&b, "%s\n", t["actions.none"])
+		return b.String()
+	}
+	files := map[string]bool{}
+	for _, a := range p.Actions {
+		files[a.Path] = true
+	}
+	fmt.Fprintf(&b, "%s\n\n", fmt.Sprintf(t["actions.intro"],
+		plural(t, "action", len(p.Actions)), plural(t, "file", len(files))))
+	fmt.Fprintf(&b, "| %s | %s | %s |\n|---|---|---|\n", t["col.action"], t["col.source"], t["col.screens"])
+	for _, a := range p.Actions {
+		screens := "—"
+		if len(a.Screens) > 0 {
+			screens = "`" + strings.Join(a.Screens, "`, `") + "`"
+		}
+		fmt.Fprintf(&b, "| `%s` | `%s:%d` | %s |\n", a.Name, a.Path, a.Line, screens)
+	}
+	return b.String()
+}
+
+// countOf is the number of Server Actions of one screen, as the class cell
+// spells it.
+func countOf(t map[string]string, n int) string {
+	if n == 1 {
+		return t["actions.one"]
+	}
+	return fmt.Sprintf(t["actions.many"], n)
+}
+
+// plural is a count of something in the report's language. One action in one
+// file is a sentence in both of them, and "1 files" is a sentence in neither.
+func plural(t map[string]string, thing string, n int) string {
+	if n == 1 {
+		return t["n."+thing+".one"]
+	}
+	return fmt.Sprintf(t["n."+thing+".many"], n)
 }
 
 // hookSummary is the hook count as it goes in a table cell.
@@ -123,10 +183,30 @@ func reportText(lang string) map[string]string {
 
 		"rule": "The suggestion is mechanical, and it is here to be argued with — the reason beside each " +
 			"class says which line it came from: **C** when the file shows a pointer handler, a drawing " +
-			"surface (`<canvas>`, or an `<svg>` something actually draws on — an icon is an icon) or an " +
-			"editor — the browser is doing the work, so it becomes an island; **B** when it polls, opens a " +
-			"modal, has tabs or takes a file — the kit does that without a bundle; **A** otherwise, which " +
-			"is a form and a list, and the whole screen fits on the server.",
+			"surface (`<canvas>`, or an `<svg>` something actually draws on — an icon is an icon), an " +
+			"editor or media capture (`getUserMedia`, `MediaRecorder`, speech recognition) — the browser " +
+			"is doing the work, so it becomes an island; **B** when it polls, opens a modal, has tabs, " +
+			"takes a file or plays audio — the kit does that without a bundle; **A** otherwise, which " +
+			"is a form and a list, and the whole screen fits on the server. A module counts for the " +
+			"names the screen imported from it, not for everything it happens to do: `import { a, b } " +
+			"from \"x\"` is read as `a` and `b`, and a module reached by a default or namespace import " +
+			"says `whole module` beside the reason.",
+
+		"actions": "Server Actions",
+		"actions.intro": "What the screens write: %s in %s. A Server Action has no URL — it " +
+			"is a function the form calls, and the `\"use server\"` is the whole contract. Here each one " +
+			"becomes a write handler (a `route.go`, or the `POST` of the page's own route) and a form that " +
+			"posts to it: the handler writes and redirects, the page renders — the PRG the kit already " +
+			"does. The class beside a screen is about what it draws; these are what it changes.",
+		"actions.none":  "Nothing: no `\"use server\"` in what the screens import.",
+		"col.action":    "Action",
+		"col.screens":   "Screens",
+		"actions.one":   "1 server action",
+		"actions.many":  "%d server actions",
+		"n.action.one":  "1 action",
+		"n.action.many": "%d actions",
+		"n.file.one":    "1 file",
+		"n.file.many":   "%d files",
 
 		"globals": "Global dependencies",
 		"globals.intro": "Reached from a `layout.tsx`: the frame around every screen, not the work of any one " +
@@ -177,10 +257,29 @@ func reportText(lang string) map[string]string {
 
 		"rule": "A sugestão é mecânica, e está aqui para ser contestada — o motivo ao lado de cada classe " +
 			"diz de que linha ela saiu: **C** quando o arquivo mostra tratador de ponteiro, superfície de " +
-			"desenho (`<canvas>`, ou um `<svg>` em que algo de fato desenha — ícone é ícone) ou editor — " +
-			"quem trabalha é o browser, então vira ilha; **B** quando faz polling, abre modal, tem abas ou " +
-			"recebe arquivo — o kit faz isso sem bundle; **A** no resto, que é formulário e lista, e cabe " +
-			"inteiro no servidor.",
+			"desenho (`<canvas>`, ou um `<svg>` em que algo de fato desenha — ícone é ícone), editor ou " +
+			"captura de mídia (`getUserMedia`, `MediaRecorder`, reconhecimento de fala) — quem trabalha é " +
+			"o browser, então vira ilha; **B** quando faz polling, abre modal, tem abas, recebe arquivo ou " +
+			"toca áudio — o kit faz isso sem bundle; **A** no resto, que é formulário e lista, e cabe " +
+			"inteiro no servidor. Um módulo conta pelos nomes que a tela importou dele, e não por tudo o " +
+			"que ele faz: `import { a, b } from \"x\"` é lido como `a` e `b`, e um módulo alcançado por " +
+			"import default ou de namespace diz `whole module` ao lado do motivo.",
+
+		"actions": "Server Actions",
+		"actions.intro": "O que as telas escrevem: %s em %s. Uma Server Action não tem URL — " +
+			"é uma função que o formulário chama, e o `\"use server\"` é o contrato inteiro. Aqui cada uma " +
+			"vira um handler de escrita (um `route.go`, ou o `POST` da própria rota da página) e um " +
+			"formulário que posta nele: o handler grava e redireciona, a página desenha — o PRG que o kit " +
+			"já faz. A classe ao lado de uma tela é sobre o que ela desenha; estas são o que ela muda.",
+		"actions.none":  "Nada: nenhum `\"use server\"` no que as telas importam.",
+		"col.action":    "Ação",
+		"col.screens":   "Telas",
+		"actions.one":   "1 ação de servidor",
+		"actions.many":  "%d ações de servidor",
+		"n.action.one":  "1 ação",
+		"n.action.many": "%d ações",
+		"n.file.one":    "1 arquivo",
+		"n.file.many":   "%d arquivos",
 
 		"globals": "Dependências globais",
 		"globals.intro": "Alcançadas a partir de um `layout.tsx`: a moldura de todas as telas, e trabalho de " +

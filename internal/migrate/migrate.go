@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -80,8 +81,13 @@ type Project struct {
 	// and it is here instead of inside every screen that happens to sit under
 	// it.
 	Globals []Global
+	// Actions is the write surface: every Server Action the screens import,
+	// once, with the screens that import it. Without this section a report of
+	// an App Router application describes what every screen draws and says
+	// nothing about what it writes.
+	Actions []Action
 
-	global map[string]string // the same files, by path, while scanning
+	global map[string]dep // the same files, by path, while scanning
 }
 
 // Global is one file the layouts reach: the shell, the provider, the chat the
@@ -171,7 +177,43 @@ func Scan(root string) (Project, error) {
 	p.Notes = append(p.Notes, p.rootNotes()...)
 	sort.SliceStable(p.Notes, func(i, j int) bool { return p.Notes[i].Source < p.Notes[j].Source })
 	p.Globals = globalsOf(p.global)
+	p.Actions = actionsSeen(p.Pages)
 	return p, nil
+}
+
+// actionsSeen gathers the Server Actions of every screen into one list: the
+// same action imported by two screens is one line, with both of them. The order
+// is the file and the line inside it, so two runs write the same report.
+func actionsSeen(pages []Page) []Action {
+	at := map[string]int{}
+	var out []Action
+	for _, pg := range pages {
+		if pg.Kind != KindPage {
+			continue
+		}
+		for _, a := range pg.Actions {
+			key := a.Path + ":" + a.Name
+			i, seen := at[key]
+			if !seen {
+				at[key] = len(out)
+				out = append(out, a)
+				i = len(out) - 1
+			}
+			if !slices.Contains(out[i].Screens, pg.URL) {
+				out[i].Screens = append(out[i].Screens, pg.URL)
+			}
+		}
+	}
+	for i := range out {
+		sort.Strings(out[i].Screens)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Path != out[j].Path {
+			return out[i].Path < out[j].Path
+		}
+		return out[i].Line < out[j].Line
+	})
+	return out
 }
 
 // globalSet is the membership test analyze needs.
@@ -187,8 +229,8 @@ func (p *Project) globalSet() map[string]bool {
 // reach, by path. Those two are what the App Router defines as the frame; a
 // providers.tsx that only the layout imports arrives through the reach, with no
 // rule that has to guess from a file name.
-func globalFiles(root, appAbs string) map[string]string {
-	out := map[string]string{}
+func globalFiles(root, appAbs string) map[string]dep {
+	out := map[string]dep{}
 	_ = filepath.WalkDir(appAbs, func(fp string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
@@ -207,16 +249,16 @@ func globalFiles(root, appAbs string) map[string]string {
 
 // globalsOf keeps the global files that are work: a frame that does nothing a
 // form cannot do needs no line in the report.
-func globalsOf(files map[string]string) []Global {
+func globalsOf(files map[string]dep) []Global {
 	var out []Global
 	for _, path := range sortedKeys(files) {
-		a := analyze(files[path], nil, nil)
+		a := analyze(path, files[path].src, nil, nil)
 		if len(a.Signals) == 0 {
 			continue
 		}
 		out = append(out, Global{
 			Path:    path,
-			Lines:   strings.Count(files[path], "\n") + 1,
+			Lines:   strings.Count(files[path].src, "\n") + 1,
 			Signals: a.Signals,
 			Class:   a.Class,
 		})
@@ -315,7 +357,7 @@ func (p *Project) page(source, dirRel, kind, file string) (Page, []Note, bool) {
 	body, err := os.ReadFile(filepath.Join(p.Root, filepath.FromSlash(source)))
 	if err == nil {
 		pg.Lines = strings.Count(string(body), "\n") + 1
-		pg.Analysis = analyze(string(body), deps(p.Root, source), p.globalSet())
+		pg.Analysis = analyze(source, string(body), deps(p.Root, source), p.globalSet())
 		if kind == KindRoute {
 			pg.Methods = handlers(string(body))
 		}
@@ -540,6 +582,12 @@ func comment(pg Page) string {
 	fmt.Fprintf(&b, "// Source: %d lines, %s.\n", pg.Lines, describeHooks(pg.Analysis))
 	if len(pg.Endpoints) > 0 {
 		fmt.Fprintf(&b, "// Calls: %s.\n", strings.Join(endpointStrings(pg.Endpoints), ", "))
+	}
+	// What the screen writes, in the file where it is going to be rewritten.
+	// The class above is about what it draws; a Server Action has no URL, so
+	// each of these becomes a write handler and a form that posts to it.
+	if len(pg.Actions) > 0 {
+		fmt.Fprintf(&b, "// Server actions: %s.\n", strings.Join(actionStrings(pg.Actions), ", "))
 	}
 	// The suggestion is about a screen. A route.ts has no screen, and a
 	// layout is a frame: classifying either would be noise in the one place

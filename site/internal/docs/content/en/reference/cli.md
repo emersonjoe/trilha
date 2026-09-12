@@ -389,6 +389,7 @@ trilha migrate next ../web --dry-run   # prints the report, writes nothing
 trilha migrate next ../web             # writes app/ and MIGRATION.md
 trilha migrate next ../web --out app --report MIGRATION.md --force
 trilha migrate next ../web --out /tmp/x/app     # report goes to /tmp/x/MIGRATION.md
+trilha migrate next ../web --actions   # only the Server Actions table, writes nothing
 ```
 
 The report lands **beside the tree**, which is what its own first line promises: with no
@@ -420,12 +421,43 @@ under **Global dependencies**, and does not promote the pages it wraps. Neither 
 carrying a chat with an `<svg>` classified every screen of the application as **C**, which is
 an order of work that says start anywhere.
 
+A module counts for **what the page imported from it**, by name. `import { entrarNoPortal,
+portalPublico } from "@/lib/portalApi"` is read as those two functions and as whatever they
+call inside that file; the `portalUpload` beside them is somebody else's screen. Without that,
+a form that reads an invitation and sets a password came back as an upload island, and the
+reason pointed at a line it never runs. What the module does on its own account still counts:
+a function body runs when something calls it, but a top-level value — `const es = new
+EventSource("/api/chat")` beside the functions — is evaluated the moment anything imports the
+file, so it belongs to every screen that touches it. Nobody has to say which names came in for a default or
+a namespace import (`import * as api`), so there the whole module counts and the reason says
+`whole module` — which is the marker to look for when a suggestion seems too conservative.
+
+Server Actions get a table of their own. A page that writes through `"use server"` calls no
+endpoint, so a report organised by URL used to describe what every screen draws and say nothing
+about what it changes — in an App Router application that is half the product, and the **A**
+printed beside those screens reads like "nothing to do". The **Server Actions** section lists
+each action the screens import with the file, the line and the screens that call it; the class
+cell carries the count (`A — no island signal · 4 server actions`); and `--actions` prints that
+table alone, which is where whoever writes the contracts starts. Each one becomes a write
+handler and a form that posts to it — the handler writes and redirects, the page renders. An
+action is not an island signal: it is the opposite of JavaScript in the browser, and it does
+not change the class.
+
 For the same reason an `<svg>` on its own is not a drawing surface. A logo, an icon, a chevron:
 almost every screen has one, and reading the tag as **C** put four of the twenty screens of a
 real migration in the hardest class there is. What makes it **C** is something working on it —
 a `ref` on the element, `onWheel`, `requestAnimationFrame`, a drawing library — or a pointer
 handler and a chart library, which classify on their own anyway. A `<canvas>` still counts by
 itself: nobody puts one there for decoration.
+
+Media pulls the other way, and the direction of the error is why it matters. A screen that
+records voice — `getUserMedia`, `MediaRecorder`, `SpeechRecognition` — has no `<canvas>` and
+may have no handler at all, and it used to come back **A**: a form. But a device permission, a
+stream and an object with a life of its own are the purest case of the browser doing the work
+there is, and there is no post-redirect-get that replaces them, so capture is **C**. Playing is
+not capturing: `new Audio(`, an `<audio>` or a `<video>` is an element the server can draw, so
+it is **B**. A false positive costs one check; a false negative makes somebody port half a
+screen as a form before finding the microphone.
 
 The screens themselves are not translated. A page's body is business logic, and a machine
 guessing at it would cost more to review than to write — the guide

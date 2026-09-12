@@ -1,6 +1,6 @@
 # Migration report
 
-Read from `app`: 13 files with somewhere to go. The tree beside this file is the skeleton — folders, packages and signatures. What each screen does is still yours to port; this table is so you do not have to open them to find out.
+Read from `app`: 15 files with somewhere to go. The tree beside this file is the skeleton — folders, packages and signatures. What each screen does is still yours to port; this table is so you do not have to open them to find out.
 
 ## Screens
 
@@ -15,12 +15,23 @@ Read from `app`: 13 files with somewhere to go. The tree beside this file is the
 | `app/documents/[id]/page.tsx` (24) | `documents/id_/page.go` | `/documents/{id}` | yes (2 useState, 1 useEffect, 1 useRef) | GET /api/documents/:id<br>POST /api/documents/:id/reprocess<br>GET /api/documents/:id/status | B — polling (line 12) |
 | `app/documents/page.tsx` (15 + 12) | `documents/page.go` | `/documents` | yes (2 useState, 1 useEffect) | GET /api/documents?q=:query | A — no island signal |
 | `app/error.tsx` (6) | `error.go` | `/` | yes | — | — |
+| `app/estudo/page.tsx` (15 + 18) | `estudo/page.go` | `/estudo` | no | — | A — no island signal · 2 server actions |
 | `app/files/[...path]/page.tsx` (4) | `files/path__/page.go` | `/files/{path...}` | no | — | A — no island signal |
+| `app/gravar/page.tsx` (16) | `gravar/page.go` | `/gravar` | yes (1 useState, 1 useRef) | — | C — media capture (line 9) |
 | `app/not-found.tsx` (4) | `not_found.go` | `/` | no | — | — |
 | `app/page.tsx` (11) | `page.go` | `/` | no | — | A — no island signal |
 | `app/users/[user-id]/page.tsx` (6) | `users/user_id_/page.go` | `/users/{user_id}` | no | GET /api/users/:user_id | A — no island signal |
 
-The suggestion is mechanical, and it is here to be argued with — the reason beside each class says which line it came from: **C** when the file shows a pointer handler, a drawing surface (`<canvas>`, or an `<svg>` something actually draws on — an icon is an icon) or an editor — the browser is doing the work, so it becomes an island; **B** when it polls, opens a modal, has tabs or takes a file — the kit does that without a bundle; **A** otherwise, which is a form and a list, and the whole screen fits on the server.
+The suggestion is mechanical, and it is here to be argued with — the reason beside each class says which line it came from: **C** when the file shows a pointer handler, a drawing surface (`<canvas>`, or an `<svg>` something actually draws on — an icon is an icon), an editor or media capture (`getUserMedia`, `MediaRecorder`, speech recognition) — the browser is doing the work, so it becomes an island; **B** when it polls, opens a modal, has tabs, takes a file or plays audio — the kit does that without a bundle; **A** otherwise, which is a form and a list, and the whole screen fits on the server. A module counts for the names the screen imported from it, not for everything it happens to do: `import { a, b } from "x"` is read as `a` and `b`, and a module reached by a default or namespace import says `whole module` beside the reason.
+
+## Server Actions
+
+What the screens write: 2 actions in 1 file. A Server Action has no URL — it is a function the form calls, and the `"use server"` is the whole contract. Here each one becomes a write handler (a `route.go`, or the `POST` of the page's own route) and a form that posts to it: the handler writes and redirects, the page renders — the PRG the kit already does. The class beside a screen is about what it draws; these are what it changes.
+
+| Action | Source | Screens |
+|---|---|---|
+| `registrarResposta` | `lib/actions.ts:3` | `/estudo` |
+| `criarBaralho` | `lib/actions.ts:7` | `/estudo` |
 
 ## Global dependencies
 

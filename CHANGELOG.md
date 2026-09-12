@@ -3,6 +3,72 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.110.0 — 2026-09-12
+
+Spec 131. Closes [#167](https://github.com/emersonjoe/trilha/issues/167),
+[#181](https://github.com/emersonjoe/trilha/issues/181) and
+[#182](https://github.com/emersonjoe/trilha/issues/182).
+
+### Added
+
+- **`trilha migrate next`: a *Server Actions* section — the write surface of the application.**
+  The analyzer knew the client signals and `'use client'`; `"use server"` appeared nowhere in
+  it. In an App Router application that writes through Server Actions — the default shape since
+  Next 14 — the report described correctly what every screen *draws* and said nothing about what
+  it *changes*: measured on a real application, 57 exported actions in 15 files and zero
+  `fetch(` in the pages, none of them in the report. The screens came back **A**, which is right
+  about the shape and misleading about the size of the job. Now the report has a section of its
+  own, with the same discipline as the others — what was found, where, and what it implies:
+
+  ```markdown
+  ## Server Actions
+
+  What the screens write: 2 actions in 1 file. A Server Action has no URL — it is a function
+  the form calls, and the `"use server"` is the whole contract. Here each one becomes a write
+  handler (a `route.go`, or the `POST` of the page's own route) and a form that posts to it.
+
+  | Action | Source | Screens |
+  |---|---|---|
+  | `registrarResposta` | `lib/actions.ts:3` | `/estudo` |
+  ```
+
+  The directive decides the scope, the way Next defines it: at the top of a file every exported
+  function is an action, and inside a function body only that one. The class cell carries the
+  count — `A — no island signal · 2 server actions` — so the **A** is not read as "nothing to
+  do", the generated doc comment lists the actions of its screen by file and line, and
+  `trilha migrate next <dir> --actions` prints that table alone and writes nothing, which is the
+  list whoever writes the contracts starts from. An action is not an island signal: it is the
+  opposite of JavaScript in the browser, and it does not change the class.
+
+- **`trilha migrate next`: media capture is **C**, playback is **B**.** A screen that records
+  voice — `getUserMedia`, `new MediaRecorder(`, `SpeechRecognition`, `new AudioContext(` — has
+  no `<canvas>` and may have no handler at all, so it came back **A**: a form. A device
+  permission, a stream and an object with a life of its own are the purest case of the browser
+  doing the work there is, and there is no post-redirect-get that replaces them, so the new
+  `media capture` signal classifies it as **C**. Playing is not capturing: `new Audio(`, an
+  `<audio>` or a `<video>` is an element the server draws, so `media playback` is **B**, which
+  the kit covers without a bundle. A false positive costs one check; a false negative makes
+  somebody port half a screen as a form before finding the microphone.
+
+### Fixed
+
+- **`trilha migrate next`: a module counts for the names the screen imported from it.** The page
+  was classified by the signals of every module it imports, and not by the ones it uses: a
+  screen that reads an invitation and sets a password — `import { entrarNoPortal, portalPublico
+  } from "@/lib/portalApi"` — inherited the `upload` of a `portalUpload` it never calls and came
+  back an island, with the reason pointing at a line that screen never runs. The import clause
+  already says which names came in, so each module is now read as those declarations plus
+  whatever they call inside the file, and the rest of it is somebody else's screen. The same
+  rule applies at every hop: an import whose names are used nowhere in what is left is not
+  followed at all. What the module does on its own account still counts — a function body runs
+  when something calls it, but a top-level value (`const es = new EventSource("/api/chat")`) is
+  evaluated the moment anything imports the file, so it belongs to every screen that touches it. A default or a namespace import (`import * as api`) names nothing, so there
+  the whole module still counts and the reason says so — `upload (lib/portalApi.ts:19, whole
+  module)` — which is the marker to look for when a suggestion seems too conservative. The line
+  count beside each screen keeps counting the whole imported file: it is the file somebody is
+  going to open, and reading by name is about whose work the behaviour is, not about how long
+  the module is.
+
 ## 0.109.0 — 2026-09-12
 
 Spec 130. Closes [#170](https://github.com/emersonjoe/trilha/issues/170) and

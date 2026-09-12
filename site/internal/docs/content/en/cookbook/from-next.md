@@ -15,6 +15,7 @@ or on the server**, and what is left in the browser is the little the kit alread
 | In the React app | Here |
 |---|---|
 | `useEffect` + `fetch` + `useState(loading)` | a page function that reads the data and returns the HTML |
+| a Server Action (`"use server"`) and `<form action={…}>` | a `POST` beside the page that writes and `c.Redirect`s |
 | `useSearchParams` and a state per filter | [`trilha.ListParams`](/reference/listings) read by `c.Bind` |
 | `setInterval` + cleanup in `useEffect` | [`ui.Poll`](/reference/live) |
 | `toast()` from a provider | `c.Flash` |

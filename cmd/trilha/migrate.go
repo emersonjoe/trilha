@@ -29,6 +29,7 @@ func cmdMigrateNext(args []string) error {
 	out := fs.String("out", "app", t("flag migrate out"))
 	report := fs.String("report", "", t("flag migrate report"))
 	dryRun := fs.Bool("dry-run", false, t("flag migrate dry-run"))
+	actions := fs.Bool("actions", false, t("flag migrate actions"))
 	force := fs.Bool("force", false, t("flag migrate force"))
 	lang := fs.String("lang", lang, t("flag lang"))
 	// The directory is pulled out before parsing so the flags may come on
@@ -60,6 +61,12 @@ func cmdMigrateNext(args []string) error {
 	p, err := migrate.Scan(dir)
 	if err != nil {
 		return err
+	}
+	// The write surface on its own: with Server Actions there is no URL to
+	// read, so this table is where whoever writes the contracts starts.
+	if *actions {
+		fmt.Print(migrate.ActionsTable(p, *lang))
+		return nil
 	}
 	md := migrate.Report(p, *lang)
 	if *dryRun {

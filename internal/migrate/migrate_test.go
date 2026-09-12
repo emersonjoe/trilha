@@ -102,6 +102,8 @@ func TestFolders(t *testing.T) {
 		"page.go":                  "/",
 		"marketing-/about/page.go": "/about",
 		"documents/page.go":        "/documents",
+		"estudo/page.go":           "/estudo",
+		"gravar/page.go":           "/gravar",
 		"documents/id_/page.go":    "/documents/{id}",
 		"users/user_id_/page.go":   "/users/{user_id}",
 		"files/path__/page.go":     "/files/{path...}",
@@ -167,6 +169,10 @@ func TestClasses(t *testing.T) {
 		"dashboard/page.go":     ClassSPA,    // <svg> and onPointerDown
 		"documents/id_/page.go": ClassIsland, // setInterval
 		"documents/page.go":     ClassForm,   // a list and a filter
+		"gravar/page.go":        ClassSPA,    // MediaRecorder: the browser is doing the work
+		// The module it imports also has a FormData in it, in a function this
+		// screen does not import: the class is what the screen uses (#167).
+		"estudo/page.go": ClassForm,
 	}
 	for _, pg := range p.Pages {
 		key := pg.File
@@ -523,5 +529,157 @@ export default function Desenho() {
 	}
 	for dir := range want {
 		t.Errorf("%s was not scanned", dir)
+	}
+}
+
+// Spec 131 (#167): a página era classificada pelos sinais de todo módulo que
+// ela importa, e não pelos que ela de fato usa. No Verba, uma tela que lê um
+// convite e define uma senha herdava `upload` e `storage` de funções que nunca
+// chama — e C, ou B, é a classe que manda escrever ilha onde um formulário
+// basta. O `import { a, b } from "x"` já diz quais nomes entraram.
+func TestSinalDeModuloSegueOsNomesImportados(t *testing.T) {
+	p, err := Scan("testdata/unused-import")
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]Page{}
+	for _, pg := range p.Pages {
+		by[pg.Source] = pg
+	}
+
+	convite := by["app/portal/convite/[token]/page.tsx"]
+	if convite.Class != ClassForm {
+		t.Errorf("o convite veio %s — %s; ele importa dois nomes e não chama o portalUpload", convite.Class, convite.Why)
+	}
+	if len(convite.Deps) == 0 {
+		t.Error("o módulo importado não entrou em Deps — o tamanho do trabalho para de contar")
+	}
+	for _, d := range convite.Deps {
+		if strings.HasSuffix(d, "storage.ts") {
+			t.Errorf("o %s foi seguido; só o portalUpload o usa, e o convite não importa o portalUpload", d)
+		}
+	}
+
+	// Com `import * as`, ninguém disse quais nomes entraram: o módulo conta
+	// inteiro, como antes, e o motivo diz isso para a conferência ser barata.
+	arquivos := by["app/portal/arquivos/page.tsx"]
+	if arquivos.Class != ClassIsland {
+		t.Errorf("os arquivos vieram %s — %s; o namespace import lê o módulo inteiro", arquivos.Class, arquivos.Why)
+	}
+	if !strings.Contains(arquivos.Why, "whole module") {
+		t.Errorf("o motivo não diz que o módulo foi lido inteiro: %q", arquivos.Why)
+	}
+
+	// E o que o módulo faz por conta própria continua contando: um valor de
+	// topo é avaliado no instante em que alguém importa o arquivo, então o
+	// canal aberto ao lado das funções é de quem importa qualquer uma delas.
+	eventos := by["app/portal/eventos/page.tsx"]
+	if eventos.Class != ClassIsland || !strings.Contains(eventos.Why, "polling") {
+		t.Errorf("os eventos vieram %s — %s; o EventSource do módulo abre ao importar", eventos.Class, eventos.Why)
+	}
+	if !strings.Contains(eventos.Why, "eventos.ts:3") {
+		t.Errorf("o motivo não aponta a linha do canal: %q", eventos.Why)
+	}
+}
+
+// Spec 131 (#181): medido no Prosa, 57 Server Actions exportadas em 15 arquivos
+// e nenhum `fetch(` nas páginas. O relatório descrevia corretamente o que a
+// página desenha e não dizia uma palavra sobre o que ela escreve: o `A` estava
+// certo quanto ao formato e enganoso quanto ao tamanho do trabalho.
+func TestServerActionsAparecemNoRelatorio(t *testing.T) {
+	p, err := Scan("testdata/server-actions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Action{}
+	for _, a := range p.Actions {
+		got[a.Name] = a
+	}
+	// O arquivo com "use server" no topo: toda função exportada é ação — e só
+	// as que alguma tela importa, que é a travessia por nome da #167.
+	for _, name := range []string{"registrarResposta", "criarBaralho", "salvarPerfil"} {
+		if _, ok := got[name]; !ok {
+			t.Errorf("%s não está entre as ações: %+v", name, p.Actions)
+		}
+	}
+	// E o que não é ação não é: a função exportada sem o "use server" ao lado
+	// de uma que tem, e a que ninguém importa.
+	for _, name := range []string{"formatarNome", "apagarBaralho", "Cards", "Perfil"} {
+		if _, ok := got[name]; ok {
+			t.Errorf("%s virou ação e não é", name)
+		}
+	}
+	if a := got["registrarResposta"]; a.Path != "lib/estudo-actions.ts" || a.Line != 5 {
+		t.Errorf("registrarResposta = %s:%d, quero lib/estudo-actions.ts:5", a.Path, a.Line)
+	}
+	// "use server" no corpo de uma função é só ela, e ela pode estar na página.
+	if a := got["salvarPerfil"]; a.Path != "app/perfil/page.tsx" || a.Line != 3 {
+		t.Errorf("salvarPerfil = %s:%d, quero app/perfil/page.tsx:3", a.Path, a.Line)
+	}
+	if a := got["criarBaralho"]; strings.Join(a.Screens, ", ") != "/cards/{deckId}" {
+		t.Errorf("as telas do criarBaralho = %v", a.Screens)
+	}
+
+	var cards Page
+	for _, pg := range p.Pages {
+		if pg.Dir == "cards/deckId_" {
+			cards = pg
+		}
+	}
+	// Uma Server Action é o oposto de JavaScript no cliente: não é sinal de
+	// ilha, e não muda a classe. O que ela muda é a contagem ao lado dela.
+	if cards.Class != ClassForm {
+		t.Errorf("a tela dos cards veio %s — %s; ação de servidor não é sinal de ilha", cards.Class, cards.Why)
+	}
+	if len(cards.Actions) != 2 {
+		t.Errorf("a tela dos cards tem %d ações, quero 2: %+v", len(cards.Actions), cards.Actions)
+	}
+
+	md := Report(p, "en")
+	for _, want := range []string{"## Server Actions", "`registrarResposta`", "`lib/estudo-actions.ts:5`", "· 2 server actions", "· 1 server action"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("o relatório não traz %q", want)
+		}
+	}
+	if strings.Contains(md, "apagarBaralho") {
+		t.Error("o relatório lista uma ação que nenhuma tela importa")
+	}
+	if pt := Report(p, "pt"); !strings.Contains(pt, "ações de servidor") {
+		t.Error("a tradução do relatório não conta as ações")
+	}
+}
+
+// Spec 131 (#182): gravar voz é o caso mais puro de "o navegador está fazendo o
+// trabalho" que existe — permissão de dispositivo, stream, um objeto com ciclo
+// de vida próprio e um Blob no fim — e saía A, formulário. A #156 corrigiu um
+// falso positivo, que custa uma conferência; este é um falso negativo, que faz
+// alguém portar meia tela antes de descobrir o microfone.
+func TestCapturaDeMidiaEhIlha(t *testing.T) {
+	p, err := Scan("testdata/media")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]struct{ class, why string }{
+		"licao":  {ClassSPA, "media capture"},
+		"ditado": {ClassSPA, "media capture"},
+		// Capturar é C porque depende de permissão e de um objeto vivo;
+		// reproduzir é B, porque é um elemento que o servidor desenha.
+		"ouvir": {ClassIsland, "media playback"},
+	}
+	for _, pg := range p.Pages {
+		w, ok := want[pg.Dir]
+		if !ok {
+			continue
+		}
+		delete(want, pg.Dir)
+		if pg.Class != w.class || !strings.Contains(pg.Why, w.why) {
+			t.Errorf("%s = %s — %s, quero %s — %s", pg.Dir, pg.Class, pg.Why, w.class, w.why)
+		}
+		if pg.Dir == "licao" && !strings.Contains(pg.Why, "use-voice-recorder.ts:7") {
+			t.Errorf("o motivo da lição não aponta o hook: %q", pg.Why)
+		}
+	}
+	for dir := range want {
+		t.Errorf("%s não foi varrido", dir)
 	}
 }

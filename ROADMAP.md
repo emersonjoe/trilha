@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.109.0)
+## Onde o Trilha está (setembro de 2026, v0.110.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -33,7 +33,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | SSG | `trilha export`, `AddExportPath`, `BasePath` | spec 003 |
 | UI | kit `ui` com ~60 componentes, tema compatível com shadcn/ui, ícones Lucide, gráficos sem bundle, listagens, fila de aprovação | specs 006, 023, 024, 113 |
 | IA | `ai` (protocolo OpenAI: OpenAI, Ollama, OpenRouter, vLLM…), `ai/mcp` cliente e servidor, `mcp.FromRoutes` | specs 005, 119 |
-| Migração | `trilha migrate next`: a árvore de `app/`, o relatório com classe e motivo por linha, o que não tem equivalente | specs 091, 122 |
+| Migração | `trilha migrate next`: a árvore de `app/`, o relatório com classe e motivo por linha, a seção *Server Actions*, o que não tem equivalente | specs 091, 122, 131 |
 | Testes | unitários, golden, integração por exemplo, e2e da CLI, fuzz | princípio VI |
 | Desempenho | módulo `bench/`, resultados publicados, metodologia | spec 011 |
 | Comunidade | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, GOVERNANCE, templates, CODEOWNERS | spec 004 |

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -52,4 +54,53 @@ func rodaMigrate(t *testing.T, dir, fonte string, args ...string) {
 	if err := os.Chdir(antes); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// #181 — numa aplicação com Server Actions o relatório descrevia o que cada
+// tela desenha e não dizia uma palavra sobre o que ela escreve. O `--actions`
+// imprime só essa metade, que é a lista de quem vai escrever os contratos, e
+// não grava arquivo nenhum.
+func TestMigrateActionsSoImprimeATabela(t *testing.T) {
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	fonte := filepath.Join(repo, "internal", "migrate", "testdata", "server-actions")
+	dir := t.TempDir()
+
+	saida := capturaSaida(t, func() { rodaMigrate(t, dir, fonte, "--actions") })
+
+	for _, quero := range []string{"## Server Actions", "registrarResposta", "lib/estudo-actions.ts:5"} {
+		if !strings.Contains(saida, quero) {
+			t.Errorf("a saída não traz %q:\n%s", quero, saida)
+		}
+	}
+	if strings.Contains(saida, "## Screens") {
+		t.Error("--actions imprimiu o relatório inteiro")
+	}
+	restos, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(restos) != 0 {
+		t.Errorf("--actions gravou %d coisa(s) no disco: %v", len(restos), restos)
+	}
+}
+
+// capturaSaida roda f com a saída padrão num pipe e devolve o que foi escrito.
+func capturaSaida(t *testing.T, f func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	antes := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = antes }()
+	f()
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }

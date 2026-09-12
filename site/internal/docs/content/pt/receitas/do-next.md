@@ -15,6 +15,7 @@ servidor**, e o que sobra no browser é o pouco que o kit já traz pronto.
 | No app React | Aqui |
 |---|---|
 | `useEffect` + `fetch` + `useState(loading)` | uma função de página que lê os dados e devolve o HTML |
+| uma Server Action (`"use server"`) e `<form action={…}>` | um `POST` ao lado da página que grava e dá `c.Redirect` |
 | `useSearchParams` e um estado por filtro | [`trilha.ListParams`](/pt/referencia/listagens) lida pelo `c.Bind` |
 | `setInterval` + limpeza no `useEffect` | [`ui.Poll`](/pt/referencia/vivo) |
 | `toast()` de um provider | `c.Flash` |

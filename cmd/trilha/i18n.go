@@ -231,6 +231,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"flag migrate out":     {"where to write the skeleton", "onde gravar o esqueleto"},
 	"flag migrate report":  {"where to write the report", "onde gravar o relatório"},
 	"flag migrate dry-run": {"print the report and write nothing", "imprime o relatório e não grava nada"},
+	"flag migrate actions": {"print only the Server Actions the screens import, and write nothing", "imprime só as Server Actions que as telas importam, e não grava nada"},
 	"flag migrate force":   {"overwrite files that are already there", "sobrescrever arquivos que já existem"},
 	"migrate dry":          {"%d files would be written to %s/, plus %s.", "%d arquivos seriam gravados em %s/, mais o %s."},
 	"migrate where":        {"skeleton: %s (%d screens)\nreport:   %s", "esqueleto: %s (%d telas)\nrelatório: %s"},
