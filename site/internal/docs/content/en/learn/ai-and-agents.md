@@ -65,6 +65,10 @@ fmt.Println(res.Steps)         // each tool called, with arguments and output
 `res.Messages` is the whole conversation; pass it as history in the next call to keep the
 context: `ai.Run(ctx, cli, assistant, "And tomorrow?", res.Messages...)`.
 
+An agent that acts on your own data — tools that read what the visitor may read, a write that
+waits for a person, the trail of what it did — is the
+[AI agent recipe](/cookbook/ai-agent).
+
 ## Multi-agent
 
 Three ways to compose agents, from the simplest to the most controlled:
@@ -77,6 +81,9 @@ Three ways to compose agents, from the simplest to the most controlled:
 - **Orchestration in Go**: `ai.Parallel` runs several agents at once and `ai.Chain` passes
   one's output as the next one's input. You keep control in code, without depending on the
   model "remembering" to delegate.
+
+Which of the three to reach for — and a triage that hands over to billing, running — is in the
+[AI agent recipe](/cookbook/ai-agent).
 
 ## Streaming to the browser
 

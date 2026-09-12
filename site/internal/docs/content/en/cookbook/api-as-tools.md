@@ -123,3 +123,7 @@ bare "error" would hide.
 See [mcp](/reference/mcp#your-api-as-tools) for `FromRoutesOpts` and `Preview`, and
 [App](/reference/app#probing-a-route) for `Probe`, the primitive the per-caller list is
 built on.
+
+When the agent is yours and lives in the app, the same route becomes a tool the same way —
+one `ai.Tool` that probes and calls it, with no second declaration. That is step 1 of the
+[AI agent recipe](/cookbook/ai-agent).

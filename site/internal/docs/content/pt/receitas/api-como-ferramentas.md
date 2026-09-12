@@ -123,3 +123,7 @@ um "erro" seco esconderia.
 Veja [mcp](/pt/referencia/mcp#a-sua-api-como-ferramentas) para `FromRoutesOpts` e `Preview`, e
 [App](/pt/referencia/app#sondar-uma-rota) para o `Probe`, a primitiva sobre a qual a lista
 por chamador é montada.
+
+Quando o agente é seu e mora dentro do app, a mesma rota vira ferramenta do mesmo jeito — um
+`ai.Tool` que sonda e chama, sem segunda declaração. É o passo 1 da
+[receita do agente de IA](/pt/receitas/agente-de-ia).

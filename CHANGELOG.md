@@ -3,6 +3,44 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.116.0 — 2026-09-12
+
+Spec 137. Closes [#187](https://github.com/emersonjoe/trilha/issues/187).
+
+### Documentation
+
+- **A Cookbook recipe for an agent that acts on your data** — `/cookbook/ai-agent`, and
+  `/pt/receitas/agente-de-ia` in Portuguese. The chat recipe put a conversation in the app;
+  this one answers the questions of the second day, when the assistant starts doing things:
+  how it reads your data without seeing everything, what it may do alone and what waits for a
+  person, how you see afterwards what it did, and how you test it without spending a call.
+  Eight steps over a small domain — orders and customers — with every Go block compiled from
+  `examples/cookbook/aiagent.go` and its test.
+- **Tools that read what the caller may read.** The request lives in the closure, so the
+  customer is never an argument the model can change: the search tool queries a
+  `trilha.Search` index whose tenant is the customer, and the read tool *calls the app's own
+  API route* instead of declaring it a second time — `App.Probe` runs the route's chain
+  without running the handler, so a caller who may not reach it gets a tool that says no, and
+  `trilha.WithVia(req, "agent")` makes the audit record say how the call arrived. It is
+  `cookbook/api-as-tools` seen from the agent's side, and that recipe now points here.
+- **A write with a person in the middle.** "Cancel the order" opens an `approval.Request`,
+  answers the model that it asked and changes nothing; the order only changes in the
+  `On(kind, fn)` hook, after somebody decides in `ui.Inbox`. The test proves it: the store
+  does not move, the queue grows, and the model reads back the truth.
+- **What it did, on the screen and in the trail.** Triage hands off to billing with
+  `Handoffs` (and the page says when `Chain`, `Parallel` and `AsTool` are the better answer);
+  `ui.ChatOpts{Steps: true}` shows `tool_call`/`tool_result` as they happen; one wrapper
+  around every tool writes a `c.Audit` line, and the run's `Usage` is one more line on the way
+  out — with the hand-written `RunStream` route for when a streamed answer needs it too.
+- **A test with no key and no network**, from a scripted provider that answers tool calls in
+  order, plus `MaxTurns` as the belt; and the same set of tools exposed with `mcp.NewServer`
+  in one route, for an agent that is not this app's.
+- **A runnable demo at `/demos/ai-agent`** (and `/pt/demos/ai-agent`): a whole run — the
+  handoff, the tool calls, the request that lands in the queue and the buttons that decide it
+  — scripted in the browser, so the static site shows it with no API key.
+- `learn/ai-and-agents` §§ "Agents" and "Multi-agent" now point at the recipe in both
+  languages.
+
 ## 0.115.0 — 2026-09-12
 
 Spec 136. Closes [#186](https://github.com/emersonjoe/trilha/issues/186).

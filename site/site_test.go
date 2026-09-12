@@ -50,7 +50,7 @@ func pagePaths() []string {
 // demoPaths lists the runnable demos that are pages of their own (spec 118):
 // they are not chapters, so docs.All() does not know them.
 func demoPaths() []string {
-	return []string{"/demos/assistant", "/pt/demos/assistant", "/demos/ai-chat", "/pt/demos/ai-chat"}
+	return []string{"/demos/assistant", "/pt/demos/assistant", "/demos/ai-chat", "/pt/demos/ai-chat", "/demos/ai-agent", "/pt/demos/ai-agent"}
 }
 
 func allPaths() []string { return append(append(homes(), pagePaths()...), demoPaths()...) }
@@ -102,7 +102,7 @@ func TestLegacyPathsRedirect(t *testing.T) {
 func TestAlternatesAndSwitcher(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "")
 	t.Setenv("SITE_ORIGIN", "")
-	cases := map[string]string{"/learn/forms": "/pt/aprender/formularios", "/reference/ctx": "/pt/referencia/ctx", "/learn": "/pt/aprender", "/demos/assistant": "/pt/demos/assistant", "/demos/ai-chat": "/pt/demos/ai-chat", "/": "/pt"}
+	cases := map[string]string{"/learn/forms": "/pt/aprender/formularios", "/reference/ctx": "/pt/referencia/ctx", "/learn": "/pt/aprender", "/demos/assistant": "/pt/demos/assistant", "/demos/ai-chat": "/pt/demos/ai-chat", "/demos/ai-agent": "/pt/demos/ai-agent", "/": "/pt"}
 	for en, pt := range cases {
 		_, body := get(t, en)
 		for _, want := range []string{
@@ -402,6 +402,75 @@ func TestAIChatRecipeIsReachable(t *testing.T) {
 		}
 		if !strings.Contains(ch.Body, "]("+p.Path()+")") {
 			t.Errorf("%s: the AI chapter does not point at %s", l.Code, p.Path())
+		}
+	}
+}
+
+// Spec 137: the agent demo shows what the chat demo does not — the steps the
+// run took and the queue the write went into. It answers with no key and no
+// network, scripted in the browser like the other two.
+func TestAgentDemoIsRunnable(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	t.Setenv("OPENAI_API_KEY", "")
+	for _, path := range []string{"/demos/ai-agent", "/pt/demos/ai-agent"} {
+		code, body := get(t, path)
+		if code != 200 {
+			t.Errorf("%s: %d", path, code)
+			continue
+		}
+		for _, want := range []string{
+			`data-trilha-chat="/_demo/ai-agent"`,
+			`data-trilha-chat-steps`,
+			`name="ctx.order_id" value="1043"`,
+			`name="decision" value="approved"`,
+			`src="/ui.chat.js?v=`, `src="/agent-demo.js?v=`,
+		} {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s misses %s", path, want)
+			}
+		}
+	}
+}
+
+// Spec 137: the agent recipe is one page per locale, in the Cookbook index,
+// and the three pages that teach its pieces send the reader to it — the
+// chapter's two sections about agents and the recipe about the same routes
+// seen from MCP.
+func TestAIAgentRecipeIsReachable(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	slug := map[string]string{"en": "ai-agent", "pt": "agente-de-ia"}
+	chapter := map[string]string{"en": "ai-and-agents", "pt": "ia-e-agentes"}
+	tools := map[string]string{"en": "api-as-tools", "pt": "api-como-ferramentas"}
+	for _, l := range docs.Locales {
+		section := l.Sections[cookbookSection]
+		p, ok := docs.Get(l.Code, section.Key, slug[l.Code])
+		if !ok {
+			t.Errorf("%s: no agent recipe under %s", l.Code, section.Key)
+			continue
+		}
+		if code, _ := get(t, p.Path()); code != 200 {
+			t.Errorf("%s → %d", p.Path(), code)
+		}
+		index, ok := docs.Get(l.Code, section.Key, "")
+		if !ok {
+			t.Fatalf("%s: no index for %s", l.Code, section.Key)
+		}
+		if !strings.Contains(index.Body, "]("+p.Path()+")") {
+			t.Errorf("%s: %s is not in the index table", l.Code, p.Path())
+		}
+		ch, ok := docs.Get(l.Code, l.Sections[0].Key, chapter[l.Code])
+		if !ok {
+			t.Fatalf("%s: no AI chapter", l.Code)
+		}
+		if strings.Count(ch.Body, "]("+p.Path()+")") < 2 {
+			t.Errorf("%s: the AI chapter must point at %s from both agent sections", l.Code, p.Path())
+		}
+		mcp, ok := docs.Get(l.Code, section.Key, tools[l.Code])
+		if !ok {
+			t.Fatalf("%s: no api-as-tools recipe", l.Code)
+		}
+		if !strings.Contains(mcp.Body, "]("+p.Path()+")") {
+			t.Errorf("%s: api-as-tools does not point at %s", l.Code, p.Path())
 		}
 	}
 }

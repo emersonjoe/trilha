@@ -65,6 +65,10 @@ fmt.Println(res.Steps)         // cada ferramenta chamada, com argumentos e saí
 `res.Messages` é a conversa inteira; passe-a como histórico na próxima chamada para manter
 o contexto: `ai.Run(ctx, cli, assistente, "E amanhã?", res.Messages...)`.
 
+Um agente que age sobre os seus dados — ferramentas que leem o que o visitante pode ler, uma
+escrita que espera uma pessoa, o rastro do que ele fez — é a
+[receita do agente de IA](/pt/receitas/agente-de-ia).
+
 ## Multiagentes
 
 Três formas de compor agentes, da mais simples à mais controlada:
@@ -77,6 +81,9 @@ Três formas de compor agentes, da mais simples à mais controlada:
 - **Orquestração em Go**: `ai.Parallel` roda vários agentes de uma vez e `ai.Chain` passa a
   saída de um como entrada do próximo. Você fica com o controle no código, sem depender de o
   modelo "lembrar" de delegar.
+
+Qual das três escolher — e uma triagem que repassa para o financeiro, rodando — está na
+[receita do agente de IA](/pt/receitas/agente-de-ia).
 
 ## Streaming até o navegador
 

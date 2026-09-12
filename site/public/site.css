@@ -120,6 +120,11 @@ h3 { font-size: 1.15rem; margin: 1.8em 0 .5em; }
 .chat-demo-facts dd { margin: .2rem 0 0; font-weight: 600; }
 .chat-demo-code, .chat-demo-note { margin-top: 2.5rem; }
 .chat-demo-note p { color: var(--fg-2); }
+/* Demo do agente (spec 137): a dica de perguntas e a fila que aparece. */
+.agent-demo-try { max-width: 42rem; margin: .25rem auto 0; color: var(--muted-foreground); font-size: .9rem; text-align: center; }
+.agent-demo-queue { max-width: 42rem; margin-inline: auto; }
+.agent-demo-queue h2 { font-size: 1rem; margin: 1.5rem 0 .25rem; }
+.agent-demo-queue p { margin: 0 0 .75rem; color: var(--muted-foreground); font-size: .9rem; }
 @media (max-width: 40rem) { .chat-demo-facts { grid-template-columns: 1fr 1fr; } }
 
 /* Documentação: 3 colunas */
