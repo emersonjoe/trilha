@@ -64,6 +64,10 @@ O token anda com três nomes, e cada um deles é um padrão, não uma regra:
 | `CSRF.Field` | `_csrf` |
 | `CSRF.Header` | `X-CSRF-Token` |
 
+Os três padrões são as constantes `trilha.CSRFCookie`, `trilha.CSRFField` e
+`trilha.CSRFHeader`, então um teste ou um `fetch` que precisa mandar o token lê o nome do
+framework em vez de redigitar a string.
+
 ```go
 cfg.CSRF = trilha.CSRF{Cookie: "billing_csrf", Field: "_billing_csrf", Header: "X-Billing-CSRF"}
 ```
@@ -186,9 +190,9 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 |---|---|
 | `New(cfg) *App` | cria a aplicação |
 | `Register(Route)` | registra uma rota (chamado pelo arquivo gerado) |
-| `SetRootLayout`, `SetNotFound`, `SetErrorPage` | ligam os arquivos da raiz |
+| `SetRootLayout(fn)`, `SetNotFound(fn)`, `SetErrorPage(fn)` | ligam os arquivos da raiz; os handlers são um `PageFunc` e um `ErrorPageFunc`, que é o que o arquivo gerado passa |
 | `trilha.Provide[T](a, v)` | guarda uma dependência sob o tipo dela (veja "Dependências") |
-| `trilha.Use[T](b) T` | lê de volta, a partir de um `*Ctx` ou do `*App` |
+| `trilha.Use[T](b) T` | lê de volta de um `trilha.Bag` — a interface que um `*Ctx` e um `*App` implementam, e só esses dois, para um handler e um `Setup` lerem a mesma dependência do mesmo jeito |
 | `Values() map[string]any` | valores globais definidos em `Setup`, por nome e sem tipo |
 | `Logger() *slog.Logger` | o logger |
 | `Env() Env` | ambiente |
@@ -207,6 +211,16 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 
 `trilha.Run(a)` é o que o `main` gerado chama: exporta se `TRILHA_EXPORT` estiver definido,
 senão serve. `trilha.Fatal(err)` registra e encerra, ignorando `http.ErrServerClosed`.
+
+**O `RunShutdown()` roda esses ganchos agora**, do mais novo para o mais antigo, e devolve o que
+eles devolveram. O `ListenAndServe` o chama quando o servidor para, que é o caminho normal e o
+que ninguém precisa pensar; ele é exportado pelos dois casos em que nada para um servidor. Um
+teste que precisa provar que o pool foi fechado ou que a última linha de auditoria foi gravada o
+chama no fim — gravação que ninguém consegue disparar é gravação que ninguém consegue conferir, e
+é justamente a que aparece quebrada em produção. Um `main` seu, servindo por um `http.Server` ou
+dentro de outro binário, o chama depois do próprio `Shutdown`, porque os ganchos são onde a
+aplicação pôs o trabalho que tem de acontecer depois da última requisição, e não depois do último
+byte.
 
 ### Sondar uma rota
 
@@ -320,7 +334,7 @@ func TestHome(t *testing.T) {
 | `TestRoute(t, r Route, method, target string, opts ...TestOption) *TestResponse` | um `route.go`, com seus middlewares |
 | `TestPage(t, r Route, target string, opts ...TestOption) *TestResponse` | uma página, com seus layouts; o `Node` vem preenchido |
 | `NewTestClient(t, a *App) *TestClient` | o cliente com pote de cookies |
-| `(*TestClient) Request / Get / PostForm / PostJSON` | os pedidos |
+| `(*TestClient) Request`, `Get(caminho)`, `PostForm(caminho, values)`, `PostJSON(caminho, v)` | os pedidos; o `PostForm` leva o token CSRF do pote e o `PostJSON` serializa o valor e manda como `application/json` |
 | `TestOption` | `WithApp`, `WithHeader`, `WithCookie`, `WithSigned`, `WithForm`, `WithJSON`, `WithBody`, `WithoutCSRF` |
 | `TestResponse` | `Node`, `WantStatus`, `WantContains`, `WantHeader`, `JSON(&v)`, `Cookie(nome)`; embute o `*httptest.ResponseRecorder` |
 
@@ -410,8 +424,13 @@ Cada `Save`, `Publish` e `Restore` escreve uma linha na trilha de auditoria: que
 a pergunta que chega uma semana depois. O valor é guardado em JSON, então uma versão escrita antes
 de um campo existir continua sendo lida — com o campo no valor zero, em vez de um erro.
 
-O store é memória por padrão; uma tabela atrás de `Save`, `List` e `Get` é o passo seguinte, e
-nenhuma tela muda. A tela é o [`ui.VersionList`](/pt/referencia/ui).
+O store é o `trilha.VersionMemory()` por padrão; um `trilha.VersionStore` — uma tabela atrás de
+`Save`, `List` e `Get`, sobre valores `trilha.VersionRecord`, que guardam os bytes e não a
+struct, então uma tabela serve toda espécie de coisa da aplicação — é o passo seguinte, e
+nenhuma tela muda. Um id ou um número sem versão atrás responde `trilha.ErrNoVersion`, e o
+`Hint` do `ErrVersionFrozen` leva o código `trilha.ErrFrozen` (`E_VERSION_FROZEN`), que é o que
+uma tela casa quando quer oferecer o botão de abrir rascunho em vez da mensagem. A tela é o
+[`ui.VersionList`](/pt/referencia/ui).
 
 
 ## Prazos
@@ -428,7 +447,7 @@ resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{
 resumo.Overdue      // []Deadline, do mais antigo para o mais novo
 resumo.Within[30]   // tudo que vence nos próximos trinta dias
 resumo.Next         // o mais próximo que ainda não venceu, ou nil
-resumo.ByKind       // por Kind: quantos abertos, quantos vencidos
+resumo.ByKind       // map[string]DeadlineKind: por Kind, quantos abertos e quantos vencidos
 ```
 
 Um `Deadline` é um `Title`, um `Kind`, um `Due`, uma `URL`, um `Owner` e um `Done`.
@@ -449,7 +468,7 @@ anel entre duas faixas subtrai.
 ### Dias úteis
 
 ```go
-cal := trilha.BusinessDays(feriados...)         // as datas são da aplicação
+cal := trilha.BusinessDays(feriados...)         // um *BusinessCalendar; as datas são da aplicação
 prazo := cal.Add(time.Now(), 5)                 // cinco dias úteis a partir de hoje
 cal.IsBusinessDay(d)                            // fim de semana e essas datas não são
 

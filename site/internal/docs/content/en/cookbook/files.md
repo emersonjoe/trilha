@@ -34,6 +34,18 @@ Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESS
 every other tool already looks for them. A URL it cannot read is a **panic at boot**, never a
 silent fallback: an application that starts with the wrong storage loses files quietly.
 
+The whole package, when you would rather wire it by hand than by a variable:
+
+| Symbol | Role |
+|---|---|
+| `blob.New(store) *Files` | the front door: `Put`, `PutBytes`, `Get`, `Stat`, `Serve`, `Delete`, `Orphans` |
+| `blob.NewDisk(dir) *Disk` | a directory — what a laptop and a single server want |
+| `blob.NewMemory() *Memory` | a map, for a test that must not touch the filesystem |
+| `blob.S3{Bucket, Region, Endpoint, Key, Secret, Session, PathStyle, HTTP}` | the bucket, signed with SigV4 and nothing else — no SDK |
+| `Files.PutBytes(ctx, name, b, contentType)` | a file the application produced (a generated PDF, a CSV) rather than one somebody uploaded |
+| `Disk.Keys`, `Memory.Keys`, `S3.Keys` | walks every key in the store, one call per key, which is the half `Orphans` compares the database against |
+| `blob.Presigner`, `S3.Presign(ctx, key, ttl)` | the store that can hand out a temporary URL; `Serve` uses it when it is there and streams when it is not, and `blob.ErrNotFound` is what a missing key answers either way |
+
 ## Receiving
 
 ```go

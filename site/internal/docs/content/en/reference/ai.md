@@ -9,7 +9,7 @@ description: OpenAI-compatible client, tools, agents, handoffs and composition.
 
 | Field / function | Role |
 |---|---|
-| `NewFromEnv() *Client` | reads `OPENAI_API_KEY`, `OPENAI_BASE_URL` (default `https://api.openai.com/v1`) and `TRILHA_AI_MODEL` (or `OPENAI_MODEL`; default `gpt-4o-mini`) |
+| `NewFromEnv() *Client` | reads `OPENAI_API_KEY`, `OPENAI_BASE_URL` (default `ai.DefaultBaseURL`, `https://api.openai.com/v1`) and `TRILHA_AI_MODEL` (or `OPENAI_MODEL`; default `gpt-4o-mini`) |
 | `BaseURL, APIKey, Model string` | direct configuration |
 | `Headers map[string]string` | extra headers (OpenRouter, Azure...) |
 | `HTTPClient *http.Client` | HTTP client (default with a 2 min timeout) |
@@ -25,6 +25,18 @@ Non-2xx responses become `*ai.Error{Status, Code, Message}`.
 `ResponseFormat{Type: "json_schema", JSONSchema: ...}` asks for structured output.
 
 Constructors: `ai.System(s)`, `ai.User(s)`, `ai.Assistant(s)`, `ai.ToolResult(callID, s)`.
+
+### The shape on the wire
+
+The types of the protocol are exported, because a provider that differs in one field is the
+normal case and reading the answer by hand has to stay possible: `Response.Choices` is a
+`[]ai.Choice`, each with its `Message` and its `FinishReason`; a call the model asks for is an
+`ai.ToolCall{ID, Type, Function}` whose `Function` is an `ai.FunctionCall{Name, Arguments}` —
+the arguments arrive as the JSON text the model wrote, not as a map, because that text is what
+the schema validates. What goes out describing a tool is an `ai.ToolDef{Type, Function}` over
+an `ai.FunctionDef{Name, Description, Parameters, Strict}`, which is what `Tool.Def()` builds
+from a `*ai.Tool`. `Request` has a `MarshalJSON` of its own so that `Extra` merges into the
+same object instead of nesting under a key no provider reads.
 
 ## Tool
 
@@ -112,8 +124,8 @@ not there. That is the `done` payload as a JSON body, or whatever `ServeOpts.Pag
 
 | Field of `ServeOpts` | What it does |
 |---|---|
-| `MaxHistory` | how many past messages travel back into the model (default 40; negative keeps none). The history comes from the browser, so the ceiling is the server's |
-| `MaxInput` | the largest request body accepted (default 256 KB) |
+| `MaxHistory` | how many past messages travel back into the model (default `ai.DefaultServeHistory`, 40; negative keeps none). The history comes from the browser, so the ceiling is the server's |
+| `MaxInput` | the largest request body accepted (default `ai.DefaultServeInput`, 256 KB) |
 | `HTML` | renders the finished answer for the browser; `ui.ChatHTML` is the one that matches `ui.Chat`. Without it the answer stays text |
 | `Page` | answers a request that did not ask for a stream, so the app can render the page with the message in it |
 | `Context` | receives the `ctx.*` fields the page sent with the message — the id of the record that is open, the route the visitor is on — and what it returns goes in front of the history |

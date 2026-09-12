@@ -88,7 +88,8 @@ them.
 ## Problem
 
 API errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details, sent as
-`application/problem+json`:
+`application/problem+json` — the constant `trilha.ProblemMediaType`, which is also what a
+client's `Accept` and a test's assertion should name instead of retyping it:
 
 ```json
 {"type":"about:blank","title":"Unprocessable Entity","status":422,
@@ -171,8 +172,9 @@ sentence saying **what to do instead**, and a **link**. In `Env: Dev` the error 
 three; in production it shows what it showed before, because the repair is for whoever writes
 the code and the person on the other side did not write it.
 
-It wraps, so `errors.Is` and `errors.As` reach straight through: code that already handled an
-error does not start handling a different one. `trilha.HintOf(err)` finds it, or answers nil.
+It wraps — `Hint.Unwrap()` answers the error underneath — so `errors.Is` and `errors.As` reach
+straight through: code that already handled an error does not start handling a different one.
+`trilha.HintOf(err)` finds it, or answers nil.
 
 ### E_REDIRECT_ABSOLUTE
 

@@ -40,10 +40,16 @@ res.Total                            // how many matched, across every kind
 res.Groups[0].Label, res.Groups[0].Hits
 ```
 
+`res` is a `trilha.SearchResult`: a `Total` and a `Groups []trilha.SearchGroup`, one group per
+kind, in the order the kinds were declared, each with the `Label` the screen shows and its
+`Hits`. Grouping is above the store on purpose — a store only matches and scores — so the shape
+is the same whatever is underneath.
+
 A `Doc` is a projection — enough to find it, name it and go to it. It is not the record, because
 an index that holds the whole row is a second copy of the database with its own staleness.
 
-**A kind nobody declared is refused**, with a `Hint` that lists the ones that are. Storing it in
+**A kind nobody declared is refused** with `trilha.ErrUnknownKind`, carrying a `Hint` whose code
+is `trilha.ErrSearchKind` (`E_SEARCH_KIND`) and which lists the kinds that do exist. Storing it in
 silence would be a record that never turns up in the search and nothing pointing at why.
 
 **An empty query answers an empty result**, not everything: a box somebody tabbed past must not
@@ -68,7 +74,7 @@ become a full table scan.
 
 ```go
 for _, part := range hit.Snippet {
-	// part.Text, part.Match
+	// a trilha.SnippetPart: part.Text, part.Match
 }
 ```
 
@@ -90,7 +96,7 @@ type SearchStore interface {
 }
 ```
 
-Memory is the default, and it is honest about what it is: every document is scanned, which is right
+`trilha.SearchMemory()` is the default, and it is honest about what it is: every document is scanned, which is right
 for the thousands an internal application has and wrong for the millions it does not. A table
 behind the same four methods — FTS5 in SQLite, `tsvector` with a GIN index in Postgres — is the
 next step, and no screen changes, because the store only matches and scores: the grouping, the

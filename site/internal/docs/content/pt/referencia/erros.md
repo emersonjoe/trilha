@@ -87,7 +87,8 @@ Erros de `c.BindJSON` e `c.FormErr` já são `HTTPError` (400 ou 413): basta dev
 ## Problem
 
 Erro de API é *problem details*, do [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457),
-enviado como `application/problem+json`:
+enviado como `application/problem+json` — a constante `trilha.ProblemMediaType`, que é também o
+nome que o `Accept` de um cliente e a conferência de um teste deveriam usar em vez de redigitar:
 
 ```json
 {"type":"about:blank","title":"Unprocessable Entity","status":422,
@@ -169,8 +170,9 @@ Um erro comum com três coisas a mais: um **código** que alguém cola numa busc
 produção mostra o que mostrava, porque o conserto é para quem escreve o código e quem está do
 outro lado não escreveu.
 
-Ele embrulha, então `errors.Is` e `errors.As` atravessam: quem já tratava um erro não passa a
-tratar outro. O `trilha.HintOf(err)` acha, ou devolve nil.
+Ele embrulha — o `Hint.Unwrap()` devolve o erro de baixo —, então `errors.Is` e `errors.As`
+atravessam: quem já tratava um erro não passa a tratar outro. O `trilha.HintOf(err)` acha, ou
+devolve nil.
 
 ### E_REDIRECT_ABSOLUTE
 

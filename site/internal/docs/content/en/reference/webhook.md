@@ -44,7 +44,8 @@ func (h *Hooks) Emit(c *trilha.Ctx, event string, payload any) error
 
 Records one delivery per subscription listening to the event, and returns. **It does not wait
 for the network**, which is the whole reason it exists. Its error is about this application — an
-unknown event, a store that would not write — and never about the partner.
+unknown event (`webhook.ErrUnknownEvent`), a store that would not write — and never about the
+partner.
 
 `Events` is closed: a typo in an `Emit` is an error where it is written rather than an event
 nobody subscribed to, which from outside is indistinguishable from a partner who is not
@@ -71,6 +72,10 @@ X-Webhook-Signature: sha256=…    HMAC-SHA256 of "timestamp.body"
 func Sign(secret, timestamp string, body []byte) string
 ```
 
+The names are constants — `webhook.HeaderEvent`, `webhook.HeaderTimestamp` and
+`webhook.HeaderSignature` — so a receiver written in Go reads them from the package instead of
+retyping the string in two places.
+
 The timestamp is **inside** the signed string. Signing the body alone would make every delivery
 of an event byte-identical forever, so a captured request could be replayed a year later and
 still check out.
@@ -93,7 +98,8 @@ func TakeSecret(c *trilha.Ctx) string             // once, right after Subscribe
 `Subscribe` answers the secret **once**. What is stored is a `trilha.Secret` — encrypted in the
 column, masked in the log — and an application that could show it again would be one that keeps
 it readable, which makes the secret worth exactly what the database backup is worth. It crosses
-the redirect in a signed cookie of its own; `TakeSecret` reads and clears it.
+the redirect in a signed cookie of its own (`webhook.SecretCookie`, which is also the name to
+clear if you write the redirect by hand); `TakeSecret` reads and clears it.
 
 `Revoke` is not a delete: the deliveries already made point at that subscription, and a screen
 that cannot say which endpoint a failure belonged to is useless afterwards. `Subscriptions`

@@ -88,6 +88,28 @@ middlewares. `trilha.Limit(rps, burst) MiddlewareFunc` cria um limitador indepen
 uma subárvore. Resposta: 429 com `Retry-After` (segundos) e evento `rate`.
 `trilha.ErrRateLimited` pode ser devolvido por um handler para o mesmo efeito.
 
+**O balde sozinho, para quando a chave não é um endereço.** O orçamento interessante raramente é
+o IP: um limite por chave de API, por tenant, por caixa de e-mail — uma recuperação de senha por
+endereço, e não uma por escritório atrás de um endereço só — ou por tarefa de fundo. O
+`trilha.NewLimiter` é o mesmo *token bucket* do middleware, como um valor que você guarda e
+indexa:
+
+```go
+var perKey = trilha.NewLimiter(trilha.RateLimit{RPS: 10, Burst: 30})
+
+if ok, after := perKey.Allow(chave.ID); !ok {
+	c.Header().Set("Retry-After", strconv.Itoa(int(after.Seconds()+0.5)))
+	return trilha.ErrRateLimited
+}
+```
+
+O `Limiter.Allow(chave)` responde se aquela chave pode passar agora e, quando não pode, em quanto
+tempo poderá — que é o número de que o `Retry-After` precisa e a razão de ele voltar em vez de ir
+para o log. Os baldes nascem no primeiro uso e são varridos quando se enchem, então uma chave que
+ninguém usa de novo não fica na memória. O `auth.APIKeys` limita por chave com este mesmo tipo, e
+é por isso que ele é exportado: uma aplicação que tem uma string para indexar não deveria estar
+escrevendo um segundo token bucket, e o que ela escreveria é o que vaza um mapa.
+
 ## Cookies assinados
 
 | Símbolo | Descrição |
@@ -96,7 +118,7 @@ uma subárvore. Resposta: 429 com `Retry-After` (segundos) e evento `rate`.
 | `c.Signed(nome) (string, bool)` | lê e verifica assinatura e prazo |
 | `c.ClearCookie(nome)` | expira um cookie |
 | `trilha.NewSigner(chaves...)`, `Sign`, `Verify` | o assinador (HMAC-SHA256) para uso direto |
-| `Config.Secret`, `Config.PreviousSecret` | `TRILHA_SECRET`, `TRILHA_SECRET_PREVIOUS` (base64 ou texto, ≥ 32 bytes) |
+| `Config.Secret`, `Config.PreviousSecret` | `TRILHA_SECRET`, `TRILHA_SECRET_PREVIOUS` (base64 ou texto, pelo menos `trilha.MinSecretLen` bytes — 32; menor que isso em `prod` é o hint `trilha.ErrSecretShort`) |
 
 Sem segredo: em `dev` uma chave efêmera é gerada (o `trilha dev` mantém uma por sessão); em
 `prod` o app avisa no log e `SetSigned` devolve `ErrNoSecret`.
@@ -160,6 +182,8 @@ plain, err := trilha.Open(sealed)         // segredo atual, depois o PreviousSec
 | `s.Reveal()` | o valor, lido de propósito |
 | `s.Sealed()` / `SecretFrom(b)` | a forma cifrada e a volta |
 | `s.Value()` / `s.Scan()` | `driver.Valuer` e `sql.Scanner`: a coluna guarda o selo |
+| `s.String()`, `s.LogValue()`, `s.MarshalJSON()` | a máscara, sempre — as três saídas por onde um valor vaza são o `%v`, um campo de `slog` e uma struct respondida como JSON, e este tipo existe para fechar as três |
+| `s.UnmarshalJSON(b)` | o valor como vem, porque um cliente que manda um segredo novo manda o segredo; uma **máscara** que volta é "não mudou", e nunca é guardada como se fosse o valor |
 | `ui.SecretField(c, nome, rótulo, atual)` | o campo de senha para um formulário escrito à mão |
 
 **O `Value()` é o método do driver e o `Reveal()` é o leitor.** A issue que pediu este tipo tinha

@@ -3,6 +3,42 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.117.0 — 2026-09-12
+
+Spec 138. Closes [#188](https://github.com/emersonjoe/trilha/issues/188).
+
+### Documentation
+
+- **A test that keeps the reference from falling behind the code.** `api/current.txt` already
+  guards one side of the promise: a symbol that enters or leaves the public surface shows up in
+  the diff. The site had no such guard, so every release added API and the pages that were never
+  written were nobody's failure. Two tests in `site/internal/docs` now fail listing what is
+  missing, the way `TestNoExternalDeps` names the dependency that got in:
+  `TestReferenceCoversAPI` wants every symbol of `api/current.txt` written **as code** — a fenced
+  block or a backtick span — on at least one English page and at least one Portuguese page, and
+  `TestUIKitCatalogue` wants every exported `func` of `ui/` in the catalogue of
+  `reference/ui.md` in both locales. A symbol an application never writes goes into
+  `documentedElsewhere` with the reason beside it; today that list has one entry.
+- **The backlog it found is closed: 102 symbols and 18 components.** The kit catalogue gained
+  `Shell`, `PageHeader`, the charts (`Stat`, `StatHint`, `Sparkline`, `SparklineTitle`, `Bars`,
+  `Donut`, `ChartTitle`), `Inbox`, `InboxBadge`, `PolicyGrid`, `TaskTable`, `TaskProgress`,
+  `WebhooksPanel`, `Empty`, `EmptyError`, `Status` and `TimeOnly`, each with the link to its own
+  chapter when it has one — the catalogue is where people look, even for a component explained
+  elsewhere.
+- **What each package page gained.** The `approval` state constants and `MayDecide`, `Expire`,
+  `ErrNotYours`, `ErrUnknown`; the grid methods of `auth.Policy` (`LevelOf`, `RolesSorted`,
+  `ModuleNames`, `LevelNames`), `auth.UsageStore` and `auth.Claims`; the delivery header
+  constants of `webhook` and `ErrUnknownEvent`; the wire types of `ai` (`Choice`, `ToolCall`,
+  `ToolDef`, `FunctionDef`, `Tool.Def`) and its defaults; the whole `blob` package — `NewDisk`,
+  `NewMemory`, `S3`, `Presigner`, `PutBytes`, `Keys` — in the files recipe; and in the framework
+  itself the CSRF name constants, `StatusPass`/`StatusFail`, `AuditSink`, `Bag`, `RouteKind`,
+  `LinkStore`, `VersionStore`, `SearchResult`, `SnippetPart`, `EnumValue`, `SchemaOption` and the
+  masking methods of `Secret`.
+- **`trilha.Limiter` and `App.RunShutdown` got a paragraph**, because both exist for a case a
+  table row cannot state: a token bucket keyed by something that is not an address — an API key,
+  a tenant, a mailbox — and a shutdown a test can trigger, since a flush nobody can call is the
+  one that turns out to be broken in production.
+
 ## 0.116.0 — 2026-09-12
 
 Spec 137. Closes [#187](https://github.com/emersonjoe/trilha/issues/187).

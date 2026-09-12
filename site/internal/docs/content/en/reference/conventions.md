@@ -47,6 +47,12 @@ the root of the branch covers every leaf, including the leaf someone adds next m
 A `page.go` route is a page whatever the branch above it says: an inherited `KindAPI` never
 turns a page into JSON.
 
+The variable is a `trilha.RouteKind`, and its three values are `trilha.KindAuto`,
+`trilha.KindPage` and `trilha.KindAPI`. `KindAuto` is the zero value and what almost every route
+has: the kind comes from the file — `page.go` is a page, `route.go` is an API — which is why
+declaring anything is the exception and not the ritual. `Route.Kind` answers the value after the
+inheritance, so a test can assert the branch it was worried about.
+
 ## Folders
 
 | Name | Becomes | Example |

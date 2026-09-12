@@ -33,6 +33,18 @@ As credenciais vêm de `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_SESSI
 onde toda outra ferramenta já procura. Uma URL que ele não entende é **pânico no boot**, nunca um
 padrão silencioso: aplicação que sobe com o storage errado perde arquivo calada.
 
+O pacote inteiro, para quando você preferir ligar na mão em vez de por variável:
+
+| Símbolo | Papel |
+|---|---|
+| `blob.New(loja) *Files` | a porta de entrada: `Put`, `PutBytes`, `Get`, `Stat`, `Serve`, `Delete`, `Orphans` |
+| `blob.NewDisk(dir) *Disk` | um diretório — o que um notebook e um servidor só querem |
+| `blob.NewMemory() *Memory` | um mapa, para um teste que não pode tocar no disco |
+| `blob.S3{Bucket, Region, Endpoint, Key, Secret, Session, PathStyle, HTTP}` | o balde, assinado com SigV4 e mais nada — sem SDK |
+| `Files.PutBytes(ctx, nome, b, contentType)` | um arquivo que a aplicação produziu (um PDF gerado, um CSV), e não um que alguém enviou |
+| `Disk.Keys`, `Memory.Keys`, `S3.Keys` | percorre toda chave da loja, uma chamada por chave, que é a metade com que o `Orphans` compara o banco |
+| `blob.Presigner`, `S3.Presign(ctx, chave, ttl)` | a loja que sabe entregar uma URL temporária; o `Serve` usa quando existe e transmite quando não, e o `blob.ErrNotFound` é o que uma chave ausente responde nos dois casos |
+
 ## Recebendo
 
 ```go

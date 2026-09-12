@@ -82,7 +82,7 @@ type Progress struct{ ID, Name, Key string }
 
 type Task struct {
 	ID, Name, Key string
-	State         State  // queued, running, done, error, interrupted
+	State         State  // Queued, Running, Done, Failed, Interrupted
 	Step          string
 	N, Of         int
 	Err           string // já é string: a tela mostra

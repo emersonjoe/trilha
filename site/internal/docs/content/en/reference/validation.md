@@ -100,8 +100,9 @@ if ok {
 
 The values come back as text: a schema that came from a table has no Go type to fill, and
 converting to `any` would only move the conversion into the app. `SchemaField` says what a
-tag would say — `Required`, `Min`, `Max`, `Pattern`, `Options` — and `Type` says which
-control draws it: `text`, `textarea`, `number`, `date`, `datetime`, `select`, `checkbox`,
+tag would say — `Required`, `Min`, `Max`, `Pattern`, `Options` (a `[]trilha.SchemaOption`, one
+`{Value, Label}` per choice of a select) — and `Type` says which control draws it, one of
+`trilha.SchemaTypes`: `text`, `textarea`, `number`, `date`, `datetime`, `select`, `checkbox`,
 `file`, `signature`, `display`. A `display` field is a paragraph in the middle of the form:
 it is not read and never gets a message. A file is read by `c.File`, as any file is.
 
@@ -138,6 +139,7 @@ two screens end up with two different greens. Empty means `muted`.
 | `Enum.Has(v)` | is this one of the list |
 | `Enum.Options(current, placeholder…)` | the `<option>` list, current value marked |
 | `Enum.Values()`, `Enum.Labels()` | both, in declaration order |
+| `trilha.EnumValue{Value, Label, Tone}` | one entry of the list: what the database holds, what the person reads, and which of the theme's tones it wears — an `Enum` is a slice of these |
 | `ui.Status(e, v)` | the badge: the label, in the tone |
 
 ### The four uses

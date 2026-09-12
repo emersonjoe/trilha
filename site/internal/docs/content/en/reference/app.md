@@ -64,6 +64,10 @@ The token travels under three names, and every one of them is a default, not a r
 | `CSRF.Field` | `_csrf` |
 | `CSRF.Header` | `X-CSRF-Token` |
 
+The three defaults are the constants `trilha.CSRFCookie`, `trilha.CSRFField` and
+`trilha.CSRFHeader`, so a test or a `fetch` that has to send the token reads the name from the
+framework instead of retyping the string.
+
 ```go
 cfg.CSRF = trilha.CSRF{Cookie: "billing_csrf", Field: "_billing_csrf", Header: "X-Billing-CSRF"}
 ```
@@ -189,9 +193,9 @@ typo in the layout does not take the page down. `ui.Head` and the examples alrea
 |---|---|
 | `New(cfg) *App` | creates the application |
 | `Register(Route)` | registers a route (called by the generated file) |
-| `SetRootLayout`, `SetNotFound`, `SetErrorPage` | wire the root files |
+| `SetRootLayout(fn)`, `SetNotFound(fn)`, `SetErrorPage(fn)` | wire the root files; the handlers are a `PageFunc` and an `ErrorPageFunc`, which is what the generated file passes |
 | `trilha.Provide[T](a, v)` | files a dependency under its type (see "Dependencies") |
-| `trilha.Use[T](b) T` | reads it back, from a `*Ctx` or from the `*App` |
+| `trilha.Use[T](b) T` | reads it back from a `trilha.Bag` — the interface a `*Ctx` and an `*App` implement, and only those two, so a handler and a `Setup` read the same dependency the same way |
 | `Values() map[string]any` | global values set in `Setup`, by name and untyped |
 | `Logger() *slog.Logger` | the logger |
 | `Env() Env` | environment |
@@ -210,6 +214,15 @@ typo in the layout does not take the page down. `ui.Head` and the examples alrea
 
 `trilha.Run(a)` is what the generated `main` calls: it exports if `TRILHA_EXPORT` is set,
 otherwise it serves. `trilha.Fatal(err)` logs and exits, ignoring `http.ErrServerClosed`.
+
+**`RunShutdown()` runs those hooks now**, newest first, and answers whatever they answered.
+`ListenAndServe` calls it when the server stops, which is the normal path and the one nobody
+has to think about; it is exported for the two cases where nothing stops a server. A test that
+has to prove the pool was closed or that the last audit line was flushed calls it at the end —
+a flush nobody can trigger is a flush nobody can check, and it is the one that turns out to be
+broken in production. A `main` of your own, serving through `http.Server` or inside another
+binary, calls it after its own `Shutdown`, because the hooks are where the application put the
+work that has to happen after the last request and not after the last byte.
 
 ### Probing a route
 
@@ -322,7 +335,7 @@ func TestHome(t *testing.T) {
 | `TestRoute(t, r Route, method, target string, opts ...TestOption) *TestResponse` | one `route.go`, with its middlewares |
 | `TestPage(t, r Route, target string, opts ...TestOption) *TestResponse` | one page, with its layouts; `Node` comes filled in |
 | `NewTestClient(t, a *App) *TestClient` | the client with a cookie jar |
-| `(*TestClient) Request / Get / PostForm / PostJSON` | the requests |
+| `(*TestClient) Request`, `Get(path)`, `PostForm(path, values)`, `PostJSON(path, v)` | the requests; `PostForm` carries the CSRF token of the jar and `PostJSON` marshals the value and sends it as `application/json` |
 | `TestOption` | `WithApp`, `WithHeader`, `WithCookie`, `WithSigned`, `WithForm`, `WithJSON`, `WithBody`, `WithoutCSRF` |
 | `TestResponse` | `Node`, `WantStatus`, `WantContains`, `WantHeader`, `JSON(&v)`, `Cookie(name)`; embeds `*httptest.ResponseRecorder` |
 
@@ -413,8 +426,13 @@ Every `Save`, `Publish` and `Restore` writes a line to the audit trail: who publ
 question that arrives a week later. The value is stored as JSON, so a version written before a
 field existed still reads back — with that field at its zero value instead of an error.
 
-The store is memory by default; a table behind `Save`, `List` and `Get` is the next step, and no
-screen changes. The screen is [`ui.VersionList`](/reference/ui).
+The store is `trilha.VersionMemory()` by default; a `trilha.VersionStore` — a table behind
+`Save`, `List` and `Get`, over `trilha.VersionRecord` values, which hold the bytes and not the
+struct, so one table serves every kind in the application — is the next step, and no screen
+changes. An id or a number with no version behind it answers `trilha.ErrNoVersion`, and the
+`Hint` on `ErrVersionFrozen` carries the code `trilha.ErrFrozen` (`E_VERSION_FROZEN`), which is
+what a screen matches on when it wants to offer the "open a draft" button instead of the
+message. The screen is [`ui.VersionList`](/reference/ui).
 
 
 ## Deadlines
@@ -431,7 +449,7 @@ resumo := trilha.Deadlines(itens, trilha.DeadlineOpts{
 resumo.Overdue      // []Deadline, oldest first
 resumo.Within[30]   // everything due in the next thirty days
 resumo.Next         // the nearest one that has not run out yet, or nil
-resumo.ByKind       // per Kind: how many are open, how many are late
+resumo.ByKind       // map[string]DeadlineKind: per Kind, how many are open and how many late
 ```
 
 A `Deadline` is a `Title`, a `Kind`, a `Due`, a `URL`, an `Owner` and a `Done` flag.
@@ -453,7 +471,7 @@ between two bands subtracts.
 ### Working days
 
 ```go
-cal := trilha.BusinessDays(feriados...)         // the dates are the application's
+cal := trilha.BusinessDays(feriados...)         // a *BusinessCalendar; the dates are the app's
 prazo := cal.Add(time.Now(), 5)                 // five working days from today
 cal.IsBusinessDay(d)                            // weekends and those dates are not
 

@@ -56,7 +56,7 @@ primeiro uso e vale por uma hora; um emissor divergente entre a configuração e
 | `LoginPath string` | `/entrar` | para onde `Require` manda um navegador anônimo |
 | `AfterLogin string` | `/` | destino após o retorno, quando não há `next` |
 | `AfterLogout string` | `/` | destino após o logout |
-| `RoleClaims []string` | — | claims adicionais de onde ler papéis |
+| `RoleClaims []string` | — | claims adicionais do `auth.Claims` (o ID token decodificado) de onde ler papéis, além dos padrão |
 | `Store Store` | `nil` | persiste a sessão; `nil` = cookie assinado, sem estado |
 | `OnLogin func(c, *User) error` | — | roda dentro de `Login` e `Callback`, com a sessão ainda não gravada; o erro dele impede o login |
 | `RequireVerifiedEmail bool` | `false` | recusa o login cujo e-mail o provedor não garante |
@@ -110,6 +110,7 @@ func (a *Auth) Optional() trilha.MiddlewareFunc
 func (a *Auth) User(c *trilha.Ctx) *User     // nil quando anônimo
 func (a *Auth) Session(c *trilha.Ctx) (*User, error)
 func (a *Auth) LoginPath() string            // Options.LoginPath, ou o padrão
+func (a *Auth) Provider() *Provider          // o provedor configurado, para a tela que o nomeia
 func (a *Auth) Sessions(c *trilha.Ctx) ([]User, error) // todas as sessões de quem está logado, esta primeiro
 func (a *Auth) LogoutOthers(c *trilha.Ctx) error       // encerra as outras, mantém esta
 
@@ -201,6 +202,8 @@ apagado tem que perder acesso, não herdar o de outro.
 |---|---|
 | `Policy.Can(u, módulo, nível) bool` | este usuário pode isto |
 | `Policy.Level(u, módulo) string` | o que ele tem, ou `""` |
+| `Policy.LevelOf(papel, módulo) string` | o nível de um **papel**, para a célula da grade, onde ainda não há usuário |
+| `Policy.RolesSorted()`, `Policy.ModuleNames()`, `Policy.LevelNames()` | os nomes em ordem estável — papéis ordenados, módulos como declarados, níveis do mais fraco ao mais forte — que é o que faz uma grade desenhar igual duas vezes |
 | `(*Auth) RequirePolicy(p, módulo, nível)` | o guarda |
 | `auth.All(nível) Grants` | o mesmo nível em todo módulo |
 | `auth.BindPolicy(c, p)` | lê de volta o que a grade postou |
@@ -502,11 +505,11 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
 | `APIKeys(KeyOptions)` | o conjunto de chaves da aplicação |
 | `Issue(c, nome, escopos, ttl)` | cria uma e devolve o segredo — a única vez que ele existe |
 | `Require(escopos...)` | o middleware: bearer, hash, revogação, vencimento, escopo, limite |
-| `Revoke(c, id)` / `All()` | encerra uma agora; lista para a tela |
+| `Revoke(c, id)` / `All()` | encerra uma agora (`auth.ErrUnknownKey` para um id que ninguém emitiu); lista para a tela |
 | `User(c)` | quem chamou, como `auth.User` com os escopos de papéis |
 | `KeyStore` / `MemoryKeyStore()` | cinco métodos sobre o que a app roda; memória para teste |
 | `ui.SecretOnce(c, segredo)` | o cartão que mostra uma vez, com a frase que precisa estar lá |
-| `ui.APIKeysTable(c, linhas, opts)` | a lista, com o identificador e nunca a chave |
+| `ui.APIKeysTable(c, []ui.APIKeyRow, ui.APIKeysOpts{...})` | a lista, com o identificador e nunca a chave |
 
 **Só o hash é guardado**, com pimenta do `trilha.Pepper` — HMAC-SHA256 sob uma chave derivada do
 segredo da app. Uma tabela de digests roubada não é uma lista que alguém ataca offline, e sem
@@ -552,9 +555,15 @@ rel.ByDay     // []UsageDay, da mais antiga para a mais nova — o que um gráfi
 rel.ByKey     // []UsageKeyTotal, quando a consulta não era sobre uma chave só
 ```
 
+O `Usage` é um `auth.UsageStore`, três métodos sobre o que a aplicação já roda: o
+`Add(ctx, []auth.UsageRow)` recebe o lote que uma gravação produziu — uma linha por chave, rota
+e dia, com o último status —, o `Query` responde o `auth.UsageReport` de cima e o `Prune`
+descarta o que passou do `UsageKeep`. O `auth.UsageMemory()` é essa interface sobre um mapa, que
+é o store certo para um processo e para um teste.
+
 **Contar não pode custar a requisição.** O `Require` incrementa um balde em memória — uma escrita
 de mapa sob um mutex, nada que possa travar numa rede — e os baldes vão para o store em lote. O
-`Setup` grava no relógio e no desligamento; sem ele, o `Flush` é seu para chamar. Um store que
+`Setup` grava no relógio e no desligamento; sem ele, o `Flush(ctx)` é seu para chamar. Um store que
 falha na gravação recebe as contagens de volta no buffer, porque perdê-las porque o banco estava
 reiniciando é exatamente a falha que este desenho evita.
 
@@ -579,7 +588,11 @@ contadores estão em produção — uma verificação que não os enxerga é uma
 que está tudo bem.
 
 As telas são o [`ui.APIUsage`](/pt/referencia/ui) e a coluna de chamadas do `ui.APIKeysTable`, e o
-`trilha add api-keys` escreve as duas.
+`trilha add api-keys` escreve as duas. O painel recebe a forma do próprio kit — um
+`ui.APIUsageData{Total, Errors, Last, Days []ui.APIUsageDay, Routes []ui.APIUsageRoute}` com um
+`ui.APIUsageOpts{Days, Limit, Empty}` — e não o relatório deste pacote: um componente do kit que
+importasse `auth` arrastaria autenticação para toda aplicação que desenha um botão. Copiar cinco
+campos é o preço disso, e é o preço certo.
 
 ## Multi-tenant por coluna
 

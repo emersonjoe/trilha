@@ -32,7 +32,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Button, Submit, ButtonLink(href, ...)` | `<button type=button>`, `<button type=submit>`, `<a>` styled as a button |
 | `Card, CardHeader, CardTitle(s), CardDescription(s), CardContent, CardFooter` | card |
 | `Input, Textarea, Select, Checkbox, Radio, Switch, Label` | controls (`Switch` has `role=switch`) |
-| `Field(id, label, control, opts...)` | label + control + `Help(s)` + `Error(s)`; `With(nodes...)` puts attributes on the group |
+| `Field(id, label, control, opts ...FieldOpt)` | label + control + `Help(s)` + `Error(s)`; `With(nodes...)` puts attributes on the group. The options are `ui.FieldOpt` values, so a form that builds its fields in a loop passes them around as data |
 | `CheckRow(control, label, id)` | checkbox/switch next to its label |
 | `Invalid()` | `aria-invalid="true"` (red ring) |
 | `Errors(errs, field)` | `Field` option: shows the message from `errs[field]` (a `trilha.FieldErrors`) if any |
@@ -45,7 +45,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `SchemaForm(schema, values, errs, ...)` | a form defined by data: one field per `trilha.SchemaField` — see [Validation](/reference/validation) |
 | `Badge`, `Alert(title, ...)`, `AlertDescription(...)` | badge and alert (`role=alert`) |
 | `Toaster(...)`, `Toast(kind, text, fadeMs)` | toast stack; `kind` = `""`, `success`, `error`; `fadeMs > 0` disappears on its own |
-| `Flashes(c)` | the toaster with the messages of [`c.Flash`](/reference/ctx) — put it in the layout; `FlashInfo`, `FlashSuccess` and `FlashError` are the kinds |
+| `Flashes(c)` | the toaster with the messages of [`c.Flash`](/reference/ctx) — put it in the layout; `FlashInfo`, `FlashSuccess` and `FlashError` are the kinds, and `FlashFadeMs` is how long one stays before it fades |
 | `Table(...)`, `Cards()`, `Num()`, `Depth(n)` | scrollable table; row-as-card below 640px — see [Listings](/reference/listings); numeric cell; row indentation (tree) |
 | `Tabs(id, Tab{Label, Content}...)` | accessible tabs (arrows, Home/End); the first starts open |
 | `Dialog(id, title, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | native `<dialog>` with `showModal` |
@@ -71,9 +71,17 @@ description: The kit's components, variants, assets and the theme contract.
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error). `NavItem.IconNode`/`EmptyOpts.IconNode` draw the app's own node for an icon outside the set — see [Shell](/reference/shell) |
 | `APIUsage(c, data, opts)` | how much a key was used, where, and when it stopped — see [Auth](/reference/auth) |
-| `SearchBox(c, action, opts)`, `SearchResults(c, res, opts)` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) |
+| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) |
 | `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, test)`, `ParseConnectionForm(c)` | the external services and their secrets, with the Test button — see [ConnectionsPanel](#connectionspanel) |
+| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(title, actions...)` | the frame of an application with sections: side navigation, top bar, and the title of the screen with its buttons — see [Shell](/reference/shell) |
+| `Stat(label, value, ...)`, `StatHint(text, ...)`, `Sparkline(values, SparkOpts{...})`, `SparklineTitle(values, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(name)` | a number on a panel and the drawing next to it, in SVG written by the server; `ChartTitle` is what makes the drawing an image with a name instead of decoration — see [Charts](/reference/charts) |
+| `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | what is waiting for whoever is reading, and the count beside the menu item (zero draws nothing) — see [Approval](/reference/approval) |
+| `PolicyGrid(policy, PolicyGridOpts{...})` | the role × module grid of an `auth.Policy`, as a form — see [Auth](/reference/auth) |
+| `TaskTable(c, tasks, TaskTableOpts{...})`, `TaskProgress(c, tasks, id)` | the background work: the list with its states and the progress of one run — see [Tasks](/reference/task) |
+| `WebhooksPanel(c, hooks, deliveries, WebhooksOpts{...})` | the subscriptions, the secret and the delivery log of a `webhook.Hooks` — see [Webhook](/reference/webhook) |
+| `Empty(EmptyOpts{...})`, `EmptyError(c, title, err, action)` | the screen with nothing to show, and the one that could not load: the message is what the person reads, and `err` appears only in development |
+| `Status(enum, value)` | one value of a `trilha.Enum` as a badge with its label and its tone; a value the enum no longer knows renders muted instead of taking the screen down |
 
 ## Trees
 
@@ -463,11 +471,15 @@ func Config(cfg *trilha.Config) {
 ui.Date(c, doc.CreatedAt)                 // <time datetime="…">Sep 8, 2026 3:04 PM</time>
 ui.Date(c, doc.CreatedAt, ui.Relative())  // 3min ago, absolute in the title
 ui.Date(c, doc.CreatedAt, ui.DateOnly())  // Sep 8, 2026
+ui.Date(c, doc.CreatedAt, ui.TimeOnly())  // 3:04 PM     (the day is already in the heading)
 ui.Bytes(c, doc.Size)                     // 1.4 MB      (pt-BR: 1,4 MB)
 ui.Duration(c, job.Elapsed)               // 2 min 13 s
 ui.Number(c, total)                       // 12,345      (pt-BR: 12.345)
 ui.Number(c, price, ui.Decimals(2))       // 1,234.56
 ```
+
+The options are `ui.FormatOpt` values — `Relative`, `DateOnly`, `TimeOnly`, `Decimals` — which
+is what lets a column of a `ui.DataTable` carry the format it wants next to the field it reads.
 
 ### The rules worth knowing
 

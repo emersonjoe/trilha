@@ -43,7 +43,7 @@ func (a *App) HealthReport(ctx context.Context) HealthReport
 
 ```go
 type HealthReport struct {
-	Status        string        // "pass" | "fail"
+	Status        string        // trilha.StatusPass | trilha.StatusFail
 	Checks        []CheckResult
 	UptimeSeconds float64
 }
@@ -57,7 +57,9 @@ type CheckResult struct {
 ```
 
 `HealthReport` always returns everything: it is for your code (an internal status page, a
-startup gate). The endpoint decides what to reveal.
+startup gate). The endpoint decides what to reveal. The two values are the constants
+`trilha.StatusPass` (`"pass"`) and `trilha.StatusFail` (`"fail"`), so a status page compares
+against the framework's name instead of a string it typed.
 
 ## Metrics registry
 
@@ -152,8 +154,10 @@ every application forgets in half its handlers.
 
 ### Where it goes
 
-`Config.Audit` is an interface with one method — `Write(AuditRecord) error` — because the
-decision an application actually makes is *which table*, not *which shape*.
+`Config.Audit` is a `trilha.AuditSink`: one method, `Write(AuditRecord) error`, because the
+decision an application actually makes is *which table*, not *which shape*. An error coming back
+is logged and the request carries on — the document was deleted either way, and refusing to
+answer would lose the trail *and* confuse the person.
 
 ```go
 cfg.Audit = trilha.AuditFunc(func(r trilha.AuditRecord) error {

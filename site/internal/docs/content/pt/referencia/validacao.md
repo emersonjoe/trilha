@@ -100,9 +100,10 @@ if ok {
 
 Os valores voltam como texto: esquema que veio de uma tabela não tem tipo Go para preencher,
 e converter para `any` só mudaria a conversão de lugar. O `SchemaField` diz o que uma tag
-diria — `Required`, `Min`, `Max`, `Pattern`, `Options` — e o `Type` diz qual controle
-desenha: `text`, `textarea`, `number`, `date`, `datetime`, `select`, `checkbox`, `file`,
-`signature`, `display`. Campo `display` é um parágrafo no meio do formulário: não é lido e
+diria — `Required`, `Min`, `Max`, `Pattern`, `Options` (um `[]trilha.SchemaOption`, um
+`{Value, Label}` por escolha de um select) — e o `Type` diz qual controle desenha, um dos
+`trilha.SchemaTypes`: `text`, `textarea`, `number`, `date`, `datetime`, `select`, `checkbox`,
+`file`, `signature`, `display`. Campo `display` é um parágrafo no meio do formulário: não é lido e
 nunca recebe mensagem. Arquivo se lê com `c.File`, como qualquer arquivo.
 
 Esquema com tipo desconhecido, campo sem nome ou padrão que não compila é defeito do app, e
@@ -138,6 +139,7 @@ duas telas acabam com dois verdes diferentes. Vazio é `muted`.
 | `Enum.Has(v)` | está na lista |
 | `Enum.Options(atual, placeholder…)` | a lista de `<option>`, com o atual marcado |
 | `Enum.Values()`, `Enum.Labels()` | os dois, na ordem da declaração |
+| `trilha.EnumValue{Value, Label, Tone}` | uma entrada da lista: o que o banco guarda, o que a pessoa lê e qual tom do tema ela veste — um `Enum` é uma fatia desses |
 | `ui.Status(e, v)` | a badge: o rótulo, no tom |
 
 ### Os quatro usos

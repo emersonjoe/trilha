@@ -56,7 +56,7 @@ the document is an error, not a warning.
 | `LoginPath string` | `/entrar` | where `Require` sends an anonymous browser |
 | `AfterLogin string` | `/` | destination after the callback, when there is no `next` |
 | `AfterLogout string` | `/` | destination after the logout |
-| `RoleClaims []string` | — | additional claims to read roles from |
+| `RoleClaims []string` | — | additional claims of the `auth.Claims` (the decoded ID token) to read roles from, besides the standard ones |
 | `Store Store` | `nil` | persists the session; `nil` = signed cookie, stateless |
 | `OnLogin func(c, *User) error` | — | runs inside `Login` and `Callback`, session not yet written; its error stops the login |
 | `RequireVerifiedEmail bool` | `false` | refuses a login whose e-mail the provider does not vouch for |
@@ -111,6 +111,7 @@ func (a *Auth) Optional() trilha.MiddlewareFunc
 func (a *Auth) User(c *trilha.Ctx) *User     // nil when anonymous
 func (a *Auth) Session(c *trilha.Ctx) (*User, error)
 func (a *Auth) LoginPath() string            // Options.LoginPath, or its default
+func (a *Auth) Provider() *Provider          // the configured provider, for a screen that names it
 func (a *Auth) Sessions(c *trilha.Ctx) ([]User, error) // every session of whoever is logged in, this one first
 func (a *Auth) LogoutOthers(c *trilha.Ctx) error       // ends the others, keeps this one
 
@@ -203,6 +204,8 @@ should lose access, not inherit somebody else's.
 |---|---|
 | `Policy.Can(u, module, level) bool` | may this user do this |
 | `Policy.Level(u, module) string` | what they have, or `""` |
+| `Policy.LevelOf(role, module) string` | the level of a **role**, for a cell of the grid, where there is no user yet |
+| `Policy.RolesSorted()`, `Policy.ModuleNames()`, `Policy.LevelNames()` | the names in a stable order — roles sorted, modules as declared, levels weakest first — which is what makes a grid render the same way twice |
 | `(*Auth) RequirePolicy(p, module, level)` | the guard |
 | `auth.All(level) Grants` | the same level on every module |
 | `auth.BindPolicy(c, p)` | read back what the grid posted |
@@ -503,11 +506,11 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
 | `APIKeys(KeyOptions)` | the set of keys of an application |
 | `Issue(c, name, scopes, ttl)` | creates one and answers the secret — the only time it exists |
 | `Require(scopes...)` | the middleware: bearer, hash, revocation, expiry, scope, limit |
-| `Revoke(c, id)` / `All()` | ends one now; lists them for the screen |
+| `Revoke(c, id)` / `All()` | ends one now (`auth.ErrUnknownKey` for an id nobody issued); lists them for the screen |
 | `User(c)` | the caller, as an `auth.User` with the scopes as roles |
 | `KeyStore` / `MemoryKeyStore()` | five methods over whatever the app runs; memory for tests |
 | `ui.SecretOnce(c, secret)` | the card that shows it once, with the sentence that has to be there |
-| `ui.APIKeysTable(c, rows, opts)` | the list, with the handle and never the key |
+| `ui.APIKeysTable(c, []ui.APIKeyRow, ui.APIKeysOpts{...})` | the list, with the handle and never the key |
 
 **Only the hash is stored**, peppered with `trilha.Pepper` — HMAC-SHA256 under a key derived
 from the app's secret. A stolen table of digests is not a list anybody can attack offline, and
@@ -553,6 +556,12 @@ rel.ByDay     // []UsageDay, oldest first — what a chart draws
 rel.ByKey     // []UsageKeyTotal, when the query was not about one key
 ```
 
+`Usage` is an `auth.UsageStore`, three methods over whatever the application already runs:
+`Add(ctx, []auth.UsageRow)` takes the batch a flush produced — one row per key, route and day,
+with the last status — `Query` answers the `auth.UsageReport` above, and `Prune` drops what is
+older than `UsageKeep`. `auth.UsageMemory()` is that interface over a map, which is the right
+store for one process and for a test.
+
 **Counting must not cost the request.** `Require` increments a bucket in memory — one map write
 under a mutex, nothing that can block on a network — and the buckets go to the store in batches.
 `Setup` flushes on a timer and on shutdown; without it, `Flush` is yours to call. A store that
@@ -580,7 +589,11 @@ counters live in production — a check that cannot see them is a check that alw
 is fine.
 
 The screens are [`ui.APIUsage`](/reference/ui) and the calls column of `ui.APIKeysTable`, and
-`trilha add api-keys` writes both.
+`trilha add api-keys` writes both. The panel takes the kit's own shape — an
+`ui.APIUsageData{Total, Errors, Last, Days []ui.APIUsageDay, Routes []ui.APIUsageRoute}` with
+an `ui.APIUsageOpts{Days, Limit, Empty}` — and not the report of this package: a component of
+the kit that imported `auth` would drag authentication into every application that draws a
+button. Copying five fields across is the price of that, and it is the right price.
 
 ## Multi-tenant by column
 

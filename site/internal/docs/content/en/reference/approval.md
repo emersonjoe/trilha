@@ -33,7 +33,11 @@ err = Fila.Decide(c, id, approval.Approved, "ok pelo quórum")
 screen that hides a button is a screen, and the address behind it is still an address. `Roles` is
 how a request assigned to a role finds its people — a function you supply, because this package
 does not know how you authenticate, and a check it guessed would look like a guarantee without
-being one.
+being one. `MayDecide(c, rec)` is that same check, exported so the screen asks the package
+instead of reimplementing the rule: the buttons it draws and the decision `Decide` accepts can
+never disagree. When they do, `Decide` answers `approval.ErrNotYours`; an id that is not a
+request answers `approval.ErrUnknown`. Who a request is assigned to is an `approval.Assignee`
+— what `approval.Role(name)` and `approval.User(id)` build.
 
 **What a decision means is yours.** `On(kind, fn)` runs after the decision is written, and that is
 where the application deletes the thing, sends the mail or emits the webhook. Its error **does not
@@ -43,13 +47,20 @@ to pretend they did not. Making that work survive a failure is the handler's job
 
 **The deadline expires on its own**, on a clock in this process, for the same reason the task
 package sweeps its own: an application that needs a cron to be correct is an application that is
-wrong on the day the cron does not run.
+wrong on the day the cron does not run. The sweep is `Expire(ctx)`, exported and returning how
+many it closed, so a test moves the deadline by hand and asserts the number instead of waiting
+for a tick.
 
 ## The states
 
 `pending`, `approved`, `rejected`, `withdrawn`, `expired` — a registered `trilha.Enum`
 (`approval.States`), so [`ui.Status`](/reference/ui) colours them and the `enum=` tag validates
 them without the application declaring the list a second time.
+
+In Go they are constants: `approval.Pending`, `approval.Approved`, `approval.Rejected`,
+`approval.Withdrawn` and `approval.Expired`. The first four are a decision somebody made and
+travel into `Decide`; `Expired` is the only state the package writes on its own, which is why
+it is not a decision you can pass.
 
 ## The screen
 

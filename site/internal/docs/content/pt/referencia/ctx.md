@@ -42,7 +42,7 @@ usado por outra goroutine depois que o handler devolve.
 | `Flash(tipo, texto)` | guarda um aviso para a requisição seguinte, num cookie assinado: a notícia que o redirect comeria. O `ui.Flashes(c)` mostra. Numa resposta de fragmento ele vai no cabeçalho `Trilha-Flash`, e quem mostra é o `ui.js`. Sem `TRILHA_SECRET` nada é escrito e o app avisa uma vez no log |
 | `Flashes() []Flash` | os avisos deixados pela requisição anterior mais os que esta ainda não mandou; ler é gastar, e ler duas vezes dá a mesma lista |
 | `Render(code, node) error` | escreve a página **com os layouts da rota** (como o GET): para um `POST` devolver o formulário com erros (422); num fragmento, sem os layouts |
-| `Stream() *Stream` | resposta em Server-Sent Events: `Send(evento, dados)`, `JSON(evento, v)`, `Comment(s)`, `Done()`; desliga o *write timeout* ([IA e agentes](/pt/aprender/ia-e-agentes)) |
+| `Stream() *Stream` | resposta em Server-Sent Events: `Send(evento, dados)`, `JSON(evento, v)`, `Comment(s)`, `Flush()`, `Done()`; desliga o *write timeout* ([IA e agentes](/pt/aprender/ia-e-agentes)) |
 | `Writer() http.ResponseWriter` | acesso direto (downloads longos, WebSocket) |
 | `Written() bool` | se a resposta já começou |
 
@@ -118,6 +118,10 @@ A rota continua sendo API, então os erros dela continuam em problem+json — qu
 ilha consegue ler.
 
 ### Os tipos que o módulo enxerga
+
+O script que a página carrega para tudo isso é o `trilha.IslandRuntime` (`/ui.island.js`),
+gravado em `public/` pelo `trilha ui` junto com o resto do kit; o `trilha check` avisa quando um
+projeto monta uma ilha sem ele.
 
 O `trilha gen` grava `public/islands.d.ts` a partir das chamadas `c.Island` que acha em
 `app/`: uma interface por struct de props, mais o objeto `island` e a assinatura da função de
@@ -378,7 +382,8 @@ rota do outro lado chama.
 | `LinkOpts.Uses` | zero é ilimitado e não precisa de estado nenhum |
 | `c.Claim(nome)` | confere assinatura, fim, prazo e usos restantes |
 | `link.Consume()` | gasta um uso — depois do trabalho, nunca antes |
-| `Config.Links` | conta os usos dos links com limite; nil conta no processo |
+| `Config.Links` | um `trilha.LinkStore` que conta os usos dos links com limite — um `INCR` comparado com o limite, que é o que faz o Redis ser o natural; nil conta no processo, o que é honesto sobre uma réplica e é dito uma vez no log |
+| `trilha.ErrNoLink` | o que o `Claim` responde para um token inválido, de outro link, vencido ou esgotado — um erro para os quatro casos, de propósito |
 
 **Toda forma de um link falhar responde o mesmo 404.** Assinatura errada, fim errado, vencido, já
 gasto: dizer a um estranho qual das quatro aconteceu é dizer o quão perto ele está. Token errado

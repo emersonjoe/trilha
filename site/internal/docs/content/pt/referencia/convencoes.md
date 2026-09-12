@@ -47,6 +47,12 @@ rota de escrita que nenhum `Kind` alcança num app que também serve páginas.
 Uma rota de `page.go` é página independente do que o ramo acima diz: um `KindAPI` herdado
 nunca transforma página em JSON.
 
+A variável é um `trilha.RouteKind`, e os três valores são `trilha.KindAuto`, `trilha.KindPage` e
+`trilha.KindAPI`. O `KindAuto` é o valor zero e o que quase toda rota tem: o tipo vem do arquivo
+— `page.go` é página, `route.go` é API —, que é por isso que declarar qualquer coisa é a exceção
+e não o ritual. O `Route.Kind` responde o valor depois da herança, então um teste pode conferir o
+ramo que deu preocupação.
+
 ## Pastas
 
 | Nome | Vira | Exemplo |

@@ -43,8 +43,8 @@ func (h *Hooks) Emit(c *trilha.Ctx, event string, payload any) error
 ```
 
 Grava uma entrega por assinatura que ouve o evento, e volta. **Não espera a rede**, que é a razão
-inteira de existir. O erro dele é sobre esta aplicação — evento desconhecido, store que não
-gravou — e nunca sobre o parceiro.
+inteira de existir. O erro dele é sobre esta aplicação — evento desconhecido
+(`webhook.ErrUnknownEvent`), store que não gravou — e nunca sobre o parceiro.
 
 A lista de `Events` é fechada: um erro de digitação num `Emit` é erro onde está escrito, e não um
 evento que ninguém assina — que, de fora, é indistinguível de um parceiro que não está ouvindo.
@@ -71,6 +71,10 @@ X-Webhook-Signature: sha256=…    HMAC-SHA256 de "timestamp.corpo"
 func Sign(secret, timestamp string, body []byte) string
 ```
 
+Os nomes são constantes — `webhook.HeaderEvent`, `webhook.HeaderTimestamp` e
+`webhook.HeaderSignature` — então um receptor escrito em Go os lê do pacote em vez de redigitar
+a string em dois lugares.
+
 O horário está **dentro** da string assinada. Assinar só o corpo faria toda entrega de um evento
 ser idêntica byte a byte para sempre, então uma requisição capturada poderia ser repetida um ano
 depois e a assinatura ainda conferiria.
@@ -93,7 +97,8 @@ func TakeSecret(c *trilha.Ctx) string             // uma vez, logo depois do Sub
 O `Subscribe` devolve o segredo **uma vez**. O que fica guardado é um `trilha.Secret` — cifrado
 na coluna, mascarado no log — e uma aplicação que conseguisse mostrar de novo seria uma que o
 mantém legível, o que faz o segredo valer exatamente o que vale o backup do banco. Ele atravessa
-o redirecionamento num cookie assinado próprio; o `TakeSecret` lê e apaga.
+o redirecionamento num cookie assinado próprio (`webhook.SecretCookie`, que é também o nome a
+apagar se você escrever o redirecionamento na mão); o `TakeSecret` lê e apaga.
 
 O `Revoke` não apaga: as entregas já feitas apontam para aquela assinatura, e uma tela que não
 consegue dizer de qual endereço era a falha não serve para nada depois. O `Subscriptions` traz as

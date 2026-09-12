@@ -127,8 +127,10 @@ inside itself — a 200, so nothing errors anywhere. In dev the browser has some
   the route answered without looking at c.Fragment(): return only the piece when it is asked for
 ```
 
-The policy gains `report-uri` and `Reporting-Endpoints` **only in dev**, and the kit's script only
-reports when `window.__trilha` is there — which the dev script writes and production never does.
+The policy gains `report-uri` and `Reporting-Endpoints` **only in dev**, pointing at
+`trilha.ReportPath` (`/_trilha/csp`) — answered by `trilha dev` and not by the application,
+because the point of the report is the terminal — and the kit's script only reports when
+`window.__trilha` is there, which the dev script writes and production never does.
 In the binary `trilha build` produces there is no reporting endpoint, no extra directive and
 nothing to switch off.
 

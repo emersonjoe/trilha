@@ -108,7 +108,7 @@ type ConnectionStore interface {
 }
 ```
 
-Memória é o padrão. Uma tabela é uma linha por conexão com `headers` em JSON e `secret` como o
+O `trilha.ConnectionMemory()` é o padrão. Uma tabela é uma linha por conexão com `headers` em JSON e `secret` como o
 blob selado — e, como na [busca](/pt/referencia/search), o SQL mora no seu projeto: o framework
 não tem driver.
 

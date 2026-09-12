@@ -87,6 +87,27 @@ the middlewares. `trilha.Limit(rps, burst) MiddlewareFunc` creates an independen
 a subtree. Response: 429 with `Retry-After` (seconds) and a `rate` event.
 `trilha.ErrRateLimited` may be returned by a handler for the same effect.
 
+**The bucket by itself, when the key is not an address.** The interesting budget is rarely the
+IP: a limit per API key, per tenant, per mailbox — one password reset per address, not one per
+office behind a single address — or per background job. `trilha.NewLimiter` is the same token
+bucket the middleware uses, as a value you keep and key yourself:
+
+```go
+var perKey = trilha.NewLimiter(trilha.RateLimit{RPS: 10, Burst: 30})
+
+if ok, after := perKey.Allow(key.ID); !ok {
+	c.Header().Set("Retry-After", strconv.Itoa(int(after.Seconds()+0.5)))
+	return trilha.ErrRateLimited
+}
+```
+
+`Limiter.Allow(key)` answers whether that key may go now and, when it may not, how long until
+it may — which is the number `Retry-After` needs and the reason it comes back instead of being
+logged. Buckets are created on first use and swept when they refill, so a key nobody uses again
+does not stay in memory. `auth.APIKeys` limits per key with this exact type, which is why it is
+exported: an application that has a string to key on should not be writing a second token
+bucket, and the one it would write is the one that leaks a map.
+
 ## Signed cookies
 
 | Symbol | Description |
@@ -95,7 +116,7 @@ a subtree. Response: 429 with `Retry-After` (seconds) and a `rate` event.
 | `c.Signed(name) (string, bool)` | reads and verifies signature and expiry |
 | `c.ClearCookie(name)` | expires a cookie |
 | `trilha.NewSigner(keys...)`, `Sign`, `Verify` | the signer (HMAC-SHA256) for direct use |
-| `Config.Secret`, `Config.PreviousSecret` | `TRILHA_SECRET`, `TRILHA_SECRET_PREVIOUS` (base64 or text, ≥ 32 bytes) |
+| `Config.Secret`, `Config.PreviousSecret` | `TRILHA_SECRET`, `TRILHA_SECRET_PREVIOUS` (base64 or text, at least `trilha.MinSecretLen` bytes — 32; a shorter one in `prod` is the hint `trilha.ErrSecretShort`) |
 
 Without a secret: in `dev` an ephemeral key is generated (`trilha dev` keeps one per
 session); in `prod` the app warns in the log and `SetSigned` returns `ErrNoSecret`.
@@ -160,6 +181,8 @@ plain, err := trilha.Open(sealed)          // current secret, then PreviousSecre
 | `s.Reveal()` | the value, read on purpose |
 | `s.Sealed()` / `SecretFrom(b)` | the encrypted form and back |
 | `s.Value()` / `s.Scan()` | `driver.Valuer` and `sql.Scanner`: the column holds the sealed bytes |
+| `s.String()`, `s.LogValue()`, `s.MarshalJSON()` | the mask, always — the three exits a value leaks through are `%v`, a `slog` field and a struct answered as JSON, and this type exists to close all three |
+| `s.UnmarshalJSON(b)` | the value as it comes, because a client sending a new secret sends the secret; a **mask** arriving back is "unchanged" and is never stored as if it were the value |
 | `ui.SecretField(c, name, label, current)` | the password field for a hand-written form |
 
 **`Value()` is the driver method and `Reveal()` is the reader.** The issue that asked for this

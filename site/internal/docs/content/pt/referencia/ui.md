@@ -32,7 +32,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Button, Submit, ButtonLink(href, ...)` | `<button type=button>`, `<button type=submit>`, `<a>` com cara de botão |
 | `Card, CardHeader, CardTitle(s), CardDescription(s), CardContent, CardFooter` | cartão |
 | `Input, Textarea, Select, Checkbox, Radio, Switch, Label` | controles (`Switch` tem `role=switch`) |
-| `Field(id, rótulo, controle, opts...)` | rótulo + controle + `Help(s)` + `Error(s)`; `With(nós...)` põe atributos no grupo |
+| `Field(id, rótulo, controle, opts ...FieldOpt)` | rótulo + controle + `Help(s)` + `Error(s)`; `With(nós...)` põe atributos no grupo. As opções são valores `ui.FieldOpt`, então um formulário que monta os campos em laço as passa como dado |
 | `CheckRow(controle, rótulo, id)` | checkbox/switch ao lado do rótulo |
 | `Invalid()` | `aria-invalid="true"` (anel vermelho) |
 | `Errors(errs, campo)` | opção de `Field`: mostra a mensagem de `errs[campo]` (um `trilha.FieldErrors`) se houver |
@@ -45,7 +45,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `SchemaForm(esquema, values, errs, ...)` | formulário definido por dado: um campo por `trilha.SchemaField` — veja [Validação](/pt/referencia/validacao) |
 | `Badge`, `Alert(título, ...)`, `AlertDescription(...)` | selo e aviso (`role=alert`) |
 | `Toaster(...)`, `Toast(tipo, texto, fadeMs)` | pilha de avisos; `tipo` = `""`, `success`, `error`; `fadeMs > 0` some sozinho |
-| `Flashes(c)` | o toaster com os avisos do [`c.Flash`](/pt/referencia/ctx) — ponha no layout; `FlashInfo`, `FlashSuccess` e `FlashError` são os tipos |
+| `Flashes(c)` | o toaster com os avisos do [`c.Flash`](/pt/referencia/ctx) — ponha no layout; `FlashInfo`, `FlashSuccess` e `FlashError` são os tipos, e o `FlashFadeMs` é quanto tempo um deles fica antes de sumir |
 | `Table(...)`, `Cards()`, `Num()`, `Depth(n)` | tabela rolável; linha vira cartão abaixo de 640px — veja [Listagens](/pt/referencia/listagens); célula numérica; indentação de linha (árvore) |
 | `Tabs(id, Tab{Label, Content}...)` | abas acessíveis (setas, Home/End); a primeira começa aberta |
 | `Dialog(id, título, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | `<dialog>` nativo com `showModal` |
@@ -71,9 +71,17 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação). `NavItem.IconNode`/`EmptyOpts.IconNode` desenham o próprio nó do app para um ícone fora do conjunto — veja [Shell](/pt/referencia/shell) |
 | `APIUsage(c, dados, opts)` | quanto uma chave foi usada, onde, e quando parou — veja [Auth](/pt/referencia/auth) |
-| `SearchBox(c, action, opts)`, `SearchResults(c, res, opts)` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) |
+| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) |
 | `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, teste)`, `ParseConnectionForm(c)` | os serviços externos e seus segredos, com o botão Testar — veja [ConnectionsPanel](#connectionspanel) |
+| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(título, ações...)` | a moldura de um app com seções: navegação lateral, barra de cima e o título da tela com seus botões — veja [Shell](/pt/referencia/shell) |
+| `Stat(rótulo, valor, ...)`, `StatHint(texto, ...)`, `Sparkline(valores, SparkOpts{...})`, `SparklineTitle(valores, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(nome)` | um número no painel e o desenho ao lado, em SVG escrito pelo servidor; `ChartTitle` é o que faz o desenho ser uma imagem com nome em vez de enfeite — veja [Gráficos](/pt/referencia/graficos) |
+| `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | o que espera decisão de quem está lendo, e a contagem ao lado do item de menu (zero não desenha nada) — veja [Approval](/pt/referencia/approval) |
+| `PolicyGrid(policy, PolicyGridOpts{...})` | a grade papel × módulo de um `auth.Policy`, como formulário — veja [Auth](/pt/referencia/auth) |
+| `TaskTable(c, tarefas, TaskTableOpts{...})`, `TaskProgress(c, tarefas, id)` | o trabalho em segundo plano: a lista com seus estados e o progresso de uma execução — veja [Tarefas](/pt/referencia/task) |
+| `WebhooksPanel(c, hooks, entregas, WebhooksOpts{...})` | as assinaturas, o segredo e o registro de entregas de um `webhook.Hooks` — veja [Webhook](/pt/referencia/webhook) |
+| `Empty(EmptyOpts{...})`, `EmptyError(c, título, err, ação)` | a tela sem nada para mostrar, e a que não conseguiu carregar: a mensagem é o que a pessoa lê, e o `err` aparece só em desenvolvimento |
+| `Status(enum, valor)` | um valor de um `trilha.Enum` como selo, com seu rótulo e seu tom; valor que o enum não conhece mais sai discreto em vez de derrubar a tela |
 
 ## Árvores
 
@@ -464,11 +472,15 @@ func Config(cfg *trilha.Config) {
 ui.Date(c, doc.CriadoEm)                  // <time datetime="…">08/09/2026 12:04</time>
 ui.Date(c, doc.CriadoEm, ui.Relative())   // há 3 min, com o absoluto no title
 ui.Date(c, doc.CriadoEm, ui.DateOnly())   // 08/09/2026
+ui.Date(c, doc.CriadoEm, ui.TimeOnly())   // 12:04       (o dia já está no cabeçalho)
 ui.Bytes(c, doc.Tamanho)                  // 1,4 MB      (en: 1.4 MB)
 ui.Duration(c, tarefa.Levou)              // 2 min 13 s
 ui.Number(c, total)                       // 12.345      (en: 12,345)
 ui.Number(c, preco, ui.Decimals(2))       // 1.234,56
 ```
+
+As opções são valores `ui.FormatOpt` — `Relative`, `DateOnly`, `TimeOnly`, `Decimals` — que é o
+que permite a uma coluna de um `ui.DataTable` levar o formato que quer junto do campo que lê.
 
 ### As regras que valem saber
 

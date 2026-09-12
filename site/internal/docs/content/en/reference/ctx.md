@@ -42,7 +42,7 @@ used by another goroutine after the handler returns.
 | `Flash(kind, text)` | queues a message for the next request, in a signed cookie: the news the redirect would eat. `ui.Flashes(c)` shows it. On a fragment answer it travels in the `Trilha-Flash` header instead, and `ui.js` shows it. Without `TRILHA_SECRET` nothing is written and the app says so once in the log |
 | `Flashes() []Flash` | the messages left by the previous request plus the ones this one has not sent yet; reading them takes them, and reading twice gives the same list |
 | `Render(code, node) error` | writes the page **with the route's layouts** (like GET): for a `POST` to return the form with errors (422); on a fragment, without the layouts |
-| `Stream() *Stream` | Server-Sent Events response: `Send(event, data)`, `JSON(event, v)`, `Comment(s)`, `Done()`; disables the *write timeout* ([AI and agents](/learn/ai-and-agents)) |
+| `Stream() *Stream` | Server-Sent Events response: `Send(event, data)`, `JSON(event, v)`, `Comment(s)`, `Flush()`, `Done()`; disables the *write timeout* ([AI and agents](/learn/ai-and-agents)) |
 | `Writer() http.ResponseWriter` | direct access (long downloads, WebSocket) |
 | `Written() bool` | whether the response has started |
 
@@ -118,6 +118,10 @@ func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
 The route stays an API, so its errors stay problem+json — which is what the island can read.
 
 ### The types the module sees
+
+The script the page loads for all of this is `trilha.IslandRuntime` (`/ui.island.js`), written
+into `public/` by `trilha ui` along with the rest of the kit; `trilha check` says so when a
+project mounts an island without it.
 
 `trilha gen` writes `public/islands.d.ts` from the `c.Island` calls it finds in `app/`: one
 interface per props struct, plus the `island` object and the mount signature. Point the
@@ -373,7 +377,8 @@ the route on the other side calls.
 | `LinkOpts.Uses` | zero is unlimited and needs no storage at all |
 | `c.Claim(name)` | checks signature, purpose, deadline and remaining uses |
 | `link.Consume()` | spends one use — after the work, never before |
-| `Config.Links` | counts the uses of limited links; nil counts in the process |
+| `Config.Links` | a `trilha.LinkStore` that counts the uses of limited links — one `INCR` compared against the limit, which is what makes Redis the natural one; nil counts in the process, which is honest about one replica and said once in the log |
+| `trilha.ErrNoLink` | what `Claim` answers for a token that is invalid, not this link's, expired or used up — one error for all four on purpose |
 
 **Every way a link can fail answers the same 404.** Wrong signature, wrong purpose, expired,
 already spent: telling a stranger which of the four happened tells them how close they are. A

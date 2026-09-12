@@ -9,7 +9,7 @@ description: Cliente OpenAI-compatível, ferramentas, agentes, handoffs e compos
 
 | Campo / função | Papel |
 |---|---|
-| `NewFromEnv() *Client` | lê `OPENAI_API_KEY`, `OPENAI_BASE_URL` (padrão `https://api.openai.com/v1`) e `TRILHA_AI_MODEL` (ou `OPENAI_MODEL`; padrão `gpt-4o-mini`) |
+| `NewFromEnv() *Client` | lê `OPENAI_API_KEY`, `OPENAI_BASE_URL` (padrão `ai.DefaultBaseURL`, `https://api.openai.com/v1`) e `TRILHA_AI_MODEL` (ou `OPENAI_MODEL`; padrão `gpt-4o-mini`) |
 | `BaseURL, APIKey, Model string` | configuração direta |
 | `Headers map[string]string` | cabeçalhos extras (OpenRouter, Azure...) |
 | `HTTPClient *http.Client` | cliente HTTP (padrão com timeout de 2 min) |
@@ -25,6 +25,18 @@ Respostas não-2xx viram `*ai.Error{Status, Code, Message}`.
 `ResponseFormat{Type: "json_schema", JSONSchema: ...}` pede saída estruturada.
 
 Construtores: `ai.System(s)`, `ai.User(s)`, `ai.Assistant(s)`, `ai.ToolResult(callID, s)`.
+
+### A forma que vai no fio
+
+Os tipos do protocolo são exportados, porque provedor que difere em um campo é o caso normal e
+ler a resposta na mão tem de continuar possível: `Response.Choices` é um `[]ai.Choice`, cada um
+com sua `Message` e seu `FinishReason`; uma chamada que o modelo pede é um
+`ai.ToolCall{ID, Type, Function}` cujo `Function` é um `ai.FunctionCall{Name, Arguments}` — os
+argumentos chegam como o texto JSON que o modelo escreveu, não como mapa, porque é esse texto
+que o schema valida. O que sai descrevendo uma ferramenta é um `ai.ToolDef{Type, Function}`
+sobre um `ai.FunctionDef{Name, Description, Parameters, Strict}`, que é o que o `Tool.Def()`
+constrói a partir de um `*ai.Tool`. O `Request` tem um `MarshalJSON` próprio para o `Extra`
+mesclar no mesmo objeto em vez de aninhar sob uma chave que provedor nenhum lê.
 
 ## Tool
 
@@ -112,8 +124,8 @@ está lá. É o mesmo conteúdo do `done` como corpo JSON, ou o que o `ServeOpts
 
 | Campo de `ServeOpts` | O que faz |
 |---|---|
-| `MaxHistory` | quantas mensagens antigas voltam para o modelo (padrão 40; negativo não guarda nenhuma). O histórico vem do navegador, então o teto é do servidor |
-| `MaxInput` | maior corpo de pedido aceito (padrão 256 KB) |
+| `MaxHistory` | quantas mensagens antigas voltam para o modelo (padrão `ai.DefaultServeHistory`, 40; negativo não guarda nenhuma). O histórico vem do navegador, então o teto é do servidor |
+| `MaxInput` | maior corpo de pedido aceito (padrão `ai.DefaultServeInput`, 256 KB) |
 | `HTML` | renderiza a resposta pronta para o navegador; `ui.ChatHTML` é o que combina com `ui.Chat`. Sem ele a resposta fica em texto |
 | `Page` | responde ao pedido que não pediu fluxo, para o app desenhar a página com a mensagem dentro |
 | `Context` | recebe os campos `ctx.*` que a página mandou junto com a mensagem — o id do registro aberto, a rota em que a pessoa está — e o que devolve entra na frente do histórico |

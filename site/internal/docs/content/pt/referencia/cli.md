@@ -128,8 +128,10 @@ deixa o iframe cinza, e o fragmento que volta como página inteira e acaba dentr
   the route answered without looking at c.Fragment(): return only the piece when it is asked for
 ```
 
-A política ganha `report-uri` e `Reporting-Endpoints` **só em dev**, e o script do kit só reporta
-quando o `window.__trilha` existe — que o script de dev escreve e a produção nunca escreve. No
+A política ganha `report-uri` e `Reporting-Endpoints` **só em dev**, apontando para o
+`trilha.ReportPath` (`/_trilha/csp`) — respondido pelo `trilha dev` e não pela aplicação, porque
+a graça do relatório é o terminal — e o script do kit só reporta quando o `window.__trilha`
+existe, que o script de dev escreve e a produção nunca escreve. No
 binário que o `trilha build` produz não há endpoint de relatório, nem diretiva a mais, nem nada
 para desligar.
 

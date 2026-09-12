@@ -33,7 +33,11 @@ err = Fila.Decide(c, id, approval.Approved, "ok pelo quórum")
 que esconde um botão é uma tela, e o endereço atrás dele continua sendo um endereço. O `Roles` é
 como um pedido atribuído a um papel encontra a gente dele — uma função que você passa, porque este
 pacote não sabe como você autentica, e uma checagem que ele adivinhasse pareceria garantia sem
-ser uma.
+ser uma. O `MayDecide(c, rec)` é essa mesma checagem, exportada para a tela perguntar ao pacote
+em vez de reimplementar a regra: os botões que ela desenha e a decisão que o `Decide` aceita
+nunca podem discordar. Quando discordam, o `Decide` responde `approval.ErrNotYours`; um id que
+não é pedido responde `approval.ErrUnknown`. A quem o pedido é atribuído é um
+`approval.Assignee` — o que o `approval.Role(nome)` e o `approval.User(id)` constroem.
 
 **O que uma decisão significa é seu.** O `On(kind, fn)` roda depois de a decisão ser gravada, e é
 ali que a aplicação apaga a coisa, manda o e-mail ou emite o webhook. O erro dele **não desfaz a
@@ -43,13 +47,19 @@ para fingir que ela não escolheu. Fazer esse trabalho sobreviver a uma falha é
 
 **O prazo vence sozinho**, num relógio deste processo, pelo mesmo motivo que o `task` varre o
 dele: uma aplicação que precisa de um cron para estar certa é uma aplicação errada no dia em que o
-cron não roda.
+cron não roda. A varredura é o `Expire(ctx)`, exportado e devolvendo quantos fechou, para um
+teste mover o prazo na mão e conferir o número em vez de esperar um tique.
 
 ## Os estados
 
 `pending`, `approved`, `rejected`, `withdrawn`, `expired` — um `trilha.Enum` registrado
 (`approval.States`), então o [`ui.Status`](/pt/referencia/ui) já os colore e a tag `enum=` já os
 valida sem a aplicação declarar a lista uma segunda vez.
+
+Em Go são constantes: `approval.Pending`, `approval.Approved`, `approval.Rejected`,
+`approval.Withdrawn` e `approval.Expired`. As quatro primeiras são decisão de alguém e entram
+no `Decide`; `Expired` é o único estado que o pacote escreve sozinho, e por isso não é uma
+decisão que se possa passar.
 
 ## A tela
 

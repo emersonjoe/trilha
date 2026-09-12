@@ -40,11 +40,17 @@ res.Total                            // quantos casaram, somando os tipos
 res.Groups[0].Label, res.Groups[0].Hits
 ```
 
+O `res` é um `trilha.SearchResult`: um `Total` e um `Groups []trilha.SearchGroup`, um grupo por
+tipo, na ordem em que os tipos foram declarados, cada um com o `Label` que a tela mostra e os
+seus `Hits`. O agrupamento está acima do store de propósito — um store só casa e pontua —, então
+a forma é a mesma com qualquer coisa embaixo.
+
 Um `Doc` é uma projeção — o bastante para achar, nomear e ir até o registro. Não é o registro,
 porque um índice que guarda a linha inteira é uma segunda cópia do banco com a sua própria
 desatualização.
 
-**Um tipo que ninguém declarou é recusado**, com um `Hint` que lista os que existem. Gravar em
+**Um tipo que ninguém declarou é recusado** com o `trilha.ErrUnknownKind`, levando um `Hint` cujo
+código é o `trilha.ErrSearchKind` (`E_SEARCH_KIND`) e que lista os tipos que existem. Gravar em
 silêncio seria um registro que nunca aparece na busca, sem nada apontando o porquê.
 
 **Uma busca vazia responde vazio**, e não tudo: uma caixa por onde alguém passou de tab não pode
@@ -69,7 +75,7 @@ virar uma varredura da tabela inteira.
 
 ```go
 for _, parte := range hit.Snippet {
-	// parte.Text, parte.Match
+	// um trilha.SnippetPart: parte.Text, parte.Match
 }
 ```
 
@@ -91,7 +97,7 @@ type SearchStore interface {
 }
 ```
 
-Memória é o padrão, e é honesto sobre o que é: cada documento é varrido, o que está certo para os
+O `trilha.SearchMemory()` é o padrão, e é honesto sobre o que é: cada documento é varrido, o que está certo para os
 milhares que uma aplicação interna tem e errado para os milhões que ela não tem. Uma tabela atrás
 dos mesmos quatro métodos — FTS5 no SQLite, `tsvector` com índice GIN no Postgres — é o passo
 seguinte, e nenhuma tela muda: o store só casa e pontua; o agrupamento, o tenant, o módulo e o

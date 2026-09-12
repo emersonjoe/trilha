@@ -108,7 +108,7 @@ type ConnectionStore interface {
 }
 ```
 
-Memory is the default. A table is one row per connection with `headers` as JSON and `secret` as
+`trilha.ConnectionMemory()` is the default. A table is one row per connection with `headers` as JSON and `secret` as
 the sealed blob — and, as with [Search](/reference/search), the SQL belongs in your project: the
 framework has no driver.
 
