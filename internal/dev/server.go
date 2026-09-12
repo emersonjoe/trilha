@@ -63,11 +63,13 @@ func (s *Server) Run(ctx context.Context) error {
 		s.Out = os.Stdout
 	}
 	s.clients = map[chan string]struct{}{}
-	s.binPath = exeName(filepath.Join(s.Root, ".trilha", "app"))
+	// .trilha/ is shared with the trilha-spec protocol, whose files are
+	// committed; only cache/ is ours, and only cache/ is ignored.
+	s.binPath = exeName(filepath.Join(s.Root, ".trilha", "cache", "app"))
 	if err := os.MkdirAll(filepath.Dir(s.binPath), 0o755); err != nil {
 		return err
 	}
-	_ = os.WriteFile(filepath.Join(s.Root, ".trilha", ".gitignore"), []byte("*\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(s.Root, ".trilha", "cache", ".gitignore"), []byte("*\n"), 0o644)
 
 	ln, err := net.Listen("tcp", s.Addr)
 	if err != nil {

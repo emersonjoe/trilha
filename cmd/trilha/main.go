@@ -1,5 +1,6 @@
 // Command trilha is the CLI: new, gen, generate, dev, build, check, ctx,
-// routes, export, openapi, audit, ui, migrate, client.
+// routes, export, openapi, audit, ui, migrate, client. Any other name is
+// looked up as trilha-<name> on the PATH (trilha spec, trilha runner).
 // Messages follow TRILHA_LANG / LANG (see i18n.go).
 package main
 
@@ -11,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -21,7 +23,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.123.0"
+const version = "0.124.0"
 
 // exeName gives a path the extension the system needs to execute it. `go build -o`
 // writes the literal name it is given, and on Windows exec.LookPath only accepts a
@@ -84,12 +86,46 @@ func main() {
 	case "help", "-h", "--help":
 		fmt.Print(t("usage"))
 	default:
+		// `trilha spec …` is `trilha-spec …` when that program is on the
+		// PATH: the protocol (trilha-spec) and the runner (trilha-runner)
+		// are separate binaries that share the prefix, the way git's
+		// subcommands do. A name nobody installed is still unknown.
+		if code, ok := runExternal(os.Args[1], os.Args[2:]); ok {
+			os.Exit(code)
+		}
 		fmt.Fprintf(os.Stderr, t("unknown command"), os.Args[1], t("usage"))
 		os.Exit(2)
 	}
 	if err != nil {
 		fatal(err)
 	}
+}
+
+// runExternal runs `trilha-<name>` from the PATH with args, wired to this
+// process's stdin, stdout and stderr, and answers its exit code. ok is false
+// when there is no such program; a name that could be a path — anything with
+// a separator or a dot — is never looked up, so `trilha ../x` cannot reach
+// out of the PATH.
+func runExternal(name string, args []string) (code int, ok bool) {
+	if name == "" || strings.ContainsAny(name, `/\.`) {
+		return 0, false
+	}
+	ext, err := exec.LookPath("trilha-" + name)
+	if err != nil {
+		return 0, false
+	}
+	cmd := exec.Command(ext, args...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	cmd.Env = append(os.Environ(), "TRILHA_PARENT_VERSION="+version)
+	if err := cmd.Run(); err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return ee.ExitCode(), true
+		}
+		fmt.Fprintln(os.Stderr, t("error:"), err)
+		return 1, true
+	}
+	return 0, true
 }
 
 // fatal prints the error and leaves. A list of scanner violations prints one

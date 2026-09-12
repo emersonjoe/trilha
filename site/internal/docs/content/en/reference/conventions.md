@@ -112,7 +112,7 @@ an error. Two folders producing the same URL (through groups) are an error.
 |---|---|
 | `public/` | static files served at the root; embedded in the binary in production |
 | `trilha_gen.go` | generated; committed; never edited by hand; carries the package the folder declares (see [CLI](/reference/cli)) |
-| `.trilha/` | temporary binaries of `dev` and `export`; ignored by git |
+| `.trilha/` | the [trilha-spec](/learn/agentic-protocol) protocol: specs, tasks, agents, evidence — committed. Only `.trilha/cache/` (binaries of `dev` and `export`) and `.trilha/runs/` (the runner's worktrees) are ignored by git |
 
 ## Execution order for `GET /a/b`
 

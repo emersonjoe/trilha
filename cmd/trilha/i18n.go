@@ -66,6 +66,7 @@ Usage:
   trilha client <openapi.json|URL> [--check]       generate the Go client of an API that already exists
   trilha vendor [<pkg@version>] [--check] [--from URL]  pin a JavaScript module in public/vendor
   trilha version
+  trilha <name> …                                   runs trilha-<name> from the PATH: trilha-spec (the protocol), trilha-runner
 
 Language: TRILHA_LANG=en|pt (falls back to LC_ALL, LC_MESSAGES, LANG).
 `, `trilha — framework web para Go com roteamento por arquivos
@@ -94,6 +95,7 @@ Uso:
   trilha client <openapi.json|URL> [--check]          gera o cliente Go de uma API que já existe
   trilha vendor [<pkg@versão>] [--check] [--from URL]  fixa um módulo JavaScript em public/vendor
   trilha version
+  trilha <nome> …                                   roda trilha-<nome> do PATH: trilha-spec (o protocolo), trilha-runner
 
 Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 `},
@@ -312,7 +314,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"cli match":                   {"CLI and library at the same version", "CLI e biblioteca na mesma versão"},
 	"go unsupported":              {"Go %s unsupported", "Go %s sem suporte"},
 	"go unsupported hint":         {"Trilha requires Go 1.22+", "o Trilha exige Go 1.22+"},
-	"gitignore missing":           {".gitignore without .trilha/ and bin/", ".gitignore sem .trilha/ e bin/"},
+	"gitignore missing":           {".gitignore without .trilha/cache/ and bin/", ".gitignore sem .trilha/cache/ e bin/"},
 	"gitignore hint":              {"temporary binaries may end up in git", "binários temporários podem ir para o git"},
 	"gitignore ok":                {".gitignore covers .trilha/ and bin/", ".gitignore cobre .trilha/ e bin/"},
 	"vet problems":                {"go vet found problems", "go vet encontrou problemas"},

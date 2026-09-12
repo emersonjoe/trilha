@@ -3,6 +3,38 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.124.0 — 2026-09-12
+
+Spec 145. Closes [#232](https://github.com/emersonjoe/trilha/issues/232).
+
+### Added
+
+- **External subcommands.** A command the CLI does not know is looked up as `trilha-<name>`
+  on the `PATH` and run with the rest of the line, stdin/stdout/stderr attached, exiting with
+  its code — the way `git` finds `git-lfs`. `trilha spec task next` is `trilha-spec task
+  next`; `trilha runner run TASK-3` is `trilha-runner run TASK-3`. A name with a separator or
+  a dot is never looked up, and a name nobody installed is still "unknown command". The child
+  gets `TRILHA_PARENT_VERSION`.
+- **Three Learn chapters on agentic development**, after *AI and agents*, both locales: the
+  protocol ([trilha-spec](https://github.com/emersonjoe/trilha-spec) — `.trilha/`, tasks with
+  acceptance criteria and checks, the dependency graph, evidence, MCP), the runner
+  ([trilha-runner](https://github.com/emersonjoe/trilha-runner) — worktree per task, the
+  `exec`, `ai` and `echo` drivers, verification, evidence) and the control plane
+  (trilha-cloud — projects, queue, fleet, audit, and the three-route contract a control plane
+  of your own must speak). Each ends with a challenge and its solution, on the agenda of the
+  trail.
+
+### Changed
+
+- **The build cache moved to `.trilha/cache/`.** `trilha dev` and `trilha export` used to
+  compile into `.trilha/` and the dev server rewrote `.trilha/.gitignore` with `*` on every
+  start — which hid the whole directory from git. `.trilha/` is now the trilha-spec
+  protocol's directory (specs, tasks, agents, evidence: committed), and only `.trilha/cache/`
+  (this framework's binaries) and `.trilha/runs/` (the runner's worktrees) are ignored: the
+  scaffold's `.gitignore`, the repository's own and the `audit` message say so. An existing
+  project keeps working with `.trilha/` in its `.gitignore`; the one that adopts the protocol
+  swaps the line, and `trilha-spec doctor` points it out.
+
 ## 0.123.0 — 2026-09-12
 
 Spec 144. Closes [#194](https://github.com/emersonjoe/trilha/issues/194).

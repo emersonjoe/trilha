@@ -271,6 +271,17 @@ que destrava mais, e não a dos números.
 Os demais itens da fase estão nas issues #98 a #118, com a dívida de scanner que duas specs
 deixaram registrada na [#124](https://github.com/emersonjoe/trilha/issues/124).
 
+### Fase 10 — O protocolo agentic saiu do framework
+
+O que o repositório fazia por convenção — spec-kit, uma spec por sessão, evidência antes de
+fechar — virou produto em três repositórios: [trilha-spec](https://github.com/emersonjoe/trilha-spec)
+(o protocolo, público, só stdlib), [trilha-runner](https://github.com/emersonjoe/trilha-runner)
+(execução local, público, reaproveita `ai` e `ai/mcp` daqui) e trilha-cloud (control plane,
+privado, um app Trilha). O [ADR 001](https://github.com/emersonjoe/trilha-spec/blob/main/docs/adr/001-tres-repositorios.md)
+registra a divisão. O que cabe a este repositório é conviver com eles.
+
+119. ~~[#232](https://github.com/emersonjoe/trilha/issues/232) O `trilha dev` reescrevia `.trilha/.gitignore` com `*` — o diretório que o protocolo precisa commitar —, e `trilha spec …` não tinha como chegar ao binário `trilha-spec` sem colidir com `mcp`, `agents`, `check` e `ctx`.~~ **Entregue na 0.124.0** (spec 145): o cache de build mora em `.trilha/cache/` (dev, export, scaffold, `.gitignore`, `audit`); comando desconhecido é procurado como `trilha-<nome>` no `PATH` e executado com a linha inteira, no estilo do `git`; e a trilha Learn ganhou três capítulos hands-on — protocolo, runner, control plane — nas duas locales, sobre a mesma agenda.
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |
@@ -278,7 +289,7 @@ deixaram registrada na [#124](https://github.com/emersonjoe/trilha/issues/124).
 | ORM, fila, runtime JavaScript no núcleo | não | princípio II; a avaliação também pede que não seja feito |
 | Obrigar React, Vite, bundler | não | quebra "um binário, sem cadeia de build" |
 | Publicar números contra Gin, Echo, Fiber, Next.js | não | decisão registrada na spec 011: comparação de abordagem é verificável, tabela de números entre projetos configurados de formas diferentes é briga, não informação |
-| Repositórios separados (`trilha-ui`, `trilha-auth`…) | não agora | módulos Go separados **dentro deste repositório** (como `bench/`) dão o mesmo isolamento de dependências sem fragmentar versão, CI e issues. Reavaliar na 1.0 |
+| Repositórios separados (`trilha-ui`, `trilha-auth`…) | não agora | módulos Go separados **dentro deste repositório** (como `bench/`) dão o mesmo isolamento de dependências sem fragmentar versão, CI e issues. Reavaliar na 1.0. A exceção é o que **não é o framework**: `trilha-spec`, `trilha-runner` e `trilha-cloud` são produtos com ciclo próprio (Fase 10, ADR 001 do trilha-spec) |
 | Exportador OpenTelemetry no núcleo | não | o Trilha propaga `traceparent` e registra `trace_id`; exportar spans traz dezenas de dependências. Cabe um módulo opcional |
 | ISR (regeneração incremental) | não | pressupõe estado compartilhado entre réplicas e invalidação distribuída; conflita com "um binário estático". Cache com tags (item 7) resolve o caso real |
 | Criar um design system grande | não | o kit `ui` existe para compor, não para virar biblioteca de componentes |

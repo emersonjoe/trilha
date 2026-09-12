@@ -114,7 +114,7 @@ erro. Duas pastas que gerem a mesma URL (via grupos) são erro.
 |---|---|
 | `public/` | arquivos estáticos servidos na raiz; embutidos no binário em produção |
 | `trilha_gen.go` | gerado; commitado; nunca editado à mão; leva o pacote que a pasta declara (veja [CLI](/pt/referencia/cli)) |
-| `.trilha/` | binários temporários do `dev` e do `export`; ignorada pelo git |
+| `.trilha/` | o protocolo [trilha-spec](/pt/aprender/agentico-protocolo): specs, tasks, agentes, evidência — commitado. Só `.trilha/cache/` (binários do `dev` e do `export`) e `.trilha/runs/` (worktrees do runner) são ignorados pelo git |
 
 ## Ordem de execução de `GET /a/b`
 
