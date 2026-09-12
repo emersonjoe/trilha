@@ -11,6 +11,36 @@ usuário, e toda requisição lê o usuário do banco.
 Isso custa uma consulta indexada por requisição e compra algo que vale mais: desativar uma
 conta passa a valer agora, não quando o cookie expirar.
 
+## Ou: `trilha add login`
+
+Tudo abaixo — o cookie, o middleware do usuário atual, o flash — é também o que a receita
+`login` escreve para você:
+
+```bash
+trilha add login --dry-run
+```
+
+```text
+  + internal/usuarios/usuarios.go
+  + internal/usuarios/usuarios_test.go
+  + internal/sessao/sessao.go
+  + app/entrar/page.go
+  + app/sair/route.go
+  + internal/sessao/sessaotest/sessaotest.go
+  + login_test.go
+  ~ app/setup.go (uma linha acrescentada)
+
+--dry-run: nada foi escrito
+```
+
+Isso é uma tabela de usuários, uma tela de entrar e de sair, e a ligação em `app/setup.go` —
+um login que funciona antes de você escrever uma linha, e o que toda outra receita do
+[`trilha add`](/pt/referencia/cli#trilha-add) espera existir primeiro. O que ela não entrega
+é o raciocínio abaixo: por que um erro só serve tanto para "e-mail não existe" quanto para
+"senha errada", por que existe o `dummyHash`, por que o `?next=` precisa do `safeNext`. Rode
+a receita pela tela; leia esta página para saber qual linha mudar, e por que mudá-la continua
+seguro.
+
 ## Entrando
 
 ```go

@@ -17,6 +17,30 @@ There is a fifth, and it is uglier. The URL belongs to the partner, but the pers
 works for you. A webhook pointed at `http://169.254.169.254/` is your own server fetching the
 machine's cloud credentials and posting them to whoever registered the address.
 
+## Or: `trilha add webhooks`
+
+```bash
+trilha add webhooks --dry-run
+```
+
+```text
+  + internal/avisos/avisos.go
+  + internal/avisos/avisos_test.go
+  + app/webhooks/page.go
+  + webhooks_test.go
+  ~ app/setup.go (one line added)
+
+--dry-run: nothing was written
+```
+
+That is the closed list of events, the deliverer wired to the app's `Env`, and the
+`ui.WebhooksPanel` screen — signed delivery, retry and the record of every attempt, running
+before you write a line. What it writes no middleware for is guarding the screen, because it
+cannot know how your project authenticates; the command's own last line says so. What this
+page adds is everything below the recipe's floor: what actually goes on the wire and why the
+timestamp is inside the signature, the address check and why it runs twice, and the SQL
+schema for when the retry clock has to survive a restart.
+
 ## Emitting
 
 ```go

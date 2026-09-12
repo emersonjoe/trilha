@@ -7,6 +7,27 @@ Sending mail is three problems wearing one coat: talking to a server, assembling
 that is valid, and not sending anything from a test. `trilha/mail` answers all three, and the
 part worth reading is which decisions it takes away from you.
 
+## Or: `trilha add mail`
+
+```bash
+trilha add mail --dry-run
+```
+
+```text
+  + internal/correio/correio.go
+  + internal/correio/correio_test.go
+
+--dry-run: nothing was written
+```
+
+Two files and no screen — `mail` has no listing and no route, so it does not touch
+`app/setup.go`. What lands is `internal/correio/correio.go`: the `Mailer` variable below,
+already built from `mail.FromEnv()`, and a test that proves it against `mail.Outbox` with no
+network. What this page adds is everything the recipe cannot decide for you: the message
+itself, `mail.Layout` and `mail.Button`, the invitation flow, and how to swap in another
+provider through `Transport`. Run the recipe for the file that owns the `Mailer`; write the
+messages here, because a recipe cannot guess what your app has to say.
+
 ## The mailer
 
 ```go

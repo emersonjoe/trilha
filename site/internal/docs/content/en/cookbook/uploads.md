@@ -8,6 +8,34 @@ type taken from the file name, a path that walks out of the directory, and an HT
 back from your own origin. `c.File` closes the first three; the fourth is a decision about how
 you serve it.
 
+## Or: `trilha add blob`
+
+`c.File` is the primitive; the `blob` recipe is a whole feature built on it — upload, a
+listing screen and a serve route, with the key as the file's own digest:
+
+```bash
+trilha add blob --dry-run
+```
+
+```text
+  + internal/arquivos/arquivos.go
+  + internal/arquivos/arquivos_test.go
+  + app/arquivos/page.go
+  + app/arquivos/chave__/route.go
+  + arquivos_test.go
+  ~ app/setup.go (one line added)
+
+--dry-run: nothing was written
+```
+
+That is a store, a page that lists what was received and the route that serves one back by
+its key — memory by default, one line from `blob.FromEnv()` away from disk or S3. What this
+page teaches instead is the primitive underneath any of that: `MaxSize`, `Accept`, `c.Files`
+for more than one field, and the headers that keep served content from acting as if it were
+yours. Reach for the recipe when the answer is "a screen that keeps files"; reach for this
+page when the answer is "one field, validated" and nothing more — an avatar, an attachment,
+a form that does not need its own listing.
+
 ## Receiving
 
 ```go

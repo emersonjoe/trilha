@@ -3,6 +3,26 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.122.0 — 2026-09-12
+
+Spec 143. Closes [#193](https://github.com/emersonjoe/trilha/issues/193).
+
+### Documentation
+
+- **Seven cookbook pages now point at the `trilha add` recipe that already writes what they
+  teach by hand**: `database` → `store`, `sessions` → `login`, `uploads` and `files` → `blob`,
+  `email` → `mail`, `tasks` → `tasks`, `webhooks` → `webhooks`. Each page opens with an "Or:
+  `trilha add <recipe>`" section — the real output of `trilha add <recipe> --dry-run`, what
+  the command writes, and what the page teaches beyond it — in English and in Portuguese.
+- `cookbook/index.md` (pt: `receitas/index.md`) gains a Recipe column, and two rows the table
+  was missing entirely: Background tasks (`/cookbook/tasks`) and Webhooks
+  (`/cookbook/webhooks`).
+- `reference/cli.md#trilha-new`: a `--with` example with more than one recipe
+  (`trilha new loja --with login,blob,mail`), and the note that it replaces the `--template
+  app` default list rather than adding to it. `#trilha-add`: `Needs` named as the mechanism
+  five recipes (`approvals`, `permissions`, `profile`, `tenant`, `users`) already used to
+  refuse when the recipe they depend on is missing.
+
 ## 0.121.0 — 2026-09-12
 
 Spec 142. Closes [#192](https://github.com/emersonjoe/trilha/issues/192).

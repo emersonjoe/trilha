@@ -17,6 +17,29 @@ morre quando o navegador fecha, então metade do trabalho para pela metade. Um `
 derruba o processo inteiro, servidor web junto, porque goroutine de fundo não tem quem a
 recupere. E a tela não tem o que mostrar, porque não existe estado — existe uma goroutine.
 
+## Ou: `trilha add tasks`
+
+```bash
+trilha add tasks --dry-run
+```
+
+```text
+  + internal/trabalho/trabalho.go
+  + internal/trabalho/trabalho_test.go
+  + app/tarefas/page.go
+  + tarefas_test.go
+  ~ app/setup.go (uma linha acrescentada)
+
+--dry-run: nada foi escrito
+```
+
+Isso é o motor registrado, uma tela de andamento em `/tarefas` e a ligação, com um trabalho
+de exemplo para trocar pelo seu. O que esta página soma é a parte que a receita não tem como
+escrever por você — os quatro defeitos acima, por que `Handle` e `Run` ficam separados por
+causa do `Retry`, e o store em SQL para quando a memória não basta para o histórico que você
+quer guardar. Rode a receita pelo motor e pela tela; mantenha esta página pelo trabalho em si
+e pela troca que o módulo inteiro faz de propósito — um processo só, sem fila entre máquinas.
+
 ## Isto não é uma fila
 
 Antes de tudo, porque decide se o módulo serve para você: as tarefas vivem em **um processo**.

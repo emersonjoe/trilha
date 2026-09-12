@@ -17,6 +17,29 @@ closes, so half the work stops halfway. A `panic` in there takes down the whole 
 server included, because a background goroutine has nobody to recover it. And the screen has
 nothing to show, because there is no state — there is a goroutine.
 
+## Or: `trilha add tasks`
+
+```bash
+trilha add tasks --dry-run
+```
+
+```text
+  + internal/trabalho/trabalho.go
+  + internal/trabalho/trabalho_test.go
+  + app/tarefas/page.go
+  + tarefas_test.go
+  ~ app/setup.go (one line added)
+
+--dry-run: nothing was written
+```
+
+That is the engine registered, a progress screen at `/tarefas` and the wiring, with a
+placeholder job to replace with your own. What this page adds is the part the recipe cannot
+write for you — the four defects above, why `Handle` and `Run` stay apart because of `Retry`,
+and the SQL store for when memory is not enough for the history you want to keep. Run the
+recipe for the engine and the screen; keep this page for the job itself and for the trade the
+whole module makes on purpose — one process, no cross-machine queue.
+
 ## This is not a queue
 
 Before anything else, because it decides whether the module is right for you: tasks live in

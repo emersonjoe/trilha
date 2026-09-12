@@ -11,24 +11,26 @@ e-mail, rodar uma tarefa de hora em hora, colocar tudo isso num contêiner.
 Nada disso é decisão do framework. Trilha não tem ORM, não tem store de sessão e não tem
 mailer — o que ele tem é um lugar para os seus, e é aqui que esse lugar está escrito.
 
-| Receita | O que responde |
-|---|---|
-| [Banco de dados](/pt/receitas/banco-de-dados) | pool, consultas, transação, migrações, sqlc |
-| [Sessões](/pt/receitas/sessoes) | login, cookie assinado, usuário atual, flash |
-| [Uploads](/pt/receitas/uploads) | receber um arquivo, validar, guardar, devolver |
-| [Planilhas (CSV)](/pt/receitas/planilhas) | exportar a planilha que o Excel abre, importar com o erro por célula |
-| [Formulário em passos](/pt/receitas/formulario-em-passos) | onde mora o passo 1 enquanto a pessoa está no passo 2 |
-| [Link público](/pt/receitas/link-publico) | um formulário preenchido sem login, e um código que confere um documento |
-| [Arquivos](/pt/receitas/arquivos) | onde um upload mora, como ele volta, e a varredura de órfãos |
-| [Paginação](/pt/receitas/paginacao) | página e cursor, e o rodapé que vem com eles |
-| [E-mail](/pt/receitas/email) | SMTP em produção, o log em dev, um corpo vindo de template |
-| [Tarefas agendadas](/pt/receitas/tarefas-agendadas) | um ticker que sobe com o app e para com ele |
-| [Docker](/pt/receitas/docker) | uma imagem pequena, as variáveis, a sonda de saúde |
-| [Checklist de produção](/pt/receitas/checklist-de-producao) | o que conferir antes de publicar, em ordem |
-| [Chat de IA](/pt/receitas/chat-de-ia) | a chave, o contexto da página, o histórico, o teste sem chave |
-| [Um agente de IA](/pt/receitas/agente-de-ia) | ferramentas sobre os seus dados, escrita que espera alguém, os passos, o rastro |
-| [Migração](/pt/receitas/migracao) | de `net/http` puro para Trilha, e entre versões menores |
-| [Do Next.js](/pt/receitas/do-next) | o padrão de React que você conhece, e o que ocupa o lugar dele |
+| Página | O que responde | Receita |
+|---|---|---|
+| [Banco de dados](/pt/receitas/banco-de-dados) | pool, consultas, transação, migrações, sqlc | `store` |
+| [Sessões](/pt/receitas/sessoes) | login, cookie assinado, usuário atual, flash | `login` |
+| [Uploads](/pt/receitas/uploads) | receber um arquivo, validar, guardar, devolver | `blob` |
+| [Planilhas (CSV)](/pt/receitas/planilhas) | exportar a planilha que o Excel abre, importar com o erro por célula | — |
+| [Formulário em passos](/pt/receitas/formulario-em-passos) | onde mora o passo 1 enquanto a pessoa está no passo 2 | — |
+| [Link público](/pt/receitas/link-publico) | um formulário preenchido sem login, e um código que confere um documento | — |
+| [Arquivos](/pt/receitas/arquivos) | onde um upload mora, como ele volta, e a varredura de órfãos | `blob` |
+| [Paginação](/pt/receitas/paginacao) | página e cursor, e o rodapé que vem com eles | — |
+| [E-mail](/pt/receitas/email) | SMTP em produção, o log em dev, um corpo vindo de template | `mail` |
+| [Tarefas](/pt/receitas/tarefas) | fila, dedupe, retentativa com nome, a tela de andamento | `tasks` |
+| [Webhooks](/pt/receitas/webhooks) | entrega assinada, retentativa com espera crescente, o registro de cada tentativa | `webhooks` |
+| [Tarefas agendadas](/pt/receitas/tarefas-agendadas) | um ticker que sobe com o app e para com ele | — |
+| [Docker](/pt/receitas/docker) | uma imagem pequena, as variáveis, a sonda de saúde | — |
+| [Checklist de produção](/pt/receitas/checklist-de-producao) | o que conferir antes de publicar, em ordem | — |
+| [Chat de IA](/pt/receitas/chat-de-ia) | a chave, o contexto da página, o histórico, o teste sem chave | — |
+| [Um agente de IA](/pt/receitas/agente-de-ia) | ferramentas sobre os seus dados, escrita que espera alguém, os passos, o rastro | — |
+| [Migração](/pt/receitas/migracao) | de `net/http` puro para Trilha, e entre versões menores | — |
+| [Do Next.js](/pt/receitas/do-next) | o padrão de React que você conhece, e o que ocupa o lugar dele | — |
 
 ## De onde vem o código
 

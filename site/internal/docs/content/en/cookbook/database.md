@@ -7,6 +7,39 @@ Trilha does not open your database. What it gives you is the two moments that ma
 which runs once before the server starts, and the request's context, which is what makes a
 query stop when the visitor gives up.
 
+## Or: `trilha add store`
+
+Everything below is `database/sql` written by hand, on purpose — the framework has no driver
+and no ORM. The `store` recipe is the other answer: the same pool and the same two moments,
+plus a dialect, checked migrations and the kit that keeps a listing from building SQL out of
+the URL:
+
+```bash
+trilha add store --dry-run
+```
+
+```text
+  + internal/store/store.go
+  + internal/store/dialeto.go
+  + internal/store/consulta.go
+  + internal/store/migrar.go
+  + internal/store/consulta_test.go
+  + internal/store/falso_test.go
+  + internal/store/migrar_test.go
+  + migrations/migrations.go
+  + migrations/0001_init.sql
+  ~ app/setup.go (one line added)
+
+--dry-run: nothing was written
+```
+
+That is more than this page writes, because it also owns the two traps `database/sql` leaves
+open: `ORDER BY` built from a query parameter, and a migration that gets edited after it ran.
+[`reference/store.md`](/reference/store) is where the recipe's own files are explained one by
+one. Write it by hand, the way this page shows, when a dependency on `store` inside your own
+package is not worth it — a one-off script, a tool with a single query. Run the recipe for
+anything that will grow a second table.
+
 ## The pool
 
 `database/sql` is already a pool. One per process — a pool per package is four connection

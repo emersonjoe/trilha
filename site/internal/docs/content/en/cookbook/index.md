@@ -11,24 +11,26 @@ e-mail, run a task every hour, put the whole thing in a container.
 None of that is the framework's decision. Trilha has no ORM, no session store and no mailer —
 what it has is a place for yours, and this is where the placing is written down.
 
-| Recipe | What it answers |
-|---|---|
-| [Database](/cookbook/database) | pool, queries, transaction, migrations, sqlc |
-| [Sessions](/cookbook/sessions) | login, signed cookie, current user, flash |
-| [Uploads](/cookbook/uploads) | receive a file, validate it, store it, hand it back |
-| [CSV](/cookbook/csv) | export a spreadsheet Excel opens, import one with the error per cell |
-| [A form in steps](/cookbook/wizard) | where step one lives while somebody is on step two |
-| [A public link](/cookbook/public-link) | a form filled in with no login, and a code that verifies a document |
-| [Files](/cookbook/files) | where an upload lives, how it comes back, and the orphan sweep |
-| [Pagination](/cookbook/pagination) | page and cursor, and the footer that goes with them |
-| [E-mail](/cookbook/email) | SMTP in production, the log in dev, a body from a template |
-| [Scheduled tasks](/cookbook/scheduled-tasks) | a ticker that starts with the app and stops with it |
-| [Docker](/cookbook/docker) | a small image, the variables, the health probe |
-| [Production checklist](/cookbook/production-checklist) | what to check before publishing, in order |
-| [AI chat](/cookbook/ai-chat) | the key, the page's context, the history, the test with no key |
-| [An AI agent](/cookbook/ai-agent) | tools over your data, a write that waits for a person, the steps, the trail |
-| [Migration](/cookbook/migration) | plain `net/http` to Trilha, and between minor versions |
-| [From Next.js](/cookbook/from-next) | the React pattern you know, and what replaces it here |
+| Page | What it answers | Recipe |
+|---|---|---|
+| [Database](/cookbook/database) | pool, queries, transaction, migrations, sqlc | `store` |
+| [Sessions](/cookbook/sessions) | login, signed cookie, current user, flash | `login` |
+| [Uploads](/cookbook/uploads) | receive a file, validate it, store it, hand it back | `blob` |
+| [CSV](/cookbook/csv) | export a spreadsheet Excel opens, import one with the error per cell | — |
+| [A form in steps](/cookbook/wizard) | where step one lives while somebody is on step two | — |
+| [A public link](/cookbook/public-link) | a form filled in with no login, and a code that verifies a document | — |
+| [Files](/cookbook/files) | where an upload lives, how it comes back, and the orphan sweep | `blob` |
+| [Pagination](/cookbook/pagination) | page and cursor, and the footer that goes with them | — |
+| [E-mail](/cookbook/email) | SMTP in production, the log in dev, a body from a template | `mail` |
+| [Background tasks](/cookbook/tasks) | queue, dedupe, retry with a name, the progress screen | `tasks` |
+| [Webhooks](/cookbook/webhooks) | signed delivery, retry with backoff, the record of every attempt | `webhooks` |
+| [Scheduled tasks](/cookbook/scheduled-tasks) | a ticker that starts with the app and stops with it | — |
+| [Docker](/cookbook/docker) | a small image, the variables, the health probe | — |
+| [Production checklist](/cookbook/production-checklist) | what to check before publishing, in order | — |
+| [AI chat](/cookbook/ai-chat) | the key, the page's context, the history, the test with no key | — |
+| [An AI agent](/cookbook/ai-agent) | tools over your data, a write that waits for a person, the steps, the trail | — |
+| [Migration](/cookbook/migration) | plain `net/http` to Trilha, and between minor versions | — |
+| [From Next.js](/cookbook/from-next) | the React pattern you know, and what replaces it here | — |
 
 ## Where the code comes from
 

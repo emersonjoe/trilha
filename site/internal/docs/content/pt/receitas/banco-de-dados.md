@@ -7,6 +7,40 @@ Trilha não abre o seu banco. O que ele dá são os dois momentos que importam: 
 roda uma vez antes de o servidor subir, e o contexto da requisição, que é o que faz uma
 consulta parar quando o visitante desiste.
 
+## Ou: `trilha add store`
+
+Tudo abaixo é `database/sql` escrito à mão, de propósito — o framework não tem driver nem
+ORM. A receita `store` é a outra resposta: o mesmo pool e os mesmos dois momentos, mais um
+dialeto, migrações conferidas e o kit que impede uma listagem de construir SQL a partir da
+URL:
+
+```bash
+trilha add store --dry-run
+```
+
+```text
+  + internal/store/store.go
+  + internal/store/dialeto.go
+  + internal/store/consulta.go
+  + internal/store/migrar.go
+  + internal/store/consulta_test.go
+  + internal/store/falso_test.go
+  + internal/store/migrar_test.go
+  + migrations/migrations.go
+  + migrations/0001_init.sql
+  ~ app/setup.go (uma linha acrescentada)
+
+--dry-run: nada foi escrito
+```
+
+Isso é mais do que esta página escreve, porque também é dono das duas armadilhas que o
+`database/sql` deixa abertas: um `ORDER BY` construído a partir de um parâmetro da consulta,
+e uma migração editada depois de já ter rodado. A [`referencia/store`](/pt/referencia/store)
+é onde os arquivos da própria receita são explicados um a um. Escreva à mão, do jeito que
+esta página mostra, quando uma dependência do `store` dentro do seu próprio pacote não
+compensa — um script avulso, uma ferramenta com uma consulta só. Rode a receita para
+qualquer coisa que vai crescer uma segunda tabela.
+
 ## O pool
 
 `database/sql` já é um pool. Um por processo — um pool por pacote é um teto de conexões que

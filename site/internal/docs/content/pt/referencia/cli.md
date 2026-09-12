@@ -91,10 +91,13 @@ O `--with` decide com quais receitas um projeto novo começa, em qualquer templa
 trilha new minha-app --template app --with ""              # só o esqueleto
 trilha new meu-site --with audit                           # no template blog também
 trilha new minha-app --template app --with audit,settings  # escolha a sua
+trilha new loja --with login,blob,mail                     # várias, no template blog
 ```
 
 Um `--with` vazio é uma escolha, e não uma ausência: quem digita isso está pedindo o esqueleto, e
-recebe o esqueleto.
+recebe o esqueleto. O `--template app` já pede as suas oito receitas quando `--with` está
+ausente; digitar `--with` — mesmo com uma receita só — substitui essa lista em vez de somar a
+ela, então manter as oito e acrescentar uma é nomear as nove.
 
 ## Idioma
 
@@ -774,6 +777,13 @@ mexer num projeto que já tem código.
 | `tenant` | organizações: criar, trocar, ativar ou não, membros, configurações por organização |
 | `webhooks` | o que este app avisa para fora: entrega assinada com retry, e a tela dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
+
+Cinco delas — `approvals`, `permissions`, `profile`, `tenant`, `users` — declaram um `Needs`:
+um arquivo que outra receita escreve e que precisa estar lá antes. O `trilha add` confere isso
+antes de escrever qualquer coisa, e recusa pelo nome — "rode `trilha add login` primeiro" — em
+vez de deixar um projeto com arquivos que não compilam porque o pacote deles nunca foi escrito.
+É por causa do `Needs` que vale a pena somar o `login` antes das outras: é o que as outras
+esperam.
 
 O `login` é o que as outras esperam — uma tela que convida alguém ou troca o papel dela é uma tela
 sobre uma tabela de gente. Ele não escreve senha nenhuma: o `usuarios.New` lê `ADMIN_EMAIL` e

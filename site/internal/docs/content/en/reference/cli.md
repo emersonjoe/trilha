@@ -91,9 +91,13 @@ stay at the root, because they are about the person asking and not about adminis
 trilha new minha-app --template app --with ""              # the skeleton alone
 trilha new meu-site --with audit                           # on the blog template too
 trilha new minha-app --template app --with audit,settings  # pick your own
+trilha new loja --with login,blob,mail                     # several, on the blog template
 ```
 
 An empty `--with` is a choice, not an absence: typing it asks for the skeleton and gets it.
+`--template app` already asks for its own eight recipes when `--with` is absent; typing
+`--with` at all — even with one recipe — replaces that list rather than adding to it, so
+keeping the eight and adding one means naming all nine.
 
 ## Language
 
@@ -779,6 +783,12 @@ touch a project that already has code.
 | `tenant` | organisations: create, switch, activate or not, members, per-organisation settings |
 | `webhooks` | what this app announces to the outside: signed delivery with retry, and the screen for it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
+
+Five of these — `approvals`, `permissions`, `profile`, `tenant`, `users` — declare a `Needs`:
+a file another recipe writes that has to be there first. `trilha add` checks it before writing
+anything, and refuses by name — "run `trilha add login` first" — rather than leaving a project
+with files that do not compile because the package they belong to was never written. `Needs`
+is why `login` is worth adding before the rest: it is the one the others wait for.
 
 `login` is the one the others wait for — a screen that invites somebody or changes their role is
 a screen about a table of people. It writes no password: `usuarios.New` reads `ADMIN_EMAIL` and

@@ -8,6 +8,35 @@ limite, um tipo tirado do nome do arquivo, um caminho que sai do diretório e um
 devolvido a partir da sua própria origem. `c.File` fecha os três primeiros; o quarto é uma
 decisão sobre como você serve.
 
+## Ou: `trilha add blob`
+
+`c.File` é o primitivo; a receita `blob` é uma funcionalidade inteira construída em cima
+dele — envio, uma tela de listagem e uma rota que serve de volta, com a chave sendo o digest
+do próprio arquivo:
+
+```bash
+trilha add blob --dry-run
+```
+
+```text
+  + internal/arquivos/arquivos.go
+  + internal/arquivos/arquivos_test.go
+  + app/arquivos/page.go
+  + app/arquivos/chave__/route.go
+  + arquivos_test.go
+  ~ app/setup.go (uma linha acrescentada)
+
+--dry-run: nada foi escrito
+```
+
+Isso é um store, uma página que lista o que foi recebido e a rota que devolve um pela chave —
+memória por padrão, a um `blob.FromEnv()` de distância de disco ou S3. O que esta página
+ensina em vez disso é o primitivo por baixo de tudo isso: `MaxSize`, `Accept`, o `c.Files`
+para mais de um campo, e os cabeçalhos que impedem o conteúdo servido de agir como se fosse
+seu. Recorra à receita quando a resposta é "uma tela que guarda arquivos"; recorra a esta
+página quando a resposta é "um campo, validado" e nada mais — um avatar, um anexo, um
+formulário que não precisa da própria listagem.
+
 ## Recebendo
 
 ```go

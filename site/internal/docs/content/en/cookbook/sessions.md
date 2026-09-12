@@ -11,6 +11,35 @@ user id, and every request reads the user from the database.
 That costs one indexed query per request and buys something worth more: disabling an account
 takes effect now, not when the cookie expires.
 
+## Or: `trilha add login`
+
+Everything below — the cookie, the current-user middleware, the flash — is also what the
+`login` recipe writes for you:
+
+```bash
+trilha add login --dry-run
+```
+
+```text
+  + internal/usuarios/usuarios.go
+  + internal/usuarios/usuarios_test.go
+  + internal/sessao/sessao.go
+  + app/entrar/page.go
+  + app/sair/route.go
+  + internal/sessao/sessaotest/sessaotest.go
+  + login_test.go
+  ~ app/setup.go (one line added)
+
+--dry-run: nothing was written
+```
+
+That is a users table, a sign-in and sign-out screen and the wiring in `app/setup.go` — a
+login that works before you write a line, and the one every other recipe in
+[`trilha add`](/reference/cli#trilha-add) waits for. What it does not hand you is the
+reasoning below: why one error covers both "no such e-mail" and "wrong password", why
+`dummyHash` exists, why `?next=` needs `safeNext`. Run the recipe for the screen; read this
+page for which line to change, and why changing it stays safe.
+
 ## Logging in
 
 ```go

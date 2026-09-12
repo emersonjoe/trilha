@@ -17,6 +17,31 @@ Tem um quinto, mais feio. A URL é do parceiro, mas quem digita trabalha para vo
 apontado para `http://169.254.169.254/` é o seu servidor buscando as credenciais da nuvem daquela
 máquina e entregando para quem cadastrou o endereço.
 
+## Ou: `trilha add webhooks`
+
+```bash
+trilha add webhooks --dry-run
+```
+
+```text
+  + internal/avisos/avisos.go
+  + internal/avisos/avisos_test.go
+  + app/webhooks/page.go
+  + webhooks_test.go
+  ~ app/setup.go (uma linha acrescentada)
+
+--dry-run: nada foi escrito
+```
+
+Isso é a lista fechada de eventos, o entregador ligado ao `Env` do app, e a tela
+`ui.WebhooksPanel` — entrega assinada, retentativa e o registro de cada tentativa, rodando
+antes de você escrever uma linha. O que ela não escreve é o middleware que guarda a tela,
+porque não tem como saber como o seu projeto autentica; a própria última linha do comando
+diz isso. O que esta página soma é tudo abaixo do piso da receita: o que realmente vai no
+fio e por que o timestamp fica dentro da assinatura, a checagem de endereço e por que ela
+roda duas vezes, e o esquema em SQL para quando o relógio da retentativa precisa sobreviver
+a um restart.
+
 ## Emitindo
 
 ```go

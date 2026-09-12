@@ -7,6 +7,27 @@ Mandar e-mail são três problemas usando um casaco só: falar com um servidor, 
 mensagem válida e não mandar nada de dentro de um teste. O `trilha/mail` responde os três, e o
 que vale ler é quais decisões ele tira de você.
 
+## Ou: `trilha add mail`
+
+```bash
+trilha add mail --dry-run
+```
+
+```text
+  + internal/correio/correio.go
+  + internal/correio/correio_test.go
+
+--dry-run: nada foi escrito
+```
+
+Dois arquivos e nenhuma tela — o `mail` não tem listagem nem rota, então não toca o
+`app/setup.go`. O que chega é o `internal/correio/correio.go`: a variável `Mailer` abaixo, já
+construída a partir de `mail.FromEnv()`, e um teste que prova isso contra o `mail.Outbox` sem
+rede. O que esta página soma é tudo o que a receita não pode decidir por você: a mensagem em
+si, o `mail.Layout` e o `mail.Button`, o fluxo de convite, e como trocar de provedor pelo
+`Transport`. Rode a receita pelo arquivo que é dono do `Mailer`; escreva as mensagens aqui,
+porque uma receita não tem como adivinhar o que o seu app tem para dizer.
+
 ## O remetente
 
 ```go

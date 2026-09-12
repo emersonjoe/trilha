@@ -11,6 +11,34 @@ people uploading `nota.pdf`.
 `trilha/blob` is an optional module: disk by default, S3-compatible when a variable says so, and
 no SDK in either case.
 
+## Or: `trilha add blob`
+
+This whole page documents `trilha/blob`; the `blob` recipe is the screen and the wiring built
+on top of it, so you rarely write the plumbing below by hand:
+
+```bash
+trilha add blob --dry-run
+```
+
+```text
+  + internal/arquivos/arquivos.go
+  + internal/arquivos/arquivos_test.go
+  + app/arquivos/page.go
+  + app/arquivos/chave__/route.go
+  + arquivos_test.go
+  ~ app/setup.go (one line added)
+
+--dry-run: nothing was written
+```
+
+`internal/arquivos/arquivos.go` is `Arquivos = blob.New(...)`, wired once, exactly as below;
+the page and the route are `ReceiveFile` and `SendFile` already written, listing what came in
+and serving it back by key. What this page adds is what the recipe's file does not explain:
+why the key is the digest and not the name, what a presigned URL can and cannot be trusted
+with, and how the sweep for orphans works. Run the recipe for the screen; keep this page open
+for the guarantees behind it — `blob.ServeOpts{Proxy: true}`, `Orphans`, which store to pick
+in `blob.FromEnv()`.
+
 ## The store
 
 ```go

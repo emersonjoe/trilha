@@ -10,6 +10,34 @@ erros clássicos de uma vez: um caminho que sai do diretório, e duas pessoas su
 O `trilha/blob` é um módulo opcional: disco por padrão, S3-compatível quando uma variável diz, e
 nenhum SDK nos dois casos.
 
+## Ou: `trilha add blob`
+
+Esta página inteira documenta o `trilha/blob`; a receita `blob` é a tela e a ligação
+construídas em cima dele, então raramente se escreve o encanamento abaixo à mão:
+
+```bash
+trilha add blob --dry-run
+```
+
+```text
+  + internal/arquivos/arquivos.go
+  + internal/arquivos/arquivos_test.go
+  + app/arquivos/page.go
+  + app/arquivos/chave__/route.go
+  + arquivos_test.go
+  ~ app/setup.go (uma linha acrescentada)
+
+--dry-run: nada foi escrito
+```
+
+O `internal/arquivos/arquivos.go` é o `Arquivos = blob.New(...)`, ligado uma vez, exatamente
+como abaixo; a página e a rota são o `ReceiveFile` e o `SendFile` já escritos, listando o que
+chegou e devolvendo pela chave. O que esta página soma é o que o arquivo da receita não
+explica: por que a chave é o digest e não o nome, no que uma URL pré-assinada pode e não pode
+confiar, e como funciona a varredura de órfãos. Rode a receita pela tela; mantenha esta
+página aberta pelas garantias por trás dela — `blob.ServeOpts{Proxy: true}`, o `Orphans`, qual
+loja escolher no `blob.FromEnv()`.
+
 ## A loja
 
 ```go
