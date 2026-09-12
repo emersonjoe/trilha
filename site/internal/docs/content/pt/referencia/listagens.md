@@ -85,6 +85,7 @@ O `ui.Column[T]` é genérico: a linha é o tipo do seu domínio, não um `map[s
 | `Caption` | `<caption>` da tabela, lido por leitor de tela |
 | `RowHref func(int) string` | o endereço para onde a linha daquela posição leva |
 | `Select *ListSelect` | uma caixa por linha e uma barra com as ações que levam a seleção |
+| `Cards bool` | abaixo de 640px, cada linha vira um cartão em vez de rolar a tabela de lado |
 
 ### Não há script novo
 
@@ -99,6 +100,20 @@ if c.Fragment() == "lista" {
 	return tabela, nil
 }
 ```
+
+### Cartão no celular
+
+Uma tabela com cinco colunas ou mais só rola de lado no celular — o que tira de tela a
+coluna de ações, em geral a última. `Cards: true` vira cada linha um cartão abaixo de
+640px: o `ui.DataTable` escreve `data-label` em toda célula com o próprio `Label` da
+coluna, e a folha de estilo faz o resto — o `<thead>` sai de tela com `clip-path` (ainda
+alcançável por leitor de tela, ao contrário de `display: none`), e cada `<td>` mostra o
+rótulo ao lado do valor. Uma tabela numérica larga — um comparativo, um extrato — às
+vezes ainda é melhor rolando, por isso é `Cards: true` e não o padrão.
+
+Um `ui.Table` escrito à mão ganha o mesmo ponto de corte com `ui.Table(ui.Cards(), …)`,
+mas tem de escrever o próprio `data-label` em cada `<td>` — o ganho do `ui.DataTable`
+fazer isso sozinho é o rótulo morar num lugar só, `Columns[T].Label`.
 
 ### Seleção de linhas
 
@@ -141,6 +156,9 @@ ui.Empty(ui.EmptyOpts{
 
 O `Hint` é o campo que se paga: é a diferença entre dizer que a tela está vazia e dizer o que
 fazer a respeito.
+
+`IconNode h.Node`, quando presente, vence `Icon`: a mesma saída do `ui.NavItem`, para um
+ícone que os 31 nomes do kit não cobrem.
 
 Para uma tela que não carregou, o `ui.EmptyError(c, título, err, ação)` mostra o título, o
 caminho de tentar de novo, e o erro real **só em desenvolvimento** — a frase de um driver numa

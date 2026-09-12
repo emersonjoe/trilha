@@ -1603,6 +1603,7 @@ pkg ui, func CardDescription(string) h.Node
 pkg ui, func CardFooter(...h.Node) h.Node
 pkg ui, func CardHeader(...h.Node) h.Node
 pkg ui, func CardTitle(string) h.Node
+pkg ui, func Cards() h.Node
 pkg ui, func Changed(map[string]string, map[string]string) []string
 pkg ui, func ChartTitle(string) h.Node
 pkg ui, func Chat(*trilha.Ctx, ChatOpts) h.Node
@@ -1884,6 +1885,7 @@ pkg ui, type EmptyOpts struct
 pkg ui, type EmptyOpts struct, Action h.Node
 pkg ui, type EmptyOpts struct, Hint string
 pkg ui, type EmptyOpts struct, Icon string
+pkg ui, type EmptyOpts struct, IconNode h.Node
 pkg ui, type EmptyOpts struct, Title string
 pkg ui, type FieldOpt func(*fieldCfg)
 pkg ui, type FormatOpt func(*formatOpts)
@@ -1910,6 +1912,7 @@ pkg ui, type ListSelect struct, Name string
 pkg ui, type ListSelect struct, Value func(int) string
 pkg ui, type ListState struct
 pkg ui, type ListState struct, Caption string
+pkg ui, type ListState struct, Cards bool
 pkg ui, type ListState struct, Empty h.Node
 pkg ui, type ListState struct, Filters h.Node
 pkg ui, type ListState struct, ID string
@@ -1931,6 +1934,7 @@ pkg ui, type NavItem struct, Badge string
 pkg ui, type NavItem struct, Hide bool
 pkg ui, type NavItem struct, Href string
 pkg ui, type NavItem struct, Icon string
+pkg ui, type NavItem struct, IconNode h.Node
 pkg ui, type NavItem struct, Label string
 pkg ui, type Option struct
 pkg ui, type Option struct, Label string

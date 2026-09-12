@@ -41,8 +41,19 @@ func Layout(c *trilha.Ctx, children ...h.Node) h.Node {
 | `Header` | extra nodes for the header, to the left of the user menu |
 | `Current` | the path to mark as active; the request's path when empty |
 
-A `NavItem` is `{Href, Label, Icon, Badge, Hide}`. `Icon` is a name from `ui.Icon`;
-`Badge` is a short count beside the label.
+A `NavItem` is `{Href, Label, Icon, Badge, IconNode, Hide}`. `Icon` is a name from
+`ui.Icon`; `Badge` is a short count beside the label. `IconNode`, when set, wins over
+`Icon`: it is the way out for a name the kit's 31 icons do not cover — a document, a
+building — and the app draws its own node instead of the kit panicking on an unknown
+name:
+
+```go
+{Href: "/contracts", Label: "Contracts", IconNode: h.Svg(h.Class("ui-icon"),
+	h.Attr("viewBox", "0 0 24 24"), h.El("path", h.Attr("d", "…")))}
+```
+
+The `ui-icon` class is what keeps the kit owning the size and the alignment; the app
+only draws what goes inside it.
 
 ## The active item is the longest prefix
 

@@ -91,6 +91,9 @@ func lista(c *trilha.Ctx, q consulta) h.Node {
 		Filters: filtro(q.Tipo),
 		Caption: "Documentos recebidos",
 		RowHref: func(i int) string { return "/documentos?q=" + docs[i].Nome },
+		// A listagem tem quatro colunas e é aberta no celular tanto quanto no
+		// desktop: a linha vira cartão abaixo de 640px em vez de rolar de lado.
+		Cards: true,
 		// Without this the DataTable already draws a sensible empty state, and
 		// it tells "no documents" from "no results for that term". This one is
 		// here because the app speaks Portuguese and the kit's default does not.

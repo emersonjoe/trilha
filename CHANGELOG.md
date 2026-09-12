@@ -3,6 +3,32 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.114.0 — 2026-09-12
+
+Spec 135. Closes [#168](https://github.com/emersonjoe/trilha/issues/168) and
+[#178](https://github.com/emersonjoe/trilha/issues/178).
+
+### Added
+
+- **`ui.NavItem.IconNode` and `ui.EmptyOpts.IconNode`, an icon the kit does not carry.**
+  `Icon` only ever accepted one of the kit's 31 embedded names, and panicked on anything
+  else — no escape hatch for a document, a building, or any other icon a management app
+  needs and the Lucide set does not have. `IconNode h.Node`, when set, wins over `Icon`:
+  the app draws its own node (typically `h.Svg(h.Class("ui-icon"), …)`, so the kit keeps
+  owning the size and the alignment) and `Icon` stays the shortcut for the common case.
+  Additive: a `NavItem`/`EmptyOpts` that only sets `Icon` behaves exactly as before.
+- **`ui.Cards()` and `ui.ListState.Cards`, a table row that becomes a card on a phone.**
+  `ui.Table`/`ui.DataTable` only ever scrolled sideways below the sidebar's breakpoint,
+  which pushes a table's last column — usually the row's actions — off screen on a
+  narrow listing. `ui.Cards()` (the same modifier shape as `ui.Ghost()`/`ui.Sm()`) applies
+  `.ui-table-cards`, which below 640px turns each row into a card, with the `<thead>`
+  moved off screen by `clip-path` — reachable to a screen reader, unlike `display: none`.
+  `ui.DataTable` applies it when `ListState.Cards` is `true`, and now writes `data-label`
+  (the column's own `Label`) on every data cell regardless of `Cards`, so a hand-written
+  stylesheet never has to duplicate a column's label to key the breakpoint off it. Off by
+  default: a wide numeric table (a comparison, a statement) is sometimes still better
+  scrolling.
+
 ## 0.113.0 — 2026-09-12
 
 Spec 134. Closes [#176](https://github.com/emersonjoe/trilha/issues/176) and

@@ -40,8 +40,19 @@ func Layout(c *trilha.Ctx, children ...h.Node) h.Node {
 | `Header` | nós extras do cabeçalho, à esquerda do menu do usuário |
 | `Current` | o caminho a marcar como ativo; o caminho do request quando vazio |
 
-Um `NavItem` é `{Href, Label, Icon, Badge, Hide}`. `Icon` é um nome de `ui.Icon`; `Badge`
-é uma contagem curta ao lado do rótulo.
+Um `NavItem` é `{Href, Label, Icon, Badge, IconNode, Hide}`. `Icon` é um nome de
+`ui.Icon`; `Badge` é uma contagem curta ao lado do rótulo. `IconNode`, quando presente,
+vence `Icon`: é a saída para um nome que os 31 ícones do kit não cobrem — um documento,
+um prédio — e o app desenha o próprio nó em vez de o kit entrar em pânico com um nome
+desconhecido:
+
+```go
+{Href: "/contratos", Label: "Contratos", IconNode: h.Svg(h.Class("ui-icon"),
+	h.Attr("viewBox", "0 0 24 24"), h.El("path", h.Attr("d", "…")))}
+```
+
+A classe `ui-icon` é o que mantém o kit dono do tamanho e do alinhamento; o app só
+desenha o que vai dentro dela.
 
 ## O item ativo é o prefixo mais longo
 

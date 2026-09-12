@@ -197,7 +197,12 @@ func TestHeadAndAssets(t *testing.T) {
 	// the right one). What was not done is a second stylesheet: a launcher
 	// that has to remember to load its own CSS renders wrong once, which is
 	// the same reason the chat's bubbles are here.
-	if len(Asset("ui.css")) > 36<<10 || len(Asset("ui.js")) > 28<<10 {
+	//
+	// 0.114.0 raised it to 38 KB: ui.Cards is one breakpoint (about 500 bytes)
+	// that turns a DataTable row into a card below 640px, with the header
+	// moved off screen by clip-path rather than display:none, so a screen
+	// reader still gets it. There were 456 bytes left, forty-nine short.
+	if len(Asset("ui.css")) > 38<<10 || len(Asset("ui.js")) > 28<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {
@@ -546,6 +551,22 @@ func TestEmptyDrawsWhatItWasGivenAndNothingElse(t *testing.T) {
 	safe := render(t, Empty(EmptyOpts{Icon: "nao-existe", Title: "Vazio"}))
 	if strings.Contains(safe, "ui-empty-icon") {
 		t.Errorf("desenhou um ícone que não existe: %s", safe)
+	}
+}
+
+// #168 — the same escape hatch as ui.NavItem: a name outside the kit's set
+// draws the app's own node instead of Empty falling back to no icon at all.
+func TestEmptyIconNodeWinsOverIcon(t *testing.T) {
+	custom := h.Svg(h.Class("ui-icon"), h.Attr("viewBox", "0 0 24 24"),
+		h.El("path", h.Attr("d", "M4 3h16v18H4z")))
+	got := render(t, Empty(EmptyOpts{Icon: "info", IconNode: custom, Title: "Vazio"}))
+	for _, want := range []string{"ui-empty-icon", `<path d="M4 3h16v18H4z"></path>`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("faltou %q em %s", want, got)
+		}
+	}
+	if strings.Contains(got, "M12 16v-4") {
+		t.Errorf("desenhou o ícone embutido \"info\" em vez do IconNode: %s", got)
 	}
 }
 

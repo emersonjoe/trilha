@@ -43,6 +43,27 @@ func TestShellMarksTheLongestPrefix(t *testing.T) {
 	}
 }
 
+// #168 — a NavItem for a name outside the kit's 31 icons draws its own node
+// instead of panicking in Icon; IconNode wins even when Icon is also set, and
+// whatever the app hands in renders through the same h escaping as any other
+// node, not as raw markup.
+func TestNavItemIconNodeWinsOverIcon(t *testing.T) {
+	custom := h.Svg(h.Class("ui-icon"), h.Attr("viewBox", "0 0 24 24"),
+		h.El("path", h.Attr("d", "M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z")),
+		h.Text("<script>"))
+	items := []NavGroup{{Items: []NavItem{
+		{Href: "/docs", Label: "Documents", Icon: "house", IconNode: custom},
+	}}}
+	got := render(t, Shell(nil, ShellOpts{Nav: items}))
+	has(t, got, `<path d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"></path>`, "&lt;script&gt;")
+	if strings.Contains(got, "<script>") {
+		t.Fatalf("text inside the custom node was not escaped: %s", got)
+	}
+	if strings.Contains(got, "M15 21v-8") {
+		t.Fatalf("Icon still drew the built-in house icon over IconNode: %s", got)
+	}
+}
+
 // SC-002 — hiding is cosmetics, but what is hidden is not in the HTML either.
 func TestShellLeavesOutWhatIsHidden(t *testing.T) {
 	got := render(t, Shell(nil, ShellOpts{Nav: menu, Current: "/docs"}))

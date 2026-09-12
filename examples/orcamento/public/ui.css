@@ -1,4 +1,4 @@
-/* trilha ui 4036a5161b31a24e */
+/* trilha ui 44ab6a9a53a0dc28 */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -146,6 +146,12 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-table [data-depth="1"] td:first-child { padding-left: 1.75rem; }
 .ui-table [data-depth="2"] td:first-child { padding-left: 3rem; }
 .ui-table [data-depth="3"] td:first-child { padding-left: 4.25rem; }
+@media (max-width: 640px) {
+  .ui-table-cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .ui-table-cards tbody tr { display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; padding: .75rem; border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: .5rem; }
+  .ui-table-cards td { display: contents; }
+  .ui-table-cards td::before { content: attr(data-label); color: var(--muted-foreground); font-size: .8125rem; }
+}
 
 /* listing (ui.DataTable) */
 .ui-list { display: flex; flex-direction: column; gap: 1rem; }

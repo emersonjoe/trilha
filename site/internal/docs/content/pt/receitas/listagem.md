@@ -92,6 +92,10 @@ vazio a partir do `ListState`. Com o `ID` preenchido, todos levam o `ui.Swap("li
 ordenar, filtrar e paginar trocam a tabela em vez de recarregar — e sem JavaScript os
 mesmos links navegam, porque são links.
 
+`Cards: true` é o que mantém quatro colunas legíveis no celular: abaixo de 640px cada
+linha vira um cartão, com o rótulo da própria coluna — `Columns[T].Label`, o mesmo que o
+cabeçalho já mostra — ao lado do valor, em vez de uma tabela que só rola de lado.
+
 ```go
 func lista(c *trilha.Ctx, q consulta) h.Node {
 	docs, total := documentos.Buscar(documentos.Consulta{
@@ -106,6 +110,9 @@ func lista(c *trilha.Ctx, q consulta) h.Node {
 		Filters: filtro(q.Tipo),
 		Caption: "Documentos recebidos",
 		RowHref: func(i int) string { return "/documentos?q=" + docs[i].Nome },
+		// A listagem tem quatro colunas e é aberta no celular tanto quanto no
+		// desktop: a linha vira cartão abaixo de 640px em vez de rolar de lado.
+		Cards: true,
 		// Without this the DataTable already draws a sensible empty state, and
 		// it tells "no documents" from "no results for that term". This one is
 		// here because the app speaks Portuguese and the kit's default does not.

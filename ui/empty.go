@@ -9,6 +9,9 @@ import (
 type EmptyOpts struct {
 	// Icon is a name from the kit's set. Empty draws none.
 	Icon string
+	// IconNode, when set, wins over Icon: the app's own node for a name the
+	// kit does not carry, the same escape hatch as ui.NavItem.IconNode.
+	IconNode h.Node
 	// Title is the sentence in bold: "No documents yet".
 	Title string
 	// Hint is the smaller line under it, and it is the one that earns its
@@ -39,7 +42,9 @@ func Empty(opts EmptyOpts) h.Node {
 	// A name the kit does not have would panic, and panicking on the screen
 	// that is already empty is the worst place for it: no icon is a fine empty
 	// state, a 500 is not.
-	if opts.Icon != "" && hasIcon(opts.Icon) {
+	if opts.IconNode != nil {
+		kids = append(kids, h.Div(h.Class("ui-empty-icon"), opts.IconNode))
+	} else if opts.Icon != "" && hasIcon(opts.Icon) {
 		kids = append(kids, h.Div(h.Class("ui-empty-icon"), Icon(opts.Icon)))
 	}
 	if opts.Title != "" {

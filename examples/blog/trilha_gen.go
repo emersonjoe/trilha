@@ -78,7 +78,7 @@ func newApp() *trilha.App {
 	a.Register(trilha.Route{
 		Pattern:     "/admin",
 		Page:        app_admin.Page,
-		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Layouts:     []trilha.LayoutFunc{app_admin.Layout, app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware, app_admin.Middleware},
 	})
 	a.Register(trilha.Route{

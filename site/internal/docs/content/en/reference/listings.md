@@ -85,6 +85,7 @@ return ui.DataTable(c, ui.Columns[Doc]{
 | `Caption` | `<caption>` of the table, read by a screen reader |
 | `RowHref func(int) string` | the address the row at that position links to |
 | `Select *ListSelect` | a checkbox per row and a bar with the actions that take the selection |
+| `Cards bool` | below 640px, each row becomes a card instead of scrolling the table sideways |
 
 ### There is no new script
 
@@ -99,6 +100,21 @@ if c.Fragment() == "lista" {
 	return tabela, nil
 }
 ```
+
+### Cards on a phone
+
+A table with five or more columns only scrolls sideways on a phone — which puts the
+action column, usually the last one, off screen. `Cards: true` turns each row into a
+card below 640px instead: `ui.DataTable` writes `data-label` on every cell with the
+column's own `Label`, and the stylesheet does the rest — the `<thead>` moves off screen
+with `clip-path` (still reachable to a screen reader, unlike `display: none`), and each
+`<td>` shows its label beside its value. A wide numeric table — a comparison, a
+statement — is sometimes still better off scrolling, which is why it is `Cards: true`
+and not the default.
+
+A hand-written `ui.Table` gets the same breakpoint with `ui.Table(ui.Cards(), …)`, but
+has to write its own `data-label` on each `<td>` — the point of `ui.DataTable` doing it
+automatically is that the label lives in one place, `Columns[T].Label`.
 
 ### Row selection
 
@@ -143,6 +159,9 @@ ui.Empty(ui.EmptyOpts{
 
 `Hint` is the field that earns its place: it is the difference between telling somebody the
 screen is empty and telling them what to do about it.
+
+`IconNode h.Node`, when set, wins over `Icon`: the same escape hatch as `ui.NavItem`, for
+an icon the kit's 31 names do not cover.
 
 For a screen that could not load, `ui.EmptyError(c, title, err, action)` shows the title, the
 way to retry, and the real error **only in development** — a driver's sentence on a production

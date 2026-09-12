@@ -954,6 +954,11 @@
         "doc": "Icon is a name from the kit's set."
       },
       {
+        "name": "IconNode",
+        "type": "h.Node",
+        "doc": "IconNode, when set, wins over Icon: the app's own node for a name the kit does not carry, the same escape hatch as ui.NavItem.IconNode."
+      },
+      {
         "name": "Title",
         "type": "string",
         "doc": "Title is the sentence in bold: \"No documents yet\"."
@@ -1302,6 +1307,11 @@
       {
         "name": "Select",
         "type": "*ListSelect"
+      },
+      {
+        "name": "Cards",
+        "type": "bool",
+        "doc": "Cards turns each row into a card below 640px instead of scrolling the table sideways — see ui.Cards."
       }
     ]
   },
@@ -1659,7 +1669,7 @@
     "kind": "type",
     "group": "shell",
     "signature": "type NavItem struct",
-    "doc": "NavItem is one link of the sidebar. Icon is a name from Icons(); Badge is a\ncount or a word beside the label. Hide takes the entry out of the HTML —\nand hiding a link is cosmetics: what keeps somebody out of the route is the\nmiddleware.go of that branch, never the menu.",
+    "doc": "NavItem is one link of the sidebar. Icon is a name from Icons(); Badge is a\ncount or a word beside the label. Hide takes the entry out of the HTML —\nand hiding a link is cosmetics: what keeps somebody out of the route is the\nmiddleware.go of that branch, never the menu.\n\nIconNode, when set, wins over Icon: it is the way out for a name the kit\ndoes not carry, such as a document or a building. The app draws its own\nnode — typically h.Svg(h.Class(\"ui-icon\"), …), so the kit keeps owning the\nsize and the alignment — and Icon stays the shortcut for the common case.",
     "summary": "NavItem is one link of the sidebar.",
     "fields": [
       {
@@ -1679,9 +1689,17 @@
         "type": "string"
       },
       {
+        "name": "IconNode",
+        "type": "h.Node"
+      },
+      {
         "name": "Hide",
         "type": "bool"
       }
+    ],
+    "see": [
+      "h.Class",
+      "h.Svg"
     ]
   },
   {
@@ -2902,8 +2920,19 @@
     "kind": "func",
     "group": "table",
     "signature": "Table(children ...h.Node) h.Node",
-    "doc": "Table wraps a \u003ctable class=\"ui-table\"\u003e in a horizontally scrollable box.",
+    "doc": "Table wraps a \u003ctable class=\"ui-table\"\u003e in a horizontally scrollable box.\nPass Cards() to turn each row into a card below 640px instead — a listing\nwith many columns reads better than sideways scrolling on a phone; a wide\nnumeric table (a comparison, a statement) is sometimes still better rolling.",
     "summary": "Table wraps a \u003ctable class=\"ui-table\"\u003e in a horizontally scrollable box."
+  },
+  {
+    "name": "Cards",
+    "kind": "func",
+    "group": "table",
+    "signature": "Cards() h.Node",
+    "doc": "Cards turns a Table's rows into cards below 640px: the header hides off\nscreen (still reachable to a screen reader) and each cell's data-label\ntakes its place beside the value. ui.DataTable writes data-label on every\ncolumn already; a hand-written Table needs it added to its own \u003ctd\u003es.",
+    "summary": "Cards turns a Table's rows into cards below 640px: the header hides off screen (still reachable to a screen reader) and each cell's data-label takes its place beside the value.",
+    "see": [
+      "ui.DataTable"
+    ]
   },
   {
     "name": "Num",

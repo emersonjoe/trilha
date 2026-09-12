@@ -43,6 +43,10 @@ type ListState struct {
 	Caption string            // <caption> of the table, read by a screen reader
 	RowHref func(int) string  // address the row at that position links to
 	Select  *ListSelect       // row selection, off when nil
+	// Cards turns each row into a card below 640px instead of scrolling the
+	// table sideways — see ui.Cards. Off by default: a wide numeric table is
+	// sometimes better rolling.
+	Cards bool
 }
 
 // DataTable renders the screen every management app has: filter on top, table
@@ -75,11 +79,15 @@ func DataTable[T any](c *trilha.Ctx, cols Columns[T], rows []T, st ListState) h.
 	}
 	p := st.Params
 
-	table := Table(
+	tableChildren := []h.Node{
 		caption(st),
 		h.Thead(h.Tr(headCells(cols, p, st)...)),
 		h.Tbody(bodyRows(cols, rows, st)...),
-	)
+	}
+	if st.Cards {
+		tableChildren = append(tableChildren, Cards())
+	}
+	table := Table(tableChildren...)
 	if st.Select != nil {
 		table = h.Form(h.Class("ui-list-form"), h.Method("post"), action(st.Select.Action),
 			trilha.CSRFInput(c),
@@ -199,7 +207,9 @@ func bodyRows[T any](cols Columns[T], rows []T, st ListState) []h.Node {
 				Checkbox(h.Name(st.Select.Name), h.Value(st.Select.Value(i)))))
 		}
 		for j, col := range cols {
-			attrs := []h.Node{}
+			// data-label costs nothing without ui.Cards's CSS and saves the
+			// app from duplicating the column's own label in a stylesheet.
+			attrs := []h.Node{h.Data("label", col.Label)}
 			if col.Num {
 				attrs = append(attrs, Num())
 			}

@@ -12,12 +12,18 @@ import (
 // count or a word beside the label. Hide takes the entry out of the HTML —
 // and hiding a link is cosmetics: what keeps somebody out of the route is the
 // middleware.go of that branch, never the menu.
+//
+// IconNode, when set, wins over Icon: it is the way out for a name the kit
+// does not carry, such as a document or a building. The app draws its own
+// node — typically h.Svg(h.Class("ui-icon"), …), so the kit keeps owning the
+// size and the alignment — and Icon stays the shortcut for the common case.
 type NavItem struct {
-	Href  string
-	Label string
-	Icon  string
-	Badge string
-	Hide  bool
+	Href     string
+	Label    string
+	Icon     string
+	Badge    string
+	IconNode h.Node
+	Hide     bool
 }
 
 // NavGroup is a titled block of the sidebar. Hiding the group hides its items.
@@ -92,7 +98,9 @@ func Shell(c *trilha.Ctx, o ShellOpts, children ...h.Node) h.Node {
 			if it.Href == active {
 				n = append(n, h.Aria("current", "page"))
 			}
-			if it.Icon != "" {
+			if it.IconNode != nil {
+				n = append(n, it.IconNode)
+			} else if it.Icon != "" {
 				n = append(n, Icon(it.Icon))
 			}
 			n = append(n, h.Span(h.Class("ui-nav-label"), h.Text(it.Label)))

@@ -208,6 +208,17 @@ func TestDataTableLinksTheRowAndSelectsIt(t *testing.T) {
 	}
 }
 
+// #178 — data-label goes out on every data cell whether or not Cards is on
+// (it is only an attribute, harmless without the .ui-table-cards CSS), and
+// Cards adds the class the stylesheet keys the breakpoint on.
+func TestDataTableCards(t *testing.T) {
+	plain := listing(t, "", docs, nil)
+	has(t, plain, `<table class="ui-table">`, `<td data-label="File">`, `<td data-label="Size" class="ui-num">`, `<td data-label="Kind">`)
+
+	cards := listing(t, "", docs, func(st *ListState) { st.Cards = true })
+	has(t, cards, `<table class="ui-table ui-table-cards">`, `<td data-label="File">`)
+}
+
 func TestPollAndOnAreJustAttributes(t *testing.T) {
 	if got, want := render(t, h.Div(h.ID("s"), Poll("6s", "/docs/42/status"))),
 		`<div id="s" data-trilha-poll="6s" data-trilha-src="/docs/42/status"></div>`; got != want {

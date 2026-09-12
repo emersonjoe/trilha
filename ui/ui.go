@@ -486,9 +486,18 @@ func Confirm(title, description string) h.Node {
 // ---- table -----------------------------------------------------------------
 
 // Table wraps a <table class="ui-table"> in a horizontally scrollable box.
+// Pass Cards() to turn each row into a card below 640px instead — a listing
+// with many columns reads better than sideways scrolling on a phone; a wide
+// numeric table (a comparison, a statement) is sometimes still better rolling.
 func Table(children ...h.Node) h.Node {
 	return h.Div(h.Class("ui-table-wrap"), h.Table(append([]h.Node{h.Class("ui-table")}, children...)...))
 }
+
+// Cards turns a Table's rows into cards below 640px: the header hides off
+// screen (still reachable to a screen reader) and each cell's data-label
+// takes its place beside the value. ui.DataTable writes data-label on every
+// column already; a hand-written Table needs it added to its own <td>s.
+func Cards() h.Node { return h.Class("ui-table-cards") }
 
 // Num right-aligns numeric cells.
 func Num() h.Node { return h.Class("ui-num") }
