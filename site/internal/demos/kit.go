@@ -2,7 +2,11 @@ package demos
 
 import (
 	"errors"
+	"io"
+	"log/slog"
+	"net/http/httptest"
 	"strconv"
+	"time"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
@@ -35,6 +39,287 @@ var errKitDemo = errors.New("connection refused")
 // kitDemoLogoDataURL is a 1x1 transparent PNG, so the ui-preview demo's image
 // branch has something real to decode without shipping a binary asset.
 const kitDemoLogoDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+
+// demoCtx renders build through a real *trilha.Ctx configured for locale —
+// the handful of kit components that read Config.Locale (ui.DataTable,
+// ui.SearchBox, ui.SearchResults, ui.Date and its neighbors) need a real Ctx
+// to say the right word in the right language, not a nil one. It is the same
+// trick ui/format_test.go uses to test the formatters in both languages, used
+// here to render a demo instead of asserting on one.
+func demoCtx(locale string, build func(*trilha.Ctx) h.Node) h.Node {
+	cfg := trilha.Config{Locale: locale, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	if locale == "pt-BR" {
+		cfg.TimeZone = "America/Sao_Paulo"
+	}
+	a := trilha.New(cfg)
+	var out h.Node
+	a.Register(trilha.Route{Pattern: "/", Page: func(c *trilha.Ctx) (h.Node, error) {
+		out = build(c)
+		return h.Div(), nil
+	}})
+	a.Handler().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	return out
+}
+
+// demoDoc backs ui-listagem and ui-listagem-vazia: the six rows a repository
+// would already have answered, formatted the way the app chose to.
+type demoDoc struct{ Name, Kind, Size string }
+
+var demoDocsEN = []demoDoc{
+	{"contract-2024.pdf", "PDF", "482 KB"},
+	{"invoice-0093.pdf", "PDF", "96 KB"},
+	{"logo-final.png", "Image", "128 KB"},
+	{"notes.txt", "Text", "4 KB"},
+	{"backup.zip", "Archive", "12 MB"},
+	{"deck-q3.pptx", "Slides", "3 MB"},
+}
+
+var demoDocsPT = []demoDoc{
+	{"contract-2024.pdf", "PDF", "482 KB"},
+	{"invoice-0093.pdf", "PDF", "96 KB"},
+	{"logo-final.png", "Imagem", "128 KB"},
+	{"notes.txt", "Texto", "4 KB"},
+	{"backup.zip", "Compactado", "12 MB"},
+	{"deck-q3.pptx", "Slides", "3 MB"},
+}
+
+// classificationNodesEN/PT back ui-arvore: a three-level plan, the shape of
+// the example in reference/ui.md's "Trees" section.
+var classificationNodesEN = []kit.TreeNode{
+	{Value: "100", Label: "100 Administrative", Open: true, Children: []kit.TreeNode{
+		{Value: "100.1", Label: "100.1 Budget", Leaf: true},
+		{Value: "100.2", Label: "100.2 Personnel", Leaf: true},
+	}},
+	{Value: "200", Label: "200 Legal", Leaf: true},
+}
+
+var classificationNodesPT = []kit.TreeNode{
+	{Value: "100", Label: "100 Administrativo", Open: true, Children: []kit.TreeNode{
+		{Value: "100.1", Label: "100.1 Orçamento", Leaf: true},
+		{Value: "100.2", Label: "100.2 Pessoal", Leaf: true},
+	}},
+	{Value: "200", Label: "200 Jurídico", Leaf: true},
+}
+
+// demoCitiesEN/PT back ui-combobox: proper nouns, so the two lists agree.
+var demoCities = []kit.Option{
+	{Value: "3550308", Label: "São Paulo"},
+	{Value: "3304557", Label: "Rio de Janeiro"},
+	{Value: "4106902", Label: "Curitiba"},
+}
+
+// demoSearchEN/PT back ui-busca: a trilha.Search over trilha.SearchMemory,
+// with a fixed index so the same query always answers the same hits.
+var demoSearchEN = trilha.NewSearch(trilha.SearchOpts{Store: trilha.SearchMemory()}).
+	Kind("document", trilha.KindOpts{Label: "Documents"}).
+	Kind("person", trilha.KindOpts{Label: "People"})
+
+var demoSearchPT = trilha.NewSearch(trilha.SearchOpts{Store: trilha.SearchMemory()}).
+	Kind("document", trilha.KindOpts{Label: "Documentos"}).
+	Kind("person", trilha.KindOpts{Label: "Pessoas"})
+
+func init() {
+	demoSearchEN.Put(nil,
+		trilha.Doc{Kind: "document", ID: "1", Title: "Monthly report", Body: "Revenue and expenses for August", URL: "#"},
+		trilha.Doc{Kind: "document", ID: "2", Title: "Vacation policy", Body: "How to request time off", URL: "#"},
+		trilha.Doc{Kind: "person", ID: "3", Title: "Ana Paula Reis", Body: "Finance team, writes the monthly report", URL: "#"},
+	)
+	demoSearchPT.Put(nil,
+		trilha.Doc{Kind: "document", ID: "1", Title: "Relatório mensal", Body: "Receita e despesas de agosto", URL: "#"},
+		trilha.Doc{Kind: "document", ID: "2", Title: "Política de férias", Body: "Como pedir folga", URL: "#"},
+		trilha.Doc{Kind: "person", ID: "3", Title: "Ana Paula Reis", Body: "Time financeiro, escreve o relatório mensal", URL: "#"},
+	)
+}
+
+// demoDataEN/PT and demoWeekly back ui-indicadores: four numbers and a week
+// of a fifth, the size of panel a dashboard opens on.
+var demoDataEN = []kit.Datum{
+	{Label: "Documents", Value: 1204, Text: "1,204"},
+	{Label: "Contracts", Value: 340, Text: "340"},
+	{Label: "Invoices", Value: 512, Text: "512"},
+	{Label: "Reports", Value: 88, Text: "88"},
+}
+
+var demoDataPT = []kit.Datum{
+	{Label: "Documentos", Value: 1204, Text: "1.204"},
+	{Label: "Contratos", Value: 340, Text: "340"},
+	{Label: "Faturas", Value: 512, Text: "512"},
+	{Label: "Relatórios", Value: 88, Text: "88"},
+}
+
+var demoWeekly = []float64{18, 22, 19, 27, 24, 31, 29}
+
+// localeMoment backs ui-locale: a fixed instant, so Date, DateOnly and
+// TimeOnly print the same text at every build. Relative is the one value that
+// has to be computed close to "now" — it is measured once and read twice, so
+// the English and the pt-BR column always land in the same minute.
+var localeMoment = time.Date(2026, 9, 8, 15, 4, 0, 0, time.UTC)
+
+// dataTableDemo builds ui-listagem: a working DataTable over ListParams, with
+// ordering, a search field and pagination all coming from the URL.
+func dataTableDemo(pt bool) h.Node {
+	docs, nameLabel, kindLabel, sizeLabel, search, locale := demoDocsEN, "File", "Type", "Size", "Search files", ""
+	if pt {
+		docs, nameLabel, kindLabel, sizeLabel, search, locale = demoDocsPT, "Arquivo", "Tipo", "Tamanho", "Buscar arquivos", "pt-BR"
+	}
+	cols := kit.Columns[demoDoc]{
+		{Key: "name", Label: nameLabel, Sort: true, Cell: func(d demoDoc) h.Node { return h.Text(d.Name) }},
+		{Key: "kind", Label: kindLabel, Cell: func(d demoDoc) h.Node { return h.Text(d.Kind) }},
+		{Key: "size", Label: sizeLabel, Sort: true, Num: true, Cell: func(d demoDoc) h.Node { return h.Text(d.Size) }},
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(kit.DataTable(c, cols, docs[:4], kit.ListState{
+			Params:  trilha.ListParams{Page: 1, PerPage: 4, Sort: "name", Dir: "asc"},
+			Total:   len(docs),
+			Search:  search,
+			RowHref: func(int) string { return "#" },
+		}))
+	})
+}
+
+// emptyDataTableDemo builds ui-listagem-vazia: the same table with no rows,
+// once with no search typed and once with a search that matched nothing —
+// the distinction ui.DataTable draws on its own, and the one an app writes by
+// hand with ListState.Empty when the kit's own words are not its language.
+func emptyDataTableDemo(pt bool) h.Node {
+	nameLabel, search, locale := "File", "Search files", ""
+	var blank, filtered kit.ListState
+	if pt {
+		nameLabel, search, locale = "Arquivo", "Buscar arquivos", "pt-BR"
+		blank.Empty = kit.Empty(kit.EmptyOpts{Icon: "info", Title: "Nada por aqui ainda"})
+		filtered.Empty = kit.Empty(kit.EmptyOpts{
+			Icon: "search", Title: "Nenhum resultado para “invoice-9999”",
+			Hint:   "Tente outro termo, ou limpe a busca.",
+			Action: h.A(h.Href("#"), h.Class("ui-btn ui-btn-outline ui-btn-sm"), h.Text("Limpar a busca")),
+		})
+	}
+	col := kit.Columns[demoDoc]{{Key: "name", Label: nameLabel, Cell: func(d demoDoc) h.Node { return h.Text(d.Name) }}}
+	blank.Params, blank.Total, blank.Search = trilha.ListParams{Page: 1, PerPage: 5}, 0, search
+	filtered.Params, filtered.Total, filtered.Search = trilha.ListParams{Page: 1, PerPage: 5, Q: "invoice-9999"}, 0, search
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return wrap(h.Div(h.Class("ui-stack"),
+			kit.DataTable(c, col, nil, blank),
+			kit.DataTable(c, col, nil, filtered),
+		))
+	})
+}
+
+// treeDemo builds ui-arvore: the hierarchy as navigation, and the same nodes
+// as a TreePicker field.
+func treeDemo(pt bool) h.Node {
+	nodes, label := classificationNodesEN, "Classification"
+	if pt {
+		nodes, label = classificationNodesPT, "Classificação"
+	}
+	return wrap(h.Div(h.Class("ui-stack"),
+		kit.Tree(kit.TreeOpts{Nodes: nodes, Label: label, Current: "100.1"}),
+		kit.Field("code", label, kit.TreePicker(kit.TreePickerOpts{
+			Name: "code", Value: "100.1", Nodes: nodes, Label: label,
+		})),
+	))
+}
+
+// comboboxDemo builds ui-combobox: a field that searches a short list without
+// a round trip.
+func comboboxDemo(pt bool) h.Node {
+	label, placeholder := "City", "Search a city"
+	if pt {
+		label, placeholder = "Cidade", "Buscar uma cidade"
+	}
+	return wrap(kit.Field("city", label, kit.Combobox(kit.ComboboxOpts{
+		Name: "city_id", Value: "3550308", Label: "São Paulo",
+		Options: demoCities, Placeholder: placeholder,
+	})))
+}
+
+// searchDemo builds ui-busca: the box and the grouped result of a real
+// trilha.Search.Query over the fixed index above.
+func searchDemo(pt bool) h.Node {
+	s, q, locale := demoSearchEN, "report", ""
+	if pt {
+		s, q, locale = demoSearchPT, "relatorio", "pt-BR"
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		res, _ := s.Query(c, q, trilha.SearchQuery{Limit: 5})
+		return wrap(h.Div(h.Class("ui-stack"),
+			kit.SearchBox(c, "#", kit.SearchBoxOpts{Value: q}),
+			kit.SearchResults(c, res, kit.SearchResultsOpts{}),
+		))
+	})
+}
+
+// localeComparison builds ui-locale: the eight formatters rendered once with
+// Config.Locale in English and once in pt-BR, side by side in one table — the
+// screen is the same regardless of which site locale it is embedded in,
+// because the contrast is the point.
+func localeComparison(pt bool) h.Node {
+	now := time.Now().Add(-3 * time.Minute)
+	sample := func(locale string) []h.Node {
+		var out []h.Node
+		demoCtx(locale, func(c *trilha.Ctx) h.Node {
+			out = []h.Node{
+				kit.Date(c, localeMoment),
+				kit.Date(c, localeMoment, kit.DateOnly()),
+				kit.Date(c, localeMoment, kit.TimeOnly()),
+				kit.Date(c, now, kit.Relative()),
+				kit.Bytes(c, 1_400_000),
+				kit.Duration(c, 2*time.Hour+5*time.Minute),
+				kit.Number(c, 12345),
+				kit.Number(c, 12345.678, kit.Decimals(2)),
+			}
+			return h.Div()
+		})
+		return out
+	}
+	en, br := sample(""), sample("pt-BR")
+	labels := []string{"Date", "Date only", "Time only", "Relative", "Bytes", "Duration", "Number", "Number, 2 decimals"}
+	if pt {
+		labels = []string{"Data", "Somente a data", "Somente a hora", "Relativo", "Bytes", "Duração", "Número", "Número, 2 casas"}
+	}
+	rows := make([]h.Node, len(labels))
+	for i, l := range labels {
+		rows[i] = h.Tr(h.Th(h.Attr("scope", "row"), h.Text(l)), h.Td(en[i]), h.Td(br[i]))
+	}
+	return wrap(kit.Table(
+		h.Thead(h.Tr(h.Th(h.Text("Config.Locale")), h.Th(h.Text("en")), h.Th(h.Text("pt-BR")))),
+		h.Tbody(rows...),
+	))
+}
+
+// chartsDemo builds ui-indicadores: four cards, none of them a charting
+// library — a Stat with a Sparkline, Bars, a Donut, and a Stat with a titled
+// Sparkline.
+func chartsDemo(pt bool) h.Node {
+	data := demoDataEN
+	openLabel, hint, avgLabel, avgValue, byType, share, response := "Open", "+38 this week", "Avg. response", "2 h 5 min", "Documents by type", "Share of the month", "Response time, 7 days"
+	if pt {
+		data = demoDataPT
+		openLabel, hint, avgLabel, avgValue, byType, share, response = "Aberto", "+38 nesta semana", "Resposta média", "2 h 5 min", "Documentos por tipo", "Parte do mês", "Tempo de resposta, 7 dias"
+	}
+	return wrap(kit.Grid(
+		kit.Card(kit.CardContent(kit.Stat(openLabel, data[0].Text, kit.StatHint(hint)), kit.Sparkline(demoWeekly, kit.SparkOpts{}))),
+		kit.Card(kit.CardHeader(kit.CardTitle(byType)), kit.CardContent(kit.Bars(data, kit.ChartTitle(byType)))),
+		kit.Card(kit.CardHeader(kit.CardTitle(share)), kit.CardContent(kit.Donut(data, kit.ChartTitle(share)))),
+		kit.Card(kit.CardContent(kit.Stat(avgLabel, avgValue), kit.SparklineTitle(demoWeekly, kit.SparkOpts{Width: 160}, kit.ChartTitle(response)))),
+	))
+}
+
+// liveDemo builds ui-ao-vivo: the real data-trilha-poll and data-trilha-on
+// attributes of a cell that refreshes itself, over src="#" — there is no
+// fragment route behind the demo card to answer them, and the docs site does
+// not load ui.live.js on this page (LiveScript is a choice the app that has a
+// tree makes), so the attributes sit inert instead of asking a real page for
+// something that is not there. The number itself is frozen for the same
+// reason ui-atraso's placeholder (spec 139) is: nothing here is going to move
+// on a published page.
+func liveDemo(pt bool) h.Node {
+	label, hint, event := "Jobs in queue", "updated 6s ago", "queue:changed"
+	if pt {
+		label, hint, event = "Tarefas na fila", "atualizado há 6 s", "fila:mudou"
+	}
+	return wrap(h.Div(h.ID("kit-fila"), kit.Poll("6s", "#"), kit.On(event, "#"),
+		kit.Stat(label, "3", kit.StatHint(hint))))
+}
 
 func init() {
 	// ---- pt ----
@@ -493,6 +778,110 @@ ui.Row(
 			))
 		},
 	})
+	add("pt", Demo{
+		Name:  "ui-listagem",
+		Title: "Listagem sobre ListParams: ordenação e busca na URL",
+		Source: `ui.DataTable(c, ui.Columns[Documento]{
+	{Key: "nome", Label: "Arquivo", Sort: true, Cell: func(d Documento) h.Node { return h.Text(d.Nome) }},
+	{Key: "tipo", Label: "Tipo", Cell: func(d Documento) h.Node { return h.Text(d.Tipo) }},
+	{Key: "tamanho", Label: "Tamanho", Sort: true, Num: true, Cell: func(d Documento) h.Node { return h.Text(d.Tamanho) }},
+}, docs, ui.ListState{
+	Params: q.ListParams, Total: total, Search: "Buscar arquivos",
+	RowHref: func(i int) string { return "/documentos/" + docs[i].Slug },
+})
+// docs, total := repo.Listar(c.Context(), q.Sort, q.Asc(), q.Offset(), q.Limit(), q.Q)`,
+		Node: func() h.Node { return dataTableDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-listagem-vazia",
+		Title: "Vazia sem busca, vazia por causa da busca",
+		Source: `// mesma chamada nos dois casos — o kit lê q.ListParams.Q e escolhe a mensagem:
+ui.DataTable(c, cols, docs, ui.ListState{Params: q.ListParams, Total: total, Search: "Buscar arquivos"})
+// GET /documentos                    → "Nothing here yet" (o texto do kit é inglês)
+// GET /documentos?q=invoice-9999     → "No results for “invoice-9999”"
+//
+// para dizer isso em português, ListState.Empty substitui os dois:
+ui.DataTable(c, cols, docs, ui.ListState{
+	Params: q.ListParams, Total: total, Search: "Buscar arquivos",
+	Empty: vazioPara(q.Q), // "Nada por aqui ainda" ou "Nenhum resultado para “%s”"
+})`,
+		Node: func() h.Node { return emptyDataTableDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-arvore",
+		Title: "Uma hierarquia que abre nó a nó, e o campo que escolhe um nó",
+		Source: `ui.Tree(ui.TreeOpts{
+	Nodes:   plano.Raizes(atual),  // com o caminho até o nó atual já aberto
+	Label:   "Classificação",
+	Current: atual,
+})
+
+ui.Field("codigo", "Classificação", ui.TreePicker(ui.TreePickerOpts{
+	Name:  "codigo",
+	Value: atual,
+	Nodes: plano.Raizes(atual),
+	Label: "Classificação",
+}))`,
+		Node: func() h.Node { return treeDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-combobox",
+		Title: "Um campo de texto que busca, sem viagem ao servidor para uma lista curta",
+		Source: `ui.Field("cidade", "Cidade", ui.Combobox(ui.ComboboxOpts{
+	Name: "cidade_id", Value: doc.CidadeID, Label: doc.CidadeNome,
+	Options:     cidades, // lista curta: filtra no navegador
+	Placeholder: "Buscar uma cidade",
+}))`,
+		Node: func() h.Node { return comboboxDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-busca",
+		Title: "Uma caixa, vários tipos de coisa, sobre um trilha.Search de verdade",
+		Source: `var Busca = trilha.NewSearch(trilha.SearchOpts{Store: trilha.SearchMemory()}).
+	Kind("documento", trilha.KindOpts{Label: "Documentos"}).
+	Kind("pessoa", trilha.KindOpts{Label: "Pessoas"})
+
+ui.SearchBox(c, "/busca", ui.SearchBoxOpts{Value: c.Query("q")})
+
+res, _ := Busca.Query(c, c.Query("q"), trilha.SearchQuery{Limit: 10})
+ui.SearchResults(c, res, ui.SearchResultsOpts{})`,
+		Node: func() h.Node { return searchDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-locale",
+		Title: "Config.Locale muda a palavra, não o código",
+		Source: `ui.Date(c, doc.CriadoEm)                 // 08/09/2026 12:04
+ui.Date(c, doc.CriadoEm, ui.Relative())  // há 3 min
+ui.Bytes(c, doc.Tamanho)                 // 1,4 MB
+ui.Duration(c, tarefa.Decorrido)         // 2 h 5 min
+ui.Number(c, total)                      // 12.345
+ui.Number(c, preco, ui.Decimals(2))      // 1.234,56
+// o mesmo código, com cfg.Locale = "en" em vez de "pt-BR", escreve a coluna ao lado`,
+		Node: func() h.Node { return localeComparison(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-indicadores",
+		Title: "Quatro números e os desenhos ao lado, sem biblioteca de gráfico",
+		Source: `ui.Grid(
+	ui.Card(ui.CardContent(ui.Stat("Aberto", "1.204", ui.StatHint("+38 nesta semana")), ui.Sparkline(semana, ui.SparkOpts{}))),
+	ui.Card(ui.CardHeader(ui.CardTitle("Documentos por tipo")), ui.CardContent(ui.Bars(dados, ui.ChartTitle("Documentos por tipo")))),
+	ui.Card(ui.CardHeader(ui.CardTitle("Parte do mês")), ui.CardContent(ui.Donut(dados, ui.ChartTitle("Parte do mês")))),
+	ui.Card(ui.CardContent(ui.Stat("Resposta média", "2 h 5 min"), ui.SparklineTitle(semana, ui.SparkOpts{Width: 160}, ui.ChartTitle("Tempo de resposta, 7 dias")))),
+)`,
+		Node: func() h.Node { return chartsDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "ui-ao-vivo",
+		Title: "Uma célula que se atualiza sozinha",
+		Source: `h.Div(h.ID("fila"), ui.Poll("6s", "/tarefas/fila/status"),
+	ui.Stat("Tarefas na fila", "3"),
+)
+// GET /tarefas/fila/status responde Ctx.Fragment com o mesmo id do elemento;
+// ui.LiveScript(c) no layout é o que liga a troca automática.
+ui.On("fila:mudou", "/tarefas/fila/status")  // também acorda por evento
+ui.Live("/eventos")                          // aberto uma vez, no layout`,
+		Node: func() h.Node { return liveDemo(true) },
+	})
 
 	// ---- en ----
 	add("en", Demo{
@@ -945,5 +1334,109 @@ ui.Row(
 				kit.Spinner(),
 			))
 		},
+	})
+	add("en", Demo{
+		Name:  "ui-listagem",
+		Title: "A listing over ListParams: ordering and search in the URL",
+		Source: `ui.DataTable(c, ui.Columns[Doc]{
+	{Key: "name", Label: "File", Sort: true, Cell: func(d Doc) h.Node { return h.Text(d.Name) }},
+	{Key: "kind", Label: "Type", Cell: func(d Doc) h.Node { return h.Text(d.Kind) }},
+	{Key: "size", Label: "Size", Sort: true, Num: true, Cell: func(d Doc) h.Node { return h.Text(d.Size) }},
+}, docs, ui.ListState{
+	Params: q.ListParams, Total: total, Search: "Search files",
+	RowHref: func(i int) string { return "/documents/" + docs[i].Slug },
+})
+// docs, total := repo.List(c.Context(), q.Sort, q.Asc(), q.Offset(), q.Limit(), q.Q)`,
+		Node: func() h.Node { return dataTableDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-listagem-vazia",
+		Title: "Empty with no search, empty because of one",
+		Source: `// the same call either way — the kit reads q.ListParams.Q and picks the message:
+ui.DataTable(c, cols, docs, ui.ListState{Params: q.ListParams, Total: total, Search: "Search files"})
+// GET /documents                → "Nothing here yet"
+// GET /documents?q=invoice-9999 → "No results for “invoice-9999”", with a link that clears q
+//
+// ListState.Empty replaces both when the kit's own words are not the app's language:
+ui.DataTable(c, cols, docs, ui.ListState{
+	Params: q.ListParams, Total: total, Search: "Search files",
+	Empty: emptyFor(q.Q),
+})`,
+		Node: func() h.Node { return emptyDataTableDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-arvore",
+		Title: "A hierarchy that opens node by node, and the field that picks one",
+		Source: `ui.Tree(ui.TreeOpts{
+	Nodes:   plan.Roots(current),  // with the path down to the current node already open
+	Label:   "Classification",
+	Current: current,
+})
+
+ui.Field("code", "Classification", ui.TreePicker(ui.TreePickerOpts{
+	Name:  "code",
+	Value: current,
+	Nodes: plan.Roots(current),
+	Label: "Classification",
+}))`,
+		Node: func() h.Node { return treeDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-combobox",
+		Title: "A text field that searches, with no round trip for a short list",
+		Source: `ui.Field("city", "City", ui.Combobox(ui.ComboboxOpts{
+	Name: "city_id", Value: doc.CityID, Label: doc.CityName,
+	Options:     cities, // short list: filtered in the browser
+	Placeholder: "Search a city",
+}))`,
+		Node: func() h.Node { return comboboxDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-busca",
+		Title: "One box, several kinds of thing, over a real trilha.Search",
+		Source: `var Search = trilha.NewSearch(trilha.SearchOpts{Store: trilha.SearchMemory()}).
+	Kind("document", trilha.KindOpts{Label: "Documents"}).
+	Kind("person", trilha.KindOpts{Label: "People"})
+
+ui.SearchBox(c, "/search", ui.SearchBoxOpts{Value: c.Query("q")})
+
+res, _ := Search.Query(c, c.Query("q"), trilha.SearchQuery{Limit: 10})
+ui.SearchResults(c, res, ui.SearchResultsOpts{})`,
+		Node: func() h.Node { return searchDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-locale",
+		Title: "Config.Locale changes the word, not the code",
+		Source: `ui.Date(c, doc.CreatedAt)                 // Sep 8, 2026 3:04 PM
+ui.Date(c, doc.CreatedAt, ui.Relative())  // 3min ago
+ui.Bytes(c, doc.Size)                     // 1.4 MB
+ui.Duration(c, job.Elapsed)               // 2 h 5 min
+ui.Number(c, total)                       // 12,345
+ui.Number(c, price, ui.Decimals(2))       // 1,234.56
+// the same code, with cfg.Locale = "pt-BR" instead of "en", writes the column beside it`,
+		Node: func() h.Node { return localeComparison(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-indicadores",
+		Title: "Four numbers and the drawings beside them, with no chart library",
+		Source: `ui.Grid(
+	ui.Card(ui.CardContent(ui.Stat("Open", "1,204", ui.StatHint("+38 this week")), ui.Sparkline(weekly, ui.SparkOpts{}))),
+	ui.Card(ui.CardHeader(ui.CardTitle("Documents by type")), ui.CardContent(ui.Bars(data, ui.ChartTitle("Documents by type")))),
+	ui.Card(ui.CardHeader(ui.CardTitle("Share of the month")), ui.CardContent(ui.Donut(data, ui.ChartTitle("Share of the month")))),
+	ui.Card(ui.CardContent(ui.Stat("Avg. response", "2 h 5 min"), ui.SparklineTitle(weekly, ui.SparkOpts{Width: 160}, ui.ChartTitle("Response time, 7 days")))),
+)`,
+		Node: func() h.Node { return chartsDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-ao-vivo",
+		Title: "A cell that refreshes itself",
+		Source: `h.Div(h.ID("queue"), ui.Poll("6s", "/jobs/queue/status"),
+	ui.Stat("Jobs in queue", "3"),
+)
+// GET /jobs/queue/status answers Ctx.Fragment with the same element id;
+// ui.LiveScript(c) on the layout is what turns the automatic swap on.
+ui.On("queue:changed", "/jobs/queue/status")  // wakes on an SSE event too
+ui.Live("/events")                            // opened once, in the layout`,
+		Node: func() h.Node { return liveDemo(false) },
 	})
 }

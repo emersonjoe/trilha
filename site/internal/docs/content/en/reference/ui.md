@@ -40,7 +40,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `SelectOptions([]Option{{Value, Label}}, selected)` | `<option>`s marking the selected one; `Value: ""` is a placeholder (disabled) and is selected when nothing matches |
 | `Checked(bool)` | conditional `checked` (round trip of checkbox/switch/radio) |
 | `ShowWhen(field, values...)` | `data-ui-show-when`: shows the element only with the value (or any non-empty value); hidden controls are disabled |
-| `Combobox(ComboboxOpts{...}, attrs...)`, `ComboboxOptions(items, of)` | a text field that searches a list — see [Combobox](#combobox) |
+| `Combobox(ComboboxOpts{...}, attrs...)`, `ComboboxOptions(items, of)` | a text field that searches a list — see [Combobox](#combobox) and [demo](/learn/ui-kit#a-field-that-searches-as-you-type) |
 | `Dropzone(DropzoneOpts{...}, children...)` | drag-and-drop area over a file input — see [Upload with progress](#upload-with-progress) |
 | `SchemaForm(schema, values, errs, ...)` | a form defined by data: one field per `trilha.SchemaField` — see [Validation](/reference/validation) |
 | `Badge`, `Alert(title, ...)`, `AlertDescription(...)` | badge and alert (`role=alert`) |
@@ -59,26 +59,26 @@ description: The kit's components, variants, assets and the theme contract.
 | `Collapsible(summary, ...)` | a styled `<details>` — see [demo](/learn/ui-kit#more-content-behind-one-click) |
 | `ThemeToggle()` | button that switches light/dark (`localStorage["ui-theme"]`) |
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | what `trilha.BindCSV` rejected, by line and column — see [CSV](/cookbook/csv) |
-| `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) |
+| `DataTable(c, Columns[T], rows, ListState)` | the listing: filter form, sortable headers, pagination and empty state, all in the URL — see [Listings](/reference/listings) and [demo](/learn/ui-kit#tables-that-live-in-the-url) |
 | `Swap(id)` | `data-trilha-target`: the `<a>` or `<form>` asks for element `#id` only and swaps it (fragments) |
 | `SecretOnce(c, secret)`, `APIKeysTable(c, rows, opts)` | a key shown once, and the list of them — see [Auth](/reference/auth) |
 | `SettingsForm(c, section, errs)` | the administration screen of a `trilha.Settings` section, drawn from the struct — see [App](/reference/app) |
-| `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarchy that opens node by node, and the field that picks one — see [Trees](#trees) |
+| `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarchy that opens node by node, and the field that picks one — see [Trees](#trees) and [demo](/learn/ui-kit#a-hierarchy-that-opens-node-by-node) |
 | `AuditTable(c, records, AuditOpts{...})` | the trail c.Audit writes, with filter, pagination and CSV export — see [Observability](/reference/observability) |
 | `Steps([]Step{Label, Href}, current)` | the indicator of a form in several screens — see [A form in steps](/cookbook/wizard) and [demo](/learn/ui-kit#a-form-in-several-screens) |
 | `Preview(c, src, PreviewOpts{...})` | a file shown beside its metadata: bar, frame, image or "cannot be previewed" — see [Ctx](/reference/ctx), [Uploads](/cookbook/uploads) and [demo](/learn/ui-kit#a-file-next-to-its-metadata) |
 | `Defer(c, id, src, DeferOpts{...})` | serves the page now and fills this part a moment later — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#the-slow-part-a-moment-later) |
-| `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) |
+| `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#a-cell-that-refreshes-itself) |
 | `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |
 | `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error). `NavItem.IconNode`/`EmptyOpts.IconNode` draw the app's own node for an icon outside the set — see [Shell](/reference/shell) |
 | `APIUsage(c, data, opts)` | how much a key was used, where, and when it stopped — see [Auth](/reference/auth) |
-| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) |
+| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) and [demo](/learn/ui-kit#one-box-several-kinds-of-thing) |
 | `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, test)`, `ParseConnectionForm(c)` | the external services and their secrets, with the Test button — see [ConnectionsPanel](#connectionspanel) |
 | `Shell(c, ShellOpts{...}, children...)`, `PageHeader(title, actions...)` | the frame of an application with sections: side navigation, top bar, and the title of the screen with its buttons — see [Shell](/reference/shell) and [demo](/learn/ui-kit#the-frame-of-an-internal-app) |
-| `Stat(label, value, ...)`, `StatHint(text, ...)`, `Sparkline(values, SparkOpts{...})`, `SparklineTitle(values, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(name)` | a number on a panel and the drawing next to it, in SVG written by the server; `ChartTitle` is what makes the drawing an image with a name instead of decoration — see [Charts](/reference/charts) |
+| `Stat(label, value, ...)`, `StatHint(text, ...)`, `Sparkline(values, SparkOpts{...})`, `SparklineTitle(values, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(name)` | a number on a panel and the drawing next to it, in SVG written by the server; `ChartTitle` is what makes the drawing an image with a name instead of decoration — see [Charts](/reference/charts) and [demo](/learn/ui-kit#four-numbers-and-the-drawings-beside-them) |
 | `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | what is waiting for whoever is reading, and the count beside the menu item (zero draws nothing) — see [Approval](/reference/approval) |
 | `PolicyGrid(policy, PolicyGridOpts{...})` | the role × module grid of an `auth.Policy`, as a form — see [Auth](/reference/auth) |
 | `TaskTable(c, tasks, TaskTableOpts{...})`, `TaskProgress(c, tasks, id)` | the background work: the list with its states and the progress of one run — see [Tasks](/reference/task) |
@@ -485,6 +485,8 @@ ui.Number(c, price, ui.Decimals(2))       // 1,234.56
 
 The options are `ui.FormatOpt` values — `Relative`, `DateOnly`, `TimeOnly`, `Decimals` — which
 is what lets a column of a `ui.DataTable` carry the format it wants next to the field it reads.
+
+See it live: [demo](/learn/ui-kit#the-same-screen-two-languages).
 
 ### The rules worth knowing
 

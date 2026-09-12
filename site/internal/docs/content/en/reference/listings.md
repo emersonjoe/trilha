@@ -64,6 +64,8 @@ return ui.DataTable(c, ui.Columns[Doc]{
 }, docs, ui.ListState{Params: q.ListParams, Total: total, ID: "list", Search: "Search"}), nil
 ```
 
+See it live: [demo](/learn/ui-kit#tables-that-live-in-the-url).
+
 `ui.Column[T]` is generic: the row is the type of your domain, not a `map[string]any`.
 
 | Field of `Column[T]` | Role |
@@ -145,6 +147,8 @@ anybody thinking about it:
 
 `ListState.Empty` replaces both when the application has something better to say — a
 Portuguese app, for one, since the kit's own strings are English.
+
+See it live: [demo](/learn/ui-kit#empty-and-filtered-down-to-empty).
 
 The component behind it stands on its own:
 

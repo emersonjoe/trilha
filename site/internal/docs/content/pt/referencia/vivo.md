@@ -12,6 +12,8 @@ estava escrevendo à mão.
 Tudo nesta página precisa do `ui.LiveScript(c)` na página — um `<script defer>` do
 `ui.live.js`, que o `ui.Head` **não** carrega. Página sem nada para observar não baixa.
 
+Veja funcionando: [demo](/pt/aprender/interface-com-ui#uma-celula-que-se-atualiza-sozinha).
+
 ## Polling
 
 ```go

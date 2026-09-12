@@ -10,6 +10,8 @@ funcionam com o JavaScript desligado e não custam download nenhum.
 São pequenos de propósito. Eixo, zoom, tooltip e seleção de faixa não estão aqui — isso é
 uma ilha com uma biblioteca de verdade, e o framework não atrapalha quem quiser uma.
 
+Veja funcionando: [demo](/pt/aprender/interface-com-ui#quatro-numeros-e-os-desenhos-ao-lado).
+
 ## O número chega formatado
 
 `ui.Datum` carrega `Label`, `Value` e `Text`. `Value` é o que o desenho mede; `Text` é o

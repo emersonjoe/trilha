@@ -226,6 +226,66 @@ search.
 
 @demo ui-espera
 
+## Tables that live in the URL
+
+`ui.DataTable` is the screen every management app has: filter on top, table in the middle,
+pagination at the foot, and the whole state — page, order, search — in the address. See
+[Listings](/reference/listings) for `trilha.ListParams`, the piece that reads it back.
+
+@demo ui-listagem
+
+## Empty, and filtered down to empty
+
+A list with nothing in it and a list a search matched nothing in are two different screens;
+`ui.DataTable` draws the distinction on its own, in English, and `ListState.Empty` is how an
+application says it in its own language instead.
+
+@demo ui-listagem-vazia
+
+## A hierarchy that opens node by node
+
+`ui.Tree` is a classification plan, a folder tree, an org chart: each node is a `<details>`,
+so it opens with no script at all. `ui.TreePicker` is the same tree as a form field — see
+[Trees](/reference/ui#trees).
+
+@demo ui-arvore
+
+## A field that searches as you type
+
+`ui.Combobox` is a text field the server searches — a classification among hundreds, a city
+among thousands — with no round trip for a list short enough to filter in the browser. See
+[Combobox](/reference/ui#combobox).
+
+@demo ui-combobox
+
+## One box, several kinds of thing
+
+`ui.SearchBox` and `ui.SearchResults` are the search of the top bar, over a `trilha.Search` —
+one index, several kinds, results grouped and counted. See [Search](/reference/search).
+
+@demo ui-busca
+
+## The same screen, two languages
+
+`ui.Date`, `ui.Bytes`, `ui.Duration` and `ui.Number` read `Config.Locale` off the `Ctx` — the
+word changes, the call does not. See [Formatting](/reference/ui#formatting).
+
+@demo ui-locale
+
+## Four numbers and the drawings beside them
+
+`ui.Stat`, `ui.Bars`, `ui.Sparkline` and `ui.Donut` draw a dashboard on the server, in SVG,
+with no charting library. See [Charts](/reference/charts).
+
+@demo ui-indicadores
+
+## A cell that refreshes itself
+
+`ui.Poll` asks a fragment's route again on a clock; `ui.Live` and `ui.On` do it when the
+server says so instead. See [Live fragments](/reference/live).
+
+@demo ui-ao-vivo
+
 ## Updating and customizing
 
 - `trilha ui` rewrites `ui.css` and `ui.js` when you update Trilha; it never touches

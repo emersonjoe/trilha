@@ -229,6 +229,68 @@ com frequência, como uma busca ao vivo.
 
 @demo ui-espera
 
+## Tabelas que vivem na URL
+
+O `ui.DataTable` é a tela que todo app de gestão tem: filtro em cima, tabela no meio,
+paginação no rodapé, e todo o estado — página, ordem, busca — no endereço. Veja
+[Listagens](/pt/referencia/listagens) para o `trilha.ListParams`, a peça que o lê de volta.
+
+@demo ui-listagem
+
+## Vazia, e filtrada até vazia
+
+Uma lista sem nada dentro e uma lista que uma busca não encontrou nada são duas telas
+diferentes; o `ui.DataTable` já faz essa distinção sozinho, em inglês, e o `ListState.Empty` é
+como uma aplicação diz isso no seu próprio idioma.
+
+@demo ui-listagem-vazia
+
+## Uma hierarquia que abre nó a nó
+
+O `ui.Tree` é um plano de classificação, uma árvore de pastas, um organograma: cada nó é um
+`<details>`, então abre sem script nenhum. O `ui.TreePicker` é a mesma árvore como campo de
+formulário — veja [Árvores](/pt/referencia/ui#arvores).
+
+@demo ui-arvore
+
+## Um campo que busca enquanto você digita
+
+O `ui.Combobox` é um campo de texto que o servidor busca — uma classificação entre centenas,
+uma cidade entre milhares — sem viagem ao servidor para uma lista curta o bastante para
+filtrar no navegador. Veja [Combobox](/pt/referencia/ui#combobox).
+
+@demo ui-combobox
+
+## Uma caixa, vários tipos de coisa
+
+O `ui.SearchBox` e o `ui.SearchResults` são a busca da barra de cima, sobre um
+`trilha.Search` — um índice, vários tipos, resultado agrupado e contado. Veja
+[Search](/pt/referencia/search).
+
+@demo ui-busca
+
+## A mesma tela, dois idiomas
+
+O `ui.Date`, o `ui.Bytes`, o `ui.Duration` e o `ui.Number` leem o `Config.Locale` do `Ctx` — a
+palavra muda, a chamada não. Veja [Formatação](/pt/referencia/ui#formatacao).
+
+@demo ui-locale
+
+## Quatro números e os desenhos ao lado
+
+O `ui.Stat`, o `ui.Bars`, o `ui.Sparkline` e o `ui.Donut` desenham um painel no servidor, em
+SVG, sem biblioteca de gráfico. Veja [Gráficos](/pt/referencia/graficos).
+
+@demo ui-indicadores
+
+## Uma célula que se atualiza sozinha
+
+O `ui.Poll` pergunta de novo pela rota de um fragmento, no relógio; o `ui.Live` e o `ui.On`
+fazem isso quando o servidor avisa, em vez disso. Veja
+[Fragmentos vivos](/pt/referencia/vivo).
+
+@demo ui-ao-vivo
+
 ## Atualizar e customizar
 
 - `trilha ui` regrava `ui.css` e `ui.js` quando você atualiza o Trilha; nunca toca em

@@ -40,7 +40,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `SelectOptions([]Option{{Value, Label}}, selecionado)` | `<option>`s marcando o selecionado; `Value: ""` é placeholder (desabilitado) e fica selecionado quando nada casa |
 | `Checked(bool)` | `checked` condicional (ida e volta de checkbox/switch/radio) |
 | `ShowWhen(campo, valores...)` | `data-ui-show-when`: mostra o elemento só com o valor (ou qualquer valor não vazio); controles escondidos são desabilitados |
-| `Combobox(ComboboxOpts{...}, attrs...)`, `ComboboxOptions(itens, de)` | campo de texto que busca numa lista — veja [Combobox](#combobox) |
+| `Combobox(ComboboxOpts{...}, attrs...)`, `ComboboxOptions(itens, de)` | campo de texto que busca numa lista — veja [Combobox](#combobox) e [demo](/pt/aprender/interface-com-ui#um-campo-que-busca-enquanto-voce-digita) |
 | `Dropzone(DropzoneOpts{...}, filhos...)` | área de arrastar-e-soltar em cima de um campo de arquivo — veja [Upload com progresso](#upload-com-progresso) |
 | `SchemaForm(esquema, values, errs, ...)` | formulário definido por dado: um campo por `trilha.SchemaField` — veja [Validação](/pt/referencia/validacao) |
 | `Badge`, `Alert(título, ...)`, `AlertDescription(...)` | selo e aviso (`role=alert`) |
@@ -59,26 +59,26 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Collapsible(resumo, ...)` | um `<details>` com estilo — veja [demo](/pt/aprender/interface-com-ui#mais-conteudo-atras-de-um-clique) |
 | `ThemeToggle()` | botão que alterna claro/escuro (`localStorage["ui-theme"]`) |
 | `CSVErrors(c, res, CSVErrorsOpts{...})` | o que o `trilha.BindCSV` recusou, por linha e coluna — veja [Planilhas (CSV)](/pt/receitas/planilhas) |
-| `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) |
+| `DataTable(c, Columns[T], linhas, ListState)` | a listagem: formulário de filtro, cabeçalho ordenável, paginação e estado vazio, tudo na URL — veja [Listagens](/pt/referencia/listagens) e [demo](/pt/aprender/interface-com-ui#tabelas-que-vivem-na-url) |
 | `Swap(id)` | `data-trilha-target`: o `<a>` ou `<form>` pede só o elemento `#id` e troca (fragmentos) |
 | `SecretOnce(c, segredo)`, `APIKeysTable(c, linhas, opts)` | a chave mostrada uma vez, e a lista delas — veja [Auth](/pt/referencia/auth) |
 | `SettingsForm(c, seção, errs)` | a tela de administração de uma seção do `trilha.Settings`, desenhada da struct — veja [App](/pt/referencia/app) |
-| `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarquia que abre nó a nó, e o campo que escolhe um — veja [Árvores](#árvores) |
+| `Tree(TreeOpts{...})`, `TreePicker(TreePickerOpts{...})`, `TreeItems`, `TreeScript(c)` | a hierarquia que abre nó a nó, e o campo que escolhe um — veja [Árvores](#árvores) e [demo](/pt/aprender/interface-com-ui#uma-hierarquia-que-abre-no-a-no) |
 | `AuditTable(c, registros, AuditOpts{...})` | a trilha que o c.Audit escreve, com filtro, paginação e exportação CSV — veja [Observabilidade](/pt/referencia/observabilidade) |
 | `Steps([]Step{Label, Href}, atual)` | o indicador de um formulário em várias telas — veja [Formulário em passos](/pt/receitas/formulario-em-passos) e [demo](/pt/aprender/interface-com-ui#um-formulario-em-varias-telas) |
 | `Preview(c, src, PreviewOpts{...})` | o arquivo ao lado do que se sabe dele: barra, quadro, imagem ou "não dá para pré-visualizar" — veja [Ctx](/pt/referencia/ctx), [Uploads](/pt/receitas/uploads) e [demo](/pt/aprender/interface-com-ui#um-arquivo-ao-lado-dos-seus-metadados) |
 | `Defer(c, id, src, DeferOpts{...})` | serve a página agora e preenche esta parte um instante depois — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#a-parte-lenta-um-instante-depois) |
-| `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) |
+| `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#uma-celula-que-se-atualiza-sozinha) |
 | `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |
 | `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação). `NavItem.IconNode`/`EmptyOpts.IconNode` desenham o próprio nó do app para um ícone fora do conjunto — veja [Shell](/pt/referencia/shell) |
 | `APIUsage(c, dados, opts)` | quanto uma chave foi usada, onde, e quando parou — veja [Auth](/pt/referencia/auth) |
-| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) |
+| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) e [demo](/pt/aprender/interface-com-ui#uma-caixa-varios-tipos-de-coisa) |
 | `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, teste)`, `ParseConnectionForm(c)` | os serviços externos e seus segredos, com o botão Testar — veja [ConnectionsPanel](#connectionspanel) |
 | `Shell(c, ShellOpts{...}, children...)`, `PageHeader(título, ações...)` | a moldura de um app com seções: navegação lateral, barra de cima e o título da tela com seus botões — veja [Shell](/pt/referencia/shell) e [demo](/pt/aprender/interface-com-ui#a-moldura-de-um-app-interno) |
-| `Stat(rótulo, valor, ...)`, `StatHint(texto, ...)`, `Sparkline(valores, SparkOpts{...})`, `SparklineTitle(valores, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(nome)` | um número no painel e o desenho ao lado, em SVG escrito pelo servidor; `ChartTitle` é o que faz o desenho ser uma imagem com nome em vez de enfeite — veja [Gráficos](/pt/referencia/graficos) |
+| `Stat(rótulo, valor, ...)`, `StatHint(texto, ...)`, `Sparkline(valores, SparkOpts{...})`, `SparklineTitle(valores, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(nome)` | um número no painel e o desenho ao lado, em SVG escrito pelo servidor; `ChartTitle` é o que faz o desenho ser uma imagem com nome em vez de enfeite — veja [Gráficos](/pt/referencia/graficos) e [demo](/pt/aprender/interface-com-ui#quatro-numeros-e-os-desenhos-ao-lado) |
 | `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | o que espera decisão de quem está lendo, e a contagem ao lado do item de menu (zero não desenha nada) — veja [Approval](/pt/referencia/approval) |
 | `PolicyGrid(policy, PolicyGridOpts{...})` | a grade papel × módulo de um `auth.Policy`, como formulário — veja [Auth](/pt/referencia/auth) |
 | `TaskTable(c, tarefas, TaskTableOpts{...})`, `TaskProgress(c, tarefas, id)` | o trabalho em segundo plano: a lista com seus estados e o progresso de uma execução — veja [Tarefas](/pt/referencia/task) |
@@ -486,6 +486,8 @@ ui.Number(c, preco, ui.Decimals(2))       // 1.234,56
 
 As opções são valores `ui.FormatOpt` — `Relative`, `DateOnly`, `TimeOnly`, `Decimals` — que é o
 que permite a uma coluna de um `ui.DataTable` levar o formato que quer junto do campo que lê.
+
+Veja funcionando: [demo](/pt/aprender/interface-com-ui#a-mesma-tela-dois-idiomas).
 
 ### As regras que valem saber
 

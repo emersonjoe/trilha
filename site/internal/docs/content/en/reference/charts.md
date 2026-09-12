@@ -10,6 +10,8 @@ JavaScript off, and they cost nothing to download.
 They are deliberately small. Axes, zoom, tooltips and brushing are not here — that is an
 island with a real library, and the framework does not stand in the way of one.
 
+See it live: [demo](/learn/ui-kit#four-numbers-and-the-drawings-beside-them).
+
 ## The number arrives formatted
 
 `ui.Datum` carries `Label`, `Value` and `Text`. `Value` is what the drawing measures;

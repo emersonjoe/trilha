@@ -13,6 +13,8 @@ Everything here needs `ui.LiveScript(c)` on the page — one `<script defer>` fo
 `ui.live.js`, which `ui.Head` does **not** load. A page with nothing to watch does not
 download it.
 
+See it live: [demo](/learn/ui-kit#a-cell-that-refreshes-itself).
+
 ## Polling
 
 ```go

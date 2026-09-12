@@ -322,6 +322,55 @@ func TestFormDemoIsInteractive(t *testing.T) {
 	}
 }
 
+// Spec 140: the eight data-and-chart demos render inside the ui-kit chapter,
+// each with a mark of its component; ui-listagem-vazia, ui-busca, ui-locale,
+// ui-indicadores and ui-ao-vivo also carry a word that only makes sense in
+// their own language, so a demo copy-pasted into the wrong locale would fail
+// here instead of shipping quietly wrong.
+func TestKitDemosDataRender(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	common := map[string][]string{
+		"ui-listagem":    {`class="ui-list"`, "contract-2024.pdf"},
+		"ui-arvore":      {`data-ui-tree=""`, `class="ui-tree-radio"`},
+		"ui-combobox":    {`data-ui-combo=""`, "São Paulo"},
+		"ui-busca":       {`class="ui-search-box"`},
+		"ui-locale":      {"12,345.68", "12.345,68"},
+		"ui-indicadores": {"ui-donut"},
+		"ui-ao-vivo":     {`data-trilha-poll`},
+	}
+	perLocale := map[string]map[string][]string{
+		"en": {
+			"ui-listagem-vazia": {"Nothing here yet", `No results for “invoice-9999”`},
+			"ui-busca":          {"Monthly report"},
+			"ui-indicadores":    {"1,204"},
+			"ui-ao-vivo":        {"Jobs in queue"},
+		},
+		"pt": {
+			"ui-listagem-vazia": {"Nada por aqui ainda", `Nenhum resultado para “invoice-9999”`},
+			"ui-busca":          {"Relatório mensal"},
+			"ui-indicadores":    {"1.204"},
+			"ui-ao-vivo":        {"Tarefas na fila"},
+		},
+	}
+	for path, lang := range map[string]string{"/learn/ui-kit": "en", "/pt/aprender/interface-com-ui": "pt"} {
+		_, body := get(t, path)
+		for name, marks := range common {
+			for _, m := range marks {
+				if !strings.Contains(body, m) {
+					t.Errorf("%s: demo %s missing %q", path, name, m)
+				}
+			}
+		}
+		for name, marks := range perLocale[lang] {
+			for _, m := range marks {
+				if !strings.Contains(body, m) {
+					t.Errorf("%s: demo %s missing %q", path, name, m)
+				}
+			}
+		}
+	}
+}
+
 // Spec 118: the assistant demo is the real component over a small screen,
 // with the kit's own chat script as the client and a local script answering
 // in ai.Serve's contract. Without JavaScript the launcher is a link to the

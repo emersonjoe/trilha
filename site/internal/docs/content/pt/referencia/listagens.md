@@ -64,6 +64,8 @@ return ui.DataTable(c, ui.Columns[Doc]{
 }, docs, ui.ListState{Params: q.ListParams, Total: total, ID: "lista", Search: "Buscar"}), nil
 ```
 
+Veja funcionando: [demo](/pt/aprender/interface-com-ui#tabelas-que-vivem-na-url).
+
 O `ui.Column[T]` é genérico: a linha é o tipo do seu domínio, não um `map[string]any`.
 
 | Campo de `Column[T]` | Papel |
@@ -142,6 +144,8 @@ aconteceu é que o termo não casou com nada — e a saída está a um link de d
 
 O `ListState.Empty` substitui os dois quando a aplicação tem algo melhor a dizer — um app em
 português, por exemplo, já que os textos do kit são em inglês.
+
+Veja funcionando: [demo](/pt/aprender/interface-com-ui#vazia-e-filtrada-ate-vazia).
 
 O componente por trás disso vale sozinho:
 

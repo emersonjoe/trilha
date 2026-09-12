@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.119.0 — 2026-09-12
+
+Spec 140. Closes [#190](https://github.com/emersonjoe/trilha/issues/190).
+
+### Documentation
+
+- **Eight new live demos for the kit's data and chart components** — the second of three demo
+  issues; spec 139 covered layout and navigation, and the pattern screens are the third.
+  `learn/ui-kit.md` (and its `pt` mirror) now show `DataTable` working over `ListParams` —
+  ordering, search and pagination all in the URL — the pair of empty states side by side (no
+  rows at all vs. a search that matched nothing, the distinction `ListState.Empty` exists
+  for), `Tree`/`TreePicker` over a three-level plan, `Combobox`, `SearchBox`/`SearchResults`
+  over a real `trilha.Search` with `trilha.SearchMemory()`, the eight formatters
+  (`Date`/`Relative`/`DateOnly`/`TimeOnly`/`Bytes`/`Duration`/`Number`/`Decimals`) rendered
+  once in English and once in `pt-BR` side by side in one table, a four-card panel of
+  `Stat`/`Bars`/`Sparkline`/`Donut`, and the real `data-trilha-poll`/`data-trilha-on`
+  attributes of a cell that refreshes itself. Three of the eight need `Config.Locale` to say
+  the right word, so their `Node` renders through a real `*trilha.App` and captures the `Ctx`
+  from inside the handler — the same trick `ui/format_test.go` already uses to test the
+  formatters, reused here to render a demo instead.
+- **`reference/listings.md`, `reference/charts.md`, `reference/live.md` and `reference/ui.md`
+  link a demo next to the row or the section they document**, in both locales.
+
 ## 0.118.0 — 2026-09-12
 
 Spec 139. Closes [#189](https://github.com/emersonjoe/trilha/issues/189).
