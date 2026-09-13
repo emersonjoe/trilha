@@ -123,12 +123,13 @@ worktree — and, when `trilha-spec` is on the `PATH`, the protocol's read-only 
 can look at the task's dependencies and evidence by itself. The fence is the same whatever
 the driver: the worktree, the manifest's tools, and the checks.
 
-## What the runner does not do
+## Persistent worker and delivery
 
-It does not push, open pull requests, run several tasks at once or put the agent in a
-container. The first two are the next spec of the runner; the last two are the
-[control plane](/learn/agentic-cloud). The seam is already there: `sandbox.Sandbox` prepares
-an environment for a job, and the local runner's only sandbox is the worktree.
+A Cloud-connected worker can keep dedicated checkouts under `--workspace-root`, materialize
+versioned Trilha Spec bundles and publish specification and implementation branches with
+`--push`. Deploy and rollback use `--delivery-config`: only commands configured locally may run;
+Cloud never supplies a shell line. The runner still executes one task per process and its default
+sandbox remains the worktree; container isolation remains optional.
 
 ## Challenge
 

@@ -46,7 +46,7 @@ chaves com escopo:
 curl -X POST localhost:3000/api/admin/projects -H "Authorization: Bearer troque-me" \
      -d '{"name":"agenda","org":"aprender","repo":"git@github.com:voce/agenda"}'
 curl -X POST localhost:3000/api/admin/keys -H "Authorization: Bearer troque-me" \
-     -d '{"name":"notebook","scopes":["runs:read","runs:write"]}'
+     -d '{"name":"notebook","project":"agenda","expires_days":30,"scopes":["runs:read","runs:write"]}'
 # {"key":"tc_…"}   mostrada uma vez; o segredo é temperado com TRILHA_SECRET e nunca guardado
 ```
 
@@ -393,7 +393,7 @@ Pela API, a operação equivalente é:
 curl -X POST http://localhost:3000/api/admin/keys \
   -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"name":"cadastro-usuarios-worker","scopes":["runs:read","runs:write"]}'
+  -d '{"name":"cadastro-usuarios-worker","project":"cadastro-usuarios","expires_days":30,"scopes":["runs:read","runs:write","deployments:write","secrets:read"]}'
 # copie o campo key da resposta para TRILHA_CLOUD_API_KEY
 ```
 
@@ -423,6 +423,10 @@ trilha-runner worker \
   --cloud http://localhost:3000 \
   --token "$TRILHA_CLOUD_API_KEY" \
   --project cadastro-usuarios \
+  --workspace-root /var/lib/trilha-runner/workspaces \
+  --repo git@github.com:trilha/cadastro-usuarios.git \
+  --default-branch main \
+  --push \
   --name cadastro-usuarios-worker \
   --once \
   --driver echo
@@ -490,6 +494,46 @@ headless, rode no repositório `trilha-cloud`:
 make check-all
 ```
 
+### 11. Opere ambientes, segredos, deploy e rollback pela UI
+
+Depois que o worker estiver conectado, a operação diária não exige terminal:
+
+1. Em **Specs**, selecione **Executar** numa task pronta. O Cloud cria a execução e entrega ao
+   runner um bundle versionado com projeto, repositório, rodada, etapas, critérios e checks.
+2. O runner atualiza um checkout dedicado, materializa `.trilha/` usando o Trilha Spec, executa
+   a task num worktree e publica os branches `trilha/spec-*` e `trilha/task-*` quando `--push`
+   está habilitado.
+3. Em **Ambientes**, crie `production`, informe a URL HTTPS e o nome do perfil permitido no
+   runner, por exemplo `production`.
+4. Em **Segredos**, informe uma variável por linha (`NOME=valor`). O navegador só envia os
+   valores; o Cloud grava AES-256-GCM e depois mostra apenas os nomes.
+5. Selecione **Publicar**, informe um commit ou tag imutável e acompanhe o estado. Depois de uma
+   entrega bem-sucedida, **Rollback** agenda a revisão anterior.
+
+O perfil de entrega fica somente na VPS, em `/etc/trilha-runner/delivery.json`:
+
+```json
+{
+  "profiles": {
+    "production": {
+      "deploy": ["/usr/local/libexec/trilha/deploy-product"],
+      "rollback": ["/usr/local/libexec/trilha/rollback-product"],
+      "health_url": "https://cadastro-usuarios.eoslab.com.br/health/ready",
+      "timeout_seconds": 600
+    }
+  }
+}
+```
+
+O Cloud não envia comandos, chaves Git nem acesso ao socket Docker. O serviço roda como usuário
+dedicado, sem sudo e com escrita restrita a `/var/lib/trilha-runner`. O processo de entrega
+recebe um ambiente mínimo, e qualquer segredo que apareça na saída é mascarado antes do log ser
+devolvido ao Cloud.
+
+![Ambientes e entregas no portal](/docs/agentic-cloud/cloud-environments.png "O ambiente mostra apenas nomes de segredos, revisão atual, perfil permitido e ações auditáveis.")
+
+![Portal responsivo em 390 pixels](/docs/agentic-cloud/cloud-mobile.png "Specs, Kanban, ambientes, execuções e frota continuam operáveis em uma tela móvel.")
+
 ## O contrato
 
 O worker só precisa de três rotas, então outro control plane — o seu — pode implementá-las:
@@ -507,10 +551,11 @@ Todas com `Authorization: Bearer <chave>`. O corpo do resultado é o `queue.Resu
 
 | | Entregue | Depois |
 |---|---|---|
-| Control plane | projetos, fila com claim, resultados com evidência, fechamento pelo revisor | organizações e times, billing |
-| Frota | workers com heartbeat; quem faz o quê | agendamento entre projetos, sandboxes remotos |
-| Governança | token de admin, chaves com escopo e limite por chave, auditoria de toda ação | SSO, políticas por projeto, evidência assinada |
-| Armazenamento | memória, snapshot JSON a cada escrita | SQL |
+| Control plane | projetos, specs, rodadas, kanban, execução e revisão | organizações e times, billing |
+| Frota | workers persistentes por projeto, checkout Git isolado, sincronização `.trilha` e push opcional | paralelismo configurável e sandboxes remotos |
+| Entrega | ambientes, segredos cifrados, perfis locais, deploy, health check e rollback | estratégias progressivas e aprovações múltiplas |
+| Governança | login, CSRF, chaves persistentes com escopo/projeto/expiração/revogação, auditoria | SSO e evidência assinada |
+| Armazenamento | snapshot JSON atômico a cada escrita | SQL e alta disponibilidade |
 
 ## Desafio
 
