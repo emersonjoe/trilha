@@ -53,7 +53,22 @@ func (a *App) assetPath(p string) string {
 		a.warnAsset(p)
 		return p
 	}
+	a.warnShadowedAsset("/" + name)
 	return p + "?v=" + v
+}
+
+// warnShadowedAsset complains when the file exists but the address belongs to
+// a route spelled out in full, which answers before the static files: the URL
+// Asset hands out would never reach the file. A route with a wildcard is not
+// one of these — the file answers first (spec 148).
+func (a *App) warnShadowedAsset(urlPath string) {
+	r, ok := a.routes[urlPath]
+	if !ok || hasWildcard(parsePattern(r.Pattern)) {
+		return
+	}
+	a.warnOnce("asset-shadowed:"+urlPath,
+		"trilha: Asset points at a path a route answers; the route wins and the file is never served",
+		"path", urlPath, "route", r.Pattern)
 }
 
 // assetVersion returns the fingerprint of name, "" when there is no such file.

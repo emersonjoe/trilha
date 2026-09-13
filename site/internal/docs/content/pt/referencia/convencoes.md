@@ -105,8 +105,20 @@ declarativo, o esquisito continua seu.
 `HEAD` não é nome de handler: desde o Go 1.22 o roteador responde HEAD com o handler do
 `GET`.
 
-Precedência: literal vence parâmetro, que vence catch-all. Duas pastas dinâmicas irmãs são
-erro. Duas pastas que gerem a mesma URL (via grupos) são erro.
+Precedência: **segmento por segmento, da esquerda para a direita** — literal vence parâmetro,
+que vence catch-all, na primeira posição em que os dois padrões diferem. Empate em todas as
+posições comparáveis vai para o padrão com mais segmentos, o que soletra mais da URL. Assim
+`/o/{slug}/login` responde `/o/cards/login` e `/{lang}/cards/{deckId}` responde
+`/en/cards/deck-1`, e registrar os dois funciona — o `http.ServeMux` recusa esse par, porque
+pela regra dele nenhum é mais específico, e o Trilha despacha sozinho o punhado de padrões
+que ele recusa. Duas pastas dinâmicas irmãs são erro. Duas pastas que gerem a mesma URL (via
+grupos) são erro.
+
+Um arquivo de `public/` (ou de uma árvore de [`Mounts`](/pt/referencia/app)) responde **antes**
+de uma rota com curinga e **depois** de uma rota escrita por inteiro. Um app com `app/lang_`
+(ou seja, `/{lang}`) na raiz continua servindo `/ui.css` do arquivo; um app com
+`app/manifest.webmanifest/route.go` continua respondendo aquele endereço pela rota, e o
+`c.Asset("/manifest.webmanifest")` avisa isso no log, uma vez.
 
 ## Outras pastas do projeto
 

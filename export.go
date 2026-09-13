@@ -135,7 +135,7 @@ func (a *App) render(p string) ([]byte, int, string, error) {
 	}
 	req := httptest.NewRequest(http.MethodGet, p, nil)
 	rec := httptest.NewRecorder()
-	a.mux.ServeHTTP(rec, req)
+	a.dispatch(rec, req)
 	return rec.Body.Bytes(), rec.Code, rec.Header().Get("Location"), nil
 }
 

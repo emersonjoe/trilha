@@ -256,27 +256,33 @@ const (
 
 // App is a configured Trilha application.
 type App struct {
-	shutdown      []func(*App) error
-	tzOnce        sync.Once
-	tz            *time.Location
-	cfg           Config
-	log           *slog.Logger
-	mux           *http.ServeMux
-	pathMux       *http.ServeMux
-	routes        map[string]*Route
-	values        map[string]any
-	rootLayout    LayoutFunc
-	notFound      PageFunc
-	errorPage     ErrorPageFunc
-	exportExtra   []string
-	proxies       []netip.Prefix
-	limiter       *limiter
-	cors          *corsPolicy
-	signer        *Signer
-	linkOnce      sync.Once
-	links         LinkStore
-	linkGuardOnce sync.Once
-	linkLimiter   *Limiter
+	shutdown []func(*App) error
+	tzOnce   sync.Once
+	tz       *time.Location
+	cfg      Config
+	log      *slog.Logger
+	mux      *http.ServeMux
+	pathMux  *http.ServeMux
+	routes   map[string]*Route
+	// matchers is every registered pattern in the form routing.go compares;
+	// conflicting is the subset the Go mux refused, which the kit dispatches
+	// itself (spec 148).
+	matchers       []*routeMatcher
+	conflicting    []*routeMatcher
+	wildcardRoutes bool
+	values         map[string]any
+	rootLayout     LayoutFunc
+	notFound       PageFunc
+	errorPage      ErrorPageFunc
+	exportExtra    []string
+	proxies        []netip.Prefix
+	limiter        *limiter
+	cors           *corsPolicy
+	signer         *Signer
+	linkOnce       sync.Once
+	links          LinkStore
+	linkGuardOnce  sync.Once
+	linkLimiter    *Limiter
 
 	metrics    *Metrics
 	instrument bool
@@ -331,6 +337,9 @@ func New(cfg Config) *App {
 	a.applyConfig()
 	a.mux.HandleFunc("/", a.fallback)
 	a.mux.HandleFunc("GET /_trilha/events", a.devEvents)
+	// The probe mux carries it too, so a route of the app that overlapped with
+	// it would be seen as a conflict here instead of panicking in the mux.
+	a.pathMux.HandleFunc("/_trilha/events", func(http.ResponseWriter, *http.Request) {})
 	return a
 }
 
@@ -451,7 +460,7 @@ func (a *App) routeOwnsCORS(r *http.Request) bool {
 	if a.cors == nil || r.Header.Get("Origin") == "" {
 		return false
 	}
-	_, pat := a.pathMux.Handler(r)
+	pat := a.matchedPattern(r)
 	if pat == "" {
 		return false
 	}
@@ -500,7 +509,7 @@ func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		a.mInFlight.Inc()
 		defer a.mInFlight.Dec()
 	}
-	a.mux.ServeHTTP(w, r)
+	a.dispatch(w, r)
 }
 
 // Metrics returns the process metric registry. It always exists; set

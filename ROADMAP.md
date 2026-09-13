@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.126.0)
+## Onde o Trilha está (setembro de 2026, v0.127.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -22,7 +22,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 |---|---|---|
 | Arquitetura | roteamento por arquivos, layouts aninhados, middleware por subárvore, erros como valores, `Setup`/`Config` (com erro)/`Shutdown` | specs 001, 007, 008, 021 |
 | Simplicidade | zero dependências no runtime e na CLI, garantido por teste | princípio II |
-| Coerência com Go | `http.ServeMux` 1.22, `context`, `log/slog`, `embed`, erros explícitos, genéricos onde pagam (`Settings[T]`, `Versioned[T]`, `ui.Columns[T]`) | princípio III |
+| Coerência com Go | `http.ServeMux` 1.22 (com especificidade por segmento para o par que ele recusa), `context`, `log/slog`, `embed`, erros explícitos, genéricos onde pagam (`Settings[T]`, `Versioned[T]`, `ui.Columns[T]`) | princípio III |
 | DX | `new`, `gen`, `dev`, `build`, `routes`, `export`, `audit`, `ui`, `check` (o portão único), `add <receita>`, `vendor`, `i18n`, `openapi`, `client`, `migrate next`, `agents`, `mcp` | specs 001, 003, 004, 006, 021, 065, 091, 119 |
 | Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors` e validação por tag, fragmentos, ilhas, navegação no cliente, upload com progresso, `ui.Live`, `ui.Assistant` | specs 006, 009, 018, 022, 023, 024, 027, 118 |
 | Dados | funções Go comuns, sem loader mágico; `cache` com prazo, tags, invalidação, voo único e memo por requisição; `ETag`/`Last-Modified`/`304`; `Settings`, `Versioned`, `Draft`, `Search`, `Deadlines`; `trilha add store` (pool, dialeto, migrações conferidas) | specs 025, 026, 114, 115, 116, 126 |

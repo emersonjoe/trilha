@@ -69,6 +69,40 @@ func TestMontagemServeArvoreForaDePublic(t *testing.T) {
 	}
 }
 
+// #203 — public/blog/capa.svg mora debaixo de uma rota com curinga
+// (/blog/{slug}). Antes o arquivo nunca saía: o mux entregava o caminho para a
+// página, que respondia 404 por não achar o post "capa.svg".
+func TestArquivoDePublicRespondeDebaixoDeRotaComCuringa(t *testing.T) {
+	c := newClient(t, "prod")
+	rec := c.Get("/blog/capa.svg")
+	rec.WantStatus(200).WantContains("<svg")
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "image/svg") {
+		t.Errorf("content-type %q", ct)
+	}
+	// A rota continua respondendo o que é dela.
+	c.Get("/blog/ola-trilha").WantStatus(200).WantContains(`<h1 class="ui-h1">Olá, Trilha</h1>`)
+	c.Get("/blog/capa.png").WantStatus(404)
+}
+
+// #204 — /oficinas/{slug}/inscricao e /{secao}/inscricao/{id} se cruzam sem que
+// nenhuma seja mais específica pela regra do mux, que recusaria registrar as
+// duas. O segmento estático ganha do curinga, posição por posição.
+func TestEspecificidadePorSegmentoEntreDuasRotasQueSeCruzam(t *testing.T) {
+	c := newClient(t, "prod")
+	c.Get("/oficinas/ceramica/inscricao").WantStatus(200).
+		WantContains("<h1 class=\"ui-h1\">Inscrição na oficina ceramica</h1>")
+	c.Get("/eventos/inscricao/42").WantStatus(200).
+		WantContains("<h1 class=\"ui-h1\">Inscrição 42</h1>", "Seção eventos, inscrição 42.")
+	// O caminho que as duas casam: o "oficinas" literal decide.
+	c.Get("/oficinas/inscricao/inscricao").WantStatus(200).
+		WantContains("<h1 class=\"ui-h1\">Inscrição na oficina inscricao</h1>")
+	// E a rota despachada pelo kit responde como qualquer outra.
+	c.Request("POST", "/oficinas/ceramica/inscricao").WantStatus(405).
+		WantHeader("Allow", "GET, HEAD")
+	c.Get("/oficinas/ceramica/inscricao/").WantStatus(301).
+		WantHeader("Location", "/oficinas/ceramica/inscricao")
+}
+
 // ---- US1: páginas por arquivo ---------------------------------------------
 
 func TestUS1_HomeInsideRootLayout(t *testing.T) {

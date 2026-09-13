@@ -137,7 +137,10 @@ cfg.Mounts = map[string]fs.FS{
 
 As montagens são tentadas antes de `Public`, do prefixo mais longo para o mais curto; um
 prefixo que casa sem ter o arquivo cai na próxima e depois em `Public`, então nenhuma
-precisa ser exaustiva. `StaticCacheControl`, `StaticHeaders` e `Asset` tratam um arquivo
+precisa ser exaustiva. As duas respondem **antes de uma rota com curinga** e depois de uma
+rota escrita por inteiro: um app com `/{lang}` na raiz serve `/ui.css` do arquivo, não da
+página, e o `Asset` avisa no log quando o endereço que ele devolve é de uma rota literal
+(veja [convenções](/pt/referencia/convencoes)). `StaticCacheControl`, `StaticHeaders` e `Asset` tratam um arquivo
 montado como qualquer outro, e o `name` que chega ao `StaticHeaders` é o da URL
 (`icones/icon-192.png`), que é o que distingue uma montagem da outra.
 

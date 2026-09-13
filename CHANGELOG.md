@@ -3,6 +3,37 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.127.0 — 2026-09-13
+
+Spec 148. Closes [#203](https://github.com/emersonjoe/trilha/issues/203),
+[#204](https://github.com/emersonjoe/trilha/issues/204).
+
+### Fixed
+
+- **A file in `Public` or `Mounts` is served even when a route with a wildcard matches its
+  address.** `serveStatic` used to run only from the fallback, which is the mux's `"/"` route —
+  after every typed route. An app with `/{lang}` at the root (the `/en`, `/es`, `/fr` of the
+  product) therefore handed `/ui.css` to the page, and the file was never served: the stylesheet
+  came back as whatever that route answers, which with a session middleware in front of it is a
+  401 or a 303. The symptom is silent and expensive — the pages asked for in the tests come back
+  right, and the only thing that breaks is the one nobody asserts. Now a `GET`/`HEAD` is answered
+  by the route spelled out in full, then by the file, then by the route with a wildcard. A route
+  written by hand still owns its address, and `c.Asset()` warns (once per path) when the URL it
+  hands out belongs to one of those, which is the only case left where the address does not reach
+  the file.
+- **Two patterns that resolve by segment specificity no longer panic in `Register`.**
+  `/o/{slug}/login` and `/{lang}/cards/{deckId}` both match `/o/cards/login`, and
+  `http.ServeMux` refuses to register a pair where neither is more specific by its rule —
+  which an app ported from a file-based router hits on the first run, with both URL trees
+  already published. Trilha now reads patterns **segment by segment, left to right**: a literal
+  beats a `{param}`, which beats a `{path...}`, and a tie on every comparable position goes to
+  the pattern with more segments. So `/o/cards/login` is the first route's and
+  `/en/cards/deck-1` is the second's. The Go mux still routes the whole app; only the handful of
+  patterns it turns down are dispatched by the kit, which answers them the same way — same
+  middleware chain, same CSRF, same `PathValue`, `HEAD` through the `GET` handler, 405 with
+  `Allow`, trailing-slash redirect. Registering the same pattern twice is still a panic: that is
+  a bug in the generated file, not a conflict.
+
 ## 0.126.0 — 2026-09-13
 
 Spec 147. Closes [#206](https://github.com/emersonjoe/trilha/issues/206),

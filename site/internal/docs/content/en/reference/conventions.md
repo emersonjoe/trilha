@@ -103,8 +103,20 @@ the common case is declarative, the odd one is still yours.
 
 `HEAD` is not a handler name: since Go 1.22 the router answers HEAD with the `GET` handler.
 
-Precedence: literal beats parameter, which beats catch-all. Two sibling dynamic folders are
-an error. Two folders producing the same URL (through groups) are an error.
+Precedence: **segment by segment, left to right** — a literal beats a parameter, which beats
+a catch-all, at the first position where the two patterns differ. A tie on every comparable
+position goes to the pattern with more segments, the one that spells more of the URL out.
+So `/o/{slug}/login` answers `/o/cards/login` and `/{lang}/cards/{deckId}` answers
+`/en/cards/deck-1`, and registering the two is fine — `http.ServeMux` refuses that pair,
+because by its rule neither is more specific, and Trilha dispatches the handful of patterns
+it turns down itself. Two sibling dynamic folders are an error. Two folders producing the
+same URL (through groups) are an error.
+
+A file in `public/` (or in a [`Mounts`](/reference/app) tree) answers **before** a route
+with a wildcard in it and **after** a route spelled out in full. An app with `app/lang_`
+(that is, `/{lang}`) at the root still serves `/ui.css` from the file; an app with
+`app/manifest.webmanifest/route.go` keeps answering that address from the route, and
+`c.Asset("/manifest.webmanifest")` says so in the log, once.
 
 ## Other project folders
 

@@ -34,10 +34,12 @@ import (
 	app_marketing__precos "github.com/emersonjoe/trilha/examples/blog/app/marketing-/precos"
 	app_marketing__sobre "github.com/emersonjoe/trilha/examples/blog/app/marketing-/sobre"
 	app_mcp "github.com/emersonjoe/trilha/examples/blog/app/mcp"
+	app_oficinas_slug__inscricao "github.com/emersonjoe/trilha/examples/blog/app/oficinas/slug_/inscricao"
 	app_painel_ "github.com/emersonjoe/trilha/examples/blog/app/painel-"
 	app_painel__assistente "github.com/emersonjoe/trilha/examples/blog/app/painel-/assistente"
 	app_painel__painel "github.com/emersonjoe/trilha/examples/blog/app/painel-/painel"
 	app_painel__relatorio "github.com/emersonjoe/trilha/examples/blog/app/painel-/relatorio"
+	app_secao__inscricao_id_ "github.com/emersonjoe/trilha/examples/blog/app/secao_/inscricao/id_"
 	app_tarefas "github.com/emersonjoe/trilha/examples/blog/app/tarefas"
 	app_tarefas_id_ "github.com/emersonjoe/trilha/examples/blog/app/tarefas/id_"
 	app_tarefas_tentar "github.com/emersonjoe/trilha/examples/blog/app/tarefas/tentar"
@@ -237,6 +239,12 @@ func newApp() *trilha.App {
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{
+		Pattern:     "/oficinas/{slug}/inscricao",
+		Page:        app_oficinas_slug__inscricao.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
 		Pattern: "/painel",
 		Page:    app_painel__painel.Page,
 		Methods: map[string]trilha.HandlerFunc{
@@ -294,6 +302,12 @@ func newApp() *trilha.App {
 		Methods: map[string]trilha.HandlerFunc{
 			"POST": app_webhooks.POST,
 		},
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/{secao}/inscricao/{id}",
+		Page:        app_secao__inscricao_id_.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})

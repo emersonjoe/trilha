@@ -138,6 +138,10 @@ cfg.Mounts = map[string]fs.FS{
 
 Mounts are tried before `Public`, longest prefix first; a prefix that matches without the
 file falls through to the next one and then to `Public`, so nothing has to be exhaustive.
+Both answer **before a route with a wildcard in it** and after a route spelled out in full:
+an app with `/{lang}` at the root serves `/ui.css` from the file, not from the page, and
+`Asset` warns in the log when the address it hands out belongs to a literal route
+(see [conventions](/reference/conventions)).
 `StaticCacheControl`, `StaticHeaders` and `Asset` treat a mounted file like any other, and
 the `name` given to `StaticHeaders` is the one from the URL (`icons/icon-192.png`), which is
 what tells one mount from another.

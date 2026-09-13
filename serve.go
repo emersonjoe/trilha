@@ -22,8 +22,24 @@ func (a *App) Register(r Route) {
 	if pattern == "/" {
 		muxPat = "/{$}"
 	}
+	if _, dup := a.routes[pattern]; dup {
+		// Two routes for one address is a bug in the generated file, and it
+		// has to keep blowing up: the conflict below is a different thing.
+		panic("trilha: pattern registered twice: " + pattern)
+	}
 	a.routes[pattern] = &route
-	a.pathMux.HandleFunc(muxPat, func(http.ResponseWriter, *http.Request) {})
+	m := &routeMatcher{pattern: pattern, segs: parsePattern(pattern), route: &route}
+	m.wildcard = hasWildcard(m.segs)
+	a.matchers = append(a.matchers, m)
+	a.wildcardRoutes = a.wildcardRoutes || m.wildcard
+	// The pathMux is the probe: it carries the same patterns without the
+	// methods, so a pattern it turns down is one the mux would turn down too
+	// (or a stricter case of the same overlap). Those the kit dispatches
+	// itself, by segment specificity (spec 148).
+	if !a.tryPath(muxPat) {
+		m.handlers = map[string]http.Handler{}
+		a.conflicting = append(a.conflicting, m)
+	}
 	kind := kindOf(&route)
 	// The route's own policy, built once: a preflight is answered before the
 	// middleware chain, the same way Config.CORS answers before the router.
@@ -31,28 +47,47 @@ func (a *App) Register(r Route) {
 	if route.CORS != nil {
 		policy = newCORSPolicy(*route.CORS, a.cfg.CSRF.Header)
 	}
-	handle := func(pat string, h http.Handler) { a.mux.Handle(pat, withCORS(policy, h)) }
+	handle := func(method string, h http.Handler) {
+		if m.handlers != nil {
+			m.handlers[method] = withCORS(policy, h)
+			return
+		}
+		a.mux.Handle(method+" "+muxPat, withCORS(policy, h))
+	}
 	if route.Page != nil {
-		handle("GET "+muxPat, a.wrap(&route, kind, chainFor(&route, "GET"), func(c *Ctx) error { return a.renderPage(c, &route) }))
+		handle("GET", a.wrap(&route, kind, chainFor(&route, "GET"), func(c *Ctx) error { return a.renderPage(c, &route) }))
 	}
 	methods := make([]string, 0, len(route.Methods))
 	for m := range route.Methods {
 		methods = append(methods, m)
 	}
 	sort.Strings(methods)
-	for _, m := range methods {
-		fn := route.Methods[m]
-		handle(m+" "+muxPat, a.wrap(&route, kind, chainFor(&route, m), fn))
+	for _, method := range methods {
+		fn := route.Methods[method]
+		handle(method, a.wrap(&route, kind, chainFor(&route, method), fn))
 	}
 	if policy != nil && route.Methods["OPTIONS"] == nil {
 		// Nobody wrote the preflight handler, so the policy is the handler: a
 		// bare OPTIONS (no Origin) still answers what the path accepts.
 		allow := a.allowFor(&route)
-		a.mux.Handle("OPTIONS "+muxPat, withCORS(policy, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		handle("OPTIONS", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			w.Header().Set("Allow", allow)
 			w.WriteHeader(http.StatusNoContent)
-		})))
+		}))
 	}
+}
+
+// tryPath registers the pattern in the probe mux, and reports whether it was
+// accepted. A conflict is how the mux says "neither of these two is more
+// specific than the other", which is the question this asks.
+func (a *App) tryPath(muxPat string) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	a.pathMux.HandleFunc(muxPat, func(http.ResponseWriter, *http.Request) {})
+	return true
 }
 
 // withCORS puts the route's policy in front of a handler: handle answers the
@@ -255,7 +290,7 @@ func (a *App) fallback(w http.ResponseWriter, req *http.Request) {
 	if p := req.URL.Path; len(p) > 1 && strings.HasSuffix(p, "/") {
 		probe := req.Clone(req.Context())
 		probe.URL.Path = strings.TrimSuffix(p, "/")
-		if _, pat := a.pathMux.Handler(probe); pat != "" {
+		if pat := a.matchedPattern(probe); pat != "" {
 			u := *req.URL
 			u.Path = probe.URL.Path
 			http.Redirect(rw, req, u.String(), http.StatusMovedPermanently)
