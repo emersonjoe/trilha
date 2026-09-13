@@ -157,6 +157,68 @@ opera o portal real pelo Chrome DevTools: configura acesso, registra projeto,
 emite uma chave, enfileira execução, abre evidências protegidas e aprova a
 revisão.
 
+## Product Studio: crie o produto sem usar CLI
+
+No Trilha Cloud 0.2.0, o operador pode habilitar um workspace gerenciado e o
+usuário faz o ciclo inteiro pela interface. A CLI continua existindo por trás
+do Cloud, mas deixa de ser uma responsabilidade de quem está criando o produto.
+
+O operador inicia o Cloud uma vez, informando onde os projetos podem ser
+criados e quais binários homologados serão usados:
+
+```bash
+cd trilha-cloud
+mkdir -p data workspaces
+export TRILHA_SECRET="$(trilha secret)"
+export TRILHA_CLOUD_ADMIN_TOKEN='troque-por-um-token-administrativo'
+export TRILHA_CLOUD_DATA="$PWD/data/cloud.json"
+export TRILHA_CLOUD_WORKSPACE_ROOT="$PWD/workspaces"
+export TRILHA_BIN="$(command -v trilha)"
+export TRILHA_RUNNER_BIN="$(command -v trilha-runner)"
+make dev
+```
+
+Abra `http://localhost:3000/?lang=pt-BR`, selecione **Configurar acesso** e
+informe o token administrativo. Depois selecione **Novo produto** e preencha:
+
+- nome `cadastro-usuarios` e organização `trilha`;
+- descrição `Cadastro de usuários com login e troca de senha`;
+- módulo `example.com/trilha/cadastro-usuarios`;
+- template `app`, idioma `Português` e driver `Echo` para uma homologação
+  determinística — use `AI` somente quando o provedor estiver configurado no
+  ambiente do runner.
+
+![Formulário do Product Studio para criar a aplicação](/docs/agentic-cloud/cloud-product-studio-create.png "O usuário descreve o produto na UI; nenhum comando de geração é digitado por ele.")
+
+Ao selecionar **Criar produto**, o Cloud executa operações fixas e auditáveis:
+
+1. o **Trilha** gera a aplicação `app`, que já inclui login, convite, cadastro,
+   perfil e troca de senha;
+2. o **Trilha Spec** inicializa `.trilha/`, grava a spec aprovada
+   `001-product-foundation` e cria `TASK-001` pronta;
+3. o Cloud inicializa o Git e registra o ponto de partida;
+4. ao selecionar **Iniciar build**, o **Trilha Runner** abre o worktree,
+   executa a task e devolve branch, commit, log e evidências ao **Trilha Cloud**.
+
+Para revisar, use **Emitir chave** com os escopos `runs:read` e `runs:write`,
+selecione **Usar nesta sessão**, abra **Detalhes** e confira cada check. O botão
+**Aprovar** encerra `review → done` e grava `run.closed` na auditoria.
+
+![Evidências da execução aprovada no Trilha Cloud](/docs/agentic-cloud/cloud-product-studio-evidence.png "A UI mostra task, worker, branch, commit, checks e log antes da decisão humana.")
+
+O modo gerenciado é opt-in. Nomes são validados, cada workspace precisa ser
+filho direto de `TRILHA_CLOUD_WORKSPACE_ROOT`, entradas do usuário nunca viram
+shell e os segredos do Cloud são removidos do ambiente dos processos filhos.
+Somente credenciais do provedor necessárias ao driver `AI` chegam ao runner.
+
+Operadores reproduzem os aceites do mesmo fluxo com:
+
+```bash
+make homologate-studio  # Trilha → Spec → Runner → Cloud → aprovação
+make homologate-ui      # fluxo real do portal em Chrome
+make check-all          # segurança + ecossistema + Product Studio + UI
+```
+
 ## Tutorial: cadastro de usuários de ponta a ponta
 
 Este roteiro cria uma aplicação Trilha real com login próprio, convite de

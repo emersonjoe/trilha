@@ -156,6 +156,69 @@ The browser part is also available as `make homologate-ui`. It drives the real
 portal through Chrome DevTools: configures access, registers a project, issues
 a key, queues a run, opens protected evidence and approves the review.
 
+## Product Studio: create the product without a CLI
+
+In Trilha Cloud 0.2.0, the operator can enable a managed workspace and the user
+completes the whole cycle through the UI. The CLIs still run behind the Cloud,
+but they are no longer the product creator's responsibility.
+
+The operator starts the Cloud once, defining where projects may be created and
+which homologated binaries it may invoke:
+
+```bash
+cd trilha-cloud
+mkdir -p data workspaces
+export TRILHA_SECRET="$(trilha secret)"
+export TRILHA_CLOUD_ADMIN_TOKEN='replace-with-an-admin-token'
+export TRILHA_CLOUD_DATA="$PWD/data/cloud.json"
+export TRILHA_CLOUD_WORKSPACE_ROOT="$PWD/workspaces"
+export TRILHA_BIN="$(command -v trilha)"
+export TRILHA_RUNNER_BIN="$(command -v trilha-runner)"
+make dev
+```
+
+Open `http://localhost:3000`, select **Configure access** and enter the admin
+token. Then select **New product** and enter:
+
+- name `cadastro-usuarios` and organization `trilha`;
+- description `User registration with login and password change`;
+- module `example.com/trilha/cadastro-usuarios`;
+- template `app`, language `Português`, and the `Echo` driver for deterministic
+  homologation — use `AI` only when its provider is configured in the runner
+  environment.
+
+![Product Studio form for creating the application](/docs/agentic-cloud/cloud-product-studio-create.png "The user describes the product in the UI and types no generation command.")
+
+When **Create product** is selected, the Cloud performs fixed, auditable
+operations:
+
+1. **Trilha** generates the `app` application, which already includes login,
+   invitation, registration, profile and password change;
+2. **Trilha Spec** initializes `.trilha/`, writes the approved
+   `001-product-foundation` spec and creates ready task `TASK-001`;
+3. the Cloud initializes Git and records the starting point;
+4. when **Start build** is selected, **Trilha Runner** opens the worktree, runs
+   the task and returns branch, commit, log and evidence to **Trilha Cloud**.
+
+For review, use **Issue key** with `runs:read` and `runs:write`, select **Use in
+this session**, open **Details**, and inspect every check. **Approve** completes
+`review → done` and records `run.closed` in the audit trail.
+
+![Approved execution evidence in Trilha Cloud](/docs/agentic-cloud/cloud-product-studio-evidence.png "The UI shows the task, worker, branch, commit, checks and log before the human decision.")
+
+Managed mode is opt-in. Names are validated, every workspace must be a direct
+child of `TRILHA_CLOUD_WORKSPACE_ROOT`, user input is never evaluated by a
+shell, and Cloud secrets are removed from child-process environments. Only the
+provider credentials required by the `AI` driver reach the runner.
+
+Operators can reproduce the same flow with:
+
+```bash
+make homologate-studio  # Trilha → Spec → Runner → Cloud → approval
+make homologate-ui      # real portal flow in Chrome
+make check-all          # security + ecosystem + Product Studio + UI
+```
+
 ## Tutorial: user registration from end to end
 
 This walkthrough creates a real Trilha application with its own login, user

@@ -3,6 +3,18 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.132.0 — 2026-09-13
+
+Spec 153. Closes [#246](https://github.com/emersonjoe/trilha/issues/246).
+
+### Documentation
+
+- **The Trilha Cloud tutorial now starts with the zero-CLI Product Studio path.** Operators
+  configure the managed workspace once; product creators then generate the user-registration
+  application, run its first Trilha Spec task through Trilha Runner, inspect evidence and approve
+  it entirely in the Cloud UI. English and Portuguese include real screenshots from the approved
+  end-to-end run and document the NIST/OWASP trust boundaries.
+
 ## 0.131.0 — 2026-09-13
 
 Spec 152. Closes [#245](https://github.com/emersonjoe/trilha/issues/245).
