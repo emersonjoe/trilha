@@ -45,22 +45,39 @@ func cmdNew(args []string) error {
 	if *module == "" {
 		*module = name
 	}
+	// The recipes of `trilha add`, applied at creation. The app template asks
+	// for eight by default because they are what every internal application
+	// grows in its first month — and asking for them here rather than copying
+	// their screens into templates/ is what keeps one source: what the
+	// template ships is exactly what `trilha add` writes.
+	//
+	// Resolved and checked before a single file is written: a --with that
+	// drops what the template depends on, or that names a recipe that does
+	// not exist, is a project that does not compile — and the person who
+	// typed it deserves to find out before there is anything to clean up.
+	receitas, err := resolveRecipes(*with, *tmpl, fs)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	written, err := scaffold.Write(dir, scaffold.Data{Module: *module, Name: name, Lang: *langFlag, Template: *tmpl})
+	admin := false
+	for _, nome := range receitas {
+		if recipeDir(*tmpl, nome) == "app/admin/" {
+			admin = true
+			break
+		}
+	}
+	written, err := scaffold.Write(dir, scaffold.Data{
+		Module: *module, Name: name, Lang: *langFlag, Template: *tmpl, Admin: admin,
+	})
 	if err != nil {
 		return err
 	}
 	for _, w := range written {
 		fmt.Println("  +", w)
 	}
-	// The recipes of `trilha add`, applied at creation. The app template asks
-	// for three by default because they are what every internal application
-	// grows in its first month — and asking for them here rather than copying
-	// their screens into templates/ is what keeps one source: what the
-	// template ships is exactly what `trilha add` writes.
-	receitas := recipeList(*with, *tmpl, fs)
 	for _, nome := range receitas {
 		r, err := recipes.Get(nome)
 		if err != nil {
@@ -147,6 +164,40 @@ func recipeList(with, tmpl string, fs *flag.FlagSet) []string {
 		if s = strings.TrimSpace(s); s != "" {
 			out = append(out, s)
 		}
+	}
+	return out
+}
+
+// resolveRecipes is recipeList plus the two checks #212 asked for: the
+// template's own dependencies (scaffold.Needs) are added even when --with
+// left them out, with a warning naming what was added and why; and a name
+// --with gives that no recipe answers to is refused with the list of the
+// ones that do, before anything is written — a typo that runs quietly is a
+// worse outcome than the error.
+func resolveRecipes(with, tmpl string, fs *flag.FlagSet) ([]string, error) {
+	out := recipeList(with, tmpl, fs)
+	for _, need := range scaffold.Needs(tmpl) {
+		if slices.Contains(out, need) {
+			continue
+		}
+		fmt.Fprintf(os.Stderr, t("with needs"), tmpl, need)
+		out = append([]string{need}, out...)
+	}
+	for _, nome := range out {
+		if _, err := recipes.Get(nome); err != nil {
+			return nil, fmt.Errorf(t("bad recipe"), nome, strings.Join(recipeNames(), ", "))
+		}
+	}
+	return out, nil
+}
+
+// recipeNames is every recipe `trilha add` answers to, for the message that
+// tells somebody what --with actually takes.
+func recipeNames() []string {
+	all := recipes.All()
+	out := make([]string, len(all))
+	for i, r := range all {
+		out[i] = r.Name
 	}
 	return out
 }

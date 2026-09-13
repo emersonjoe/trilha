@@ -88,9 +88,9 @@ o `/organizacoes` ficam na raiz, porque são sobre quem pede, e não sobre admin
 O `--with` decide com quais receitas um projeto novo começa, em qualquer template:
 
 ```bash
-trilha new minha-app --template app --with ""              # só o esqueleto
+trilha new minha-app --template app --with ""              # só login: o esqueleto precisa dele
 trilha new meu-site --with audit                           # no template blog também
-trilha new minha-app --template app --with audit,settings  # escolha a sua
+trilha new minha-app --template app --with audit,settings  # escolha a sua — o login acompanha
 trilha new loja --with login,blob,mail                     # várias, no template blog
 ```
 
@@ -98,6 +98,20 @@ Um `--with` vazio é uma escolha, e não uma ausência: quem digita isso está p
 recebe o esqueleto. O `--template app` já pede as suas oito receitas quando `--with` está
 ausente; digitar `--with` — mesmo com uma receita só — substitui essa lista em vez de somar a
 ela, então manter as oito e acrescentar uma é nomear as nove.
+
+O `app/layout.go` e o `app/middleware.go` do template `app` importam a sessão que a receita
+`login` grava, então `login` entra na lista que o `--with` deu quando ela não está lá —
+avisando em stderr, para não passar por algo que foi pedido. Um nome que o `--with` dá e
+nenhuma receita responde recusa antes de escrever qualquer coisa, com a lista dos que
+respondem:
+
+```
+$ trilha new demo --template app --with ""
+template "app" needs recipe "login"; adding it automatically
+...
+$ trilha new demo --with bogus
+error: unknown recipe "bogus"; valid recipes: api-keys, approvals, audit, blob, ...
+```
 
 ## Idioma
 

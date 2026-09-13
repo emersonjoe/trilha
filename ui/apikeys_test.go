@@ -48,6 +48,16 @@ func TestAPIKeysTableMostraOHandleENuncaAChave(t *testing.T) {
 	}
 }
 
+// #216: a receita despacha o único POST da tela pelo campo action, e sem
+// action=revoke o clique de verdade cai no ramo que cria uma chave sem nome.
+func TestAPIKeysTableRevogarLevaAAction(t *testing.T) {
+	rows := []APIKeyRow{{ID: "k1", Handle: "abc123", Name: "Integração"}}
+	got := render(t, APIKeysTable(nil, rows, APIKeysOpts{Revoke: "/chaves"}))
+	if !strings.Contains(got, `<input type="hidden" name="action" value="revoke">`) {
+		t.Fatalf("o formulário de revogar não manda action=revoke:\n%s", got)
+	}
+}
+
 func TestAPIKeysTableSemChavesExplica(t *testing.T) {
 	if got := render(t, APIKeysTable(nil, nil)); !strings.Contains(got, "No keys yet") {
 		t.Fatalf("vazio:\n%s", got)

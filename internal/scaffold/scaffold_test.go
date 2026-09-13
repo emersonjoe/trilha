@@ -50,6 +50,39 @@ func TestWriteApp(t *testing.T) {
 	}
 }
 
+// #212: app/layout.go and app/middleware.go of the app template import
+// internal/sessao, which only the login recipe writes — so `trilha new` has
+// to know it depends on that recipe even when --with does not name it.
+func TestNeedsSaysWhatATemplateDependsOn(t *testing.T) {
+	if got := Needs("app"); !slices.Equal(got, []string{"login"}) {
+		t.Fatalf("app: got %v, want [login]", got)
+	}
+	if got := Needs("blog"); got != nil {
+		t.Fatalf("blog: got %v, want nil", got)
+	}
+}
+
+// #212's fallout: app/admin/middleware.go used to ship unconditionally, and a
+// --with that leaves app/admin without a single recipe under it left an
+// import trilha_gen.go never used — a project failing go vet for a reason
+// nobody asked about. Admin says whether a recipe is actually going there.
+func TestWriteAppAdminMiddlewareOnlyWhenSomethingUsesIt(t *testing.T) {
+	sem, err := Write(t.TempDir(), Data{Module: "example.com/x", Name: "x", Template: "app"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(sem, "app/admin/middleware.go") {
+		t.Fatal("wrote app/admin/middleware.go with nothing under app/admin to guard")
+	}
+	com, err := Write(t.TempDir(), Data{Module: "example.com/x", Name: "x", Template: "app", Admin: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(com, "app/admin/middleware.go") {
+		t.Fatal("Admin: true did not write app/admin/middleware.go")
+	}
+}
+
 func TestWriteRefusesAnUnknownTemplate(t *testing.T) {
 	if _, err := Write(t.TempDir(), Data{Module: "x", Name: "x", Template: "banana"}); err == nil {
 		t.Fatal("expected an error")

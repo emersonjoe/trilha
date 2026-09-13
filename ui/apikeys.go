@@ -164,6 +164,7 @@ func revogar(o APIKeysOpts, r APIKeyRow, pt bool) h.Node {
 	return h.Form(h.Method("post"), h.Action(o.Revoke), o.CSRF,
 		Confirm(word(pt, "Revoke this key?", "Revogar esta chave?"),
 			word(pt, "Anything using it stops working immediately.", "O que estiver usando ela para de funcionar na hora.")),
+		h.Input(h.Type("hidden"), h.Name("action"), h.Value("revoke")),
 		h.Input(h.Type("hidden"), h.Name("id"), h.Value(r.ID)),
 		Button(Destructive(), Sm(), h.Type("submit"), h.Text(word(pt, "Revoke", "Revogar"))))
 }

@@ -26,6 +26,13 @@ type Data struct {
 	// login, shell, dashboard and a listing — which is where most people
 	// were going anyway.
 	Template string
+	// Admin says whether at least one recipe is going to land under
+	// app/admin/: the app template's own app/admin/middleware.go guards that
+	// subtree, and a guard with nothing below it is an import trilha_gen.go
+	// never uses — a project that fails go vet for a reason nobody asked
+	// about. Ignored outside the app template, which is the only one with an
+	// app/admin/.
+	Admin bool
 
 	T map[string]string // filled by Write from Lang
 }
@@ -33,6 +40,18 @@ type Data struct {
 // Templates lists the shapes trilha new can write, in the order they are
 // offered.
 func Templates() []string { return []string{"blog", "app"} }
+
+// Needs is the recipes of the `recipes` package a template depends on to
+// compile. app/layout.go and app/middleware.go of the app template import
+// internal/sessao, and only the login recipe writes that package — so
+// `trilha new` includes it even when --with does not name it: a template
+// that does not compile is not a starting point.
+func Needs(tmpl string) []string {
+	if tmpl == "app" {
+		return []string{"login"}
+	}
+	return nil
+}
 
 // Write creates the project at dir. Existing files are never overwritten.
 func Write(dir string, d Data) ([]string, error) {
@@ -68,6 +87,9 @@ func Write(dir string, d Data) ([]string, error) {
 		}
 		rel := strings.TrimPrefix(p, root+"/")
 		rel = strings.TrimSuffix(rel, ".tmpl")
+		if rel == "app/admin/middleware.go" && !d.Admin {
+			return nil
+		}
 		if rel == "gitignore" {
 			rel = ".gitignore"
 		}
