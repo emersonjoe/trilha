@@ -88,9 +88,9 @@ stay at the root, because they are about the person asking and not about adminis
 `--with` decides which recipes a new project starts with, on any template:
 
 ```bash
-trilha new minha-app --template app --with ""              # the skeleton alone
+trilha new minha-app --template app --with ""              # login only: the skeleton needs it
 trilha new meu-site --with audit                           # on the blog template too
-trilha new minha-app --template app --with audit,settings  # pick your own
+trilha new minha-app --template app --with audit,settings  # pick your own — login comes along
 trilha new loja --with login,blob,mail                     # several, on the blog template
 ```
 
@@ -98,6 +98,19 @@ An empty `--with` is a choice, not an absence: typing it asks for the skeleton a
 `--template app` already asks for its own eight recipes when `--with` is absent; typing
 `--with` at all — even with one recipe — replaces that list rather than adding to it, so
 keeping the eight and adding one means naming all nine.
+
+`app/layout.go` and `app/middleware.go` of the `app` template import the session `login`
+writes, so `login` is added to whatever `--with` names when it is missing — printed to
+stderr, so it is not mistaken for something that was asked for. A name `--with` gives that no
+recipe answers to refuses before anything is written, listing the ones that do:
+
+```
+$ trilha new demo --template app --with ""
+template "app" needs recipe "login"; adding it automatically
+...
+$ trilha new demo --with bogus
+error: unknown recipe "bogus"; valid recipes: api-keys, approvals, audit, blob, ...
+```
 
 ## Language
 

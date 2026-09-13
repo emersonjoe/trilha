@@ -3,6 +3,30 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.130.0 — 2026-09-13
+
+Spec 151. Closes [#212](https://github.com/emersonjoe/trilha/issues/212),
+[#216](https://github.com/emersonjoe/trilha/issues/216).
+
+### Fixed
+
+- **`trilha new --template app --with` no longer ships a project that fails to compile.**
+  `app/layout.go` and `app/middleware.go` of the `app` template import the session the `login`
+  recipe writes, but `--with` replaces the recipe list entirely — so `--with ""`, or any
+  `--with` that left `login` out, produced `internal/sessao is not in std`. `trilha new` now
+  resolves the recipe list before writing a single file, adds `login` when the template needs
+  it and `--with` did not name it — printing a warning so it is not mistaken for something that
+  was asked for — and refuses a `--with` name no recipe answers to, before anything is
+  written, listing the ones that do. `app/admin/middleware.go` itself is now only written when
+  a resolved recipe actually lands under `app/admin/`, so a `--with` with no admin screen at
+  all (`--with ""` included) does not leave an import `trilha_gen.go` never uses.
+- **The "Revoke" button of `ui.APIKeysTable` no longer tries to create a key instead.** The
+  `api-keys` recipe dispatches its one `POST` by an `action` field, and the form `revogar`
+  drew only carried `id` and the CSRF token — so a real click, with no field forged by hand,
+  fell into the branch that creates a key, without a name, and answered 422 instead of
+  revoking. The form now also carries `action=revoke`, the same hidden-field dispatch
+  `ui/webhooks.go` already uses for its own actions.
+
 ## 0.129.0 — 2026-09-13
 
 Spec 150. Closes [#195](https://github.com/emersonjoe/trilha/issues/195),

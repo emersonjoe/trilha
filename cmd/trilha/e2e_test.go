@@ -602,6 +602,56 @@ func TestGenerateContratoE2E(t *testing.T) {
 	}
 }
 
+// chavesRevogarTest is issue #216 end to end: it extracts the revoke form
+// exactly as ui.APIKeysTable drew it — whatever fields that turns out to be —
+// and posts those, rather than a hand-picked set that would have missed the
+// action field the button used to leave out.
+const chavesRevogarTest = `package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+func TestChavesRevogarPeloFormularioDaTela(t *testing.T) {
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c := trilha.NewTestClient(t, newApp())
+
+	c.PostForm("/chaves", url.Values{"nome": {"integracao"}}).WantStatus(http.StatusSeeOther)
+
+	tela := c.Get("/chaves").WantStatus(http.StatusOK).Body.String()
+	corpo := regexp.MustCompile("(?s)<tbody>(.*)</tbody>").FindStringSubmatch(tela)
+	if corpo == nil {
+		t.Fatalf("a chave criada não aparece na tabela:\n%s", tela)
+	}
+	campos := url.Values{}
+	for _, m := range regexp.MustCompile("<input type=\"hidden\" name=\"([^\"]+)\" value=\"([^\"]*)\">").FindAllStringSubmatch(corpo[1], -1) {
+		campos.Set(m[1], m[2])
+	}
+	if campos.Get("id") == "" {
+		t.Fatalf("a tela não desenhou o campo id do formulário de revogar:\n%s", corpo[1])
+	}
+	c.PostForm("/chaves", campos).WantStatus(http.StatusSeeOther)
+
+	depois := c.Get("/chaves").WantStatus(http.StatusOK).Body.String()
+	if !strings.Contains(depois, "revoked") {
+		t.Fatalf("a chave não foi revogada:\n%s", depois)
+	}
+	if strings.Count(depois, "integracao") != 1 {
+		t.Fatalf("o formulário de revogar criou outra chave:\n%s", depois)
+	}
+}
+`
+
 // TestAddE2E is issue #116 end to end: every recipe, applied to a project
 // nobody has touched, and `trilha check` green afterwards.
 //
@@ -647,9 +697,22 @@ func TestAddE2E(t *testing.T) {
 		}
 	}
 
+	// #216: the revoke button ui.APIKeysTable draws only carries the fields it
+	// itself writes into the row — nothing here is completed by hand, because
+	// that is exactly what let the missing "action" field through before: a
+	// test that adds it manually never notices the button itself never sent
+	// it. api-keys sits at the project root in this test (no --at), so the
+	// screen answers at /chaves and needs no session.
+	mustWrite(t, filepath.Join(proj, "chaves_revogar_test.go"), chavesRevogarTest)
+
 	// The whole point: no edit between adding and the gate being green.
 	if out := run(t, proj, cli, "check"); !strings.Contains(out, "test") {
 		t.Fatal(out)
+	}
+	// Named here so that deleting it is a failure and not a quieter test run.
+	testOut := run(t, proj, "go", "test", ".", "-run", "TestChavesRevogarPeloFormularioDaTela", "-v")
+	if !strings.Contains(testOut, "PASS: TestChavesRevogarPeloFormularioDaTela") {
+		t.Fatalf("TestChavesRevogarPeloFormularioDaTela did not run:\n%s", testOut)
 	}
 
 	// A second run adds nothing and duplicates nothing.
@@ -989,13 +1052,48 @@ func TestTemplateAppE2E(t *testing.T) {
 	}
 
 	// --with "" is a choice and not an absence: somebody who typed it asked
-	// for the skeleton, and gets it.
+	// for the skeleton. But the app template's app/layout.go and
+	// app/middleware.go import internal/sessao, which only login writes — #212
+	// — so login comes along anyway, with a warning, and the skeleton still
+	// compiles.
 	pelado := filepath.Join(tmp, "pelado")
-	run(t, tmp, cli, "new", pelado, "--module", "example.com/pelado", "--template", "app",
+	out = run(t, tmp, cli, "new", pelado, "--module", "example.com/pelado", "--template", "app",
 		"--with", "", "--trilha-dir", repo, "--no-tidy")
+	if !strings.Contains(out, "login") {
+		t.Fatalf("no warning that login was added for the template:\n%s", out)
+	}
 	if _, err := os.Stat(filepath.Join(pelado, "app", "admin", "auditoria")); err == nil {
 		t.Fatal(`--with "" still wrote the administration screens`)
 	}
+	if _, err := os.Stat(filepath.Join(pelado, "internal", "sessao")); err != nil {
+		t.Fatal(`--with "" did not bring the login the template depends on`)
+	}
+	if out, err := runErr(t, pelado, "go", "vet", "./..."); err != nil {
+		t.Fatalf("go vet failed on a project made with --with \"\":\n%s", out)
+	}
+
+	// Any --with on the app template that drops login gets it back the same
+	// way — the template's dependency, not just the flag's absence.
+	semLogin := filepath.Join(tmp, "sem-login")
+	run(t, tmp, cli, "new", semLogin, "--module", "example.com/semlogin", "--template", "app",
+		"--with", "audit", "--trilha-dir", repo, "--no-tidy")
+	if out, err := runErr(t, semLogin, "go", "vet", "./..."); err != nil {
+		t.Fatalf("go vet failed on --with audit (no login):\n%s", out)
+	}
+
+	// An unknown recipe name refuses before anything is written, and says
+	// which names are valid — silently accepting a typo is worse than the
+	// error, because it looks like it worked.
+	bogus := filepath.Join(tmp, "bogus")
+	if out, err := runErr(t, tmp, cli, "new", bogus, "--with", "bogus", "--no-tidy"); err == nil {
+		t.Fatalf("--with bogus was accepted silently:\n%s", out)
+	} else if !strings.Contains(out, "bogus") || !strings.Contains(out, "api-keys") {
+		t.Fatalf("the refusal does not name the unknown recipe and the valid ones:\n%s", out)
+	}
+	if _, err := os.Stat(bogus); err == nil {
+		t.Fatal("--with bogus wrote a project before refusing")
+	}
+
 	// And the recipes are not the app template's alone.
 	blog := filepath.Join(tmp, "blogue")
 	run(t, tmp, cli, "new", blog, "--module", "example.com/blogue",
