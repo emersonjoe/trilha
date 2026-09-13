@@ -24,6 +24,17 @@ Spec 145. Closes [#232](https://github.com/emersonjoe/trilha/issues/232).
   of your own must speak). Each ends with a challenge and its solution, on the agenda of the
   trail.
 
+### Fixed
+
+- Two in-process tests of `cmd/trilha` compared the CLI's output against hardcoded English
+  text without pinning the language: `TestMetricsItemLooksAtTheEndpoint` reads the package's
+  `lang` variable directly (fixed once from the environment before any test runs, so
+  `t.Setenv` cannot reach it) and the new `TestExternalSubcommand` execs a fresh binary (which
+  does read `TRILHA_LANG` from its own environment). Both passed in CI, where the runner's
+  locale is English, and both failed on a developer machine whose shell locale starts with
+  "pt" — the same value `detectLang` treats as an explicit choice of Portuguese. Found while
+  releasing this spec.
+
 ### Changed
 
 - **The build cache moved to `.trilha/cache/`.** `trilha dev` and `trilha export` used to

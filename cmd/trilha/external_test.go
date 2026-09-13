@@ -16,6 +16,12 @@ func TestExternalSubcommand(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses a shell script on the PATH")
 	}
+	// The binary below is exec'd fresh, so it picks up TRILHA_LANG from this
+	// process's environment at its own startup — unlike lang in this test
+	// binary, which was already fixed before main() ran (see the audit test
+	// for that case). Force English so "unknown command" is stable on a
+	// developer machine whose LANG/LC_ALL happens to start with "pt".
+	t.Setenv("TRILHA_LANG", "en")
 	dir := t.TempDir()
 	script := filepath.Join(dir, "trilha-hello")
 	if err := os.WriteFile(script, []byte("#!/bin/sh\necho \"hello $* $TRILHA_PARENT_VERSION\"\nexit 3\n"), 0o755); err != nil {

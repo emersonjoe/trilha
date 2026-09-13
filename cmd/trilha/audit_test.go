@@ -185,6 +185,14 @@ func TestAuditoriaAvisaEscritaSemCSRF(t *testing.T) {
 // only picks the registry the counters go to, and it made the reference app
 // report a critical that was never true.
 func TestMetricsItemLooksAtTheEndpoint(t *testing.T) {
+	// lang is fixed once at process start from the environment (i18n.go), so
+	// a machine whose shell locale starts with "pt" would make every title
+	// below Portuguese and this in-process check for the English word
+	// "metrics" would miss "métricas" — pin it for this test, since there is
+	// no subprocess here to hand TRILHA_LANG to.
+	old := lang
+	lang = "en"
+	t.Cleanup(func() { lang = old })
 	item := func(t *testing.T, cs []check) check {
 		t.Helper()
 		for _, c := range cs {
