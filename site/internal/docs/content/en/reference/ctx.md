@@ -321,16 +321,24 @@ date by eye.
 
 ## Sending a file
 
-`File` receives; these five send. The name, the type and the two headers that keep a download
+`File` receives; these six send. The name, the type and the two headers that keep a download
 from becoming a page of your origin are the whole of it.
 
 | Symbol | Role |
 |---|---|
 | `Attachment(name string, body io.Reader, ctype string) error` | download: `Content-Disposition: attachment` |
 | `Inline(name string, body io.Reader, ctype string) error` | the browser opens it in place (a PDF in an `<iframe>`, an image) |
+| `Send(name string, body io.Reader, ctype string, o SendOpts) error` | the same two, with the answers three arguments cannot give |
 | `AttachmentFile(path, ctype string) error` | opens the file, sends it and closes it; absent is 404, a directory is an error |
 | `InlineFile(path, ctype string) error` | the same, opened in place |
 | `Pipe(res *http.Response) error` | hands another service's answer to the browser and closes its body |
+
+| `SendOpts` | Role |
+|---|---|
+| `Inline bool` | open in place instead of downloading — the difference between the two methods above |
+| `Size int64` | the whole length of a body that cannot seek: the response promises `Accept-Ranges` and answers a `Range` with 206 |
+| `ContentRange string` | the body already **is** the slice: the `Content-Range` of another service's 206 |
+| `NeutralizeScript bool` | send a document with script inline with the script turned off |
 
 The name is sanitised by the same function an upload's is: a path never becomes a filename,
 and nothing in it can add a second line to the header. It goes out twice — `filename*=UTF-8''`
@@ -343,10 +351,19 @@ never to overrule it. `X-Content-Type-Options: nosniff` always goes out: a downl
 is free to re-interpret is a download that can become a page of this origin.
 
 `Inline` only accepts what a viewer renders — `application/pdf`, `image/*` (not SVG),
-`audio/*`, `video/*`, `text/plain`, `text/csv`. HTML, SVG and XML come back as a programming
-error, not as a response: they are documents with script, served from your own origin.
-`trilha.CanInline(ctype)` answers the same question, so a screen can offer the "view" link only
-where there is something to view.
+`audio/*`, `video/*`, `text/plain`, `text/csv`. HTML, SVG and XML come back as an error and not
+as a response: they are documents with script, served from your own origin.
+`trilha.CanInline(ctype)` answers the same question before the call, so a screen can offer the
+"view" link only where there is something to view.
+
+The refusal is wrapped in **`trilha.ErrCannotInline`**, which is what lets a screen tell a
+content it cannot show from a bug in its own code:
+
+```go
+if err := c.Inline(up.Name, body, up.MIME); errors.Is(err, trilha.ErrCannotInline) {
+	return c.Render(http.StatusOK, noPreview(up)) // the screen draws its own fallback
+}
+```
 
 **The response says it may be framed by a page of this origin**, and that is the half everybody
 gets wrong. The default hardening sends `X-Frame-Options: DENY` and `frame-ancestors 'none'` on
@@ -360,8 +377,87 @@ can show, and an `<img>` instead of a frame for an image.
 
 A `body` that is an `io.ReadSeeker` — a `bytes.Reader`, an `os.File` — is written by
 `http.ServeContent`, so `Range`, `If-Range`, `304` and `HEAD` come for free and
-`Accept-Ranges: bytes` is promised. Anything else is copied as a stream and promises nothing.
-Every send clears the write deadline: a 50 MB file on a bad link is not a slow handler.
+`Accept-Ranges: bytes` is promised. Anything else is copied as a stream and promises nothing —
+unless you say how long it is, which is the next section. Every send clears the write deadline:
+a 50 MB file on a bad link is not a slow handler.
+
+### Range over a body that cannot seek
+
+The body of another service's answer never seeks, and that is exactly the app a
+[`Upstreams`](/reference/upstreams) front end is: a Trilha screen in front of a backend that
+already exists. Without a 206 an `<audio>` or a `<video>` **in Safari on iOS does not seek** —
+"jump to minute 3" becomes downloading the whole file — and the app ends up writing the
+`Range`/`Content-Range` pair by hand, outside the envelope.
+
+`SendOpts.Size` is the whole length of that body, the `Content-Length` the other service
+answered:
+
+```go
+res, err := http.DefaultClient.Do(req)
+if err != nil {
+	return err
+}
+defer res.Body.Close()
+return c.Send("episode.mp3", res.Body, res.Header.Get("Content-Type"), trilha.SendOpts{
+	Inline: true,
+	Size:   res.ContentLength,
+})
+```
+
+| Request | Answer |
+|---|---|
+| no `Range` | 200 with `Content-Length` and **`Accept-Ranges: bytes`** — the answer that teaches the browser the size and lets it ask for a slice |
+| `Range: bytes=10-19` | 206, `Content-Range: bytes 10-19/size`, `Content-Length: 10`, those ten bytes |
+| `bytes=900-`, `bytes=-10` | 206 cut at either end |
+| a `Range` outside the file, or one that does not parse | 416 with `Content-Range: bytes */size` |
+| more than one range | 200 with the whole file — legal for any `Range`, and `multipart/byteranges` does not pay over a stream |
+
+The prefix is thrown away as it arrives (`io.CopyN` into `io.Discard`) and the slice stops at
+the last byte. Reading the file into memory to get an `io.ReadSeeker` would cost the whole
+audio on every request for 64 KB of the middle, which is the trade this exists to avoid — but
+the prefix does travel from the other service. **When that service answers `Range` itself,
+forward the header and hand back its 206**, and nothing travels twice:
+
+```go
+// the Range of this request was forwarded to the other service
+return c.Send(name, res.Body, res.Header.Get("Content-Type"), trilha.SendOpts{
+	Inline:       true,
+	ContentRange: res.Header.Get("Content-Range"), // "bytes 10-19/4096"
+})
+```
+
+The value is checked before it becomes a header of ours — a `Content-Range` assembled wrong is
+a corrupt file in the browser — the status becomes 206, `Content-Length` is computed from the
+range, and nothing is cut. `Size` and `ContentRange` together are an error: they are two
+different claims about the same body. Without either one, a body that cannot seek is still sent
+whole with 200: the kit cannot invent the total of a `Content-Range`, and promising `Range`
+without knowing the size is worse than promising nothing.
+
+### An SVG served with the script turned off
+
+Refusing `image/svg+xml` inline is right — to the browser an SVG is a document with script, and
+serving script from your own origin is stored XSS by another name. But a white-label product
+accepts a logo in SVG, and that logo has to appear on the sign-in screen. `NeutralizeScript` is
+the explicit way to say "I know what an SVG is", without leaving the envelope:
+
+```go
+return c.Send(logo.Name, body, logo.MIME, trilha.SendOpts{
+	Inline:           true,
+	NeutralizeScript: true,
+})
+```
+
+The response goes out with the policy the kit imposes, the same for every app:
+
+```
+Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'
+```
+
+No script, no fetching anything, inline style (without it an SVG stops being a drawing), framed
+by this same origin. It is written over an app's own `Security.CSP`: here the policy is not
+hardening, it is the condition for the document to go out at all. And it opens the script door
+and no other — an `application/zip` inline stays refused, with or without the option, because
+what a viewer shows is a different list.
 
 `Pipe` copies the status and a closed list of headers — `Content-Type`,
 `Content-Disposition`, `Content-Length`, `Content-Encoding`, `Content-Range`, `Accept-Ranges`,

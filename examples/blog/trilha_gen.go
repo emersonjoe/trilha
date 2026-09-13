@@ -34,6 +34,9 @@ import (
 	app_marketing__precos "github.com/emersonjoe/trilha/examples/blog/app/marketing-/precos"
 	app_marketing__sobre "github.com/emersonjoe/trilha/examples/blog/app/marketing-/sobre"
 	app_mcp "github.com/emersonjoe/trilha/examples/blog/app/mcp"
+	app_midia "github.com/emersonjoe/trilha/examples/blog/app/midia"
+	app_midia_audio "github.com/emersonjoe/trilha/examples/blog/app/midia/audio"
+	app_midia_marca "github.com/emersonjoe/trilha/examples/blog/app/midia/marca"
 	app_oficinas_slug__inscricao "github.com/emersonjoe/trilha/examples/blog/app/oficinas/slug_/inscricao"
 	app_painel_ "github.com/emersonjoe/trilha/examples/blog/app/painel-"
 	app_painel__assistente "github.com/emersonjoe/trilha/examples/blog/app/painel-/assistente"
@@ -235,6 +238,26 @@ func newApp() *trilha.App {
 		Pattern: "/mcp",
 		Methods: map[string]trilha.HandlerFunc{
 			"POST": app_mcp.POST,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/midia",
+		Page:        app_midia.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/midia/audio",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_midia_audio.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/midia/marca",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_midia_marca.GET,
 		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})

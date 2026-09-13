@@ -175,6 +175,7 @@ pkg trilha, method (*Ctx) RedirectExternal(string) error
 pkg trilha, method (*Ctx) Render(int, h.Node) error
 pkg trilha, method (*Ctx) Request() *http.Request
 pkg trilha, method (*Ctx) RequestID() string
+pkg trilha, method (*Ctx) Send(string, io.Reader, string, SendOpts) error
 pkg trilha, method (*Ctx) Set(string, any)
 pkg trilha, method (*Ctx) SetActor(Actor)
 pkg trilha, method (*Ctx) SetContext(context.Context)
@@ -605,6 +606,11 @@ pkg trilha, type SecurityEvent struct, Method string
 pkg trilha, type SecurityEvent struct, Path string
 pkg trilha, type SecurityEvent struct, RequestID string
 pkg trilha, type SecurityEvent struct, Status int
+pkg trilha, type SendOpts struct
+pkg trilha, type SendOpts struct, ContentRange string
+pkg trilha, type SendOpts struct, Inline bool
+pkg trilha, type SendOpts struct, NeutralizeScript bool
+pkg trilha, type SendOpts struct, Size int64
 pkg trilha, type SettingsStore interface
 pkg trilha, type SettingsStore interface, Load(string) ([]byte, bool)
 pkg trilha, type SettingsStore interface, Save(string, []byte) error
@@ -663,6 +669,7 @@ pkg trilha, type VersionedOpts struct, Store VersionStore
 pkg trilha, type Versioned[T any] struct
 pkg trilha, var BindInvalid
 pkg trilha, var ConnectionAuths
+pkg trilha, var ErrCannotInline
 pkg trilha, var ErrNoDraft
 pkg trilha, var ErrNoLink
 pkg trilha, var ErrNoSecret

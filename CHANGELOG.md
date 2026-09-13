@@ -3,6 +3,46 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.128.0 — 2026-09-13
+
+Spec 149. Closes [#201](https://github.com/emersonjoe/trilha/issues/201),
+[#210](https://github.com/emersonjoe/trilha/issues/210).
+
+### Added
+
+- **`c.Send(name, body, ctype, trilha.SendOpts{…})`: `Inline` and `Attachment` with the two
+  answers three arguments cannot give.** `SendOpts.Inline` picks between the two, and everything
+  else about the response is the same envelope — sanitised name, `nosniff`, framing relaxed on
+  this response only.
+- **`SendOpts.Size` answers `Range` over a body that cannot seek.** Until now only an
+  `io.ReadSeeker` got `http.ServeContent`; the body of another service's answer — which is
+  exactly what an app in front of `Config.Upstreams` serves — was copied whole with 200. Without
+  a 206, `<audio>` and `<video>` in Safari on iOS do not seek: "jump to minute 3" downloads the
+  whole file. Give `Send` the length the other service declared and the first answer promises
+  `Accept-Ranges: bytes` with `Content-Length`, a `Range` comes back as 206 with `Content-Range`
+  and only those bytes, a range outside the file is a 416 with `bytes */size`, and more than one
+  range is answered whole. The prefix is discarded as it arrives — reading the file into memory
+  to get a seekable body would cost the whole audio on every request for 64 KB of the middle.
+- **`SendOpts.ContentRange` takes the body that already is the slice.** When the other service
+  answers `Range` itself, forward the header and hand back its 206: the value is checked, the
+  status becomes 206, `Content-Length` is computed from the range and nothing travels twice.
+  `Size` and `ContentRange` together are an error — two different claims about the same body.
+- **`SendOpts.NeutralizeScript` serves an SVG (or HTML) inline with the script turned off.**
+  Refusing `image/svg+xml` inline is right, but a white-label product accepts a logo in SVG and
+  that logo has to reach the sign-in screen; the way out used to be writing the response by hand
+  and losing the envelope with it. The option is the explicit "I know what an SVG is", and the
+  policy is the kit's, not each app's:
+  `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'`,
+  written over an app's own `Security.CSP` because here it is the condition for the document to
+  go out. It opens the script door and no other: an `application/zip` inline stays refused.
+
+### Fixed
+
+- **`c.Inline` refusing a media type is now a value a screen can handle.** The refusal comes
+  back wrapped in **`trilha.ErrCannotInline`**, so `errors.Is` tells "this content does not show"
+  from "this code is wrong" and the screen draws its own fallback instead of falling into the
+  error page. The message still names the type and the two ways out.
+
 ## 0.127.0 — 2026-09-13
 
 Spec 148. Closes [#203](https://github.com/emersonjoe/trilha/issues/203),

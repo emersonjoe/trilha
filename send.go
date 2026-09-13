@@ -6,8 +6,10 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,12 +37,12 @@ var inlineTypes = []string{
 // The name is sanitised like an upload's: a path never becomes a filename,
 // and no part of it can add a second header line.
 func (c *Ctx) Attachment(name string, body io.Reader, ctype string) error {
-	return c.send("attachment", name, body, ctype, time.Time{})
+	return c.send(name, body, ctype, SendOpts{}, time.Time{})
 }
 
 // Inline sends the body for the browser to open in place — a PDF inside an
 // <iframe>, an image, a plain-text file. Anything the browser would run
-// instead of render (HTML, SVG, XML) is refused as a programming error.
+// instead of render (HTML, SVG, XML) is refused.
 //
 // This response says it may be framed by a page of this same origin: the
 // default hardening sends X-Frame-Options: DENY and frame-ancestors 'none' on
@@ -52,8 +54,99 @@ func (c *Ctx) Attachment(name string, body io.Reader, ctype string) error {
 // It is the framed answer that decides this, not the page around it: a page
 // adding frame-src to its own policy changes nothing while the document it
 // frames still refuses to be framed.
+//
+// The refusal comes back wrapped in ErrCannotInline, so a screen can tell "this
+// content does not show" from "this code is wrong" and draw its own fallback;
+// Send with SendOpts.NeutralizeScript is the way to send it anyway.
 func (c *Ctx) Inline(name string, body io.Reader, ctype string) error {
-	return c.send("inline", name, body, ctype, time.Time{})
+	return c.send(name, body, ctype, SendOpts{Inline: true}, time.Time{})
+}
+
+// ErrCannotInline is what Inline answers for a media type a browser would run
+// or would not show — an SVG, an HTML page, a zip. It is a value and not a
+// plain error so that the screen can tell a content it cannot show from a bug
+// in its own code:
+//
+//	if err := c.Inline(up.Name, body, up.MIME); errors.Is(err, trilha.ErrCannotInline) {
+//		return c.Render(http.StatusOK, noPreview(up))
+//	}
+//
+// trilha.CanInline answers the same question before the call.
+var ErrCannotInline = errors.New("trilha: media type may not be sent inline")
+
+// SendOpts is what the three-argument Inline and Attachment cannot say: how
+// long a body that cannot seek is, that the body already is the slice the
+// browser asked for, and that the caller means to send a document with script
+// with the script turned off.
+type SendOpts struct {
+	// Inline opens the body in place instead of downloading it — the
+	// difference between Inline and Attachment, and the same two answers.
+	Inline bool
+
+	// Size is the whole length of a body that cannot seek: the Content-Length
+	// another service answered. With it the response promises Accept-Ranges
+	// and a Range is answered with 206 and Content-Range, by dropping the
+	// bytes before the first one and stopping at the last — the prefix is
+	// discarded as it arrives, never held in memory.
+	//
+	// Without it a body that cannot seek is sent whole, with 200: the kit
+	// cannot invent the total of a Content-Range. It is ignored for a body
+	// that can seek, which http.ServeContent already answers, and it has to be
+	// the real length — it goes out as Content-Length.
+	Size int64
+
+	// ContentRange says the body already is the part the browser asked for:
+	// the answer of another service that was handed the Range header. The
+	// value is that answer's Content-Range ("bytes 10-19/4096"); the status
+	// becomes 206, Content-Length is computed from the range and nothing is
+	// skipped. It is the cheap half of Range — the prefix never travels.
+	//
+	// A value that is not "bytes first-last/total" is a programming error, not
+	// a crooked response. Setting it together with Size is an error too: they
+	// are two different claims about the same body.
+	ContentRange string
+
+	// NeutralizeScript sends inline a type Inline refuses — image/svg+xml,
+	// text/html, application/xhtml+xml — under a policy that turns script off:
+	//
+	//	Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'
+	//
+	// No script, no fetch of anything, inline style (without it an SVG stops
+	// being a drawing) and framed by this same origin. The policy is the kit's
+	// and goes out for every type sent with the option, over an app's own
+	// Security.CSP: here it is not hardening, it is the condition for the
+	// document to go out at all.
+	//
+	// It opens the script door and no other: what a viewer shows is a
+	// different list, so an application/zip inline stays refused.
+	NeutralizeScript bool
+}
+
+// neutralizedCSP is the policy a document with script goes out under. It is
+// one string in the kit and not one per app: whoever is porting a screen
+// should not have to work out which policy is the right one, and three apps
+// writing their own would write three, one of them wrong.
+const neutralizedCSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'"
+
+// Send is Inline and Attachment with the answers the three-argument forms
+// cannot give: a Range over a body that cannot seek, and a document with
+// script served with the script turned off. The envelope is the same one —
+// sanitised name, nosniff, framing relaxed on this response only.
+//
+//	// the audio of another service, seekable on an iPhone
+//	res, err := http.DefaultClient.Do(req)
+//	if err != nil {
+//		return err
+//	}
+//	defer res.Body.Close()
+//	return c.Send(name, res.Body, res.Header.Get("Content-Type"), trilha.SendOpts{
+//		Inline: true,
+//		Size:   res.ContentLength,
+//	})
+//
+// The body is not closed here: the caller opened it and knows when it is over.
+func (c *Ctx) Send(name string, body io.Reader, ctype string, o SendOpts) error {
+	return c.send(name, body, ctype, o, time.Time{})
 }
 
 // AttachmentFile opens the file at path and sends it as a download. A file
@@ -84,25 +177,44 @@ func (c *Ctx) sendFile(kind, path, ctype string) error {
 	if st.IsDir() {
 		return fmt.Errorf("trilha: %s is a directory, not a file", path)
 	}
-	return c.send(kind, st.Name(), f, ctype, st.ModTime())
+	return c.send(st.Name(), f, ctype, SendOpts{Inline: kind == "inline"}, st.ModTime())
 }
 
 // send is the one place that writes a file response.
-func (c *Ctx) send(kind, name string, body io.Reader, ctype string, mod time.Time) error {
+func (c *Ctx) send(name string, body io.Reader, ctype string, o SendOpts, mod time.Time) error {
+	kind := "attachment"
+	if o.Inline {
+		kind = "inline"
+	}
+	if o.Size < 0 {
+		return fmt.Errorf("trilha: SendOpts.Size is %d; a body has no negative length", o.Size)
+	}
+	if o.Size > 0 && o.ContentRange != "" {
+		return errors.New("trilha: SendOpts.Size and SendOpts.ContentRange say two different things about the same body; set one")
+	}
+	part, err := partOf(o.ContentRange)
+	if err != nil {
+		return err
+	}
 	name = safeName(name)
 	if ctype == "" {
-		var err error
 		if ctype, body, err = sniffReader(body, name); err != nil {
 			return err
 		}
 	}
-	if kind == "inline" && !inlineOK(ctype) {
-		return fmt.Errorf("trilha: %s may not be sent inline; use Attachment", ctype)
+	if o.Inline && !inlineOK(ctype) && !(o.NeutralizeScript && scriptRuns(ctype)) {
+		return fmt.Errorf("%w: %s; send it as an attachment, or with SendOpts{NeutralizeScript: true} to serve it with script turned off", ErrCannotInline, ctype)
 	}
 	h := c.w.Header()
 	h.Set("Content-Type", ctype)
 	h.Set("Content-Disposition", disposition(kind, name))
-	if kind == "inline" {
+	if o.Inline {
+		// Written before the relaxation below, which then only has the
+		// X-Frame-Options of this response left to adjust: the policy already
+		// says who may frame it.
+		if o.NeutralizeScript {
+			h.Set("Content-Security-Policy", neutralizedCSP)
+		}
 		c.allowSameOriginFrame()
 	}
 	// A download that the browser is free to re-interpret is a download that
@@ -111,19 +223,184 @@ func (c *Ctx) send(kind, name string, body io.Reader, ctype string, mod time.Tim
 	// A big file on a bad link is not a slow handler; it is a handler doing
 	// what it was told.
 	_ = c.NoWriteDeadline()
+	if part != nil {
+		// The body already is the slice; nothing to cut, nothing to skip.
+		h.Set("Accept-Ranges", "bytes")
+		h.Set("Content-Range", o.ContentRange)
+		h.Set("Content-Length", strconv.FormatInt(part.last-part.first+1, 10))
+		c.w.WriteHeader(http.StatusPartialContent)
+		if c.r.Method == http.MethodHead {
+			return nil
+		}
+		_, err := io.Copy(c.w, body)
+		return err
+	}
 	if rs, ok := body.(io.ReadSeeker); ok {
 		// ServeContent owns Range, If-Range, 304 and HEAD. The name is only
 		// used to guess a type, and the type is already set.
 		http.ServeContent(c.w, c.r, "", mod, rs)
 		return nil
 	}
+	if o.Size > 0 {
+		return c.sendSized(body, o.Size)
+	}
 	if c.r.Method == http.MethodHead {
 		c.w.WriteHeader(http.StatusOK)
 		return nil
 	}
-	_, err := io.Copy(c.w, body)
+	_, err = io.Copy(c.w, body)
 	return err
 }
+
+// sendSized writes a body that cannot seek but whose length is known: the
+// whole of it, or the one slice the browser asked for, cut out of the stream
+// as it arrives.
+func (c *Ctx) sendSized(body io.Reader, size int64) error {
+	h := c.w.Header()
+	h.Set("Accept-Ranges", "bytes")
+	first, last, state := sliceOf(c.r.Header.Get("Range"), size)
+	switch state {
+	case rangeNone:
+		h.Set("Content-Length", strconv.FormatInt(size, 10))
+		if c.r.Method == http.MethodHead {
+			c.w.WriteHeader(http.StatusOK)
+			return nil
+		}
+		_, err := io.Copy(c.w, body)
+		return err
+	case rangeUnsatisfiable:
+		// No file is being delivered, so the envelope of one does not go out
+		// with it.
+		h.Del("Content-Disposition")
+		h.Set("Content-Type", "text/plain; charset=utf-8")
+		h.Set("Content-Range", "bytes */"+strconv.FormatInt(size, 10))
+		c.w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+		if c.r.Method == http.MethodHead {
+			return nil
+		}
+		_, err := io.WriteString(c.w, "requested range not satisfiable\n")
+		return err
+	}
+	n := last - first + 1
+	h.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", first, last, size))
+	h.Set("Content-Length", strconv.FormatInt(n, 10))
+	c.w.WriteHeader(http.StatusPartialContent)
+	if c.r.Method == http.MethodHead {
+		return nil
+	}
+	// The prefix is thrown away as it arrives. Reading it into memory to get
+	// an io.ReadSeeker would cost the whole file on every request for 64 KB of
+	// the middle, which is the trade this exists to avoid.
+	if _, err := io.CopyN(io.Discard, body, first); err != nil {
+		return err
+	}
+	_, err := io.Copy(c.w, io.LimitReader(body, n))
+	return err
+}
+
+type rangeState int
+
+const (
+	rangeNone rangeState = iota
+	rangeOne
+	rangeUnsatisfiable
+)
+
+// sliceOf reads the Range header of a request against a known size. A header
+// that does not parse is unsatisfiable and not ignored, because
+// http.ServeContent — the other half of this same method, the one that answers
+// when the body can seek — answers 416 to it: one method giving two different
+// answers depending on the type of the body would be worse than following the
+// neighbour inside the house. More than one range is answered whole.
+func sliceOf(hdr string, size int64) (first, last int64, state rangeState) {
+	if hdr == "" {
+		return 0, 0, rangeNone
+	}
+	spec, ok := strings.CutPrefix(textproto.TrimString(hdr), "bytes=")
+	if !ok {
+		return 0, 0, rangeUnsatisfiable
+	}
+	if strings.Contains(spec, ",") {
+		return 0, 0, rangeNone
+	}
+	start, end, ok := strings.Cut(spec, "-")
+	if !ok {
+		return 0, 0, rangeUnsatisfiable
+	}
+	start, end = textproto.TrimString(start), textproto.TrimString(end)
+	switch {
+	case start == "":
+		// bytes=-500: the last 500 bytes.
+		n, err := strconv.ParseInt(end, 10, 64)
+		if err != nil || n <= 0 {
+			return 0, 0, rangeUnsatisfiable
+		}
+		if n > size {
+			n = size
+		}
+		first, last = size-n, size-1
+	default:
+		f, err := strconv.ParseInt(start, 10, 64)
+		if err != nil || f < 0 || f >= size {
+			return 0, 0, rangeUnsatisfiable
+		}
+		first, last = f, size-1
+		if end != "" {
+			l, err := strconv.ParseInt(end, 10, 64)
+			if err != nil || l < f {
+				return 0, 0, rangeUnsatisfiable
+			}
+			if l < last {
+				last = l
+			}
+		}
+	}
+	return first, last, rangeOne
+}
+
+// part is a Content-Range the caller handed in, already read.
+type part struct{ first, last int64 }
+
+// partOf reads the Content-Range of another service's 206. It is checked
+// before it becomes a header of ours: a value assembled wrong is a corrupt
+// file in the browser, and a header built out of a third party's answer is how
+// a second header line gets in.
+func partOf(cr string) (*part, error) {
+	if cr == "" {
+		return nil, nil
+	}
+	bad := fmt.Errorf("trilha: SendOpts.ContentRange %q is not \"bytes first-last/total\"", cr)
+	spec, ok := strings.CutPrefix(cr, "bytes ")
+	if !ok {
+		return nil, bad
+	}
+	rng, total, ok := strings.Cut(spec, "/")
+	if !ok || total == "" {
+		return nil, bad
+	}
+	if total != "*" {
+		if n, err := strconv.ParseInt(total, 10, 64); err != nil || n <= 0 {
+			return nil, bad
+		}
+	}
+	start, end, ok := strings.Cut(rng, "-")
+	if !ok {
+		return nil, bad
+	}
+	first, err := strconv.ParseInt(start, 10, 64)
+	if err != nil || first < 0 {
+		return nil, bad
+	}
+	last, err := strconv.ParseInt(end, 10, 64)
+	if err != nil || last < first {
+		return nil, bad
+	}
+	return &part{first: first, last: last}, nil
+}
+
+// scriptRuns reports whether this is one of the types Inline refuses because
+// the browser runs it — the ones NeutralizeScript is about.
+func scriptRuns(ctype string) bool { return inlineNever[mediaKind(ctype)] }
 
 // sniffReader reads the first bytes to find the type and gives back a reader
 // that still starts at the beginning. An io.ReadSeeker rewinds; anything else
@@ -196,11 +473,7 @@ var inlineNever = map[string]bool{
 func CanInline(ctype string) bool { return inlineOK(ctype) }
 
 func inlineOK(ctype string) bool {
-	kind, _, err := mime.ParseMediaType(ctype)
-	if err != nil {
-		kind, _, _ = strings.Cut(ctype, ";")
-		kind = strings.ToLower(strings.TrimSpace(kind))
-	}
+	kind := mediaKind(ctype)
 	if inlineNever[kind] {
 		return false
 	}
@@ -213,6 +486,17 @@ func inlineOK(ctype string) bool {
 		}
 	}
 	return false
+}
+
+// mediaKind is the media type without its parameters, lowercased: the name
+// the two lists above are written in.
+func mediaKind(ctype string) string {
+	kind, _, err := mime.ParseMediaType(ctype)
+	if err != nil {
+		kind, _, _ = strings.Cut(ctype, ";")
+		kind = strings.ToLower(strings.TrimSpace(kind))
+	}
+	return kind
 }
 
 // disposition writes the header both halves of the world understand: the
