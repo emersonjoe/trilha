@@ -3,6 +3,27 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.130.0 — 2026-09-13
+
+Spec 151. Closes [#244](https://github.com/emersonjoe/trilha/issues/244).
+
+### Documentation
+
+- **End-to-end Trilha Cloud tutorial.** The control-plane Learn chapter now walks through
+  starting and configuring the Cloud, generating a real user-registration application,
+  wrapping `trilha check` in a configurable `make check` target, creating a spec and task,
+  registering the project, issuing a scoped key, queueing work, running `trilha-runner`,
+  inspecting evidence and approving the run. The same walkthrough then exercises the generated
+  application's administrator login, invitation, first password, invited-user login, password
+  change and second login. English and Portuguese carry the same commands and ten screenshots
+  captured from the homologated UI.
+
+### Added
+
+- **Block images in the documentation Markdown.** `![alt](src "caption")` renders a responsive
+  `figure` with lazy loading, escaped attributes and an optional caption. Site-rooted image URLs
+  receive `TRILHA_BASE_PATH`, with regression coverage for the `/trilha` GitHub Pages export.
+
 ## 0.129.0 — 2026-09-13
 
 Spec 150. Closes [#195](https://github.com/emersonjoe/trilha/issues/195),

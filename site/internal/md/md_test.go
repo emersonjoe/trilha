@@ -107,3 +107,11 @@ func TestEscapesHTMLInText(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+func TestBlockImage(t *testing.T) {
+	out, _ := Render(`![Portal <Cloud>](/docs/cloud.png "Execução em revisão")`, Options{Base: "/trilha"})
+	want := `<figure class="doc-figure"><img src="/trilha/docs/cloud.png" alt="Portal &lt;Cloud&gt;" loading="lazy" decoding="async"><figcaption>Execução em revisão</figcaption></figure>`
+	if !strings.Contains(out, want) {
+		t.Fatalf("missing %q in %s", want, out)
+	}
+}

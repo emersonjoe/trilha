@@ -58,6 +58,7 @@ var (
 	reOL      = regexp.MustCompile(`^\d+\.\s+(.*)$`)
 	reTable   = regexp.MustCompile(`^\|.*\|\s*$`)
 	reSep     = regexp.MustCompile(`^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$`)
+	reImage   = regexp.MustCompile(`^!\[([^\]]*)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)$`)
 	reCode    = regexp.MustCompile("`([^`]+)`")
 	reBold    = regexp.MustCompile(`\*\*(.+?)\*\*`)
 	reItalic  = regexp.MustCompile(`(^|[^*\w])\*([^*]+)\*`)
@@ -91,6 +92,8 @@ func (r *renderer) render(lines []string) {
 			}
 		case trim == "---":
 			r.sb.WriteString("<hr>\n")
+		case reImage.MatchString(trim):
+			r.image(trim)
 		case reHeading.MatchString(trim):
 			m := reHeading.FindStringSubmatch(trim)
 			r.heading(len(m[1]), m[2])
@@ -149,7 +152,7 @@ func (r *renderer) render(lines []string) {
 
 func isBlockStart(trim string) bool {
 	return strings.HasPrefix(trim, "```") || strings.HasPrefix(trim, ":::") || strings.HasPrefix(trim, "@demo ") ||
-		reHeading.MatchString(trim) || strings.HasPrefix(trim, "> ") || reUL.MatchString(trim) || reOL.MatchString(trim) || trim == "---"
+		reImage.MatchString(trim) || reHeading.MatchString(trim) || strings.HasPrefix(trim, "> ") || reUL.MatchString(trim) || reOL.MatchString(trim) || trim == "---"
 }
 
 func cells(line string) []string {
@@ -185,6 +188,19 @@ func (r *renderer) codeBlock(lang, code string) {
 		lang = "text"
 	}
 	fmt.Fprintf(&r.sb, "<div class=\"codigo\" data-lang=\"%s\"><pre><code class=\"lang-%s\">%s</code></pre></div>\n", html.EscapeString(lang), html.EscapeString(lang), body)
+}
+
+func (r *renderer) image(line string) {
+	parts := reImage.FindStringSubmatch(line)
+	src := parts[2]
+	if strings.HasPrefix(src, "/") {
+		src = r.opt.Base + src
+	}
+	fmt.Fprintf(&r.sb, `<figure class="doc-figure"><img src="%s" alt="%s" loading="lazy" decoding="async">`, html.EscapeString(src), html.EscapeString(parts[1]))
+	if parts[3] != "" {
+		fmt.Fprintf(&r.sb, "<figcaption>%s</figcaption>", html.EscapeString(parts[3]))
+	}
+	r.sb.WriteString("</figure>\n")
 }
 
 func (r *renderer) callout(name string, body []string) {

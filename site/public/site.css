@@ -144,6 +144,9 @@ h3 { font-size: 1.15rem; margin: 1.8em 0 .5em; }
 .conteudo p, .conteudo li { max-width: 46rem; }
 .conteudo ul, .conteudo ol { padding-left: 1.4rem; }
 .conteudo li { margin: .25rem 0; }
+.doc-figure { margin: 1.5rem 0 2rem; }
+.doc-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--linha); border-radius: var(--raio); background: var(--bg-2); box-shadow: 0 12px 32px color-mix(in srgb, var(--fg) 10%, transparent); }
+.doc-figure figcaption { margin-top: .55rem; color: var(--fg-2); font-size: .86rem; text-align: center; }
 .ancora { margin-left: .4rem; color: var(--linha); font-weight: 400; }
 h2:hover .ancora, h3:hover .ancora { color: var(--marca); text-decoration: none; }
 blockquote { margin: 1.2rem 0; padding: .2rem 1rem; border-left: 3px solid var(--acento); color: var(--fg-2); }

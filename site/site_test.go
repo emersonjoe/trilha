@@ -247,6 +247,17 @@ func TestBasePathPrefixesLinks(t *testing.T) {
 	}
 }
 
+func TestBasePathPrefixesDocumentationImages(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "/trilha")
+	_, body := get(t, "/pt/aprender/agentico-cloud")
+	if !strings.Contains(body, `src="/trilha/docs/agentic-cloud/cloud-run-review.png"`) {
+		t.Fatal("documentation images must carry the base path")
+	}
+	if strings.Contains(body, `src="/docs/agentic-cloud/`) {
+		t.Fatal("unprefixed documentation image found")
+	}
+}
+
 func TestExportPathsCoverEveryPage(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "")
 	a := newApp()
