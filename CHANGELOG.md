@@ -3,6 +3,48 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.125.0 — 2026-09-13
+
+Spec 146. Closes [#205](https://github.com/emersonjoe/trilha/issues/205),
+[#207](https://github.com/emersonjoe/trilha/issues/207),
+[#209](https://github.com/emersonjoe/trilha/issues/209).
+
+### Added
+
+- **`trilha client`: the generated client hands over the HTTP response.**
+  `New(base, WithResponse(func(context.Context, *http.Response)))` runs once for every response
+  that arrives — including the ones that become an `*Error` — with its status and its headers.
+  It is what an API authenticated by **cookie** was missing: the credential comes back in a
+  `Set-Cookie`, and the operation that produces it is the login. The hook takes the context of
+  the call, so the collector belongs to the request; a `http.CookieJar` on the `http.Client`
+  belongs to the process, and would send one person's credential on the next person's call. The
+  same hook reads the `ETag` or the `Location` of a `POST` that creates and the `Link` of a
+  paginated answer. The body is not part of the deal: it belongs to the operation, which returns
+  it decoded. The recipe [An app in front of an existing
+  API](https://trilha.dev/cookbook/existing-api) has the login by cookie in full.
+
+### Fixed
+
+- **`trilha client`: the tag stopped being cut off the middle and the end of a method's name.**
+  The cut that turns `list_documents` in the tag `documents` into a short name happened in four
+  positions — prefix and suffix, of the tag and of its singular — and three of them changed what
+  the name says: `obter_resumo_dos_idiomas` in the tag `idiomas` became `ObterResumoDos()`, a
+  preposition with no object, and `responder_card` in the tag `cards` became `Responder()`,
+  which does not say what is answered. Both compile and stay exported, so nothing warned. Now
+  the tag falls only when it is the exact prefix of the name, on a word boundary, and that cut
+  is a line of the report. Everything else keeps the whole name, repetition included:
+  `Documents.ListDocuments()`, `Idiomas.ObterResumoDosIdiomas()`, `Cards.ResponderCard()`.
+  **Regenerate** (`trilha client …`) and the compiler will point at each call to rename; the
+  names in `examples/` moved in this release for the same reason.
+- **`trilha client`: a field that is `required` and nullable is a pointer, and is not
+  `validate:"required"`.** `"type": ["string", "null"]` (3.1), `nullable: true` (3.0) and the
+  `anyOf` of Pydantic all become `*string`, `*int64`, `*Vinculo`, so `null` has a way of being
+  said — without the pointer it decoded to the zero value, and an `["integer","null"]` whose
+  zero means something lost the difference in silence. And `required` leaves the `validate` tag,
+  because over a pointer it means "not nil": the struct used to say that `"primary": null`, an
+  answer the document itself declares legitimate, is invalid. The other rules (`min`, `max`,
+  `email`, `url`, `oneof`) stay; a slice, a map and a `json.RawMessage` are left alone, because
+  `nil` already says null there.
 ## 0.124.0 — 2026-09-12
 
 Spec 145. Closes [#232](https://github.com/emersonjoe/trilha/issues/232).

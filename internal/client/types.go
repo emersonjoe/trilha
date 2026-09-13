@@ -167,13 +167,14 @@ func (b *builder) object(name string, s *Schema, where string) {
 		if b.stack[t] {
 			t = "*" + t
 		}
+		t = nullableGoType(t, ps)
 		f := Field{Name: exportName(p), Type: t, Doc: doc(ps)}
 		tag := "json:\"" + p
 		if !req {
 			tag += ",omitempty"
 		}
 		tag += "\""
-		if v := validateTag(ps, req); v != "" {
+		if v := validateTag(ps, req && !nullableType(ps)); v != "" {
 			tag += " validate:\"" + v + "\""
 		}
 		f.Tag = tag
@@ -326,8 +327,53 @@ func (b *builder) dropNotes(since int, where string) {
 	b.notes = kept
 }
 
+// nullableType says whether the schema itself admits null: the list form of 3.1
+// ("type": ["string","null"]), the flag of 3.0 (nullable: true), or the anyOf of
+// Pydantic, which goType already turns into a pointer.
+func nullableType(s *Schema) bool {
+	if s == nil {
+		return false
+	}
+	if s.Nullable {
+		return true
+	}
+	if list, ok := s.Type.([]any); ok {
+		for _, v := range list {
+			if str, _ := v.(string); str == "null" {
+				return true
+			}
+		}
+	}
+	return (len(s.OneOf) > 0 || len(s.AnyOf) > 0) && nullableOf(s) != nil
+}
+
+// nullableGoType is the Go type a nullable schema needs in order to be able to
+// say null: a pointer, unless the type already has a nil of its own. A field
+// that is nullable and required — the colour that always comes and is null when
+// nobody configured it — came out as a plain `string`, so `null` decoded to ""
+// and the app could not tell "not configured" from "configured empty". In a
+// colour that is harmless; in an `["integer","null"]` whose zero means something,
+// the difference disappears without a word.
+//
+// A slice, a map and json.RawMessage are left alone: nil already says null there,
+// and *[]string is not a type anybody wants to write.
+func nullableGoType(t string, s *Schema) string {
+	if !nullableType(s) || t == "" || t == "json.RawMessage" {
+		return t
+	}
+	switch {
+	case strings.HasPrefix(t, "*"), strings.HasPrefix(t, "[]"), strings.HasPrefix(t, "map["):
+		return t
+	}
+	return "*" + t
+}
+
 // validateTag turns what the schema promises into the tags of spec 027, so the
-// same type can be the answer of the API and the Bind of a form.
+// same type can be the answer of the API and the Bind of a form. A nullable
+// schema arrives here without its `required`: for this validator and for the one
+// in go-playground, `required` over a pointer means "not nil", and a field the
+// document declares as required and nullable answers `null` legitimately — so
+// the only tag that would not lie is no tag.
 func validateTag(s *Schema, required bool) string {
 	if s == nil {
 		return ""

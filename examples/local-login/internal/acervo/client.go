@@ -21,9 +21,10 @@ import (
 
 // Client is a connection to Acervo API. It is safe for concurrent use.
 type Client struct {
-	base   string
-	http   *http.Client
-	header func(context.Context) http.Header
+	base     string
+	http     *http.Client
+	header   func(context.Context) http.Header
+	response func(context.Context, *http.Response)
 }
 
 // Option configures a Client.
@@ -38,6 +39,32 @@ func WithClient(h *http.Client) Option { return func(c *Client) { c.http = h } }
 // request without a context that carries one goes out unauthenticated.
 func WithHeader(fn func(context.Context) http.Header) Option {
 	return func(c *Client) { c.header = fn }
+}
+
+// WithResponse runs once for every response that arrives, including the ones that
+// become an *Error. It is how the caller reaches what is not in the body: the
+// Set-Cookie of a login on an API authenticated by cookie, the ETag or the
+// Location of a POST that creates, the Link of a page, the Retry-After of a
+// refusal.
+//
+// It takes the context of the call, and that is what makes it safe on a server:
+// the collector lives in the context, so each request fills its own. A
+// http.CookieJar on the http.Client would not — the jar belongs to the process,
+// so one person's credential would go out on the next person's call.
+//
+//	type harvestKey struct{}
+//
+//	c := New(base, WithResponse(func(ctx context.Context, r *http.Response) {
+//		if h, ok := ctx.Value(harvestKey{}).(*[]*http.Cookie); ok {
+//			*h = r.Cookies()
+//		}
+//	}))
+//
+// What is handed over is the status and the headers. The body belongs to the
+// operation, which decodes it — or to the caller, when the answer is bytes — so
+// reading it here takes it away from whoever asked.
+func WithResponse(fn func(context.Context, *http.Response)) Option {
+	return func(c *Client) { c.response = fn }
 }
 
 // New builds a client for a base URL ("https://api.example.com").
@@ -108,6 +135,11 @@ func (c *Client) do(ctx context.Context, method, path string, q url.Values, body
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	// Every response passes through here — the decoded one, the one that is bytes,
+	// the one that becomes an *Error — so this is where the caller gets to see it.
+	if c.response != nil {
+		c.response(ctx, resp)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		defer resp.Body.Close()
@@ -236,8 +268,8 @@ type PagedDocument struct {
 	Total int64      `json:"total" validate:"required"`
 }
 
-// DocumentsListParams is query of GET /api/documents.
-type DocumentsListParams struct {
+// DocumentsListDocumentsParams is query of GET /api/documents.
+type DocumentsListDocumentsParams struct {
 	Page     int64  `json:"page,omitempty" validate:"min=1"`
 	PageSize int64  `json:"page_size,omitempty" validate:"max=200"`
 	Q        string `json:"q,omitempty"`
@@ -249,8 +281,8 @@ type Documents struct{ c *Client }
 // Documents returns the Documents part of the API.
 func (c *Client) Documents() *Documents { return &Documents{c: c} }
 
-// Get is GET /api/documents/{document_id}: one document.
-func (g *Documents) Get(ctx context.Context, documentID string) (Document, error) {
+// GetDocument is GET /api/documents/{document_id}: one document.
+func (g *Documents) GetDocument(ctx context.Context, documentID string) (Document, error) {
 	path := "/api/documents/" + url.PathEscape(documentID)
 	var q url.Values
 	var out Document
@@ -258,8 +290,8 @@ func (g *Documents) Get(ctx context.Context, documentID string) (Document, error
 	return out, err
 }
 
-// List is GET /api/documents: list documents, newest first.
-func (g *Documents) List(ctx context.Context, p DocumentsListParams) (PagedDocument, error) {
+// ListDocuments is GET /api/documents: list documents, newest first.
+func (g *Documents) ListDocuments(ctx context.Context, p DocumentsListDocumentsParams) (PagedDocument, error) {
 	path := "/api/documents"
 	q := url.Values{}
 	if p.Page != 0 {

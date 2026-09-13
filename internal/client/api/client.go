@@ -23,9 +23,10 @@ import (
 
 // Client is a connection to Acervo API. It is safe for concurrent use.
 type Client struct {
-	base   string
-	http   *http.Client
-	header func(context.Context) http.Header
+	base     string
+	http     *http.Client
+	header   func(context.Context) http.Header
+	response func(context.Context, *http.Response)
 }
 
 // Option configures a Client.
@@ -40,6 +41,32 @@ func WithClient(h *http.Client) Option { return func(c *Client) { c.http = h } }
 // request without a context that carries one goes out unauthenticated.
 func WithHeader(fn func(context.Context) http.Header) Option {
 	return func(c *Client) { c.header = fn }
+}
+
+// WithResponse runs once for every response that arrives, including the ones that
+// become an *Error. It is how the caller reaches what is not in the body: the
+// Set-Cookie of a login on an API authenticated by cookie, the ETag or the
+// Location of a POST that creates, the Link of a page, the Retry-After of a
+// refusal.
+//
+// It takes the context of the call, and that is what makes it safe on a server:
+// the collector lives in the context, so each request fills its own. A
+// http.CookieJar on the http.Client would not — the jar belongs to the process,
+// so one person's credential would go out on the next person's call.
+//
+//	type harvestKey struct{}
+//
+//	c := New(base, WithResponse(func(ctx context.Context, r *http.Response) {
+//		if h, ok := ctx.Value(harvestKey{}).(*[]*http.Cookie); ok {
+//			*h = r.Cookies()
+//		}
+//	}))
+//
+// What is handed over is the status and the headers. The body belongs to the
+// operation, which decodes it — or to the caller, when the answer is bytes — so
+// reading it here takes it away from whoever asked.
+func WithResponse(fn func(context.Context, *http.Response)) Option {
+	return func(c *Client) { c.response = fn }
 }
 
 // New builds a client for a base URL ("https://api.example.com").
@@ -110,6 +137,11 @@ func (c *Client) do(ctx context.Context, method, path string, q url.Values, body
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	// Every response passes through here — the decoded one, the one that is bytes,
+	// the one that becomes an *Error — so this is where the caller gets to see it.
+	if c.response != nil {
+		c.response(ctx, resp)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		defer resp.Body.Close()
@@ -295,20 +327,24 @@ type BodyImportDocumentsAPIDocumentsImportPost struct {
 
 // Document is a document the API stores.
 type Document struct {
-	Archived  bool                       `json:"archived,omitempty"`
-	CreatedAt string                     `json:"created_at,omitempty"`
-	Either    json.RawMessage            `json:"either,omitempty"`
-	Filename  string                     `json:"filename" validate:"required,min=1,max=255"`
-	ID        string                     `json:"id" validate:"required"`
-	Metadata  map[string]json.RawMessage `json:"metadata,omitempty"`
-	Owner     *DocumentIn                `json:"owner,omitempty"`
-	PageCount *int64                     `json:"page_count,omitempty"`
-	Pages     int32                      `json:"pages,omitempty"`
-	Payload   json.RawMessage            `json:"payload,omitempty"`
-	Score     float64                    `json:"score,omitempty"`
-	SizeBytes int64                      `json:"size_bytes,omitempty"`
-	Status    Status                     `json:"status" validate:"required"`
-	Tags      []string                   `json:"tags,omitempty"`
+	Archived bool `json:"archived,omitempty"`
+	// Colour of the cover in hex, or null when nobody chose one.
+	CoverColor *string                    `json:"cover_color"`
+	CreatedAt  string                     `json:"created_at,omitempty"`
+	Either     json.RawMessage            `json:"either,omitempty"`
+	Filename   string                     `json:"filename" validate:"required,min=1,max=255"`
+	ID         string                     `json:"id" validate:"required"`
+	Metadata   map[string]json.RawMessage `json:"metadata,omitempty"`
+	Owner      *DocumentIn                `json:"owner,omitempty"`
+	PageCount  *int64                     `json:"page_count,omitempty"`
+	Pages      int32                      `json:"pages,omitempty"`
+	Payload    json.RawMessage            `json:"payload,omitempty"`
+	// Revision number, or null before the first review.
+	Revision  *int64   `json:"revision"`
+	Score     float64  `json:"score,omitempty"`
+	SizeBytes int64    `json:"size_bytes,omitempty"`
+	Status    Status   `json:"status" validate:"required"`
+	Tags      []string `json:"tags,omitempty"`
 	// Tenant Id
 	TenantID *string `json:"tenant_id,omitempty"`
 }
@@ -344,8 +380,8 @@ type User struct {
 	Site  string   `json:"site,omitempty" validate:"url"`
 }
 
-// DocumentsListParams is query of GET /api/documents.
-type DocumentsListParams struct {
+// DocumentsListDocumentsParams is query of GET /api/documents.
+type DocumentsListDocumentsParams struct {
 	Archived bool      `json:"archived,omitempty"`
 	Draft    *bool     `json:"draft,omitempty"`
 	Label    *[]string `json:"label,omitempty"`
@@ -372,15 +408,15 @@ type Certificates struct{ c *Client }
 // Certificates returns the Certificates part of the API.
 func (c *Client) Certificates() *Certificates { return &Certificates{c: c} }
 
-// CertificatesUploadForm is the multipart body of the request below.
-type CertificatesUploadForm struct {
+// CertificatesUploadCertificateForm is the multipart body of the request below.
+type CertificatesUploadCertificateForm struct {
 	Dias  int64 // how long to keep it
 	File  FilePart
 	Senha string // the password of the certificate
 }
 
-// Upload is POST /api/certificates: send a certificate and the password that opens it.
-func (g *Certificates) Upload(ctx context.Context, form CertificatesUploadForm) (Document, error) {
+// UploadCertificate is POST /api/certificates: send a certificate and the password that opens it.
+func (g *Certificates) UploadCertificate(ctx context.Context, form CertificatesUploadCertificateForm) (Document, error) {
 	path := "/api/certificates"
 	var q url.Values
 	var out Document
@@ -447,8 +483,8 @@ func (g *Documents) Batch(ctx context.Context, form DocumentsBatchForm) (Documen
 	return out, err
 }
 
-// Create is POST /api/documents: create a document from metadata only.
-func (g *Documents) Create(ctx context.Context, body DocumentIn) (Document, error) {
+// CreateDocument is POST /api/documents: create a document from metadata only.
+func (g *Documents) CreateDocument(ctx context.Context, body DocumentIn) (Document, error) {
 	path := "/api/documents"
 	var q url.Values
 	var out Document
@@ -460,8 +496,8 @@ func (g *Documents) Create(ctx context.Context, body DocumentIn) (Document, erro
 	return out, err
 }
 
-// Delete is DELETE /api/documents/{document_id}.
-func (g *Documents) Delete(ctx context.Context, documentID string) error {
+// DeleteDocument is DELETE /api/documents/{document_id}.
+func (g *Documents) DeleteDocument(ctx context.Context, documentID string) error {
 	path := "/api/documents/" + url.PathEscape(documentID)
 	var q url.Values
 	return g.c.call(ctx, "DELETE", path, q, nil, "", nil)
@@ -474,8 +510,8 @@ func (g *Documents) Download(ctx context.Context, documentID string) (*http.Resp
 	return g.c.do(ctx, "GET", path, q, nil, "")
 }
 
-// Get is GET /api/documents/{document_id}.
-func (g *Documents) Get(ctx context.Context, documentID string) (Document, error) {
+// GetDocument is GET /api/documents/{document_id}.
+func (g *Documents) GetDocument(ctx context.Context, documentID string) (Document, error) {
 	path := "/api/documents/" + url.PathEscape(documentID)
 	var q url.Values
 	var out Document
@@ -483,14 +519,14 @@ func (g *Documents) Get(ctx context.Context, documentID string) (Document, error
 	return out, err
 }
 
-// DocumentsImportForm is the multipart body of the request below.
-type DocumentsImportForm struct {
+// DocumentsImportDocumentsForm is the multipart body of the request below.
+type DocumentsImportDocumentsForm struct {
 	Comment string // what the batch is
 	Files   []FilePart
 }
 
-// Import is POST /api/documents/import: the same batch, declared the way FastAPI declares one: a Body_ component, by reference.
-func (g *Documents) Import(ctx context.Context, form DocumentsImportForm) (Document, error) {
+// ImportDocuments is POST /api/documents/import: the same batch, declared the way FastAPI declares one: a Body_ component, by reference.
+func (g *Documents) ImportDocuments(ctx context.Context, form DocumentsImportDocumentsForm) (Document, error) {
 	path := "/api/documents/import"
 	var q url.Values
 	var out Document
@@ -506,8 +542,8 @@ func (g *Documents) Import(ctx context.Context, form DocumentsImportForm) (Docum
 	return out, err
 }
 
-// List is GET /api/documents: list documents, newest first.
-func (g *Documents) List(ctx context.Context, p DocumentsListParams) (PagedDocument, error) {
+// ListDocuments is GET /api/documents: list documents, newest first.
+func (g *Documents) ListDocuments(ctx context.Context, p DocumentsListDocumentsParams) (PagedDocument, error) {
 	path := "/api/documents"
 	q := url.Values{}
 	if p.Archived {
@@ -600,8 +636,8 @@ type Users struct{ c *Client }
 // Users returns the Users part of the API.
 func (c *Client) Users() *Users { return &Users{c: c} }
 
-// Upsert is PUT /api/users.
-func (g *Users) Upsert(ctx context.Context, body User) (User, error) {
+// UpsertUser is PUT /api/users.
+func (g *Users) UpsertUser(ctx context.Context, body User) (User, error) {
 	path := "/api/users"
 	var q url.Values
 	var out User

@@ -251,10 +251,17 @@ agrupado por tag: parâmetro de caminho na assinatura, parâmetros de query numa
 JSON com o tipo do esquema, e resposta binária como o `*http.Response`, que passa em stream
 para o `c.Pipe`.
 
-O nome do método é o `operationId` menos o que só repete a tag: `list_documents` na tag
-`documents` vira `Documents.List()`. O corte acontece em fronteira de palavra e em nenhum
-outro lugar — uma tag que é apenas o começo de uma palavra (`config` em `configurar_regra`)
-deixa o nome inteiro, `Config.ConfigurarRegra()`.
+O nome do método é o `operationId` menos a cauda que só repete caminho e método, que é o que a
+FastAPI escreve: `list_documents_api_documents_get` vira `ListDocuments`. O que sobra perde a
+tag numa posição e em nenhuma outra — a tag escrita exatamente, no começo do nome, em fronteira
+de palavra —, então `config_reset` na tag `config` vira `Config.Reset()`, e esse corte é uma
+linha do relatório, porque um nome que o gerador encurtou é um nome que o documento não tem. Em
+todo o resto o nome fica inteiro: a tag no fim (`obter_resumo_dos_idiomas` na tag `idiomas` vira
+`Idiomas.ObterResumoDosIdiomas()`), o singular da tag (`responder_card` na tag `cards` vira
+`Cards.ResponderCard()`) e a tag que é apenas o começo de uma palavra (`config` em
+`configurar_regra` vira `Config.ConfigurarRegra()`). `Documents.ListDocuments()` é repetitivo ao
+lado do grupo e está certo: um nome repetitivo se lê, e um nome amputado — `ObterResumoDos()`,
+uma preposição sem objeto — manda quem está escrevendo a tela abrir o `client.go`.
 
 Todo identificador do arquivo é ASCII, e não há dois iguais. A tag é o rótulo de uma página —
 `verificação de assinaturas` é o que aparece no `/docs` da API —, então a letra acentuada cai
@@ -263,7 +270,7 @@ digitar com acento morto, e o rótulo que o documento escreveu fica no comentár
 é onde ele é lido. Quando a tag tem o nome de um esquema — a tag `auditoria` e o esquema
 `Auditoria` —, quem cede é o grupo, porque o nome do esquema veio do documento e o do grupo é
 invenção deste gerador: o tipo vira `AuditoriaAPI`, enquanto a chamada continua `c.Auditoria()`
-e a struct de query continua `AuditoriaListarParams`. Cada nome que o comando teve de inventar
+e a struct de query continua começando por `Auditoria`. Cada nome que o comando teve de inventar
 é uma linha do relatório, em vez de uma notícia que espera o `go build` de quem chama o
 cliente.
 
@@ -284,6 +291,29 @@ page, err := c.Folhas().Listar(ctx, api.FolhasListarParams{
 })
 ```
 
+Um campo de esquema segue a mesma regra, de qualquer jeito que o documento escreva o anulável —
+`"type": ["string", "null"]` no 3.1, `nullable: true` no 3.0, o `anyOf` do Pydantic — e segue
+ainda quando o documento também diz `required`:
+
+```jsonc
+// no contrato: a cor sempre vem, e vale null quando ninguém escolheu uma
+"primaria": { "type": ["string", "null"], "description": "Cor primária em hexadecimal, ou nula." }
+```
+
+```go
+// Cor primária em hexadecimal, ou nula.
+Primaria *string `json:"primaria"`
+```
+
+O ponteiro existe para o nulo ter como ser dito: sem ele, `null` decodifica para o valor zero e
+o app não distingue "não configurou" de "configurou vazio" — inócuo numa cor, e uma diferença
+que some em silêncio num `["integer","null"]` cujo zero significa algo. O `required` não entra
+na tag `validate`, porque sobre um ponteiro `required` quer dizer "não é nil", e `"primaria":
+null` é uma resposta que o servidor está certo de dar: uma tag que a chamasse de inválida
+culparia o servidor por estar correto. As outras regras que o documento afirma — `minLength`,
+`format`, `enum` — continuam. Fatia, mapa e `json.RawMessage` ficam como estão: ali o `nil` já
+diz nulo, e `*[]string` não é um tipo que alguém queira escrever.
+
 Um corpo `multipart/form-data` é lido como o formulário que ele é — através do `$ref`, porque
 uma FastAPI nunca escreve esse esquema inline: ela declara um componente `Body_<operação>` e
 aponta para ele. Um único campo binário e mais nada continua sendo dois argumentos — `file
@@ -291,12 +321,12 @@ io.Reader, filename string`. Qualquer outra forma vira um struct tipado, para ne
 formulário sumir em silêncio:
 
 ```go
-_, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
+_, err := c.Certificates().UploadCertificate(ctx, api.CertificatesUploadCertificateForm{
 	File:  api.FilePart{Filename: "cert.pfx", Content: f}, // io.Reader: vai em stream
 	Senha: "…",                                            // obrigatório, então sempre viaja
 })
 
-_, err = c.Documents().Import(ctx, api.DocumentsImportForm{
+_, err = c.Documents().ImportDocuments(ctx, api.DocumentsImportDocumentsForm{
 	Files:   []api.FilePart{a, b, c}, // três partes com o mesmo nome, nesta ordem
 	Comment: "lote de setembro",      // um campo de texto do mesmo formulário
 })
@@ -307,10 +337,44 @@ Um `[]FilePart` vira várias partes com um nome só, na ordem do slice, que é o
 regra da query. Nada fica em memória: o corpo é um `io.Pipe`, então um arquivo maior que a
 memória do processo atravessa.
 
-`New(base, WithHeader(...), WithClient(...))` é toda a superfície do construtor: o cliente não
-guarda credencial nenhuma, e o `WithHeader` roda por requisição, que é onde o token da sessão
-entra. O arquivo gerado importa a biblioteca padrão e mais nada — nem a Trilha — então serve
-também num job, num teste, num binário que não é web.
+`New(base, WithHeader(...), WithClient(...), WithResponse(...))` é toda a superfície do
+construtor: o cliente não guarda credencial nenhuma, e o `WithHeader` roda por requisição, que é
+onde o token da sessão entra. O arquivo gerado importa a biblioteca padrão e mais nada — nem a
+Trilha — então serve também num job, num teste, num binário que não é web.
+
+O `WithResponse` é o sentido contrário: roda uma vez para cada resposta que chega — inclusive as
+que viram `*Error` — e entrega o status e os cabeçalhos dela. É como se lê o que não está no
+corpo: o `Set-Cookie` de um login numa API autenticada por cookie, o `ETag` ou o `Location` de
+um `POST` que cria, o `Link` de uma paginação, o `Retry-After` de uma recusa. O gancho recebe o
+context da chamada, e é isso que o torna seguro num servidor: o coletor mora no context, então
+cada requisição enche o seu. Um `http.CookieJar` no `http.Client` não teria essa propriedade — o
+jar é do processo, então a credencial de uma pessoa sairia na chamada da seguinte.
+
+```go
+type colheitaKey struct{}
+
+var Acervo = api.New("http://api:8801", api.WithResponse(func(ctx context.Context, r *http.Response) {
+	if h, ok := ctx.Value(colheitaKey{}).(*[]*http.Cookie); ok {
+		*h = r.Cookies()
+	}
+}))
+
+func entrar(c *trilha.Ctx, in api.Credenciais) error {
+	var colhidos []*http.Cookie
+	ctx := context.WithValue(c.Context(), colheitaKey{}, &colhidos)
+	if _, err := Acervo.Sessoes().Login(ctx, in); err != nil {
+		return err
+	}
+	for _, ck := range colhidos { // a credencial desta requisição, e de mais nenhuma
+		c.SetCookie(ck)
+	}
+	return nil
+}
+```
+
+O corpo não faz parte do acordo: ele é da operação, que decodifica — ou de quem chamou, quando a
+resposta é bytes —, então lê-lo dentro do gancho é tirá-lo de quem pediu. O que o corpo tem, a
+operação já devolve.
 
 Status fora de 2xx vira um `*Error` com `Status`, `Body`, o `Detail` tirado do `problem+json`
 ou do `{"detail": ...}` que uma FastAPI escreve, e — quando a resposta é o erro de validação de

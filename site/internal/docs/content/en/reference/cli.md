@@ -253,10 +253,18 @@ same type is the answer of the API and the `Bind` of a form. A method per operat
 by tag: path parameters in the signature, query parameters in a struct, a JSON body as the
 schema's type, and a binary answer as the `*http.Response`, so it streams into `c.Pipe`.
 
-The method's name is the `operationId` minus what only repeats the tag, so `list_documents`
-in the tag `documents` is `Documents.List()`. That cut happens on a word boundary and nowhere
-else: a tag that merely spells the start of a word — `config` in `configurar_regra` — leaves
-the name whole, `Config.ConfigurarRegra()`.
+The method's name is the `operationId` minus the tail that only repeats the path and the
+method, which is what FastAPI writes: `list_documents_api_documents_get` is `ListDocuments`.
+What is left loses the tag in one position and no other — the tag spelled exactly, at the
+start of the name, on a word boundary — so `config_reset` in the tag `config` is
+`Config.Reset()`, and that cut is a line of the report, because a name the generator shortened
+is a name the document does not have. Everywhere else the name stays whole: the tag at the end
+(`obter_resumo_dos_idiomas` in the tag `idiomas` is `Idiomas.ObterResumoDosIdiomas()`), the
+singular of the tag (`responder_card` in the tag `cards` is `Cards.ResponderCard()`) and the
+tag that merely spells the start of a word (`config` in `configurar_regra` is
+`Config.ConfigurarRegra()`). `Documents.ListDocuments()` is repetitive next to the group and it
+is right: a repetitive name is read, while an amputated one — `ObterResumoDos()`, a preposition
+with no object — sends whoever is writing the screen to open `client.go`.
 
 Every identifier in the file is ASCII, and no two of them are the same. A tag is the label of
 a page — `verificação de assinaturas` is what the API's `/docs` shows — so an accented letter
@@ -265,7 +273,7 @@ to type with a dead key, and the label the document wrote stays in the comment o
 which is where it is read. When a tag spells the name of a schema — the tag `auditoria` and
 the schema `Auditoria` — the group is the one that yields, because the schema's name came from
 the document and the group's is this generator's invention: the type becomes `AuditoriaAPI`,
-while the call stays `c.Auditoria()` and the query struct stays `AuditoriaListarParams`. Each
+while the call stays `c.Auditoria()` and the query struct still starts with `Auditoria`. Each
 name the command had to invent is a line of the report, instead of news that waits for the
 `go build` of whoever calls the client.
 
@@ -279,12 +287,35 @@ element, none of them when it is nil.
 
 ```go
 since := "2026-09"
-page, err := c.Documents().List(ctx, api.DocumentsListParams{
+page, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{
 	Page:  1,
 	Since: &since, // ?since=2026-09
 	State: nil,    // not in the URL at all
 })
 ```
+
+A field of a schema follows the same rule, whichever way the document spells nullable —
+`"type": ["string", "null"]` in 3.1, `nullable: true` in 3.0, the `anyOf` of Pydantic — and it
+follows it even when the document also says `required`:
+
+```jsonc
+// in the document: the colour always comes, and it is null when nobody chose one
+"primary": { "type": ["string", "null"], "description": "Primary colour in hex, or null." }
+```
+
+```go
+// Primary colour in hex, or null.
+Primary *string `json:"primary"`
+```
+
+The pointer is there so that null has a way of being said: without it `null` decodes to the
+zero value, and the app cannot tell "not configured" from "configured empty" — harmless in a
+colour, and a difference that disappears in silence in an `["integer","null"]` whose zero means
+something. The `required` is not in the `validate` tag, because over a pointer `required` means
+"not nil", and `"primary": null` is an answer the server is right to give: a tag that called it
+invalid would blame the server for being correct. The other rules the document states —
+`minLength`, `format`, `enum` — stay. A slice, a map and a `json.RawMessage` are left as they
+are: `nil` already says null there, and `*[]string` is not a type anybody wants to write.
 
 A `multipart/form-data` body is read as the form it is — through the `$ref`, because a FastAPI
 never writes that schema inline: it declares a `Body_<operation>` component and points at it.
@@ -292,12 +323,12 @@ One binary field and nothing else stays two arguments — `file io.Reader, filen
 Anything else becomes a typed struct, so no field of the form is silently dropped:
 
 ```go
-_, err := c.Certificates().Upload(ctx, api.CertificatesUploadForm{
+_, err := c.Certificates().UploadCertificate(ctx, api.CertificatesUploadCertificateForm{
 	File:  api.FilePart{Filename: "cert.pfx", Content: f}, // io.Reader: it streams
 	Senha: "…",                                            // required, so it always travels
 })
 
-_, err = c.Documents().Import(ctx, api.DocumentsImportForm{
+_, err = c.Documents().ImportDocuments(ctx, api.DocumentsImportDocumentsForm{
 	Files:   []api.FilePart{a, b, c}, // three parts under the same name, in this order
 	Comment: "September batch",       // a text field of the same form
 })
@@ -308,10 +339,45 @@ a `list[UploadFile]` on the other side reads. An optional scalar left at its zer
 not travel, the same rule the query follows. Nothing is buffered: the body is an `io.Pipe`, so
 a file larger than the memory of the process crosses it.
 
-`New(base, WithHeader(...), WithClient(...))` is the whole surface of the constructor: the
-client holds no credential of its own, and `WithHeader` runs per request, which is where the
-session's token goes. The generated file imports the standard library and nothing else — not
-even Trilha — so it also works in a job, in a test, in a binary that is not a web app.
+`New(base, WithHeader(...), WithClient(...), WithResponse(...))` is the whole surface of the
+constructor: the client holds no credential of its own, and `WithHeader` runs per request, which
+is where the session's token goes. The generated file imports the standard library and nothing
+else — not even Trilha — so it also works in a job, in a test, in a binary that is not a web app.
+
+`WithResponse` is the other direction: it runs once for every response that arrives — including
+the ones that become an `*Error` — and hands over its status and its headers. It is how you read
+what is not in the body: the `Set-Cookie` of a login on an API authenticated by cookie, the
+`ETag` or the `Location` of a `POST` that creates, the `Link` of a page, the `Retry-After` of a
+refusal. The hook takes the context of the call, and that is what makes it safe on a server: the
+collector lives in the context, so each request fills its own. A `http.CookieJar` on the
+`http.Client` would not — the jar belongs to the process, so one person's credential would go
+out on the next person's call.
+
+```go
+type harvestKey struct{}
+
+var Acervo = api.New("http://api:8801", api.WithResponse(func(ctx context.Context, r *http.Response) {
+	if h, ok := ctx.Value(harvestKey{}).(*[]*http.Cookie); ok {
+		*h = r.Cookies()
+	}
+}))
+
+func login(c *trilha.Ctx, in api.Credentials) error {
+	var harvest []*http.Cookie
+	ctx := context.WithValue(c.Context(), harvestKey{}, &harvest)
+	if _, err := Acervo.Sessions().Login(ctx, in); err != nil {
+		return err
+	}
+	for _, ck := range harvest { // this request's credential, and nobody else's
+		c.SetCookie(ck)
+	}
+	return nil
+}
+```
+
+The body is not part of the deal: it belongs to the operation, which decodes it — or to the
+caller, when the answer is bytes — so reading it inside the hook takes it away from whoever
+asked. What the body holds, the operation already returns.
 
 A status outside 2xx is an `*Error` with `Status`, `Body`, the `Detail` pulled out of
 `problem+json` or of the `{"detail": ...}` a FastAPI writes, and — when the answer is the

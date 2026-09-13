@@ -1079,7 +1079,7 @@ func TestMigrateNextE2E(t *testing.T) {
 		t.Fatal(out)
 	}
 	gen := filepath.Join(proj, "internal", "api", "client.go")
-	if b, _ := os.ReadFile(gen); !strings.Contains(string(b), "func (g *Documents) List(") {
+	if b, _ := os.ReadFile(gen); !strings.Contains(string(b), "func (g *Documents) ListDocuments(") {
 		t.Fatalf("client.go = %.400s", b)
 	}
 	run(t, proj, "go", "build", "./...")

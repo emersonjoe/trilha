@@ -73,7 +73,7 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		), nil
 	}
 	busca := c.Query("q")
-	page, err := api.Documents().List(chamando(c), acervo.DocumentsListParams{Q: busca, PageSize: 20})
+	page, err := api.Documents().ListDocuments(chamando(c), acervo.DocumentsListDocumentsParams{Q: busca, PageSize: 20})
 	if err != nil {
 		// The API answering badly is not this app crashing: the person gets
 		// the screen, and what the other side said.

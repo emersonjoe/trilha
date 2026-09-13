@@ -10,6 +10,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -102,22 +103,30 @@ func TestSchemasBecameTypes(t *testing.T) {
 	for _, want := range []string{
 		// allOf is flattened: Document has the fields of Base.
 		"type Document struct {",
-		"ID        string                     `json:\"id\" validate:\"required\"`",
 		// A closed list of strings is a defined type and its constants.
 		"StatusPending    Status = \"pending\"",
 		// required/minLength/format become the tags of the validator.
 		"validate:\"required,min=1,max=255\"",
 		"validate:\"required,email\"",
-		// A $ref that closes a cycle is a pointer; a slice already breaks it.
-		"Parent   *Folder",
-		"Children []Folder",
-		// oneOf keeps arriving, as bytes.
-		"Payload   json.RawMessage",
 		// The generated client depends on the standard library and nothing else.
 		"\"net/http\"",
 	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("generated client missing %q", want)
+		}
+	}
+	// The fields, read from the AST: the columns gofmt aligns move whenever a
+	// neighbour field is born, and none of that is what this test is about.
+	for _, want := range []struct{ st, field, decl string }{
+		{"Document", "ID", `string json:"id" validate:"required"`},
+		// oneOf keeps arriving, as bytes.
+		{"Document", "Payload", `json.RawMessage json:"payload,omitempty"`},
+		// A $ref that closes a cycle is a pointer; a slice already breaks it.
+		{"Folder", "Parent", `*Folder json:"parent,omitempty"`},
+		{"Folder", "Children", `[]Folder json:"children,omitempty"`},
+	} {
+		if got := structFields(t, src, want.st)[want.field]; got != want.decl {
+			t.Fatalf("%s.%s is `%s`, want `%s`", want.st, want.field, got, want.decl)
 		}
 	}
 	if strings.Contains(s, "github.com/emersonjoe/trilha") {
@@ -173,7 +182,7 @@ func TestAgainstServer(t *testing.T) {
 	}))
 	ctx := context.Background()
 
-	page, err := c.Documents().List(ctx, api.DocumentsListParams{Page: 2, Q: "nota", Status: api.StatusReady, Tag: []string{"a", "b"}})
+	page, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{Page: 2, Q: "nota", Status: api.StatusReady, Tag: []string{"a", "b"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +196,7 @@ func TestAgainstServer(t *testing.T) {
 		t.Fatalf("auth = %q", lastAuth)
 	}
 
-	doc, err := c.Documents().Create(ctx, api.DocumentIn{Filename: "contrato.pdf"})
+	doc, err := c.Documents().CreateDocument(ctx, api.DocumentIn{Filename: "contrato.pdf"})
 	if err != nil || doc.ID != "novo" || doc.Filename != "contrato.pdf" {
 		t.Fatalf("create = %+v (%v)", doc, err)
 	}
@@ -213,19 +222,19 @@ func TestAgainstServer(t *testing.T) {
 		t.Fatalf("body = %s", b)
 	}
 
-	if err := c.Documents().Delete(ctx, "d1"); err != nil {
+	if err := c.Documents().DeleteDocument(ctx, "d1"); err != nil {
 		t.Fatal(err)
 	}
 
 	// The path parameter is escaped, so it cannot reach for another endpoint.
-	if _, err := c.Documents().Get(ctx, "../users"); err != nil {
+	if _, err := c.Documents().GetDocument(ctx, "../users"); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(lastQuery, "users") || lastAuth == "" {
 		t.Fatalf("query = %q", lastQuery)
 	}
 
-	_, err = c.Documents().Get(ctx, "não existe")
+	_, err = c.Documents().GetDocument(ctx, "não existe")
 	var apiErr *api.Error
 	if !errors.As(err, &apiErr) {
 		t.Fatalf("err = %v", err)
@@ -311,20 +320,21 @@ func TestMultipartFieldName(t *testing.T) {
 // against — and carrying it as json.RawMessage made the caller marshal by hand
 // exactly where the client was supposed to help.
 func TestOptionalBecomesAPointerAndAUnionDoesNot(t *testing.T) {
-	src := string(generate(t).Source)
-	for _, want := range []string{
-		"TenantID *string",      // anyOf [string, null]
-		"PageCount *int64",      // anyOf [integer, null]
-		"Owner     *DocumentIn", // anyOf [$ref, null]
+	src := generate(t).Source
+	fields := structFields(t, src, "Document")
+	for _, want := range []struct{ field, decl string }{
+		{"TenantID", `*string json:"tenant_id,omitempty"`},  // anyOf [string, null]
+		{"PageCount", `*int64 json:"page_count,omitempty"`}, // anyOf [integer, null]
+		{"Owner", `*DocumentIn json:"owner,omitempty"`},     // anyOf [$ref, null]
 	} {
-		if !strings.Contains(src, want) {
-			t.Errorf("Optional[T] did not become a pointer: no %q", want)
+		if got := fields[want.field]; got != want.decl {
+			t.Errorf("Optional[T] did not become a pointer: %s is `%s`", want.field, got)
 		}
 	}
 	// Two real members is a union the generator cannot name, and it stays what
 	// it was: the rule is "T or null", not "two of anything".
-	if !strings.Contains(src, "Either    json.RawMessage") {
-		t.Error("a union of three members stopped being json.RawMessage")
+	if got := fields["Either"]; got != `json.RawMessage json:"either,omitempty"` {
+		t.Errorf("a union of three members stopped being json.RawMessage: `%s`", got)
 	}
 	// And the report only mentions what actually stayed raw.
 	notes := 0
@@ -370,7 +380,7 @@ func TestMultipartECadaParteDoFormulario(t *testing.T) {
 	c := api.New(srv.URL)
 
 	// A file and the scalars beside it, each typed.
-	if _, err := c.Certificates().Upload(context.Background(), api.CertificatesUploadForm{
+	if _, err := c.Certificates().UploadCertificate(context.Background(), api.CertificatesUploadCertificateForm{
 		File:  api.FilePart{Filename: "cert.pfx", Content: strings.NewReader("PFX")},
 		Senha: "abre-te",
 		Dias:  30,
@@ -571,7 +581,7 @@ func TestErro422ChegaPorCampo(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := api.New(srv.URL).Documents().Create(context.Background(), api.DocumentIn{Filename: "x"})
+	_, err := api.New(srv.URL).Documents().CreateDocument(context.Background(), api.DocumentIn{Filename: "x"})
 	e, ok := api.AsError(err)
 	if !ok {
 		t.Fatalf("err = %v", err)
@@ -600,7 +610,7 @@ func TestErro422ChegaPorCampo(t *testing.T) {
 		io.WriteString(w, `{"detail":"no document with that id"}`)
 	}))
 	defer plain.Close()
-	_, err = api.New(plain.URL).Documents().Create(context.Background(), api.DocumentIn{Filename: "x"})
+	_, err = api.New(plain.URL).Documents().CreateDocument(context.Background(), api.DocumentIn{Filename: "x"})
 	e, ok = api.AsError(err)
 	if !ok {
 		t.Fatalf("err = %v", err)
@@ -620,6 +630,12 @@ func TestErro422ChegaPorCampo(t *testing.T) {
 // package can call. The file still compiles — an unexported method is valid Go
 // — and that is why the bug reached a real migration: it only shows up in the
 // `go build` of the caller, or never, if nobody calls that route.
+// Spec 146 (#205) extends it to the two positions that were left: the same cut
+// as a suffix (`obter_resumo_dos_idiomas` in the tag `idiomas` gave
+// `ObterResumoDos`, a preposition with no object) and by the singular of the tag
+// inside the name (`responder_card` in the tag `cards` gave `Responder`, which
+// does not say what is answered). Those two compile and stay exported, so what
+// is lost is only the meaning of the name — nothing warns at all.
 func TestPrefixoDaTagSoCaiEmFronteiraDePalavra(t *testing.T) {
 	ok := `"responses":{"200":{"description":"ok","content":{"application/json":{"schema":{"type":"object","properties":{"ok":{"type":"boolean"}}}}}}}`
 	key := `"parameters":[{"name":"regra_key","in":"path","required":true,"schema":{"type":"string"}}]`
@@ -628,6 +644,8 @@ func TestPrefixoDaTagSoCaiEmFronteiraDePalavra(t *testing.T) {
 			"put":{"operationId":"configurar_regra","tags":["config"],` + key + `,` + ok + `},
 			"delete":{"operationId":"restaurar_regra","tags":["config"],` + key + `,` + ok + `}},
 		"/api/config/reset":{"post":{"operationId":"config_reset","tags":["config"],` + ok + `}},
+		"/api/idiomas/resumo":{"get":{"operationId":"obter_resumo_dos_idiomas","tags":["idiomas"],` + ok + `}},
+		"/api/cards/resposta":{"post":{"operationId":"responder_card","tags":["cards"],` + ok + `}},
 		"/api/regras":{"get":{"operationId":"listar_regras","tags":["regras"],` + ok + `}}}}`
 	res, err := Generate([]byte(doc), Options{Package: "api"})
 	if err != nil {
@@ -660,11 +678,28 @@ func TestPrefixoDaTagSoCaiEmFronteiraDePalavra(t *testing.T) {
 		{"Config", "ConfigurarRegra"}, // Config is not a word of ConfigurarRegra: no cut
 		{"Config", "RestaurarRegra"},  // never matched the tag, and is the neighbour that hid the bug
 		{"Config", "Reset"},           // ConfigReset does start with the word Config: still cut
-		{"Regras", "Listar"},          // and the suffix side, untouched: ListarRegras in tag regras
+		// The three positions the cut no longer reaches: the plain suffix, the
+		// suffix that is the singular of the tag, and the tag in the middle.
+		{"Regras", "ListarRegras"},
+		{"Cards", "ResponderCard"},
+		{"Idiomas", "ObterResumoDosIdiomas"},
 	} {
 		if !slices.Contains(groups[want.group], want.method) {
 			t.Errorf("no %s.%s in the generated client; %s has %v", want.group, want.method, want.group, groups[want.group])
 		}
+	}
+	// The cut that is left — the exact prefix — is a line of the report, so it
+	// stops being something only a reader of the generated file can notice.
+	var notes []string
+	for _, n := range res.Notes {
+		notes = append(notes, n.Where+": "+n.What)
+	}
+	joined := strings.Join(notes, "\n")
+	if !strings.Contains(joined, "POST /api/config/reset: the name drops the tag prefix — operationId config_reset is Reset") {
+		t.Errorf("the report does not say which name the cut shortened:\n%s", joined)
+	}
+	if strings.Contains(joined, "ListarRegras") || strings.Contains(joined, "ConfigurarRegra") {
+		t.Errorf("the report mentions a name nothing was cut from:\n%s", joined)
 	}
 }
 
@@ -700,7 +735,7 @@ func TestTagQueColideComSchema(t *testing.T) {
 		}
 		seen[name] = true
 	}
-	for _, want := range []string{"Auditoria", "AuditoriaAPI", "AuditoriaListarParams"} {
+	for _, want := range []string{"Auditoria", "AuditoriaAPI", "AuditoriaListarAuditoriaParams"} {
 		if !seen[want] {
 			t.Errorf("no type %s in the generated client; it has %v", want, declaredTypes(f))
 		}
@@ -709,10 +744,9 @@ func TestTagQueColideComSchema(t *testing.T) {
 	src := string(res.Source)
 	for _, want := range []string{
 		"type Auditoria struct {",
-		"Total int64    `json:\"total\" validate:\"required\"`",
 		// The call does not carry the suffix: it exists for the compiler.
 		"func (c *Client) Auditoria() *AuditoriaAPI { return &AuditoriaAPI{c: c} }",
-		"func (g *AuditoriaAPI) Listar(ctx context.Context, p AuditoriaListarParams) (Auditoria, error) {",
+		"func (g *AuditoriaAPI) ListarAuditoria(ctx context.Context, p AuditoriaListarAuditoriaParams) (Auditoria, error) {",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("generated client missing %q:\n%s", want, src)
@@ -813,7 +847,7 @@ func TestQueryOpcionalMandaOValorENaoOPonteiro(t *testing.T) {
 	ctx := context.Background()
 
 	// Nothing filled in: nothing of the optional part reaches the URL.
-	if _, err := c.Documents().List(ctx, api.DocumentsListParams{Page: 1}); err != nil {
+	if _, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{Page: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if lastQuery != "page=1" {
@@ -822,7 +856,7 @@ func TestQueryOpcionalMandaOValorENaoOPonteiro(t *testing.T) {
 
 	since, year, state, draft := "2026-09", int64(2026), api.StatusReady, false
 	label := []string{"a", "b"}
-	if _, err := c.Documents().List(ctx, api.DocumentsListParams{
+	if _, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{
 		Page:  1,
 		Since: &since,
 		Year:  &year,
@@ -882,7 +916,7 @@ func TestMultipartPorRefVemDoSchema(t *testing.T) {
 	defer srv.Close()
 
 	c := api.New(srv.URL)
-	doc, err := c.Documents().Import(context.Background(), api.DocumentsImportForm{
+	doc, err := c.Documents().ImportDocuments(context.Background(), api.DocumentsImportDocumentsForm{
 		Files: []api.FilePart{
 			{Filename: "a.xml", Content: strings.NewReader("primeiro")},
 			{Filename: "b.xml", Content: strings.NewReader("segundo")},
@@ -924,6 +958,200 @@ func TestMultipartPorRefComUmArquivoSoContinuaDoisArgumentos(t *testing.T) {
 	if s := <-got; s != "anexo.pdf:bytes" {
 		t.Fatalf("part = %q", s)
 	}
+}
+
+// Spec 146 (#207): the generated client answered (body, error) and nothing else,
+// and `do` — which has the *http.Response — was private. An API authenticated by
+// cookie has no login at all that way: the credential arrives in the Set-Cookie
+// of the very operation that produces it. A CookieJar on the http.Client is not
+// the answer, because the jar belongs to the process: a server that answers many
+// people would send one person's credential on the next person's call. So the
+// hook takes the context of the call, and the collector lives there.
+func TestWithResponseDaAcessoAResposta(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "POST" && r.URL.Path == "/api/documents":
+			http.SetCookie(w, &http.Cookie{Name: "sessao", Value: "abc", HttpOnly: true})
+			w.Header().Set("ETag", `"v1"`)
+			json.NewEncoder(w).Encode(api.Document{ID: "novo", Filename: "contrato.pdf"})
+		case r.URL.Path == "/api/documents/d1/file":
+			w.Header().Set("Content-Type", "application/pdf")
+			w.Header().Set("Content-Disposition", `attachment; filename="nota.pdf"`)
+			io.WriteString(w, "%PDF-")
+		default:
+			w.WriteHeader(http.StatusUnauthorized)
+			io.WriteString(w, `{"detail":"sem sessão"}`)
+		}
+	}))
+	defer srv.Close()
+
+	type colheita struct {
+		status  int
+		cookies []*http.Cookie
+		header  http.Header
+	}
+	type colheitaKey struct{}
+	// One client for the whole process, like an app has: what is per request is
+	// the collector, and it travels in the context of the call.
+	c := api.New(srv.URL, api.WithResponse(func(ctx context.Context, resp *http.Response) {
+		if col, ok := ctx.Value(colheitaKey{}).(*colheita); ok {
+			col.status, col.cookies, col.header = resp.StatusCode, resp.Cookies(), resp.Header
+		}
+	}))
+	call := func() (context.Context, *colheita) {
+		col := &colheita{}
+		return context.WithValue(context.Background(), colheitaKey{}, col), col
+	}
+
+	// The login: the credential is in the header, and the body still arrives
+	// decoded — the hook does not consume what the operation reads.
+	ctx, col := call()
+	doc, err := c.Documents().CreateDocument(ctx, api.DocumentIn{Filename: "contrato.pdf"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.ID != "novo" || doc.Filename != "contrato.pdf" {
+		t.Errorf("the operation stopped decoding its answer: %+v", doc)
+	}
+	if len(col.cookies) != 1 || col.cookies[0].Name != "sessao" || col.cookies[0].Value != "abc" {
+		t.Fatalf("Set-Cookie did not reach the caller: %+v", col.cookies)
+	}
+	if col.status != 200 || col.header.Get("ETag") != `"v1"` {
+		t.Errorf("status/ETag = %d/%q", col.status, col.header.Get("ETag"))
+	}
+
+	// The answer that is bytes: the caller already owns the response, and the
+	// hook sees it once, like any other.
+	ctx, col = call()
+	resp, err := c.Documents().Download(ctx, "d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if string(body) != "%PDF-" {
+		t.Errorf("binary answer = %q", body)
+	}
+	if col.header.Get("Content-Disposition") == "" {
+		t.Error("the hook did not see the binary response")
+	}
+
+	// And the refusal, which is where WWW-Authenticate and Retry-After live: the
+	// hook runs, and the error is the same *Error it always was.
+	ctx, col = call()
+	if _, err := c.Documents().GetDocument(ctx, "d1"); err == nil {
+		t.Fatal("a 401 stopped being an error")
+	} else if e, ok := api.AsError(err); !ok || e.Status != 401 || e.Detail != "sem sessão" {
+		t.Errorf("error = %v", err)
+	}
+	if col.status != 401 {
+		t.Errorf("the hook did not see the refusal: status = %d", col.status)
+	}
+
+	// A client with no hook is the client that already existed.
+	if _, err := api.New(srv.URL).Documents().CreateDocument(context.Background(), api.DocumentIn{Filename: "x.pdf"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Spec 146 (#209): a field that is both `required` — always present in the
+// answer — and nullable came out as a value with `validate:"required"`, which is
+// the one combination that states something false. The type erased the null
+// (`null` decodes to "", and an `["integer","null"]` whose zero means something
+// loses the difference in silence) and the tag lied, because `required` over a
+// string means "not empty": the struct said that `"primaria": null`, a perfectly
+// legitimate answer, is invalid. It does not bite while the client only decodes;
+// it bites the day somebody runs the validator over the answer, which is the
+// most natural thing in the world when the structs already carry the tags.
+func TestCampoAnulavelEPonteiroENaoERequired(t *testing.T) {
+	doc := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{
+		"/api/marca":{"get":{"operationId":"obter","tags":["marca"],
+			"parameters":[
+				{"name":"tema","in":"query","required":true,"schema":{"type":["string","null"]}},
+				{"name":"pagina","in":"query","required":true,"schema":{"type":"integer"}}],
+			"responses":{"200":{"description":"ok","content":{"application/json":{
+				"schema":{"$ref":"#/components/schemas/Marca"}}}}}}}},
+		"components":{"schemas":{
+			"Marca":{"type":"object","properties":{
+				"primaria":{"type":["string","null"],"description":"Cor primária em hexadecimal, ou nula."},
+				"status":{"type":["integer","null"]},
+				"nota":{"type":"string","nullable":true},
+				"rotulos":{"type":["array","null"],"items":{"type":"string"}},
+				"vinculo":{"anyOf":[{"$ref":"#/components/schemas/Vinculo"},{"type":"null"}]},
+				"apelido":{"type":["string","null"]},
+				"slug":{"type":"string","minLength":1}},
+				"required":["primaria","status","nota","rotulos","vinculo","slug"]},
+			"Vinculo":{"type":"object","properties":{"papel":{"type":"string"}},"required":["papel"]}}}}`
+	res, err := Generate([]byte(doc), Options{Package: "api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compile(t, res.Source)
+
+	for _, want := range []struct{ st, field, decl string }{
+		// Nullable and required: a pointer, so null has a way of being said, and
+		// no `required`, because null is an answer the server is right to give.
+		{"Marca", "Primaria", `*string json:"primaria"`},
+		{"Marca", "Status", `*int64 json:"status"`},
+		{"Marca", "Nota", `*string json:"nota"`}, // the 3.0 spelling, nullable: true
+		{"Marca", "Vinculo", `*Vinculo json:"vinculo"`},
+		// A slice already has nil: *[]string is a type nobody wants to write.
+		{"Marca", "Rotulos", `[]string json:"rotulos"`},
+		// Nullable and optional keeps the pointer it had, and omitempty with it.
+		{"Marca", "Apelido", `*string json:"apelido,omitempty"`},
+		// What is not nullable does not change: required still means required.
+		{"Marca", "Slug", `string json:"slug" validate:"required,min=1"`},
+		{"Vinculo", "Papel", `string json:"papel" validate:"required"`},
+		// The query parameter follows the field: it already knows how to send
+		// the value behind a pointer (spec 130).
+		{"MarcaObterParams", "Tema", `*string json:"tema"`},
+		{"MarcaObterParams", "Pagina", `int64 json:"pagina" validate:"required"`},
+	} {
+		fields := structFields(t, res.Source, want.st)
+		if got := fields[want.field]; got != want.decl {
+			t.Errorf("%s.%s is `%s`, want `%s`", want.st, want.field, got, want.decl)
+		}
+	}
+}
+
+// structFields is field name → type and tag of one generated struct, read from
+// the AST so the assertion does not depend on the columns gofmt aligned.
+func structFields(t *testing.T, src []byte, name string) map[string]string {
+	t.Helper()
+	f, err := parser.ParseFile(token.NewFileSet(), "client.go", src, 0)
+	if err != nil {
+		t.Fatalf("the generated client does not parse: %v", err)
+	}
+	out := map[string]string{}
+	for _, d := range f.Decls {
+		gen, isGen := d.(*ast.GenDecl)
+		if !isGen || gen.Tok != token.TYPE {
+			continue
+		}
+		for _, s := range gen.Specs {
+			ts, ok := s.(*ast.TypeSpec)
+			if !ok || ts.Name.Name != name {
+				continue
+			}
+			st, ok := ts.Type.(*ast.StructType)
+			if !ok {
+				t.Fatalf("%s is not a struct", name)
+			}
+			for _, fld := range st.Fields.List {
+				decl := types.ExprString(fld.Type)
+				if fld.Tag != nil {
+					decl += " " + strings.Trim(fld.Tag.Value, "`")
+				}
+				for _, id := range fld.Names {
+					out[id.Name] = decl
+				}
+			}
+		}
+	}
+	if len(out) == 0 {
+		t.Fatalf("no struct %s in the generated client", name)
+	}
+	return out
 }
 
 // compile builds the generated client in a module of its own. The generator

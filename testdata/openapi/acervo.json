@@ -195,9 +195,11 @@
               "tenant_id": { "anyOf": [ { "type": "string" }, { "type": "null" } ], "title": "Tenant Id" },
               "page_count": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
               "owner": { "anyOf": [ { "$ref": "#/components/schemas/DocumentIn" }, { "type": "null" } ] },
-              "either": { "anyOf": [ { "type": "string" }, { "type": "integer" }, { "type": "null" } ] }
+              "either": { "anyOf": [ { "type": "string" }, { "type": "integer" }, { "type": "null" } ] },
+              "cover_color": { "type": ["string", "null"], "description": "Colour of the cover in hex, or null when nobody chose one." },
+              "revision": { "type": "integer", "nullable": true, "description": "Revision number, or null before the first review." }
             },
-            "required": ["filename", "status"]
+            "required": ["filename", "status", "cover_color", "revision"]
           }
         ]
       },

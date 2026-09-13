@@ -176,7 +176,7 @@ func (b *builder) newGroup(name, tag string) *group {
 func (b *builder) method(op *Operation, gName string, used map[string]bool) (*method, error) {
 	where := op.Method + " " + op.Path
 	m := &method{HTTP: op.Method, Path: op.Path, Doc: firstSentence(op.Summary, op.Description)}
-	m.Name = uniqueName(methodName(op, gName), gName, op, used)
+	m.Name = uniqueName(b.methodName(op, gName), gName, op, used)
 
 	// Path parameters are positional by nature, so they go in the signature.
 	for _, seg := range strings.Split(op.Path, "/") {
@@ -198,13 +198,13 @@ func (b *builder) method(op *Operation, gName string, used map[string]bool) (*me
 		name := b.freeName(gName + m.Name + "Params")
 		st := &Struct{Name: name, Doc: "Query of " + where + "."}
 		for _, p := range qs {
-			t := b.goType(p.Schema, name+exportName(p.Name), where+"?"+p.Name)
+			t := nullableGoType(b.goType(p.Schema, name+exportName(p.Name), where+"?"+p.Name), p.Schema)
 			tag := "json:\"" + p.Name
 			if !p.Required {
 				tag += ",omitempty"
 			}
 			tag += "\""
-			if v := validateTag(p.Schema, p.Required); v != "" {
+			if v := validateTag(p.Schema, p.Required && !nullableType(p.Schema)); v != "" {
 				tag += " validate:\"" + v + "\""
 			}
 			st.Fields = append(st.Fields, Field{Name: exportName(p.Name), Type: t, Tag: tag, Doc: doc(p.Schema)})
@@ -260,8 +260,20 @@ func (b *builder) method(op *Operation, gName string, used map[string]bool) (*me
 
 // methodName is decision 6: the operationId when it exists, minus the part of
 // it that only repeats the path and the method (FastAPI writes
-// list_documents_api_documents_get), minus the group's own name.
-func methodName(op *Operation, gName string) string {
+// list_documents_api_documents_get), minus the group's own name at the front.
+//
+// The cut happens in one position and no other: the tag, spelled exactly, at the
+// start of the name, on a word boundary. It used to happen in four — prefix and
+// suffix, of the tag and of its singular — and the three that are gone were the
+// three that changed what the name says: `obter_resumo_dos_idiomas` in the tag
+// `idiomas` became ObterResumoDos, a preposition with no object, and
+// `responder_card` in the tag `cards` became Responder, which does not say what
+// is answered. Both compile and both stay exported, so nothing warned; the only
+// barrier was somebody reading the generated file. Documents.ListDocuments is
+// repetitive next to the group and it is right, which is the trade this makes:
+// in doubt, the whole name, because a repetitive name is read and an amputated
+// one sends the caller to open client.go.
+func (b *builder) methodName(op *Operation, gName string) string {
 	if op.OperationID == "" {
 		return fallbackName(op)
 	}
@@ -269,17 +281,12 @@ func methodName(op *Operation, gName string) string {
 	if tail := exportName(op.Path + "_" + strings.ToLower(op.Method)); tail != "" && len(name) > len(tail) {
 		name = strings.TrimSuffix(name, tail)
 	}
-	// What is left often repeats the tag: Documents.ListDocuments reads worse
-	// than Documents.List, and the singular is the spelling APIs actually use.
-	for _, word := range []string{gName, singular(gName)} {
-		for _, cut := range []func(string) string{
-			func(s string) string { return strings.TrimSuffix(s, word) },
-			func(s string) string { return trimWordPrefix(s, word) },
-		} {
-			if trimmed := cut(name); trimmed != "" && trimmed != name {
-				name = trimmed
-			}
-		}
+	// What is left sometimes starts by repeating the tag: Config.ConfigReset
+	// reads worse than Config.Reset. That cut is a line of the report, because a
+	// name the generator shortened is a name the document does not have.
+	if cut := trimWordPrefix(name, gName); cut != name {
+		b.note(op.Method+" "+op.Path, "the name drops the tag prefix — operationId "+op.OperationID+" is "+cut)
+		name = cut
 	}
 	return name
 }
@@ -289,8 +296,7 @@ func methodName(op *Operation, gName string) string {
 // ConfigurarRegra leaves `urarRegra`: a method that is not exported, which the
 // caller's package cannot see, from a name that is not in the document either.
 // When the tag is merely the start of the first word there is no repetition to
-// remove, so the name stays whole. The suffix side needs no such guard: the cut
-// is case-sensitive, so a match already lands on the start of a word.
+// remove, so the name stays whole — and so does a name the tag does not start.
 func trimWordPrefix(s, word string) string {
 	rest := strings.TrimPrefix(s, word)
 	if rest == s {
