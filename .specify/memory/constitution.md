@@ -67,7 +67,12 @@ Todo texto passa por escape contextual; cabeçalhos `X-Content-Type-Options: nos
 de `public/` (sem path traversal); corpo de requisição tem limite configurável (1 MiB
 padrão); formulários têm proteção CSRF por token com cookie `SameSite=Lax`; erros em
 produção não vazam caminho de arquivo nem stack. Logs são estruturados (`log/slog`) e nunca
-registram corpo de requisição nem cookies.
+registram corpo de requisição nem cookies. Toda mudança segue o NIST SSDF 1.1 e verifica os
+controles aplicáveis do OWASP ASVS 5.0 nível 2; o OWASP Top 10:2025 é o catálogo mínimo para
+ameaças. A spec registra ativos, fronteiras de confiança, impacto e exceções; o PR registra os
+controles e a evidência. `make security` executa vet, detector de corrida e `govulncheck`
+fixado. Alinhamento não é certificação: conformidade integral só pode ser declarada após
+avaliação independente do sistema implantado.
 
 ## Estilo, idioma e interface
 
@@ -130,4 +135,4 @@ registro da mudança neste arquivo com nova versão semântica, atualização do
 `.specify/templates/` que dependam do princípio alterado, e migração dos exemplos afetados.
 Revisões de código verificam aderência aos princípios I–VII antes de aprovar.
 
-**Version**: 1.4.1 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-06 (a release não troca de branch e o branch entra rebasado)
+**Version**: 1.5.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-13 (NIST SSDF 1.1 e OWASP ASVS 5.0 viram gates verificáveis)

@@ -38,7 +38,10 @@ continua aberto.
 - Erros em produção sem stack nem caminhos de arquivo; logs sem corpo nem cookies; eventos
   de segurança (CSRF, 401/403, 413, 429, panic) registrados e expostos por hook.
 
-O mapeamento desses controles para o NIST CSF 2.0 e o OWASP ASVS 4.0 está na documentação:
+O mapeamento desses controles para o NIST CSF 2.0 e o OWASP ASVS 5.0 está na documentação:
 <https://emersonjoe.github.io/trilha/pt/aprender/seguranca>.
+
+O desenvolvimento e a CI seguem a [baseline de engenharia NIST SSDF/OWASP](SECURITY-BASELINE.md).
+Isto declara alinhamento, não certificação NIST ou OWASP.
 
 Um relato que mostre qualquer uma dessas garantias falhando é tratado como vulnerabilidade.

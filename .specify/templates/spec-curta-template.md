@@ -39,6 +39,13 @@ mudança não é pequena e pede a forma completa).
 | VI — teste primeiro | |
 | VII — segurança por padrão | |
 
+## Segurança e privacidade
+
+- Ativos e fronteiras de confiança afetados:
+- Controles OWASP ASVS 5.0 nível 2 aplicáveis:
+- Riscos OWASP Top 10:2025 considerados:
+- Segredos, dados pessoais, logs, limites e exceções:
+
 ## Tarefas
 
 Teste antes do código, em ordem de execução. Uma rodada de `make test` por bloco, não por

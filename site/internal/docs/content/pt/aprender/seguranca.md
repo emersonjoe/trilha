@@ -3,29 +3,44 @@ title: Segurança
 description: O que o Trilha protege por padrão, como ajustar, e o que continua sendo responsabilidade sua.
 ---
 
-O Trilha segue duas referências: o **NIST Cybersecurity Framework 2.0** (as funções
-Identificar, Proteger, Detectar, Responder, Recuperar e Governar) e o **OWASP ASVS 4.0**
-nível 2. Um framework web só consegue *proteger* e *detectar*; o restante é trabalho de quem
-opera o app, e este capítulo diz exatamente onde termina um e começa o outro.
+O Trilha usa o **NIST Cybersecurity Framework 2.0** para descrever resultados em runtime e o
+**OWASP ASVS 5.0** nível 2 para identificar controles web aplicáveis. O processo de
+desenvolvimento segue o **NIST SSDF 1.1**, enquanto o **OWASP Top 10:2025** é o catálogo mínimo
+de ameaças. Um framework só entrega parte desses controles; implantação e operação continuam
+responsabilidade da aplicação. Isto declara alinhamento de engenharia, não certificação.
 
 ## O que já vem ligado
 
 | Controle | Padrão | NIST CSF 2.0 | OWASP ASVS |
 |---|---|---|---|
-| Escape de HTML (`h`) e escape contextual (`tmpl`) | sempre | PR.DS | V5.3 |
-| `Content-Security-Policy` com nonce por requisição | ligado | PR.PS | V14.4 |
-| `Strict-Transport-Security` | ligado em HTTPS | PR.DS | V9.1 |
-| `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` | ligados | PR.PS | V14.4 |
-| CSRF por *double-submit cookie* em formulários | ligado | PR.AA | V4.2 |
-| Limite do corpo da requisição (1 MiB) | ligado | PR.IR | V13.1 |
-| Timeouts de leitura, escrita e ociosidade; limite de cabeçalhos | ligados | PR.IR | V13.1 |
-| Estáticos restritos a `public/` | sempre | PR.DS | V12.3 |
-| Erros opacos em produção; sem stack, sem caminho | ligado | PR.DS | V7.4 |
-| Logs estruturados sem corpo nem cookies, com `request_id` | sempre | DE.CM | V7.1 |
-| Eventos de segurança (CSRF, 401/403, 413, 429, panic) no log | sempre | DE.AE | V7.2 |
-| Cookies assinados (`SetSigned`/`Signed`) | com `TRILHA_SECRET` | PR.AA | V3.4 |
-| Limite de taxa por cliente | opcional | PR.IR | V11.1 |
-| Proxies confiáveis (`X-Forwarded-*`) | opcional | PR.AA | V14.1 |
+| Escape de HTML (`h`) e escape contextual (`tmpl`) | sempre | PR.DS | V1.1.2, V1.2.1 |
+| `Content-Security-Policy` com nonce por requisição | ligado | PR.PS | V3.4.3 |
+| `Strict-Transport-Security` | ligado em HTTPS | PR.DS | V3.4.1 |
+| `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` | ligados | PR.PS | V3.4 |
+| CSRF por *double-submit cookie* em formulários | ligado | PR.AA | V3.3.2, V3.5.1 |
+| Limite do corpo da requisição (1 MiB) | ligado | PR.IR | V2.3.2, V4.2 |
+| Timeouts de leitura, escrita e ociosidade; limite de cabeçalhos | ligados | PR.IR | V13.1.3 |
+| Estáticos restritos a `public/` | sempre | PR.DS | V5.3.2 |
+| Erros opacos em produção; sem stack, sem caminho | ligado | PR.DS | V16.4 |
+| Logs estruturados sem corpo nem cookies, com `request_id` | sempre | DE.CM | V16.2.1, V16.2.5 |
+| Eventos de segurança (CSRF, 401/403, 413, 429, panic) no log | sempre | DE.AE | V16.3 |
+| Cookies assinados (`SetSigned`/`Signed`) | com `TRILHA_SECRET` | PR.AA | V3.3, V7 |
+| Limite de taxa por cliente | opcional | PR.IR | V2.3.2, V6.1.1 |
+| Proxies confiáveis (`X-Forwarded-*`) | opcional | PR.AA | V4.1.3, V15.3.4 |
+
+## Gate de desenvolvimento seguro
+
+Toda mudança no Trilha registra ativos, fronteiras de confiança, controles ASVS aplicáveis e
+evidências de segurança na spec e no pull request. Antes da release, rode:
+
+```bash
+make test
+make security
+```
+
+`make security` executa formatação/vet, detector de corrida e um `govulncheck` fixado sob um
+toolchain Go corrigido e fixo, baixado automaticamente pelo Go 1.22+. A matriz completa de
+evidências e a fronteira de confiança do CI self-hosted estão em `SECURITY-BASELINE.md` na raiz.
 
 ## CSP e scripts inline
 

@@ -22,15 +22,20 @@
 
 ## [Category 1]
 
-- [ ] CHK001 First checklist item with clear action
-- [ ] CHK002 Second checklist item
-- [ ] CHK003 Third checklist item
+- [ ] CHK001 Security impact names assets and trust boundaries, or justifies no impact
+- [ ] CHK002 Applicable OWASP ASVS 5.0 Level 2 controls have objective evidence
+- [ ] CHK003 Secrets, personal data, logs, limits and dependency changes were reviewed
+- [ ] CHK004 Exceptions have an owner, expiry date, compensating control and issue
+
+- [ ] CHK005 First checklist item with clear action
+- [ ] CHK006 Second checklist item
+- [ ] CHK007 Third checklist item
 
 ## [Category 2]
 
-- [ ] CHK004 Another category item
-- [ ] CHK005 Item with specific criteria
-- [ ] CHK006 Final item in this category
+- [ ] CHK008 Another category item
+- [ ] CHK009 Item with specific criteria
+- [ ] CHK010 Final item in this category
 
 ## Notes
 

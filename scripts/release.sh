@@ -118,6 +118,9 @@ trap restante EXIT
 echo "==> make test"
 run make test
 
+echo "==> make security"
+run make security
+
 # O fast-forward é o próprio push: o remoto recusa se não for um, e ninguém
 # precisa da main checada aqui para isso acontecer.
 echo "==> main pelo remoto"

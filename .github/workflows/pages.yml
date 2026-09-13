@@ -4,35 +4,50 @@ on:
     branches: [main]
     paths: ["site/**", "h/**", "ui/**", "tmpl/**", "*.go", "internal/**", "cmd/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+permissions: {}
 concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_CI || 'ubuntu-latest' }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Configure ephemeral Go caches
+        run: |
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.25"
+          cache: false
       - name: Exportar o site com o próprio Trilha
         env:
           SITE_ANALYTICS: ${{ vars.SITE_ANALYTICS }}
           SITE_ORIGIN: https://emersonjoe.github.io
         run: cd site && go run ../cmd/trilha export -o ../_site --base /trilha
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
+      - name: Remove job caches
+        if: always() && runner.environment == 'self-hosted'
+        run: |
+          go clean -cache -modcache
+          rm -rf "$GOCACHE" "$GOMODCACHE"
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

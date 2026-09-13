@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.130.0)
+## Onde o Trilha está (setembro de 2026, v0.131.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -282,6 +282,7 @@ registra a divisão. O que cabe a este repositório é conviver com eles.
 
 119. ~~[#232](https://github.com/emersonjoe/trilha/issues/232) O `trilha dev` reescrevia `.trilha/.gitignore` com `*` — o diretório que o protocolo precisa commitar —, e `trilha spec …` não tinha como chegar ao binário `trilha-spec` sem colidir com `mcp`, `agents`, `check` e `ctx`.~~ **Entregue na 0.124.0** (spec 145): o cache de build mora em `.trilha/cache/` (dev, export, scaffold, `.gitignore`, `audit`); comando desconhecido é procurado como `trilha-<nome>` no `PATH` e executado com a linha inteira, no estilo do `git`; e a trilha Learn ganhou três capítulos hands-on — protocolo, runner, control plane — nas duas locales, sobre a mesma agenda.
 120. ~~[#244](https://github.com/emersonjoe/trilha/issues/244) O capítulo do control plane ainda não ligava configuração, aplicação real, protocolo, runner e revisão em um roteiro reproduzível.~~ **Entregue na 0.130.0** (spec 151): o capítulo do Trilha Cloud ganhou o passo a passo completo de um app de cadastro de usuários, com `make check`, spec, task, worker, evidências, aprovação, login, convite, primeira senha e troca de senha; dez screenshots reais acompanham o fluxo nas duas locales, e o Markdown do site agora renderiza figuras responsivas com base path correto.
+121. ~~[#245](https://github.com/emersonjoe/trilha/issues/245) O CI Linux dependia apenas de capacidade hospedada e NIST/OWASP ainda não eram critérios verificáveis de contribuição e release.~~ **Entregue na 0.131.0** (spec 152): runners `eoslab` exclusivos e sem privilégios executam somente código revisado da `main`; PR e deploy privilegiado permanecem hospedados pelo GitHub; actions são fixadas por commit; `make security`, constituição, templates e documentação bilíngue tornam NIST SSDF 1.1, OWASP ASVS 5.0 nível 2 e Top 10:2025 uma baseline com evidência, sem alegação de certificação.
 
 ## O que não vamos fazer, e por quê
 

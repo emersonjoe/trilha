@@ -77,6 +77,14 @@
 
 ## Requirements *(mandatory)*
 
+### Security and privacy impact *(mandatory)*
+
+- **Assets and trust boundaries**: [affected assets, actors and boundaries]
+- **ASVS 5.0 Level 2 controls**: [applicable control chapters/requirements]
+- **OWASP Top 10:2025 risks**: [applicable risks and mitigations]
+- **Secrets and personal data**: [storage, exposure, retention and logging]
+- **Exceptions**: [owner, expiry and tracking issue, or none]
+
 <!--
   ACTION REQUIRED: The content in this section represents placeholders.
   Fill them out with the right functional requirements.

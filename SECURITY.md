@@ -39,7 +39,10 @@ what stays open.
 - Errors in production without stack or file paths; logs without body or cookies; security
   events (CSRF, 401/403, 413, 429, panic) logged and exposed through a hook.
 
-The mapping of these controls to NIST CSF 2.0 and OWASP ASVS 4.0 is in the documentation:
+The runtime-control mapping to NIST CSF 2.0 and OWASP ASVS 5.0 is in the documentation:
 <https://emersonjoe.github.io/trilha/learn/security>.
+
+Development and CI follow the [NIST SSDF/OWASP engineering baseline](SECURITY-BASELINE.md).
+This is an alignment statement, not a NIST or OWASP certification claim.
 
 A report showing any of these guarantees failing is treated as a vulnerability.

@@ -1,4 +1,7 @@
-.PHONY: test vet fmt example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry release
+.PHONY: test vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry release
+
+GOVULNCHECK_VERSION ?= v1.1.4
+SECURITY_GO_VERSION ?= go1.25.13
 
 test: vet
 	go test ./...
@@ -9,6 +12,13 @@ vet:
 
 fmt:
 	gofmt -w *.go h internal cmd examples tmpl
+
+# NIST SSDF/OWASP evidence. Go 1.22+ downloads the patched toolchain automatically.
+security:
+	test -z "$$(gofmt -l *.go h internal cmd examples tmpl)"
+	GOTOOLCHAIN=$(SECURITY_GO_VERSION) go vet ./...
+	GOTOOLCHAIN=$(SECURITY_GO_VERSION) go test -race ./...
+	GOTOOLCHAIN=$(SECURITY_GO_VERSION) go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
 golden:
 	go test ./internal/gen/ ./internal/openapi/ ./internal/ctx/ ./internal/scaffold/ ./internal/uidoc/ ./internal/migrate/ ./internal/client/ ./internal/islands/ ./cmd/trilha/ -update

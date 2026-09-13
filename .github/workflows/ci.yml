@@ -3,53 +3,90 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.RUNNER_CI || 'ubuntu-latest' }}
     strategy:
       matrix:
         go: ["1.22", "1.25"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Configure ephemeral Go caches
+        run: |
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ matrix.go }}
+          cache: false
       - run: test -z "$(gofmt -l *.go h internal cmd examples tmpl ui)"
       - run: cd bench && go test ./... && go test -run XXX -bench . -benchtime=50ms
       - run: go vet ./...
       - run: go test ./...
+      - name: Remove job caches
+        if: always() && runner.environment == 'self-hosted'
+        run: |
+          go clean -cache -modcache
+          rm -rf "$GOCACHE" "$GOMODCACHE"
   # The CLI builds a binary and then runs it, which is where Windows differs:
   # no job here for a long time meant `trilha dev` was broken on it and green here.
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.25"
       - run: go vet ./...
       - run: go test ./...
-  race:
-    runs-on: ubuntu-latest
+  security:
+    runs-on: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.RUNNER_CI || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Configure ephemeral Go caches
+        run: |
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.25"
-      - run: go test -race ./...
+          cache: false
+      - run: make security
+      - name: Remove job caches
+        if: always() && runner.environment == 'self-hosted'
+        run: |
+          go clean -cache -modcache
+          rm -rf "$GOCACHE" "$GOMODCACHE"
   fuzz:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.RUNNER_CI || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Configure ephemeral Go caches
+        run: |
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.25"
+          cache: false
       - run: FUZZTIME=20s ./scripts/fuzz.sh
-  vuln:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.25"
-      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - name: Remove job caches
+        if: always() && runner.environment == 'self-hosted'
+        run: |
+          go clean -cache -modcache
+          rm -rf "$GOCACHE" "$GOMODCACHE"

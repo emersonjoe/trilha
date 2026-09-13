@@ -3,29 +3,44 @@ title: Security
 description: What Trilha protects by default, how to adjust it, and what remains your responsibility.
 ---
 
-Trilha follows two references: the **NIST Cybersecurity Framework 2.0** (the Identify,
-Protect, Detect, Respond, Recover and Govern functions) and **OWASP ASVS 4.0** level 2. A web
-framework can only *protect* and *detect*; the rest is the work of whoever operates the app,
-and this chapter says exactly where one ends and the other begins.
+Trilha uses the **NIST Cybersecurity Framework 2.0** to describe runtime outcomes and
+**OWASP ASVS 5.0** Level 2 to identify applicable web controls. The development process follows
+**NIST SSDF 1.1**, while **OWASP Top 10:2025** is the minimum threat catalogue. A framework can
+only provide part of those controls; deployment and operation remain the application's work.
+This is an engineering alignment, not a certification claim.
 
 ## What comes turned on
 
 | Control | Default | NIST CSF 2.0 | OWASP ASVS |
 |---|---|---|---|
-| HTML escaping (`h`) and contextual escaping (`tmpl`) | always | PR.DS | V5.3 |
-| `Content-Security-Policy` with a per-request nonce | on | PR.PS | V14.4 |
-| `Strict-Transport-Security` | on over HTTPS | PR.DS | V9.1 |
-| `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` | on | PR.PS | V14.4 |
-| CSRF by *double-submit cookie* on forms | on | PR.AA | V4.2 |
-| Request body limit (1 MiB) | on | PR.IR | V13.1 |
-| Read, write and idle timeouts; header limit | on | PR.IR | V13.1 |
-| Static files restricted to `public/` | always | PR.DS | V12.3 |
-| Opaque errors in production; no stack, no paths | on | PR.DS | V7.4 |
-| Structured logs without body or cookies, with `request_id` | always | DE.CM | V7.1 |
-| Security events (CSRF, 401/403, 413, 429, panic) in the log | always | DE.AE | V7.2 |
-| Signed cookies (`SetSigned`/`Signed`) | with `TRILHA_SECRET` | PR.AA | V3.4 |
-| Per-client rate limit | optional | PR.IR | V11.1 |
-| Trusted proxies (`X-Forwarded-*`) | optional | PR.AA | V14.1 |
+| HTML escaping (`h`) and contextual escaping (`tmpl`) | always | PR.DS | V1.1.2, V1.2.1 |
+| `Content-Security-Policy` with a per-request nonce | on | PR.PS | V3.4.3 |
+| `Strict-Transport-Security` | on over HTTPS | PR.DS | V3.4.1 |
+| `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` | on | PR.PS | V3.4 |
+| CSRF by *double-submit cookie* on forms | on | PR.AA | V3.3.2, V3.5.1 |
+| Request body limit (1 MiB) | on | PR.IR | V2.3.2, V4.2 |
+| Read, write and idle timeouts; header limit | on | PR.IR | V13.1.3 |
+| Static files restricted to `public/` | always | PR.DS | V5.3.2 |
+| Opaque errors in production; no stack, no paths | on | PR.DS | V16.4 |
+| Structured logs without body or cookies, with `request_id` | always | DE.CM | V16.2.1, V16.2.5 |
+| Security events (CSRF, 401/403, 413, 429, panic) in the log | always | DE.AE | V16.3 |
+| Signed cookies (`SetSigned`/`Signed`) | with `TRILHA_SECRET` | PR.AA | V3.3, V7 |
+| Per-client rate limit | optional | PR.IR | V2.3.2, V6.1.1 |
+| Trusted proxies (`X-Forwarded-*`) | optional | PR.AA | V4.1.3, V15.3.4 |
+
+## Secure development gate
+
+Every Trilha change records assets, trust boundaries, applicable ASVS controls and security
+evidence in its spec and pull request. Before release, run:
+
+```bash
+make test
+make security
+```
+
+`make security` runs formatting/vet, the race detector and a pinned `govulncheck` under a
+patched, fixed Go toolchain that Go 1.22+ downloads automatically. The complete evidence matrix
+and self-hosted CI trust boundary are in `SECURITY-BASELINE.md` in the repository root.
 
 ## CSP and inline scripts
 

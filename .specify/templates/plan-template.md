@@ -31,6 +31,11 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
+- [ ] Security impact and trust boundaries are documented.
+- [ ] Applicable OWASP ASVS 5.0 Level 2 controls have verification evidence.
+- [ ] `make test` and `make security` are included in the validation plan.
+- [ ] Every exception has an owner, expiry date, compensating control and issue.
+
 [Gates determined based on constitution file]
 
 ## Project Structure

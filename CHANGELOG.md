@@ -3,6 +3,26 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.131.0 — 2026-09-13
+
+Spec 152. Closes [#245](https://github.com/emersonjoe/trilha/issues/245).
+
+### Security
+
+- **NIST SSDF 1.1 and OWASP ASVS 5.0 are now release gates, not labels.** Specs and pull
+  requests record trust boundaries, applicable controls, exceptions and evidence;
+  `make security` runs vet, the race detector and a pinned `govulncheck` under Go 1.25.13.
+- **Trusted CI has a least-privilege self-hosted path.** Reviewed `main` pushes and manual runs
+  may use the repository-specific `eoslab` account, while pull requests and the privileged Pages
+  deployment stay GitHub-hosted. Actions are pinned by commit, credentials are not persisted and
+  self-hosted caches are removed after each job.
+
+### Documentation
+
+- **A bilingual secure-development baseline maps required evidence to NIST SSDF, OWASP ASVS
+  5.0 Level 2 and OWASP Top 10:2025.** The policy explicitly describes alignment rather than
+  certification and includes runner compromise response.
+
 ## 0.130.0 — 2026-09-13
 
 Spec 151. Closes [#244](https://github.com/emersonjoe/trilha/issues/244).
