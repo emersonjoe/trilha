@@ -203,18 +203,31 @@ func (a *Auth) login(c *trilha.Ctx, u *User) error {
 	return a.write(c, u)
 }
 
-func (a *Auth) write(c *trilha.Ctx, u *User) error {
+// write persists the session and hands the browser its cookie: the login, the
+// callback and the renewal of the idle window all end here.
+func (a *Auth) write(c *trilha.Ctx, u *User) error { return a.persist(c, u, true) }
+
+// persist is write with one question answered by the caller: whether the
+// cookie has to be written too. It always does when the session travels in it,
+// because there the cookie is the session. With a Store it does not when the
+// identifier has not changed — the Set-Cookie would come back with the same
+// value and the same expiry, which is noise in the response of an Update that
+// may well be answering a fetch.
+func (a *Auth) persist(c *trilha.Ctx, u *User, cookie bool) error {
 	ttl := time.Until(u.ExpiresAt)
 	if ttl <= 0 {
 		return errors.New("auth: session already expired")
 	}
 	// Stamped here, in the one place every session goes through — login,
-	// callback and the renewal of the idle window — so that no path can write
-	// a session with no owner.
+	// callback, Update and the renewal of the idle window — so that no path
+	// can write a session with no owner.
 	u.Audience = a.opts.Audience
 	if a.opts.Store != nil {
 		if err := a.storeSave(c.Context(), u.SessionID, u, ttl); err != nil {
 			return err
+		}
+		if !cookie {
+			return nil
 		}
 		return c.SetSigned(a.opts.CookieName, u.SessionID, ttl)
 	}
@@ -223,6 +236,67 @@ func (a *Auth) write(c *trilha.Ctx, u *User) error {
 		return err
 	}
 	return c.SetSigned(a.opts.CookieName, string(b), ttl)
+}
+
+// Update changes the session that is already open. It reads the stored session,
+// applies fn to it, writes it back and leaves the new value on the request —
+// without rotating the identifier, without redirecting, and without a
+// Set-Cookie when there is a Store.
+//
+//	// the admin has just edited the organisation's colour
+//	if err := sso.Update(c, func(u *auth.User) { u.Extra["brand"] = cor }); err != nil {
+//		return err
+//	}
+//	return c.Redirect("/marca")
+//
+// It is the writing door the session was missing. Login writes too, but it
+// rotates the SessionID and redirects, which is right for a login and wrong for
+// a refresh in the middle of a POST; and what Session and User answer is a
+// copy, so mutating it changes nothing. Without Update, an application that
+// caches in Extra something that can change during the session — the brand of
+// the organisation, the plan, the permissions — either stops caching or shows
+// the old value until the next login.
+//
+// It is a callback and not a Save(c, *User) on purpose: fn runs on the session
+// as the store has it right now, so the read-modify-write the application would
+// otherwise do around a remote store does not straddle the request.
+//
+// The SessionID is preserved even if fn changes it. The identifier is the
+// session's name in the store, and a new one here would orphan the stored row
+// and leave the browser's cookie pointing at nothing — a logout in the middle
+// of the request. Rotating it is Login's job, which is where rotating means
+// something.
+//
+// Extra arrives ready to be written to, so a session that was created without
+// it does not need a make(map[string]string) inside fn.
+//
+// No session is the error Session gives — ErrNoSession, or the store's own —
+// and never a redirect: whoever calls Update is in the middle of handling
+// something and decides what that means. Nothing is audited either: only the
+// application knows what changed, and c.Audit is its call.
+func (a *Auth) Update(c *trilha.Ctx, fn func(*User)) error {
+	if fn == nil {
+		return errors.New("auth: Update needs a function to apply to the session")
+	}
+	u, err := a.Session(c)
+	if err != nil {
+		return err
+	}
+	if u.Extra == nil {
+		u.Extra = map[string]string{}
+	}
+	id := u.SessionID
+	fn(u)
+	u.SessionID = id
+	// The cookie only has to be rewritten when it is the session: with a Store
+	// it carries the identifier, and the identifier has not changed.
+	if err := a.persist(c, u, a.opts.Store == nil); err != nil {
+		return err
+	}
+	// So that User, auth.Tenant and the audit actor below this point read what
+	// was just written instead of the copy the guard put there.
+	a.remember(c, u)
+	return nil
 }
 
 // clear removes the session, from the store too when there is one.

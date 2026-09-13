@@ -52,19 +52,27 @@ func autorizacao(ctx context.Context) http.Header {
 // request rather than once at init: a package-level var reading os.Getenv is a
 // screen no test can point somewhere else, and an app that has to be restarted
 // to change where the API lives. Building it is a struct, not a connection.
-func cliente() (*acervo.Client, bool) {
+func cliente(opts ...acervo.Option) (*acervo.Client, bool) {
 	base := os.Getenv("API_URL")
 	if base == "" {
 		return nil, false
 	}
-	return acervo.New(base, acervo.WithHeader(autorizacao)), true
+	return acervo.New(base, append([]acervo.Option{acervo.WithHeader(autorizacao)}, opts...)...), true
 }
 
 // Page answers GET /painel/documentos. The folder above requires a session, so
 // there is nobody here without one.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Documentos")
-	api, ok := cliente()
+	// The acervo rotates the credential and sends the new one back in a header.
+	// Reading it is the response hook; keeping it is the session's business, a
+	// few lines below.
+	var renovado string
+	api, ok := cliente(acervo.WithResponse(func(_ context.Context, r *http.Response) {
+		if t := r.Header.Get("X-Token-Renovado"); t != "" {
+			renovado = t
+		}
+	}))
 	if !ok {
 		return h.Div(h.Class("cartao"),
 			h.H1(h.Text("Documentos")),
@@ -74,6 +82,14 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	}
 	busca := c.Query("q")
 	page, err := api.Documents().ListDocuments(chamando(c), acervo.DocumentsListDocumentsParams{Q: busca, PageSize: 20})
+	// The token changed, so the session has to learn it — before the error is
+	// dealt with, because it was renewed either way. One call, and nobody is
+	// logged out in the middle of a listing.
+	if renovado != "" {
+		if err := sessao.AtualizarToken(c, renovado); err != nil {
+			return nil, err
+		}
+	}
 	if err != nil {
 		// The API answering badly is not this app crashing: the person gets
 		// the screen, and what the other side said.

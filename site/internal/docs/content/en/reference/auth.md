@@ -59,6 +59,7 @@ the document is an error, not a warning.
 | `RoleClaims []string` | — | additional claims of the `auth.Claims` (the decoded ID token) to read roles from, besides the standard ones |
 | `Store Store` | `nil` | persists the session; `nil` = signed cookie, stateless |
 | `OnLogin func(c, *User) error` | — | runs inside `Login` and `Callback`, session not yet written; its error stops the login |
+| `OnLoginToken func(c, *User, *IDToken) error` | — | runs inside `Callback` after `OnLogin`, with the verified ID token; its error stops the login |
 | `RequireVerifiedEmail bool` | `false` | refuses a login whose e-mail the provider does not vouch for |
 
 ### The e-mail the provider did not vouch for
@@ -98,6 +99,52 @@ knowing:
 `auth.Sessions` has no provider and no claim: there, `EmailVerified` is yours to set, and only
 your application knows whether it confirmed the address.
 
+### The ID token, for the API that issues the session
+
+A Trilha app is often the **front of an API that already exists** — which is what
+`Config.Upstreams` is for. There the app does OIDC and ends with a verified identity, but the
+backend is the one that issues the application's session, and the one that holds the account
+rules: create, refuse, waiting list. The correct way to ask it for that session is to hand over
+the ID token and let the backend verify it against the provider's JWKS — the provider stays the
+anchor of trust and **no new shared secret is born**.
+
+`OnLoginToken` is where that happens. It runs inside `Callback`, after `OnLogin` and before the
+session is written, and receives the token the flow has just verified:
+
+```go
+auth.New(p, auth.Options{
+	OnLoginToken: func(c *trilha.Ctx, u *auth.User, t *auth.IDToken) error {
+		sess, err := api.OpenSession(c.Context(), t.Raw) // the backend verifies it
+		if err != nil {
+			return err                                   // refused: the login stops
+		}
+		u.Extra = map[string]string{"api_session": sess} // this travels; the token does not
+		return nil
+	},
+})
+```
+
+```go
+type IDToken struct {
+	Raw    string  // the compact JWS, as the provider signed it
+	Claims *Claims // verified: signature, issuer, audience, nonce, expiry
+}
+```
+
+`Claims.All` is the whole payload, so it also answers **"I need a claim the kit does not
+map"** — `hd`, `groups`, one of your own — without touching `Provider` or `RoleClaims`.
+
+Two things it does on purpose:
+
+- **the token is not stored.** It exists for the callback request and dies with it. A token in
+  `User.Extra` travels wherever the session travels — the signed cookie, or the `Store` — with
+  the *session's* lifetime rather than its own, which is why there is no `KeepIDToken` option.
+  Forward it, trade it for what your backend issues, and keep that;
+- **it does not replace `OnLogin`,** it runs after it. `OnLogin` is the rule that runs on both
+  doors (password and OIDC) and decides whether this person gets in; only then does the app
+  spend a round trip with the token. `Login` — the door with no provider — never calls
+  `OnLoginToken`: there is no ID token there.
+
 ## Auth
 
 ```go
@@ -114,6 +161,7 @@ func (a *Auth) LoginPath() string            // Options.LoginPath, or its defaul
 func (a *Auth) Provider() *Provider          // the configured provider, for a screen that names it
 func (a *Auth) Sessions(c *trilha.Ctx) ([]User, error) // every session of whoever is logged in, this one first
 func (a *Auth) LogoutOthers(c *trilha.Ctx) error       // ends the others, keeps this one
+func (a *Auth) Update(c *trilha.Ctx, fn func(*User)) error // changes the session that is open
 
 func Sessions(o Options) *Auth               // the same type, without a provider
 func (a *Auth) Login(c *trilha.Ctx, u *User) error // session for a user the app authenticated
@@ -124,6 +172,43 @@ func (a *Auth) RequireFunc(pred func(*User, *trilha.Ctx) bool) trilha.Middleware
 `text/html`, outside `/api/`) and **401** otherwise. `RequireRole` answers **403** to
 someone authenticated without the role. **One** of the listed roles is enough; the
 comparison ignores case.
+
+### Changing a session that is open
+
+`Login` writes a session, and until `Update` existed that was the only door. It is the wrong one
+for a change in the middle of a request: it **rotates the `SessionID`** and **redirects**. And
+what `Session` and `User` answer is a copy, so mutating it persists nothing.
+
+`Update` is the door that was missing:
+
+```go
+// the administrator has just changed the organisation's colour
+if err := sso.Update(c, func(u *auth.User) { u.Extra["brand"] = colour }); err != nil {
+	return err
+}
+return c.Redirect("/brand")
+```
+
+It reads the stored session, applies the function, writes it back, and leaves the new value on
+the request — so `sso.User(c)`, `auth.Tenant(c)` and the audit actor below that line already
+read it. What it does **not** do:
+
+| | |
+|---|---|
+| rotate the `SessionID` | the identifier is the session's name in the store; a new one here would orphan the stored row and leave the cookie pointing at nothing. Rotating it is `Login`'s job |
+| redirect | whoever calls it is in the middle of handling a POST and decides what comes next |
+| send a `Set-Cookie` | with a `Store`, the cookie carries only the identifier and the identifier has not changed. **Without** a `Store` the session *is* the cookie, so it is rewritten — same identifier, same expiry |
+| audit | only the application knows what changed; `c.Audit` is its call |
+
+It takes a **function and not a `*User`** so that the read-modify-write does not straddle the
+request: the function runs on the session as the store has it right now. `Extra` arrives ready to
+be written to, so a session created without it needs no `make(map[string]string)` inside. No
+session is `ErrNoSession` — or the store's own error — and never a redirect.
+
+Without it, an application that caches in `Extra` something that can change *during* the session
+— the organisation's brand, the plan, the permissions — either stops caching and pays a round
+trip per page, or shows the old value until the next login, up to `Absolute` later.
+`SwitchTenant` is this same call with an audit line.
 
 ### Two publics in one process
 

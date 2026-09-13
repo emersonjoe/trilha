@@ -25,8 +25,11 @@ type recebida struct {
 // screen renders and records every request, so a test can read what left.
 type acervoFalso struct {
 	*httptest.Server
-	mu   sync.Mutex
-	recs []recebida
+	// renova, quando presente, é o token que a API devolve em X-Token-Renovado:
+	// a rotação de credencial que acontece no meio da sessão.
+	renova string
+	mu     sync.Mutex
+	recs   []recebida
 }
 
 func (a *acervoFalso) recebidas() []recebida {
@@ -50,6 +53,9 @@ func acervo(t *testing.T) *acervoFalso {
 			itens = itens[:1]
 		}
 		w.Header().Set("Content-Type", "application/json")
+		if a.renova != "" {
+			w.Header().Set("X-Token-Renovado", a.renova)
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"items": itens, "total": len(itens), "page": 1})
 	}))
 	t.Cleanup(a.Close)
@@ -116,6 +122,33 @@ func TestDocumentosIgnoraOAuthorizationDoBrowser(t *testing.T) {
 	recs := a.recebidas()
 	if len(recs) != 1 || recs[0].Auth != "Bearer jwt-da-ana" {
 		t.Fatalf("o token do browser chegou à API: %+v", recs)
+	}
+}
+
+// #206 — o acervo rotaciona a credencial no meio da sessão. A tela grava o
+// token novo na sessão que está aberta, e a chamada da requisição seguinte já
+// sai com ele: ninguém é deslogado para que o cache da sessão mude de valor.
+func TestDocumentosGuardaOTokenRenovado(t *testing.T) {
+	a := acervo(t)
+	a.renova = "jwt-da-ana-2"
+	c := cliente(t, a.URL)
+	entrar(t, c, "ana@exemplo.com", "segredo-da-ana").WantStatus(http.StatusSeeOther)
+
+	// A primeira chamada sai com o token do login e volta com o novo.
+	c.Get("/painel/documentos").WantStatus(200).WantContains("contrato-2026.pdf")
+	// A segunda já sai com o novo, o que só acontece se a sessão o guardou —
+	// mesmo cookie, sem novo login.
+	c.Get("/painel/documentos").WantStatus(200)
+
+	recs := a.recebidas()
+	if len(recs) != 2 {
+		t.Fatalf("chamadas à API = %d, queria 2", len(recs))
+	}
+	if recs[0].Auth != "Bearer jwt-da-ana" {
+		t.Fatalf("primeira chamada = %q", recs[0].Auth)
+	}
+	if recs[1].Auth != "Bearer jwt-da-ana-2" {
+		t.Fatalf("segunda chamada = %q, queria o token renovado", recs[1].Auth)
 	}
 }
 

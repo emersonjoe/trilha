@@ -950,6 +950,7 @@ pkg auth, method (*Auth) Session(*trilha.Ctx) (*User, error)
 pkg auth, method (*Auth) Sessions(*trilha.Ctx) ([]User, error)
 pkg auth, method (*Auth) Start(*trilha.Ctx) error
 pkg auth, method (*Auth) SwitchTenant(*trilha.Ctx, string) error
+pkg auth, method (*Auth) Update(*trilha.Ctx, func(*User)) error
 pkg auth, method (*Auth) User(*trilha.Ctx) *User
 pkg auth, method (*Key) Active(time.Time) bool
 pkg auth, method (*Keys) All() ([]*Key, error)
@@ -986,6 +987,9 @@ pkg auth, type Claims struct, Nonce string
 pkg auth, type Claims struct, NotBefore time.Time
 pkg auth, type Claims struct, Subject string
 pkg auth, type Grants map[string]string
+pkg auth, type IDToken struct
+pkg auth, type IDToken struct, Claims *Claims
+pkg auth, type IDToken struct, Raw string
 pkg auth, type Key struct
 pkg auth, type Key struct, Created time.Time
 pkg auth, type Key struct, ExpiresAt time.Time
@@ -1024,6 +1028,7 @@ pkg auth, type Options struct, Idle time.Duration
 pkg auth, type Options struct, IdleOff bool
 pkg auth, type Options struct, LoginPath string
 pkg auth, type Options struct, OnLogin func(*trilha.Ctx, *User) error
+pkg auth, type Options struct, OnLoginToken func(*trilha.Ctx, *User, *IDToken) error
 pkg auth, type Options struct, RequireVerifiedEmail bool
 pkg auth, type Options struct, RoleClaims []string
 pkg auth, type Options struct, Scopes []string

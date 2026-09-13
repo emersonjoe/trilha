@@ -59,6 +59,7 @@ primeiro uso e vale por uma hora; um emissor divergente entre a configuração e
 | `RoleClaims []string` | — | claims adicionais do `auth.Claims` (o ID token decodificado) de onde ler papéis, além dos padrão |
 | `Store Store` | `nil` | persiste a sessão; `nil` = cookie assinado, sem estado |
 | `OnLogin func(c, *User) error` | — | roda dentro de `Login` e `Callback`, com a sessão ainda não gravada; o erro dele impede o login |
+| `OnLoginToken func(c, *User, *IDToken) error` | — | roda dentro de `Callback` depois do `OnLogin`, com o ID token verificado; o erro dele impede o login |
 | `RequireVerifiedEmail bool` | `false` | recusa o login cujo e-mail o provedor não garante |
 
 ### O e-mail que o provedor não garantiu
@@ -97,6 +98,52 @@ Vem desligado porque ligar muda quem entra. Dois detalhes que valem saber:
 O `auth.Sessions` não tem provedor nem claim: ali o `EmailVerified` é seu para preencher, e só
 a sua aplicação sabe se confirmou o endereço.
 
+### O ID token, para a API que emite a sessão
+
+Uma app Trilha muitas vezes é a **frente de uma API que já existe** — que é para isso que o
+`Config.Upstreams` serve. Ali a app faz OIDC e termina com uma identidade verificada, mas o
+backend é quem emite a sessão da aplicação, e quem tem as regras de conta: criar, recusar, lista
+de espera. A forma correta de pedir essa sessão é repassar o ID token e deixar o backend
+verificá-lo contra o JWKS do provedor — o provedor continua sendo a âncora de confiança e
+**nenhum segredo compartilhado novo nasce**.
+
+O `OnLoginToken` é onde isso acontece. Ele roda dentro do `Callback`, depois do `OnLogin` e antes
+de a sessão ser gravada, e recebe o token que o fluxo acabou de verificar:
+
+```go
+auth.New(p, auth.Options{
+	OnLoginToken: func(c *trilha.Ctx, u *auth.User, t *auth.IDToken) error {
+		sess, err := api.AbreSessao(c.Context(), t.Raw) // o backend verifica
+		if err != nil {
+			return err                                  // recusou: o login para
+		}
+		u.Extra = map[string]string{"sessao_api": sess} // esta viaja; o token não
+		return nil
+	},
+})
+```
+
+```go
+type IDToken struct {
+	Raw    string  // o JWS compacto, como o provedor assinou
+	Claims *Claims // verificadas: assinatura, emissor, público, nonce, prazo
+}
+```
+
+O `Claims.All` é o payload inteiro, então ele também responde **"preciso de uma claim que o kit
+não mapeia"** — `hd`, `groups`, uma sua — sem mexer no `Provider` nem no `RoleClaims`.
+
+Duas coisas que ele faz de propósito:
+
+- **o token não é guardado.** Ele existe durante a requisição do callback e morre nela. Um token
+  no `User.Extra` viaja onde a sessão viaja — o cookie assinado, ou o `Store` — com o prazo *da
+  sessão* e não o dele, e é por isso que não existe uma opção `KeepIDToken`. Repasse-o, troque-o
+  pelo que o seu backend emite, e guarde esse;
+- **ele não substitui o `OnLogin`,** roda depois dele. O `OnLogin` é a regra que vale nas duas
+  portas (senha e OIDC) e decide se esta pessoa entra; só então a app gasta uma ida ao backend
+  com o token. O `Login` — a porta sem provedor — nunca chama o `OnLoginToken`: ali não existe
+  ID token.
+
 ## Auth
 
 ```go
@@ -113,6 +160,7 @@ func (a *Auth) LoginPath() string            // Options.LoginPath, ou o padrão
 func (a *Auth) Provider() *Provider          // o provedor configurado, para a tela que o nomeia
 func (a *Auth) Sessions(c *trilha.Ctx) ([]User, error) // todas as sessões de quem está logado, esta primeiro
 func (a *Auth) LogoutOthers(c *trilha.Ctx) error       // encerra as outras, mantém esta
+func (a *Auth) Update(c *trilha.Ctx, fn func(*User)) error // muda a sessão que está aberta
 
 func Sessions(o Options) *Auth               // o mesmo tipo, sem provedor
 func (a *Auth) Login(c *trilha.Ctx, u *User) error // sessão para quem o app autenticou
@@ -123,6 +171,43 @@ func (a *Auth) RequireFunc(pred func(*User, *trilha.Ctx) bool) trilha.Middleware
 `text/html`, fora de `/api/`) e **401** caso contrário. `RequireRole` responde **403** para
 quem está autenticado sem o papel. Basta **um** dos papéis listados; a comparação ignora
 maiúsculas.
+
+### Mudar uma sessão que está aberta
+
+O `Login` grava uma sessão, e até o `Update` existir era a única porta. É a porta errada para uma
+mudança no meio de uma requisição: ele **rotaciona o `SessionID`** e **redireciona**. E o que o
+`Session` e o `User` devolvem é uma cópia, então mutar o que voltou não persiste nada.
+
+O `Update` é a porta que faltava:
+
+```go
+// o administrador acabou de mudar a cor da organização
+if err := sso.Update(c, func(u *auth.User) { u.Extra["marca"] = cor }); err != nil {
+	return err
+}
+return c.Redirect("/marca")
+```
+
+Ele lê a sessão guardada, aplica a função, grava de volta e deixa o valor novo na requisição — de
+modo que o `sso.User(c)`, o `auth.Tenant(c)` e o ator da auditoria abaixo daquela linha já o leem.
+O que ele **não** faz:
+
+| | |
+|---|---|
+| rotacionar o `SessionID` | o identificador é o nome da sessão no store; um novo aqui deixaria a linha guardada órfã e o cookie apontando para o vazio. Rotacionar é trabalho do `Login` |
+| redirecionar | quem chama está no meio de um POST e decide o que vem depois |
+| mandar um `Set-Cookie` | com `Store`, o cookie carrega só o identificador e o identificador não mudou. **Sem** `Store` a sessão *é* o cookie, então ele é reescrito — mesmo identificador, mesmo prazo |
+| auditar | só a aplicação sabe o que mudou; o `c.Audit` é dela |
+
+Ele recebe uma **função e não um `*User`** para que o ler-modificar-gravar não atravesse a
+requisição: a função roda sobre a sessão como o store a tem agora. O `Extra` chega pronto para
+escrita, então uma sessão criada sem ele não precisa de um `make(map[string]string)` dentro. Sem
+sessão é `ErrNoSession` — ou o erro do próprio store — e nunca um redirecionamento.
+
+Sem isso, uma aplicação que cacheia no `Extra` algo que pode mudar *durante* a sessão — a marca da
+organização, o plano, as permissões — ou deixa de cachear e paga uma ida por página, ou mostra o
+valor velho até o próximo login, até `Absolute` depois. O `SwitchTenant` é esta mesma chamada com
+uma linha de auditoria.
 
 ### Dois públicos no mesmo processo
 

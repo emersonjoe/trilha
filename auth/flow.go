@@ -69,6 +69,36 @@ type Options struct {
 	// written: it is where the app loads permissions or records the audit
 	// line, and where an error stops the login.
 	OnLogin func(c *trilha.Ctx, u *User) error
+	// OnLoginToken runs inside Callback only, after OnLogin and with the
+	// session not yet written, and gets the verified ID token as well: the
+	// token as the provider signed it and the claims already checked. An error
+	// stops the login, like OnLogin's.
+	//
+	// It exists for the application that is the front of an API that already
+	// exists — what Config.Upstreams is for. There, the app does OIDC and ends
+	// with a verified identity, but the backend is the one that issues the
+	// application's session and holds the account rules. The correct way to ask
+	// for that session is to hand over the id_token and let the backend verify
+	// it against the provider's JWKS: the provider stays the anchor of trust
+	// and no new shared secret is born.
+	//
+	//	OnLoginToken: func(c *trilha.Ctx, u *auth.User, t *auth.IDToken) error {
+	//		sess, err := api.OpenSession(c.Context(), t.Raw)  // o backend verifica
+	//		if err != nil {
+	//			return err                                     // recusou: o login para
+	//		}
+	//		u.Extra = map[string]string{"api_session": sess}   // esta viaja, o token não
+	//		return nil
+	//	}
+	//
+	// It also answers "I need a claim the kit does not map": t.Claims.All has
+	// the payload of the token, so hd, groups or a claim of your own does not
+	// need a change to Provider.
+	//
+	// Login — the door without a provider — never calls it: there is no
+	// id_token there, and handing over an empty one would invite the
+	// application to read "there was no token" as "the token is this".
+	OnLoginToken func(c *trilha.Ctx, u *User, t *IDToken) error
 	// RequireVerifiedEmail refuses a login whose e-mail the provider does not
 	// vouch for — it answered with the address and email_verified false, which
 	// means somebody typed it and nobody checked it. The refusal happens
@@ -82,6 +112,26 @@ type Options struct {
 	// that sends no e-mail at all, is never verified: a username is not an
 	// address anybody vouched for.
 	RequireVerifiedEmail bool
+}
+
+// IDToken is the verified identity Callback has in hand, handed to
+// Options.OnLoginToken: the ID token exactly as it arrived and the claims that
+// were checked against the provider.
+//
+// It lives for the callback request and no longer. Nothing here writes it to
+// the session or to a log line, and neither should the application: a token in
+// User.Extra travels wherever the session travels — the signed cookie, or the
+// Store — with the session's lifetime rather than its own. Forward it, trade it
+// for what your own backend issues, and keep that instead.
+type IDToken struct {
+	// Raw is the compact JWS the provider signed, which is what a backend that
+	// verifies it against the provider's JWKS needs. It is a credential: it
+	// goes over TLS to somebody who is meant to have it, and nowhere else.
+	Raw string
+	// Claims is the verified payload — signature, issuer, audience, nonce and
+	// expiry already checked. All carries what the standard does not name, for
+	// the claim the kit does not map.
+	Claims *Claims
 }
 
 // Auth is the configured login flow.
@@ -228,6 +278,15 @@ func (a *Auth) Callback(c *trilha.Ctx) error {
 	}
 	if a.opts.OnLogin != nil {
 		if err := a.opts.OnLogin(c, u); err != nil {
+			return a.fail(c, err)
+		}
+	}
+	// After OnLogin, and not instead of it: an application that sets both would
+	// otherwise lose one without being told. The order is the useful one — the
+	// rule that decides whether this person gets in runs first, and only then
+	// does the app spend a round trip to its backend with the token.
+	if a.opts.OnLoginToken != nil {
+		if err := a.opts.OnLoginToken(c, u, &IDToken{Raw: tok.IDToken, Claims: claims}); err != nil {
 			return a.fail(c, err)
 		}
 	}

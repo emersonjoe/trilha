@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/emersonjoe/trilha"
@@ -88,6 +89,26 @@ func Configure() {
 		// Ligado aqui de propósito, para ser a convenção visível. Desligar é
 		// escolha de quem tem provedor próprio e sabe que ele confere.
 		RequireVerifiedEmail: true,
+		// O ID token verificado, durante o retorno. Este exemplo não tem
+		// backend, então ele faz a metade que dá para fazer sozinho: copia para
+		// o Extra as claims que o kit não mapeia, nomeadas em SSO_EXTRA_CLAIMS
+		// (`hd` do Workspace, `groups`, uma sua).
+		//
+		// Numa app que é a frente de uma API que já existe, é aqui que `t.Raw`
+		// seria repassado ao backend — que o verifica contra o JWKS do provedor,
+		// sem nenhum segredo compartilhado novo — e a sessão que ele devolvesse
+		// iria para o Extra. O token em si não fica guardado em lugar nenhum: no
+		// Extra ele viajaria no cookie do navegador, com o prazo da sessão e não
+		// o dele.
+		OnLoginToken: func(c *trilha.Ctx, u *auth.User, t *auth.IDToken) error {
+			for nome, valor := range extrasDasClaims(t, split(os.Getenv("SSO_EXTRA_CLAIMS"))) {
+				if u.Extra == nil {
+					u.Extra = map[string]string{}
+				}
+				u.Extra[nome] = valor
+			}
+			return nil
+		},
 	})
 	motivo = ""
 }
@@ -150,6 +171,27 @@ func indisponivel(c *trilha.Ctx) error {
 		return trilha.RedirectCode("/", http.StatusSeeOther)
 	}
 	return trilha.Errorf(http.StatusServiceUnavailable, "login não configurado: %s", motivo)
+}
+
+// extrasDasClaims lê do ID token as claims nomeadas e devolve o que vai para o
+// Extra da sessão. Só string, número e booleano: o Extra é map[string]string, e
+// achatar um objeto ali seria guardar JSON dentro de um cookie.
+func extrasDasClaims(t *auth.IDToken, nomes []string) map[string]string {
+	if t == nil || t.Claims == nil || len(nomes) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for _, nome := range nomes {
+		switch v := t.Claims.All[nome].(type) {
+		case string:
+			out[nome] = v
+		case bool:
+			out[nome] = strconv.FormatBool(v)
+		case float64:
+			out[nome] = strconv.FormatFloat(v, 'f', -1, 64)
+		}
+	}
+	return out
 }
 
 func split(s string) []string {

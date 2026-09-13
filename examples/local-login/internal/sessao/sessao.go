@@ -31,6 +31,14 @@ func Entrar(c *trilha.Ctx, u usuarios.Usuario) error {
 	})
 }
 
+// AtualizarToken writes the token the API has just rotated into the session
+// that is already open. It is what Update is for: Login would rotate the
+// session identifier and redirect, in the middle of a listing, and what Session
+// and User answer is a copy, so mutating that would persist nothing.
+func AtualizarToken(c *trilha.Ctx, token string) error {
+	return Flow.Update(c, func(u *auth.User) { u.Extra["api_token"] = token })
+}
+
 // Token is what Config.Upstreams injects. It reads the session from the cookie
 // rather than from the request context: the proxy answers outside the
 // middleware chain, so nobody put the user there.

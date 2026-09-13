@@ -76,20 +76,23 @@ func (a *Auth) RequireTenant() trilha.MiddlewareFunc {
 // It is the application's job to check that the person may enter that
 // organisation. This package does not know what a membership is, and pretending
 // to would be a check that looks like a guarantee and is not one.
+//
+// Changing any other field of a live session is Update, which is what this is
+// written on top of.
 func (a *Auth) SwitchTenant(c *trilha.Ctx, tenant string) error {
 	u := a.User(c)
 	if u == nil {
 		return a.challenge(c)
 	}
 	before := u.Tenant
+	// Moving to the organisation the session is already in is not a move: no
+	// write, and no audit line saying somebody went from acme to acme.
 	if before == tenant {
 		return nil
 	}
-	u.Tenant = tenant
-	if err := a.write(c, u); err != nil {
+	if err := a.Update(c, func(u *User) { u.Tenant = tenant }); err != nil {
 		return err
 	}
-	a.remember(c, u)
 	c.Audit("tenant.trocou", tenant, trilha.Fields{"de": before, "para": tenant})
 	return nil
 }

@@ -3,6 +3,43 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.126.0 — 2026-09-13
+
+Spec 147. Closes [#206](https://github.com/emersonjoe/trilha/issues/206),
+[#208](https://github.com/emersonjoe/trilha/issues/208).
+
+### Added
+
+- **`auth`: `Update` writes to the session that is already open.**
+  `sso.Update(c, func(u *auth.User) { u.Extra["brand"] = colour })` reads the stored session,
+  applies the function, writes it back and leaves the new value on the request — so `User(c)`,
+  `auth.Tenant(c)` and the audit actor below that line already read it. It does **not** rotate
+  the `SessionID`, does **not** redirect and, with a `Store`, does **not** send a `Set-Cookie`:
+  the cookie carries only the identifier and the identifier has not changed. Until now the only
+  door that wrote a session was `Login`, which rotates the identifier and redirects — right for a
+  login, wrong for a change in the middle of a POST — and what `Session` and `User` answer is a
+  copy, so mutating it persisted nothing. An application that caches in `Extra` something that
+  can change *during* the session — the organisation's brand, the plan, the permissions — had to
+  choose between paying a round trip per page and showing the old value until the next login. It
+  takes a function and not a `*User` so the read-modify-write does not straddle the request:
+  the function runs on the session as the store has it right now. No session is `ErrNoSession`,
+  or the store's own error, and never a redirect. `SwitchTenant` is now this same call with an
+  audit line.
+- **`auth`: the verified ID token reaches the login, through `Options.OnLoginToken`.**
+  `OnLoginToken: func(c *trilha.Ctx, u *auth.User, t *auth.IDToken) error` runs inside
+  `Callback`, after `OnLogin` and before the session is written, with `t.Raw` (the compact JWS as
+  the provider signed it) and `t.Claims` (already checked: signature, issuer, audience, nonce,
+  expiry). It is what an app that is the **front of an API that already exists** was missing: the
+  backend is the one that issues the application's session and holds the account rules, and the
+  correct way to ask it is to hand over the ID token and let it verify the token against the
+  provider's JWKS — the provider stays the anchor of trust and no new shared secret is born.
+  `t.Claims.All` also answers "I need a claim the kit does not map" (`hd`, `groups`, one of your
+  own) with no change to `Provider`. The token is **not** stored anywhere: in `User.Extra` it
+  would travel in the browser's cookie with the session's lifetime rather than its own, which is
+  why there is no `KeepIDToken` option — forward it, trade it for what your backend issues, and
+  keep that. `OnLogin` is unchanged and still runs on both doors; `Login`, which has no provider,
+  never calls `OnLoginToken`.
+
 ## 0.125.0 — 2026-09-13
 
 Spec 146. Closes [#205](https://github.com/emersonjoe/trilha/issues/205),
