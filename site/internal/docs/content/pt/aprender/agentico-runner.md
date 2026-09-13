@@ -124,12 +124,13 @@ O modelo recebe `read_file` e `list_files` sempre, `write_file` só quando o man
 dependências e a evidência da task. A cerca é a mesma seja qual for o driver: o worktree, as
 ferramentas do manifesto e os checks.
 
-## O que o runner não faz
+## Worker persistente e entrega
 
-Não faz push, não abre pull request, não roda várias tasks ao mesmo tempo nem põe o agente num
-container. Os dois primeiros são a próxima spec do runner; os dois últimos são o
-[control plane](/pt/aprender/agentico-cloud). A costura já existe: `sandbox.Sandbox` prepara um
-ambiente para um job, e o único sandbox do runner local é o worktree.
+O worker conectado ao Cloud pode manter checkouts dedicados em `--workspace-root`, materializar
+bundles versionados do Trilha Spec e publicar os branches de spec e implementação com `--push`.
+Deploy e rollback usam `--delivery-config`: somente comandos cadastrados localmente podem rodar;
+o Cloud nunca fornece uma linha de shell. O runner ainda executa uma task por processo e o
+sandbox padrão continua sendo o worktree; isolamento por container permanece opcional.
 
 ## Desafio
 

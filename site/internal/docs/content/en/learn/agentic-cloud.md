@@ -46,7 +46,7 @@ else is behind keys with scopes:
 curl -X POST localhost:3000/api/admin/projects -H "Authorization: Bearer change-me" \
      -d '{"name":"agenda","org":"learn","repo":"git@github.com:you/agenda"}'
 curl -X POST localhost:3000/api/admin/keys -H "Authorization: Bearer change-me" \
-     -d '{"name":"laptop","scopes":["runs:read","runs:write"]}'
+     -d '{"name":"laptop","project":"agenda","expires_days":30,"scopes":["runs:read","runs:write"]}'
 # {"key":"tc_…"}   shown once; the secret is peppered with TRILHA_SECRET and never stored
 ```
 
@@ -393,7 +393,7 @@ The equivalent API operation is:
 curl -X POST http://localhost:3000/api/admin/keys \
   -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"name":"cadastro-usuarios-worker","scopes":["runs:read","runs:write"]}'
+  -d '{"name":"cadastro-usuarios-worker","project":"cadastro-usuarios","expires_days":30,"scopes":["runs:read","runs:write","deployments:write","secrets:read"]}'
 # copy the response key field to TRILHA_CLOUD_API_KEY
 ```
 
@@ -423,6 +423,10 @@ trilha-runner worker \
   --cloud http://localhost:3000 \
   --token "$TRILHA_CLOUD_API_KEY" \
   --project cadastro-usuarios \
+  --workspace-root /var/lib/trilha-runner/workspaces \
+  --repo git@github.com:trilha/cadastro-usuarios.git \
+  --default-branch main \
+  --push \
   --name cadastro-usuarios-worker \
   --once \
   --driver echo
@@ -491,6 +495,35 @@ browser, run this in the `trilha-cloud` repository:
 make check-all
 ```
 
+### 11. Operate environments, secrets, deploy and rollback from the UI
+
+After the worker is connected, daily operation requires no terminal:
+
+1. In **Specs**, select **Run** on a ready task. Cloud gives the runner a versioned bundle with
+   the repository, round, stages, acceptance criteria and checks.
+2. The runner refreshes a dedicated checkout, materializes `.trilha/` through Trilha Spec,
+   executes the task in a worktree and publishes `trilha/spec-*` and `trilha/task-*` branches
+   when `--push` is enabled.
+3. In **Environments**, create `production`, enter its HTTPS URL and a runner-local allowed
+   profile such as `production`.
+4. In **Secrets**, enter one variable per line (`NAME=value`). Cloud stores AES-256-GCM
+   ciphertext and subsequently displays names only.
+5. Select **Deploy**, enter an immutable commit or tag and follow its status. After success,
+   **Rollback** schedules the previous revision.
+
+The delivery profile exists only on the VPS in `/etc/trilha-runner/delivery.json`:
+
+```json
+{"profiles":{"production":{"deploy":["/usr/local/libexec/trilha/deploy-product"],"rollback":["/usr/local/libexec/trilha/rollback-product"],"health_url":"https://cadastro-usuarios.eoslab.com.br/health/ready","timeout_seconds":600}}}
+```
+
+Cloud does not send commands, Git keys or Docker socket access. The service runs as a dedicated
+user without sudo, receives a minimal environment and redacts secret values from returned logs.
+
+![Environments and delivery in the portal](/docs/agentic-cloud/cloud-environments.png "The environment shows secret names only, current revision, allowed profile and auditable actions.")
+
+![Responsive portal at 390 pixels](/docs/agentic-cloud/cloud-mobile.png "Specifications, Kanban, environments, runs and fleet remain operable on a mobile screen.")
+
 ## The contract
 
 The worker only needs three routes, so another control plane — yours — can implement them:
@@ -508,10 +541,11 @@ All with `Authorization: Bearer <key>`. The body of the result is `trilha-runner
 
 | | Delivered | Later |
 |---|---|---|
-| Control plane | projects, queue with claim, results with evidence, reviewer close | organisations and teams, billing |
-| Fleet | workers with heartbeat; who is doing what | scheduling across projects, remote sandboxes |
-| Governance | admin token, scoped keys with a per-key rate limit, audit of every action | SSO, policies per project, signed evidence |
-| Storage | in memory, JSON snapshot on every write | SQL |
+| Control plane | projects, specifications, rounds, Kanban, execution and review | organisations and teams, billing |
+| Fleet | persistent project workers, isolated Git checkout, `.trilha` synchronization and optional push | configurable parallelism and remote sandboxes |
+| Delivery | environments, encrypted secrets, local profiles, deploy, health check and rollback | progressive delivery and multiple approvals |
+| Governance | login, CSRF, persistent project-scoped expiring/revocable keys and audit | SSO and signed evidence |
+| Storage | atomic JSON snapshot on every write | SQL and high availability |
 
 ## Challenge
 
