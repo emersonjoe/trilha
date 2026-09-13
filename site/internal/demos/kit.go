@@ -565,15 +565,17 @@ func taskDemo(pt bool) h.Node {
 }
 
 // webhooksDemo builds ui-webhooks: the panel trilha add webhooks writes, one
-// subscription and two deliveries — one that worked, one the partner
-// rejected.
+// active subscription and one revoked one — the revoked row is what draws
+// the Reactivate button — and two deliveries, one that worked, one the
+// partner rejected.
 func webhooksDemo(pt bool) h.Node {
-	label, event1, event2 := "Billing sync", "order.paid", "order.refunded"
+	label, oldLabel, event1, event2 := "Billing sync", "Old CRM", "order.paid", "order.refunded"
 	if pt {
-		label = "Sincronização de faturamento"
+		label, oldLabel = "Sincronização de faturamento", "CRM antigo"
 	}
 	subs := []kit.WebhookRow{
 		{ID: "1", Label: label, URL: "https://billing.example.com/hooks/trilha", Events: []string{event1, event2}, Created: demoRefDate.AddDate(0, -1, 0)},
+		{ID: "2", Label: oldLabel, URL: "https://old-crm.example.com/hooks", Events: []string{event1}, Created: demoRefDate.AddDate(0, -6, 0), Revoked: true},
 	}
 	deliveries := []kit.DeliveryRow{
 		{ID: "d1", Event: event1, State: "delivered", Attempt: 1, Status: 200, When: demoRefDate.Add(-3 * time.Hour)},

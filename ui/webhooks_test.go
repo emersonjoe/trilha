@@ -101,7 +101,7 @@ func TestReenviarSoNoQueAcabou(t *testing.T) {
 	}
 }
 
-// Revogada não oferece testar nem revogar de novo.
+// Revogada não oferece testar nem revogar de novo — mas religa.
 func TestRevogadaNaoTemBotao(t *testing.T) {
 	got, _ := desenha(t, func(c *trilha.Ctx) h.Node {
 		return WebhooksPanel(c, assinaturas(), nil, opcoes(c))
@@ -114,6 +114,33 @@ func TestRevogadaNaoTemBotao(t *testing.T) {
 	}
 	if !strings.Contains(got, "Revogado") {
 		t.Fatal("a revogada não está marcada como revogada")
+	}
+}
+
+// #202 — uma linha revogada não tinha jeito nenhum de voltar pelo painel:
+// sobrava cadastrar de novo (o que troca o segredo) ou mexer por fora.
+func TestRevogadaTemBotaoDeReligar(t *testing.T) {
+	got, _ := desenha(t, func(c *trilha.Ctx) h.Node {
+		return WebhooksPanel(c, assinaturas(), nil, opcoes(c))
+	})
+	if n := strings.Count(got, `value="activate"`); n != 1 {
+		t.Fatalf("botões de religar = %d, queria 1 (só a revogada)", n)
+	}
+	// Só existe uma linha revogada (whk_2, verificado acima); o único botão de
+	// religar apontar para ela já prova que a ativa (whk_1) não ganhou um.
+	if !strings.Contains(got, `value="whk_2"`) {
+		t.Fatal("o botão de religar não aponta para a assinatura revogada")
+	}
+}
+
+// Só leitura não desenha nem o botão de religar: sem Action não há para onde
+// postar nada.
+func TestSemAcaoNaoTemBotaoDeReligar(t *testing.T) {
+	got, _ := desenha(t, func(c *trilha.Ctx) h.Node {
+		return WebhooksPanel(c, assinaturas(), nil, WebhooksOpts{})
+	})
+	if strings.Contains(got, `value="activate"`) {
+		t.Fatal("desenhou o botão de religar sem para onde postar")
 	}
 }
 

@@ -62,17 +62,20 @@ type WebhooksOpts struct {
 }
 
 // WebhooksPanel is the screen an application gives whoever integrates with it:
-// register an endpoint, see what was sent, send it again, test it.
+// register an endpoint, see what was sent, send it again, test it — and, on a
+// revoked row, reactivate it.
 //
 //	ui.WebhooksPanel(c, assinaturas, entregas, ui.WebhooksOpts{
 //		Action: "/webhooks", CSRF: trilha.CSRFInput(c),
 //		Events: app.Hooks.Events(), Secret: webhook.TakeSecret(c),
 //	})
 //
-// It is one form posting to one address, dispatched by a hidden action field,
-// because that is what webhook.Handle answers — and because a screen that
-// posts to itself comes back to itself when something is wrong, with the
-// message beside the field.
+// It is one form posting to one address, dispatched by a hidden action field:
+// subscribe, revoke, retry and ping are what webhook.Handle answers today.
+// activate is for an application whose own handler already knows how to turn
+// a subscription back on — webhook.Handle does not answer it yet. Either way,
+// a screen that posts to itself comes back to itself when something is
+// wrong, with the message beside the field.
 func WebhooksPanel(c *trilha.Ctx, subs []WebhookRow, deliveries []DeliveryRow, o WebhooksOpts) h.Node {
 	lang := langOf(c)
 	w := hookWords[lang]
@@ -160,8 +163,13 @@ func hookState(r WebhookRow, w map[string]string) h.Node {
 }
 
 func hookButtons(r WebhookRow, o WebhooksOpts, w map[string]string) h.Node {
-	if o.Action == "" || r.Revoked {
+	if o.Action == "" {
 		return h.Nil
+	}
+	if r.Revoked {
+		return h.Div(h.Class("ui-webhooks-actions"),
+			hookAction(o, "activate", r.ID, w["reactivate"], nil),
+		)
 	}
 	return h.Div(h.Class("ui-webhooks-actions"),
 		hookAction(o, "ping", r.ID, w["ping"], nil),
@@ -277,7 +285,7 @@ var hookWords = map[string]map[string]string{
 		"url": "URL", "url help": "https only, and it has to be reachable from the public internet.",
 		"events help": "None selected means every event.",
 		"all events":  "every event",
-		"subscribe":   "Register", "revoke": "Revoke", "retry": "Send again", "ping": "Test",
+		"subscribe":   "Register", "revoke": "Revoke", "reactivate": "Reactivate", "retry": "Send again", "ping": "Test",
 		"no endpoints": "No endpoint registered yet.", "no deliveries": "Nothing has been sent yet.",
 		"secret hint": "It signs every delivery. Store it where the receiving application reads it from; this application cannot show it again.",
 	},
@@ -293,7 +301,7 @@ var hookWords = map[string]map[string]string{
 		"url": "URL", "url help": "Só https, e precisa ser alcançável pela internet pública.",
 		"events help": "Nenhum marcado significa todos os eventos.",
 		"all events":  "todos os eventos",
-		"subscribe":   "Cadastrar", "revoke": "Revogar", "retry": "Enviar de novo", "ping": "Testar",
+		"subscribe":   "Cadastrar", "revoke": "Revogar", "reactivate": "Reativar", "retry": "Enviar de novo", "ping": "Testar",
 		"no endpoints": "Nenhum endereço cadastrado ainda.", "no deliveries": "Nada foi enviado ainda.",
 		"secret hint": "Ele assina cada entrega. Guarde onde a aplicação que recebe vai ler; esta aqui não consegue mostrar de novo.",
 	},

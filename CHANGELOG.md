@@ -3,6 +3,34 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.129.0 — 2026-09-13
+
+Spec 150. Closes [#195](https://github.com/emersonjoe/trilha/issues/195),
+[#198](https://github.com/emersonjoe/trilha/issues/198),
+[#202](https://github.com/emersonjoe/trilha/issues/202).
+
+### Fixed
+
+- **`ui.Bars` no longer cuts the value label of its tallest bar.** The value was written
+  starting at `barX + width-of-the-widest-bar + 6`, inside a `viewBox` that stayed 320 units
+  wide no matter what; the tallest bar always has the widest possible bar, so its label was
+  always the one closest to the edge, and past a `viewBox` a browser cuts. The drawing now
+  widens the `viewBox` to `max(320, barX + barMax + 6 + 7 × runes of the longest Datum.text())`
+  — the same width-per-character estimate the framework has always used for anything it cannot
+  measure server-side. A series whose longest label already fit in 320 units draws exactly as
+  before.
+- **`ui.Button` no longer writes `type` twice.** The default `type="button"` used to be
+  appended after whatever the caller passed, so `ui.Button(h.Type("submit"), …)` rendered
+  `type="submit" type="button"` — invalid HTML that only submitted because the caller's
+  attribute happened to come first in the markup. `Button` now skips its default when a caller
+  already set a `type`.
+- **`ui.WebhooksPanel` draws a "Reactivate" button on a revoked subscription.** A `Revoked` row
+  used to have no button at all: the only way back was registering the endpoint again, which
+  rotates the secret and forces whoever integrates to reconfigure their end. The new button
+  posts `action=activate` with the row's `id`, the same hidden-form mechanism `Revoke`, `Retry`
+  and `Ping` already use. `webhook.Hooks.Handle` does not answer `activate` yet — the button is
+  for applications whose own handler already knows how to turn a subscription back on.
+
 ## 0.128.0 — 2026-09-13
 
 Spec 149. Closes [#201](https://github.com/emersonjoe/trilha/issues/201),

@@ -92,6 +92,18 @@ func classOf(n h.Node) (string, bool) {
 	return strings.TrimSuffix(strings.TrimPrefix(s, ` class="`), `"`), true
 }
 
+// hasAttr reports whether any node already sets the named attribute, so a
+// component's default does not end up written twice — once by the component,
+// once by whoever called it.
+func hasAttr(nodes []h.Node, name string) bool {
+	for _, n := range nodes {
+		if s, err := h.Render(n); err == nil && strings.HasPrefix(s, " "+name+`="`) {
+			return true
+		}
+	}
+	return false
+}
+
 // ---- layout ----------------------------------------------------------------
 
 // Body returns the class for <body>: base font and theme colors.
@@ -160,9 +172,16 @@ func Kbd(s string) h.Node  { return h.Kbd(h.Class("ui-kbd"), h.Text(s)) }
 // ---- button ----------------------------------------------------------------
 
 // Button renders <button class="ui-btn">; add Secondary(), Outline(), Ghost(),
-// Destructive(), LinkStyle(), Sm(), Lg(), IconSize() and any h attribute.
+// Destructive(), LinkStyle(), Sm(), Lg(), IconSize() and any h attribute. Its
+// default type is "button"; a caller-supplied h.Type (h.Type("submit"), for a
+// Button inside a form that Submit does not fit) replaces it instead of
+// sitting beside it.
 func Button(children ...h.Node) h.Node {
-	return h.Button(append(variant("ui-btn", children), h.Type("button"))...)
+	n := variant("ui-btn", children)
+	if !hasAttr(children, "type") {
+		n = append(n, h.Type("button"))
+	}
+	return h.Button(n...)
 }
 
 // Submit is a Button of type submit.

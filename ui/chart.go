@@ -124,7 +124,9 @@ func chartColor(i int) string { return "var(--chart-" + strconv.Itoa(i%5+1) + ")
 // when the CSS does not arrive.
 //
 // A negative value draws no bar and keeps its label; a series whose largest
-// value is zero or less draws every bar empty.
+// value is zero or less draws every bar empty. The drawing widens to fit
+// whatever the longest value reads as — the tallest bar's label is always the
+// one closest to the edge — so a long Datum.Text never gets cut by the SVG.
 func Bars(data []Datum, attrs ...h.Node) h.Node {
 	title, rest := splitTitle(attrs)
 	if len(data) == 0 {
@@ -137,12 +139,27 @@ func Bars(data []Datum, attrs ...h.Node) h.Node {
 		barMax = 176.0
 		rowH   = 22.0
 		barH   = 12.0
+		// charW is a width wide enough not to guess short for an 11px value
+		// label: the framework has no font metric on the server, so it
+		// reserves space instead of measuring a glyph.
+		charW = 7.0
 	)
 	max := 0.0
+	maxLen := 0
 	for _, d := range data {
 		if d.Value > max {
 			max = d.Value
 		}
+		if n := len([]rune(d.text())); n > maxLen {
+			maxLen = n
+		}
+	}
+	// The tallest bar's value always starts right after it, so it is always
+	// the one closest to the edge; the viewBox grows to keep it inside no
+	// matter how long that text is (#195).
+	chartW := width
+	if need := barX + barMax + 6 + float64(maxLen)*charW; need > chartW {
+		chartW = need
 	}
 	body := make([]h.Node, 0, len(data)*3)
 	for i, d := range data {
@@ -158,7 +175,7 @@ func Bars(data []Datum, attrs ...h.Node) h.Node {
 			h.El("text", h.Class("ui-chart-value"), h.Attr("x", num(barX+w+6)), h.Attr("y", num(y+15)), h.Text(d.text())),
 		)
 	}
-	vb := "0 0 " + num(width) + " " + num(float64(len(data))*rowH)
+	vb := "0 0 " + num(chartW) + " " + num(float64(len(data))*rowH)
 	return frame(title, h.Svg(append(svgHead(title, vb, rest), body...)...), data)
 }
 

@@ -38,6 +38,19 @@ func TestButtonVariants(t *testing.T) {
 	}
 }
 
+// #198 — Button always appended its own type="button" after the caller's
+// children, so a caller passing h.Type("submit") got the attribute twice:
+// invalid HTML that only submitted by luck of parser first-wins order.
+func TestButtonNaoDuplicaOType(t *testing.T) {
+	got := render(t, Button(h.Type("submit"), h.Text("confirmar")))
+	if n := strings.Count(got, ` type="`); n != 1 {
+		t.Fatalf("type aparece %d vezes: %s", n, got)
+	}
+	if !strings.Contains(got, ` type="submit"`) {
+		t.Fatalf("o type do chamador não venceu: %s", got)
+	}
+}
+
 func TestFieldAndShowWhen(t *testing.T) {
 	got := render(t, Field("email", "E-mail", Input(h.ID("email"), h.Name("email"), Invalid()), Help("Nunca compartilhado"), Error("inválido"), With(ShowWhen("tipo", "pf", "pj"))))
 	for _, want := range []string{`class="ui-field"`, `<label class="ui-label" for="email">E-mail</label>`, `aria-invalid="true"`, `id="email-help"`, `role="alert"`, `data-ui-show-when="tipo=pf|pj"`} {

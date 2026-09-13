@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -117,6 +119,54 @@ func TestChartsSurviveADegenerateSeries(t *testing.T) {
 	if !strings.Contains(got, `width="0"`) {
 		t.Error("a negative value draws an empty bar: " + got)
 	}
+}
+
+// #195 — the value of the tallest bar used to start past the viewBox, and
+// what does not fit a viewBox is cut by the browser. The estimate below (7
+// units a character) is the same one the drawing itself uses: there is no
+// font metric on the server, only a width wide enough not to guess short.
+func TestBarsReservaEspacoParaORotuloMaisLongo(t *testing.T) {
+	longo := "5 folhas · 2 NC"
+	got := render(t, Bars([]Datum{
+		{Label: "2026-09", Value: 5, Text: longo},
+		{Label: "2026-08", Value: 1, Text: "1 folha"},
+	}))
+	vbWidth := viewBoxWidth(t, got)
+	x := valueTextX(t, got)
+	if fim := x + float64(len([]rune(longo)))*7; fim > vbWidth {
+		t.Fatalf("o rótulo termina em %.2f, o viewBox só tem %.2f: %s", fim, vbWidth, got)
+	}
+}
+
+var viewBoxRe = regexp.MustCompile(`viewBox="0 0 ([0-9.]+) `)
+var valueXRe = regexp.MustCompile(`class="ui-chart-value" x="([0-9.]+)"`)
+
+func viewBoxWidth(t *testing.T, svg string) float64 {
+	t.Helper()
+	m := viewBoxRe.FindStringSubmatch(svg)
+	if m == nil {
+		t.Fatalf("sem viewBox em %s", svg)
+	}
+	v, err := strconv.ParseFloat(m[1], 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+// valueTextX is the x of the first (and, since Bars draws widest first, the
+// most exposed) value label.
+func valueTextX(t *testing.T, svg string) float64 {
+	t.Helper()
+	m := valueXRe.FindStringSubmatch(svg)
+	if m == nil {
+		t.Fatalf("sem <text class=\"ui-chart-value\"> em %s", svg)
+	}
+	v, err := strconv.ParseFloat(m[1], 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
 }
 
 // SC-013 — colour comes from the theme, so dark mode is not a second drawing.

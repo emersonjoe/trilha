@@ -400,7 +400,7 @@
     "kind": "func",
     "group": "chart",
     "signature": "Bars(data []Datum, attrs ...h.Node) h.Node",
-    "doc": "Bars draws one horizontal bar per Datum, proportional to the largest value,\nwith the label to the left and the value at the end of the bar. It is the\n`\u003cdiv style=\"width:37%\"\u003e` of every dashboard, with the numbers still readable\nwhen the CSS does not arrive.\n\nA negative value draws no bar and keeps its label; a series whose largest\nvalue is zero or less draws every bar empty.",
+    "doc": "Bars draws one horizontal bar per Datum, proportional to the largest value,\nwith the label to the left and the value at the end of the bar. It is the\n`\u003cdiv style=\"width:37%\"\u003e` of every dashboard, with the numbers still readable\nwhen the CSS does not arrive.\n\nA negative value draws no bar and keeps its label; a series whose largest\nvalue is zero or less draws every bar empty. The drawing widens to fit\nwhatever the longest value reads as — the tallest bar's label is always the\none closest to the edge — so a long Datum.Text never gets cut by the SVG.",
     "summary": "Bars draws one horizontal bar per Datum, proportional to the largest value, with the label to the left and the value at the end of the bar."
   },
   {
@@ -2390,8 +2390,11 @@
     "kind": "func",
     "group": "button",
     "signature": "Button(children ...h.Node) h.Node",
-    "doc": "Button renders \u003cbutton class=\"ui-btn\"\u003e; add Secondary(), Outline(), Ghost(),\nDestructive(), LinkStyle(), Sm(), Lg(), IconSize() and any h attribute.",
-    "summary": "Button renders \u003cbutton class=\"ui-btn\"\u003e; add Secondary(), Outline(), Ghost(), Destructive(), LinkStyle(), Sm(), Lg(), IconSize() and any h attribute."
+    "doc": "Button renders \u003cbutton class=\"ui-btn\"\u003e; add Secondary(), Outline(), Ghost(),\nDestructive(), LinkStyle(), Sm(), Lg(), IconSize() and any h attribute. Its\ndefault type is \"button\"; a caller-supplied h.Type (h.Type(\"submit\"), for a\nButton inside a form that Submit does not fit) replaces it instead of\nsitting beside it.",
+    "summary": "Button renders \u003cbutton class=\"ui-btn\"\u003e; add Secondary(), Outline(), Ghost(), Destructive(), LinkStyle(), Sm(), Lg(), IconSize() and any h attribute.",
+    "see": [
+      "h.Type"
+    ]
   },
   {
     "name": "Submit",
@@ -3489,8 +3492,8 @@
     "kind": "func",
     "group": "webhooks",
     "signature": "WebhooksPanel(c *trilha.Ctx, subs []WebhookRow, deliveries []DeliveryRow, o WebhooksOpts) h.Node",
-    "doc": "WebhooksPanel is the screen an application gives whoever integrates with it:\nregister an endpoint, see what was sent, send it again, test it.\n\nIt is one form posting to one address, dispatched by a hidden action field,\nbecause that is what webhook.Handle answers — and because a screen that\nposts to itself comes back to itself when something is wrong, with the\nmessage beside the field.",
-    "summary": "WebhooksPanel is the screen an application gives whoever integrates with it: register an endpoint, see what was sent, send it again, test it.",
+    "doc": "WebhooksPanel is the screen an application gives whoever integrates with it:\nregister an endpoint, see what was sent, send it again, test it — and, on a\nrevoked row, reactivate it.\n\nIt is one form posting to one address, dispatched by a hidden action field:\nsubscribe, revoke, retry and ping are what webhook.Handle answers today.\nactivate is for an application whose own handler already knows how to turn\na subscription back on — webhook.Handle does not answer it yet. Either way,\na screen that posts to itself comes back to itself when something is\nwrong, with the message beside the field.",
+    "summary": "WebhooksPanel is the screen an application gives whoever integrates with it: register an endpoint, see what was sent, send it again, test it — and, on a revoked row, reactivate it.",
     "example": "ui.WebhooksPanel(c, assinaturas, entregas, ui.WebhooksOpts{\n\tAction: \"/webhooks\", CSRF: trilha.CSRFInput(c),\n\tEvents: app.Hooks.Events(), Secret: webhook.TakeSecret(c),\n})",
     "see": [
       "trilha.CSRFInput",
