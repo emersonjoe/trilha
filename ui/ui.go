@@ -539,10 +539,34 @@ func Depth(d int) h.Node { return h.Data("depth", strconv.Itoa(d)) }
 type Tab struct {
 	Label   string
 	Content h.Node
+	// Href turns the tab into a real link. This keeps every panel reachable
+	// without JavaScript and gives the selected view an address.
+	Href string
 }
 
 // Tabs renders an accessible tab list; the first tab starts selected.
 func Tabs(id string, tabs ...Tab) h.Node {
+	return TabsWithOptions(id, TabsOpts{}, tabs...)
+}
+
+// TabsOpts configures server-selected tabs.
+type TabsOpts struct {
+	// Selected is the zero-based index of the open tab. An invalid value uses
+	// the first tab.
+	Selected int
+}
+
+// TabsWithOptions renders tabs with a server-selected panel. Tabs with Href
+// are links, so the same UI remains navigable without JavaScript.
+//
+//	ui.TabsWithOptions("account", ui.TabsOpts{Selected: 1},
+//		ui.Tab{Label: "Profile", Href: "/account"},
+//		ui.Tab{Label: "Security", Href: "/account/security"})
+func TabsWithOptions(id string, o TabsOpts, tabs ...Tab) h.Node {
+	selected := o.Selected
+	if selected < 0 || selected >= len(tabs) {
+		selected = 0
+	}
 	list := []h.Node{h.Class("ui-tabs-list"), h.Role("tablist")}
 	var panels []h.Node
 	for i, t := range tabs {
@@ -550,13 +574,20 @@ func Tabs(id string, tabs ...Tab) h.Node {
 		pid := fmt.Sprintf("%s-panel-%d", id, i)
 		sel := "false"
 		tabindex := "-1"
-		if i == 0 {
+		if i == selected {
 			sel, tabindex = "true", "0"
 		}
-		list = append(list, h.Button(h.Class("ui-tab"), h.Type("button"), h.Role("tab"), h.ID(tid),
-			h.Aria("selected", sel), h.Aria("controls", pid), h.Tabindex(tabindex), h.Text(t.Label)))
+		attrs := []h.Node{h.Class("ui-tab"), h.Role("tab"), h.ID(tid),
+			h.Aria("selected", sel), h.Aria("controls", pid), h.Tabindex(tabindex), h.Text(t.Label)}
+		if t.Href != "" {
+			attrs = append([]h.Node{h.Href(t.Href)}, attrs...)
+			list = append(list, h.A(attrs...))
+		} else {
+			attrs = append([]h.Node{h.Type("button")}, attrs...)
+			list = append(list, h.Button(attrs...))
+		}
 		p := []h.Node{h.Class("ui-tab-panel"), h.Role("tabpanel"), h.ID(pid), h.Aria("labelledby", tid), t.Content}
-		if i > 0 {
+		if i != selected {
 			p = append(p, h.Hidden())
 		}
 		panels = append(panels, h.Div(p...))

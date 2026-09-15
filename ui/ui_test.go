@@ -64,7 +64,7 @@ func TestFieldAndShowWhen(t *testing.T) {
 }
 
 func TestTabsDialogToast(t *testing.T) {
-	got := render(t, Tabs("t", Tab{"A", h.Text("a")}, Tab{"B", h.Text("b")}))
+	got := render(t, Tabs("t", Tab{Label: "A", Content: h.Text("a")}, Tab{Label: "B", Content: h.Text("b")}))
 	for _, want := range []string{`data-ui-tabs`, `role="tablist"`, `id="t-tab-0" aria-selected="true" aria-controls="t-panel-0" tabindex="0"`, `id="t-panel-1" aria-labelledby="t-tab-1" hidden>b</div>`} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q in %s", want, got)
@@ -82,6 +82,23 @@ func TestTabsDialogToast(t *testing.T) {
 	tst := render(t, Toast("success", "Salvo <b>", 3000))
 	if !strings.Contains(tst, `class="ui-toast ui-toast-success"`) || !strings.Contains(tst, `data-ui-fade="3000"`) || !strings.Contains(tst, "Salvo &lt;b&gt;") {
 		t.Fatal(tst)
+	}
+}
+
+func TestTabsWithLinksAndServerSelection(t *testing.T) {
+	got := render(t, TabsWithOptions("doc", TabsOpts{Selected: 1},
+		Tab{Label: "Summary", Href: "?tab=summary"},
+		Tab{Label: "Signatures", Href: "?tab=signatures", Content: h.Text("signed")},
+	))
+	for _, want := range []string{
+		`<a href="?tab=summary" class="ui-tab" role="tab" id="doc-tab-0" aria-selected="false"`,
+		`<a href="?tab=signatures" class="ui-tab" role="tab" id="doc-tab-1" aria-selected="true"`,
+		`id="doc-panel-0" aria-labelledby="doc-tab-0" hidden`,
+		`id="doc-panel-1" aria-labelledby="doc-tab-1">signed</div>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
 	}
 }
 

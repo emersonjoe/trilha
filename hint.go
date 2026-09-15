@@ -1,6 +1,9 @@
 package trilha
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 // Hint is an error that carries its own repair: a code, the sentence that says
 // what to do, and where to read more.
@@ -52,8 +55,47 @@ const (
 	ErrSearchKind = "E_SEARCH_KIND"
 )
 
+// ErrorGuide is the documentation attached to a stable runtime error code.
+// The same table feeds Hint and /docs/errors/<code>, so the repair shown by
+// the development error page cannot drift from the published documentation.
+type ErrorGuide struct {
+	Code        string
+	Title       string
+	Description string
+	Repair      string
+	Reference   string
+}
+
+var errorGuides = []ErrorGuide{
+	{ErrRedirectAbsolute, "Redirect tried to leave the site", "Redirect accepts only local paths so request data cannot become an open redirect.", "Pass a local path to Redirect, or use RedirectExternal for a destination written by the application.", "/reference/errors"},
+	{ErrSecretShort, "Signing secret is too short", "A production server was started with a signing secret shorter than 32 bytes.", "Generate a strong value with `trilha secret` and set TRILHA_SECRET before starting the server.", "/reference/security"},
+	{ErrFrozen, "Published version cannot be changed", "A write targeted the published version instead of a draft.", "Open a draft with Draft, change that draft, and publish the new version when it is ready.", "/reference/app"},
+	{ErrSearchKind, "Search kind was not declared", "A document was sent to Search.Put with a kind that is absent from the search configuration.", "Declare the kind with Kind before indexing documents of that kind.", "/reference/search"},
+}
+
+// ErrorGuides returns the stable runtime error catalog in documentation order.
+func ErrorGuides() []ErrorGuide { return append([]ErrorGuide(nil), errorGuides...) }
+
+// ErrorGuideByCode finds one runtime error guide. Codes are case-insensitive
+// because they are commonly copied from logs into an address bar.
+func ErrorGuideByCode(code string) (ErrorGuide, bool) {
+	for _, guide := range errorGuides {
+		if strings.EqualFold(guide.Code, code) {
+			return guide, true
+		}
+	}
+	return ErrorGuide{}, false
+}
+
 // NewHint wraps err with a code. Fix and Doc add the rest.
-func NewHint(code string, err error) *Hint { return &Hint{Code: code, err: err} }
+func NewHint(code string, err error) *Hint {
+	h := &Hint{Code: code, err: err}
+	if guide, ok := ErrorGuideByCode(code); ok {
+		h.Repair = guide.Repair
+		h.Docs = "/docs/errors/" + guide.Code
+	}
+	return h
+}
 
 // Fix sets the sentence that says what to do instead.
 func (h *Hint) Fix(repair string) *Hint { h.Repair = repair; return h }

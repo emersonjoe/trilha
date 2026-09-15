@@ -74,8 +74,8 @@ func TestRender(t *testing.T) {
 	if !strings.Contains(Render(Results{}, Scenarios()), "Ainda sem medição") {
 		t.Fatal("empty results must say so")
 	}
-	// Scenarios are the contract: six, in order, each with a hidden test.
-	names := []string{"comments", "contact-form", "cognito", "pagination", "port-listing", "api-call"}
+	// Scenarios are the contract, in order, each with a hidden test.
+	names := []string{"comments", "contact-form", "cognito", "pagination", "generate-crud", "fix-hint", "port-listing", "api-call"}
 	for i, s := range Scenarios() {
 		if s.Name != names[i] || len(s.Tests) == 0 || s.Prompt == "" {
 			t.Fatalf("scenario %d = %+v", i, s.Name)

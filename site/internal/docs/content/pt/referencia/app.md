@@ -10,6 +10,7 @@ type Config struct {
 	Addr         string       // ":3000"; PORT/ADDR no ambiente
 	Env          Env          // Dev | Prod; TRILHA_ENV
 	MaxBodyBytes int64        // 1 MiB
+	MaxFormMemory int64       // 32 MiB mantidos em memória pelo multipart
 	Logger       *slog.Logger // slog.Default()
 	Public       fs.FS        // arquivos estáticos; nil desliga
 	Mounts       map[string]fs.FS // árvores estáticas por prefixo de URL, antes de Public
@@ -46,7 +47,7 @@ só *quando* o valor é lido:
 
 | Campos | Lidos em | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
-| `Security`, `Public`, `MaxBodyBytes`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | a cada requisição | ✓ | ✓ |
+| `Security`, `Public`, `MaxBodyBytes`, `MaxFormMemory`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | a cada requisição | ✓ | ✓ |
 | `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS`, `Upstreams` | derivados em `New` e **reaplicados** ao começar a servir (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
 | `Env` | `New` (chave efêmera em dev) e por requisição | ✓ | parcial |

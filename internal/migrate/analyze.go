@@ -102,7 +102,7 @@ var spaSignals = []signal{
 // islandSignals are what a form cannot do alone, but the kit can.
 var islandSignals = []signal{
 	{name: "polling", re: regexp.MustCompile(`setInterval\(|usePoll\(|refetchInterval|EventSource\(`)},
-	{name: "modal", re: regexp.MustCompile(`<Dialog\b|<Modal\b|showModal\(|<AlertDialog\b`)},
+	{name: "modal", re: regexp.MustCompile(`<[A-Za-z_$][\w$]*(Dialog|Modal|Drawer|Sheet|Popover)\b|showModal\(|\bconfirm\s*\(|role=["']dialog["']|aria-modal\s*=`)},
 	{name: "tabs", re: regexp.MustCompile(`<Tabs\b|role="tab"|<TabsTrigger\b`)},
 	{name: "upload", re: regexp.MustCompile(`type="file"|new FormData\(|<Dropzone\b`)},
 	{name: "storage", re: regexp.MustCompile(`localStorage|sessionStorage`)},

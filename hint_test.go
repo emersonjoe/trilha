@@ -100,6 +100,20 @@ func TestHintDeixaVerOErroDeBaixo(t *testing.T) {
 	}
 }
 
+func TestCatalogoPreencheHint(t *testing.T) {
+	h := NewHint(ErrRedirectAbsolute, errors.New("x"))
+	if h.Repair == "" || h.Docs != "/docs/errors/"+ErrRedirectAbsolute {
+		t.Fatalf("hint sem catálogo: %+v", h)
+	}
+	guide, ok := ErrorGuideByCode(strings.ToLower(ErrRedirectAbsolute))
+	if !ok || guide.Code != ErrRedirectAbsolute {
+		t.Fatalf("guia = %+v, %v", guide, ok)
+	}
+	if len(ErrorGuides()) != 4 {
+		t.Fatalf("catálogo tem %d códigos", len(ErrorGuides()))
+	}
+}
+
 // Em dev a página de erro mostra o conserto; em produção, nada disso vaza —
 // a frase é para quem escreve o código, e quem está do outro lado não escreveu.
 func TestPaginaDeErroMostraOConsertoSoEmDev(t *testing.T) {

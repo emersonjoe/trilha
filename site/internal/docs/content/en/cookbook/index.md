@@ -26,6 +26,7 @@ what it has is a place for yours, and this is where the placing is written down.
 | [Background tasks](/cookbook/tasks) | queue, dedupe, retry with a name, the progress screen | `tasks` |
 | [Webhooks](/cookbook/webhooks) | signed delivery, retry with backoff, the record of every attempt | `webhooks` |
 | [Scheduled tasks](/cookbook/scheduled-tasks) | a ticker that starts with the app and stops with it | — |
+| [Installable app (PWA)](/cookbook/pwa) | manifest, icons and an install invitation that adapts to each browser | `pwa` |
 | [Docker](/cookbook/docker) | a small image, the variables, the health probe | — |
 | [Production checklist](/cookbook/production-checklist) | what to check before publishing, in order | — |
 | [AI chat](/cookbook/ai-chat) | the key, the page's context, the history, the test with no key | — |

@@ -39,6 +39,11 @@ type Config struct {
 	Env Env
 	// MaxBodyBytes limits request bodies (default 1 MiB).
 	MaxBodyBytes int64
+	// MaxFormMemory is how much multipart file data stays in memory before
+	// net/http spills it to temporary files (default 32 MiB). It is separate
+	// from MaxBodyBytes: raising the upload limit must not raise per-request
+	// heap use by the same amount.
+	MaxFormMemory int64
 	// Logger receives structured request logs (default slog.Default()).
 	Logger *slog.Logger
 	// Public serves static files at the root. nil disables static files.
@@ -322,6 +327,9 @@ func New(cfg Config) *App {
 	if cfg.MaxBodyBytes == 0 {
 		cfg.MaxBodyBytes = 1 << 20
 	}
+	if cfg.MaxFormMemory == 0 {
+		cfg.MaxFormMemory = 32 << 20
+	}
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
@@ -597,9 +605,7 @@ func (a *App) checkSecret() error {
 	// counting characters, and the command is on it because "generate one"
 	// without saying how is half an instruction.
 	return NewHint(ErrSecretShort,
-		fmt.Errorf("trilha: TRILHA_SECRET has %d bytes and the minimum is %d", n, MinSecretLen)).
-		Fix("Generate one with: trilha secret").
-		Doc("/reference/errors")
+		fmt.Errorf("trilha: TRILHA_SECRET has %d bytes and the minimum is %d", n, MinSecretLen))
 }
 
 // OnShutdown registers fn to run after the server stopped accepting requests

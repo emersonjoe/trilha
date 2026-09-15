@@ -52,6 +52,10 @@ type Connection struct {
 	// Secret is the token, the header value or the password. It is masked in
 	// %v, JSON and the log, and sealed when a database stores it.
 	Secret Secret
+	// HasSecret says a credential exists even when this store cannot read it
+	// back. Stores backed by a remote secret manager set it while leaving
+	// Secret empty, so an edit can honor "leave blank to keep".
+	HasSecret bool
 	// Headers are fixed headers sent on every request. Not a place for a
 	// secret: they are shown on the screen.
 	Headers map[string]string
@@ -227,6 +231,7 @@ func (x *Connections) Save(c *Ctx, conn Connection) (Connection, error) {
 			errs.Add("secret", "required")
 			return conn, errs
 		}
+		conn.HasSecret = !conn.Secret.Empty()
 		id, err := linkID()
 		if err != nil {
 			return conn, err
@@ -237,17 +242,26 @@ func (x *Connections) Save(c *Ctx, conn Connection) (Connection, error) {
 		if err != nil {
 			return conn, err
 		}
-		if conn.Secret.Empty() {
+		secretChanged := !conn.Secret.Empty()
+		if conn.Secret.Empty() && !prev.Secret.Empty() {
 			conn.Secret = prev.Secret
 		}
-		if conn.Auth != "none" && conn.Secret.Empty() {
+		if conn.Auth == "none" {
+			conn.Secret = ""
+			conn.HasSecret = false
+		} else if secretChanged {
+			conn.HasSecret = true
+		} else {
+			conn.HasSecret = prev.HasSecret || !prev.Secret.Empty()
+		}
+		if conn.Auth != "none" && conn.Secret.Empty() && !conn.HasSecret {
 			errs.Add("secret", "required")
 		}
 		if errs.Any() {
 			return conn, errs
 		}
 		conn.CreatedAt = prev.CreatedAt
-		if prev.URL != conn.URL || prev.Auth != conn.Auth || prev.Secret != conn.Secret {
+		if prev.URL != conn.URL || prev.Auth != conn.Auth || secretChanged {
 			// The old result was about another address or another
 			// credential; a green badge that no longer applies is worse
 			// than none.

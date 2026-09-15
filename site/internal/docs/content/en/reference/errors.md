@@ -61,6 +61,15 @@ The framework's own page stays as the net, with the text it always had: for an a
 `error.go`, and for an `error.go` that itself fails. API routes (`KindAPI`) are untouched:
 `problem+json` as before.
 
+Stable runtime codes are also published from the same table the framework uses at
+[`/docs/errors`](/docs/errors). A copied code such as
+[`E_REDIRECT_ABSOLUTE`](/docs/errors/E_REDIRECT_ABSOLUTE) therefore opens the current cause,
+repair and related reference instead of relying on a separate hand-maintained index.
+
+The public catalog API is `trilha.ErrorGuides() []trilha.ErrorGuide`; use
+`trilha.ErrorGuideByCode(code)` when a tool or custom error page already has one code. Each
+`trilha.ErrorGuide` carries `Code`, `Title`, `Description`, `Repair` and `Reference`.
+
 ### Answering on your own
 
 `not_found.go`, `error.go` and `page.go` may write the whole response and return

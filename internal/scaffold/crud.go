@@ -31,6 +31,12 @@ type CrudOptions struct {
 	// the in-memory one alone, "sqlite" and "postgres" add the database/sql
 	// one and the migration that makes its table.
 	Store string
+	// Tenant scopes every store operation to the actor's tenant and writes a
+	// RequireTenant middleware. Policy is the permission module guarded at the
+	// administer level. Schema renders the forms through ui.SchemaForm.
+	Tenant bool
+	Policy string
+	Schema bool
 }
 
 // CrudResult is what was written and what the routes came out as.
@@ -81,6 +87,16 @@ func Crud(root string, o CrudOptions) (CrudResult, error) {
 	plan, err := planCrud(info, o)
 	if err != nil {
 		return res, err
+	}
+	if plan.Tenant || plan.Policy != "" {
+		if _, err := os.Stat(filepath.Join(root, "internal", "sessao", "sessao.go")); err != nil {
+			return res, errors.New("scaffold: --tenant and --policy need the login recipe; run `trilha add login` first")
+		}
+	}
+	if plan.Policy != "" {
+		if _, err := os.Stat(filepath.Join(root, "internal", "acesso", "acesso.go")); err != nil {
+			return res, errors.New("scaffold: --policy needs the permissions recipe; run `trilha add permissions` first")
+		}
 	}
 	// What is above the destination decides whether the generated test can
 	// reach the screens at all.
@@ -201,6 +217,10 @@ type crudPlan struct {
 	Table       string
 	Cols        []sqlColumn
 	NoColumn    []string
+	Tenant      bool
+	Policy      string
+	Schema      bool
+	Module      string
 
 	// Guard is the middleware.go above the destination, relative to the root,
 	// and Helper is the package that opens a session in a test — the recipe's
@@ -230,6 +250,7 @@ func planCrud(info typeInfo, o CrudOptions) (crudPlan, error) {
 		Type: info.Name, Pkg: info.Pkg, Ref: info.Pkg + "." + info.Name,
 		Import: info.Import, StoreDir: info.Dir, T: textsFor(o.Lang),
 		Store: o.Store, StoreImport: o.Module + "/internal/store",
+		Tenant: o.Tenant, Policy: strings.TrimSpace(o.Policy), Schema: o.Schema, Module: o.Module,
 	}
 	switch p.Store {
 	case "", "memory", "sqlite", "postgres":
@@ -339,7 +360,7 @@ type CrudChange struct {
 	Form  string // the name it has on the wire
 	File  string // the screen it is missing from, relative to the root
 	Line  int    // the line the next one goes after
-	Kind  string // "list" or "form"
+	Kind  string // "list", "form" or "schema"
 }
 
 // CrudMissing answers what changed in the struct since the screens were
@@ -365,6 +386,10 @@ func CrudMissing(root string, o CrudOptions) ([]CrudChange, error) {
 		{plan.At + "/page.go", "list", "{Key: "},
 		{plan.At + "/new/page.go", "form", "ui.Field("},
 		{plan.At + "/id_/page.go", "form", "ui.Field("},
+	}
+	if plan.Schema {
+		screens[1].kind, screens[1].anchor = "schema", "{Name: "
+		screens[2].kind, screens[2].anchor = "schema", "{Name: "
 	}
 	var out []CrudChange
 	for _, sc := range screens {
@@ -419,8 +444,13 @@ func lastLineWith(src, anchor string) int {
 // read it would be guessing. A folder with a middleware is a folder the test
 // has to assume is closed.
 func (p *crudPlan) findGuard(root, module string) {
+	generated := p.Tenant || p.Policy != ""
+	if generated {
+		p.Guard = p.At + "/middleware.go"
+		return
+	}
 	dir := p.At
-	for dir != "" && dir != "." {
+	for p.Guard == "" && dir != "" && dir != "." {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(dir), "middleware.go")); err == nil {
 			p.Guard = dir + "/middleware.go"
 			break

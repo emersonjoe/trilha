@@ -42,12 +42,34 @@ func TestTreeDistingueFolhaDeRamo(t *testing.T) {
 	if n := strings.Count(got, "<details"); n != 3 {
 		t.Fatalf("ramos = %d:\n%s", n, got)
 	}
-	if !strings.Contains(got, `data-ui-tree-pending=""`) {
+	if !strings.Contains(got, `data-ui-tree-pending="" data-ui-tree-fail="Could not load.">Loading…`) {
 		t.Fatalf("o ramo fechado precisa do lugar dos filhos:\n%s", got)
 	}
 	// A folha não é <details> nenhum.
 	if !strings.Contains(got, `data-value="100.2" tabindex="-1"`) {
 		t.Fatalf("folha:\n%s", got)
+	}
+}
+
+func TestTreePendingAndFailCanBeTranslated(t *testing.T) {
+	got := render(t, Tree(TreeOpts{Nodes: []TreeNode{{Value: "1", Label: "Um"}}, Source: "/nos", Pending: "Carregando…", Fail: "Não foi possível carregar."}))
+	for _, want := range []string{"Carregando…", `data-ui-tree-fail="Não foi possível carregar."`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
+	}
+}
+
+func TestTreePickerDoesNotRenderRadioForUnpickableNode(t *testing.T) {
+	got := render(t, TreePicker(TreePickerOpts{Name: "code", Nodes: []TreeNode{
+		{Value: "100", Label: "Branch", Unpickable: true},
+		{Value: "100.1", Label: "Leaf", Leaf: true},
+	}}))
+	if strings.Contains(got, `value="100" class="ui-tree-radio"`) {
+		t.Fatalf("unpickable branch still has a radio: %s", got)
+	}
+	if !strings.Contains(got, `value="100.1" class="ui-tree-radio"`) {
+		t.Fatalf("pickable leaf lost its radio: %s", got)
 	}
 }
 

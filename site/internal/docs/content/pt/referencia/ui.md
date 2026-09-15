@@ -48,7 +48,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Toaster(...)`, `Toast(tipo, texto, fadeMs)` | pilha de avisos; `tipo` = `""`, `success`, `error`; `fadeMs > 0` some sozinho |
 | `Flashes(c)` | o toaster com os avisos do [`c.Flash`](/pt/referencia/ctx) — ponha no layout; `FlashInfo`, `FlashSuccess` e `FlashError` são os tipos, e o `FlashFadeMs` é quanto tempo um deles fica antes de sumir — veja [demo](/pt/referencia/ctx#planilhas) |
 | `Table(...)`, `Cards()`, `Num()`, `Depth(n)` | tabela rolável; linha vira cartão abaixo de 640px — veja [Listagens](/pt/referencia/listagens); célula numérica; indentação de linha (árvore) |
-| `Tabs(id, Tab{Label, Content}...)` | abas acessíveis (setas, Home/End); a primeira começa aberta — veja [demo](/pt/aprender/interface-com-ui#mais-conteudo-atras-de-um-clique) |
+| `Tabs(id, Tab{Label, Content}...)`, `TabsWithOptions(id, TabsOpts{Selected}, ...)` | abas acessíveis; `Tab.Href` dá endereço real a cada visão e `Selected` escolhe o painel renderizado no servidor — veja [demo](/pt/aprender/interface-com-ui#mais-conteudo-atras-de-um-clique) |
 | `Dialog(id, título, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | `<dialog>` nativo com `showModal` |
 | `Confirm(título, descrição)` | atributos para um `<form>`: o `ui.js` pergunta num diálogo antes de enviar, inclusive em formulário de fragmento. O botão que confirma repete o rótulo do botão apertado; o outro diz `Cancel`, ou o que estiver em `h.Data("ui-confirm-cancel", "…")`. Sem JavaScript o formulário envia direto — veja [demo](/pt/aprender/interface-com-ui#contar-o-que-aconteceu-e-perguntar-antes-de-destruir) |
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu com o atributo `popover` nativo — veja [demo](/pt/aprender/interface-com-ui#onde-voce-esta-e-quem-esta-logado) |
@@ -68,6 +68,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `AuditTable(c, registros, AuditOpts{...})` | a trilha que o c.Audit escreve, com filtro, paginação e exportação CSV — veja [Observabilidade](/pt/referencia/observabilidade) e [demo](/pt/referencia/observabilidade#a-tela) |
 | `Steps([]Step{Label, Href}, atual)` | o indicador de um formulário em várias telas — veja [Formulário em passos](/pt/receitas/formulario-em-passos) e [demo](/pt/aprender/interface-com-ui#um-formulario-em-varias-telas) |
 | `Preview(c, src, PreviewOpts{...})` | o arquivo ao lado do que se sabe dele: barra, quadro, imagem ou "não dá para pré-visualizar" — veja [Ctx](/pt/referencia/ctx), [Uploads](/pt/receitas/uploads) e [demo](/pt/aprender/interface-com-ui#um-arquivo-ao-lado-dos-seus-metadados) |
+| `Audio(c, src, AudioOpts{Preload AudioPreload, ...})` | player nativo e acessível com duração, ações de abrir/baixar e fallback para formato sem reprodução |
+| `InstallApp(c, InstallAppOpts{...})` | convite progressivo para instalar a PWA; use com [`trilha add pwa`](/pt/receitas/pwa) |
 | `Defer(c, id, src, DeferOpts{...})` | serve a página agora e preenche esta parte um instante depois — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#a-parte-lenta-um-instante-depois) |
 | `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#uma-celula-que-se-atualiza-sozinha) |
 | `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |
@@ -105,7 +107,7 @@ ui.Tree(ui.TreeOpts{
 | Símbolo | Papel |
 |---|---|
 | `Tree(TreeOpts{...})` | a hierarquia; cada nó é um `<details>`, então abre sem script nenhum |
-| `TreeNode{Value, Label, Leaf, Href, Children, Open, Path}` | um nó; os `Children` viajam junto quando já são conhecidos |
+| `TreeNode{Value, Label, Leaf, Href, Children, Open, Path, Unpickable}` | um nó; os `Children` viajam junto quando conhecidos e `Unpickable` mantém um ramo navegável sem desenhar radio |
 | `TreeItems(nos, TreeOpts{...})` / `TreeNodes(itens, of)` | o que uma rota-fonte responde: os filhos de um nó, em HTML |
 | `TreePicker(TreePickerOpts{...})` | a mesma árvore como campo de formulário: **um radio por nó** |
 | `TreeScript(c)` | carrega o `ui.tree.js`; página sem árvore não baixa nada disso |
@@ -115,6 +117,11 @@ acrescenta é buscar os filhos na primeira vez que um ramo abre, em vez de pedir
 inteira ao servidor. Nó cujos `Children` já estão em `Nodes` não pede nada — é assim que o
 caminho até o nó atual chega aberto e completo no primeiro desenho, inclusive depois de um 422
 trazer o formulário de volta.
+
+`TreeOpts.Pending` e `TreeOpts.Fail` trocam as mensagens padrão da carga preguiçosa
+(`Carregando…` e `Não foi possível carregar.`); `TreePickerOpts` repassa os mesmos campos. A
+frase pendente vem do servidor, então um ramo preguiçoso nunca abre numa caixa muda sem
+JavaScript.
 
 Os papéis são os de verdade (`tree`, `treeitem`, `group`, `aria-expanded`), as setas andam pelo
 que está visível, `Home` e `End` vão às pontas, e `*` expande tudo. Só o primeiro nó entra na
@@ -371,8 +378,13 @@ ui.ChatScript(c)   // uma vez, no layout
 | `Steps` | mostra a ferramenta que o agente chamou e o que voltou |
 | `Markdown` | o `MarkdownOpts` das respostas |
 
-`ChatMessage{Role, Text}` é um turno. `Role: "assistant"` sai como Markdown; `Role: "user"` sai
+`ChatMessage{Role, Text, Sources}` é um turno. `Role: "assistant"` sai como Markdown; `Role: "user"` sai
 como texto — o que alguém digitou nunca é marcação.
+
+`ChatSource{Title, URL, Snippet}` anexa as páginas ou documentos que sustentam uma resposta do
+assistente. Título e trecho são escapados, a URL passa pela regra de link seguro do Markdown, e
+o streaming aceita `sources` num trecho ou no evento final `done`. As fontes fazem parte da
+resposta tanto quando ela chega inteira quanto quando chega token a token.
 
 Com o `ChatScript` a resposta chega palavra por palavra e o Markdown é renderizado no fim da
 mensagem: passe `ui.ChatHTML` para o `ai.ServeOpts.HTML` e a bolha pronta fica igual à de uma
@@ -448,7 +460,8 @@ também é ignorado. O último cartão é o `Next`: uma contagem sem um exemplo 
 alguém precisa clicar para entender.
 
 O `DeadlineListOpts` recebe `Limit` (com `More` para o link do "e mais 12"), `Owner` para a coluna
-de responsável, `Empty` para a frase de quando não há nada, e `Now` — o relógio contra o qual o
+de responsável, `RowAction func(trilha.Deadline) h.Node` para uma ação da aplicação ao fim de
+cada linha, `Empty` para a frase de quando não há nada, e `Now` — o relógio contra o qual o
 atraso é medido, para um teste não quebrar sozinho na manhã seguinte. As datas são escritas pelo
 [`ui.Date`](#formatação) com `Relative`, e a linha cujo dia acabou leva `ui-late`, a mesma classe
 da [caixa de aprovações](/pt/referencia/approval): atraso é igual em toda a aplicação, ou parece
@@ -497,11 +510,40 @@ autenticação que os usa.
 O segredo é a única coisa que a tela nunca contém: o campo é o [`SecretField`](#componentes), que
 renderiza vazio e diz "deixe em branco para manter", e `ParseConnectionForm` o lê de volta como
 `Secret`, de modo que um vazio mantém o valor anterior no `Save`.
+Quando o store guarda a credencial em outro sistema, marque `Connection.HasSecret` e renderize
+`SecretFieldWithPresence`: o update vazio ainda significa manter, sem trazer a credencial de
+volta para este processo.
 
 O [`trilha add connections`](/pt/referencia/cli#trilha-add) escreve o pacote, esta tela e o
 teste.
 
 @demo ui-conexoes
+
+### Audio
+
+```go
+ui.Audio(c, "/gravacoes/42", ui.AudioOpts{
+	Title:    "Entrevista",
+	Type:     "audio/mpeg",
+	Duration: 3*time.Minute + 12*time.Second,
+	Download: "/gravacoes/42?download=1",
+	Preload:  ui.PreloadMetadata,
+})
+```
+
+`Audio` usa os controles nativos do navegador e a mesma barra de título e rotas de saída do
+`Preview`. `PreloadNone` é o padrão para listas; `PreloadMetadata` busca os metadados da
+duração; `PreloadAuto` deixa a escolha para o navegador. Um MIME que não é de áudio renderiza
+um estado honesto de "não pode reproduzir" e mantém a ação de download em vez de deixar um
+player quebrado.
+
+### InstallApp
+
+`InstallApp` é o convite progressivo usado pela [receita `pwa`](/pt/receitas/pwa). Ele mantém
+uma instrução útil sobre o menu sem JavaScript, expõe o prompt nativo do Chromium quando
+disponível, explica os passos do Safari no iOS e desaparece quando `c.Standalone()` diz que o
+app já está instalado. `InstallAppOpts` permite trocar script, manifesto, endereço de ajuda e
+todo texto visível.
 
 ## Formatação
 
@@ -548,6 +590,10 @@ pedaço num `ui.Poll` — uma decisão que a página toma e paga, uma vez.
 
 **`Bytes` é base 10.** kB, MB, GB: o que o gerenciador de arquivos de quem está lendo já
 mostra. A contagem exata fica no `title`.
+
+**Metades decimais arredondam para longe do zero.** `Number`, `Bytes` e `Duration` usam a
+mesma regra half-expand do JavaScript e do ICU para o decimal curto que exibem; valores como
+`1,25` com uma casa viram `1,3`, não o arredondamento bancário `1,2` do `strconv`.
 
 **Fuso desconhecido cai para UTC e avisa no log.** Cair em silêncio deslocaria todo horário da
 tela sem nada parecer quebrado.

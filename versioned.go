@@ -129,8 +129,7 @@ func (v *Versioned[T]) Save(c *Ctx, id string, value T, note string) (int, error
 		last := list[len(list)-1]
 		if last.Published {
 			return 0, NewHint(ErrFrozen, ErrVersionFrozen).
-				Fix(fmt.Sprintf("open a draft first: Draft(c, %q) copies version %d and gives you the next one to edit", id, last.N)).
-				Doc("/reference/app")
+				Fix(fmt.Sprintf("open a draft first: Draft(c, %q) copies version %d and gives you the next one to edit", id, last.N))
 		}
 		n = last.N
 	}

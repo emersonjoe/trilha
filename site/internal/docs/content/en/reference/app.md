@@ -10,6 +10,7 @@ type Config struct {
 	Addr         string       // ":3000"; PORT/ADDR in the environment
 	Env          Env          // Dev | Prod; TRILHA_ENV
 	MaxBodyBytes int64        // 1 MiB
+	MaxFormMemory int64       // 32 MiB kept in memory by multipart parsing
 	Logger       *slog.Logger // slog.Default()
 	Public       fs.FS        // static files; nil turns them off
 	Mounts       map[string]fs.FS // static trees by URL prefix, before Public
@@ -46,7 +47,7 @@ value is read:
 
 | Fields | Read at | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
-| `Security`, `Public`, `MaxBodyBytes`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | every request | ✓ | ✓ |
+| `Security`, `Public`, `MaxBodyBytes`, `MaxFormMemory`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | every request | ✓ | ✓ |
 | `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS`, `Upstreams` | derived in `New` and **reapplied** when serving starts (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
 | `Env` | `New` (ephemeral key in dev) and per request | ✓ | partial |

@@ -34,6 +34,9 @@ type TreeNode struct {
 	// Path is the ancestry shown under a search result — "100 › 100.1" — so a
 	// match out of context still says where it lives.
 	Path string
+	// Unpickable keeps the node in the hierarchy but removes its radio in a
+	// TreePicker. Use it for branches that can be browsed but not selected.
+	Unpickable bool
 }
 
 // TreeOpts is the tree itself.
@@ -55,6 +58,10 @@ type TreeOpts struct {
 	Name string
 	// Selected is the value already chosen, when Name is set.
 	Selected string
+	// Pending is shown before lazy children arrive. Empty means "Loading…".
+	Pending string
+	// Fail is shown when loading lazy children fails. Empty means "Could not load.".
+	Fail string
 }
 
 // Tree renders a hierarchy that opens node by node.
@@ -162,7 +169,15 @@ func treeItem(n TreeNode, o TreeOpts) h.Node {
 		// Nothing to show yet: the script fills this in on the first open, and
 		// with no script it stays as the sentence rather than as a silence
 		// that reads like an empty branch.
-		group = append(group, h.Div(h.Class("ui-tree-pending"), h.Data("ui-tree-pending", "")))
+		pending := o.Pending
+		if pending == "" {
+			pending = "Loading…"
+		}
+		fail := o.Fail
+		if fail == "" {
+			fail = "Could not load."
+		}
+		group = append(group, h.Div(h.Class("ui-tree-pending"), h.Data("ui-tree-pending", ""), h.Data("ui-tree-fail", fail), h.Text(pending)))
 	}
 	det = append(det, h.Div(group...))
 	return h.Details(det...)
@@ -176,7 +191,7 @@ func treeLabel(n TreeNode, o TreeOpts) h.Node {
 		text = append(text, h.Span(h.Class("ui-tree-path"), h.Text(n.Path)))
 	}
 	switch {
-	case o.Name != "":
+	case o.Name != "" && !n.Unpickable:
 		attrs := []h.Node{h.Type("radio"), h.Name(o.Name), h.Value(n.Value), h.Class("ui-tree-radio")}
 		if n.Value == o.Selected {
 			attrs = append(attrs, h.Checked())
@@ -225,6 +240,9 @@ type TreePickerOpts struct {
 	Label       string
 	// MinChars is how much has to be typed before searching (2 when zero).
 	MinChars int
+	// Pending and Fail are the lazy-loading messages passed to the tree.
+	Pending string
+	Fail    string
 }
 
 // TreePicker is choosing one node out of thousands: type to find it, or browse
@@ -260,6 +278,8 @@ func TreePicker(o TreePickerOpts, attrs ...h.Node) h.Node {
 		ID:       o.Name + "-tree",
 		Name:     o.Name,
 		Selected: o.Value,
+		Pending:  o.Pending,
+		Fail:     o.Fail,
 	})
 	box := []h.Node{
 		h.Class("ui-tree-picker"), h.Data("ui-tree-picker", ""),

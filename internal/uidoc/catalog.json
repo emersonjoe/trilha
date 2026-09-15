@@ -286,6 +286,64 @@
     ]
   },
   {
+    "name": "AudioPreload",
+    "kind": "type",
+    "group": "audio",
+    "signature": "type AudioPreload string",
+    "doc": "AudioPreload is how much audio the browser may fetch before playback.",
+    "summary": "AudioPreload is how much audio the browser may fetch before playback."
+  },
+  {
+    "name": "AudioOpts",
+    "kind": "type",
+    "group": "audio",
+    "signature": "type AudioOpts struct",
+    "doc": "AudioOpts describes one recording or sound file.",
+    "summary": "AudioOpts describes one recording or sound file.",
+    "fields": [
+      {
+        "name": "Title",
+        "type": "string"
+      },
+      {
+        "name": "Type",
+        "type": "string"
+      },
+      {
+        "name": "Duration",
+        "type": "time.Duration",
+        "doc": "Duration is shown without waiting for browser metadata."
+      },
+      {
+        "name": "Download",
+        "type": "string",
+        "doc": "Download points to a route that serves the file as an attachment."
+      },
+      {
+        "name": "Preload",
+        "type": "AudioPreload",
+        "doc": "Preload defaults to PreloadNone, which is appropriate for lists."
+      },
+      {
+        "name": "NoOpen",
+        "type": "bool",
+        "doc": "NoOpen removes the link that opens the audio in a new tab."
+      }
+    ]
+  },
+  {
+    "name": "Audio",
+    "kind": "func",
+    "group": "audio",
+    "signature": "Audio(c *trilha.Ctx, src string, opts ...AudioOpts) h.Node",
+    "doc": "Audio renders an accessible native audio player with the same escape routes\nas Preview. Serve src with Ctx.Inline and Download with Ctx.Attachment.",
+    "summary": "Audio renders an accessible native audio player with the same escape routes as Preview.",
+    "example": "ui.Audio(c, \"/audio/meeting\", ui.AudioOpts{Title: \"Meeting\", Type: \"audio/mpeg\"})",
+    "see": [
+      "ui.AudioOpts"
+    ]
+  },
+  {
     "name": "AuditOpts",
     "kind": "type",
     "group": "audit",
@@ -470,6 +528,33 @@
       },
       {
         "name": "Text",
+        "type": "string"
+      },
+      {
+        "name": "Sources",
+        "type": "[]ChatSource",
+        "doc": "Sources are the documents or pages supporting this answer."
+      }
+    ]
+  },
+  {
+    "name": "ChatSource",
+    "kind": "type",
+    "group": "chat",
+    "signature": "type ChatSource struct",
+    "doc": "ChatSource is one ordered source supporting an assistant answer.",
+    "summary": "ChatSource is one ordered source supporting an assistant answer.",
+    "fields": [
+      {
+        "name": "Label",
+        "type": "string"
+      },
+      {
+        "name": "Href",
+        "type": "string"
+      },
+      {
+        "name": "Hint",
         "type": "string"
       }
     ]
@@ -803,6 +888,11 @@
         "name": "Owner",
         "type": "bool",
         "doc": "Owner draws the column of who it is on."
+      },
+      {
+        "name": "RowAction",
+        "type": "func(trilha.Deadline) h.Node",
+        "doc": "RowAction draws one application-owned action after the standard cells."
       }
     ]
   },
@@ -1195,6 +1285,56 @@
     "signature": "InboxBadge(n int) h.Node",
     "doc": "InboxBadge is the number for a menu item: how many are waiting for whoever\nis reading. Zero draws nothing, because a badge showing zero is a badge that\nteaches people to ignore badges.",
     "summary": "InboxBadge is the number for a menu item: how many are waiting for whoever is reading."
+  },
+  {
+    "name": "InstallAppOpts",
+    "kind": "type",
+    "group": "install",
+    "signature": "type InstallAppOpts struct",
+    "doc": "InstallAppOpts configures the progressive PWA install invitation.",
+    "summary": "InstallAppOpts configures the progressive PWA install invitation.",
+    "fields": [
+      {
+        "name": "Script",
+        "type": "string"
+      },
+      {
+        "name": "Manifest",
+        "type": "string"
+      },
+      {
+        "name": "Help",
+        "type": "string"
+      },
+      {
+        "name": "Button",
+        "type": "string"
+      },
+      {
+        "name": "Fallback",
+        "type": "string"
+      },
+      {
+        "name": "IOS",
+        "type": "string"
+      },
+      {
+        "name": "IOSOtherBrowser",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "InstallApp",
+    "kind": "func",
+    "group": "install",
+    "signature": "InstallApp(c *trilha.Ctx, opts ...InstallAppOpts) h.Node",
+    "doc": "InstallApp renders an install invitation that the recipe's pwa.js adapts to\nChromium, iOS Safari and already-installed mode. Without JavaScript the\nfallback and Help link remain useful.",
+    "summary": "InstallApp renders an install invitation that the recipe's pwa.js adapts to Chromium, iOS Safari and already-installed mode.",
+    "example": "ui.InstallApp(c, ui.InstallAppOpts{Help: \"/install\"})",
+    "see": [
+      "ui.InstallAppOpts"
+    ]
   },
   {
     "name": "Column",
@@ -1638,6 +1778,15 @@
     ]
   },
   {
+    "name": "SecretFieldWithPresence",
+    "kind": "func",
+    "group": "secret",
+    "signature": "SecretFieldWithPresence(c *trilha.Ctx, name, label string, current trilha.Secret, present bool, opts ...FieldOpt) h.Node",
+    "doc": "SecretFieldWithPresence is SecretField for a store that can say a secret\nexists but cannot read it back. present keeps the \"leave blank to keep\"\npromise without inventing a masked credential value.",
+    "summary": "SecretFieldWithPresence is SecretField for a store that can say a secret exists but cannot read it back.",
+    "example": "ui.SecretFieldWithPresence(c, \"token\", \"Provider token\", \"\", cfg.HasToken)"
+  },
+  {
     "name": "Section",
     "kind": "type",
     "group": "settings",
@@ -1955,6 +2104,11 @@
         "name": "Path",
         "type": "string",
         "doc": "Path is the ancestry shown under a search result — \"100 › 100.1\" — so a match out of context still says where it lives."
+      },
+      {
+        "name": "Unpickable",
+        "type": "bool",
+        "doc": "Unpickable keeps the node in the hierarchy but removes its radio in a TreePicker."
       }
     ]
   },
@@ -2000,6 +2154,16 @@
         "name": "Selected",
         "type": "string",
         "doc": "Selected is the value already chosen, when Name is set."
+      },
+      {
+        "name": "Pending",
+        "type": "string",
+        "doc": "Pending is shown before lazy children arrive."
+      },
+      {
+        "name": "Fail",
+        "type": "string",
+        "doc": "Fail is shown when loading lazy children fails."
       }
     ]
   },
@@ -2090,6 +2254,15 @@
         "name": "MinChars",
         "type": "int",
         "doc": "MinChars is how much has to be typed before searching (2 when zero)."
+      },
+      {
+        "name": "Pending",
+        "type": "string",
+        "doc": "Pending and Fail are the lazy-loading messages passed to the tree."
+      },
+      {
+        "name": "Fail",
+        "type": "string"
       }
     ]
   },
@@ -2983,6 +3156,11 @@
       {
         "name": "Content",
         "type": "h.Node"
+      },
+      {
+        "name": "Href",
+        "type": "string",
+        "doc": "Href turns the tab into a real link."
       }
     ]
   },
@@ -2993,6 +3171,34 @@
     "signature": "Tabs(id string, tabs ...Tab) h.Node",
     "doc": "Tabs renders an accessible tab list; the first tab starts selected.",
     "summary": "Tabs renders an accessible tab list; the first tab starts selected."
+  },
+  {
+    "name": "TabsOpts",
+    "kind": "type",
+    "group": "tabs",
+    "signature": "type TabsOpts struct",
+    "doc": "TabsOpts configures server-selected tabs.",
+    "summary": "TabsOpts configures server-selected tabs.",
+    "fields": [
+      {
+        "name": "Selected",
+        "type": "int",
+        "doc": "Selected is the zero-based index of the open tab."
+      }
+    ]
+  },
+  {
+    "name": "TabsWithOptions",
+    "kind": "func",
+    "group": "tabs",
+    "signature": "TabsWithOptions(id string, o TabsOpts, tabs ...Tab) h.Node",
+    "doc": "TabsWithOptions renders tabs with a server-selected panel. Tabs with Href\nare links, so the same UI remains navigable without JavaScript.",
+    "summary": "TabsWithOptions renders tabs with a server-selected panel.",
+    "example": "ui.TabsWithOptions(\"account\", ui.TabsOpts{Selected: 1},\n\tui.Tab{Label: \"Profile\", Href: \"/account\"},\n\tui.Tab{Label: \"Security\", Href: \"/account/security\"})",
+    "see": [
+      "ui.Tab",
+      "ui.TabsOpts"
+    ]
   },
   {
     "name": "Dialog",

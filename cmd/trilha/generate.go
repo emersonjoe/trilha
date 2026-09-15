@@ -84,6 +84,9 @@ func crud(arg string, args []string) error {
 	fs := flag.NewFlagSet("generate crud", flag.ContinueOnError)
 	at := fs.String("at", "", t("flag crud at"))
 	store := fs.String("store", "", t("flag crud store"))
+	tenant := fs.Bool("tenant", false, t("flag crud tenant"))
+	policy := fs.String("policy", "", t("flag crud policy"))
+	schema := fs.Bool("schema", false, t("flag crud schema"))
 	langFlag := fs.String("lang", lang, t("flag lang"))
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -95,7 +98,10 @@ func crud(arg string, args []string) error {
 	if err != nil {
 		return err
 	}
-	opts := scaffold.CrudOptions{Type: arg, At: *at, Store: *store, Module: p.Module, Lang: *langFlag}
+	opts := scaffold.CrudOptions{
+		Type: arg, At: *at, Store: *store, Module: p.Module, Lang: *langFlag,
+		Tenant: *tenant, Policy: *policy, Schema: *schema,
+	}
 	res, err := scaffold.Crud(p.Root, opts)
 	switch {
 	case errors.Is(err, scaffold.ErrCrudNoStore):
@@ -119,8 +125,11 @@ func crud(arg string, args []string) error {
 		fmt.Println()
 		for _, m := range faltando {
 			where, how := t("crud missing form"), fmt.Sprintf("ui.Field(%q, …)", m.Form)
-			if m.Kind == "list" {
+			switch m.Kind {
+			case "list":
 				where, how = t("crud missing list"), fmt.Sprintf("{Key: %q, …}", m.Form)
+			case "schema":
+				where, how = t("crud missing schema"), fmt.Sprintf("{Name: %q, …}", m.Form)
 			}
 			fmt.Printf("  %s %s\n    %s %s %s:%d\n", m.Field, where, t("crud missing add"), how, m.File, m.Line)
 		}

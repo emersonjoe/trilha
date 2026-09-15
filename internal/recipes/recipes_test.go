@@ -2,6 +2,7 @@ package recipes
 
 import (
 	"errors"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -164,6 +165,49 @@ func TestTodaReceitaSeApresenta(t *testing.T) {
 		}
 		if len(r.Files) == 0 {
 			t.Errorf("%s: não escreve nada", r.Name)
+		}
+	}
+}
+
+func TestReceitaPWAEscreveManifestoIconesEConvite(t *testing.T) {
+	raiz := projeto(t)
+	receita, err := Get("pwa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := Add(raiz, receita, Options{Module: "example.com/my-app", Lang: "pt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, arquivo := range []string{
+		"public/manifest.webmanifest", "public/icon-192.png", "public/icon-512.png",
+		"public/pwa.js", "internal/pwa/invite.go", "app/install/page.go",
+	} {
+		if _, err := os.Stat(filepath.Join(raiz, filepath.FromSlash(arquivo))); err != nil {
+			t.Errorf("missing %s: %v (written %v)", arquivo, err, res.Written)
+		}
+	}
+	for _, item := range []struct {
+		file string
+		size int
+	}{
+		{"public/icon-192.png", 192},
+		{"public/icon-512.png", 512},
+	} {
+		file, err := os.Open(filepath.Join(raiz, filepath.FromSlash(item.file)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := png.DecodeConfig(file)
+		file.Close()
+		if err != nil || cfg.Width != item.size || cfg.Height != item.size {
+			t.Errorf("%s = %dx%d, err=%v", item.file, cfg.Width, cfg.Height, err)
+		}
+	}
+	script := ler(t, raiz, "public/pwa.js")
+	for _, want := range []string{"beforeinstallprompt", "navigator.standalone", "CriOS", "appinstalled", "trilha_standalone=1"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("pwa.js missing %q", want)
 		}
 	}
 }

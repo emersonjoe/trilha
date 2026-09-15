@@ -89,7 +89,7 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 // the app's own 404, and a database that is not answering says so instead of
 // being written down as "it was already gone".
 func POST(c *trilha.Ctx) error {
-	if err := trilha.Use[%s.%sStore](c).Delete(c.Context(), c.Form("id")); err != nil {
+	if err := trilha.Use[%s.%sStore](c).Delete(c.Context(), %sc.Form("id")); err != nil {
 		return err
 	}
 	c.Flash(ui.FlashSuccess, %q)
@@ -112,7 +112,7 @@ func excluir(v %s) h.Node {
 // nobody.
 func list(c *trilha.Ctx, q trilha.ListParams) (h.Node, error) {
 	rows, total, err := trilha.Use[%s.%sStore](c).List(c.Context(), %s.%sQuery{
-		Q: q.Q, Sort: q.Sort, Asc: q.Asc(), Offset: q.Offset(), Limit: q.Limit(),
+		%sQ: q.Q, Sort: q.Sort, Asc: q.Asc(), Offset: q.Offset(), Limit: q.Limit(),
 	})
 	if err != nil {
 		return nil, err
@@ -129,9 +129,9 @@ func list(c *trilha.Ctx, q trilha.ListParams) (h.Node, error) {
 }
 %s`, p.ListPkg, p.Title, p.ListPkg, extra, p.Import, p.Ref, p.Ref, cols.String(), p.URL, p.ListPkg,
 		p.Title, p.Title, p.URL+"/new", p.T["crud_new"]+" "+strings.ToLower(p.One),
-		p.Pkg, p.Type, p.T["app_deleted"], p.URL,
+		p.Pkg, p.Type, p.tenantCall(), p.T["app_deleted"], p.URL,
 		p.Ref, p.URL, p.T["crud_delete"]+"?", p.T["crud_no_undo"], p.T["crud_delete"],
-		p.Pkg, p.Type, p.Pkg, p.Type,
+		p.Pkg, p.Type, p.Pkg, p.Type, p.tenantQuery(),
 		p.ListPkg, p.T["app_search"], p.Title, p.URL, p.T["app_empty"], p.simHelper(cols.String()))
 }
 
@@ -167,6 +167,10 @@ func (p crudPlan) form(novo bool) string {
 	}
 	_ = dir
 	campos, precisaHelper := formFields(boundType{Fields: p.Fields}, p.T)
+	if p.Schema {
+		campos = "\t\t\tui.SchemaForm(schema, values(in), errs),\n"
+		precisaHelper = false
+	}
 	helper := ""
 	if precisaHelper {
 		helper = checkedHelper
@@ -174,9 +178,14 @@ func (p crudPlan) form(novo bool) string {
 	imports := p.formImports(campos, novo)
 
 	corpo := p.formBody(novo, titulo)
+	schema := ""
+	if p.Schema {
+		schema = p.schemaHelpers()
+	}
 	return fmt.Sprintf(`// Package %s is the form that %s a %s.
 package %s
 
+%s
 %s
 %s
 func form(c *trilha.Ctx, in %s, errs trilha.FieldErrors, action, titulo string) h.Node {
@@ -190,7 +199,7 @@ func form(c *trilha.Ctx, in %s, errs trilha.FieldErrors, action, titulo string) 
 	)
 }
 %s`, pkg, map[bool]string{true: "creates", false: "edits"}[novo], strings.ToLower(p.One),
-		pkg, imports, corpo, p.Ref, campos, p.T["crud_save"], helper)
+		pkg, imports, corpo, schema, p.Ref, campos, p.T["crud_save"], helper)
 }
 
 // formBody is the pair of handlers. The new screen posts to itself; the edit
@@ -215,19 +224,19 @@ func POST(c *trilha.Ctx) error {
 		}
 		return c.Render(http.StatusUnprocessableEntity, form(c, in, errs, %q, %q))
 	}
-	if _, err := trilha.Use[%s.%sStore](c).Create(c.Context(), in); err != nil {
+	if _, err := trilha.Use[%s.%sStore](c).Create(c.Context(), %sin); err != nil {
 		return err
 	}
 	c.Flash(ui.FlashSuccess, %q)
 	return c.Redirect(%q)
 }
 `, p.URL, p.Ref, p.URL+"/new", titulo, p.Ref, p.URL+"/new", titulo,
-			p.Pkg, p.Type, p.T["app_saved"], p.URL)
+			p.Pkg, p.Type, p.tenantCall(), p.T["app_saved"], p.URL)
 	}
 	return fmt.Sprintf(`
 // Page renders GET %s/{id} with the row already in the fields.
 func Page(c *trilha.Ctx) (h.Node, error) {
-	v, err := trilha.Use[%s.%sStore](c).Get(c.Context(), c.Param("id"))
+	v, err := trilha.Use[%s.%sStore](c).Get(c.Context(), %sc.Param("id"))
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +249,7 @@ func POST(c *trilha.Ctx) error {
 	id := c.Param("id")
 	// The row is read before the form is: an edit of something that is gone
 	// is a 404, and not a form that fails validation on its way to nowhere.
-	if _, err := trilha.Use[%s.%sStore](c).Get(c.Context(), id); err != nil {
+	if _, err := trilha.Use[%s.%sStore](c).Get(c.Context(), %sid); err != nil {
 		return err
 	}
 	var in %s
@@ -251,21 +260,21 @@ func POST(c *trilha.Ctx) error {
 		}
 		return c.Render(http.StatusUnprocessableEntity, form(c, in, errs, c.Request().URL.Path, %q))
 	}
-	if _, err := trilha.Use[%s.%sStore](c).Update(c.Context(), id, in); err != nil {
+	if _, err := trilha.Use[%s.%sStore](c).Update(c.Context(), %sid, in); err != nil {
 		return err
 	}
 	c.Flash(ui.FlashSuccess, %q)
 	return c.Redirect(%q)
 }
-`, p.URL, p.Pkg, p.Type, titulo, p.Pkg, p.Type, p.Ref, titulo,
-		p.Pkg, p.Type, p.T["app_saved"], p.URL)
+`, p.URL, p.Pkg, p.Type, p.tenantCall(), titulo, p.Pkg, p.Type, p.tenantCall(), p.Ref, titulo,
+		p.Pkg, p.Type, p.tenantCall(), p.T["app_saved"], p.URL)
 }
 
 // formImports lists what the file ended up using. Deciding from the body is
 // the only way this stays right for every shape of struct.
 func (p crudPlan) formImports(campos string, novo bool) string {
 	std := []string{"net/http"}
-	if strings.Contains(campos, "fmt.Sprint") {
+	if p.Schema || strings.Contains(campos, "fmt.Sprint") {
 		std = append(std, "fmt")
 	}
 	var sb strings.Builder
@@ -278,6 +287,58 @@ func (p crudPlan) formImports(campos string, novo bool) string {
 	sb.WriteString("\t\"github.com/emersonjoe/trilha/ui\"\n")
 	fmt.Fprintf(&sb, "\n\t%q\n)\n", p.Import)
 	return sb.String()
+}
+
+func (p crudPlan) tenantCall() string {
+	if p.Tenant {
+		return "c.Actor().Tenant, "
+	}
+	return ""
+}
+
+func (p crudPlan) tenantQuery() string {
+	if p.Tenant {
+		return "Tenant: c.Actor().Tenant, "
+	}
+	return ""
+}
+
+func (p crudPlan) schemaHelpers() string {
+	var fields, values strings.Builder
+	fields.WriteString("var schema = trilha.Schema{\n")
+	values.WriteString("func values(in " + p.Ref + ") map[string]string {\n\treturn map[string]string{\n")
+	for _, f := range p.Fields {
+		_, kind := formControl(f)
+		if kind == "" {
+			continue
+		}
+		typeName := map[string]string{"text": "text", "number": "number", "check": "checkbox"}[kind]
+		if _, ok := f.rule("oneof"); ok {
+			typeName = "select"
+		}
+		fmt.Fprintf(&fields, "\t{Name: %q, Label: %q, Type: %q", f.Form, labelOf(f), typeName)
+		if f.Required() {
+			fields.WriteString(", Required: true")
+		}
+		if min, ok := f.rule("min"); ok {
+			fmt.Fprintf(&fields, ", Min: %q", min)
+		}
+		if max, ok := f.rule("max"); ok {
+			fmt.Fprintf(&fields, ", Max: %q", max)
+		}
+		if oneof, ok := f.rule("oneof"); ok {
+			fields.WriteString(", Options: []trilha.SchemaOption{")
+			for _, option := range strings.Fields(oneof) {
+				fmt.Fprintf(&fields, "{Value: %q, Label: %q},", option, option)
+			}
+			fields.WriteString("}")
+		}
+		fields.WriteString("},\n")
+		fmt.Fprintf(&values, "\t\t%q: fmt.Sprint(in.%s),\n", f.Form, f.Name)
+	}
+	fields.WriteString("}\n")
+	values.WriteString("\t}\n}\n")
+	return fields.String() + "\n" + values.String()
 }
 
 // test is the one that proves the screens agree with each other: an empty

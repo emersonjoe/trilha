@@ -38,7 +38,7 @@ type Scenario struct {
 
 // Scenarios in the order the table shows them.
 func Scenarios() []Scenario {
-	return []Scenario{comments, contactForm, cognito, pagination, portListing, apiCall}
+	return []Scenario{comments, contactForm, cognito, pagination, generateCRUD, fixHint, portListing, apiCall}
 }
 
 // ScenarioByName finds one; "" is not a name.
@@ -307,6 +307,97 @@ func TestBenchPaginacao(t *testing.T) {
 	}
 }
 `},
+}
+
+var fixHint = Scenario{
+	Name:    "fix-hint",
+	Title:   "corrigir um erro pelo Hint",
+	Example: "examples/blog",
+	Prompt: `Depois do login, este projeto deve ir para https://example.com/portal. Hoje o teste recebe 500 e o log mostra: ` +
+		`"trilha: refusing to redirect to https://example.com/portal, which leaves this site (E_REDIRECT_ABSOLUTE)". ` +
+		`Corrija o erro seguindo a orientação do Hint, sem remover a validação do login. Deixe go vet ./... e go test ./... verdes.`,
+	Prepare: fixHintPrepare,
+	Tests: map[string]string{"zz_bench_test.go": `package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+func TestBenchFixHint(t *testing.T) {
+	t.Setenv("TRILHA_ENV", "dev")
+	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c := trilha.NewTestClient(t, newApp())
+	res := c.PostForm("/login", url.Values{"usuario": {"admin"}, "senha": {"trilha"}})
+	res.WantStatus(http.StatusSeeOther).WantHeader("Location", "https://example.com/portal")
+}
+`},
+}
+
+var generateCRUD = Scenario{
+	Name:    "generate-crud",
+	Title:   "adicionar um cadastro a partir do struct",
+	Example: "examples/blog",
+	Prompt: `Adicione um cadastro completo de Categoria em /categorias a partir do struct ` +
+		`internal/categorias.Categoria que já está no projeto. Use o gerador de CRUD do Trilha, ` +
+		`mantenha o código gerado legível e deixe go vet ./... e go test ./... verdes.`,
+	Prepare: generateCRUDPrepare,
+	Tests: map[string]string{"zz_bench_test.go": `package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+)
+
+func TestBenchGenerateCRUD(t *testing.T) {
+	t.Setenv("TRILHA_ENV", "dev")
+	t.Setenv("TRILHA_SECRET", "segredo-de-teste-com-mais-de-32-bytes!!")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c := trilha.NewTestClient(t, newApp())
+	c.Get("/categorias").WantStatus(http.StatusOK)
+	c.PostForm("/categorias/new", url.Values{"nome": {"Contratos"}}).WantStatus(http.StatusSeeOther)
+	c.Get("/categorias").WantStatus(http.StatusOK).WantContains("Contratos")
+}
+`},
+}
+
+func generateCRUDPrepare(dir string) error {
+	path := filepath.Join(dir, "internal", "categorias", "categoria.go")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(`package categorias
+
+type Categoria struct {
+	ID   string `+"`json:\"id\"`"+`
+	Nome string `+"`json:\"nome\" form:\"nome\" validate:\"required,max=80\" label:\"Nome\"`"+`
+}
+`), 0o644)
+}
+
+func fixHintPrepare(dir string) error {
+	file := filepath.Join(dir, "app", "login", "page.go")
+	body, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	old := `next = "/admin"`
+	if !strings.Contains(string(body), old) {
+		return fmt.Errorf("%s: login redirect fixture changed", file)
+	}
+	body = bytes.Replace(body, []byte(old), []byte(`next = "https://example.com/portal"`), 1)
+	return os.WriteFile(file, body, 0o644)
 }
 
 //go:embed fixtures/documentos.tsx fixtures/MIGRATION.snippet.md fixtures/acervo.tsx fixtures/MIGRATION.acervo.md

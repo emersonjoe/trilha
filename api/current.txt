@@ -31,6 +31,8 @@ pkg trilha, func CompileErrorPage(string) string
 pkg trilha, func ConfigFromEnv() Config
 pkg trilha, func ConnectionMemory() ConnectionStore
 pkg trilha, func Deadlines([]Deadline, DeadlineOpts) DeadlineSummary
+pkg trilha, func ErrorGuideByCode(string) (ErrorGuide, bool)
+pkg trilha, func ErrorGuides() []ErrorGuide
 pkg trilha, func Errorf(int, string, ...any) error
 pkg trilha, func Fatal(error)
 pkg trilha, func HintOf(error) *Hint
@@ -184,6 +186,7 @@ pkg trilha, method (*Ctx) SetRequest(*http.Request)
 pkg trilha, method (*Ctx) SetSigned(string, string, time.Duration) error
 pkg trilha, method (*Ctx) SetTitle(string)
 pkg trilha, method (*Ctx) Signed(string) (string, bool)
+pkg trilha, method (*Ctx) Standalone() bool
 pkg trilha, method (*Ctx) Status(int)
 pkg trilha, method (*Ctx) Stream() *Stream
 pkg trilha, method (*Ctx) Text(int, string) error
@@ -353,6 +356,7 @@ pkg trilha, type Config struct, Locale string
 pkg trilha, type Config struct, LogRequest func(*Ctx, int, time.Duration) bool
 pkg trilha, type Config struct, Logger *slog.Logger
 pkg trilha, type Config struct, MaxBodyBytes int64
+pkg trilha, type Config struct, MaxFormMemory int64
 pkg trilha, type Config struct, Mounts map[string]fs.FS
 pkg trilha, type Config struct, Observability Observability
 pkg trilha, type Config struct, OnSecurityEvent func(SecurityEvent)
@@ -370,6 +374,7 @@ pkg trilha, type Config struct, Upstreams map[string]Upstream
 pkg trilha, type Connection struct
 pkg trilha, type Connection struct, Auth string
 pkg trilha, type Connection struct, CreatedAt time.Time
+pkg trilha, type Connection struct, HasSecret bool
 pkg trilha, type Connection struct, Header string
 pkg trilha, type Connection struct, Headers map[string]string
 pkg trilha, type Connection struct, ID string
@@ -446,6 +451,12 @@ pkg trilha, type EnumValue struct, Label string
 pkg trilha, type EnumValue struct, Tone string
 pkg trilha, type EnumValue struct, Value string
 pkg trilha, type Env string
+pkg trilha, type ErrorGuide struct
+pkg trilha, type ErrorGuide struct, Code string
+pkg trilha, type ErrorGuide struct, Description string
+pkg trilha, type ErrorGuide struct, Reference string
+pkg trilha, type ErrorGuide struct, Repair string
+pkg trilha, type ErrorGuide struct, Title string
 pkg trilha, type ErrorPageFunc func(*Ctx, error) (h.Node, error)
 pkg trilha, type Field struct
 pkg trilha, type Field struct, Name string
@@ -1592,12 +1603,16 @@ pkg ui, const FlashError
 pkg ui, const FlashFadeMs
 pkg ui, const FlashInfo
 pkg ui, const FlashSuccess
+pkg ui, const PreloadAuto AudioPreload
+pkg ui, const PreloadMetadata AudioPreload
+pkg ui, const PreloadNone AudioPreload
 pkg ui, func APIKeysTable(*trilha.Ctx, []APIKeyRow, ...APIKeysOpts) h.Node
 pkg ui, func APIUsage(*trilha.Ctx, APIUsageData, APIUsageOpts) h.Node
 pkg ui, func Alert(string, ...h.Node) h.Node
 pkg ui, func AlertDescription(...h.Node) h.Node
 pkg ui, func Asset(string) []byte
 pkg ui, func Assistant(*trilha.Ctx, AssistantOpts) h.Node
+pkg ui, func Audio(*trilha.Ctx, string, ...AudioOpts) h.Node
 pkg ui, func AuditTable(*trilha.Ctx, []trilha.AuditRecord, ...AuditOpts) h.Node
 pkg ui, func Avatar(string, string) h.Node
 pkg ui, func Badge(...h.Node) h.Node
@@ -1672,6 +1687,7 @@ pkg ui, func Inbox(*trilha.Ctx, []InboxRow, InboxOpts) h.Node
 pkg ui, func InboxBadge(int) h.Node
 pkg ui, func Indicator(string) h.Node
 pkg ui, func Input(...h.Node) h.Node
+pkg ui, func InstallApp(*trilha.Ctx, ...InstallAppOpts) h.Node
 pkg ui, func Invalid() h.Node
 pkg ui, func InvalidIf(map[string]string, string) h.Node
 pkg ui, func Kbd(string) h.Node
@@ -1714,6 +1730,7 @@ pkg ui, func SearchBox(*trilha.Ctx, string, SearchBoxOpts) h.Node
 pkg ui, func SearchResults(*trilha.Ctx, trilha.SearchResult, SearchResultsOpts) h.Node
 pkg ui, func Secondary() h.Node
 pkg ui, func SecretField(*trilha.Ctx, string, string, trilha.Secret, ...FieldOpt) h.Node
+pkg ui, func SecretFieldWithPresence(*trilha.Ctx, string, string, trilha.Secret, bool, ...FieldOpt) h.Node
 pkg ui, func SecretOnce(*trilha.Ctx, string, ...h.Node) h.Node
 pkg ui, func Select(...h.Node) h.Node
 pkg ui, func SelectOptions([]Option, string) h.Node
@@ -1738,6 +1755,7 @@ pkg ui, func Swap(string) h.Node
 pkg ui, func Switch(...h.Node) h.Node
 pkg ui, func Table(...h.Node) h.Node
 pkg ui, func Tabs(string, ...Tab) h.Node
+pkg ui, func TabsWithOptions(string, TabsOpts, ...Tab) h.Node
 pkg ui, func TaskProgress(*trilha.Ctx, *task.Tasks, string) h.Node
 pkg ui, func TaskTable(*trilha.Ctx, []task.Task, TaskTableOpts) h.Node
 pkg ui, func Textarea(...h.Node) h.Node
@@ -1803,6 +1821,14 @@ pkg ui, type AssistantOpts struct, Icon string
 pkg ui, type AssistantOpts struct, Label string
 pkg ui, type AssistantOpts struct, Page string
 pkg ui, type AssistantOpts struct, Title string
+pkg ui, type AudioOpts struct
+pkg ui, type AudioOpts struct, Download string
+pkg ui, type AudioOpts struct, Duration time.Duration
+pkg ui, type AudioOpts struct, NoOpen bool
+pkg ui, type AudioOpts struct, Preload AudioPreload
+pkg ui, type AudioOpts struct, Title string
+pkg ui, type AudioOpts struct, Type string
+pkg ui, type AudioPreload string
 pkg ui, type AuditOpts struct
 pkg ui, type AuditOpts struct, Action string
 pkg ui, type AuditOpts struct, Actions []string
@@ -1820,6 +1846,7 @@ pkg ui, type CSVErrorsOpts struct, Limit int
 pkg ui, type CSVErrorsOpts struct, Title string
 pkg ui, type ChatMessage struct
 pkg ui, type ChatMessage struct, Role string
+pkg ui, type ChatMessage struct, Sources []ChatSource
 pkg ui, type ChatMessage struct, Text string
 pkg ui, type ChatOpts struct
 pkg ui, type ChatOpts struct, Action string
@@ -1833,6 +1860,10 @@ pkg ui, type ChatOpts struct, MaxLength int
 pkg ui, type ChatOpts struct, Placeholder string
 pkg ui, type ChatOpts struct, Steps bool
 pkg ui, type ChatOpts struct, Submit string
+pkg ui, type ChatSource struct
+pkg ui, type ChatSource struct, Hint string
+pkg ui, type ChatSource struct, Href string
+pkg ui, type ChatSource struct, Label string
 pkg ui, type Column struct, Cell func(T) h.Node
 pkg ui, type Column struct, Key string
 pkg ui, type Column struct, Label string
@@ -1870,6 +1901,7 @@ pkg ui, type DeadlineListOpts struct, Limit int
 pkg ui, type DeadlineListOpts struct, More string
 pkg ui, type DeadlineListOpts struct, Now time.Time
 pkg ui, type DeadlineListOpts struct, Owner bool
+pkg ui, type DeadlineListOpts struct, RowAction func(trilha.Deadline) h.Node
 pkg ui, type DeferOpts struct
 pkg ui, type DeferOpts struct, Error string
 pkg ui, type DeferOpts struct, Height string
@@ -1917,6 +1949,14 @@ pkg ui, type InboxRow struct, Reason string
 pkg ui, type InboxRow struct, State string
 pkg ui, type InboxRow struct, Subject string
 pkg ui, type InboxRow struct, Target string
+pkg ui, type InstallAppOpts struct
+pkg ui, type InstallAppOpts struct, Button string
+pkg ui, type InstallAppOpts struct, Fallback string
+pkg ui, type InstallAppOpts struct, Help string
+pkg ui, type InstallAppOpts struct, IOS string
+pkg ui, type InstallAppOpts struct, IOSOtherBrowser string
+pkg ui, type InstallAppOpts struct, Manifest string
+pkg ui, type InstallAppOpts struct, Script string
 pkg ui, type ListSelect struct
 pkg ui, type ListSelect struct, Action string
 pkg ui, type ListSelect struct, Bar h.Node
@@ -2005,7 +2045,10 @@ pkg ui, type Step struct, Href string
 pkg ui, type Step struct, Label string
 pkg ui, type Tab struct
 pkg ui, type Tab struct, Content h.Node
+pkg ui, type Tab struct, Href string
 pkg ui, type Tab struct, Label string
+pkg ui, type TabsOpts struct
+pkg ui, type TabsOpts struct, Selected int
 pkg ui, type TaskTableOpts struct
 pkg ui, type TaskTableOpts struct, CSRF h.Node
 pkg ui, type TaskTableOpts struct, Empty string
@@ -2017,20 +2060,25 @@ pkg ui, type TreeNode struct, Label string
 pkg ui, type TreeNode struct, Leaf bool
 pkg ui, type TreeNode struct, Open bool
 pkg ui, type TreeNode struct, Path string
+pkg ui, type TreeNode struct, Unpickable bool
 pkg ui, type TreeNode struct, Value string
 pkg ui, type TreeOpts struct
 pkg ui, type TreeOpts struct, Current string
+pkg ui, type TreeOpts struct, Fail string
 pkg ui, type TreeOpts struct, ID string
 pkg ui, type TreeOpts struct, Label string
 pkg ui, type TreeOpts struct, Name string
 pkg ui, type TreeOpts struct, Nodes []TreeNode
+pkg ui, type TreeOpts struct, Pending string
 pkg ui, type TreeOpts struct, Selected string
 pkg ui, type TreeOpts struct, Source string
 pkg ui, type TreePickerOpts struct
+pkg ui, type TreePickerOpts struct, Fail string
 pkg ui, type TreePickerOpts struct, Label string
 pkg ui, type TreePickerOpts struct, MinChars int
 pkg ui, type TreePickerOpts struct, Name string
 pkg ui, type TreePickerOpts struct, Nodes []TreeNode
+pkg ui, type TreePickerOpts struct, Pending string
 pkg ui, type TreePickerOpts struct, Placeholder string
 pkg ui, type TreePickerOpts struct, Search string
 pkg ui, type TreePickerOpts struct, Source string

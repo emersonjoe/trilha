@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -225,7 +226,7 @@ func layoutFor(lang string, dateOnly, timeOnly bool) string {
 
 // decimal writes a number with the separators of the language.
 func decimal(lang string, v float64, places int) string {
-	s := strconv.FormatFloat(v, 'f', places, 64)
+	s := decimalString(v, places)
 	intPart, frac, _ := strings.Cut(s, ".")
 	neg := strings.HasPrefix(intPart, "-")
 	intPart = strings.TrimPrefix(intPart, "-")
@@ -249,6 +250,41 @@ func decimal(lang string, v float64, places int) string {
 		out = "-" + out
 	}
 	return out
+}
+
+// decimalString follows the web platform's halfExpand rule over the shortest
+// decimal representation of the float. That keeps server-rendered numbers in
+// step with Intl.NumberFormat and toFixed in browser islands.
+func decimalString(v float64, places int) string {
+	if places < 0 {
+		return strconv.FormatFloat(v, 'f', places, 64)
+	}
+	short := strconv.FormatFloat(v, 'f', -1, 64)
+	negative := strings.HasPrefix(short, "-")
+	short = strings.TrimPrefix(short, "-")
+	r, ok := new(big.Rat).SetString(short)
+	if !ok {
+		return strconv.FormatFloat(v, 'f', places, 64)
+	}
+	scale := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(places)), nil)
+	r.Mul(r, new(big.Rat).SetInt(scale))
+	q, rem := new(big.Int), new(big.Int)
+	q.QuoRem(r.Num(), r.Denom(), rem)
+	if new(big.Int).Lsh(rem, 1).Cmp(r.Denom()) >= 0 {
+		q.Add(q, big.NewInt(1))
+	}
+	digits := q.String()
+	if places > 0 {
+		for len(digits) <= places {
+			digits = "0" + digits
+		}
+		cut := len(digits) - places
+		digits = digits[:cut] + "." + digits[cut:]
+	}
+	if negative {
+		digits = "-" + digits
+	}
+	return digits
 }
 
 // relativeText is the coarse answer, which is the useful one: nobody reading a

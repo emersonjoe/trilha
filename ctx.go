@@ -137,6 +137,15 @@ func (c *Ctx) Fragment() string {
 // RequestID returns the X-Request-ID header or a generated id.
 func (c *Ctx) RequestID() string { return c.requestID }
 
+// Standalone reports the browser's last declaration that this app is running
+// in installed/standalone mode. Browsers do not send that fact in HTTP, so the
+// PWA helper records it in a non-sensitive cookie; treat this as a UI hint,
+// never as authorization or device identity.
+func (c *Ctx) Standalone() bool {
+	cookie, err := c.r.Cookie("trilha_standalone")
+	return err == nil && cookie.Value == "1"
+}
+
 // Param returns a path parameter ({slug} or {path...}).
 func (c *Ctx) Param(name string) string { return c.r.PathValue(name) }
 
@@ -165,7 +174,7 @@ func (c *Ctx) parseForm() error {
 	ct := c.r.Header.Get("Content-Type")
 	var err error
 	if strings.HasPrefix(ct, "multipart/form-data") {
-		err = c.r.ParseMultipartForm(c.app.cfg.MaxBodyBytes)
+		err = c.r.ParseMultipartForm(c.app.cfg.MaxFormMemory)
 	} else {
 		err = c.r.ParseForm()
 	}

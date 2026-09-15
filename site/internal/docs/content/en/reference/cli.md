@@ -298,6 +298,11 @@ field that is not a pointer keeps the rule it had: the zero value stays out, bec
 is the only way to say "not this one". A nullable list is still a list — one parameter per
 element, none of them when it is nil.
 
+An optional scalar with an OpenAPI `default` is a pointer for the same reason. It preserves
+omitted versus explicitly sent zero (`false`, `0`, `""`), which a value field with `omitempty`
+cannot represent. Generated names and comments remain valid UTF-8 when a description begins
+with a multibyte character.
+
 ```go
 since := "2026-09"
 page, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{
@@ -527,6 +532,11 @@ table alone, which is where whoever writes the contracts starts. Each one become
 handler and a form that posts to it — the handler writes and redirects, the page renders. An
 action is not an island signal: it is the opposite of JavaScript in the browser, and it does
 not change the class.
+
+A modal is a **B** signal even when the component was renamed: identifiers ending in `Dialog`,
+`Modal`, `Drawer`, `Sheet` or `Popover` count, as do `showModal()`, `confirm()`,
+`role="dialog"` and `aria-modal`. The report therefore recognizes a project's
+`StartInstanceDialog` instead of requiring the literal kit component name.
 
 For the same reason an `<svg>` on its own is not a drawing surface. A logo, an icon, a chevron:
 almost every screen has one, and reading the tag as **C** put four of the twenty screens of a
@@ -788,10 +798,25 @@ Three things worth knowing before you run it:
   make for it. `trilha check` is green anyway, and the store's own test — the one about the
   statements — runs regardless.
 
-### Not here yet
+### Tenant, policy and compact schema forms
 
-`--tenant`, `--policy` and the compact `ui.SchemaForm` version of the form. They are on
-[#115](https://github.com/emersonjoe/trilha/issues/115).
+The three optional flags compose, including with `--store`:
+
+```bash
+trilha generate crud docs.Tipo --at app/admin/tipos \
+  --store postgres --tenant --policy docs --schema
+```
+
+- `--tenant` carries `c.Actor().Tenant` through every read and write, adds `tenant_id` to SQL
+  migrations and predicates, and writes a `RequireTenant` middleware. The login recipe must exist.
+- `--policy docs` writes a folder middleware using the permissions recipe's matrix at the
+  `administrar` level. The value is the policy module, not a role name.
+- `--schema` keeps `Bind` and the typed store, but renders the form from a compact
+  `trilha.Schema` with `ui.SchemaForm` instead of one explicit `ui.Field` call per field.
+
+When `--tenant` and `--policy` are combined, the generated middleware applies both checks. The
+command refuses before writing anything when the required `login` or `permissions` recipe is not
+present; guessing an authentication package would produce code that only looks generated.
 
 ## trilha add
 

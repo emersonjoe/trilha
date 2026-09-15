@@ -177,10 +177,16 @@ CREATE TABLE IF NOT EXISTS %s (
 `, p.Table, p.Pkg, p.Type, p.Ref, p.Store, p.Table)
 
 	larg := 0
+	if p.Tenant {
+		larg = len("tenant_id")
+	}
 	for _, c := range p.Cols {
 		if len(c.Name) > larg {
 			larg = len(c.Name)
 		}
+	}
+	if p.Tenant {
+		fmt.Fprintf(&sb, "\t%-*s TEXT NOT NULL,\n", larg, "tenant_id")
 	}
 	for i, c := range p.Cols {
 		virgula := ","
@@ -204,7 +210,11 @@ CREATE TABLE IF NOT EXISTS %s (
 	// An ordering with no index is the sequential scan that shows up the
 	// month the table gets big, and never before.
 	if s := p.sortFallback(); s != "" && s != p.keyColumn() {
-		fmt.Fprintf(&sb, "\nCREATE INDEX IF NOT EXISTS %s_%s ON %s (%s);\n", p.Table, s, p.Table, s)
+		columns := s
+		if p.Tenant {
+			columns = "tenant_id, " + s
+		}
+		fmt.Fprintf(&sb, "\nCREATE INDEX IF NOT EXISTS %s_%s ON %s (%s);\n", p.Table, s, p.Table, columns)
 	}
 	return sb.String()
 }
@@ -369,6 +379,11 @@ func (p crudPlan) listSQL(sb *strings.Builder) {
 func (s *%sSQL) query(q %sQuery) (rows, count string, args []any, page store.Page) {
 	where := ""
 `, p.Type, p.Type)
+	if p.Tenant {
+		fmt.Fprint(sb, `	args = append(args, q.Tenant)
+	where = " WHERE tenant_id = " + s.d.Arg(len(args))
+`)
+	}
 	switch len(texto) {
 	case 0:
 		fmt.Fprintf(sb, `	// No text column to search in: the search box filters nothing until
@@ -387,9 +402,13 @@ func (s *%sSQL) query(q %sQuery) (rows, count string, args []any, page store.Pag
 			fmt.Fprintf(sb, "\t\targs = append(args, like)\n\t\tors = append(ors, %q+s.d.Arg(len(args))+\" ESCAPE '\\\\'\")\n",
 				c.Name+" LIKE ")
 		}
-		fmt.Fprintf(sb, `		where = " WHERE (" + strings.Join(ors, " OR ") + ")"
+		prefix := " WHERE ("
+		if p.Tenant {
+			prefix = " AND ("
+		}
+		fmt.Fprintf(sb, `		where += %q + strings.Join(ors, " OR ") + ")"
 	}
-`)
+`, prefix)
 	}
 	dir := "asc"
 	_ = dir
@@ -440,6 +459,22 @@ func (s *%sSQL) List(ctx context.Context, q %sQuery) ([]%s, int, error) {
 // readSQL is Get: one row by its key, and the recipe's NotFound for the one
 // database error that is not a server failure.
 func (p crudPlan) readSQL(sb *strings.Builder) {
+	if p.Tenant {
+		fmt.Fprintf(sb, `
+// Get answers one row inside the selected tenant.
+func (s *%sSQL) Get(ctx context.Context, tenant, id string) (%s, error) {
+	var v %s
+	err := s.db.QueryRowContext(ctx,
+		"SELECT "+%sColumns+" FROM "+%sTable+" WHERE tenant_id = "+s.d.Arg(1)+" AND %s = "+s.d.Arg(2), tenant, id,
+	).Scan(%s)
+	if err != nil {
+		return %s{}, store.NotFound(err)
+	}
+	return v, nil
+}
+`, p.Type, p.Type, p.Type, p.Var, p.Var, p.keyColumn(), p.scanArgs("v"), p.Type)
+		return
+	}
 	fmt.Fprintf(sb, `
 // Get answers one row. store.NotFound turns sql.ErrNoRows into the
 // framework's not-found, which is the same error the memory store answers
@@ -461,6 +496,10 @@ func (s *%sSQL) Get(ctx context.Context, id string) (%s, error) {
 // writeSQL is the three writes. Each one says how many rows it touched,
 // because zero is the 404 and there is no other way to hear it.
 func (p crudPlan) writeSQL(sb *strings.Builder) {
+	if p.Tenant {
+		p.writeTenantSQL(sb)
+		return
+	}
 	var valores []string
 	for _, c := range p.Cols {
 		valores = append(valores, "v."+c.Field.Name)
@@ -552,6 +591,86 @@ func (s *%sSQL) Delete(ctx context.Context, id string) error {
 		p.Var, strings.Join(sets, "+"), p.keyColumn(), len(sets)+1,
 		strings.Join(setValores, ", "), p.Type, p.Type, p.Type,
 		p.Type, p.Var, p.keyColumn())
+}
+
+func (p crudPlan) writeTenantSQL(sb *strings.Builder) {
+	values := []string{"tenant"}
+	for _, c := range p.Cols {
+		values = append(values, "v."+c.Field.Name)
+	}
+	var sets, updateValues []string
+	for i, c := range p.writable() {
+		sep := " SET "
+		if i > 0 {
+			sep = ", "
+		}
+		sets = append(sets, fmt.Sprintf(`%q+s.d.Arg(%d)`, sep+c.Name+" = ", i+2))
+		updateValues = append(updateValues, "v."+c.Field.Name)
+	}
+	updateValues = append([]string{"tenant"}, updateValues...)
+	updateValues = append(updateValues, "id")
+	fmt.Fprintf(sb, `
+// Create files a row inside the selected tenant.
+func (s *%sSQL) Create(ctx context.Context, tenant string, v %s) (%s, error) {
+	v.%s = new%sID()
+%s	if _, err := s.db.ExecContext(ctx,
+		"INSERT INTO "+%sTable+" (tenant_id, "+%sColumns+") VALUES ("+s.d.Args(%d)+")",
+		%s,
+	); err != nil {
+		return %s{}, err
+	}
+	return v, nil
+}
+
+func new%sID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b[:])
+}
+
+// Update can only touch a row owned by the selected tenant.
+func (s *%sSQL) Update(ctx context.Context, tenant, id string, v %s) (%s, error) {
+	v.%s = id
+%s	res, err := s.db.ExecContext(ctx,
+		"UPDATE "+%sTable+%s+" WHERE tenant_id = "+s.d.Arg(1)+" AND %s = "+s.d.Arg(%d),
+		%s,
+	)
+	if err != nil {
+		return %s{}, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return %s{}, err
+	}
+	if n == 0 {
+		return %s{}, trilha.ErrNotFound
+	}
+	return s.Get(ctx, tenant, id)
+}
+
+// Delete can only remove a row owned by the selected tenant.
+func (s *%sSQL) Delete(ctx context.Context, tenant, id string) error {
+	res, err := s.db.ExecContext(ctx,
+		"DELETE FROM "+%sTable+" WHERE tenant_id = "+s.d.Arg(1)+" AND %s = "+s.d.Arg(2), tenant, id)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return trilha.ErrNotFound
+	}
+	return nil
+}
+`, p.Type, p.Type, p.Type, p.Key.Name, p.Type, p.stampSQL("v", true),
+		p.Var, p.Var, len(values), strings.Join(values, ", "), p.Type, p.Type,
+		p.Type, p.Type, p.Type, p.Key.Name, p.stampSQL("v", false), p.Var,
+		strings.Join(sets, "+"), p.keyColumn(), len(sets)+2, strings.Join(updateValues, ", "),
+		p.Type, p.Type, p.Type, p.Type, p.Var, p.keyColumn())
 }
 
 // stampSQL sets the dates the form never asks for. The clock is Go's and not
@@ -647,6 +766,10 @@ func Test%sSQLPageHasACeiling(t *testing.T) {
 		p.sortFallback(), p.Type, p.sortFallback(), p.Type, p.Type, p.Type)
 
 	if texto := p.textColumns(); len(texto) > 0 {
+		extra, searchArg := 0, 0
+		if p.Tenant {
+			extra, searchArg = 1, 1
+		}
 		fmt.Fprintf(&sb, `
 // What somebody types in the search box travels beside the statement and
 // never inside it — and the wildcards are escaped, so a %% is a %% they are
@@ -662,11 +785,11 @@ func Test%sSQLSearchTravelsAsAnArgument(t *testing.T) {
 	if len(args) != %d {
 		t.Fatalf("args = %%v, expected one per text column", args)
 	}
-	if !strings.Contains(args[0].(string), "\\%%") {
-		t.Fatalf("the wildcard was not escaped: %%q", args[0])
+	if !strings.Contains(args[%d].(string), "\\%%") {
+		t.Fatalf("the wildcard was not escaped: %%q", args[%d])
 	}
 }
-`, p.Type, p.Type, p.Type, len(texto))
+`, p.Type, p.Type, p.Type, len(texto)+extra, searchArg, searchArg)
 	}
 	return sb.String()
 }

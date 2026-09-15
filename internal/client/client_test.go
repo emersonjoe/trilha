@@ -29,6 +29,8 @@ import (
 
 var update = flag.Bool("update", false, "rewrite the generated client")
 
+func ptr[T any](v T) *T { return &v }
+
 // docPath is the synthetic document: a page, a path parameter, an enum in the
 // query, a JSON body, an upload, a binary answer, a oneOf, a $ref that closes a
 // cycle, and an operation with no tag.
@@ -124,6 +126,7 @@ func TestSchemasBecameTypes(t *testing.T) {
 		// A $ref that closes a cycle is a pointer; a slice already breaks it.
 		{"Folder", "Parent", `*Folder json:"parent,omitempty"`},
 		{"Folder", "Children", `[]Folder json:"children,omitempty"`},
+		{"DocumentsListDocumentsParams", "Page", `*int64 json:"page,omitempty" validate:"min=1"`},
 	} {
 		if got := structFields(t, src, want.st)[want.field]; got != want.decl {
 			t.Fatalf("%s.%s is `%s`, want `%s`", want.st, want.field, got, want.decl)
@@ -182,7 +185,7 @@ func TestAgainstServer(t *testing.T) {
 	}))
 	ctx := context.Background()
 
-	page, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{Page: 2, Q: "nota", Status: api.StatusReady, Tag: []string{"a", "b"}})
+	page, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{Page: ptr(int64(2)), Q: "nota", Status: api.StatusReady, Tag: []string{"a", "b"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -847,7 +850,7 @@ func TestQueryOpcionalMandaOValorENaoOPonteiro(t *testing.T) {
 	ctx := context.Background()
 
 	// Nothing filled in: nothing of the optional part reaches the URL.
-	if _, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{Page: 1}); err != nil {
+	if _, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{Page: ptr(int64(1))}); err != nil {
 		t.Fatal(err)
 	}
 	if lastQuery != "page=1" {
@@ -857,7 +860,7 @@ func TestQueryOpcionalMandaOValorENaoOPonteiro(t *testing.T) {
 	since, year, state, draft := "2026-09", int64(2026), api.StatusReady, false
 	label := []string{"a", "b"}
 	if _, err := c.Documents().ListDocuments(ctx, api.DocumentsListDocumentsParams{
-		Page:  1,
+		Page:  ptr(int64(1)),
 		Since: &since,
 		Year:  &year,
 		State: &state,
@@ -878,6 +881,23 @@ func TestQueryOpcionalMandaOValorENaoOPonteiro(t *testing.T) {
 	}
 	if strings.Contains(string(src), "fmt.Sprint(p.") {
 		t.Error("a query parameter is still printed with fmt.Sprint of whatever it is")
+	}
+}
+
+func TestOptionalNonZeroDefaultUsesPointer(t *testing.T) {
+	doc := `{"openapi":"3.1.0","info":{"title":"x","version":"1"},"paths":{"/agents":{"get":{"parameters":[{"name":"page","in":"query","schema":{"type":"integer","default":1}}],"responses":{"200":{"description":"ok"}}}}},"components":{"schemas":{"AgentUpsert":{"type":"object","properties":{"enabled":{"type":"boolean","default":true},"kind":{"type":"string","default":"document"},"retries":{"type":"integer","default":0}}}}}}`
+	res, err := Generate([]byte(doc), Options{Package: "api"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []struct{ st, field, decl string }{
+		{"AgentUpsert", "Enabled", `*bool json:"enabled,omitempty"`},
+		{"AgentUpsert", "Kind", `*string json:"kind,omitempty"`},
+		{"AgentUpsert", "Retries", `int64 json:"retries,omitempty"`},
+	} {
+		if got := structFields(t, res.Source, want.st)[want.field]; got != want.decl {
+			t.Errorf("%s.%s = `%s`, want `%s`", want.st, want.field, got, want.decl)
+		}
 	}
 }
 

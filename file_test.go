@@ -222,6 +222,22 @@ func TestFilesReadsEveryFileInOrder(t *testing.T) {
 	}
 }
 
+func TestMultipartMemoryLimitIsIndependentFromBodyLimit(t *testing.T) {
+	c := upload("arquivo", "grande.pdf", pdfBytes+strings.Repeat("x", 2<<20))
+	c.app.cfg.MaxBodyBytes = 4 << 20
+	c.app.cfg.MaxFormMemory = 1 << 10
+
+	up, err := c.File("arquivo", FileRules{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer up.Close()
+	defer c.r.MultipartForm.RemoveAll()
+	if _, ok := up.File.(*os.File); !ok {
+		t.Fatalf("multipart file stayed in memory as %T", up.File)
+	}
+}
+
 // A message about the second file names the second file: the queue shows it on
 // the line that is wrong.
 func TestFilesNameTheFileThatFailed(t *testing.T) {

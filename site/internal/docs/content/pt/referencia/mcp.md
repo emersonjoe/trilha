@@ -94,13 +94,22 @@ ferramentas que mcp.FromRoutes exporia (include: /api/*):
 um upload multipart, por exemplo — sai com o motivo, a mesma linha que o servidor registra
 no log.
 
-### O que ainda não está aqui
+### Servidor de documentação
 
-Receitas e páginas de referência não são ferramentas deste servidor: são o mesmo Markdown de
-que o site é feito, cerca de um megabyte, e pôr isso dentro do binário da CLI para responder
-sobre um projeto do qual ele não faz parte é a troca errada. Esse é o trabalho de um servidor
-de documentação hospedado, que continua sendo a
-[#50](https://github.com/emersonjoe/trilha/issues/50).
+O aplicativo do site serve um endpoint MCP Streamable HTTP somente leitura em `POST /mcp`. Ele
+mantém a documentação fora do binário da CLI e lê exatamente o Markdown embutido pelo site:
+
+| Ferramenta | Resposta |
+|---|---|
+| `search_docs` | páginas encontradas por título, descrição e corpo; `locale` é `en` ou `pt` |
+| `get_page` | uma página pelo caminho do site, como `/pt/referencia/ui` |
+| `get_recipe` | uma página de Receitas pelo slug, como `paginacao` |
+
+`get_recipe` devolve o Markdown canônico da receita. O teste do site já confirma que os blocos
+Go aparecem caractere por caractere em `examples/cookbook`, então o MCP e a página publicada não
+podem divergir em silêncio do código que compila. Rode o aplicativo `site` num host que aceite
+POST; a exportação para GitHub Pages continua sendo o espelho estático da documentação e não
+tenta simular MCP com arquivos.
 
 ## Cliente
 

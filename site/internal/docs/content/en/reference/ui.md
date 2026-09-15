@@ -48,7 +48,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Toaster(...)`, `Toast(kind, text, fadeMs)` | toast stack; `kind` = `""`, `success`, `error`; `fadeMs > 0` disappears on its own |
 | `Flashes(c)` | the toaster with the messages of [`c.Flash`](/reference/ctx) — put it in the layout; `FlashInfo`, `FlashSuccess` and `FlashError` are the kinds, and `FlashFadeMs` is how long one stays before it fades — see [demo](/reference/ctx#spreadsheets) |
 | `Table(...)`, `Cards()`, `Num()`, `Depth(n)` | scrollable table; row-as-card below 640px — see [Listings](/reference/listings); numeric cell; row indentation (tree) |
-| `Tabs(id, Tab{Label, Content}...)` | accessible tabs (arrows, Home/End); the first starts open — see [demo](/learn/ui-kit#more-content-behind-one-click) |
+| `Tabs(id, Tab{Label, Content}...)`, `TabsWithOptions(id, TabsOpts{Selected}, ...)` | accessible tabs; `Tab.Href` gives each view a real address and `Selected` chooses the server-rendered panel — see [demo](/learn/ui-kit#more-content-behind-one-click) |
 | `Dialog(id, title, ...)`, `DialogDescription(s)`, `DialogFooter(...)`, `DialogTrigger(id, ...)`, `DialogClose(...)` | native `<dialog>` with `showModal` |
 | `Confirm(title, description)` | attributes for a `<form>`: `ui.js` asks in a dialog before submitting, fragment forms included. The confirming button repeats the pressed button's label; the other says `Cancel`, or what `h.Data("ui-confirm-cancel", "…")` says. Without JavaScript the form submits straight away — see [demo](/learn/ui-kit#saying-what-happened-and-asking-before-destroying) |
 | `Menu(id, ...)`, `MenuItem(...)`, `MenuLink(href, ...)`, `MenuTrigger(id, ...)` | menu with the native `popover` attribute — see [demo](/learn/ui-kit#where-you-are-and-who-is-signed-in) |
@@ -68,6 +68,8 @@ description: The kit's components, variants, assets and the theme contract.
 | `AuditTable(c, records, AuditOpts{...})` | the trail c.Audit writes, with filter, pagination and CSV export — see [Observability](/reference/observability) and [demo](/reference/observability#the-screen) |
 | `Steps([]Step{Label, Href}, current)` | the indicator of a form in several screens — see [A form in steps](/cookbook/wizard) and [demo](/learn/ui-kit#a-form-in-several-screens) |
 | `Preview(c, src, PreviewOpts{...})` | a file shown beside its metadata: bar, frame, image or "cannot be previewed" — see [Ctx](/reference/ctx), [Uploads](/cookbook/uploads) and [demo](/learn/ui-kit#a-file-next-to-its-metadata) |
+| `Audio(c, src, AudioOpts{Preload AudioPreload, ...})` | native accessible audio player with duration, open/download actions and an unsupported-format fallback |
+| `InstallApp(c, InstallAppOpts{...})` | progressive PWA install invitation; use it with [`trilha add pwa`](/cookbook/pwa) |
 | `Defer(c, id, src, DeferOpts{...})` | serves the page now and fills this part a moment later — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#the-slow-part-a-moment-later) |
 | `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#a-cell-that-refreshes-itself) |
 | `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |
@@ -105,7 +107,7 @@ ui.Tree(ui.TreeOpts{
 | Symbol | Role |
 |---|---|
 | `Tree(TreeOpts{...})` | the hierarchy; each node is a `<details>`, so it opens with no script at all |
-| `TreeNode{Value, Label, Leaf, Href, Children, Open, Path}` | one node; `Children` travel with it when they are already known |
+| `TreeNode{Value, Label, Leaf, Href, Children, Open, Path, Unpickable}` | one node; `Children` travel with it when known, and `Unpickable` keeps a branch browsable without rendering a radio |
 | `TreeItems(nodes, TreeOpts{...})` / `TreeNodes(items, of)` | what a source route answers: the children of one node, as HTML |
 | `TreePicker(TreePickerOpts{...})` | the same tree as a form field: **a radio per node** |
 | `TreeScript(c)` | loads `ui.tree.js`; a page with no tree does not download it |
@@ -115,6 +117,10 @@ fetching the children the first time a branch opens, instead of asking the serve
 page. A node whose `Children` are already in `Nodes` never asks for anything — which is how the
 path down to the current node arrives open and complete on the first render, including after a
 422 brought the form back.
+
+`TreeOpts.Pending` and `TreeOpts.Fail` replace the default lazy-loading messages (`Loading…`
+and `Could not load.`); `TreePickerOpts` forwards the same fields. The pending sentence is
+server-rendered, so a lazy branch never opens into a silent empty box without JavaScript.
 
 The roles are the real ones (`tree`, `treeitem`, `group`, `aria-expanded`), the arrows move
 through what is visible, `Home` and `End` jump to the ends, and `*` expands everything. Only the
@@ -370,8 +376,13 @@ ui.ChatScript(c)   // once, in the layout
 | `Steps` | shows the tool the agent called and what came back |
 | `Markdown` | the `MarkdownOpts` for the answers |
 
-`ChatMessage{Role, Text}` is one turn. `Role: "assistant"` is rendered as Markdown;
+`ChatMessage{Role, Text, Sources}` is one turn. `Role: "assistant"` is rendered as Markdown;
 `Role: "user"` is rendered as text — what somebody typed is never markup.
+
+`ChatSource{Title, URL, Snippet}` attaches the pages or documents supporting an assistant
+answer. Title and snippet are escaped, the URL goes through the Markdown safe-link rule, and
+streaming accepts `sources` on a chunk or on the final `done` event. Sources are therefore part
+of the answer whether it arrived all at once or token by token.
 
 With `ChatScript` the answer arrives word by word and the Markdown is rendered when the message
 ends: pass `ui.ChatHTML` to `ai.ServeOpts.HTML` and the finished bubble looks exactly like a
@@ -448,7 +459,8 @@ past the colour, and then the three is looked past too. The last card is `Next`:
 example beside it is a number somebody has to click to understand.
 
 `DeadlineListOpts` takes `Limit` (with `More` for the "and 12 more" link), `Owner` for the column
-of who it is on, `Empty` for the sentence with nothing to say, and `Now` — the clock `late` is
+of who it is on, `RowAction func(trilha.Deadline) h.Node` for one application-owned action at the
+end of each row, `Empty` for the sentence with nothing to say, and `Now` — the clock `late` is
 measured against, so a test does not fail on its own the next morning. Dates are written by
 [`ui.Date`](#formatting) with `Relative`, and a row whose day has ended carries `ui-late`, the same
 class the [inbox](/reference/approval) uses: late looks the same everywhere in an application, or
@@ -497,11 +509,39 @@ needs script. The user and header-name fields show with `ShowWhen` for the auth 
 The secret is the one thing the screen never contains: the field is [`SecretField`](#components),
 which renders empty and says "leave blank to keep", and `ParseConnectionForm` reads it back as a
 `Secret` so an empty one keeps the previous value on `Save`.
+When the store keeps the credential in another system, set `Connection.HasSecret` and render
+`SecretFieldWithPresence`: the empty update still means keep, without reading the credential
+back into this process.
 
 [`trilha add connections`](/reference/cli#trilha-add) writes the package, this screen and the
 test.
 
 @demo ui-conexoes
+
+### Audio
+
+```go
+ui.Audio(c, "/recordings/42", ui.AudioOpts{
+	Title:    "Interview",
+	Type:     "audio/mpeg",
+	Duration: 3*time.Minute + 12*time.Second,
+	Download: "/recordings/42?download=1",
+	Preload:  ui.PreloadMetadata,
+})
+```
+
+`Audio` uses the browser's native controls and the same title bar and escape routes as
+`Preview`. `PreloadNone` is the default for lists; `PreloadMetadata` fetches duration metadata;
+`PreloadAuto` leaves the choice to the browser. A MIME type that is not audio renders an honest
+"cannot play" state and keeps the download action instead of leaving a broken player.
+
+### InstallApp
+
+`InstallApp` is the progressive invitation used by the [`pwa` recipe](/cookbook/pwa). It keeps
+a useful browser-menu instruction without JavaScript, exposes the native Chromium prompt when
+available, explains the Safari steps on iOS and disappears when `c.Standalone()` says the app
+is already installed. `InstallAppOpts` lets the application replace the script, manifest,
+help address and every visible sentence.
 
 ## Formatting
 
@@ -548,6 +588,10 @@ to keep moving puts the piece in a `ui.Poll` — a decision the page makes and p
 
 **`Bytes` is base 10.** kB, MB, GB: what the file manager of whoever is reading already shows
 them. The exact byte count stays in the `title`.
+
+**Decimal halves round away from zero.** `Number`, `Bytes` and `Duration` use the same
+half-expand rule as JavaScript and ICU for the short decimal they display; values such as
+`1.25` with one decimal become `1.3`, not the banker's-rounding `1.2` from `strconv`.
 
 **An unknown time zone falls back to UTC and says so in the log.** Falling back in silence
 would shift every timestamp on the screen and nothing would look broken.

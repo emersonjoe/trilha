@@ -15,6 +15,16 @@ type ChatMessage struct {
 	// Role is "user" or "assistant". Anything else renders as a note.
 	Role string
 	Text string
+	// Sources are the documents or pages supporting this answer. They render
+	// below the assistant text, never as model-generated markup inside it.
+	Sources []ChatSource
+}
+
+// ChatSource is one ordered source supporting an assistant answer.
+type ChatSource struct {
+	Label string
+	Href  string
+	Hint  string
 }
 
 // ChatOpts describes the conversation. Action is the only field that has to
@@ -92,10 +102,10 @@ func Chat(c *trilha.Ctx, o ChatOpts) h.Node {
 
 	log := make([]h.Node, 0, len(o.History)+1)
 	if len(o.History) == 0 && o.Greeting != "" {
-		log = append(log, chatBubble(ChatMessage{Role: "assistant", Text: o.Greeting}, o.Markdown))
+		log = append(log, chatBubble(c, ChatMessage{Role: "assistant", Text: o.Greeting}, o.Markdown))
 	}
 	for _, m := range o.History {
-		log = append(log, chatBubble(m, o.Markdown))
+		log = append(log, chatBubble(c, m, o.Markdown))
 	}
 
 	field := []h.Node{
@@ -110,7 +120,8 @@ func Chat(c *trilha.Ctx, o ChatOpts) h.Node {
 		field = append(field, h.Attr("maxlength", strconv.Itoa(n)))
 	}
 
-	attrs := []h.Node{h.Class("ui-chat"), h.ID(id), h.Data("trilha-chat", o.Action)}
+	attrs := []h.Node{h.Class("ui-chat"), h.ID(id), h.Data("trilha-chat", o.Action),
+		h.Data("trilha-chat-sources", word(langOf(c) == "pt-BR", "Sources", "Fontes"))}
 	if o.Steps {
 		attrs = append(attrs, h.Data("trilha-chat-steps", "1"))
 	}
@@ -146,15 +157,40 @@ func Chat(c *trilha.Ctx, o ChatOpts) h.Node {
 // chatBubble renders one turn. The visitor's text is text; the assistant's is
 // Markdown — the same renderer the stream uses when the message ends, so a
 // reloaded page looks like the one that streamed.
-func chatBubble(m ChatMessage, opt MarkdownOpts) h.Node {
+func chatBubble(c *trilha.Ctx, m ChatMessage, opt MarkdownOpts) h.Node {
 	switch m.Role {
 	case "user":
 		return h.Div(h.Class("ui-msg ui-msg-user"), h.Text(m.Text))
 	case "assistant":
-		return h.Div(h.Class("ui-msg ui-msg-assistant"), Markdown(m.Text, opt))
+		return h.Div(h.Class("ui-msg ui-msg-assistant"), Markdown(m.Text, opt), chatSources(c, m.Sources))
 	default:
 		return h.Div(h.Class("ui-msg ui-msg-note"), h.Text(m.Text))
 	}
+}
+
+func chatSources(c *trilha.Ctx, sources []ChatSource) h.Node {
+	if len(sources) == 0 {
+		return nil
+	}
+	items := make([]h.Node, 0, len(sources))
+	for _, source := range sources {
+		label := h.Node(h.Text(source.Label))
+		if href, external, ok := mdURL(source.Href); ok {
+			attrs := []h.Node{h.Href(href)}
+			if external {
+				attrs = append(attrs, h.Rel("noopener nofollow ugc"))
+			}
+			label = h.A(append(attrs, h.Text(source.Label))...)
+		}
+		line := []h.Node{label}
+		if source.Hint != "" {
+			line = append(line, h.Span(h.Class("ui-chat-source-hint"), h.Text(source.Hint)))
+		}
+		items = append(items, h.Li(line...))
+	}
+	return h.Div(h.Class("ui-chat-sources"),
+		h.Strong(h.Text(word(langOf(c) == "pt-BR", "Sources", "Fontes"))),
+		h.Ul(items...))
 }
 
 // ChatScript loads ui.chat.js, the behavior behind Chat: it sends the message,

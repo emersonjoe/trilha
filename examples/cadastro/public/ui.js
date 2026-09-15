@@ -1,4 +1,4 @@
-/* trilha ui cedc4fd6d02fa675 */
+/* trilha ui 620aed39b176abfe */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -67,7 +67,17 @@
     const open = e.target.closest("[data-ui-dialog-open]");
     if (open) {
       const d = document.getElementById(open.getAttribute("data-ui-dialog-open"));
-      if (d && typeof d.showModal === "function") d.showModal();
+      if (d && typeof d.showModal === "function") {
+        // The opener may be a link to the page that answers without script —
+        // ui.Assistant's launcher is one. Opening here is what replaces the
+        // navigation, so the default only goes when the dialog cannot open.
+        e.preventDefault();
+        d.showModal();
+        if (open.hasAttribute("aria-expanded")) {
+          open.setAttribute("aria-expanded", "true");
+          d.addEventListener("close", () => open.setAttribute("aria-expanded", "false"), { once: true });
+        }
+      }
       return;
     }
     const close = e.target.closest("[data-ui-dialog-close]");
@@ -99,6 +109,63 @@
     box.appendChild(el);
     armFades(box);
     return el;
+  };
+
+  // Async form errors stay inside their form; pending state is restored.
+  const formErrorNode = (form) => {
+    let summary = form?.querySelector?.("[data-ui-form-error]");
+    if (summary || !form) return summary;
+    summary = document.createElement("div");
+    summary.className = "ui-form-error";
+    summary.setAttribute("data-ui-form-error", "");
+    summary.setAttribute("role", "alert");
+    summary.setAttribute("aria-live", "assertive");
+    summary.tabIndex = -1;
+    summary.hidden = true;
+    form.prepend(summary);
+    return summary;
+  };
+  const clearFormErrors = (form) => {
+    if (!form) return;
+    const summary = formErrorNode(form);
+    if (summary) { summary.hidden = true; summary.replaceChildren(); }
+    $("[aria-invalid=true]", form).forEach((field) => field.removeAttribute("aria-invalid"));
+    $(".ui-field-error", form).forEach((field) => { field.hidden = true; field.textContent = ""; });
+  };
+  const formError = (form, message, { field = null, action = null } = {}) => {
+    const safe = String(message || "The operation failed.").replace(/\s+/g, " ").trim();
+    if (!form) return toast(safe, { kind: "error" });
+    const summary = formErrorNode(form);
+    summary.textContent = safe;
+    if (action?.href && action?.label) {
+      const link = document.createElement("a");
+      link.href = action.href;
+      link.textContent = action.label;
+      summary.append(link);
+    }
+    summary.hidden = false;
+    const target = typeof field === "string" ? form.querySelector(field) : field;
+    if (target) {
+      target.setAttribute("aria-invalid", "true");
+      const inline = target.id && document.getElementById(`${target.id}-error`);
+      if (inline) { inline.textContent = target.validationMessage || safe; inline.hidden = false; }
+      target.focus?.();
+    } else {
+      summary.focus?.();
+    }
+    requestAnimationFrame(() => summary.scrollIntoView?.({ block: "nearest" }));
+    return summary;
+  };
+  const formPending = (form) => {
+    if (!form) return () => {};
+    const controls = $("button[type=submit],input[type=submit]", form);
+    const disabled = controls.map((control) => control.disabled);
+    form.setAttribute("aria-busy", "true");
+    controls.forEach((control) => { control.disabled = true; });
+    return () => {
+      form.removeAttribute("aria-busy");
+      controls.forEach((control, index) => { control.disabled = disabled[index]; });
+    };
   };
 
   // [data-ui-toast="texto"] shows a toast on click (kind in data-ui-toast-kind).
@@ -503,7 +570,7 @@
 
   const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
 
   // [data-ui-copy=texto]: copia e diz que copiou. Sem ele o valor continua
   // sendo texto selecionável num campo — o botão é conveniência, não o caminho.
@@ -518,5 +585,18 @@
     const antes = b.textContent;
     b.textContent = b.getAttribute("data-ui-copied") || "✓";
     setTimeout(() => { b.textContent = antes; }, 1500);
+  });
+
+  // [data-ui-search]: Ctrl/Cmd+K e "/" levam o foco para a caixa de busca. Sem
+  // JavaScript ela continua sendo um formulário GET; o atalho é conveniência.
+  document.addEventListener("keydown", (e) => {
+    const bar = e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")
+      && !document.activeElement?.isContentEditable;
+    if (!(bar || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k"))) return;
+    const box = document.querySelector("[data-ui-search]");
+    if (!box) return;
+    e.preventDefault();
+    box.focus();
+    box.select?.();
   });
 })();

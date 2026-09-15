@@ -20,12 +20,23 @@ import (
 //
 //	see: trilha.Secret, trilha.Seal
 func SecretField(c *trilha.Ctx, name, label string, current trilha.Secret, opts ...FieldOpt) h.Node {
+	return SecretFieldWithPresence(c, name, label, current, !current.Empty(), opts...)
+}
+
+// SecretFieldWithPresence is SecretField for a store that can say a secret
+// exists but cannot read it back. present keeps the "leave blank to keep"
+// promise without inventing a masked credential value.
+//
+//	ui.SecretFieldWithPresence(c, "token", "Provider token", "", cfg.HasToken)
+func SecretFieldWithPresence(c *trilha.Ctx, name, label string, current trilha.Secret, present bool, opts ...FieldOpt) h.Node {
 	pt := langOf(c) == "pt-BR"
 	hint := word(pt, "Leave blank to keep the current one.", "Deixe em branco para manter o atual.")
 	if !current.Empty() {
 		// The mask says which key is there — the prefix is what somebody is
 		// actually checking — without being a key anybody can use.
 		hint = current.String() + " · " + hint
+	} else if present {
+		hint = word(pt, "A credential is stored. ", "Há uma credencial guardada. ") + hint
 	} else {
 		hint = word(pt, "Nothing stored yet.", "Nada guardado ainda.") + " " + hint
 	}

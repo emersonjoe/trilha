@@ -168,6 +168,7 @@ func (b *builder) object(name string, s *Schema, where string) {
 			t = "*" + t
 		}
 		t = nullableGoType(t, ps)
+		t = defaultedOptionalGoType(t, ps, req)
 		f := Field{Name: exportName(p), Type: t, Doc: doc(ps)}
 		tag := "json:\"" + p
 		if !req {
@@ -182,6 +183,37 @@ func (b *builder) object(name string, s *Schema, where string) {
 	}
 	if s.AdditionalProperties != nil && len(s.Properties) == 0 {
 		st.Fields = append(st.Fields, Field{Name: "Extra", Type: "map[string]json.RawMessage", Tag: "json:\"-\""})
+	}
+}
+
+// defaultedOptionalGoType preserves the difference between an omitted field
+// and an explicit zero when the server's default is not Go's zero. Without a
+// pointer, encoding/json plus omitempty makes false impossible to send to a
+// boolean whose server default is true, and does the same to 0 versus 1.
+func defaultedOptionalGoType(t string, s *Schema, required bool) string {
+	if required || t == "" || strings.HasPrefix(t, "*") || !nonZeroDefault(s) {
+		return t
+	}
+	return "*" + t
+}
+
+func nonZeroDefault(s *Schema) bool {
+	if s == nil || s.Default == nil {
+		return false
+	}
+	switch v := s.Default.(type) {
+	case bool:
+		return v
+	case float64:
+		return v != 0
+	case string:
+		return v != ""
+	case []any:
+		return len(v) > 0
+	case map[string]any:
+		return len(v) > 0
+	default:
+		return true
 	}
 }
 

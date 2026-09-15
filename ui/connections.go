@@ -203,7 +203,7 @@ func connectionForm(c *trilha.Ctx, x *trilha.Connections, o ConnectionsOpts, pt 
 			Field("header", word(pt, "Header name", "Nome do cabeçalho"),
 				Input(h.ID("header"), h.Name("header"), h.Value(conn.Header), h.Placeholder("X-Api-Key"), InvalidIf(errs, "header")),
 				Errors(errs, "header"), With(ShowWhen("auth", "header"))),
-			SecretField(c, "secret", word(pt, "Secret", "Segredo"), conn.Secret, Errors(errs, "secret"), With(ShowWhen("auth", "bearer", "header", "basic"))),
+			SecretFieldWithPresence(c, "secret", word(pt, "Secret", "Segredo"), conn.Secret, conn.HasSecret, Errors(errs, "secret"), With(ShowWhen("auth", "bearer", "header", "basic"))),
 			Field("headers", word(pt, "Fixed headers", "Cabeçalhos fixos"),
 				Textarea(h.ID("headers"), h.Name("headers"), h.Rows("2"), h.Placeholder("X-Tenant: acme"), h.Text(strings.Join(headers, "\n")), InvalidIf(errs, "headers")),
 				Help(word(pt, "One per line, Name: value. Not a place for a secret.", "Um por linha, Nome: valor. Não é lugar de segredo.")),

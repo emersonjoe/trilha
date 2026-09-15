@@ -224,8 +224,7 @@ func (s *Search) Put(c *Ctx, docs ...Doc) error {
 		if _, ok := s.kinds[d.Kind]; !ok {
 			return NewHint(ErrSearchKind, fmt.Errorf("%w: %q", ErrUnknownKind, d.Kind)).
 				Fix(fmt.Sprintf("declare it first: Kind(%q, trilha.KindOpts{Label: …}) — the declared ones are %s",
-					d.Kind, s.declared())).
-				Doc("/reference/search")
+					d.Kind, s.declared()))
 		}
 		if d.Tenant == "" {
 			d.Tenant = tenant

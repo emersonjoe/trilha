@@ -93,13 +93,22 @@ tools mcp.FromRoutes would expose (include: /api/*):
 `--include` takes the same patterns as `FromRoutesOpts.Include`. A route left out — a
 multipart upload, for one — is printed with the reason, the same line the server logs.
 
-### What is not here yet
+### Documentation server
 
-Recipes and reference pages are not tools of this server: they are the same Markdown the
-documentation site is built from, about a megabyte of it, and putting that in the CLI binary
-to answer questions about a project it is not part of is the wrong trade. That is the job of a
-hosted documentation server, which is still
-[#50](https://github.com/emersonjoe/trilha/issues/50).
+The site application serves a read-only Streamable HTTP MCP endpoint at `POST /mcp`. It keeps
+the documentation out of the CLI binary and reads the exact Markdown embedded by the site:
+
+| Tool | Answer |
+|---|---|
+| `search_docs` | matching pages by title, description and body; `locale` is `en` or `pt` |
+| `get_page` | one page by site path, such as `/reference/ui` |
+| `get_recipe` | one Cookbook page by slug, such as `pagination` |
+
+`get_recipe` returns the canonical recipe Markdown. The site test already checks that its Go
+blocks occur character for character in `examples/cookbook`, so the MCP and the published page
+cannot quietly drift from the code that compiles. Run the `site` application on a host that can
+accept POST requests; the GitHub Pages export remains the static documentation mirror and does
+not attempt to emulate MCP over files.
 
 ## Client
 

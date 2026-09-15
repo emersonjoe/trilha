@@ -38,6 +38,7 @@ type Connection struct {
 	Username string            // basic
 	Header   string            // header: the header's name
 	Secret   Secret            // token, header value or password
+	HasSecret bool             // a remote store has one but cannot return it
 	Headers  map[string]string // fixed headers, never a secret
 	LastTest *ConnectionTest   // At, OK, Message
 	CreatedAt, UpdatedAt time.Time
@@ -65,7 +66,8 @@ reads, and none of them an argument somebody can forget.
   because that is where the service under test lives.
 - **An empty secret on update keeps the previous one.** The form renders the field empty
   ([`ui.SecretField`](/reference/ui)) and the person editing the name is not asked to retype the
-  token. A new value replaces it; the old one is not kept anywhere.
+  token. A new value replaces it. A store backed by a remote vault may return an empty `Secret`
+  with `HasSecret: true`; `Save` then preserves the remote credential without ever reading it.
 - **`Authorization` is not a fixed header.** It is the auth, and a header that carried a
   credential in the clear would be the secret stored outside the sealed field.
 - **Changing the URL, the auth or the secret clears `LastTest`.** A green badge on a connection

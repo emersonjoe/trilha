@@ -128,3 +128,22 @@ func TestDurationReadsLikeAPersonSaysIt(t *testing.T) {
 		}
 	}
 }
+
+func TestDecimalRoundsLikeTheWebPlatform(t *testing.T) {
+	cases := map[float64]string{
+		10.125:        "10,13",
+		2.625:         "2,63",
+		123456789.125: "123.456.789,13",
+		1.005:         "1,01",
+		0.145:         "0,15",
+		-10.125:       "-10,13",
+	}
+	for value, want := range cases {
+		got := inApp(t, trilha.Config{Locale: "pt-BR"}, func(c *trilha.Ctx) h.Node {
+			return Number(c, value, Decimals(2))
+		})
+		if !strings.Contains(got, want) {
+			t.Errorf("Number(%v) = %s, want %s", value, got, want)
+		}
+	}
+}

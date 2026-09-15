@@ -179,6 +179,9 @@ func TestIslandRuntimeCarriesTheChannel(t *testing.T) {
 		"new AbortController()",               // signal
 		"if (!el.isConnected)",                // aborted when the element is gone
 		"window.ui.swap(target, html",         // with the kit, swap is the kit's swap
+		"data instanceof Blob",                // binary bodies are sent as bytes
+		"data instanceof FormData",            // the browser writes the multipart boundary
+		"raw ? data : JSON.stringify(data)",   // JSON keeps its existing path
 	} {
 		if !bytes.Contains(rt, []byte(want)) {
 			t.Errorf("the island runtime does not carry %q", want)

@@ -17,6 +17,10 @@ func Setup(a *trilha.App) error {
 	// The runnable demos that are pages (spec 118): not chapters, so not in
 	// docs.All().
 	a.AddExportPath("/demos/assistant", "/pt/demos/assistant")
+	a.AddExportPath("/docs/errors", "/pt/docs/errors")
+	for _, guide := range trilha.ErrorGuides() {
+		a.AddExportPath("/docs/errors/"+guide.Code, "/pt/docs/errors/"+guide.Code)
+	}
 	for _, p := range docs.All() {
 		a.AddExportPath(p.Path())
 		if pt := docs.LocaleOf("pt"); p.Locale == pt.Code {

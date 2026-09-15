@@ -3,6 +3,71 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.134.0 — 2026-09-15
+
+Spec 155. Closes [#50](https://github.com/emersonjoe/trilha/issues/50),
+[#115](https://github.com/emersonjoe/trilha/issues/115),
+[#117](https://github.com/emersonjoe/trilha/issues/117),
+[#118](https://github.com/emersonjoe/trilha/issues/118),
+[#119](https://github.com/emersonjoe/trilha/issues/119),
+[#179](https://github.com/emersonjoe/trilha/issues/179),
+[#183](https://github.com/emersonjoe/trilha/issues/183),
+[#184](https://github.com/emersonjoe/trilha/issues/184),
+[#185](https://github.com/emersonjoe/trilha/issues/185),
+[#200](https://github.com/emersonjoe/trilha/issues/200),
+[#212](https://github.com/emersonjoe/trilha/issues/212),
+[#213](https://github.com/emersonjoe/trilha/issues/213),
+[#216](https://github.com/emersonjoe/trilha/issues/216),
+[#229](https://github.com/emersonjoe/trilha/issues/229),
+[#230](https://github.com/emersonjoe/trilha/issues/230),
+[#231](https://github.com/emersonjoe/trilha/issues/231),
+[#233](https://github.com/emersonjoe/trilha/issues/233),
+[#234](https://github.com/emersonjoe/trilha/issues/234),
+[#235](https://github.com/emersonjoe/trilha/issues/235),
+[#237](https://github.com/emersonjoe/trilha/issues/237), and
+[#240](https://github.com/emersonjoe/trilha/issues/240).
+
+### Added
+
+- **One-command CRUDs now cover tenancy, policy and compact schema forms.** `trilha generate crud`
+  accepts `--tenant`, `--policy <module>` and `--schema`, composes their middleware, scopes memory
+  and SQL stores by tenant, and keeps the generated project readable and testable.
+- **The documentation site is an MCP server.** `POST /mcp` exposes read-only `search_docs`,
+  `get_page` and `get_recipe` tools from the same bilingual documentation corpus.
+- **Runtime errors have a generated catalog.** `trilha.ErrorGuides` feeds both `Hint` defaults and
+  exportable `/docs/errors/<code>` pages; the agent benchmark now includes “fix this error” and
+  “add a CRUD” scenarios.
+- **New UI capabilities.** `ui.Audio`, `ui.InstallApp`, addressable tabs, chat sources, tree loading
+  messages and unpickable branches, and row actions for deadline lists cover the remaining gaps.
+- **A complete PWA recipe.** It includes the manifest, service worker/install runtime, 192px and
+  512px icons, standalone detection and an end-to-end cookbook example.
+
+### Changed
+
+- **Island posts preserve binary bodies.** `Blob`, `File`, `FormData` and `ArrayBuffer` travel as
+  their native request bodies while the island CSRF contract remains intact.
+- **Multipart memory is independently bounded.** `Config.MaxFormMemory` defaults to 32 MiB while
+  `MaxBodyBytes` remains the total request limit.
+- **OpenAPI optional defaults remain representable.** Generated client fields use pointers when a
+  non-zero default must coexist with an explicit zero value.
+- **Connections can report write-only secret presence.** `Connection.HasSecret` and
+  `ui.SecretFieldWithPresence` preserve credentials stored outside the process.
+
+### Fixed
+
+- `trilha client` lowercases the first Unicode rune without corrupting UTF-8.
+- `trilha new --template app --with ""` still includes dependencies required by the template.
+- `trilha migrate next` recognizes named modal components, confirm calls and ARIA modal signals.
+- The generated API-key revoke form sends the action expected by its handler.
+- Decimal formatting rounds midpoint values away from zero, matching JavaScript and ICU.
+- Tree and tree-picker async states now contain useful pending/failure text.
+
+### Documentation
+
+- English and Portuguese references cover every new API and flag, the PWA recipe, chat sources,
+  binary island requests, secret presence and the hosted documentation MCP endpoint.
+- The roadmap closes the remaining Phase 9 work and records this release as one aggregate batch.
+
 ## 0.133.0 — 2026-09-15
 
 Spec 154. Closes [#248](https://github.com/emersonjoe/trilha/issues/248) and

@@ -16,16 +16,21 @@ import (
 	app_demos_ai_agent "github.com/emersonjoe/trilha/site/app/demos/ai-agent"
 	app_demos_ai_chat "github.com/emersonjoe/trilha/site/app/demos/ai-chat"
 	app_demos_assistant "github.com/emersonjoe/trilha/site/app/demos/assistant"
+	app_docs_errors "github.com/emersonjoe/trilha/site/app/docs/errors"
+	app_docs_errors_code_ "github.com/emersonjoe/trilha/site/app/docs/errors/code_"
 	app_learn "github.com/emersonjoe/trilha/site/app/learn"
 	app_learn_slug_ "github.com/emersonjoe/trilha/site/app/learn/slug_"
 	app_llms_full_txt "github.com/emersonjoe/trilha/site/app/llms-full.txt"
 	app_llms_txt "github.com/emersonjoe/trilha/site/app/llms.txt"
+	app_mcp "github.com/emersonjoe/trilha/site/app/mcp"
 	app_pt "github.com/emersonjoe/trilha/site/app/pt"
 	app_pt_aprender "github.com/emersonjoe/trilha/site/app/pt/aprender"
 	app_pt_aprender_slug_ "github.com/emersonjoe/trilha/site/app/pt/aprender/slug_"
 	app_pt_demos_ai_agent "github.com/emersonjoe/trilha/site/app/pt/demos/ai-agent"
 	app_pt_demos_ai_chat "github.com/emersonjoe/trilha/site/app/pt/demos/ai-chat"
 	app_pt_demos_assistant "github.com/emersonjoe/trilha/site/app/pt/demos/assistant"
+	app_pt_docs_errors "github.com/emersonjoe/trilha/site/app/pt/docs/errors"
+	app_pt_docs_errors_code_ "github.com/emersonjoe/trilha/site/app/pt/docs/errors/code_"
 	app_pt_llms_full_txt "github.com/emersonjoe/trilha/site/app/pt/llms-full.txt"
 	app_pt_llms_txt "github.com/emersonjoe/trilha/site/app/pt/llms.txt"
 	app_pt_receitas "github.com/emersonjoe/trilha/site/app/pt/receitas"
@@ -102,6 +107,18 @@ func newApp() *trilha.App {
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{
+		Pattern:     "/docs/errors",
+		Page:        app_docs_errors.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/docs/errors/{code}",
+		Page:        app_docs_errors_code_.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
 		Pattern:     "/learn",
 		Page:        app_learn.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
@@ -124,6 +141,13 @@ func newApp() *trilha.App {
 		Pattern: "/llms.txt",
 		Methods: map[string]trilha.HandlerFunc{
 			"GET": app_llms_txt.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/mcp",
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_mcp.POST,
 		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
@@ -160,6 +184,18 @@ func newApp() *trilha.App {
 	a.Register(trilha.Route{
 		Pattern:     "/pt/demos/assistant",
 		Page:        app_pt_demos_assistant.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/pt/docs/errors",
+		Page:        app_pt_docs_errors.Page,
+		Layouts:     []trilha.LayoutFunc{app.Layout},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern:     "/pt/docs/errors/{code}",
+		Page:        app_pt_docs_errors_code_.Page,
 		Layouts:     []trilha.LayoutFunc{app.Layout},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})

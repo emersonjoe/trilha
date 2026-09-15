@@ -385,7 +385,7 @@ type DocumentsListDocumentsParams struct {
 	Archived bool      `json:"archived,omitempty"`
 	Draft    *bool     `json:"draft,omitempty"`
 	Label    *[]string `json:"label,omitempty"`
-	Page     int64     `json:"page,omitempty" validate:"min=1"`
+	Page     *int64    `json:"page,omitempty" validate:"min=1"`
 	PageSize int64     `json:"page_size,omitempty" validate:"max=200"`
 	Q        string    `json:"q,omitempty"`
 	// Only what changed after this.
@@ -557,8 +557,8 @@ func (g *Documents) ListDocuments(ctx context.Context, p DocumentsListDocumentsP
 			q.Add("label", v)
 		}
 	}
-	if p.Page != 0 {
-		q.Set("page", strconv.FormatInt(int64(p.Page), 10))
+	if p.Page != nil {
+		q.Set("page", strconv.FormatInt(*p.Page, 10))
 	}
 	if p.PageSize != 0 {
 		q.Set("page_size", strconv.FormatInt(int64(p.PageSize), 10))

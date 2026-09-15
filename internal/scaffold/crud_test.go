@@ -244,6 +244,40 @@ func TestCrudRodadoDeNovoDizOQueFaltou(t *testing.T) {
 	}
 }
 
+func TestCrudSchemaRodadoDeNovoDizOndeOCampoFalta(t *testing.T) {
+	raiz := projetoComTipo(t, tipoSrc)
+	o := CrudOptions{Type: "docs.Tipo", Module: "example.com/loja", Lang: "en", Schema: true}
+	if _, err := Crud(raiz, o); err != nil {
+		t.Fatal(err)
+	}
+
+	novo := strings.Replace(tipoSrc, "\tSegredo ",
+		"\tDescricao string    `json:\"descricao\" form:\"descricao\" validate:\"max=200\"`\n\tSegredo ", 1)
+	if err := os.WriteFile(filepath.Join(raiz, filepath.FromSlash("internal/docs/tipo.go")),
+		[]byte(novo), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	faltando, err := CrudMissing(raiz, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(faltando) != 3 {
+		t.Fatalf("faltando = %+v", faltando)
+	}
+	for i, m := range faltando {
+		if i == 0 {
+			if m.Kind != "list" {
+				t.Errorf("lista com kind = %q", m.Kind)
+			}
+			continue
+		}
+		if m.Kind != "schema" || m.Line <= 0 {
+			t.Errorf("schema sem destino útil: %+v", m)
+		}
+	}
+}
+
 // #145 — três coisas que o CRUD gerado mostrava e que ninguém mostraria a um
 // usuário: rótulo sem acento, booleano escrito "true", e a data que sumia da
 // tela sem aviso.
@@ -536,5 +570,79 @@ func TestCrudStoreSemAReceitaRecusa(t *testing.T) {
 	if _, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/tipos",
 		Module: "example.com/loja", Lang: "en", Store: "mysql"}); err == nil {
 		t.Fatal("--store mysql passou")
+	}
+}
+
+func TestCrudTenantPolicySchema(t *testing.T) {
+	raiz := projetoComTipo(t, tipoSrc)
+	for rel, body := range map[string]string{
+		"internal/sessao/sessao.go": "package sessao\n",
+		"internal/acesso/acesso.go": "package acesso\n",
+	} {
+		abs := filepath.Join(raiz, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(abs, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	res, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/admin/tipos",
+		Module: "example.com/loja", Lang: "pt", Tenant: true, Policy: "docs", Schema: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(res.Files, " "), "app/admin/tipos/middleware.go") {
+		t.Fatalf("middleware não foi escrito: %v", res.Files)
+	}
+	store := ler(t, raiz, "internal/docs/tipo_store.go")
+	for _, quero := range []string{
+		"Tenant string", "Get(ctx context.Context, tenant, id string)",
+		"Create(ctx context.Context, tenant string", "s.tenant[v.ID] != tenant",
+	} {
+		if !strings.Contains(store, quero) {
+			t.Errorf("store tenant não tem %q:\n%s", quero, store)
+		}
+	}
+	lista := ler(t, raiz, "app/admin/tipos/page.go")
+	if !strings.Contains(lista, "Tenant: c.Actor().Tenant") || !strings.Contains(lista, "Delete(c.Context(), c.Actor().Tenant") {
+		t.Fatalf("lista não leva o tenant ao store:\n%s", lista)
+	}
+	form := ler(t, raiz, "app/admin/tipos/new/page.go")
+	if !strings.Contains(form, "ui.SchemaForm(schema, values(in), errs)") || strings.Contains(form, `ui.Field("nome"`) {
+		t.Fatalf("--schema não gerou a forma compacta:\n%s", form)
+	}
+	middleware := ler(t, raiz, "app/admin/tipos/middleware.go")
+	for _, quero := range []string{"sessao.Flow.RequireTenant()", `RequirePolicy(acesso.Policy, "docs", "administrar")`, "func Middleware("} {
+		if !strings.Contains(middleware, quero) {
+			t.Errorf("middleware não tem %q:\n%s", quero, middleware)
+		}
+	}
+}
+
+func TestCrudSQLTenant(t *testing.T) {
+	raiz := projetoComReceitaStore(t, tipoSrc)
+	if err := os.MkdirAll(filepath.Join(raiz, "internal", "sessao"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(raiz, "internal", "sessao", "sessao.go"), []byte("package sessao\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Crud(raiz, CrudOptions{Type: "docs.Tipo", At: "app/tipos",
+		Module: "example.com/loja", Lang: "en", Store: "sqlite", Tenant: true}); err != nil {
+		t.Fatal(err)
+	}
+	mig := ler(t, raiz, "migrations/0002_tipos.sql")
+	if !strings.Contains(mig, "tenant_id") || !strings.Contains(mig, "tenant_id, nome") {
+		t.Fatalf("migração não isola por tenant:\n%s", mig)
+	}
+	sql := ler(t, raiz, "internal/docs/tipo_store_sql.go")
+	for _, quero := range []string{
+		"WHERE tenant_id = ", "Create(ctx context.Context, tenant string", "Get(ctx context.Context, tenant, id string)",
+		"Delete(ctx context.Context, tenant, id string)",
+	} {
+		if !strings.Contains(sql, quero) {
+			t.Errorf("SQL tenant não tem %q:\n%s", quero, sql)
+		}
 	}
 }

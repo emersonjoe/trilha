@@ -92,7 +92,7 @@ redescobrir o token, os cabeçalhos e o formato de erro que o resto do framework
 | `island.csrf()` | o token desta resposta — o mesmo que o `CSRFInput` põe em todo formulário |
 | `island.signal` | um `AbortSignal`, abortado quando o elemento sai da página |
 | `island.get(url)` | lê JSON |
-| `island.post(url, dados)` | manda JSON com o token junto e devolve o que a rota respondeu |
+| `island.post(url, dados)` | manda JSON, ou envia `Blob`, `File`, `FormData` e `ArrayBuffer` como corpo nativo, sempre com o token |
 | `island.send(metodo, url, dados)` | o mesmo, para `PUT`, `PATCH` e `DELETE` |
 | `island.swap(url, id)` | troca um fragmento, como um link com alvo faz |
 
@@ -162,6 +162,15 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 
 Estourar o limite continua sendo 413 com a mensagem de sempre, pelo `FormErr`, pelos `Bind*`
 ou na leitura direta do `Request().Body`.
+
+`Config.MaxBodyBytes` é o teto da requisição. `Config.MaxFormMemory` é outro limite: o parser
+multipart mantém no máximo essa quantidade de dados de arquivo na RAM (32 MiB por padrão) e
+derrama o restante em arquivos temporários. Elevar uma rota de upload para 200 MiB, portanto,
+não transforma silenciosamente cada upload aceito em 200 MiB de heap.
+
+`c.Standalone()` informa a última declaração do navegador de que a PWA está rodando instalada.
+A [receita `pwa`](/pt/receitas/pwa) mantém o cookie lido por ele. Use apenas para esconder ou
+mudar a interface de instalação, nunca para autorização nem identidade do aparelho.
 
 ### WebSocket
 

@@ -93,7 +93,7 @@ agreed on:
 | `island.csrf()` | the token of this response — the same one `CSRFInput` puts in every form |
 | `island.signal` | an `AbortSignal`, aborted when the element leaves the page |
 | `island.get(url)` | reads JSON |
-| `island.post(url, data)` | sends JSON with the token on it, returns what the route answered |
+| `island.post(url, data)` | sends JSON, or sends `Blob`, `File`, `FormData` and `ArrayBuffer` as their native body, always with the token |
 | `island.send(method, url, data)` | the same, for `PUT`, `PATCH` and `DELETE` |
 | `island.swap(url, id)` | replaces a fragment, the way a link with a target does |
 
@@ -162,6 +162,15 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 
 Going over the limit is still a 413 with the usual message, through `FormErr`, `Bind*` or a
 direct read of `Request().Body`.
+
+`Config.MaxBodyBytes` is the request ceiling. `Config.MaxFormMemory` is a different limit:
+multipart parsing keeps at most that much file data in RAM (32 MiB by default) and spills the
+rest to temporary files. Raising an upload route to 200 MiB therefore does not silently turn
+every accepted upload into 200 MiB of heap.
+
+`c.Standalone()` reports the browser's last declaration that the PWA is running in installed
+mode. The [`pwa` recipe](/cookbook/pwa) maintains the cookie it reads. Use it only to hide or
+change installation UI, never for authorization or device identity.
 
 ### WebSocket
 

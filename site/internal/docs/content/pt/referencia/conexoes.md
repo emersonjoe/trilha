@@ -38,6 +38,7 @@ type Connection struct {
 	Username string            // basic
 	Header   string            // header: o nome do cabeçalho
 	Secret   Secret            // token, valor do cabeçalho ou senha
+	HasSecret bool             // um store remoto tem um, mas não pode devolvê-lo
 	Headers  map[string]string // cabeçalhos fixos, nunca um segredo
 	LastTest *ConnectionTest   // At, OK, Message
 	CreatedAt, UpdatedAt time.Time
@@ -65,7 +66,8 @@ delas um argumento que alguém possa esquecer.
   lá que o serviço em teste mora.
 - **Segredo vazio num update mantém o anterior.** O formulário renderiza o campo vazio
   ([`ui.SecretField`](/pt/referencia/ui)) e quem edita o nome não é obrigado a redigitar o token.
-  Um valor novo substitui; o antigo não fica em lugar nenhum.
+  Um valor novo substitui. Um store apoiado num cofre remoto pode devolver `Secret` vazio com
+  `HasSecret: true`; o `Save` então preserva a credencial remota sem jamais lê-la.
 - **`Authorization` não é cabeçalho fixo.** É a autenticação, e um cabeçalho que levasse
   credencial às claras seria o segredo guardado fora do campo selado.
 - **Trocar a URL, a autenticação ou o segredo limpa o `LastTest`.** Um badge verde numa conexão

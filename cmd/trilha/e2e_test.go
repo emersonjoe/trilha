@@ -997,6 +997,46 @@ func TestGenerateCrudStoreE2E(t *testing.T) {
 	}
 }
 
+func TestGenerateCrudOptionsE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	t.Setenv("TRILHA_SECRET", "um-segredo-de-teste-com-mais-de-32-bytes")
+	cli := buildCLI(t, repo, tmp)
+
+	proj := filepath.Join(tmp, "gestao")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/gestao", "--template", "app", "--trilha-dir", repo, "--no-tidy")
+	tipo, err := os.ReadFile(filepath.Join(repo, "testdata", "crud", "tipo.go.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(proj, "internal", "docs", "tipo.go"), string(tipo))
+	run(t, proj, cli, "generate", "crud", "docs.Tipo", "--at", "app/admin/tipos", "--tenant", "--policy", "docs", "--schema")
+
+	for _, args := range [][]string{{cli, "gen", "--check"}, {"go", "vet", "./..."}, {"go", "test", "./..."}} {
+		run(t, proj, args[0], args[1:]...)
+	}
+	form, err := os.ReadFile(filepath.Join(proj, "app", "admin", "tipos", "new", "page.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(form), "ui.SchemaForm") {
+		t.Fatalf("--schema did not use ui.SchemaForm:\n%s", form)
+	}
+	middleware, err := os.ReadFile(filepath.Join(proj, "app", "admin", "tipos", "middleware.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"RequireTenant", `RequirePolicy(acesso.Policy, "docs", "administrar")`} {
+		if !strings.Contains(string(middleware), want) {
+			t.Fatalf("generated middleware misses %q:\n%s", want, middleware)
+		}
+	}
+}
+
 // TestTemplateAppE2E is issue #65 end to end: `trilha new --template app` has
 // to produce a project that is already green — it compiles, `trilha check`
 // passes and the tests that come with it pass — without a single edit. A

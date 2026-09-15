@@ -77,6 +77,8 @@ type File struct {
 	Rel string
 	// Body is the file, as a template.
 	Body string
+	// Data is a binary file written as-is. When set, Body is ignored.
+	Data []byte
 	// Go marks a file that gets gofmt'd before it is written — which is also
 	// how a broken template fails here, naming the file, instead of at the
 	// project's first compile.
@@ -130,7 +132,7 @@ type Result struct {
 
 // All is every recipe, by name.
 func All() []Recipe {
-	out := []Recipe{apiKeysRecipe(), approvalsRecipe(), auditRecipe(), blobRecipe(), connectionsRecipe(), loginRecipe(), mailRecipe(), permissionsRecipe(), profileRecipe(), searchRecipe(), shareLinkRecipe(), settingsRecipe(), storeRecipe(), tasksRecipe(), tenantRecipe(), usersRecipe(), webhooksRecipe()}
+	out := []Recipe{apiKeysRecipe(), approvalsRecipe(), auditRecipe(), blobRecipe(), connectionsRecipe(), loginRecipe(), mailRecipe(), permissionsRecipe(), profileRecipe(), pwaRecipe(), searchRecipe(), shareLinkRecipe(), settingsRecipe(), storeRecipe(), tasksRecipe(), tenantRecipe(), usersRecipe(), webhooksRecipe()}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
@@ -172,28 +174,35 @@ func Add(root string, r Recipe, o Options) (Result, error) {
 	// template puts under /admin/ is a form that posts to a 404 — and the
 	// kind of mistake nobody sees until they press the button.
 	url := "/" + strings.TrimPrefix(at, "app/")
-	dados := map[string]any{"Module": o.Module, "Lang": o.Lang, "At": at, "URL": url, "T": words(o.Lang)}
+	dados := map[string]any{"Module": o.Module, "Name": filepath.Base(o.Module), "Lang": o.Lang, "At": at, "URL": url, "T": words(o.Lang)}
 
 	// Everything is rendered before anything is written: a template that
 	// produces broken Go fails here, naming the file, rather than at the
 	// project's first compile with a line number into code nobody wrote.
-	type pronto struct{ rel, body string }
+	type pronto struct {
+		rel  string
+		body []byte
+	}
 	var arquivos []pronto
 	for _, f := range r.Files {
 		rel, err := render(f.Rel, dados)
 		if err != nil {
 			return res, err
 		}
-		body, err := render(f.Body, dados)
-		if err != nil {
-			return res, fmt.Errorf("%s: %w", rel, err)
-		}
-		if f.Go {
-			src, err := format.Source([]byte(body))
+		body := append([]byte(nil), f.Data...)
+		if body == nil {
+			rendered, err := render(f.Body, dados)
 			if err != nil {
 				return res, fmt.Errorf("%s: %w", rel, err)
 			}
-			body = string(src)
+			body = []byte(rendered)
+		}
+		if f.Go {
+			src, err := format.Source(body)
+			if err != nil {
+				return res, fmt.Errorf("%s: %w", rel, err)
+			}
+			body = src
 		}
 		arquivos = append(arquivos, pronto{rel, body})
 	}
@@ -214,7 +223,7 @@ func Add(root string, r Recipe, o Options) (Result, error) {
 		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 			return res, err
 		}
-		if err := os.WriteFile(abs, []byte(f.body), 0o644); err != nil {
+		if err := os.WriteFile(abs, f.body, 0o644); err != nil {
 			return res, err
 		}
 	}

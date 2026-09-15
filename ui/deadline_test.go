@@ -80,6 +80,18 @@ func TestDeadlineList(t *testing.T) {
 	}
 }
 
+func TestDeadlineListRowAction(t *testing.T) {
+	items := []trilha.Deadline{prazo(t, 2)}
+	got := inApp(t, trilha.Config{}, func(c *trilha.Ctx) h.Node {
+		return DeadlineList(c, items, DeadlineListOpts{RowAction: func(d trilha.Deadline) h.Node {
+			return ButtonLink(d.URL+"/pause", h.Text("Pause"))
+		}})
+	})
+	if !strings.Contains(got, `/pause`) || !strings.Contains(got, `>Pause</a>`) {
+		t.Fatalf("row action missing: %s", got)
+	}
+}
+
 // Os três desenham com lista vazia, e o que não tem nada a dizer não diz nada.
 func TestDeadlineVazio(t *testing.T) {
 	got := chatPage(t, func(c *trilha.Ctx) h.Node {

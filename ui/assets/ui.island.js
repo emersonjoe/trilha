@@ -33,14 +33,17 @@
   // wrote on the element, because the double-submit cookie is HttpOnly on
   // purpose, and it turns a 422 into the same field errors a form would show.
   const api = (el, ac) => {
+    const isRaw = (data) => data instanceof Blob || data instanceof File ||
+      data instanceof FormData || data instanceof ArrayBuffer || ArrayBuffer.isView(data);
     const send = async (method, url, data) => {
       const h = { Accept: "application/json" };
-      if (data !== undefined) h["Content-Type"] = "application/json";
+      const raw = data !== undefined && isRaw(data);
+      if (data !== undefined && !raw) h["Content-Type"] = "application/json";
       const t = token(el);
       if (t) h["X-CSRF-Token"] = t;
       const res = await fetch(url, {
         method, headers: h, credentials: "same-origin", signal: ac.signal,
-        body: data === undefined ? undefined : JSON.stringify(data),
+        body: data === undefined ? undefined : (raw ? data : JSON.stringify(data)),
       });
       const loc = res.headers.get("Trilha-Location");
       if (loc) { location.assign(loc); return null; }

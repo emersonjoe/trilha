@@ -61,6 +61,15 @@ A página do próprio framework continua como rede, com o texto de sempre: para 
 tem `error.go` e para o `error.go` que falha. Rota de API (`KindAPI`) segue intocada:
 `problem+json` como antes.
 
+Os códigos estáveis de runtime também são publicados a partir da mesma tabela usada pelo
+framework em [`/pt/docs/errors`](/pt/docs/errors). Um código copiado, como
+[`E_REDIRECT_ABSOLUTE`](/pt/docs/errors/E_REDIRECT_ABSOLUTE), abre a causa, o conserto e a
+referência atuais, sem depender de um índice mantido à parte.
+
+A API pública do catálogo é `trilha.ErrorGuides() []trilha.ErrorGuide`; use
+`trilha.ErrorGuideByCode(código)` quando uma ferramenta ou página de erro própria já tem um
+código. Cada `trilha.ErrorGuide` leva `Code`, `Title`, `Description`, `Repair` e `Reference`.
+
 ### Responder por conta própria
 
 `not_found.go`, `error.go` e `page.go` podem escrever a resposta inteira e devolver

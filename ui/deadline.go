@@ -70,6 +70,9 @@ type DeadlineListOpts struct {
 	// Owner draws the column of who it is on. Off by default, because most
 	// applications do not track it and an empty column is a lie about the data.
 	Owner bool
+	// RowAction draws one application-owned action after the standard cells.
+	// Nil keeps the current table shape.
+	RowAction func(trilha.Deadline) h.Node
 }
 
 // DeadlineList is the list under the cards: what is due, when, and where it
@@ -118,6 +121,9 @@ func DeadlineList(c *trilha.Ctx, items []trilha.Deadline, o DeadlineListOpts) h.
 		if o.Owner {
 			cells = append(cells, h.Td(h.Text(it.Owner)))
 		}
+		if o.RowAction != nil {
+			cells = append(cells, h.Td(o.RowAction(it)))
+		}
 		row := cells
 		if it.Late(now, zoneOf(c)) {
 			row = append([]h.Node{h.Class("ui-late")}, cells...)
@@ -128,6 +134,9 @@ func DeadlineList(c *trilha.Ctx, items []trilha.Deadline, o DeadlineListOpts) h.
 	heads := []h.Node{h.Th(h.Text(w["what"])), h.Th(h.Text(w["kind"])), h.Th(h.Text(w["due"]))}
 	if o.Owner {
 		heads = append(heads, h.Th(h.Text(w["owner"])))
+	}
+	if o.RowAction != nil {
+		heads = append(heads, h.Th(h.Text("")))
 	}
 	table := Table(h.Thead(h.Tr(heads...)), h.Tbody(lines...))
 	if rest == 0 {

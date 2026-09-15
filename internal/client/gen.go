@@ -199,6 +199,7 @@ func (b *builder) method(op *Operation, gName string, used map[string]bool) (*me
 		st := &Struct{Name: name, Doc: "Query of " + where + "."}
 		for _, p := range qs {
 			t := nullableGoType(b.goType(p.Schema, name+exportName(p.Name), where+"?"+p.Name), p.Schema)
+			t = defaultedOptionalGoType(t, p.Schema, p.Required)
 			tag := "json:\"" + p.Name
 			if !p.Required {
 				tag += ",omitempty"

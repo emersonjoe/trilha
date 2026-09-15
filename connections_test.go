@@ -173,6 +173,58 @@ func TestConnectionsSaveMantemOSegredo(t *testing.T) {
 	}
 }
 
+type opaqueConnectionStore struct{ items map[string]Connection }
+
+func (s *opaqueConnectionStore) List(context.Context, string) ([]Connection, error) {
+	out := make([]Connection, 0, len(s.items))
+	for _, conn := range s.items {
+		out = append(out, conn)
+	}
+	return out, nil
+}
+
+func (s *opaqueConnectionStore) Get(_ context.Context, _, id string) (Connection, error) {
+	conn, ok := s.items[id]
+	if !ok {
+		return Connection{}, ErrNotFound
+	}
+	return conn, nil
+}
+
+func (s *opaqueConnectionStore) Save(_ context.Context, conn Connection) error {
+	conn.Secret = ""
+	s.items[conn.ID] = conn
+	return nil
+}
+
+func (s *opaqueConnectionStore) Delete(_ context.Context, _, id string) error {
+	delete(s.items, id)
+	return nil
+}
+
+func TestConnectionsSaveKeepsOpaqueSecret(t *testing.T) {
+	store := &opaqueConnectionStore{items: map[string]Connection{}}
+	cx := conexoes(ConnectionsOpts{Store: store})
+	a, _, _ := connApp(Prod)
+	c := connCtx(a)
+
+	saved, err := cx.Save(c, Connection{Kind: "api", Name: "A", URL: "https://a.com", Auth: "bearer", Secret: "token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.HasSecret || !store.items[saved.ID].HasSecret || !store.items[saved.ID].Secret.Empty() {
+		t.Fatalf("opaque store did not retain secret presence: returned=%+v stored=%+v", saved, store.items[saved.ID])
+	}
+
+	updated, err := cx.Save(c, Connection{ID: saved.ID, Kind: "api", Name: "Renamed", URL: saved.URL, Auth: "bearer"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated.HasSecret || updated.Name != "Renamed" {
+		t.Fatalf("update lost opaque secret: %+v", updated)
+	}
+}
+
 // URL privada: recusada em produção, aceita em desenvolvimento com aviso.
 func TestConnectionsURLPrivadaPorAmbiente(t *testing.T) {
 	a, _, _ := connApp(Prod)

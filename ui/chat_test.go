@@ -115,3 +115,42 @@ func TestChatHTMLIsTheSameRenderer(t *testing.T) {
 		t.Fatalf("raw HTML got through: %q", got)
 	}
 }
+
+func TestChatSourcesStayAttachedToTheirMessage(t *testing.T) {
+	got := chatPage(t, func(c *trilha.Ctx) h.Node {
+		return Chat(c, ChatOpts{
+			Action: "/a",
+			History: []ChatMessage{
+				{
+					Role: "assistant", Text: "Answer", Sources: []ChatSource{
+						{Label: "Contract <44>", Href: "/documents/44", Hint: "p. 3"},
+						{Label: "Internal note", Hint: "2026-09-15"},
+					},
+				},
+			},
+		})
+	})
+	for _, want := range []string{
+		`class="ui-chat-sources"`, `>Sources</strong>`,
+		`href="/documents/44">Contract &lt;44&gt;</a>`, `class="ui-chat-source-hint">p. 3</span>`,
+		`<li>Internal note<span class="ui-chat-source-hint">2026-09-15</span></li>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(got, `Answer<a href=`) {
+		t.Fatalf("source was inserted into answer markup: %s", got)
+	}
+}
+
+func TestChatRefusesUnsafeSourceURL(t *testing.T) {
+	got := chatPage(t, func(c *trilha.Ctx) h.Node {
+		return Chat(c, ChatOpts{Action: "/api/chat", History: []ChatMessage{{
+			Role: "assistant", Text: "Answer", Sources: []ChatSource{{Label: "Bad", Href: "javascript:alert(1)"}},
+		}}})
+	})
+	if strings.Contains(got, `href="javascript:`) || !strings.Contains(got, ">Bad<") {
+		t.Fatalf("unsafe source URL became a link: %s", got)
+	}
+}

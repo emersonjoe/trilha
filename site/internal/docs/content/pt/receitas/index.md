@@ -26,6 +26,7 @@ mailer — o que ele tem é um lugar para os seus, e é aqui que esse lugar est�
 | [Tarefas](/pt/receitas/tarefas) | fila, dedupe, retentativa com nome, a tela de andamento | `tasks` |
 | [Webhooks](/pt/receitas/webhooks) | entrega assinada, retentativa com espera crescente, o registro de cada tentativa | `webhooks` |
 | [Tarefas agendadas](/pt/receitas/tarefas-agendadas) | um ticker que sobe com o app e para com ele | — |
+| [App instalável (PWA)](/pt/receitas/pwa) | manifesto, ícones e um convite de instalação que se adapta ao navegador | `pwa` |
 | [Docker](/pt/receitas/docker) | uma imagem pequena, as variáveis, a sonda de saúde | — |
 | [Checklist de produção](/pt/receitas/checklist-de-producao) | o que conferir antes de publicar, em ordem | — |
 | [Chat de IA](/pt/receitas/chat-de-ia) | a chave, o contexto da página, o histórico, o teste sem chave | — |

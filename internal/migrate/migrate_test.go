@@ -683,3 +683,17 @@ func TestCapturaDeMidiaEhIlha(t *testing.T) {
 		t.Errorf("%s não foi varrido", dir)
 	}
 }
+
+func TestModalSignalRecognizesNamedComponentsAndAccessibleDialogs(t *testing.T) {
+	for name, src := range map[string]string{
+		"named dialog":   `<StartInstanceDialog open={open} />`,
+		"named drawer":   `<DocumentDrawer />`,
+		"confirm helper": `if (await confirm({ title: "Delete?" })) remove()`,
+		"dialog role":    `<div role="dialog" aria-modal="true">`,
+	} {
+		a := analyze("app/page.tsx", src, nil, nil)
+		if a.Class != ClassIsland || !strings.Contains(a.Why, "modal") {
+			t.Errorf("%s = %s — %s", name, a.Class, a.Why)
+		}
+	}
+}

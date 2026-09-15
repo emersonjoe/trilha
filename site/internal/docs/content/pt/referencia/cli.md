@@ -296,6 +296,11 @@ campo que não é ponteiro mantém a regra que já tinha: o valor zero fica de f
 essa é a única forma de dizer "este não". Uma lista anulável continua sendo uma lista — um
 parâmetro por elemento, nenhum quando é nil.
 
+Um escalar opcional com `default` no OpenAPI é ponteiro pela mesma razão. Isso preserva omitido
+contra zero enviado de propósito (`false`, `0`, `""`), que um campo por valor com `omitempty`
+não consegue representar. Nomes e comentários gerados continuam UTF-8 válidos quando uma
+descrição começa por caractere multibyte.
+
 ```go
 competencia := "2026-09"
 page, err := c.Folhas().Listar(ctx, api.FolhasListarParams{
@@ -523,6 +528,11 @@ chamam; a célula da classe carrega a contagem (`A — no island signal · 4 ser
 uma vira um handler de escrita e um formulário que posta nele — o handler grava e redireciona,
 a página desenha. Ação não é sinal de ilha: é o oposto de JavaScript no cliente, e não muda a
 classe.
+
+Um modal é sinal **B** mesmo quando o componente foi renomeado: identificadores terminados em
+`Dialog`, `Modal`, `Drawer`, `Sheet` ou `Popover` contam, assim como `showModal()`, `confirm()`,
+`role="dialog"` e `aria-modal`. O relatório reconhece, portanto, o `StartInstanceDialog` do
+projeto em vez de exigir o nome literal do componente do kit.
 
 Pelo mesmo motivo, um `<svg>` sozinho não é superfície de desenho. Um logo, um ícone, uma
 seta: quase toda tela tem um, e ler a tag como **C** colocou quatro das vinte telas de uma
@@ -781,10 +791,26 @@ Três coisas que vale saber antes de rodar:
   atrás dele é um `go get` que o seu projeto faz e o framework não pode fazer por ele. O
   `trilha check` fica verde do mesmo jeito, e o teste do store — o dos comandos — roda sempre.
 
-### O que ainda não está aqui
+### Tenant, política e formulário compacto por schema
 
-`--tenant`, `--policy` e a versão compacta do formulário com `ui.SchemaForm`. Estão na
-[#115](https://github.com/emersonjoe/trilha/issues/115).
+As três bandeiras opcionais se combinam, inclusive com `--store`:
+
+```bash
+trilha generate crud docs.Tipo --at app/admin/tipos \
+  --store postgres --tenant --policy docs --schema
+```
+
+- `--tenant` leva `c.Actor().Tenant` em toda leitura e escrita, acrescenta `tenant_id` às
+  migrações e cláusulas SQL e escreve middleware com `RequireTenant`. A receita `login` precisa
+  existir.
+- `--policy docs` escreve o middleware da pasta usando a matriz da receita `permissions` no nível
+  `administrar`. O valor é o módulo da política, não o nome de um papel.
+- `--schema` mantém o `Bind` e o store tipado, mas desenha o formulário a partir de um
+  `trilha.Schema` compacto com `ui.SchemaForm`, em vez de um `ui.Field` explícito por campo.
+
+Quando `--tenant` e `--policy` aparecem juntos, o middleware gerado aplica as duas verificações.
+O comando recusa antes de escrever quando faltam as receitas `login` ou `permissions`; adivinhar
+o pacote de autenticação só produziria código que parece gerado.
 
 ## trilha add
 

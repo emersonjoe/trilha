@@ -44,9 +44,7 @@ func Redirect(url string) error { return RedirectCode(url, http.StatusSeeOther) 
 func RedirectCode(url string, code int) error {
 	if !localPath(url) {
 		return NewHint(ErrRedirectAbsolute,
-			fmt.Errorf("trilha: refusing to redirect to %q, which leaves this site", url)).
-			Fix("Redirect takes a path, like \"/painel\". To leave the site on purpose, RedirectExternal.").
-			Doc("/reference/errors")
+			fmt.Errorf("trilha: refusing to redirect to %q, which leaves this site", url))
 	}
 	return &RedirectError{URL: url, Code: code}
 }

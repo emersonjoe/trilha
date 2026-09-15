@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/site/internal/demos"
 	"github.com/emersonjoe/trilha/site/internal/docs"
 	"github.com/emersonjoe/trilha/site/internal/ui"
@@ -53,7 +54,19 @@ func demoPaths() []string {
 	return []string{"/demos/assistant", "/pt/demos/assistant", "/demos/ai-chat", "/pt/demos/ai-chat", "/demos/ai-agent", "/pt/demos/ai-agent"}
 }
 
-func allPaths() []string { return append(append(homes(), pagePaths()...), demoPaths()...) }
+func errorCatalogPaths() []string {
+	out := []string{"/docs/errors", "/pt/docs/errors"}
+	for _, guide := range trilha.ErrorGuides() {
+		out = append(out, "/docs/errors/"+guide.Code, "/pt/docs/errors/"+guide.Code)
+	}
+	return out
+}
+
+func allPaths() []string {
+	out := append(homes(), pagePaths()...)
+	out = append(out, demoPaths()...)
+	return append(out, errorCatalogPaths()...)
+}
 
 func TestEveryPageResponds(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "")
@@ -269,6 +282,25 @@ func TestExportPathsCoverEveryPage(t *testing.T) {
 	for _, p := range want {
 		if !strings.Contains(got, " "+p+" ") {
 			t.Errorf("export misses %s", p)
+		}
+	}
+}
+
+func TestErrorCatalogPages(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	for _, path := range []string{"/docs/errors", "/docs/errors/E_REDIRECT_ABSOLUTE", "/pt/docs/errors/E_SECRET_SHORT"} {
+		status, body := get(t, path)
+		if status != 200 || !strings.Contains(body, "E_") {
+			t.Fatalf("%s = %d:\n%s", path, status, body)
+		}
+	}
+	if status, _ := get(t, "/docs/errors/E_UNKNOWN"); status != 404 {
+		t.Fatalf("código desconhecido = %d", status)
+	}
+	paths := " " + strings.Join(newApp().ExportPaths(), " ") + " "
+	for _, code := range []string{"E_REDIRECT_ABSOLUTE", "E_SECRET_SHORT", "E_VERSION_FROZEN", "E_SEARCH_KIND"} {
+		if !strings.Contains(paths, " /docs/errors/"+code+" ") {
+			t.Errorf("export não inclui %s", code)
 		}
 	}
 }
