@@ -33,6 +33,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Card, CardHeader, CardTitle(s), CardDescription(s), CardContent, CardFooter` | cartão |
 | `Input, Textarea, Select, Checkbox, Radio, Switch, Label` | controles (`Switch` tem `role=switch`) |
 | `Field(id, rótulo, controle, opts ...FieldOpt)` | rótulo + controle + `Help(s)` + `Error(s)`; `With(nós...)` põe atributos no grupo. As opções são valores `ui.FieldOpt`, então um formulário que monta os campos em laço as passa como dado |
+| `FormError(...)` | resumo de erro acessível para formulários assíncronos; o runtime também o cria quando foi omitido |
 | `CheckRow(controle, rótulo, id)` | checkbox/switch ao lado do rótulo |
 | `Invalid()` | `aria-invalid="true"` (anel vermelho) |
 | `Errors(errs, campo)` | opção de `Field`: mostra a mensagem de `errs[campo]` (um `trilha.FieldErrors`) se houver |
@@ -154,10 +155,42 @@ radio é o que uma pessoa usa, não o que limita quem ataca.
 Tudo por atributo, sem inicialização: `[data-ui-tabs]`, `[data-ui-dialog-open=id]`,
 `[data-ui-dialog-close]`, `[data-ui-fade=ms]`, `[data-ui-show-when]`, `[data-ui-toast=texto]`
 (`data-ui-toast-kind`), `[data-ui-theme-toggle]`, `[data-ui-tooltip=texto]`, `[popover].ui-menu`. Também expõe
-`window.ui.toast(texto, {kind, ms})`, `ui.fade(el)`, `ui.evalShowWhen(root)` e
+`window.ui.toast(texto, {kind, ms})`, `ui.formError(form, mensagem, opções)`,
+`ui.clearFormErrors(form)`, `ui.formPending(form)`, `ui.fade(el)`, `ui.evalShowWhen(root)` e
 `ui.applyTheme("dark"|"light")`. Elementos inseridos depois (HTMX, fetch) precisam de
 `ui.evalShowWhen(el)`/`ui.fade(el)`/`ui.initTooltips(el)` se usarem esses atributos —
 `ui.hydrate(el)` faz os três de uma vez.
+
+### Formulários assíncronos
+
+Guarde `event.currentTarget` antes do primeiro `await`: depois que o listener devolve o controle
+ao navegador, `event.currentTarget` vira `null`. `ui.formPending` marca o formulário com
+`aria-busy`, desabilita os botões de envio e devolve a função que restaura o estado original.
+`ui.formError` mantém a falha dentro do formulário — inclusive quando ele está num diálogo — e
+pode marcar e focar o campo responsável.
+
+```js
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  ui.clearFormErrors(form);
+  const settled = ui.formPending(form);
+  try {
+    await save(new FormData(form));
+  } catch (error) {
+    ui.formError(form, error.message, {
+      field: form.elements.email,
+      action: { href: "/ajuda", label: "Como corrigir" },
+    });
+  } finally {
+    settled();
+  }
+});
+```
+
+A mensagem entra por `textContent`, nunca por `innerHTML`. O link só aparece quando o chamador
+fornece explicitamente `href` e `label`. Coloque `ui.FormError()` antes dos campos para reservar o
+ponto do feedback; se ele não estiver presente, o runtime cria o elemento.
 
 ## Fragmentos
 
@@ -538,10 +571,13 @@ simplesmente errada.
 
 ## Tema
 
-`ui.theme.css` define, em `:root` e `.dark`, exatamente as variáveis do shadcn/ui v4:
+`ui.theme.css` define, em `:root` e `.dark`, as variáveis do shadcn/ui v4:
 `--background/--foreground`, `--card/--card-foreground`, `--popover/…`, `--primary/…`,
 `--secondary/…`, `--muted/…`, `--accent/…`, `--destructive`, `--border`, `--input`, `--ring`,
-`--chart-1…5`, `--sidebar…`, `--radius`. `ui.css` deriva `--radius-sm/md/lg/xl`. O modo
+`--chart-1…5`, `--sidebar…`, `--radius`. O Trilha amplia esse contrato com tokens semânticos
+de intenção (`--success-*`, `--warning-*`, `--info-*`, `--destructive-*`) e sombras
+(`--ui-shadow-sm/md/lg`, além do alias `--shadow`). Use esses tokens em estados operacionais
+em vez de cores primitivas. `ui.css` deriva `--radius-sm/md/lg/xl`. O modo
 escuro é a classe `dark` no `<html>` (o script de `ui.Head` aplica a preferência salva ou a
 do sistema antes da primeira pintura).
 

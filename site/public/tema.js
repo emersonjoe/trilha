@@ -4,8 +4,8 @@
   var root = document.documentElement;
   var pt = (root.lang || "").toLowerCase().indexOf("pt") === 0;
   var txt = pt
-    ? { copy: "Copiar", copied: "Copiado", required: "O campo é obrigatório: o navegador barra antes do POST.", checked: "_csrf conferido", noname: "sem-nome" }
-    : { copy: "Copy", copied: "Copied", required: "The field is required: the browser stops before the POST.", checked: "_csrf checked", noname: "untitled" };
+    ? { copy: "Copiar", copied: "Copiado", required: "O campo é obrigatório: o navegador barra antes do POST.", checked: "_csrf conferido", noname: "sem-nome", asyncError: "O serviço recusou este e-mail. Revise o campo e tente novamente.", review: "Ver tratamento de erros" }
+    : { copy: "Copy", copied: "Copied", required: "The field is required: the browser stops before the POST.", checked: "_csrf checked", noname: "untitled", asyncError: "The service rejected this email. Review the field and try again.", review: "Read error handling" };
   var btn = document.querySelector("[data-tema-toggle]");
   function atual() {
     var t = root.getAttribute("data-tema");
@@ -49,6 +49,20 @@
       saida.textContent = "POST " + (f.dataset.demoPost || "/eventos/novo") + " (" + txt.checked +
         ") → 303 See Other → GET " + (f.dataset.demoTarget || "/eventos/") + slug(nome);
       saida.classList.add("demo-nota-ok");
+    });
+  });
+  document.querySelectorAll('form[data-demo="async-error"]').forEach(function (form) {
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      var currentForm = event.currentTarget;
+      window.ui.clearFormErrors(currentForm);
+      var settled = window.ui.formPending(currentForm);
+      await new Promise(function (resolve) { setTimeout(resolve, 350); });
+      window.ui.formError(currentForm, txt.asyncError, {
+        field: currentForm.querySelector('input[name="email"]'),
+        action: { href: pt ? "/pt/referencia/ui#formularios-assincronos" : "/reference/ui#async-forms", label: txt.review }
+      });
+      settled();
     });
   });
 })();

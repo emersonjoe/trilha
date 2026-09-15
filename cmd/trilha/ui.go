@@ -10,6 +10,7 @@ import (
 
 	"github.com/emersonjoe/trilha/internal/scaffold"
 	"github.com/emersonjoe/trilha/internal/uidoc"
+	frameworkui "github.com/emersonjoe/trilha/ui"
 )
 
 func cmdUI(args []string) error {
@@ -17,6 +18,12 @@ func cmdUI(args []string) error {
 	// anywhere, with or without a project around.
 	if len(args) > 0 && args[0] == "describe" {
 		return cmdUIDescribe(args[1:])
+	}
+	if len(args) > 0 && args[0] == "components" {
+		return cmdUIComponents(args[1:])
+	}
+	if len(args) > 0 && args[0] == "icons" {
+		return cmdUIIcons(args[1:])
 	}
 	fs := flag.NewFlagSet("ui", flag.ContinueOnError)
 	force := fs.Bool("force", false, t("flag force"))
@@ -38,6 +45,56 @@ func cmdUI(args []string) error {
 		os.Exit(1)
 	}
 	return err
+}
+
+func cmdUIComponents(args []string) error {
+	fs := flag.NewFlagSet("ui components", flag.ContinueOnError)
+	asJSON := fs.Bool("json", false, t("flag describe json"))
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *asJSON {
+		os.Stdout.Write(uidoc.JSON())
+		fmt.Println()
+		return nil
+	}
+	listComponents()
+	return nil
+}
+
+func cmdUIIcons(args []string) error {
+	fs := flag.NewFlagSet("ui icons", flag.ContinueOnError)
+	asJSON := fs.Bool("json", false, t("flag describe json"))
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	icons := frameworkui.Icons()
+	if *asJSON {
+		encoded, err := json.MarshalIndent(icons, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(encoded))
+		return nil
+	}
+	for _, icon := range icons {
+		fmt.Println(icon)
+	}
+	return nil
+}
+
+// cmdInspect provides a stable API-inspection spelling for agents.
+func cmdInspect(args []string) error {
+	if len(args) != 2 || args[0] != "api" {
+		return errors.New("usage: trilha inspect api ui.Component")
+	}
+	name := strings.TrimPrefix(args[1], "ui.")
+	component, ok := uidoc.Lookup(name)
+	if !ok {
+		return fmt.Errorf("unknown UI API %q", args[1])
+	}
+	describeComponent(component)
+	return nil
 }
 
 // uiAction translates a scaffold.UIResult action for display.

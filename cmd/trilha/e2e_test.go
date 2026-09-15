@@ -88,6 +88,20 @@ func TestE2E(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &all); err != nil || len(all) < 50 {
 		t.Fatalf("catalog = %d components (%v)", len(all), err)
 	}
+	out = run(t, tmp, cli, "ui", "components", "--json")
+	var components []struct{ Name, Kind, Group string }
+	if err := json.Unmarshal([]byte(out), &components); err != nil || len(components) != len(all) {
+		t.Fatalf("components = %d entries (%v), want %d", len(components), err, len(all))
+	}
+	out = run(t, tmp, cli, "ui", "icons", "--json")
+	var icons []string
+	if err := json.Unmarshal([]byte(out), &icons); err != nil || len(icons) < 20 || !strings.Contains(" "+strings.Join(icons, " ")+" ", " check ") {
+		t.Fatalf("icons = %d entries (%v): %s", len(icons), err, out)
+	}
+	out = run(t, tmp, cli, "inspect", "api", "ui.FormError")
+	if !strings.Contains(out, "ui.FormError(") || !strings.Contains(out, "accessible summary") {
+		t.Fatalf("inspect api = %s", out)
+	}
 	descCmd := exec.Command(cli, "ui", "describe", "Fild")
 	descCmd.Dir = tmp
 	if out, err := descCmd.CombinedOutput(); err == nil || !strings.Contains(string(out), "did you mean: Field") {

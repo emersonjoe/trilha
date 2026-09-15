@@ -3,6 +3,29 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.133.0 — 2026-09-15
+
+Spec 154. Closes [#248](https://github.com/emersonjoe/trilha/issues/248) and
+[#249](https://github.com/emersonjoe/trilha/issues/249).
+
+### Added
+
+- **A stable UI catalogue for tools and agents.** `trilha ui components --json`,
+  `trilha ui icons --json` and `trilha inspect api ui.Component` expose the framework's
+  component contracts and supported icon names without requiring source-code inspection.
+- **Accessible feedback for asynchronous forms.** `ui.FormError()` and the browser runtime
+  helpers `ui.formError`, `ui.clearFormErrors` and `ui.formPending` keep failures inside the
+  active form or dialog, focus the relevant error, mark fields invalid and reliably restore
+  pending controls. Remote messages are inserted as text rather than HTML.
+
+### Changed
+
+- **Operational UI tokens are part of the theme contract.** Light and dark themes now expose
+  semantic success, warning, information and destructive colors plus reusable shadow levels.
+- **The bilingual site teaches the complete async form flow.** The UI chapters include a live
+  dialog demonstration and copyable English and Portuguese examples covering capture before
+  `await`, pending state, field feedback and cleanup.
+
 ## 0.132.0 — 2026-09-13
 
 Spec 153. Closes [#246](https://github.com/emersonjoe/trilha/issues/246).

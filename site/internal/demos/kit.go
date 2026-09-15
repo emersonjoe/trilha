@@ -778,6 +778,32 @@ func init() {
 		},
 	})
 	add("pt", Demo{
+		Name:  "ui-formulario-assincrono",
+		Title: "Erro assíncrono permanece dentro do diálogo",
+		Source: `ui.DialogTrigger("perfil-assincrono", ui.Outline(), h.Text("Editar perfil"))
+ui.Dialog("perfil-assincrono", "Editar perfil",
+	h.Form(h.Method("post"), h.Class("ui-stack"),
+		ui.FormError(),
+		ui.Field("email-assincrono", "E-mail",
+			ui.Input(h.ID("email-assincrono"), h.Name("email"), h.Type("email"))),
+		ui.DialogFooter(ui.DialogClose(ui.Ghost(), h.Text("Cancelar")), ui.Submit(h.Text("Salvar"))),
+	),
+)`,
+		Node: func() h.Node {
+			return wrap(h.Div(
+				kit.DialogTrigger("perfil-assincrono", kit.Outline(), h.Text("Editar perfil")),
+				kit.Dialog("perfil-assincrono", "Editar perfil",
+					kit.DialogDescription("A demonstração simula uma resposta remota inválida."),
+					h.Form(h.Method("get"), h.Action("#"), h.Class("ui-stack"), h.Data("demo", "async-error"),
+						kit.FormError(),
+						kit.Field("email-assincrono", "E-mail", kit.Input(h.ID("email-assincrono"), h.Name("email"), h.Type("email"), h.Value("operador@example.com"))),
+						kit.DialogFooter(kit.DialogClose(kit.Ghost(), h.Text("Cancelar")), kit.Submit(h.Text("Salvar"))),
+					),
+				),
+			))
+		},
+	})
+	add("pt", Demo{
 		Name:  "ui-tabela",
 		Title: "Tabela com linhas aninhadas (drill-down)",
 		Source: `ui.Table(
@@ -1452,6 +1478,32 @@ c.Flash(ui.FlashSuccess, "3 linhas importadas, 2 rejeitadas")`,
 					kit.DialogDescription("The post becomes visible to everyone."),
 					kit.DialogFooter(kit.DialogClose(kit.Ghost(), h.Text("Later")), kit.DialogClose(h.Text("Publish")))),
 				kit.Button(kit.Secondary(), h.Data("ui-toast", "Saved!"), h.Text("Show toast")),
+			))
+		},
+	})
+	add("en", Demo{
+		Name:  "ui-formulario-assincrono",
+		Title: "Async errors remain inside the dialog",
+		Source: `ui.DialogTrigger("async-profile", ui.Outline(), h.Text("Edit profile"))
+ui.Dialog("async-profile", "Edit profile",
+	h.Form(h.Method("post"), h.Class("ui-stack"),
+		ui.FormError(),
+		ui.Field("async-email", "Email",
+			ui.Input(h.ID("async-email"), h.Name("email"), h.Type("email"))),
+		ui.DialogFooter(ui.DialogClose(ui.Ghost(), h.Text("Cancel")), ui.Submit(h.Text("Save"))),
+	),
+)`,
+		Node: func() h.Node {
+			return wrap(h.Div(
+				kit.DialogTrigger("async-profile", kit.Outline(), h.Text("Edit profile")),
+				kit.Dialog("async-profile", "Edit profile",
+					kit.DialogDescription("The demo simulates an invalid remote response."),
+					h.Form(h.Method("get"), h.Action("#"), h.Class("ui-stack"), h.Data("demo", "async-error"),
+						kit.FormError(),
+						kit.Field("async-email", "Email", kit.Input(h.ID("async-email"), h.Name("email"), h.Type("email"), h.Value("operator@example.com"))),
+						kit.DialogFooter(kit.DialogClose(kit.Ghost(), h.Text("Cancel")), kit.Submit(h.Text("Save"))),
+					),
+				),
 			))
 		},
 	})

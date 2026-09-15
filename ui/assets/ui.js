@@ -110,6 +110,63 @@
     return el;
   };
 
+  // Async form errors stay inside their form; pending state is restored.
+  const formErrorNode = (form) => {
+    let summary = form?.querySelector?.("[data-ui-form-error]");
+    if (summary || !form) return summary;
+    summary = document.createElement("div");
+    summary.className = "ui-form-error";
+    summary.setAttribute("data-ui-form-error", "");
+    summary.setAttribute("role", "alert");
+    summary.setAttribute("aria-live", "assertive");
+    summary.tabIndex = -1;
+    summary.hidden = true;
+    form.prepend(summary);
+    return summary;
+  };
+  const clearFormErrors = (form) => {
+    if (!form) return;
+    const summary = formErrorNode(form);
+    if (summary) { summary.hidden = true; summary.replaceChildren(); }
+    $("[aria-invalid=true]", form).forEach((field) => field.removeAttribute("aria-invalid"));
+    $(".ui-field-error", form).forEach((field) => { field.hidden = true; field.textContent = ""; });
+  };
+  const formError = (form, message, { field = null, action = null } = {}) => {
+    const safe = String(message || "The operation failed.").replace(/\s+/g, " ").trim();
+    if (!form) return toast(safe, { kind: "error" });
+    const summary = formErrorNode(form);
+    summary.textContent = safe;
+    if (action?.href && action?.label) {
+      const link = document.createElement("a");
+      link.href = action.href;
+      link.textContent = action.label;
+      summary.append(link);
+    }
+    summary.hidden = false;
+    const target = typeof field === "string" ? form.querySelector(field) : field;
+    if (target) {
+      target.setAttribute("aria-invalid", "true");
+      const inline = target.id && document.getElementById(`${target.id}-error`);
+      if (inline) { inline.textContent = target.validationMessage || safe; inline.hidden = false; }
+      target.focus?.();
+    } else {
+      summary.focus?.();
+    }
+    requestAnimationFrame(() => summary.scrollIntoView?.({ block: "nearest" }));
+    return summary;
+  };
+  const formPending = (form) => {
+    if (!form) return () => {};
+    const controls = $("button[type=submit],input[type=submit]", form);
+    const disabled = controls.map((control) => control.disabled);
+    form.setAttribute("aria-busy", "true");
+    controls.forEach((control) => { control.disabled = true; });
+    return () => {
+      form.removeAttribute("aria-busy");
+      controls.forEach((control, index) => { control.disabled = disabled[index]; });
+    };
+  };
+
   // [data-ui-toast="texto"] shows a toast on click (kind in data-ui-toast-kind).
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-ui-toast]");
@@ -512,7 +569,7 @@
 
   const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
 
   // [data-ui-copy=texto]: copia e diz que copiou. Sem ele o valor continua
   // sendo texto selecionável num campo — o botão é conveniência, não o caminho.

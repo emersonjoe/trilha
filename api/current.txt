@@ -1656,6 +1656,7 @@ pkg ui, func Error(string) FieldOpt
 pkg ui, func Errors(map[string]string, string) FieldOpt
 pkg ui, func Field(string, string, h.Node, ...FieldOpt) h.Node
 pkg ui, func Flashes(*trilha.Ctx) h.Node
+pkg ui, func FormError(...h.Node) h.Node
 pkg ui, func Ghost() h.Node
 pkg ui, func Grid(...h.Node) h.Node
 pkg ui, func H1(...h.Node) h.Node

@@ -2687,6 +2687,21 @@
     "summary": "Help, Error, Errors and With are the FieldOpt options: a hint under the control, one message, the messages a FieldErrors carries for that name, and anything else to put inside the field."
   },
   {
+    "name": "FormError",
+    "kind": "func",
+    "group": "forms",
+    "signature": "FormError(attrs ...h.Node) h.Node",
+    "doc": "FormError is the accessible summary used by ui.formError. Put it inside a\nform, before its fields; the runtime also creates it on demand when omitted.",
+    "summary": "FormError is the accessible summary used by ui.formError.",
+    "example": "h.Form(h.ID(\"profile\"), ui.FormError(), fields, ui.Submit(h.Text(\"Save\")))",
+    "see": [
+      "h.Form",
+      "h.ID",
+      "h.Text",
+      "ui.Submit"
+    ]
+  },
+  {
     "name": "With",
     "kind": "func",
     "group": "forms",

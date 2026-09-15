@@ -46,3 +46,17 @@ shell commands, and other important information, read the current plan
 - **Ler estreito**: `grep -n -A5` ou `sed -n 'X,Yp'` em vez de ler arquivo grande inteiro.
 - **`make test` por bloco de tarefas**, não por arquivo, e não repita a suíte sem ter mudado
   código.
+
+## Agent skills
+
+### Issue tracker
+
+Work is tracked in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the canonical five-label triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the single-context domain documentation layout. See `docs/agents/domain.md`.

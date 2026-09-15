@@ -59,6 +59,9 @@ Usage:
   trilha add [recipe] [--dry-run] [--list --json]   write a framework recipe into the project
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
   trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
+  trilha ui components [--json]                     list the component catalogue for tools and agents
+  trilha ui icons [--json]                          list every supported icon name
+  trilha inspect api ui.Component                   inspect one stable UI symbol
   trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
   trilha mcp [--write]                              MCP server over stdio for an agent without a shell
   trilha mcp --from-routes [--include /api/v1/*]    the tools mcp.FromRoutes would expose for this API
@@ -88,6 +91,9 @@ Uso:
   trilha add [receita] [--dry-run] [--list --json]    escreve uma receita do framework no projeto
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
   trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
+  trilha ui components [--json]                       lista o catálogo de componentes para ferramentas e agentes
+  trilha ui icons [--json]                            lista todos os nomes de ícones suportados
+  trilha inspect api ui.Componente                    inspeciona um símbolo estável de UI
   trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
   trilha mcp [--write]                                servidor MCP por stdio, para agente sem shell
   trilha mcp --from-routes [--include /api/v1/*]      as ferramentas que mcp.FromRoutes exporia para esta API

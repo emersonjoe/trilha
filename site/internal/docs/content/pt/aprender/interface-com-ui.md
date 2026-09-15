@@ -55,6 +55,12 @@ Depois de um `POST`, renderize o erro no próprio campo (`ui.Error("Título obri
 4000)` dentro do toaster do layout. O exemplo `examples/blog` faz as duas coisas em
 `app/blog/novo/page.go`.
 
+Para um formulário enviado com `fetch`, preserve `event.currentTarget` antes do primeiro `await`.
+Use `ui.formPending(form)` durante a requisição e `ui.formError(form, mensagem, {field})` para que
+a falha continue visível dentro do diálogo, com foco e `aria-invalid` no campo correto.
+
+@demo ui-formulario-assincrono
+
 ## Contar o que aconteceu, e perguntar antes de destruir
 
 Um `POST` que deu certo termina em redirect, e o redirect come a notícia. O `c.Flash`

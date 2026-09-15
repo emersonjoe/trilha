@@ -1,6 +1,6 @@
 // Command trilha is the CLI: new, gen, generate, dev, build, check, ctx,
-// routes, export, openapi, audit, ui, migrate, client. Any other name is
-// looked up as trilha-<name> on the PATH (trilha spec, trilha runner).
+// routes, export, openapi, audit, ui, inspect, migrate, client. Any other name
+// is looked up as trilha-<name> on the PATH (trilha spec, trilha runner).
 // Messages follow TRILHA_LANG / LANG (see i18n.go).
 package main
 
@@ -23,7 +23,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.132.0"
+const version = "0.133.0"
 
 // exeName gives a path the extension the system needs to execute it. `go build -o`
 // writes the literal name it is given, and on Windows exec.LookPath only accepts a
@@ -65,6 +65,8 @@ func main() {
 		err = cmdOpenAPI(os.Args[2:])
 	case "ui":
 		err = cmdUI(os.Args[2:])
+	case "inspect":
+		err = cmdInspect(os.Args[2:])
 	case "client":
 		err = cmdClient(os.Args[2:])
 	case "migrate":

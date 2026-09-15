@@ -55,6 +55,12 @@ After a `POST`, render the error in the field itself (`ui.Error("Title is requir
 "Saved!", 4000)` inside the layout's toaster. The `examples/blog` app does both in
 `app/blog/novo/page.go`.
 
+For a form submitted with `fetch`, retain `event.currentTarget` before the first `await`. Use
+`ui.formPending(form)` while the request runs and `ui.formError(form, message, {field})` so the
+failure remains visible inside the dialog, with focus and `aria-invalid` on the responsible field.
+
+@demo ui-formulario-assincrono
+
 ## Saying what happened, and asking before destroying
 
 A `POST` that works ends in a redirect, and the redirect eats the news. `c.Flash` writes it

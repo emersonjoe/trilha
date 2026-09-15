@@ -33,6 +33,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Card, CardHeader, CardTitle(s), CardDescription(s), CardContent, CardFooter` | card |
 | `Input, Textarea, Select, Checkbox, Radio, Switch, Label` | controls (`Switch` has `role=switch`) |
 | `Field(id, label, control, opts ...FieldOpt)` | label + control + `Help(s)` + `Error(s)`; `With(nodes...)` puts attributes on the group. The options are `ui.FieldOpt` values, so a form that builds its fields in a loop passes them around as data |
+| `FormError(...)` | accessible error summary for asynchronous forms; the runtime also creates it when omitted |
 | `CheckRow(control, label, id)` | checkbox/switch next to its label |
 | `Invalid()` | `aria-invalid="true"` (red ring) |
 | `Errors(errs, field)` | `Field` option: shows the message from `errs[field]` (a `trilha.FieldErrors`) if any |
@@ -154,10 +155,42 @@ the radio is what a person uses, not what an attacker is limited to.
 Everything by attribute, no initialization: `[data-ui-tabs]`, `[data-ui-dialog-open=id]`,
 `[data-ui-dialog-close]`, `[data-ui-fade=ms]`, `[data-ui-show-when]`, `[data-ui-toast=text]`
 (`data-ui-toast-kind`), `[data-ui-theme-toggle]`, `[data-ui-tooltip=text]`, `[popover].ui-menu`. It also exposes
-`window.ui.toast(text, {kind, ms})`, `ui.fade(el)`, `ui.evalShowWhen(root)` and
+`window.ui.toast(text, {kind, ms})`, `ui.formError(form, message, options)`,
+`ui.clearFormErrors(form)`, `ui.formPending(form)`, `ui.fade(el)`, `ui.evalShowWhen(root)` and
 `ui.applyTheme("dark"|"light")`. Elements inserted later (HTMX, fetch) need
 `ui.evalShowWhen(el)`/`ui.fade(el)`/`ui.initTooltips(el)` if they use those attributes —
 `ui.hydrate(el)` does the three at once.
+
+### Async forms
+
+Keep `event.currentTarget` before the first `await`: after the listener yields back to the browser,
+`event.currentTarget` becomes `null`. `ui.formPending` marks the form with `aria-busy`, disables
+submit controls, and returns the function that restores their original state. `ui.formError` keeps
+the failure inside the form — including a form inside a dialog — and can mark and focus the field
+responsible for it.
+
+```js
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  ui.clearFormErrors(form);
+  const settled = ui.formPending(form);
+  try {
+    await save(new FormData(form));
+  } catch (error) {
+    ui.formError(form, error.message, {
+      field: form.elements.email,
+      action: { href: "/help", label: "How to fix this" },
+    });
+  } finally {
+    settled();
+  }
+});
+```
+
+The message is assigned through `textContent`, never `innerHTML`. The action link only appears when
+the caller explicitly provides `href` and `label`. Put `ui.FormError()` before the fields to reserve
+the feedback location; when omitted, the runtime creates the element.
 
 ## Fragments
 
@@ -538,10 +571,13 @@ simply wrong.
 
 ## Theme
 
-`ui.theme.css` defines, in `:root` and `.dark`, exactly the shadcn/ui v4 variables:
+`ui.theme.css` defines, in `:root` and `.dark`, the shadcn/ui v4 variables:
 `--background/--foreground`, `--card/--card-foreground`, `--popover/…`, `--primary/…`,
 `--secondary/…`, `--muted/…`, `--accent/…`, `--destructive`, `--border`, `--input`, `--ring`,
-`--chart-1…5`, `--sidebar…`, `--radius`. `ui.css` derives `--radius-sm/md/lg/xl`. Dark mode
+`--chart-1…5`, `--sidebar…`, `--radius`. Trilha extends that contract with semantic intent
+tokens (`--success-*`, `--warning-*`, `--info-*`, `--destructive-*`) and shadows
+(`--ui-shadow-sm/md/lg`, plus the `--shadow` alias). Use those tokens for operational states
+instead of primitive colors. `ui.css` derives `--radius-sm/md/lg/xl`. Dark mode
 is the `dark` class on `<html>` (the `ui.Head` script applies the saved or system
 preference before the first paint).
 

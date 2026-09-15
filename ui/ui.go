@@ -294,6 +294,15 @@ type FieldOpt func(*fieldCfg)
 func Help(s string) FieldOpt  { return func(f *fieldCfg) { f.help = s } }
 func Error(s string) FieldOpt { return func(f *fieldCfg) { f.err = s } }
 
+// FormError is the accessible summary used by ui.formError. Put it inside a
+// form, before its fields; the runtime also creates it on demand when omitted.
+//
+//	h.Form(h.ID("profile"), ui.FormError(), fields, ui.Submit(h.Text("Save")))
+func FormError(attrs ...h.Node) h.Node {
+	n := []h.Node{h.Class("ui-form-error"), h.Data("ui-form-error", ""), h.Role("alert"), h.Aria("live", "assertive"), h.Tabindex("-1"), h.Hidden()}
+	return h.Div(append(n, attrs...)...)
+}
+
 // With adds attributes to the field wrapper (e.g. ShowWhen).
 func With(nodes ...h.Node) FieldOpt { return func(f *fieldCfg) { f.extra = append(f.extra, nodes...) } }
 

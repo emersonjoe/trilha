@@ -80,6 +80,9 @@
 .ui-select { appearance: none; padding-right: 2rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .5rem center; }
 .ui-field { display: grid; gap: .5rem; }
 .ui-field-help { font-size: .8125rem; color: var(--muted-foreground); margin: 0; }
+.ui-form-error { padding: .75rem .875rem; border: 1px solid var(--destructive-border); border-radius: var(--radius-md); background: var(--destructive-background); color: var(--destructive-foreground); box-shadow: var(--ui-shadow-md); font-size: .8125rem; font-weight: 600; }
+.ui-dialog .ui-form-error { position: sticky; top: 0; z-index: 2; }
+.ui-form-error a { color: inherit; font-weight: 700; margin-left: .5rem; text-decoration: underline; }
 [aria-busy="true"] { opacity: .6; transition: opacity .12s ease; }
 [aria-busy="true"] * { cursor: progress; }
 

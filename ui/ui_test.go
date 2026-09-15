@@ -245,6 +245,44 @@ func TestValidationHelpers(t *testing.T) {
 	}
 }
 
+func TestFormErrorAndAsyncRuntime(t *testing.T) {
+	got := render(t, FormError())
+	for _, want := range []string{
+		`class="ui-form-error"`, `data-ui-form-error=""`, `role="alert"`,
+		`aria-live="assertive"`, `tabindex="-1"`, `hidden`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in %s", want, got)
+		}
+	}
+
+	runtime := string(Asset("ui.js"))
+	for _, want := range []string{"formError", "clearFormErrors", "formPending", "textContent", "aria-invalid", "aria-busy"} {
+		if !strings.Contains(runtime, want) {
+			t.Fatalf("ui.js is missing async form contract %q", want)
+		}
+	}
+	if strings.Contains(runtime, "summary.innerHTML") {
+		t.Fatal("form errors must not render remote messages as HTML")
+	}
+}
+
+func TestThemeDeclaresSemanticIntentTokens(t *testing.T) {
+	theme := string(Asset("ui.theme.css"))
+	for _, token := range []string{
+		"--success-foreground:", "--success-background:", "--success-border:",
+		"--warning-foreground:", "--warning-background:", "--warning-border:",
+		"--info-foreground:", "--info-background:", "--info-border:",
+		"--destructive-foreground:", "--destructive-background:", "--destructive-border:",
+		"--ui-shadow-sm:", "--ui-shadow-md:", "--ui-shadow-lg:",
+		"--success-bg:", "--warning-bg:", "--info-bg:", "--danger-bg:", "--danger-border:", "--shadow:",
+	} {
+		if !strings.Contains(theme, token) {
+			t.Fatalf("theme is missing semantic token %s", token)
+		}
+	}
+}
+
 // Issue #23: client navigation is opt-in — an attribute marks the region and a
 // separate file carries the behavior, so an app that does not want it does not
 // download it.

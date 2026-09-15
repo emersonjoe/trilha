@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.132.0)
+## Onde o Trilha está (setembro de 2026, v0.133.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -23,7 +23,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Arquitetura | roteamento por arquivos, layouts aninhados, middleware por subárvore, erros como valores, `Setup`/`Config` (com erro)/`Shutdown` | specs 001, 007, 008, 021 |
 | Simplicidade | zero dependências no runtime e na CLI, garantido por teste | princípio II |
 | Coerência com Go | `http.ServeMux` 1.22 (com especificidade por segmento para o par que ele recusa), `context`, `log/slog`, `embed`, erros explícitos, genéricos onde pagam (`Settings[T]`, `Versioned[T]`, `ui.Columns[T]`) | princípio III |
-| DX | `new`, `gen`, `dev`, `build`, `routes`, `export`, `audit`, `ui`, `check` (o portão único), `add <receita>`, `vendor`, `i18n`, `openapi`, `client`, `migrate next`, `agents`, `mcp` | specs 001, 003, 004, 006, 021, 065, 091, 119 |
+| DX | `new`, `gen`, `dev`, `build`, `routes`, `export`, `audit`, `ui`, `inspect`, `check` (o portão único), `add <receita>`, `vendor`, `i18n`, `openapi`, `client`, `migrate next`, `agents`, `mcp` | specs 001, 003, 004, 006, 021, 065, 091, 119, 154 |
 | Frontend | HTML no servidor, `ui.js` (~200 linhas), SSE, formulários com `Bind`/`FieldErrors` e validação por tag, fragmentos, ilhas, navegação no cliente, upload com progresso, `ui.Live`, `ui.Assistant` | specs 006, 009, 018, 022, 023, 024, 027, 118 |
 | Dados | funções Go comuns, sem loader mágico; `cache` com prazo, tags, invalidação, voo único e memo por requisição; `ETag`/`Last-Modified`/`304`; `Settings`, `Versioned`, `Draft`, `Search`, `Deadlines`; `trilha add store` (pool, dialeto, migrações conferidas) | specs 025, 026, 114, 115, 116, 126 |
 | Auth | cookies assinados, CSRF, limite de taxa; OIDC (Entra ID, Keycloak, Cognito, Clerk) com PKCE, sessão, papéis, `auth.Policy`, sessões abertas e logout das outras (com contexto e erro no store remoto), multi-organização, e-mail verificado pelo provedor, sessão em store remoto com contexto, dois públicos no mesmo processo por `Options.Audience`, escrita na sessão viva (`Update`) e o `id_token` verificado no `OnLoginToken` | specs 004, 016, 020, 063, 108, 121, 124, 134, 147 |
@@ -31,7 +31,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | Observabilidade | sondas de vida e prontidão, métricas Prometheus, `traceparent`, eventos de segurança, log de requisição com filtro, uso por chave de API | specs 014, 021, 117 |
 | API | JSON, erro RFC 9457 (`problem+json`), negociação por `Accept`, SSE, `route.go` com `Kind`, `trilha openapi` dos seus handlers, `trilha client` do OpenAPI alheio, as rotas como ferramentas MCP | specs 001, 005, 008, 030, 092, 119, 122 |
 | SSG | `trilha export`, `AddExportPath`, `BasePath` | spec 003 |
-| UI | kit `ui` com ~60 componentes, tema compatível com shadcn/ui, ícones Lucide (com `IconNode` para um ícone próprio), gráficos sem bundle, listagens (com `Cards` para virar cartão no celular), fila de aprovação, demos vivas do kit no site (layout e navegação, dados e gráficos, telas dos padrões) e o capítulo que monta uma tela inteira com elas | specs 006, 023, 024, 113, 135, 139, 140, 141, 142 |
+| UI | kit `ui` com ~60 componentes, tema compatível com shadcn/ui, tokens semânticos, ícones Lucide (com `IconNode` para um ícone próprio), catálogo legível por agentes, feedback acessível para formulários assíncronos, gráficos sem bundle, listagens (com `Cards` para virar cartão no celular), fila de aprovação, demos vivas do kit no site (layout e navegação, dados e gráficos, telas dos padrões) e o capítulo que monta uma tela inteira com elas | specs 006, 023, 024, 113, 135, 139, 140, 141, 142, 154 |
 | IA | `ai` (protocolo OpenAI: OpenAI, Ollama, OpenRouter, vLLM…), `ai/mcp` cliente e servidor, `mcp.FromRoutes`, as receitas do chat de IA e do agente que age sobre os dados do app | specs 005, 119, 136, 137 |
 | Migração | `trilha migrate next`: a árvore de `app/`, o relatório com classe e motivo por linha, a seção *Server Actions*, o que não tem equivalente | specs 091, 122, 131 |
 | Testes | unitários, golden, integração por exemplo, e2e da CLI, fuzz | princípio VI |
@@ -284,6 +284,8 @@ registra a divisão. O que cabe a este repositório é conviver com eles.
 120. ~~[#244](https://github.com/emersonjoe/trilha/issues/244) O capítulo do control plane ainda não ligava configuração, aplicação real, protocolo, runner e revisão em um roteiro reproduzível.~~ **Entregue na 0.130.0** (spec 151): o capítulo do Trilha Cloud ganhou o passo a passo completo de um app de cadastro de usuários, com `make check`, spec, task, worker, evidências, aprovação, login, convite, primeira senha e troca de senha; dez screenshots reais acompanham o fluxo nas duas locales, e o Markdown do site agora renderiza figuras responsivas com base path correto.
 121. ~~[#245](https://github.com/emersonjoe/trilha/issues/245) O CI Linux dependia apenas de capacidade hospedada e NIST/OWASP ainda não eram critérios verificáveis de contribuição e release.~~ **Entregue na 0.131.0** (spec 152): runners `eoslab` exclusivos e sem privilégios executam somente código revisado da `main`; PR e deploy privilegiado permanecem hospedados pelo GitHub; actions são fixadas por commit; `make security`, constituição, templates e documentação bilíngue tornam NIST SSDF 1.1, OWASP ASVS 5.0 nível 2 e Top 10:2025 uma baseline com evidência, sem alegação de certificação.
 122. ~~[#246](https://github.com/emersonjoe/trilha/issues/246) O tutorial ainda exigia CLI do usuário mesmo depois do Product Studio.~~ **Entregue na 0.132.0** (spec 153): o capítulo agora ensina criação, execução, evidências e aprovação pela UI do Trilha Cloud 0.2.0, com os papéis de Trilha, Trilha Spec e Trilha Runner, fronteiras NIST/OWASP e duas capturas da homologação real.
+123. ~~[#248](https://github.com/emersonjoe/trilha/issues/248) Agentes precisavam ler código e documentação livre para descobrir componentes, ícones e tokens operacionais do kit.~~ **Entregue na 0.133.0** (spec 154): `trilha ui components --json`, `trilha ui icons --json` e `trilha inspect api ui.Component` publicam contratos estáveis; o tema claro e escuro ganhou tokens semânticos de intenção e sombras.
+124. ~~[#249](https://github.com/emersonjoe/trilha/issues/249) Cada produto reimplementava o ciclo de erro de formulários assíncronos, e uma falha dentro do diálogo podia aparecer atrás dele.~~ **Entregue na 0.133.0** (spec 154): `ui.FormError`, `ui.formError`, `ui.clearFormErrors` e `ui.formPending` mantêm feedback, foco, acessibilidade e estado pendente dentro do formulário; o site demonstra o fluxo completo nas duas línguas.
 
 ## O que não vamos fazer, e por quê
 

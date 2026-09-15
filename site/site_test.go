@@ -382,6 +382,28 @@ func TestKitDemosDataRender(t *testing.T) {
 	}
 }
 
+// Spec 154: the UI chapter demonstrates the framework's async form contract
+// in both locales, and the reference names every runtime helper a product uses.
+func TestAsyncFormFeedbackIsDocumented(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	for _, path := range []string{"/learn/ui-kit", "/pt/aprender/interface-com-ui"} {
+		_, body := get(t, path)
+		for _, want := range []string{`data-demo="async-error"`, `data-ui-form-error=""`, `role="alert"`, `aria-live="assertive"`} {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s: async form demo missing %q", path, want)
+			}
+		}
+	}
+	for _, path := range []string{"/reference/ui", "/pt/referencia/ui"} {
+		_, body := get(t, path)
+		for _, want := range []string{"FormError", "formError", "clearFormErrors", "formPending"} {
+			if !strings.Contains(body, want) {
+				t.Errorf("%s: async form reference missing %q", path, want)
+			}
+		}
+	}
+}
+
 // Spec 141: the twelve pattern-screen demos live inside the package chapter
 // that already documents each component, not in the ui-kit chapter — each
 // renders with a mark of its component, and where a `trilha add` recipe
