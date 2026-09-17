@@ -1,4 +1,4 @@
-/* trilha ui de2f8bd8741bec47 */
+/* trilha ui a6d468fb380c450b */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -17,21 +17,37 @@
     try { localStorage.setItem("ui-theme", next); } catch {}
   });
 
-  // Sidebar: [data-ui-sidebar-toggle] collapses the shell's sidebar; persisted
-  // in localStorage("ui-sidebar") and applied to <html> before the first paint
-  // by the same inline script that applies the theme.
+  // Sidebar: [data-ui-sidebar-toggle] is two things on two screens. Wide, it
+  // collapses the shell's sidebar — a preference, persisted in
+  // localStorage("ui-sidebar") and applied to <html> before the first paint by
+  // the same inline script that applies the theme. Narrow, it opens the drawer
+  // — a moment, not a preference: never stored, gone on the next navigation,
+  // closed by a tap outside, a tap on a link, or Escape (#256).
+  const html = document.documentElement;
+  const narrow = () => matchMedia("(max-width: 767px)").matches;
+  const drawerOpen = () => html.classList.contains("ui-drawer-open");
+  const syncToggles = () => {
+    const open = narrow() ? drawerOpen() : !html.classList.contains("ui-sidebar-collapsed");
+    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", String(open)));
+  };
+  const setDrawer = (open) => { html.classList.toggle("ui-drawer-open", open); syncToggles(); };
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-ui-sidebar-toggle]");
-    if (!b) return;
-    const off = document.documentElement.classList.toggle("ui-sidebar-collapsed");
-    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", String(!off)));
-    try { localStorage.setItem("ui-sidebar", off ? "collapsed" : "open"); } catch {}
+    if (b) {
+      if (narrow()) { setDrawer(!drawerOpen()); return; }
+      const off = html.classList.toggle("ui-sidebar-collapsed");
+      syncToggles();
+      try { localStorage.setItem("ui-sidebar", off ? "collapsed" : "open"); } catch {}
+      return;
+    }
+    if (!drawerOpen() || !narrow()) return;
+    const inside = e.target.closest(".ui-shell > .ui-sidebar");
+    if (!inside || e.target.closest("a[href]")) setDrawer(false);
   });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawerOpen()) setDrawer(false); });
   // The button says what the page already shows: a reload lands with the class
   // in place and the attribute has to agree with it.
-  if (document.documentElement.classList.contains("ui-sidebar-collapsed")) {
-    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", "false"));
-  }
+  syncToggles();
 
   // Tabs: [data-ui-tabs] > .ui-tabs-list > .ui-tab[aria-controls] + panels.
   const selectTab = (tab) => {
@@ -109,6 +125,63 @@
     box.appendChild(el);
     armFades(box);
     return el;
+  };
+
+  // Async form errors stay inside their form; pending state is restored.
+  const formErrorNode = (form) => {
+    let summary = form?.querySelector?.("[data-ui-form-error]");
+    if (summary || !form) return summary;
+    summary = document.createElement("div");
+    summary.className = "ui-form-error";
+    summary.setAttribute("data-ui-form-error", "");
+    summary.setAttribute("role", "alert");
+    summary.setAttribute("aria-live", "assertive");
+    summary.tabIndex = -1;
+    summary.hidden = true;
+    form.prepend(summary);
+    return summary;
+  };
+  const clearFormErrors = (form) => {
+    if (!form) return;
+    const summary = formErrorNode(form);
+    if (summary) { summary.hidden = true; summary.replaceChildren(); }
+    $("[aria-invalid=true]", form).forEach((field) => field.removeAttribute("aria-invalid"));
+    $(".ui-field-error", form).forEach((field) => { field.hidden = true; field.textContent = ""; });
+  };
+  const formError = (form, message, { field = null, action = null } = {}) => {
+    const safe = String(message || "The operation failed.").replace(/\s+/g, " ").trim();
+    if (!form) return toast(safe, { kind: "error" });
+    const summary = formErrorNode(form);
+    summary.textContent = safe;
+    if (action?.href && action?.label) {
+      const link = document.createElement("a");
+      link.href = action.href;
+      link.textContent = action.label;
+      summary.append(link);
+    }
+    summary.hidden = false;
+    const target = typeof field === "string" ? form.querySelector(field) : field;
+    if (target) {
+      target.setAttribute("aria-invalid", "true");
+      const inline = target.id && document.getElementById(`${target.id}-error`);
+      if (inline) { inline.textContent = target.validationMessage || safe; inline.hidden = false; }
+      target.focus?.();
+    } else {
+      summary.focus?.();
+    }
+    requestAnimationFrame(() => summary.scrollIntoView?.({ block: "nearest" }));
+    return summary;
+  };
+  const formPending = (form) => {
+    if (!form) return () => {};
+    const controls = $("button[type=submit],input[type=submit]", form);
+    const disabled = controls.map((control) => control.disabled);
+    form.setAttribute("aria-busy", "true");
+    controls.forEach((control) => { control.disabled = true; });
+    return () => {
+      form.removeAttribute("aria-busy");
+      controls.forEach((control, index) => { control.disabled = disabled[index]; });
+    };
   };
 
   // [data-ui-toast="texto"] shows a toast on click (kind in data-ui-toast-kind).
@@ -513,7 +586,7 @@
 
   const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
 
   // [data-ui-copy=texto]: copia e diz que copiou. Sem ele o valor continua
   // sendo texto selecionável num campo — o botão é conveniência, não o caminho.
@@ -528,5 +601,18 @@
     const antes = b.textContent;
     b.textContent = b.getAttribute("data-ui-copied") || "✓";
     setTimeout(() => { b.textContent = antes; }, 1500);
+  });
+
+  // [data-ui-search]: Ctrl/Cmd+K e "/" levam o foco para a caixa de busca. Sem
+  // JavaScript ela continua sendo um formulário GET; o atalho é conveniência.
+  document.addEventListener("keydown", (e) => {
+    const bar = e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")
+      && !document.activeElement?.isContentEditable;
+    if (!(bar || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k"))) return;
+    const box = document.querySelector("[data-ui-search]");
+    if (!box) return;
+    e.preventDefault();
+    box.focus();
+    box.select?.();
   });
 })();

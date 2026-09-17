@@ -9,6 +9,7 @@ description: Complete configuration of headers, proxies, rate limiting, signed c
 |---|---|---|
 | `CSP` | nonce policy (below) | `Content-Security-Policy` |
 | `CSPExtra map[string][]string` | — | adds origins to directives of the default policy |
+| `CSPRemove map[string][]string` | — | takes tokens out of directives of the default policy |
 | `HSTS` | `max-age=31536000; includeSubDomains` (HTTPS only) | `Strict-Transport-Security` |
 | `PermissionsPolicy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` | `Permissions-Policy` |
 | `COOP` | `same-origin` | `Cross-Origin-Opener-Policy` |
@@ -29,6 +30,18 @@ base-uri 'self'; form-action 'self'
 `*http.Request` — `html/template`, `templ`, a handler of your own — so the shell of an app
 being migrated does not need a middleware of its own to reach it.
 Adjust in `Setup` through `a.Security()`.
+
+`CSPExtra` adds to a directive and `CSPRemove` takes away, so an app that inlines no style
+keeps the rest of the default — the nonce, `frame-ancestors`, and the `'self'` that
+`Inline` relaxes for the route being framed — instead of rewriting the whole policy to drop
+one token:
+
+```go
+a.Security().CSPRemove = map[string][]string{"style-src": {"'unsafe-inline'"}, "img-src": {"data:"}}
+```
+
+A directive with nothing left becomes `'none'`. Both are ignored when `CSP` is set: a policy
+written by hand is the whole policy.
 
 ### When the response belongs to a host
 

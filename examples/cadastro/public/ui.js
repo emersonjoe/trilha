@@ -1,4 +1,4 @@
-/* trilha ui 620aed39b176abfe */
+/* trilha ui a6d468fb380c450b */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -17,21 +17,37 @@
     try { localStorage.setItem("ui-theme", next); } catch {}
   });
 
-  // Sidebar: [data-ui-sidebar-toggle] collapses the shell's sidebar; persisted
-  // in localStorage("ui-sidebar") and applied to <html> before the first paint
-  // by the same inline script that applies the theme.
+  // Sidebar: [data-ui-sidebar-toggle] is two things on two screens. Wide, it
+  // collapses the shell's sidebar — a preference, persisted in
+  // localStorage("ui-sidebar") and applied to <html> before the first paint by
+  // the same inline script that applies the theme. Narrow, it opens the drawer
+  // — a moment, not a preference: never stored, gone on the next navigation,
+  // closed by a tap outside, a tap on a link, or Escape (#256).
+  const html = document.documentElement;
+  const narrow = () => matchMedia("(max-width: 767px)").matches;
+  const drawerOpen = () => html.classList.contains("ui-drawer-open");
+  const syncToggles = () => {
+    const open = narrow() ? drawerOpen() : !html.classList.contains("ui-sidebar-collapsed");
+    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", String(open)));
+  };
+  const setDrawer = (open) => { html.classList.toggle("ui-drawer-open", open); syncToggles(); };
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-ui-sidebar-toggle]");
-    if (!b) return;
-    const off = document.documentElement.classList.toggle("ui-sidebar-collapsed");
-    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", String(!off)));
-    try { localStorage.setItem("ui-sidebar", off ? "collapsed" : "open"); } catch {}
+    if (b) {
+      if (narrow()) { setDrawer(!drawerOpen()); return; }
+      const off = html.classList.toggle("ui-sidebar-collapsed");
+      syncToggles();
+      try { localStorage.setItem("ui-sidebar", off ? "collapsed" : "open"); } catch {}
+      return;
+    }
+    if (!drawerOpen() || !narrow()) return;
+    const inside = e.target.closest(".ui-shell > .ui-sidebar");
+    if (!inside || e.target.closest("a[href]")) setDrawer(false);
   });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawerOpen()) setDrawer(false); });
   // The button says what the page already shows: a reload lands with the class
   // in place and the attribute has to agree with it.
-  if (document.documentElement.classList.contains("ui-sidebar-collapsed")) {
-    $("[data-ui-sidebar-toggle]").forEach((t) => t.setAttribute("aria-expanded", "false"));
-  }
+  syncToggles();
 
   // Tabs: [data-ui-tabs] > .ui-tabs-list > .ui-tab[aria-controls] + panels.
   const selectTab = (tab) => {

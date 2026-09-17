@@ -27,6 +27,7 @@ description: The kit's components, variants, assets and the theme contract.
 | Function | Renders |
 |---|---|
 | `Container, Stack, Row, Grid, Spacer` | layout: max width, column, row, responsive grid — see [the layout boxes](/learn/ui-kit#the-boxes-layout-is-built-from) |
+| `Cols(n...)` | how many columns a `Grid` has, 1 to 6: `Cols(2, 4)` is two on a phone and four from 1024px; without it the grid fits as many 16rem columns as the width takes |
 | `Header(children...)`, `Brand(href, name)`, `Nav(...)`, `NavLink(href, label, current)`, `Sidebar(...)` | sticky top bar, brand, navigation (with `aria-current`), side column |
 | `H1, H2, H3, Lead, Muted, Code(s), Kbd(s)` | typography — see [a key and a snippet](/learn/ui-kit#a-key-and-a-snippet) |
 | `Button, Submit, ButtonLink(href, ...)` | `<button type=button>`, `<button type=submit>`, `<a>` styled as a button |
@@ -77,10 +78,10 @@ description: The kit's components, variants, assets and the theme contract.
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error). `NavItem.IconNode`/`EmptyOpts.IconNode` draw the app's own node for an icon outside the set — see [Shell](/reference/shell) |
 | `APIUsage(c, data, opts)` | how much a key was used, where, and when it stopped — see [Auth](/reference/auth) and [demo](/reference/auth#who-is-using-this-key-where-and-when-did-they-stop) |
-| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | the box in the top bar and the grouped result of a `trilha.Search` — see [Search](/reference/search) and [demo](/learn/ui-kit#one-box-several-kinds-of-thing) |
+| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | the box in the top bar (`Submit` adds a button with that label) and the grouped result of a `trilha.Search` — see [Search](/reference/search) and [demo](/learn/ui-kit#one-box-several-kinds-of-thing) |
 | `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, test)`, `ParseConnectionForm(c)` | the external services and their secrets, with the Test button — see [ConnectionsPanel](#connectionspanel) |
-| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(title, actions...)` | the frame of an application with sections: side navigation, top bar, and the title of the screen with its buttons — see [Shell](/reference/shell) and [demo](/learn/ui-kit#the-frame-of-an-internal-app) |
+| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(title, actions...)` | the frame of an application with sections: side navigation, top bar, and the title of the screen with its buttons — `Back{}` above it, `Subtitle("…")` below — see [Shell](/reference/shell) and [demo](/learn/ui-kit#the-frame-of-an-internal-app) |
 | `Stat(label, value, ...)`, `StatHint(text, ...)`, `Sparkline(values, SparkOpts{...})`, `SparklineTitle(values, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(name)` | a number on a panel and the drawing next to it, in SVG written by the server; `ChartTitle` is what makes the drawing an image with a name instead of decoration — see [Charts](/reference/charts) and [demo](/learn/ui-kit#four-numbers-and-the-drawings-beside-them) |
 | `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | what is waiting for whoever is reading, and the count beside the menu item (zero draws nothing) — see [Approval](/reference/approval) and [demo](/reference/approval#the-screen) |
 | `PolicyGrid(policy, PolicyGridOpts{...})` | the role × module grid of an `auth.Policy`, as a form — see [Auth](/reference/auth) and [demo](/reference/auth#a-matrix-people-edit) |
@@ -624,6 +625,30 @@ tokens (`--success-*`, `--warning-*`, `--info-*`, `--destructive-*`) and shadows
 instead of primitive colors. `ui.css` derives `--radius-sm/md/lg/xl`. Dark mode
 is the `dark` class on `<html>` (the `ui.Head` script applies the saved or system
 preference before the first paint).
+
+## Hooks
+
+Every class the kit writes has a rule in `ui.css`, with a short list of exceptions: classes
+written so the app's own stylesheet has something to hang on, with no rule of their own
+because the kit has nothing to say there. A test in `ui/` keeps the list this short — a
+class outside it with no rule is a bug, like the `ui-inline-form` the connections panel
+misspelled for two releases.
+
+| Hook | On |
+|---|---|
+| `ui-assistant`, `ui-assistant-label` | the `Assistant` widget and its label |
+| `ui-audio` | the `Audio` player |
+| `ui-btn-primary` | the default `Button`, beside the variants that do have a rule |
+| `ui-connections`, `-actions`, `-buttons`, `-form`, `-group`, `-kind`, `-list` | the parts of `ConnectionsPanel` |
+| `ui-deadline-card` | each card of `DeadlineCards` |
+| `ui-install-app` | the `InstallApp` button |
+| `ui-list-form` | the form around a `DataTable` with selection |
+| `ui-md-img`, `ui-md-list` | images and lists inside `Markdown` |
+| `ui-quote` | a blockquote inside `Markdown` |
+| `ui-shell-user` | the user corner of the `Shell` |
+| `ui-task` | the box of `TaskProgress` |
+| `ui-tree-branch`, `ui-tree-radio` | the nodes of a `Tree` |
+| `ui-webhooks`, `-events`, `-form`, `-title` | the parts of `WebhooksPanel` |
 
 ## CLI
 

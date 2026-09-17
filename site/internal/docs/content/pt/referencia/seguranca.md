@@ -9,6 +9,7 @@ description: Configuração completa de cabeçalhos, proxies, limite de taxa, co
 |---|---|---|
 | `CSP` | política com nonce (abaixo) | `Content-Security-Policy` |
 | `CSPExtra map[string][]string` | — | acrescenta origens a diretivas da política padrão |
+| `CSPRemove map[string][]string` | — | tira tokens de diretivas da política padrão |
 | `HSTS` | `max-age=31536000; includeSubDomains` (só em HTTPS) | `Strict-Transport-Security` |
 | `PermissionsPolicy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` | `Permissions-Policy` |
 | `COOP` | `same-origin` | `Cross-Origin-Opener-Policy` |
@@ -29,6 +30,17 @@ base-uri 'self'; form-action 'self'
 `html/template`, `templ`, um handler seu —, então a casca de um app em migração não
 precisa de um middleware próprio para alcançá-lo.
 Ajuste em `Setup` por `a.Security()`.
+
+`CSPExtra` acrescenta a uma diretiva e `CSPRemove` tira, então um app que não usa estilo
+inline mantém o resto do padrão — o nonce, o `frame-ancestors` e o `'self'` que o `Inline`
+relaxa para a rota emoldurada — em vez de reescrever a política inteira para tirar um token:
+
+```go
+a.Security().CSPRemove = map[string][]string{"style-src": {"'unsafe-inline'"}, "img-src": {"data:"}}
+```
+
+Uma diretiva que fica sem nada vira `'none'`. Os dois são ignorados quando `CSP` está
+definido: uma política escrita à mão é a política inteira.
 
 ### Quando a resposta é do hospedeiro
 

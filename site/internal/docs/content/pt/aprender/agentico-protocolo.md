@@ -30,6 +30,12 @@ A partir do Trilha 0.124, `trilha spec …` é a mesma chamada que `trilha-spec 
 framework entrega qualquer comando que não conhece ao `trilha-<nome>` do seu `PATH`, como o
 `git` faz. As duas grafias aparecem abaixo; use a que preferir.
 
+A CLI fala inglês por padrão; `TRILHA_LANG=pt` (ou `pt-BR`) põe toda mensagem — `--help`,
+resultados, erros, `doctor` — em português, e faz `init` e `spec new` escreverem seus templates
+(constituição, agentes, o esqueleto da spec) em português. Os formatos de arquivo e o `--json`
+não mudam com isso: nomes de status, de campo e IDs são o protocolo, não mensagens. As saídas
+deste capítulo estão em inglês para bater com o que o agente lê.
+
 ```text
 .trilha/
 ├── .gitignore        ignora runs/ e cache/; o resto é commitado
@@ -80,8 +86,9 @@ trilha spec new "Lembretes de evento"
 # created 001-lembretes-de-evento (.trilha/specs/001-lembretes-de-evento.md)
 ```
 
-Escreva o *porquê* e o *o quê* nesse arquivo; as tasks apontam para ele. Depois corte em
-trabalho que um agente pega sozinho:
+Escreva o *porquê* e o *o quê* nesse arquivo — ou entregue-os na linha de comando com
+`--body "…"` ou `--body-file CAMINHO` (`-` lê stdin), que substitui o esqueleto. As tasks
+apontam para a spec. Depois corte em trabalho que um agente pega sozinho:
 
 ```bash
 trilha spec task add "Campo de lembrete no Event" --spec 001-lembretes-de-evento --status ready \
@@ -117,6 +124,9 @@ created: "2026-09-12T14:03:11Z"
 
 `checks` são programa e argumentos, nunca um shell — um check que precisa de pipe diz isso com
 `sh -c "…"`. É o que torna a evidência confiável: o que rodou é exatamente o que está escrito.
+`--status ready` pula `idea` e `spec` porque os critérios já estão fechados; sem ele a task
+nasce `idea`. O corpo abaixo do front matter é o detalhe que o agente lê — `--body` ou
+`--body-file` o escreve na criação, e nada precisa ser editado à mão.
 
 ## O grafo decide o que roda
 

@@ -30,6 +30,12 @@ From Trilha 0.124 on, `trilha spec …` is the same call as `trilha-spec …`: t
 hands any command it does not know to `trilha-<name>` on your `PATH`, the way `git` does. Both
 spellings appear below; use whichever you like.
 
+The CLI speaks English by default; `TRILHA_LANG=pt` (or `pt-BR`) puts every message — `--help`,
+results, errors, `doctor` — in Portuguese, and makes `init` and `spec new` write their
+templates (constitution, agents, the spec skeleton) in Portuguese. The file formats and
+`--json` never change with it: status names, field names and IDs are the protocol, not
+messages.
+
 ```text
 .trilha/
 ├── .gitignore        ignores runs/ and cache/; everything else is committed
@@ -80,8 +86,9 @@ trilha spec new "Event reminders"
 # created 001-event-reminders (.trilha/specs/001-event-reminders.md)
 ```
 
-Write the *why* and the *what* in that file; the tasks point at it. Then cut it into work an
-agent can pick up on its own:
+Write the *why* and the *what* in that file — or hand them in on the command line with
+`--body "…"` or `--body-file PATH` (`-` reads stdin), which replaces the skeleton. The tasks
+point at the spec. Then cut it into work an agent can pick up on its own:
 
 ```bash
 trilha spec task add "Reminder field on Event" --spec 001-event-reminders --status ready \
@@ -117,6 +124,9 @@ created: "2026-09-12T14:03:11Z"
 
 `checks` are programs and arguments, never a shell — a check that needs a pipe says so with
 `sh -c "…"`. That is what makes the evidence trustworthy: what ran is exactly what is written.
+`--status ready` skips `idea` and `spec` because the criteria are already settled; without it a
+task is born `idea`. The body under the front matter is the detail the agent reads —
+`--body` or `--body-file` writes it at creation, so nothing needs to be edited by hand.
 
 ## The graph decides what runs
 

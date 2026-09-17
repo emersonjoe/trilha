@@ -81,7 +81,13 @@ func Shell(c *trilha.Ctx, o ShellOpts, children ...h.Node) h.Node {
 	}
 	active := activeHref(o.Nav, path)
 
-	side := []h.Node{h.ID(shellNavID)}
+	// The close button is the drawer's own: below 768px the top bar's toggle
+	// sits under the open drawer, so the drawer has to be closable from
+	// inside (#256). The stylesheet hides it on a wide screen.
+	side := []h.Node{h.ID(shellNavID),
+		Button(Ghost(), IconSize(), h.Class("ui-shell-close"), h.Data("ui-sidebar-toggle", ""),
+			h.Aria("controls", shellNavID), h.Aria("label", "Close menu"), Icon("x")),
+	}
 	if o.Brand != nil {
 		side = append(side, h.Div(h.Class("ui-shell-brand"), o.Brand))
 	}
@@ -197,18 +203,32 @@ type Back struct {
 // elsewhere is silent instead of being a second link in the wrong place.
 func (Back) Render(io.Writer) error { return nil }
 
-// PageHeader is the top of a screen: the way back, the title and the actions
-// on the right.
+// Subtitle is the one-line sentence under a PageHeader's title, the one that
+// says what the screen is for. Like Back it is a marker: written among the
+// header's children, drawn under the title row and never among the actions,
+// which is where anything else the header is handed goes (#262).
+type Subtitle string
+
+// Render draws nothing: Subtitle is a marker PageHeader reads.
+func (Subtitle) Render(io.Writer) error { return nil }
+
+// PageHeader is the top of a screen: the way back, the title, the sentence
+// under it and the actions on the right.
 //
 //	ui.PageHeader("Contract 41", ui.Back{Href: "/docs", Label: "Documents"},
+//		ui.Subtitle("Signed on May 3rd; renews yearly."),
 //		ui.ButtonLink("/docs/41/edit", h.Text("Edit")))
 func PageHeader(title string, children ...h.Node) h.Node {
 	var back *Back
+	var subtitle Subtitle
 	actions := make([]h.Node, 0, len(children))
 	for _, ch := range children {
-		if b, ok := ch.(Back); ok {
-			b := b
-			back = &b
+		switch v := ch.(type) {
+		case Back:
+			back = &v
+			continue
+		case Subtitle:
+			subtitle = v
 			continue
 		}
 		actions = append(actions, ch)
@@ -225,5 +245,9 @@ func PageHeader(title string, children ...h.Node) h.Node {
 	if len(actions) > 0 {
 		row = append(row, h.Div(append([]h.Node{h.Class("ui-page-actions")}, actions...)...))
 	}
-	return h.Div(append(n, h.Div(row...))...)
+	n = append(n, h.Div(row...))
+	if subtitle != "" {
+		n = append(n, h.P(h.Class("ui-page-subtitle"), h.Text(string(subtitle))))
+	}
+	return h.Div(n...)
 }

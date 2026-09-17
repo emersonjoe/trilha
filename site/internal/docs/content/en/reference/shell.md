@@ -76,14 +76,19 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 
 A link that is hidden and a route that is not protected is a route anybody can type.
 
-## Collapsing brings no new asset
+## Collapsing is a preference; the drawer is not
 
-The toggle in the header stamps `ui-sidebar-collapsed` on `<html>` and remembers the
-choice in `localStorage`. The inline script `ui.Head` already emits reads it back before
-the first paint, so the sidebar does not jump open and shut on every navigation; on a
-narrow screen the same class starts on, and the sidebar becomes a drawer over the
-content. The code lives in `ui.js`, which the shell already needs — there is nothing new
-to download.
+On a desktop the toggle in the header stamps `ui-sidebar-collapsed` on `<html>`, the page
+takes the whole width, and the choice is remembered in `localStorage`. The inline script
+`ui.Head` already emits reads it back before the first paint, so the sidebar does not jump
+open and shut on every navigation.
+
+Below 768px the sidebar is a drawer: closed by default, opened by the same toggle, over a
+veil, with a close button of its own; a tap on the veil, on a link of the menu or `Escape`
+closes it. The drawer is `ui-drawer-open`, a class nobody remembers — a phone that opens
+the menu is not asking for the menu to be open on every page from now on, and it never
+touches the desktop preference. The code lives in `ui.js`, which the shell already needs —
+there is nothing new to download.
 
 ## PageHeader
 
@@ -96,8 +101,13 @@ ui.PageHeader("Items",
 )
 ```
 
-`ui.Back` is read by `PageHeader` and rendered as the way back, above the title; every
-other child goes to the right of it, which is where the actions of the screen belong.
+`ui.Back` is read by `PageHeader` and rendered as the way back, above the title;
+`ui.Subtitle("…")` is the line under it, in the muted colour; every other child goes to the
+right of the title, which is where the actions of the screen belong.
+
+```go
+ui.PageHeader("Contract 41", ui.Subtitle("Signed on 3 May, expires in 12 months"))
+```
 
 ## Starting from here
 

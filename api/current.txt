@@ -360,6 +360,7 @@ pkg trilha, type Config struct, MaxFormMemory int64
 pkg trilha, type Config struct, Mounts map[string]fs.FS
 pkg trilha, type Config struct, Observability Observability
 pkg trilha, type Config struct, OnSecurityEvent func(SecurityEvent)
+pkg trilha, type Config struct, PipeHeaders []string
 pkg trilha, type Config struct, PreviousSecret []byte
 pkg trilha, type Config struct, Public fs.FS
 pkg trilha, type Config struct, RateLimit RateLimit
@@ -604,6 +605,7 @@ pkg trilha, type Security struct
 pkg trilha, type Security struct, COOP string
 pkg trilha, type Security struct, CSP string
 pkg trilha, type Security struct, CSPExtra map[string][]string
+pkg trilha, type Security struct, CSPRemove map[string][]string
 pkg trilha, type Security struct, Delegated bool
 pkg trilha, type Security struct, FrameOptions string
 pkg trilha, type Security struct, HSTS string
@@ -1650,6 +1652,7 @@ pkg ui, func Checkbox(...h.Node) h.Node
 pkg ui, func Checked(bool) h.Node
 pkg ui, func Code(string) h.Node
 pkg ui, func Collapsible(string, ...h.Node) h.Node
+pkg ui, func Cols(...int) h.Node
 pkg ui, func Combobox(ComboboxOpts, ...h.Node) h.Node
 pkg ui, func ComboboxOptions[T any]([]T, func(T) (string, string)) h.Node
 pkg ui, func Confirm(string, string) h.Node
@@ -1786,6 +1789,7 @@ pkg ui, func VersionList(*trilha.Ctx, []VersionRow, VersionOpts) h.Node
 pkg ui, func WebhooksPanel(*trilha.Ctx, []WebhookRow, []DeliveryRow, WebhooksOpts) h.Node
 pkg ui, func With(...h.Node) FieldOpt
 pkg ui, method (Back) Render(io.Writer) error
+pkg ui, method (Subtitle) Render(io.Writer) error
 pkg ui, type APIKeyRow struct
 pkg ui, type APIKeyRow struct, Calls int
 pkg ui, type APIKeyRow struct, Created time.Time
@@ -2033,6 +2037,7 @@ pkg ui, type SearchBoxOpts struct
 pkg ui, type SearchBoxOpts struct, Hint string
 pkg ui, type SearchBoxOpts struct, Name string
 pkg ui, type SearchBoxOpts struct, Placeholder string
+pkg ui, type SearchBoxOpts struct, Submit string
 pkg ui, type SearchBoxOpts struct, Value string
 pkg ui, type SearchResultsOpts struct
 pkg ui, type SearchResultsOpts struct, Empty string
@@ -2054,6 +2059,7 @@ pkg ui, type SparkOpts struct, Width int
 pkg ui, type Step struct
 pkg ui, type Step struct, Href string
 pkg ui, type Step struct, Label string
+pkg ui, type Subtitle string
 pkg ui, type Tab struct
 pkg ui, type Tab struct, Content h.Node
 pkg ui, type Tab struct, Href string

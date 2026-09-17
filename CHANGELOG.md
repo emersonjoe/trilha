@@ -3,6 +3,71 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.136.0 — 2026-09-17
+
+Spec 157. Closes [#251](https://github.com/emersonjoe/trilha/issues/251),
+[#252](https://github.com/emersonjoe/trilha/issues/252),
+[#253](https://github.com/emersonjoe/trilha/issues/253),
+[#254](https://github.com/emersonjoe/trilha/issues/254),
+[#255](https://github.com/emersonjoe/trilha/issues/255),
+[#256](https://github.com/emersonjoe/trilha/issues/256),
+[#257](https://github.com/emersonjoe/trilha/issues/257),
+[#258](https://github.com/emersonjoe/trilha/issues/258),
+[#259](https://github.com/emersonjoe/trilha/issues/259),
+[#260](https://github.com/emersonjoe/trilha/issues/260),
+[#261](https://github.com/emersonjoe/trilha/issues/261),
+[#262](https://github.com/emersonjoe/trilha/issues/262),
+[#263](https://github.com/emersonjoe/trilha/issues/263),
+[#264](https://github.com/emersonjoe/trilha/issues/264),
+[#265](https://github.com/emersonjoe/trilha/issues/265).
+
+### Added
+
+- **`ui.Cols(n...)` says how many columns a `Grid` has** (#263): `ui.Grid(ui.Cols(2, 4), ...)`
+  is two columns below 1024px and four from there up, 1 to 6, as classes and not a style
+  attribute. Without it the grid keeps fitting as many 16rem columns as the width takes.
+- **`ui.Subtitle("…")` under the title of `ui.PageHeader`** (#262): read like `ui.Back`, drawn as
+  the muted line below the title; everything else is still an action.
+- **`SearchBoxOpts.Submit`** (#264) adds a submit button with that label to the search box, so a
+  GET form without a script has something to tap besides Enter.
+- **`Security.CSPRemove`** (#252) takes tokens out of directives of the default policy —
+  `{"style-src": {"'unsafe-inline'"}}` — keeping the nonce, `frame-ancestors` and the relaxation
+  `Ctx.Inline` applies, instead of rewriting the whole policy with `CSP`. A directive left empty
+  becomes `'none'`.
+- **`Ctx.Pipe` carries `X-Robots-Tag`**, and `Config.PipeHeaders` names more headers to carry
+  (#251). `Set-Cookie`, `Content-Security-Policy` and `Strict-Transport-Security` never travel,
+  listed or not.
+- **`trilha add` takes several recipes in one call** (#253), applied in the order given, each
+  with its own block of output; every name is resolved before the first file is written, so
+  `trilha add login typo` writes nothing and names the typo.
+- **`ui.Badge(ui.Sm())`** now has a rule: the `ui-badge-sm` the kit already wrote is drawn.
+- **The reference lists the kit's hooks** (#265): the classes the kit writes on purpose with no
+  rule, so the app's stylesheet has something to hang on. `TestEveryClassTheKitWritesIsDrawnOrAHook`
+  keeps that list the only exception.
+
+### Fixed
+
+- **`trilha add … --lang pt` after the recipe name was never read** (#254): the flag package
+  stops at the first positional, so `login users audit --lang pt` applied one recipe in English
+  with exit 0. Flags now count wherever they stand.
+- **`ui.Shell` collapsed left the page at width zero** (#255): the collapsed grid is one column,
+  and the page takes the whole width.
+- **The phone drawer of `ui.Shell` is no longer the desktop preference** (#256): below 768px the
+  sidebar is a drawer, closed by default, opened by the toggle over a veil, with a close button
+  of its own; the veil, a link of the menu or `Escape` closes it, and nothing is remembered. The
+  desktop `ui-sidebar-collapsed` still persists in `localStorage`.
+- **`ui.Alert` without an icon put the title beside the description** (#257): without an icon
+  the alert is one column.
+- **`relativeText` pluralises in pt-BR** (#258): "há 8 meses", "em 2 anos".
+- **`ui.CardHeader` makes room for an action** (#260): a `Button` or `Badge` placed in it sits at
+  the right of the title instead of stretching across.
+- **`ui-tabs-list` scrolls sideways** (#261) instead of clipping the last tabs on a phone; a tab
+  keeps its label on one line.
+- **`ui.ConnectionsPanel` wrote `ui-inline` for a class that is `ui-inline-form`** — the same slip
+  #265 reported in an app, found in the kit by the new test.
+- **#259 (`ui.Bars` clipping the longest value) was already fixed by spec 150**, #195: the viewBox
+  grows to fit the label (`TestBarsReservaEspacoParaORotuloMaisLongo`). Closed with no change.
+
 ## 0.135.0 — 2026-09-17
 
 Spec 156. Closes [#250](https://github.com/emersonjoe/trilha/issues/250).

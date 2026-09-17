@@ -470,9 +470,11 @@ what a viewer shows is a different list.
 
 `Pipe` copies the status and a closed list of headers — `Content-Type`,
 `Content-Disposition`, `Content-Length`, `Content-Encoding`, `Content-Range`, `Accept-Ranges`,
-`Cache-Control`, `ETag`, `Last-Modified`, `Expires`, `Vary`, `Age` — and nothing else.
-`Set-Cookie` in particular does not travel: the body of another service does not get to sit on
-this one's session. For a whole prefix forwarded to another service, see
+`Cache-Control`, `ETag`, `Last-Modified`, `Expires`, `Vary`, `Age`, `X-Robots-Tag` — plus the
+names in `Config.PipeHeaders`, for an upstream whose own header the app wants kept. `Set-Cookie`
+does not travel, listed or not, and neither do `Content-Security-Policy` and
+`Strict-Transport-Security`: the body of another service does not get to sit on this one's
+session or overrule its policy. For a whole prefix forwarded to another service, see
 [Upstreams](/reference/upstreams); `Pipe` is the one response you fetched yourself.
 
 ## Public links

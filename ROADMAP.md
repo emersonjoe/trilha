@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.135.0)
+## Onde o Trilha está (setembro de 2026, v0.136.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -286,6 +286,7 @@ registra a divisão. O que cabe a este repositório é conviver com eles.
 122. ~~[#246](https://github.com/emersonjoe/trilha/issues/246) O tutorial ainda exigia CLI do usuário mesmo depois do Product Studio.~~ **Entregue na 0.132.0** (spec 153): o capítulo agora ensina criação, execução, evidências e aprovação pela UI do Trilha Cloud 0.2.0, com os papéis de Trilha, Trilha Spec e Trilha Runner, fronteiras NIST/OWASP e duas capturas da homologação real.
 123. ~~[#248](https://github.com/emersonjoe/trilha/issues/248) Agentes precisavam ler código e documentação livre para descobrir componentes, ícones e tokens operacionais do kit.~~ **Entregue na 0.133.0** (spec 154): `trilha ui components --json`, `trilha ui icons --json` e `trilha inspect api ui.Component` publicam contratos estáveis; o tema claro e escuro ganhou tokens semânticos de intenção e sombras.
 124. ~~[#249](https://github.com/emersonjoe/trilha/issues/249) Cada produto reimplementava o ciclo de erro de formulários assíncronos, e uma falha dentro do diálogo podia aparecer atrás dele.~~ **Entregue na 0.133.0** (spec 154): `ui.FormError`, `ui.formError`, `ui.clearFormErrors` e `ui.formPending` mantêm feedback, foco, acessibilidade e estado pendente dentro do formulário; o site demonstra o fluxo completo nas duas línguas.
+125. ~~Quinze issues abertas pelo uso do kit e da CLI num app real — a página com largura zero com o menu recolhido, a gaveta do celular que não fechava, o `trilha add login users audit --lang pt` que aplicava uma receita em inglês, o `Grid` sem como dizer quantas colunas.~~ **Entregues na 0.136.0** (spec 157, [#251](https://github.com/emersonjoe/trilha/issues/251) a [#265](https://github.com/emersonjoe/trilha/issues/265)): `ui.Cols`, `ui.Subtitle`, `SearchBoxOpts.Submit`, `Security.CSPRemove`, `Config.PipeHeaders`, o `add` com várias receitas e flags em qualquer posição, a gaveta separada da preferência do desktop, e o teste que garante que toda classe que o kit escreve tem regra ou é gancho documentado.
 
 ## O que não vamos fazer, e por quê
 

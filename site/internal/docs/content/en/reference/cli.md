@@ -829,6 +829,7 @@ them into the project as files it then owns.
 trilha add              # what there is, one line each
 trilha add audit
 trilha add audit --dry-run
+trilha add login users audit --lang pt   # several at once, in order; a flag counts anywhere
 trilha add --list --json    # for the MCP server and an editor's agent
 ```
 
@@ -845,6 +846,10 @@ Doc: https://trilha.dev/reference/observability
 The difference from `generate` is the direction: **`generate crud` writes from your code** — a
 struct becomes a screen — and **`add` writes from a recipe of the framework's**. Both end with
 `gen`, and both leave `trilha check` green.
+
+Several names go in one call and are applied in the order given, each with its own block
+of output; `--lang` and `--dry-run` count wherever they stand. Every name is checked before
+the first file is written, so `trilha add login typo` writes nothing and names the typo.
 
 ### Running it twice adds; it does not start over
 

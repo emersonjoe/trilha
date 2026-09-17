@@ -27,6 +27,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | Função | Renderiza |
 |---|---|
 | `Container, Stack, Row, Grid, Spacer` | layout: largura máxima, coluna, linha, grade responsiva — veja [os blocos do layout](/pt/aprender/interface-com-ui#os-blocos-com-que-o-layout-e-construido) |
+| `Cols(n...)` | quantas colunas um `Grid` tem, de 1 a 6: `Cols(2, 4)` é duas no celular e quatro a partir de 1024px; sem ele a grade cabe quantas colunas de 16rem a largura permitir |
 | `Header(children...)`, `Brand(href, nome)`, `Nav(...)`, `NavLink(href, rótulo, atual)`, `Sidebar(...)` | barra fixa no topo, marca, navegação (com `aria-current`), coluna lateral |
 | `H1, H2, H3, Lead, Muted, Code(s), Kbd(s)` | tipografia — veja [uma tecla e um trecho](/pt/aprender/interface-com-ui#uma-tecla-e-um-trecho) |
 | `Button, Submit, ButtonLink(href, ...)` | `<button type=button>`, `<button type=submit>`, `<a>` com cara de botão |
@@ -77,10 +78,10 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação). `NavItem.IconNode`/`EmptyOpts.IconNode` desenham o próprio nó do app para um ícone fora do conjunto — veja [Shell](/pt/referencia/shell) |
 | `APIUsage(c, dados, opts)` | quanto uma chave foi usada, onde, e quando parou — veja [Auth](/pt/referencia/auth) e [demo](/pt/referencia/auth#quem-esta-usando-esta-chave-onde-e-quando-parou) |
-| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | a caixa da barra de cima e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) e [demo](/pt/aprender/interface-com-ui#uma-caixa-varios-tipos-de-coisa) |
+| `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | a caixa da barra de cima (`Submit` acrescenta um botão com esse rótulo) e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) e [demo](/pt/aprender/interface-com-ui#uma-caixa-varios-tipos-de-coisa) |
 | `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
 | `ConnectionsPanel(c, conns, opts)`, `ConnectionStatus(c, teste)`, `ParseConnectionForm(c)` | os serviços externos e seus segredos, com o botão Testar — veja [ConnectionsPanel](#connectionspanel) |
-| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(título, ações...)` | a moldura de um app com seções: navegação lateral, barra de cima e o título da tela com seus botões — veja [Shell](/pt/referencia/shell) e [demo](/pt/aprender/interface-com-ui#a-moldura-de-um-app-interno) |
+| `Shell(c, ShellOpts{...}, children...)`, `PageHeader(título, ações...)` | a moldura de um app com seções: navegação lateral, barra de cima e o título da tela com seus botões — `Back{}` acima dele, `Subtitle("…")` abaixo — veja [Shell](/pt/referencia/shell) e [demo](/pt/aprender/interface-com-ui#a-moldura-de-um-app-interno) |
 | `Stat(rótulo, valor, ...)`, `StatHint(texto, ...)`, `Sparkline(valores, SparkOpts{...})`, `SparklineTitle(valores, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(nome)` | um número no painel e o desenho ao lado, em SVG escrito pelo servidor; `ChartTitle` é o que faz o desenho ser uma imagem com nome em vez de enfeite — veja [Gráficos](/pt/referencia/graficos) e [demo](/pt/aprender/interface-com-ui#quatro-numeros-e-os-desenhos-ao-lado) |
 | `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | o que espera decisão de quem está lendo, e a contagem ao lado do item de menu (zero não desenha nada) — veja [Approval](/pt/referencia/approval) e [demo](/pt/referencia/approval#a-tela) |
 | `PolicyGrid(policy, PolicyGridOpts{...})` | a grade papel × módulo de um `auth.Policy`, como formulário — veja [Auth](/pt/referencia/auth) e [demo](/pt/referencia/auth#matriz-que-se-edita) |
@@ -626,6 +627,30 @@ de intenção (`--success-*`, `--warning-*`, `--info-*`, `--destructive-*`) e so
 em vez de cores primitivas. `ui.css` deriva `--radius-sm/md/lg/xl`. O modo
 escuro é a classe `dark` no `<html>` (o script de `ui.Head` aplica a preferência salva ou a
 do sistema antes da primeira pintura).
+
+## Ganchos
+
+Toda classe que o kit escreve tem uma regra no `ui.css`, com uma lista curta de exceções:
+classes escritas para a folha de estilo do app ter onde se pendurar, sem regra própria porque
+o kit não tem nada a dizer ali. Um teste em `ui/` mantém a lista curta assim — uma classe
+fora dela sem regra é bug, como o `ui-inline-form` que o painel de conexões escreveu errado
+por duas versões.
+
+| Gancho | Em |
+|---|---|
+| `ui-assistant`, `ui-assistant-label` | o widget `Assistant` e seu rótulo |
+| `ui-audio` | o player `Audio` |
+| `ui-btn-primary` | o `Button` padrão, ao lado das variantes que têm regra |
+| `ui-connections`, `-actions`, `-buttons`, `-form`, `-group`, `-kind`, `-list` | as partes do `ConnectionsPanel` |
+| `ui-deadline-card` | cada cartão de `DeadlineCards` |
+| `ui-install-app` | o botão `InstallApp` |
+| `ui-list-form` | o formulário em volta de um `DataTable` com seleção |
+| `ui-md-img`, `ui-md-list` | imagens e listas dentro de `Markdown` |
+| `ui-quote` | uma citação dentro de `Markdown` |
+| `ui-shell-user` | o canto do usuário do `Shell` |
+| `ui-task` | a caixa do `TaskProgress` |
+| `ui-tree-branch`, `ui-tree-radio` | os nós de uma `Tree` |
+| `ui-webhooks`, `-events`, `-form`, `-title` | as partes do `WebhooksPanel` |
 
 ## CLI
 

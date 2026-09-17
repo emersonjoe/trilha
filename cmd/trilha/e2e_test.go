@@ -1564,3 +1564,49 @@ func refused(t *testing.T, ctx context.Context, c *mcp.Client, tool, args string
 	}
 	return res.IsError
 }
+
+// #253, #254 — several recipes in one call, the language flag wherever it
+// stands, and a name nobody answers to refuses the whole call before a file
+// is written.
+func TestAddSeveralRecipesE2E(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not in PATH")
+	}
+	repo, _ := filepath.Abs(filepath.Join("..", ".."))
+	tmp := t.TempDir()
+	t.Setenv("TRILHA_LANG", "en")
+	t.Setenv("TRILHA_SECRET", "um-segredo-de-teste-com-mais-de-32-bytes")
+	cli := buildCLI(t, repo, tmp)
+
+	proj := filepath.Join(tmp, "loja")
+	run(t, tmp, cli, "new", proj, "--module", "example.com/loja", "--trilha-dir", repo)
+
+	if out, err := runErr(t, proj, cli, "add", "login", "typo"); err == nil {
+		t.Fatalf("add login typo wrote:\n%s", out)
+	} else if !strings.Contains(out, "typo") {
+		t.Fatalf("the refusal does not name the typo:\n%s", out)
+	}
+	if _, err := os.Stat(filepath.Join(proj, "app", "entrar")); err == nil {
+		t.Fatal("add login typo wrote login before refusing typo")
+	}
+
+	out := run(t, proj, cli, "add", "login", "users", "audit", "--lang", "pt")
+	for _, want := range []string{"login:", "users:", "audit:", "app/entrar/page.go", "app/usuarios/"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("add login users audit --lang pt did not print %q:\n%s", want, out)
+		}
+	}
+	page, err := os.ReadFile(filepath.Join(proj, "app", "entrar", "page.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(page), "Entrar") {
+		t.Fatalf("--lang pt after the names was not read:\n%s", page)
+	}
+	for _, dir := range []string{"usuarios", "auditoria"} {
+		if _, err := os.Stat(filepath.Join(proj, "app", dir)); err != nil {
+			t.Fatalf("app/%s missing after add login users audit: %v", dir, err)
+		}
+	}
+	run(t, proj, cli, "check")
+}

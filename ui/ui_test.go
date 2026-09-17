@@ -232,7 +232,12 @@ func TestHeadAndAssets(t *testing.T) {
 	// that turns a DataTable row into a card below 640px, with the header
 	// moved off screen by clip-path rather than display:none, so a screen
 	// reader still gets it. There were 456 bytes left, forty-nine short.
-	if len(Asset("ui.css")) > 38<<10 || len(Asset("ui.js")) > 28<<10 {
+	//
+	// 0.136.0 raised them to 40 KB and 29 KB: spec 157 drew what the kit
+	// already wrote (the search results, the small badge, the read-only field),
+	// gave the grid its column classes and the phone drawer its own state,
+	// with the veil and the close button that make a drawer a drawer.
+	if len(Asset("ui.css")) > 40<<10 || len(Asset("ui.js")) > 29<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {

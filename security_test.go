@@ -321,3 +321,30 @@ func TestCSPReportaSoEmDev(t *testing.T) {
 		t.Fatalf("prod tem Reporting-Endpoints: %q", got)
 	}
 }
+
+// #252 — taking one token out of the default policy is not writing the whole
+// policy: CSPRemove subtracts, the rest of the default stays, and Inline's
+// same-origin framing keeps working because Security.CSP is still empty.
+func TestCSPRemoveKeepsTheDefaultAndItsFraming(t *testing.T) {
+	a := New(Config{Logger: quiet(), Security: Security{
+		CSPRemove: map[string][]string{"style-src": {"'unsafe-inline'"}, "img-src": {"data:"}, "font-src": {"'self'"}},
+		CSPExtra:  map[string][]string{"style-src": {"https://fonts.googleapis.com"}},
+	}})
+	a.Register(Route{Pattern: "/", Page: func(c *Ctx) (h.Node, error) { return h.Text("x"), nil }})
+	a.Register(Route{Pattern: "/doc", Page: func(c *Ctx) (h.Node, error) {
+		return nil, c.Inline("contrato.pdf", strings.NewReader(pdfBytes), "")
+	}})
+	csp := get(t, a, "GET", "/", "", nil).Header().Get("Content-Security-Policy")
+	for _, want := range []string{"style-src 'self' https://fonts.googleapis.com; ", "img-src 'self'; ", "font-src 'none'; ", "frame-ancestors 'none'"} {
+		if !strings.Contains(csp, want) {
+			t.Errorf("missing %q in %s", want, csp)
+		}
+	}
+	if strings.Contains(csp, "'unsafe-inline'") {
+		t.Errorf("'unsafe-inline' is still there: %s", csp)
+	}
+	rec := get(t, a, "GET", "/doc", "", nil)
+	if !strings.Contains(rec.Header().Get("Content-Security-Policy"), "frame-ancestors 'self'") || rec.Header().Get("X-Frame-Options") != "SAMEORIGIN" {
+		t.Fatalf("Inline lost its framing: %v", rec.Header())
+	}
+}

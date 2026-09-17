@@ -474,8 +474,11 @@ que um visor mostra é outra lista.
 
 O `Pipe` copia o status e uma lista fechada de cabeçalhos — `Content-Type`,
 `Content-Disposition`, `Content-Length`, `Content-Encoding`, `Content-Range`, `Accept-Ranges`,
-`Cache-Control`, `ETag`, `Last-Modified`, `Expires`, `Vary`, `Age` — e mais nada. O
-`Set-Cookie`, em especial, não viaja: o corpo de outro serviço não senta na sessão deste. Para
+`Cache-Control`, `ETag`, `Last-Modified`, `Expires`, `Vary`, `Age`, `X-Robots-Tag` — mais os
+nomes em `Config.PipeHeaders`, para um upstream cujo cabeçalho próprio o app quer manter. O
+`Set-Cookie` não viaja, listado ou não, nem o `Content-Security-Policy` e o
+`Strict-Transport-Security`: o corpo de outro serviço não senta na sessão deste nem passa por
+cima da política dele. Para
 um prefixo inteiro encaminhado a outro serviço, veja [Upstreams](/pt/referencia/upstreams); o
 `Pipe` é a resposta que você mesmo foi buscar.
 

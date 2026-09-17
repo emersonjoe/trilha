@@ -115,7 +115,7 @@ func connectionGroup(c *trilha.Ctx, label string, testable bool, rows []trilha.C
 }
 
 func connectionAction(o ConnectionsOpts, id, action string, button h.Node) h.Node {
-	return h.Form(h.Method("post"), h.Action(o.Path), h.Class("ui-inline"), o.CSRF,
+	return h.Form(h.Method("post"), h.Action(o.Path), h.Class("ui-inline-form"), o.CSRF,
 		h.Input(h.Type("hidden"), h.Name("_action"), h.Value(action)),
 		h.Input(h.Type("hidden"), h.Name("id"), h.Value(id)),
 		button)

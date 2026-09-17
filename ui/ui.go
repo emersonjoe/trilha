@@ -40,7 +40,7 @@ func Head(c *trilha.Ctx) h.Node {
 	)
 }
 
-const themeInit = `(()=>{var s;try{var t=localStorage.getItem("ui-theme");s=localStorage.getItem("ui-sidebar")}catch(e){}if(!t)t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.classList.add(t);if(s==="collapsed"||(!s&&matchMedia("(max-width: 767px)").matches))document.documentElement.classList.add("ui-sidebar-collapsed")})()`
+const themeInit = `(()=>{var s;try{var t=localStorage.getItem("ui-theme");s=localStorage.getItem("ui-sidebar")}catch(e){}if(!t)t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.classList.add(t);if(s==="collapsed")document.documentElement.classList.add("ui-sidebar-collapsed")})()`
 
 // ---- variants (extra class attributes, composable like any h attribute) -----
 
@@ -128,6 +128,37 @@ func Grid(children ...h.Node) h.Node {
 	return h.Div(append([]h.Node{h.Class("ui-grid")}, children...)...)
 }
 func Spacer() h.Node { return h.Div(h.Class("ui-spacer")) }
+
+// Cols says how many columns a Grid has, from 1 to 6: the first number below
+// 1024px, the second from there up. One number holds for both. Without it a
+// Grid fits as many 16rem columns as the width takes, which is one on a phone
+// and, on a wide screen, as many as there are children — right for cards of
+// text, wrong for a row of eight Stats or four charts (#263). Only the caller
+// knows what is inside the cell, so the caller says.
+//
+//	ui.Grid(ui.Cols(2, 4), stat1, stat2, stat3, stat4)
+//
+// It is classes and not a style attribute, so a page that took
+// 'unsafe-inline' out of style-src still lays out.
+func Cols(n ...int) h.Node {
+	if len(n) == 0 {
+		return h.Group()
+	}
+	clamp := func(v int) string {
+		if v < 1 {
+			v = 1
+		}
+		if v > 6 {
+			v = 6
+		}
+		return strconv.Itoa(v)
+	}
+	cls := []string{"ui-grid-" + clamp(n[0])}
+	if len(n) > 1 && n[1] != n[0] {
+		cls = append(cls, "ui-grid-lg-"+clamp(n[1]))
+	}
+	return h.Class(cls...)
+}
 
 // Header is a sticky top bar; Brand is the app name link; Nav holds links.
 func Header(children ...h.Node) h.Node {

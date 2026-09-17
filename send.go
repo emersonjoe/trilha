@@ -528,7 +528,10 @@ func disposition(kind, name string) string {
 // pipeHeaders is what may cross from another service's answer into ours. It
 // is a list, not a filter: a header nobody thought about does not travel, and
 // Set-Cookie in particular never does — the body of another service does not
-// get to sit on this one's session.
+// get to sit on this one's session. Content-Security-Policy is left out on
+// purpose: a policy of another service ruling over this one's page is a
+// decision applySecurity makes, not one an upstream gets to make (#251).
+// Config.PipeHeaders adds names; pipeNever is what no list lets through.
 var pipeHeaders = []string{
 	"Content-Type",
 	"Content-Disposition",
@@ -542,7 +545,13 @@ var pipeHeaders = []string{
 	"Expires",
 	"Vary",
 	"Age",
+	"X-Robots-Tag",
 }
+
+// pipeNever are the headers no Config.PipeHeaders lets through: they carry
+// state or a policy of the other service, and listing them is a mistake this
+// list keeps quiet rather than honours.
+var pipeNever = map[string]bool{"Set-Cookie": true, "Set-Cookie2": true, "Content-Security-Policy": true, "Content-Security-Policy-Report-Only": true, "Strict-Transport-Security": true}
 
 // Pipe hands the answer of another service to the browser: the status, the
 // headers on the closed list above, and the body copied as a stream. The
@@ -557,9 +566,20 @@ func (c *Ctx) Pipe(res *http.Response) error {
 	}
 	defer res.Body.Close()
 	dst := c.w.Header()
-	for _, k := range pipeHeaders {
+	copyHeader := func(k string) {
+		if pipeNever[http.CanonicalHeaderKey(k)] {
+			return
+		}
 		for _, v := range res.Header.Values(k) {
 			dst.Add(k, v)
+		}
+	}
+	for _, k := range pipeHeaders {
+		copyHeader(k)
+	}
+	if c.app != nil {
+		for _, k := range c.app.cfg.PipeHeaders {
+			copyHeader(k)
 		}
 	}
 	if dst.Get("X-Content-Type-Options") == "" {

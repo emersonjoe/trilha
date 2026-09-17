@@ -90,6 +90,11 @@ type Config struct {
 	Drafts DraftStore
 	// Security tunes the hardening headers (zero value = defaults).
 	Security Security
+	// PipeHeaders are response headers Ctx.Pipe copies from another
+	// service's answer on top of the ones it always copies. It adds to that
+	// list and never replaces it: Set-Cookie does not travel even when named
+	// here, for the same reason it is not on the list.
+	PipeHeaders []string
 	// TrustedProxies lists CIDRs whose X-Forwarded-For/Proto are honoured.
 	TrustedProxies []string
 	// AllowedHosts refuses a request whose Host is not in the list, with 400,

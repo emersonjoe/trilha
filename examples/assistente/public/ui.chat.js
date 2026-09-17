@@ -1,4 +1,4 @@
-/* trilha ui 254825a44313b871 */
+/* trilha ui ef3dff2f7ad751dc */
 // ui.chat.js — the behavior behind ui.Chat: send the message, read the events
 // from ai.Serve and render the answer as it arrives. Without this file the
 // form still submits and the page comes back with the answer; this only makes
@@ -21,6 +21,7 @@
     const form = document.getElementById(id + "-form");
     const input = document.getElementById(id + "-input");
     const state = document.getElementById(id + "-state");
+    const sourcesLabel = root.getAttribute("data-trilha-chat-sources") || "Sources";
     if (!action || !log || !form || !input) return;
 
     let history = [];
@@ -57,10 +58,44 @@
       const wrap = add(el("ui-msg ui-msg-assistant"));
       const body = el("ui-md");
       wrap.appendChild(body);
-      return body;
+      return { wrap, body };
     };
 
-    const handle = (body, name, data) => {
+    const showSources = (wrap, sources) => {
+      const old = wrap.querySelector(".ui-chat-sources");
+      if (old) old.remove();
+      if (!Array.isArray(sources) || sources.length === 0) return;
+      const box = el("ui-chat-sources");
+      const title = document.createElement("strong");
+      title.textContent = sourcesLabel;
+      const list = document.createElement("ul");
+      for (const source of sources) {
+        const item = document.createElement("li");
+        const href = typeof source.href === "string" ? source.href.trim() : "";
+        const safe = href && (/^(https?:|mailto:)/i.test(href) || href.startsWith("/") || href.startsWith("#") || href.startsWith("./") || !/^[a-z][a-z0-9+.-]*:/i.test(href));
+        if (safe) {
+          const link = document.createElement("a");
+          link.href = href;
+          link.textContent = source.label || href;
+          if (/^https?:/i.test(href)) link.rel = "noopener nofollow ugc";
+          item.appendChild(link);
+        } else {
+          item.appendChild(document.createTextNode(source.label || ""));
+        }
+        if (source.hint) {
+          const hint = document.createElement("span");
+          hint.className = "ui-chat-source-hint";
+          hint.textContent = source.hint;
+          item.appendChild(hint);
+        }
+        list.appendChild(item);
+      }
+      box.append(title, list);
+      wrap.appendChild(box);
+    };
+
+    const handle = (bubble, name, data) => {
+      const { wrap, body } = bubble;
       if (name === "text") {
         body.textContent += data;
       } else if (name === "tool_call" || name === "tool_result" || name === "handoff") {
@@ -69,6 +104,8 @@
         if (name === "tool_call") add(el("ui-chat-step", d.tool + "(" + (d.arguments || "") + ")"));
         else if (name === "tool_result") add(el("ui-chat-step", d.tool + " → " + (d.output || "")));
         else add(el("ui-chat-step", "→ " + (d.to || "")));
+      } else if (name === "sources") {
+        showSources(wrap, JSON.parse(data));
       } else if (name === "done") {
         const d = JSON.parse(data);
         // outerHTML, not innerHTML: the rendered answer is already a .ui-md
@@ -76,6 +113,7 @@
         // ends up identical to a reloaded page.
         if (d.html) body.outerHTML = d.html;
         else if (d.output) body.textContent = d.output;
+        if (d.sources) showSources(wrap, d.sources);
         history = d.history || history;
         say("");
       } else if (name === "error") {
@@ -99,7 +137,7 @@
       say("…");
       const button = form.querySelector("button");
       if (button) button.disabled = true;
-      const body = bubble();
+      const answer = bubble();
       try {
         const res = await fetch(action, {
           method: "POST",
@@ -129,13 +167,13 @@
               else if (line.startsWith("data: ")) data.push(line.slice(6));
               else if (line.startsWith("data:")) data.push(line.slice(5));
             }
-            handle(body, name, data.join("\n"));
+            handle(answer, name, data.join("\n"));
           }
         }
       } catch (err) {
         // The message goes back into the field: the answer was lost, the
         // question was not, and sending it again is one key away.
-        if (!body.textContent) body.parentNode.remove();
+        if (!answer.body.textContent) answer.wrap.remove();
         add(el("ui-msg ui-msg-note", String(err.message || err)));
         if (!input.value) input.value = message;
         say("");

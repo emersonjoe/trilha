@@ -110,15 +110,15 @@ resultado parecia uma receita que sabia o idioma e não o usava.
 
 ## Tarefas
 
-- [ ] T001 Kit: testes que falham em `ui/` (shell, alert/card/tabs via classes, `Cols`,
+- [x] T001 Kit: testes que falham em `ui/` (shell, alert/card/tabs via classes, `Cols`,
       `Subtitle`, `Submit`, plural, classes órfãs) e as correções em `ui.css`, `ui.js`,
       `ui.go`, `shell.go`, `search.go`, `format.go`
-- [ ] T002 Runtime: `TestPipeCarriesXRobotsTag`/`Config.PipeHeaders` em `send_test.go`;
+- [x] T002 Runtime: `TestPipeCarriesXRobotsTag`/`Config.PipeHeaders` em `send_test.go`;
       `TestCSPRemoveKeepsInlineFraming` em `security_test.go`
-- [ ] T003 CLI: `parseAddArgs` com teste unitário; `TestAddSeveralRecipesE2E`
-- [ ] T004 `trilha ui` nos exemplos e no site; `make golden`; `make api`
-- [ ] T005 Referência nas duas locales (`shell`, `ui`, `ctx`, `security`, `cli`)
-- [ ] T006 `CHANGELOG.md`, `version`, `ROADMAP.md`
+- [x] T003 CLI: `parseAddArgs` com teste unitário; `TestAddSeveralRecipesE2E`
+- [x] T004 `trilha ui` nos exemplos e no site; `make golden`; `make api`
+- [x] T005 Referência nas duas locales (`shell`, `ui`, `ctx`, `security`, `cli`)
+- [x] T006 `CHANGELOG.md`, `version`, `ROADMAP.md`
 - [ ] T007 `make test` verde e `make release VERSION=0.136.0 ISSUES="251 … 265"`
 
 ## Aceitação

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 
@@ -22,6 +23,13 @@ type Security struct {
 	// CSPExtra adds sources to directives of the default policy, e.g.
 	// {"style-src": {"https://fonts.googleapis.com"}}.
 	CSPExtra map[string][]string
+	// CSPRemove takes sources out of directives of the default policy, e.g.
+	// {"style-src": {"'unsafe-inline'"}} for an app that writes no style
+	// attribute. It edits the default instead of replacing it, so what
+	// depends on the default — Ctx.Inline relaxing frame-ancestors for a
+	// document of the same origin — keeps working. A directive left with
+	// nothing is written as 'none'. Ignored when CSP is set.
+	CSPRemove map[string][]string
 	// HSTS is sent only over HTTPS (TLS or a trusted proxy saying so).
 	HSTS string
 	// PermissionsPolicy restricts browser features.
@@ -95,8 +103,20 @@ func (s *Security) csp(nonce string) string {
 	for _, d := range defaultCSP {
 		seen[d[0]] = true
 		v := d[1]
+		if gone := s.CSPRemove[d[0]]; len(gone) > 0 {
+			var keep []string
+			for _, tok := range strings.Fields(v) {
+				if !slices.Contains(gone, tok) {
+					keep = append(keep, tok)
+				}
+			}
+			v = strings.Join(keep, " ")
+		}
 		if extra := s.CSPExtra[d[0]]; len(extra) > 0 {
-			v += " " + strings.Join(extra, " ")
+			v = strings.TrimSpace(v + " " + strings.Join(extra, " "))
+		}
+		if v == "" {
+			v = "'none'"
 		}
 		parts = append(parts, d[0]+" "+v)
 	}

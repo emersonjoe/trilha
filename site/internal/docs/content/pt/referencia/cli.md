@@ -823,6 +823,7 @@ escreve no projeto, como arquivos que ele passa a possuir.
 trilha add              # o que existe, uma linha cada
 trilha add audit
 trilha add audit --dry-run
+trilha add login users audit --lang pt   # várias de uma vez, na ordem; a flag vale em qualquer posição
 trilha add --list --json    # para o servidor MCP e o agente do editor
 ```
 
@@ -839,6 +840,10 @@ Doc: https://trilha.dev/reference/observability
 A diferença para o `generate` é a direção: **o `generate crud` escreve a partir do seu código** —
 um struct vira tela — e o **`add` escreve a partir de uma receita do framework**. Os dois terminam
 em `gen`, e os dois deixam o `trilha check` verde.
+
+Vários nomes vão numa chamada só e são aplicados na ordem dada, cada um com seu bloco de
+saída; `--lang` e `--dry-run` valem em qualquer posição. Todo nome é conferido antes do
+primeiro arquivo ser escrito, então `trilha add login typo` não escreve nada e aponta o erro.
 
 ### Rodar duas vezes acrescenta; não recomeça
 

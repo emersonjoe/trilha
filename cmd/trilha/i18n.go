@@ -56,7 +56,7 @@ Usage:
   trilha openapi [-o file] [--check]                write the OpenAPI document of the API routes
   trilha audit [--no-vuln]                          check the project's security and configuration
   trilha secret                                     print a signing key for TRILHA_SECRET
-  trilha add [recipe] [--dry-run] [--list --json]   write a framework recipe into the project
+  trilha add [recipe...] [--lang pt] [--dry-run]    write framework recipes into the project
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
   trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
   trilha ui components [--json]                     list the component catalogue for tools and agents
@@ -88,7 +88,7 @@ Uso:
   trilha openapi [-o arquivo] [--check]               escreve o documento OpenAPI das rotas de API
   trilha audit [--no-vuln]                            verifica segurança e configuração do projeto
   trilha secret                                       imprime uma chave para o TRILHA_SECRET
-  trilha add [receita] [--dry-run] [--list --json]    escreve uma receita do framework no projeto
+  trilha add [receita...] [--lang pt] [--dry-run]     escreve receitas do framework no projeto
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
   trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
   trilha ui components [--json]                       lista o catálogo de componentes para ferramentas e agentes

@@ -74,13 +74,17 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error {
 
 Link escondido com rota desprotegida é rota que qualquer um digita.
 
-## Recolher não traz asset novo
+## Recolher é preferência; a gaveta não é
 
-O botão do cabeçalho carimba `ui-sidebar-collapsed` no `<html>` e guarda a escolha no
-`localStorage`. O script inline que o `ui.Head` já emite lê isso antes da primeira
-pintura, então a barra não abre e fecha a cada navegação; em tela estreita a mesma classe
-começa ligada e a barra vira uma gaveta sobre o conteúdo. O código está no `ui.js`, que o
-shell já precisa — não há nada novo para baixar.
+No desktop o botão do cabeçalho carimba `ui-sidebar-collapsed` no `<html>`, a página toma a
+largura inteira e a escolha fica no `localStorage`. O script inline que o `ui.Head` já emite
+lê isso antes da primeira pintura, então a barra não abre e fecha a cada navegação.
+
+Abaixo de 768px a barra é uma gaveta: fechada por padrão, aberta pelo mesmo botão, sobre um
+véu, com um botão de fechar próprio; toque no véu, num link do menu ou `Escape` fecha. A
+gaveta é `ui-drawer-open`, uma classe que ninguém guarda — um celular que abre o menu não
+está pedindo o menu aberto em toda página daqui em diante, e nunca mexe na preferência do
+desktop. O código está no `ui.js`, que o shell já precisa — não há nada novo para baixar.
 
 ## PageHeader
 
@@ -94,7 +98,12 @@ ui.PageHeader("Itens",
 ```
 
 `ui.Back` é lido pelo `PageHeader` e desenhado como o caminho de volta, acima do título;
-todo outro filho vai à direita dele, que é o lugar das ações da tela.
+`ui.Subtitle("…")` é a linha abaixo dele, na cor apagada; todo outro filho vai à direita do
+título, que é o lugar das ações da tela.
+
+```go
+ui.PageHeader("Contrato 41", ui.Subtitle("Assinado em 3 de maio, vence em 12 meses"))
+```
 
 ## Começar daqui
 

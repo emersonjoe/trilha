@@ -313,7 +313,11 @@ func relativeText(lang string, d time.Duration) string {
 		n, unit = int(d/(365*24*time.Hour)), "y"
 	}
 	if lang == "pt-BR" {
+		// min, h and d are abbreviations and do not bend; mês and ano do (#258).
 		pt := map[string]string{"min": "min", "h": "h", "d": "d", "mo": "mês", "y": "ano"}
+		if n > 1 {
+			pt["mo"], pt["y"] = "meses", "anos"
+		}
 		if future {
 			return fmt.Sprintf("em %d %s", n, pt[unit])
 		}

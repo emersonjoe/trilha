@@ -1720,6 +1720,11 @@
         "name": "Hint",
         "type": "string",
         "doc": "Hint is the shortcut written beside the box."
+      },
+      {
+        "name": "Submit",
+        "type": "string",
+        "doc": "Submit is the label of a send button after the field; empty draws none."
       }
     ]
   },
@@ -1975,17 +1980,26 @@
     ]
   },
   {
+    "name": "Subtitle",
+    "kind": "type",
+    "group": "shell",
+    "signature": "type Subtitle string",
+    "doc": "Subtitle is the one-line sentence under a PageHeader's title, the one that\nsays what the screen is for. Like Back it is a marker: written among the\nheader's children, drawn under the title row and never among the actions,\nwhich is where anything else the header is handed goes (#262).",
+    "summary": "Subtitle is the one-line sentence under a PageHeader's title, the one that says what the screen is for."
+  },
+  {
     "name": "PageHeader",
     "kind": "func",
     "group": "shell",
     "signature": "PageHeader(title string, children ...h.Node) h.Node",
-    "doc": "PageHeader is the top of a screen: the way back, the title and the actions\non the right.",
-    "summary": "PageHeader is the top of a screen: the way back, the title and the actions on the right.",
-    "example": "ui.PageHeader(\"Contract 41\", ui.Back{Href: \"/docs\", Label: \"Documents\"},\n\tui.ButtonLink(\"/docs/41/edit\", h.Text(\"Edit\")))",
+    "doc": "PageHeader is the top of a screen: the way back, the title, the sentence\nunder it and the actions on the right.",
+    "summary": "PageHeader is the top of a screen: the way back, the title, the sentence under it and the actions on the right.",
+    "example": "ui.PageHeader(\"Contract 41\", ui.Back{Href: \"/docs\", Label: \"Documents\"},\n\tui.Subtitle(\"Signed on May 3rd; renews yearly.\"),\n\tui.ButtonLink(\"/docs/41/edit\", h.Text(\"Edit\")))",
     "see": [
       "h.Text",
       "ui.Back",
-      "ui.ButtonLink"
+      "ui.ButtonLink",
+      "ui.Subtitle"
     ]
   },
   {
@@ -2466,6 +2480,18 @@
       "ui.H1",
       "ui.Row",
       "ui.Stack"
+    ]
+  },
+  {
+    "name": "Cols",
+    "kind": "func",
+    "group": "layout",
+    "signature": "Cols(n ...int) h.Node",
+    "doc": "Cols says how many columns a Grid has, from 1 to 6: the first number below\n1024px, the second from there up. One number holds for both. Without it a\nGrid fits as many 16rem columns as the width takes, which is one on a phone\nand, on a wide screen, as many as there are children — right for cards of\ntext, wrong for a row of eight Stats or four charts (#263). Only the caller\nknows what is inside the cell, so the caller says.\n\nIt is classes and not a style attribute, so a page that took\n'unsafe-inline' out of style-src still lays out.",
+    "summary": "Cols says how many columns a Grid has, from 1 to 6: the first number below 1024px, the second from there up.",
+    "example": "ui.Grid(ui.Cols(2, 4), stat1, stat2, stat3, stat4)",
+    "see": [
+      "ui.Grid"
     ]
   },
   {

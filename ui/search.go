@@ -21,6 +21,10 @@ type SearchBoxOpts struct {
 	// own; "-" writes none, which is what an application with its own shortcut
 	// wants.
 	Hint string
+	// Submit is the label of a send button after the field; empty draws none.
+	// A GET form with no button is sent by Enter alone, and on a phone the
+	// keyboard's "Go" is there in some browsers and not in others (#264).
+	Submit string
 }
 
 // SearchBox is the search field of the top bar.
@@ -53,6 +57,9 @@ func SearchBox(c *trilha.Ctx, action string, o SearchBoxOpts) h.Node {
 			hint = "Ctrl K"
 		}
 		kids = append(kids, Kbd(hint))
+	}
+	if o.Submit != "" {
+		kids = append(kids, Button(Outline(), h.Type("submit"), h.Text(o.Submit)))
 	}
 	return h.Form(h.Method("get"), h.Action(action), h.Role("search"),
 		h.Class("ui-search-box"), h.Group(kids...))

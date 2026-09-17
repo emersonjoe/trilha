@@ -520,3 +520,48 @@ func TestInlineRefusalIsTractable(t *testing.T) {
 		t.Fatal("escreveu corpo antes de recusar")
 	}
 }
+
+// #251 — X-Robots-Tag is the one way a file that is not HTML tells an index
+// to stay away, and it is what a service writes on a third party's document;
+// it crosses. Config.PipeHeaders adds names to the list and never replaces
+// it: Set-Cookie stays behind even when somebody lists it.
+func TestPipeCarriesTheIndexingDirective(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+		w.Header().Set("X-Request-Id", "abc")
+		w.Header().Set("Set-Cookie", "session=roubada")
+		io.WriteString(w, pdfBytes)
+	}))
+	defer srv.Close()
+	fetch := func() *http.Response {
+		res, err := http.Get(srv.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+	c, rec := sendCtx("GET", "/", nil)
+	if err := c.Pipe(fetch()); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Header().Get("X-Robots-Tag") != "noindex, nofollow" {
+		t.Fatalf("X-Robots-Tag died at the edge: %v", rec.Header())
+	}
+	if rec.Header().Get("X-Request-Id") != "" {
+		t.Fatal("a header nobody listed travelled")
+	}
+
+	c2, rec2 := sendCtx("GET", "/", nil)
+	c2.app.cfg.PipeHeaders = []string{"X-Request-Id", "Set-Cookie"}
+	if err := c2.Pipe(fetch()); err != nil {
+		t.Fatal(err)
+	}
+	if rec2.Header().Get("X-Request-Id") != "abc" || rec2.Header().Get("X-Robots-Tag") == "" {
+		t.Fatalf("PipeHeaders replaced the list instead of adding to it: %v", rec2.Header())
+	}
+	if rec2.Header().Get("Set-Cookie") != "" {
+		t.Fatal("Set-Cookie travelled because somebody listed it")
+	}
+}
