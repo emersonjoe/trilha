@@ -61,6 +61,23 @@ Em Go são constantes: `approval.Pending`, `approval.Approved`, `approval.Reject
 no `Decide`; `Expired` é o único estado que o pacote escreve sozinho, e por isso não é uma
 decisão que se possa passar.
 
+## Comitês
+
+**Um voto nem sempre é a decisão inteira.** `Request.Quorum` — zero ou um mantém o comportamento
+de hoje, fechando no primeiro voto — pede mais de uma pessoa distinta antes de o pedido fechar.
+`Decide` acumula um `Vote` (`By`, `State`, `Reason`, `At`) em `Record.Votes` e mantém o registro
+`Pending` até `len(Votes) == Quorum`; a mesma pessoa chamando `Decide` de novo recebe
+`approval.ErrAlreadyVoted` em vez de contar um segundo voto. Quando o quórum fecha, `State`,
+`Decided`, `By` e o gancho `On` rodam exatamente como num pedido de voto único — um comitê é o
+mesmo pedido, contado mais de uma vez.
+
+```go
+id, _ := Fila.Open(c, approval.Request{
+	Kind: "eliminacao", Subject: "Listagem 2024/07", Assign: approval.Role("cpad"),
+	Quorum: 3, // três membros distintos de "cpad" precisam decidir
+})
+```
+
 ## A tela
 
 ```go
@@ -72,6 +89,12 @@ Uma tabela e dois formulários, sem JavaScript. O prazo é escrito pelo `ui.Rela
 dias" e "há 2 dias" são a mesma frase no idioma de quem lê, e a linha atrasada leva `ui-late`. A
 decisão e o motivo viajam **no mesmo formulário**: um motivo digitado num campo que um segundo
 clique descarta é um motivo que ninguém escreveu.
+
+Uma linha cuja ação não é um simples aprovar/rejeitar — uma etapa de formulário, por exemplo —
+preenche `InboxRow.Action` (qualquer `h.Node`), que substitui os dois botões padrão na célula
+daquela linha; uma linha sem `Action` continua desenhando os botões, como antes.
+`InboxRow.Progress` ("1/3") desenha ao lado do estado da linha, para um pedido de comitê que
+ainda não fechou.
 
 O [`trilha add approvals`](/pt/referencia/cli#trilha-add) escreve o pacote ligado, a tela e o
 teste.

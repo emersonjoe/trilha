@@ -120,6 +120,7 @@ const approvalsPage = `// Package aprovacoes is the inbox: what is waiting for w
 package aprovacoes
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -167,14 +168,20 @@ func POST(c *trilha.Ctx) error {
 }
 
 // linhas maps what the package keeps to what the screen shows. Late is decided
-// here because only the request knows what now means.
+// here because only the request knows what now means, and Progress ("1/3")
+// only appears for a request that asked for more than one decident.
 func linhas(c *trilha.Ctx, lista []approval.Record) []ui.InboxRow {
 	agora := time.Now()
 	out := make([]ui.InboxRow, 0, len(lista))
 	for _, r := range lista {
+		progresso := ""
+		if r.Quorum > 1 {
+			progresso = fmt.Sprintf("%d/%d", len(r.Votes), r.Quorum)
+		}
 		out = append(out, ui.InboxRow{
 			ID: r.ID, Kind: r.Kind, Subject: r.Subject, Target: r.Target,
 			State: r.State, Due: r.Due, Late: r.Late(agora), By: r.By, Reason: r.Reason,
+			Progress: progresso,
 		})
 	}
 	return out

@@ -28,6 +28,14 @@ type InboxRow struct {
 	// Reason and By are the decision, for the rows that have one.
 	Reason string
 	By     string
+	// Action, when set, replaces the default decideForm in the last cell — a
+	// link to a form step, or a caller's own decide buttons, for a row whose
+	// action is not a plain approve/reject. Rows without it keep the two
+	// buttons Decide already draws for a pending row.
+	Action h.Node
+	// Progress is a free-form status string ("1/3") drawn beside State, for a
+	// queue with a quorum. Empty draws nothing.
+	Progress string
 }
 
 // InboxOpts configures the inbox.
@@ -71,12 +79,15 @@ func Inbox(c *trilha.Ctx, rows []InboxRow, o InboxOpts) h.Node {
 		cells := []h.Node{
 			h.Td(subjectCell(r)),
 			h.Td(h.Text(r.Kind)),
-			h.Td(Status(approvalStates, r.State)),
+			h.Td(stateCell(r)),
 			h.Td(dueCell(c, r, w)),
 		}
-		if o.Decide != "" && r.State == "pending" {
+		switch {
+		case r.Action != nil:
+			cells = append(cells, h.Td(r.Action))
+		case o.Decide != "" && r.State == "pending":
 			cells = append(cells, h.Td(decideForm(r, o, reason, w)))
-		} else {
+		default:
 			cells = append(cells, h.Td(decidedCell(r)))
 		}
 		attrs := []h.Node{}
@@ -111,6 +122,15 @@ func subjectCell(r InboxRow) h.Node {
 	return h.A(h.Href(r.Target), h.Text(r.Subject))
 }
 
+// stateCell is the status badge, with Progress ("1/3") beside it for a queue
+// with a quorum — the count belongs next to State, not inside Kind.
+func stateCell(r InboxRow) h.Node {
+	if r.Progress == "" {
+		return Status(approvalStates, r.State)
+	}
+	return h.Fragment(Status(approvalStates, r.State), h.Text(" "), Muted(h.Text(r.Progress)))
+}
+
 func dueCell(c *trilha.Ctx, r InboxRow, w map[string]string) h.Node {
 	if r.Due == nil || r.Due.IsZero() {
 		return Muted(h.Text(w["no due"]))
@@ -133,9 +153,9 @@ func decideForm(r InboxRow, o InboxOpts, reason string, w map[string]string) h.N
 		o.CSRF,
 		h.Input(h.Type("hidden"), h.Name("id"), h.Value(r.ID)),
 		Input(h.Name(reason), h.Placeholder(w["reason"]), h.Aria("label", w["reason"])),
-		Button(Sm(), h.Type("submit"), h.Name("decision"), h.Value("approved"),
+		Submit(Sm(), h.Name("decision"), h.Value("approved"),
 			h.Text(w["approve"]), Confirm(w["approve"]+"?", w["approve hint"])),
-		Button(Outline(), Sm(), h.Type("submit"), h.Name("decision"), h.Value("rejected"),
+		Submit(Outline(), Sm(), h.Name("decision"), h.Value("rejected"),
 			h.Text(w["reject"]), Confirm(w["reject"]+"?", w["reject hint"])),
 	)
 }

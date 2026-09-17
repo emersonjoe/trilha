@@ -180,3 +180,100 @@ func TestPedidoPrecisaDeDono(t *testing.T) {
 		}
 	})
 }
+
+// #250 — um comitê (CPAD, comissão de licitação) não decide no primeiro
+// voto: a fila continua pendente até o quórum fechar, e cada pessoa vota uma
+// vez só.
+func TestQuorumFechaSoNoUltimoVoto(t *testing.T) {
+	fila, app := fila(t)
+	var id string
+	var rodou Record
+	fila.On("eliminacao", func(c *trilha.Ctx, r Record) error { rodou = r; return nil })
+	pedido(t, app, "u-1", []string{"cpad"}, func(c *trilha.Ctx) {
+		var err error
+		id, err = fila.Open(c, Request{Kind: "eliminacao", Subject: "Listagem 2024/07",
+			Assign: Role("cpad"), Quorum: 3})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := fila.Decide(c, id, Approved, "de acordo"); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	rec, err := fila.Get(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.State != Pending || len(rec.Votes) != 1 {
+		t.Fatalf("após o 1º voto: %+v", rec)
+	}
+
+	// O mesmo decidente votando de novo não conta um segundo voto.
+	pedido(t, trilha.New(trilha.Config{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}),
+		"u-1", []string{"cpad"}, func(c *trilha.Ctx) {
+			if err := fila.Decide(c, id, Approved, "de novo"); err != ErrAlreadyVoted {
+				t.Fatalf("err = %v", err)
+			}
+		})
+
+	pedido(t, trilha.New(trilha.Config{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}),
+		"u-2", []string{"cpad"}, func(c *trilha.Ctx) {
+			if err := fila.Decide(c, id, Approved, "de acordo"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	rec, err = fila.Get(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.State != Pending || len(rec.Votes) != 2 {
+		t.Fatalf("após o 2º voto: %+v", rec)
+	}
+	if rodou.ID != "" {
+		t.Fatal("o gancho rodou antes do quórum fechar")
+	}
+
+	pedido(t, trilha.New(trilha.Config{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}),
+		"u-3", []string{"cpad"}, func(c *trilha.Ctx) {
+			if err := fila.Decide(c, id, Approved, "de acordo"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	rec, err = fila.Get(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.State != Approved || len(rec.Votes) != 3 || rec.Decided.IsZero() {
+		t.Fatalf("após o 3º voto: %+v", rec)
+	}
+	if rodou.ID != id || rodou.State != Approved {
+		t.Fatalf("o gancho não rodou com o quórum fechado: %+v", rodou)
+	}
+}
+
+// Quorum 0 ou 1 continua fechando no primeiro voto — o comportamento de
+// antes da #250 não muda para quem não pede quórum.
+func TestQuorumZeroOuUmFechaNoPrimeiroVoto(t *testing.T) {
+	for _, q := range []int{0, 1} {
+		fila, app := fila(t)
+		var id string
+		pedido(t, app, "u-1", []string{"cpad"}, func(c *trilha.Ctx) {
+			var err error
+			id, err = fila.Open(c, Request{Kind: "x", Subject: "s", Assign: Role("cpad"), Quorum: q})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := fila.Decide(c, id, Approved, ""); err != nil {
+				t.Fatal(err)
+			}
+		})
+		rec, err := fila.Get(context.Background(), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rec.State != Approved {
+			t.Fatalf("Quorum: %d, State = %q", q, rec.State)
+		}
+	}
+}

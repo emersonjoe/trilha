@@ -55,6 +55,11 @@ var ErrUnknown = errors.New("approval: no request with that id")
 // it is is not the visitor's business.
 var ErrNotYours = errors.New("approval: this request is not yours to decide")
 
+// ErrAlreadyVoted is what a decident gets for a second Decide on a request
+// still waiting on its quorum. One person, one vote — a second click does not
+// count twice, and does not overwrite the first.
+var ErrAlreadyVoted = errors.New("approval: this person already voted")
+
 // Assignee is who may decide: a role, or one person. It is a struct and not
 // two fields on Request so the choice is visible at the call site —
 // approval.Role("cpad") reads as what it is.
@@ -87,6 +92,13 @@ type Request struct {
 	// Data is what the handler needs and the screen may show. Strings, because
 	// it crosses a store: an id belongs here, an object does not.
 	Data map[string]string
+	// Quorum is how many distinct people must decide before the request
+	// closes. Zero and one both mean today's behaviour: one vote, one
+	// decision. Above one, Decide keeps the request Pending and accumulates
+	// Vote entries until Quorum is reached — a committee (CPAD, a bidding
+	// commission), which is the normal case for a public-sector approval
+	// queue, not a special one.
+	Quorum int
 }
 
 // Record is one request, as the store keeps it.
@@ -108,6 +120,20 @@ type Record struct {
 	Reason  string
 	// OpenedBy is who asked, which is not always who decides.
 	OpenedBy string
+	// Quorum is copied from Request.Quorum when the request is opened: Decide
+	// only has the Record, not the original Request.
+	Quorum int
+	// Votes is one entry per distinct decident, in the order they voted.
+	// Empty when Quorum is 0 or 1 — the single-vote path never touches it.
+	Votes []Vote
+}
+
+// Vote is one person's decision on a request that needs more than one.
+type Vote struct {
+	By     string
+	State  string
+	Reason string
+	At     time.Time
 }
 
 // Late reports whether a pending request is past its deadline.
@@ -236,6 +262,7 @@ func (a *Approvals) Open(c *trilha.Ctx, r Request) (string, error) {
 	rec := Record{
 		ID: id, Kind: r.Kind, Subject: r.Subject, Target: r.Target, State: Pending,
 		Assign: r.Assign, Data: r.Data, Opened: a.now(), Due: r.Due, OpenedBy: actorOf(c),
+		Quorum: r.Quorum,
 	}
 	if err := a.store.Save(ctxOf(c), rec); err != nil {
 		return "", err
@@ -264,7 +291,25 @@ func (a *Approvals) Decide(c *trilha.Ctx, id, state, reason string) error {
 	if rec.State != Pending || !a.MayDecide(c, rec) {
 		return ErrNotYours
 	}
-	rec.State, rec.Reason, rec.Decided, rec.By = state, reason, a.now(), actorOf(c)
+	actor := actorOf(c)
+	if rec.Quorum > 1 {
+		for _, v := range rec.Votes {
+			if v.By == actor {
+				return ErrAlreadyVoted
+			}
+		}
+		rec.Votes = append(rec.Votes, Vote{By: actor, State: state, Reason: reason, At: a.now()})
+	}
+	if rec.Quorum > 1 && len(rec.Votes) < rec.Quorum {
+		if err := a.store.Save(ctxOf(c), rec); err != nil {
+			return err
+		}
+		if c != nil {
+			c.Audit("approval.vote", id, trilha.Fields{"kind": rec.Kind, "state": state, "reason": reason})
+		}
+		return nil
+	}
+	rec.State, rec.Reason, rec.Decided, rec.By = state, reason, a.now(), actor
 	if err := a.store.Save(ctxOf(c), rec); err != nil {
 		return err
 	}

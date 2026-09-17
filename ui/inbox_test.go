@@ -52,6 +52,43 @@ func TestInboxVazia(t *testing.T) {
 	}
 }
 
+// #250 — uma linha cuja ação não é aprovar/rejeitar (uma etapa de
+// formulário, por exemplo) desenha o nó que a aplicação manda, no lugar dos
+// dois botões padrão.
+func TestInboxRowComAction(t *testing.T) {
+	got := chatPage(t, func(c *trilha.Ctx) h.Node {
+		return Inbox(c, []InboxRow{
+			{ID: "t-1", Kind: "aprovação", Subject: "Parecer jurídico", State: "pending",
+				Action: ButtonLink("/tarefas/t-1", h.Text("Conferir"))},
+			{ID: "t-2", Kind: "reembolso", Subject: "Nota 88", State: "pending"},
+		}, InboxOpts{Decide: "/admin/tarefas", CSRF: trilha.CSRFInput(c)})
+	})
+	if !strings.Contains(got, `href="/tarefas/t-1"`) {
+		t.Fatalf("a linha com Action não desenhou o nó dado:\n%s", got)
+	}
+	// A linha com Action não ganha os dois botões de decisão — Action
+	// substitui o decideForm, não convive com ele.
+	if strings.Contains(got, `value="t-1"`) {
+		t.Fatalf("a linha com Action ainda tem o decideForm padrão:\n%s", got)
+	}
+	// A linha sem Action continua com o decideForm de hoje (regressão).
+	if !strings.Contains(got, `name="id" value="t-2"`) {
+		t.Fatalf("a linha sem Action perdeu o decideForm:\n%s", got)
+	}
+}
+
+// Progress mostra "1/3" ao lado do estado, sem sobrecarregar Kind.
+func TestInboxRowProgress(t *testing.T) {
+	got := chatPage(t, func(c *trilha.Ctx) h.Node {
+		return Inbox(c, []InboxRow{
+			{ID: "t-1", Kind: "aprovação", Subject: "Parecer", State: "pending", Progress: "1/3"},
+		}, InboxOpts{})
+	})
+	if !strings.Contains(got, "1/3") {
+		t.Fatalf("Progress não apareceu:\n%s", got)
+	}
+}
+
 // O contador de menu some no zero: um badge que mostra zero ensina a ignorar
 // badges.
 func TestInboxBadge(t *testing.T) {

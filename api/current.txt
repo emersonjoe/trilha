@@ -915,21 +915,30 @@ pkg approval, type Record struct, ID string
 pkg approval, type Record struct, Kind string
 pkg approval, type Record struct, Opened time.Time
 pkg approval, type Record struct, OpenedBy string
+pkg approval, type Record struct, Quorum int
 pkg approval, type Record struct, Reason string
 pkg approval, type Record struct, State string
 pkg approval, type Record struct, Subject string
 pkg approval, type Record struct, Target string
+pkg approval, type Record struct, Votes []Vote
 pkg approval, type Request struct
 pkg approval, type Request struct, Assign Assignee
 pkg approval, type Request struct, Data map[string]string
 pkg approval, type Request struct, Due time.Time
 pkg approval, type Request struct, Kind string
+pkg approval, type Request struct, Quorum int
 pkg approval, type Request struct, Subject string
 pkg approval, type Request struct, Target string
 pkg approval, type Store interface
 pkg approval, type Store interface, Get(context.Context, string) (Record, error)
 pkg approval, type Store interface, List(context.Context, ListParams) ([]Record, error)
 pkg approval, type Store interface, Save(context.Context, Record) error
+pkg approval, type Vote struct
+pkg approval, type Vote struct, At time.Time
+pkg approval, type Vote struct, By string
+pkg approval, type Vote struct, Reason string
+pkg approval, type Vote struct, State string
+pkg approval, var ErrAlreadyVoted
 pkg approval, var ErrNotYours
 pkg approval, var ErrUnknown
 pkg approval, var States
@@ -1940,11 +1949,13 @@ pkg ui, type InboxOpts struct, Decide string
 pkg ui, type InboxOpts struct, Empty string
 pkg ui, type InboxOpts struct, Reason string
 pkg ui, type InboxRow struct
+pkg ui, type InboxRow struct, Action h.Node
 pkg ui, type InboxRow struct, By string
 pkg ui, type InboxRow struct, Due interface{ IsZero() bool }
 pkg ui, type InboxRow struct, ID string
 pkg ui, type InboxRow struct, Kind string
 pkg ui, type InboxRow struct, Late bool
+pkg ui, type InboxRow struct, Progress string
 pkg ui, type InboxRow struct, Reason string
 pkg ui, type InboxRow struct, State string
 pkg ui, type InboxRow struct, Subject string

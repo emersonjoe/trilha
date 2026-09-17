@@ -79,3 +79,20 @@ func TestSchemaFormSelectHasAWayOut(t *testing.T) {
 		t.Fatalf("a required select kept the empty choice:\n%s", got)
 	}
 }
+
+// #250 — a display field is a label plus an already-computed value ("Property
+// address: Rua das Flores, 12"); without the label, a bare value sits loose in
+// the middle of the form.
+func TestSchemaFieldDisplayComLabel(t *testing.T) {
+	got := render(t, SchemaForm(trilha.Schema{
+		{Type: "display", Label: "Property address", Text: "Rua das Flores, 12"},
+	}, nil, nil))
+	if !strings.Contains(got, "Property address") || !strings.Contains(got, "Rua das Flores, 12") {
+		t.Fatalf("missing label or value:\n%s", got)
+	}
+	// No Label: today's behaviour, just the value.
+	got = render(t, SchemaForm(trilha.Schema{{Type: "display", Text: "Rua das Flores, 12"}}, nil, nil))
+	if strings.Contains(got, `<label`) {
+		t.Fatalf("a display field without Label drew one:\n%s", got)
+	}
+}

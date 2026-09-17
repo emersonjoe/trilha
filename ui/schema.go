@@ -34,7 +34,10 @@ func SchemaForm(schema trilha.Schema, values map[string]string, errs map[string]
 // same things here as there.
 func schemaField(f trilha.SchemaField, value string, errs map[string]string) h.Node {
 	if f.Type == "display" {
-		return h.Div(h.Class("ui-field ui-field-display"), h.P(h.Text(f.Text)))
+		if f.Label == "" {
+			return h.Div(h.Class("ui-field ui-field-display"), h.P(h.Text(f.Text)))
+		}
+		return h.Div(h.Class("ui-field ui-field-display"), Label(h.Text(f.Label)), h.P(h.Text(f.Text)))
 	}
 	id := "f-" + f.Name
 	invalid := InvalidIf(errs, f.Name)

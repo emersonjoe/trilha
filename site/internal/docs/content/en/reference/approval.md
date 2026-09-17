@@ -62,6 +62,23 @@ In Go they are constants: `approval.Pending`, `approval.Approved`, `approval.Rej
 travel into `Decide`; `Expired` is the only state the package writes on its own, which is why
 it is not a decision you can pass.
 
+## Committees
+
+**One vote is not always the whole decision.** `Request.Quorum` — zero or one keeps today's
+behaviour, closing on the first vote — asks for more than one distinct person before the request
+closes. `Decide` keeps accumulating a `Vote` (`By`, `State`, `Reason`, `At`) into `Record.Votes`
+and holding the record `Pending` until `len(Votes) == Quorum`; the same person calling `Decide`
+twice gets `approval.ErrAlreadyVoted` instead of a second vote. Once the quorum closes, `State`,
+`Decided`, `By` and the `On` handler run exactly as they do for a single-vote request — a
+committee is the same request, counted more than once.
+
+```go
+id, _ := Fila.Open(c, approval.Request{
+	Kind: "eliminacao", Subject: "Listagem 2024/07", Assign: approval.Role("cpad"),
+	Quorum: 3, // three distinct "cpad" members must decide
+})
+```
+
 ## The screen
 
 ```go
@@ -73,6 +90,11 @@ A table and two forms, no JavaScript. The deadline is written by `ui.Relative`, 
 "2 days ago" are the same sentence in the reader's language, and a late row carries `ui-late`. The
 decision and the reason travel in **the same form**: a reason typed into a field that a second
 click discards is a reason nobody wrote.
+
+A row whose action is not a plain approve/reject — a form step, say — sets `InboxRow.Action`
+(any `h.Node`), which replaces the default two buttons in that row's cell; a row without it keeps
+drawing them, as before. `InboxRow.Progress` ("1/3") draws next to the row's state, for a
+committee request that has not yet closed.
 
 [`trilha add approvals`](/reference/cli#trilha-add) writes the package wired up, the screen and
 the test.

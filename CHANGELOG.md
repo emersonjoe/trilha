@@ -3,6 +3,27 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.135.0 — 2026-09-17
+
+Spec 156. Closes [#250](https://github.com/emersonjoe/trilha/issues/250).
+
+### Added
+
+- **`approval` supports committee decisions.** `Request.Quorum` keeps a request `Pending` until
+  that many distinct people have decided it; `Record.Votes` holds one `Vote` per decident, and a
+  second `Decide` from the same person returns `ErrAlreadyVoted` instead of counting twice.
+  `Quorum` zero or one keeps today's behaviour: closing on the first vote.
+- **`ui.Inbox` rows can carry their own action.** `InboxRow.Action` replaces the default
+  approve/reject form when a row's action is a form step or something else the application
+  draws; `InboxRow.Progress` shows quorum progress ("1/3") beside the row's state.
+
+### Fixed
+
+- **`ui.SchemaForm` draws the label of a `display` field.** A field with `Type: "display"` and a
+  `Label` now renders both; without a label, the value alone renders as before.
+- **`ui/inbox.go`'s decide buttons use `ui.Submit`** instead of `ui.Button` plus an explicit
+  `h.Type("submit")`.
+
 ## 0.134.0 — 2026-09-15
 
 Spec 155. Closes [#50](https://github.com/emersonjoe/trilha/issues/50),

@@ -1231,6 +1231,16 @@
       {
         "name": "By",
         "type": "string"
+      },
+      {
+        "name": "Action",
+        "type": "h.Node",
+        "doc": "Action, when set, replaces the default decideForm in the last cell — a link to a form step, or a caller's own decide buttons, for a row whose action is not a plain approve/reject."
+      },
+      {
+        "name": "Progress",
+        "type": "string",
+        "doc": "Progress is a free-form status string (\"1/3\") drawn beside State, for a queue with a quorum."
       }
     ]
   },
