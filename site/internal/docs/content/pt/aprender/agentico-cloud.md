@@ -720,6 +720,67 @@ A resposta traz o segredo uma única vez; verifique `X-Webhook-Signature` (HMAC 
 e depois esperam em `GET /api/admin/webhooks/deliveries?state=failed`;
 `POST /api/admin/webhooks/deliveries/{id}/retry` envia os mesmos bytes de novo.
 
+### 15. Coloque o estado no Postgres: migração, backup e restauração ensaiada
+
+Até aqui tudo viveu num arquivo JSON reescrito a cada escrita. Serve para uma estação de
+trabalho; para um control plane cuja evidência é o registro do que um agente fez, está a uma
+queda de perder o último minuto. O store é a costura: troque o backend e nenhuma rota percebe.
+
+**Aponte o Cloud para um banco.** Em desenvolvimento a URL pode vir do ambiente; `file:` abre
+SQLite, `postgres://` abre Postgres. Em produção ela tem que vir de um arquivo com modo `0600`;
+um `TRILHA_CLOUD_DATABASE_URL` em texto é recusado:
+
+```bash
+export TRILHA_CLOUD_DATABASE_URL='postgres://trilha:…@localhost:5432/trilha_cloud?sslmode=disable'
+make dev
+```
+
+Na subida o Cloud aplica `migrations/*.sql` sob um advisory lock e grava um recibo com o
+checksum do arquivo; uma migração editada depois de aplicada impede a subida. Daí em diante
+cada mutação é uma transação só com as linhas que mudaram, os segredos selados ficam em tabela
+própria e a auditoria é append-only. `/_trilha/health/ready` inclui um ping no banco.
+
+**Traga o arquivo junto.** Pare o Cloud, rode o migrador com o mesmo `TRILHA_SECRET` (o
+snapshot guarda valores selados), suba de novo no banco:
+
+```bash
+go run ./cmd/cloud-migrate -from ./data/cloud.json -to "$TRILHA_CLOUD_DATABASE_URL"
+```
+
+```
+migrated ./data/cloud.json in 13ms: projects=1 products=0 specifications=1 runs=1 workers=0 api_keys=1 environments=0 deployments=0 audit=42
+```
+
+Rode duas vezes e a segunda linha é igual: cada linha é upsert por id. O arquivo nunca é
+tocado, então o rollback é apontar `TRILHA_CLOUD_DATA` para ele de novo.
+
+**Faça backup e restaure.** Em `deploy/eoslab`, um arquivo `secrets/postgres_password` basta
+para o `deploy.sh` somar o Postgres numa rede interna e um sidecar que grava um `pg_dump`
+diário em `backups/`, guardando `TRILHA_CLOUD_BACKUP_KEEP_DAYS` deles. Backup que nunca foi
+restaurado é esperança, não backup, então o runbook registra um ensaio: de um Postgres limpo
+até o Cloud responder `run-000001` a partir do dump, a parte mecânica levou 4,1 segundos, e os
+objetivos estão escritos como RPO ≤ 24 h e RTO ≤ 15 min de operador. Faça o seu ensaio e anote
+o seu tempo ao lado.
+
+**Esqueça de propósito.** Runs antigos e a saída capturada são o grosso do estado. Retenção é
+decisão de operador, atrás do token admin, com janela de pelo menos uma semana:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/retention" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"older_than_days": 90}'
+```
+
+```json
+{"before":"2026-06-20T12:00:00Z","runs_deleted":3,"runs_compacted":1,"output_bytes_dropped":250,"audit_pruned":3,"github_deliveries_dropped":0,"hook_deliveries_dropped":0}
+```
+
+Para tudo que terminou antes da janela: uma tentativa superada por outra mais nova é apagada; o
+run mais novo de cada tarefa mantém status, veredito, branch, commit e cada registro de
+evidência com seu digest, perdendo só a saída capturada; logs de entrega e, no Postgres,
+auditoria antiga vão embora. Uma tarefa que chegou a `done` nunca perde o registro de como. A
+auditoria guarda `retention.compacted` com essas contagens.
+
 ## O contrato
 
 O worker só precisa de três rotas, então outro control plane — o seu — pode implementá-las:

@@ -709,6 +709,69 @@ The answer carries the secret once; verify `X-Webhook-Signature` (HMAC of
 and then wait in `GET /api/admin/webhooks/deliveries?state=failed`;
 `POST /api/admin/webhooks/deliveries/{id}/retry` sends the same bytes again.
 
+### 15. Put the state in Postgres: migration, backup and a rehearsed restore
+
+Everything so far lived in one JSON file rewritten on every write. That is fine for a
+workstation; for a control plane whose evidence is the record of what an agent did, it is one
+crash away from losing the last minute. The store is the seam: switch the backend and no route
+notices.
+
+**Point the Cloud at a database.** In development the URL may be in the environment; `file:`
+opens SQLite, `postgres://` opens Postgres. In production it must come from a file with mode
+`0600`; a plain `TRILHA_CLOUD_DATABASE_URL` is refused:
+
+```bash
+export TRILHA_CLOUD_DATABASE_URL='postgres://trilha:…@localhost:5432/trilha_cloud?sslmode=disable'
+make dev
+```
+
+On start the Cloud applies `migrations/*.sql` under an advisory lock and writes a receipt with
+the file's checksum; a migration edited after it was applied stops the start. From then on
+each mutation is one transaction holding only the rows that changed, the sealed secrets sit in
+their own table and the audit trail is append-only. `/_trilha/health/ready` includes a
+database ping.
+
+**Bring the file along.** Stop the Cloud, run the migrator with the same `TRILHA_SECRET` (the
+snapshot holds sealed values), start it again on the database:
+
+```bash
+go run ./cmd/cloud-migrate -from ./data/cloud.json -to "$TRILHA_CLOUD_DATABASE_URL"
+```
+
+```
+migrated ./data/cloud.json in 13ms: projects=1 products=0 specifications=1 runs=1 workers=0 api_keys=1 environments=0 deployments=0 audit=42
+```
+
+Run it twice and the second line is the same: every row is upserted by id. The file is never
+touched, so the rollback is to point `TRILHA_CLOUD_DATA` at it again.
+
+**Back up and restore.** In `deploy/eoslab`, a `secrets/postgres_password` file is enough for
+`deploy.sh` to add Postgres on an internal network and a sidecar that writes a daily
+`pg_dump` into `backups/`, keeping `TRILHA_CLOUD_BACKUP_KEEP_DAYS` of them. A backup that was
+never restored is a hope, not a backup, so the runbook records a drill: from a clean Postgres
+to the Cloud answering `run-000001` from the dump, the mechanical part took 4.1 seconds, and
+the objectives are written down as RPO ≤ 24 h and RTO ≤ 15 min of operator time. Do your own
+drill and write your time next to it.
+
+**Forget on purpose.** Old runs and their captured output are the bulk of the state. Retention
+is an operator's call, behind the admin token, with a window of at least a week:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/retention" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"older_than_days": 90}'
+```
+
+```json
+{"before":"2026-06-20T12:00:00Z","runs_deleted":3,"runs_compacted":1,"output_bytes_dropped":250,"audit_pruned":3,"github_deliveries_dropped":0,"hook_deliveries_dropped":0}
+```
+
+For everything finished before the window: an attempt that was superseded by a later one is
+deleted; the newest run of each task keeps status, verdict, branch, commit and every evidence
+record with its digest, losing only the captured output; delivery logs and, on Postgres, old
+audit rows go. A task that reached `done` never loses the record of how. The audit keeps
+`retention.compacted` with these counts.
+
 ## The contract
 
 The worker only needs three routes, so another control plane — yours — can implement them:
