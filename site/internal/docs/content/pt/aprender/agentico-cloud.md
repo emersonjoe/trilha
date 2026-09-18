@@ -945,6 +945,142 @@ valor; a auditoria ganha `environment.secret_rotated` com o nome. O valor aparec
 lugar, o claim que um runner com a chave `deployments:write` do projeto recebe, e nunca na
 lista de ambientes, no histórico de deployments, no relatório ou na auditoria.
 
+### 18. Convide pessoas, dê um papel a cada uma e veja dois repositórios num quadro só
+
+Até aqui o Cloud tinha um operador: quem segura o token bootstrap ou a senha local de
+admin. Um programa público tem product owner, revisor jurídico, revisor técnico e alguém
+do cliente que só acompanha, e seus projetos vivem em repositórios diferentes. Este
+capítulo coloca uma organização em volta dos projetos, convida pessoas com um papel por
+escopo, deixa que entrem pelo provedor de identidade da empresa e mostra as tarefas e os
+marcos de um programa, de vários repositórios, num quadro só.
+
+**Crie a organização.** Uma organização é um slug e um nome; os projetos apontam para ela
+pelo `org` que já carregam:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/organizations" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"slug":"toledo","name":"Prefeitura de Toledo"}'
+```
+
+`GET /api/admin/organizations` lista cada uma com seus projetos. O mesmo formulário está
+na página **Operadores**.
+
+**Convide pessoas com um papel por escopo.** Um operador é um e-mail e um mapa de escopo
+para papel. O escopo é `*` (tudo), `org:<slug>` (todos os projetos da organização) ou
+`project:<nome>`; o papel é `viewer`, `reviewer` ou `admin`. Num projeto vale o mais
+forte dos três:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/operators" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"ana@toledo.pr.gov.br","name":"Ana","roles":{"org:toledo":"reviewer"}}'
+curl -sS -X POST "$CLOUD/api/admin/operators" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"vic@cliente.example","roles":{"project:acervo":"viewer"}}'
+```
+
+Quando `TRILHA_MAIL_URL` aponta para um servidor SMTP (`smtp://user:pass@host:587` ou
+`smtps://…`), a pessoa convidada recebe uma mensagem com o link de entrada; sem isso o
+registro fica e a auditoria diz `mail: not_configured`. Em desenvolvimento a mensagem vira
+um arquivo `.eml` em `./mail`. Convidar o mesmo e-mail de novo substitui os papéis;
+`DELETE /api/admin/operators/{email}` remove a pessoa, e a próxima requisição dela
+responde 403 `this account is not an operator of the control plane`.
+
+**O que cada papel pode.** A matriz tem uma linha por papel e uma coluna por módulo
+(`projects`, `specs`, `runs`, `keys`, `environments`, `secrets`, `deployments`, `ai`,
+`products`, `audit`, `operators`, `programs`, `organizations`) com três níveis:
+`view < approve < manage`. Um `GET` é `view`; mover uma tarefa em revisão, atestar uma
+execução e aprovar um deploy são `approve`; todo o resto é `manage`. Uma rota que não
+nomeia um projeto, como emitir chaves, convidar operadores ou listar todos os projetos, é
+o escopo global, que só um papel em `*` alcança. Então Ana, reviewer da organização, move
+uma tarefa de `review` para `done` e aprova um deploy do `acervo`, e recebe 403 `needs
+manage on keys` ao emitir uma chave. Vic lê `/api/admin/specs?project=acervo` e as
+páginas desse produto, e recebe 403 em `?project=gateway`, na lista sem filtro e em
+qualquer `PATCH`.
+
+A matriz é editada em **Operadores**, na grade do fim da página, ou com
+`PUT /api/admin/policy`:
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/policy" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"roles":{"admin":{"*":"manage"},"reviewer":{"*":"view","specs":"approve","runs":"approve","deployments":"approve"},"viewer":{"*":"view"}}}'
+```
+
+Os três nomes de papel são fixos; um módulo ou nível que o código não declara é recusado
+com 422; e o token bootstrap e `TRILHA_CLOUD_ADMIN_EMAIL` continuam admin em tudo, então
+uma matriz errada nunca tranca o último operador fora. Cada recusa é auditada como
+`access.refused` com módulo, nível, projeto e papel.
+
+**Entre com a identidade da empresa.** Ao lado da senha local, o Cloud aceita OpenID
+Connect do Entra ID, do Keycloak ou de qualquer provedor com discovery. Em
+`deploy/eoslab/.env`:
+
+```bash
+TRILHA_CLOUD_OIDC_PROVIDER=entra
+TRILHA_CLOUD_OIDC_TENANT=<id do tenant>
+TRILHA_CLOUD_OIDC_CLIENT_ID=<id da aplicação>
+TRILHA_CLOUD_OIDC_REDIRECT_URL=https://cloud.example.com.br/login/oidc/callback
+```
+
+com o client secret em `deploy/eoslab/secrets/oidc_client_secret` (o `deploy.sh` soma o
+overlay `compose.oidc.yml` quando esse arquivo existe; um segredo em variável de ambiente
+é recusado em produção). Para Keycloak, `TRILHA_CLOUD_OIDC_PROVIDER=keycloak`,
+`TRILHA_CLOUD_OIDC_URL` e `TRILHA_CLOUD_OIDC_REALM`; para outro provedor,
+`TRILHA_CLOUD_OIDC_ISSUER`. A página de login ganha **Entrar com OpenID Connect**. O
+provedor prova quem a pessoa é; o Cloud decide se ela pode entrar: um e-mail que não foi
+convidado é recusado com 401 e `auth.login_refused {reason: not_invited}`. Quando Ana
+entra, a auditoria registra `auth.login` com o `sub` do provedor como alvo e o e-mail e
+`via: oidc` nos campos, e toda mutação dali em diante leva essa identidade como ator. As
+chaves de runner não mudam com nada disso: uma chave emitida para `gateway` continua
+recebendo 403 em `acervo` e em qualquer rota de `/api/admin`.
+
+**Descreva o programa num arquivo.** Um programa agrupa projetos de repositórios
+diferentes. Escreva `program.md` no repositório dono dele:
+
+```markdown
+# Catálogo público
+org: toledo
+projects: acervo, gateway
+
+## MVP — 2026-11-30
+- acervo/TASK-001
+- gateway/TASK-002
+
+## Piloto — 2027-02-28
+- gateway/TASK-003
+```
+
+Um marco é um título `##` com a data depois de ` — ` ou entre parênteses; cada bullet
+nomeia uma tarefa como `projeto/TASK-ID`. Importe (a página **Programas** tem a mesma
+caixa):
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/programs/cpsi/import" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"markdown\":$(jq -Rs . < program.md)}"
+```
+
+Um projeto que não existe, ou uma tarefa fora dos projetos do programa, é recusado com
+422. `PUT /api/admin/programs/cpsi` edita os mesmos campos em JSON.
+
+**Leia o quadro.** `GET /api/admin/programs/cpsi`, ou `/programs/cpsi` no navegador, lê
+a rodada mais recente de cada spec dos projetos do programa; a página mostra uma coluna
+por projeto:
+
+```json
+{"program":{"id":"cpsi","org":"toledo","projects":["acervo","gateway"]},
+ "tasks":[{"ref":"acervo/TASK-001","project":"acervo","id":"TASK-001","status":"ready","milestone":"MVP"},
+          {"ref":"gateway/TASK-002","project":"gateway","id":"TASK-002","status":"ready","milestone":"MVP",
+           "depends_on":["acervo/TASK-001"],"blocked_by":["acervo/TASK-001"]}],
+ "milestones":[{"title":"MVP","due":"2026-11-30T00:00:00Z","done":0,"total":2,"overdue":false}],
+ "next_milestone":{"title":"MVP","due":"2026-11-30T00:00:00Z","done":0,"total":2,"overdue":false},
+ "done":0,"total":2,"blocked":1}
+```
+
+O `depends_on` de uma tarefa em `.trilha/tasks/` pode nomear uma tarefa de outro
+repositório como `acervo/TASK-001`; enquanto aquela não está `done`, a dependente aparece
+no quadro como `bloqueada por acervo/TASK-001` e conta em `blocked`. `next_milestone` é o
+marco não concluído mais próximo, marcado `overdue` depois da data. Ver um programa exige
+`view` em `programs` em pelo menos um dos projetos dele: Vic vê o quadro do `cpsi` por
+causa do `acervo`, e recebe 403 ao importar um.
+
 ## O contrato
 
 O worker só precisa de três rotas, então outro control plane — o seu — pode implementá-las:
