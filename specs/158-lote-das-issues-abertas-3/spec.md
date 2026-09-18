@@ -6,7 +6,8 @@
   [#269](https://github.com/emersonjoe/trilha/issues/269),
   [#270](https://github.com/emersonjoe/trilha/issues/270),
   [#271](https://github.com/emersonjoe/trilha/issues/271),
-  [#272](https://github.com/emersonjoe/trilha/issues/272) — cada issue é a fonte do próprio
+  [#272](https://github.com/emersonjoe/trilha/issues/272),
+  [#274](https://github.com/emersonjoe/trilha/issues/274) — cada issue é a fonte do próprio
   escopo (problema, resultado esperado e aceitação estão lá); aqui fica só a decisão.
 - **Branch**: `158-lote-das-issues-abertas-3`
 - **Versão**: 0.137.0
@@ -130,7 +131,10 @@ propaga o contexto no `Upstream` e no cliente `ai`. O núcleo continua com zero 
 - [x] T007 `Config.OnRequest` + módulo `otel/` com coletor em memória, exemplo e CI
 - [x] T008 Docs nas duas locales, `make api`, `make golden`, `trilha ui` nos exemplos e no site
 - [x] T009 `CHANGELOG.md`, `version`, `ROADMAP.md`
-- [ ] T010 `make test` verde e `make release VERSION=0.137.0 ISSUES="266 267 268 269 270 271 272"`
+- [x] T010 #274, achada ao fechar a #267: as dezessete chaves só em inglês faziam três
+      receitas escreverem `<no value>` na tela em pt. Traduzidas, com o inglês de reserva e
+      um teste que percorre toda receita nos dois idiomas
+- [ ] T011 `make test` verde e `make release VERSION=0.137.0 ISSUES="266 267 268 269 270 271 272 274"`
 
 ## Aceitação
 

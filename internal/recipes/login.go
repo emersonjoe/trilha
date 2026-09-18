@@ -31,6 +31,14 @@ func loginRecipe() Recipe {
 		Setup: []Insert{{
 			Marker: "// trilha:add login",
 			Line:   "\ttrilha.Provide(a, usuarios.New(a.Logger()))\n",
+		}, {
+			// The language the person picked lives in the session (auth.User.Locale),
+			// and this is the line that hands it to c.Locale. It does nothing until
+			// cfg.Locales lists more than one language, which is where an app that
+			// speaks several says so.
+			Marker:  "// trilha:add login locale",
+			Line:    "\ta.Config().LocaleOf = sessao.Flow.LocaleOf\n",
+			Imports: []string{"{{.Module}}/internal/sessao"},
 		}},
 		Imports: []string{"{{.Module}}/internal/usuarios"},
 		Next: map[string]string{

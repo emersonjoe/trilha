@@ -115,3 +115,79 @@ be read belongs in your own table, found by that id.
 `Config.Links` counts the uses of limited links; nil counts them in the process, which is honest
 about one replica and said once in the log. A real one is an `UPDATE ... WHERE uses < max` or a
 Redis `INCR` — the interface has two methods and the hard one is atomic on purpose.
+
+## Lookup by code, without an account
+
+A link is one half of the public. The other half is the person with a piece of paper: a protocol
+number, the code printed on a receipt, plus something they already have — the last digits of the
+phone the case was opened with. No link was ever sent, so there is nothing to claim. They type,
+and they see their own case.
+
+```sh
+trilha add public-lookup
+```
+
+It writes `app/consulta/` — a folder of its own, deliberately outside whatever tree the app put
+behind a login, because whoever types a protocol number is precisely whoever has no account (an
+application with two publics gives its sign-in flow an `Options.Audience` of its own, and this
+folder stays outside it) — plus `internal/consulta/`, where `Buscar` and the rule about which
+events are public live.
+
+The screen that gets written by hand instead is the one that answers "no such protocol" for a
+number that does not exist and "wrong code" for a factor that does not match. That is a free
+oracle: whoever is walking the number space now knows which numbers are real, and only has the
+second factor left to find. This one has a single no.
+
+**The check digit comes first.** A code somebody types should reach the database only when it
+is a code that could have been issued:
+
+```go
+// Emitir mints a code: the check digits travel with the number, printed on the
+// receipt beside it. Two of them catch every single-character typo and every
+// swap of two neighbours, and only one code in ninety-seven is worth a query
+// at all — which is what makes enumeration expensive before anything counts it.
+func Emitir(base string) string { return base + trilha.CheckDigit(base) }
+```
+
+`trilha.CheckDigit` is ISO 7064 MOD 97-10, the IBAN's scheme. On the way in the screen calls
+`trilha.HasCheckDigit(codigo)` and, when it is false, answers with the same words a code that
+does not exist gets — never with "malformed", which would be a second answer and therefore a
+way of sorting invented numbers from real ones. Letters count as `A=10 … Z=35`, and spaces and
+hyphens are ignored, so a code printed as `2026-0001-04` and typed as `20260001 04` are the same
+code. What it costs the person is nothing — the digits are part of what they were given. What it
+costs whoever is guessing is ninety-six attempts out of every ninety-seven, refused without a
+query.
+
+**Then two budgets, because there are two attacks.** One address walking the number space is
+stopped by a limit per IP; one real protocol number being hammered from a botnet is stopped only
+by a limit per code:
+
+```go
+var (
+	porIP     = trilha.NewLimiter(trilha.RateLimit{RPS: 0.05, Burst: 5})
+	porCodigo = trilha.NewLimiter(trilha.RateLimit{RPS: 0.05, Burst: 5})
+)
+```
+
+**And one no.** A code nobody issued and a factor that does not match give the same error, the
+same status and the same bytes — the recipe's test asserts the two bodies are identical. The
+comparison of the factor is `subtle.ConstantTimeCompare`, and a lookup that found nothing still
+pays for a comparison against a dummy, so the answer for an unknown code does not come back
+measurably sooner than the answer for a wrong one. Every attempt is audited with the code masked
+to its last three characters: a trail that keeps whole protocol numbers is a list of valid
+protocol numbers.
+
+What comes out is `Registro` plus its `[]Evento`, and each event carries `Visivel`. Only what
+the server marked as public is rendered — the timeline an operator sees and the one the citizen
+sees are not the same timeline, and a filter written in the page is a filter somebody forgets on
+the second page. The screen draws it with `ui.Steps` (an ordered list, `aria-current` on where
+the case is) and `ui.Date(c, ev.Em, ui.Relative())`, on a form with real labels, `inputmode`,
+`autocomplete="off"` and `aria-describedby` — the public here is a citizen on a phone.
+
+@demo public-lookup
+
+:::warning
+**Do not put this route behind a login,** and do not echo back what was typed. Both are the same
+mistake in two shapes: the first asks for the account the person does not have, the second makes
+the refusal of a code that exists a different page from the refusal of one that does not.
+:::

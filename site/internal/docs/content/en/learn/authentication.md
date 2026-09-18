@@ -159,6 +159,58 @@ Keycloak roles that belong to **another** client do not count: whoever is `admin
 accounting client does not become `admin` in yours. If your installation uses another claim
 name, add it to `Options.RoleClaims`.
 
+## Units inside the organisation
+
+A city hall is one organisation with secretariats inside it, and departments inside those, and
+sectors inside those. `auth.Tenant` answers "which organisation"; what the screens ask is one
+level down — *does this analyst see their own sector's demands*, *does the secretary see what
+the departments below them are doing*.
+
+A unit is a path, and the session carries the paths:
+
+```go
+u.Units = []string{"sec-adm/protocolo"}   // the protocol sector of the administration secretariat
+```
+
+Then the matrix says how far each grant reaches:
+
+```go
+Roles: map[string]auth.Grants{
+	"analyst":   {"demands": auth.Grant("edit", auth.ScopeUnit)},       // their own sector
+	"secretary": {"demands": auth.Grant("manage", auth.ScopeUnitTree)}, // theirs and everything below
+	"auditor":   {"demands": "view"},                                    // the whole organisation
+},
+```
+
+Three scopes and not a second matrix: `auth.ScopeOrg` — the empty one, which is what every
+grant written before units meant — `auth.ScopeUnit`, and `auth.ScopeUnitTree`. `auth.UnitWithin`
+is what "below" means, by segment: `sec-adm/protocolo` is inside `sec-adm` and is *not* inside
+`sec`.
+
+The guard on the folder stays what it was. What is new is the check on the record, because the
+route is entered once and every demand has a unit of its own:
+
+```go
+var edit = sso.Policy(acesso.Policy, "demands", "edit")
+
+func POST(c *trilha.Ctx) error {
+	d, err := demands.Find(c.Context(), c.Param("id"))
+	if err != nil {
+		return err
+	}
+	if err := edit.In(c, d.Unit); err != nil {   // sibling unit → 403, chief of the branch → on
+		return err
+	}
+	…
+}
+```
+
+`Requirement.In` answers 403 with the unit in the sentence and writes it onto the audit trail,
+so `c.Audit` below it says where it happened. A listing filters instead of deciding:
+`trilha.ListParams` carries `Unit` from the query, and what the query may see comes from
+`auth.Units(c)` — the clause is yours, as it is for the tenant column. `trilha audit` warns
+about a route that guards a unit-scoped module and never calls `.In`.
+
 ## The session
 
 After the login, the `id_token` has done its job and is discarded. What stays is a cookie

@@ -254,11 +254,40 @@ type User struct {
 	ExpiresAt time.Time
 	Seen      time.Time // última atividade (janela de ociosidade)
 	SessionID string    // muda a cada login
+	Locale    string    // o idioma que esta pessoa escolheu ("ht", "pt-BR")
 	Extra map[string]string // o que o OIDC não tem claim para dizer (token da API, tenant)
 }
 
 func (u *User) HasRole(role string) bool
+func (a *Auth) LocaleOf(c *trilha.Ctx) string
 ```
+
+### O idioma em que esta pessoa lê
+
+O `User.Locale` é o idioma de quem está logado, na grafia do `Config.Locales`. A tela que
+oferece a escolha grava com o `Update`, e o `Auth.LocaleOf` é quem entrega isso ao framework:
+
+```go
+// app/setup.go
+func Setup(a *trilha.App) error {
+	a.Config().Locales = []string{"pt-BR", "ht", "fr"}
+	a.Config().LocaleOf = sessao.Flow.LocaleOf // a sessão antes de qualquer cabeçalho
+	return nil
+}
+
+// a tela onde a pessoa escolhe
+func POST(c *trilha.Ctx) error {
+	if err := sessao.Flow.Update(c, func(u *auth.User) { u.Locale = c.Form("lang") }); err != nil {
+		return err
+	}
+	return c.Redirect("/")
+}
+```
+
+O `LocaleOf` devolve `""` quando não há sessão ou a pessoa nunca escolheu, e aí o `c.Locale()`
+segue com o `?lang`, o cookie e o `Accept-Language`. É um campo próprio, e não mais uma
+entrada no `Extra`, pela mesma razão do `Tenant`: o que o framework lê em toda requisição tem
+que estar no mesmo lugar em toda aplicação.
 
 ## A matriz de permissões
 
@@ -742,3 +771,119 @@ warn  consultas que talvez estejam sem o filtro de tenant
 É heurística de texto e diz isso: sem parser de SQL, sem veredito, um lugar para olhar. Consulta
 que está certa de propósito — relatório global, listagem de admin — merece um comentário dizendo
 isso, tanto para a próxima pessoa quanto para a ferramenta.
+
+## Unidades dentro da organização
+
+`Tenant` é a organização. Numa prefeitura, a mesma organização tem secretarias, e uma secretaria
+tem departamentos, e um departamento tem setores — e as perguntas que as pessoas realmente fazem
+moram lá embaixo: *este analista vê as demandas do seu setor*, *esta tarefa vai para a unidade
+X*, *o secretário vê tudo abaixo dele*.
+
+Uma unidade é um **caminho**, então "abaixo de mim" é uma pergunta sobre um prefixo e não um join
+que ninguém escreveu:
+
+```go
+// no login, ou quando alguém é lotado
+u.Units = []string{"sec-adm/protocolo"}
+```
+
+| Símbolo | Papel |
+|---|---|
+| `auth.User.Units []string` | as unidades desta sessão, como caminhos, ao lado de `Tenant` |
+| `auth.Unit(c)` | a primeira unidade da sessão, ou `""` |
+| `auth.Units(c)` | todas as unidades da sessão |
+| `auth.UnitWithin(unidade, ancestral) bool` | esta unidade é aquela, ou está abaixo dela |
+| `auth.Scope`, `auth.ScopeOrg`, `auth.ScopeUnit`, `auth.ScopeUnitTree` | até onde a concessão alcança |
+| `auth.Grant(nível, escopo) string` | o valor de uma célula da matriz |
+| `Policy.CanIn(u, módulo, nível, unidade) bool` | esta pessoa pode isto **aqui** |
+| `Policy.ScopeOf(papel, módulo) Scope` | o escopo da concessão de um papel |
+| `Policy.ScopeNameOf(papel, módulo) string`, `Policy.ScopeNames()` | o mesmo, nas strings que o `ui.PolicyGrid` desenha e posta |
+| `Policy.UnitScoped(módulo) bool` | algum papel segura este módulo por unidade |
+| `(*Auth) Policy(p, módulo, nível) Requirement` | a checagem que o handler faz por registro |
+| `Requirement.In(c, unidade) error` | nil, ou a recusa |
+| `trilha.Actor.Unit` | a unidade que entra na trilha de auditoria |
+| `trilha.ListParams.Unit` | a unidade pela qual a listagem filtra |
+
+### Os três escopos
+
+Uma célula da matriz é um nível e, opcionalmente, o escopo em que ele vale — escrito com `Grant`:
+
+```go
+var Policy = auth.Policy{
+	Modules: []string{"demandas", "relatorios"},
+	Levels:  auth.Levels{"ver", "editar", "administrar"},
+	Roles: map[string]auth.Grants{
+		"analista":   {"demandas": auth.Grant("editar", auth.ScopeUnit)},          // o setor dele
+		"secretario": {"demandas": auth.Grant("administrar", auth.ScopeUnitTree)}, // o dele e abaixo
+		"auditor":    {"demandas": "ver"},                                          // a organização
+	},
+}
+```
+
+`ScopeOrg` é o escopo vazio e é o que um nível sem nada depois dele significa, então **uma matriz
+escrita antes de existirem unidades continua significando exatamente o que significava**. No fio,
+uma célula é `"editar/unit"` ou `"administrar/tree"`; `Level`, `LevelOf` e `Can` leem passando por
+cima do escopo, então o `Can` segue respondendo o que sempre respondeu — "pode em algum lugar",
+que é o que um menu pergunta.
+
+O `UnitWithin` compara **por segmento e nunca por prefixo de string**: `sec-adm/protocolo` está
+dentro de `sec-adm` e não está dentro de `sec`. Uma regra que dissesse o contrário entregaria uma
+secretaria inteira a quem nomeasse uma unidade com cuidado.
+
+### A checagem por registro
+
+A pasta é aberta uma vez; cada demanda tem a sua unidade. O `RequirePolicy` é a porta da
+subárvore e o `Requirement.In` é a checagem dentro dela:
+
+```go
+// app/demandas/id_/route.go
+var editar = acesso.Auth.Policy(acesso.Policy, "demandas", "editar")
+
+func POST(c *trilha.Ctx) error {
+	d, err := demandas.Buscar(c.Context(), c.Param("id"))
+	if err != nil {
+		return err
+	}
+	if err := editar.In(c, d.Unidade); err != nil {   // a unidade do registro, não a do endereço
+		return err
+	}
+	c.Audit("demanda.editou", d.ID)                   // já diz em qual unidade
+	…
+}
+```
+
+Anônimo vai para o login; quem é conhecido e está em outra unidade leva **403**, e a mensagem
+nomeia a unidade — `needs editar on demandas in sec-adm/protocolo` — porque "proibido" numa
+aplicação com quarenta unidades é uma thread de suporte sobre qual delas é a da pessoa. De
+passagem, ele escreve a unidade no `Actor.Unit`, então todo `c.Audit` abaixo daquela linha diz
+onde aconteceu sem o handler repetir.
+
+O `trilha audit` avisa da rota que guarda um **módulo com escopo por unidade** e nunca chama
+`.In`: a pasta foi aberta, e daí todo registro dela é servido igual.
+
+### A listagem
+
+Listagem filtra; ela não decide. O `ListParams.Unit` chega da query como qualquer outro filtro —
+então paginar e ordenar o preservam — e o que a consulta pode ver vem da sessão:
+
+```go
+var q Listagem                      // embute trilha.ListParams
+if err := c.Bind(&q); err != nil { return nil, err }
+linhas, err := repo.Listar(c.Context(), auth.Tenant(c), auth.Units(c), q.Unit, q.Limit(), q.Offset())
+```
+
+**Nada aqui escreve SQL**, pelo mesmo motivo da coluna de tenant: um `WHERE` gerado por este
+pacote seria um `WHERE` que ninguém lê numa revisão. Um filtro que veio do endereço não é
+permissão — a permissão é o `CanIn` na rota que abre um registro.
+
+### A tela
+
+O `ui.PolicyGrid` desenha um segundo select por célula quando a política carrega escopos —
+qualquer `ui.ScopedPolicy`, que é o que o `auth.Policy` é —, com o nome `scope.<papel>.<módulo>`,
+e o `auth.BindPolicy` lê de volta junto com o nível. O `PolicyGridOpts.ScopeLabels` renomeia os
+três para a tela. O [`trilha add tenant`](/pt/referencia/cli#trilha-add) escreve a árvore em si:
+`ui.Tree` para navegar, `ui.TreePicker` para lotar alguém numa unidade.
+
+Fora do escopo, de propósito: **sincronizar a árvore de um diretório corporativo**. Isso é uma
+importação, é da aplicação, e uma metade disso embutida no framework seria uma metade que
+ninguém consegue trocar.

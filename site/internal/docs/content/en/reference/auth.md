@@ -256,11 +256,41 @@ type User struct {
 	ExpiresAt time.Time
 	Seen      time.Time // last activity (idle window)
 	SessionID string    // changes on every login
+	Locale    string    // the language this person picked ("ht", "pt-BR")
 	Extra map[string]string // what OIDC has no claim for (the API token, the tenant)
 }
 
 func (u *User) HasRole(role string) bool
+func (a *Auth) LocaleOf(c *trilha.Ctx) string
 ```
+
+### The language this person reads in
+
+`User.Locale` is the language of whoever is logged in, in the spelling of `Config.Locales`.
+The screen that offers the choice writes it with `Update`, and `Auth.LocaleOf` is what hands
+it to the framework:
+
+```go
+// app/setup.go
+func Setup(a *trilha.App) error {
+	a.Config().Locales = []string{"pt-BR", "ht", "fr"}
+	a.Config().LocaleOf = sessao.Flow.LocaleOf // the session before any header
+	return nil
+}
+
+// the screen where the person chooses
+func POST(c *trilha.Ctx) error {
+	if err := sessao.Flow.Update(c, func(u *auth.User) { u.Locale = c.Form("lang") }); err != nil {
+		return err
+	}
+	return c.Redirect("/")
+}
+```
+
+`LocaleOf` returns `""` when there is no session or the person never picked one, and then
+`c.Locale()` carries on with `?lang`, the cookie and `Accept-Language`. It is a field of its
+own and not one more entry in `Extra` for the same reason `Tenant` is: what the framework
+reads on every request has to be in the same place in every application.
 
 ## The permission matrix
 
@@ -744,3 +774,118 @@ warn  queries that may be missing the tenant filter
 It is a text heuristic and says so: no SQL parser, no verdict, a place to look. A query that is
 right on purpose — a global report, an admin listing — is worth a comment saying so, for the next
 person as much as for the tool.
+
+## Units inside the organisation
+
+`Tenant` is the organisation. Inside a city hall the same organisation has secretariats, and a
+secretariat has departments, and a department has sectors — and the questions people actually
+ask live down there: *this analyst sees their own sector's demands*, *this task goes to unit X*,
+*the secretary sees everything below them*.
+
+A unit is a **path**, so "below me" is a question about a prefix and not a join nobody wrote:
+
+```go
+// at login, or when somebody is assigned
+u.Units = []string{"sec-adm/protocolo"}
+```
+
+| Symbol | Role |
+|---|---|
+| `auth.User.Units []string` | the units this session belongs to, as paths, next to `Tenant` |
+| `auth.Unit(c)` | the first unit of the session, or `""` |
+| `auth.Units(c)` | every unit of the session |
+| `auth.UnitWithin(unit, ancestor) bool` | is this unit that one, or under it |
+| `auth.Scope`, `auth.ScopeOrg`, `auth.ScopeUnit`, `auth.ScopeUnitTree` | how far a grant reaches |
+| `auth.Grant(level, scope) string` | the value of one cell of the matrix |
+| `Policy.CanIn(u, module, level, unit) bool` | may this person do this **here** |
+| `Policy.ScopeOf(role, module) Scope` | the scope of a role's grant |
+| `Policy.ScopeNameOf(role, module) string`, `Policy.ScopeNames()` | the same, as the strings `ui.PolicyGrid` draws and posts |
+| `Policy.UnitScoped(module) bool` | does any role hold this module by unit |
+| `(*Auth) Policy(p, module, level) Requirement` | the check a handler makes per record |
+| `Requirement.In(c, unit) error` | nil, or the refusal |
+| `trilha.Actor.Unit` | the unit written onto the audit trail |
+| `trilha.ListParams.Unit` | the unit a listing is filtered by |
+
+### The three scopes
+
+A cell of the matrix is a level and, optionally, the scope it holds in — written with `Grant`:
+
+```go
+var Policy = auth.Policy{
+	Modules: []string{"demands", "reports"},
+	Levels:  auth.Levels{"view", "edit", "manage"},
+	Roles: map[string]auth.Grants{
+		"analyst":   {"demands": auth.Grant("edit", auth.ScopeUnit)},      // their own sector
+		"secretary": {"demands": auth.Grant("manage", auth.ScopeUnitTree)}, // theirs and below
+		"auditor":   {"demands": "view"},                                   // the organisation
+	},
+}
+```
+
+`ScopeOrg` is the empty scope and what a level with nothing after it means, so **a matrix
+written before units existed goes on meaning exactly what it meant**. On the wire a cell is
+`"edit/unit"` or `"manage/tree"`; `Level`, `LevelOf` and `Can` read past the scope, so `Can`
+still answers what it always answered — "may do it somewhere", which is what a menu asks.
+
+`UnitWithin` compares **by segment and never by string prefix**: `sec-adm/protocolo` is within
+`sec-adm` and not within `sec`. A rule that said otherwise would hand a whole secretariat to
+whoever named a unit carefully.
+
+### The check per record
+
+The folder is entered once; each demand has its own unit. `RequirePolicy` is the door of the
+subtree and `Requirement.In` is the check inside it:
+
+```go
+// app/demands/id_/route.go
+var edit = acesso.Auth.Policy(acesso.Policy, "demands", "edit")
+
+func POST(c *trilha.Ctx) error {
+	d, err := demands.Find(c.Context(), c.Param("id"))
+	if err != nil {
+		return err
+	}
+	if err := edit.In(c, d.Unit); err != nil {   // the unit of the record, not of the address
+		return err
+	}
+	c.Audit("demand.edited", d.ID)               // already says which unit
+	…
+}
+```
+
+Anonymous goes to the login; somebody known and in another unit gets **403**, and the message
+names the unit — `needs edit on demands in sec-adm/protocolo` — because "forbidden" in an
+application with forty units is a support thread about which one the person is in. On the way
+through it writes the unit onto `Actor.Unit`, so every `c.Audit` below that line says where it
+happened without the handler repeating it.
+
+`trilha audit` warns about a route that guards a **unit-scoped module** and never calls `.In`:
+the folder was entered, and then every record of it is served the same.
+
+### The listing
+
+A listing filters; it does not decide. `ListParams.Unit` arrives from the query like every
+other filter — so paging and sorting keep it — and what the query is allowed to see comes from
+the session:
+
+```go
+var q Listing                       // embeds trilha.ListParams
+if err := c.Bind(&q); err != nil { return nil, err }
+rows, err := repo.List(c.Context(), auth.Tenant(c), auth.Units(c), q.Unit, q.Limit(), q.Offset())
+```
+
+**Nothing here writes SQL**, for the same reason the tenant column does not: a `WHERE` this
+package generated would be a `WHERE` nobody could read in a review. A filter that came from the
+address is not a permission — the permission is `CanIn` on the route that opens one record.
+
+### The screen
+
+`ui.PolicyGrid` draws a second select per cell when the policy carries scopes — any
+`ui.ScopedPolicy`, which `auth.Policy` is — named `scope.<role>.<module>`, and `auth.BindPolicy`
+reads it back with the level. `PolicyGridOpts.ScopeLabels` renames the three for the screen.
+[`trilha add tenant`](/reference/cli#trilha-add) writes the tree itself: `ui.Tree` to browse it,
+`ui.TreePicker` to put somebody in a unit.
+
+Out of scope, deliberately: **synchronising the tree from a corporate directory**. That is an
+import, it belongs to the application, and a half of it built into the framework would be a
+half nobody could replace.

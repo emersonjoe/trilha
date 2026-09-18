@@ -12,7 +12,7 @@ description: The kit's components, variants, assets and the theme contract.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` for `ui.theme.css` and `ui.css`, inline script (with nonce) that applies the saved theme, `<script defer src=ui.js>`; honors `c.Base()` |
 | `ui.Body() h.Node` | `ui-body` class for the `<body>` |
-| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js`, `ui.live.js`, `ui.chat.js` or `ui.island.js` |
+| `ui.Asset(name) []byte` | embedded content of `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js`, `ui.recorder.js`, `ui.live.js`, `ui.chat.js` or `ui.island.js` |
 | `ui.Files` | the six names, in the order `trilha ui` writes them |
 
 ## Variants and sizes
@@ -71,6 +71,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Preview(c, src, PreviewOpts{...})` | a file shown beside its metadata: bar, frame, image or "cannot be previewed" — see [Ctx](/reference/ctx), [Uploads](/cookbook/uploads) and [demo](/learn/ui-kit#a-file-next-to-its-metadata) |
 | `Audio(c, src, AudioOpts{Preload AudioPreload, ...})` | native accessible audio player with duration, open/download actions and an unsupported-format fallback |
 | `InstallApp(c, InstallAppOpts{...})` | progressive PWA install invitation; use it with [`trilha add pwa`](/cookbook/pwa) |
+| `Outbox(c)`, `OfflineScript(c)` | what is waiting to be sent — the count, the last error and the "Send now" button — and the script that queues a form marked with `trilha.OfflineForm` when there is no network; use them with [`trilha add pwa-offline`](/cookbook/pwa#offline-the-app-shell-and-an-outbox-of-forms) |
 | `Defer(c, id, src, DeferOpts{...})` | serves the page now and fills this part a moment later — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#the-slow-part-a-moment-later) |
 | `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#a-cell-that-refreshes-itself) |
 | `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |
@@ -84,7 +85,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Shell(c, ShellOpts{...}, children...)`, `PageHeader(title, actions...)` | the frame of an application with sections: side navigation, top bar, and the title of the screen with its buttons — `Back{}` above it, `Subtitle("…")` below — see [Shell](/reference/shell) and [demo](/learn/ui-kit#the-frame-of-an-internal-app) |
 | `Stat(label, value, ...)`, `StatHint(text, ...)`, `Sparkline(values, SparkOpts{...})`, `SparklineTitle(values, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(name)` | a number on a panel and the drawing next to it, in SVG written by the server; `ChartTitle` is what makes the drawing an image with a name instead of decoration — see [Charts](/reference/charts) and [demo](/learn/ui-kit#four-numbers-and-the-drawings-beside-them) |
 | `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | what is waiting for whoever is reading, and the count beside the menu item (zero draws nothing) — see [Approval](/reference/approval) and [demo](/reference/approval#the-screen) |
-| `PolicyGrid(policy, PolicyGridOpts{...})` | the role × module grid of an `auth.Policy`, as a form — see [Auth](/reference/auth) and [demo](/reference/auth#a-matrix-people-edit) |
+| `PolicyGrid(policy, PolicyGridOpts{...})` | the role × module grid of an `auth.Policy`, as a form; a `ScopedPolicy` (which `auth.Policy` is, through `ScopeNameOf` and `ScopeNames`) also gets a scope select per cell — organisation, unit, unit and below — renamed with `PolicyGridOpts.ScopeLabels` — see [Auth](/reference/auth) and [demo](/reference/auth#a-matrix-people-edit) |
 | `TaskTable(c, tasks, TaskTableOpts{...})`, `TaskProgress(c, tasks, id)` | the background work: the list with its states and the progress of one run — see [Tasks](/reference/task) and [demo](/reference/task#the-screens) |
 | `WebhooksPanel(c, hooks, deliveries, WebhooksOpts{...})` | the subscriptions, the secret and the delivery log of a `webhook.Hooks` — see [Webhook](/reference/webhook) and [demo](/reference/webhook#the-screen) |
 | `Empty(EmptyOpts{...})`, `EmptyError(c, title, err, action)` | the screen with nothing to show, and the one that could not load: the message is what the person reads, and `err` appears only in development — see [demo](/learn/ui-kit#nothing-to-show-and-what-could-not-load) |
@@ -284,6 +285,48 @@ queue is destroyed halfway through.
 told anything. What decides is [`c.Files`](/reference/ctx) with its `FileRules` — the same
 rules, applied to bytes that already arrived. Without JavaScript the input is a plain
 `multiple` field and the form posts every file at once, into the same handler.
+
+### Recorder
+
+`ui.Recorder(c, ui.RecorderOpts{Action, Name, MaxSeconds, Mime, Label, Target, Attrs})` is the
+microphone half of [`Audio`](#audio): a form that records at the counter and posts the
+recording to a route, with the progress bar of the upload above.
+
+```go
+ui.Recorder(c, ui.RecorderOpts{Action: "/api/voice", Target: "answer", MaxSeconds: 60})
+ui.RecorderScript(c)
+ui.UploadScript(c)
+```
+
+@demo ui-gravador
+
+| Field of `RecorderOpts` | Role |
+|---|---|
+| `Action` | the route that receives the recording, as any form's action |
+| `Name` | the field the route reads with `c.File`; default `"audio"` |
+| `MaxSeconds` | stops the recording on its own; zero leaves it to the person |
+| `Mime` | what `MediaRecorder` is asked for when the browser supports it; default `"audio/webm"` |
+| `Label` | the text of the record button; the default comes from the locale |
+| `Target` | the id the answer swaps, as in `ui.UploadTo`; empty leaves a plain form |
+
+`ui.RecorderScript(c)` loads `ui.recorder.js`, which shows the record button when
+`navigator.mediaDevices` and `MediaRecorder` are there, counts the seconds, puts the recording
+into the file field and submits the form — from there on it is `ui.UploadScript`'s upload, with
+the progress and the swap. What is left when the script is off, the browser has no
+`MediaRecorder` or the person denies the microphone is the `<input type="file" accept="audio/*"
+capture>` the markup always carries: on a phone it opens the recorder of the system.
+
+The browser only hands over the microphone over HTTPS and under a permissions policy that
+allows it, and the framework's default denies it. An app that records sets it once:
+
+```go
+a.Config().Security.PermissionsPolicy = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
+```
+
+The CSP does not change: the recorder is a file of the kit, loaded like any other script. The
+route reads one file with [`c.File`](/reference/ctx) and its `FileRules`, and what it does with
+it — [`ai.Transcribe`](/reference/ai#voice), an answer, [`ai.Speak`](/reference/ai#voice) — is
+the [voice section](/learn/ai-and-agents#voice) of the AI chapter.
 
 ## Combobox
 
@@ -652,7 +695,7 @@ misspelled for two releases.
 
 ## CLI
 
-`trilha ui [--force] [--css-only|--js-only]` writes the six files in `public/`:
+`trilha ui [--force] [--css-only|--js-only]` writes the files in `public/`:
 `ui.theme.css` is only created (never overwritten); `ui.css`, `ui.js`, `ui.nav.js`,
-`ui.upload.js`, `ui.live.js`, `ui.chat.js` and `ui.island.js` are updated when they equal a previous version and, if you edited them, only
+`ui.upload.js`, `ui.recorder.js`, `ui.live.js`, `ui.chat.js` and `ui.island.js` are updated when they equal a previous version and, if you edited them, only
 with `--force`.

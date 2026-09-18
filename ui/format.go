@@ -185,11 +185,20 @@ func Number(c *trilha.Ctx, v any, options ...FormatOpt) h.Node {
 
 // ---- the two decisions everything above shares ----------------------------
 
+// langOf is the kit's own two languages, read from the locale of the request
+// (Ctx.Locale, negotiated when the app sets Config.Locales). The match is by
+// base language — pt, pt-BR, pt-PT are all the Portuguese strings — and
+// anything the kit does not speak is shown in English rather than in a word
+// nobody wrote.
 func langOf(c *trilha.Ctx) string {
 	if c == nil {
 		return "en"
 	}
-	if strings.EqualFold(c.Locale(), "pt-BR") || strings.EqualFold(c.Locale(), "pt") {
+	l := c.Locale()
+	if i := strings.IndexAny(l, "-_"); i > 0 {
+		l = l[:i]
+	}
+	if strings.EqualFold(l, "pt") {
 		return "pt-BR"
 	}
 	return "en"

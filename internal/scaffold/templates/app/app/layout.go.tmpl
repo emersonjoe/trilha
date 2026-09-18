@@ -49,7 +49,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 }
 
 func document(c *trilha.Ctx, title string, body h.Node) h.Node {
-	return h.Html(h.Lang("{{.T.html_lang}}"),
+	return h.Html(h.Lang(c.Locale()),
 		h.Head(
 			h.Meta(h.Charset("utf-8")),
 			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),

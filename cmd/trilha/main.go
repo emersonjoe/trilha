@@ -83,6 +83,8 @@ func main() {
 		err = cmdSecret(os.Args[2:])
 	case "add":
 		err = cmdAdd(os.Args[2:])
+	case "i18n":
+		err = cmdI18n(os.Args[2:])
 	case "version", "-v", "--version":
 		fmt.Println("trilha", version)
 	case "help", "-h", "--help":

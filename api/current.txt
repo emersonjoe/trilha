@@ -15,6 +15,8 @@ pkg trilha, const MaxPerPage
 pkg trilha, const MinSecretLen
 pkg trilha, const NoTimeout time.Duration
 pkg trilha, const Off
+pkg trilha, const OfflineKeyField
+pkg trilha, const OfflineQueuedAtField
 pkg trilha, const ProblemMediaType
 pkg trilha, const Prod Env
 pkg trilha, const ReportPath
@@ -27,6 +29,7 @@ pkg trilha, func BusinessDays(...time.Time) *BusinessCalendar
 pkg trilha, func CSRFInput(*Ctx) h.Node
 pkg trilha, func CSRFTokenFrom(*http.Request) string
 pkg trilha, func CanInline(string) bool
+pkg trilha, func CheckDigit(string) string
 pkg trilha, func CompileErrorPage(string) string
 pkg trilha, func ConfigFromEnv() Config
 pkg trilha, func ConnectionMemory() ConnectionStore
@@ -35,12 +38,17 @@ pkg trilha, func ErrorGuideByCode(string) (ErrorGuide, bool)
 pkg trilha, func ErrorGuides() []ErrorGuide
 pkg trilha, func Errorf(int, string, ...any) error
 pkg trilha, func Fatal(error)
+pkg trilha, func HasCheckDigit(string) bool
 pkg trilha, func HintOf(error) *Hint
+pkg trilha, func IdempotencyKey(*Ctx) string
+pkg trilha, func Idempotent(*Ctx, time.Duration) (bool, error)
 pkg trilha, func Limit(float64, int) MiddlewareFunc
+pkg trilha, func LoadCatalog(fs.FS, string) (*Catalog, error)
 pkg trilha, func LookupEnum(string) (Enum, bool)
 pkg trilha, func New(Config) *App
 pkg trilha, func NewConnections(ConnectionsOpts) *Connections
 pkg trilha, func NewHint(string, error) *Hint
+pkg trilha, func NewIdempotencyKey() string
 pkg trilha, func NewLimiter(RateLimit) *Limiter
 pkg trilha, func NewSearch(SearchOpts) *Search
 pkg trilha, func NewSettings[T any](string, T) *Settings[T]
@@ -49,10 +57,12 @@ pkg trilha, func NewTestClient(TestingT, *App) *TestClient
 pkg trilha, func NewVersioned[T any](string, VersionedOpts) *Versioned[T]
 pkg trilha, func NonceAttr(*Ctx) h.Node
 pkg trilha, func NonceFrom(*http.Request) string
+pkg trilha, func OfflineForm(*Ctx) h.Node
 pkg trilha, func Open([]byte) ([]byte, error)
 pkg trilha, func Pepper([]byte) ([]byte, error)
 pkg trilha, func Provide[T any](*App, T)
 pkg trilha, func PublicFS(fs.FS, string) fs.FS
+pkg trilha, func QueuedAt(*Ctx) (time.Time, bool)
 pkg trilha, func Redirect(string) error
 pkg trilha, func RedirectCode(string, int) error
 pkg trilha, func RedirectExternal(string) error
@@ -96,6 +106,7 @@ pkg trilha, method (*App) HealthReport(context.Context) HealthReport
 pkg trilha, method (*App) ListenAndServe() error
 pkg trilha, method (*App) Logger() *slog.Logger
 pkg trilha, method (*App) Metrics() *Metrics
+pkg trilha, method (*App) OfflineRoutes() []string
 pkg trilha, method (*App) OnShutdown(func(*App) error)
 pkg trilha, method (*App) Probe(*http.Request) bool
 pkg trilha, method (*App) Register(Route)
@@ -109,6 +120,8 @@ pkg trilha, method (*App) SetRootLayout(LayoutFunc)
 pkg trilha, method (*App) Values() map[string]any
 pkg trilha, method (*BusinessCalendar) Add(time.Time, int) time.Time
 pkg trilha, method (*BusinessCalendar) IsBusinessDay(time.Time) bool
+pkg trilha, method (*Catalog) Locales() []string
+pkg trilha, method (*Catalog) Missing(string, []string) []string
 pkg trilha, method (*Connections) Client(*Ctx, string) (*http.Client, error)
 pkg trilha, method (*Connections) Delete(*Ctx, string) error
 pkg trilha, method (*Connections) Get(*Ctx, string) (Connection, error)
@@ -182,6 +195,7 @@ pkg trilha, method (*Ctx) Set(string, any)
 pkg trilha, method (*Ctx) SetActor(Actor)
 pkg trilha, method (*Ctx) SetContext(context.Context)
 pkg trilha, method (*Ctx) SetCookie(*http.Cookie)
+pkg trilha, method (*Ctx) SetLocale(string)
 pkg trilha, method (*Ctx) SetRequest(*http.Request)
 pkg trilha, method (*Ctx) SetSigned(string, string, time.Duration) error
 pkg trilha, method (*Ctx) SetTitle(string)
@@ -189,6 +203,7 @@ pkg trilha, method (*Ctx) Signed(string) (string, bool)
 pkg trilha, method (*Ctx) Standalone() bool
 pkg trilha, method (*Ctx) Status(int)
 pkg trilha, method (*Ctx) Stream() *Stream
+pkg trilha, method (*Ctx) T(string, ...any) string
 pkg trilha, method (*Ctx) Text(int, string) error
 pkg trilha, method (*Ctx) Title() string
 pkg trilha, method (*Ctx) TraceID() string
@@ -297,6 +312,7 @@ pkg trilha, type Actor struct, Email string
 pkg trilha, type Actor struct, Name string
 pkg trilha, type Actor struct, Subject string
 pkg trilha, type Actor struct, Tenant string
+pkg trilha, type Actor struct, Unit string
 pkg trilha, type Actor struct, Via string
 pkg trilha, type App struct
 pkg trilha, type AuditFunc func(AuditRecord) error
@@ -335,6 +351,8 @@ pkg trilha, type CSVResult struct, Warnings []string
 pkg trilha, type CSVRules struct
 pkg trilha, type CSVRules struct, MaxRows int
 pkg trilha, type CSVRules struct, Separator rune
+pkg trilha, type Catalog struct
+pkg trilha, type Catalog struct, Fallback map[string]string
 pkg trilha, type CheckResult struct
 pkg trilha, type CheckResult struct, DurationMS float64
 pkg trilha, type CheckResult struct, Error string
@@ -348,17 +366,22 @@ pkg trilha, type Config struct, BasePath string
 pkg trilha, type Config struct, CORS CORS
 pkg trilha, type Config struct, CSRF CSRF
 pkg trilha, type Config struct, CSRFForAPI bool
+pkg trilha, type Config struct, Catalog *Catalog
 pkg trilha, type Config struct, DevReload string
 pkg trilha, type Config struct, Drafts DraftStore
 pkg trilha, type Config struct, Env Env
+pkg trilha, type Config struct, Idempotency IdempotencyStore
 pkg trilha, type Config struct, Links LinkStore
 pkg trilha, type Config struct, Locale string
+pkg trilha, type Config struct, LocaleOf func(*Ctx) string
+pkg trilha, type Config struct, Locales []string
 pkg trilha, type Config struct, LogRequest func(*Ctx, int, time.Duration) bool
 pkg trilha, type Config struct, Logger *slog.Logger
 pkg trilha, type Config struct, MaxBodyBytes int64
 pkg trilha, type Config struct, MaxFormMemory int64
 pkg trilha, type Config struct, Mounts map[string]fs.FS
 pkg trilha, type Config struct, Observability Observability
+pkg trilha, type Config struct, OnRequest RequestHook
 pkg trilha, type Config struct, OnSecurityEvent func(SecurityEvent)
 pkg trilha, type Config struct, PipeHeaders []string
 pkg trilha, type Config struct, PreviousSecret []byte
@@ -492,6 +515,8 @@ pkg trilha, type Hit struct
 pkg trilha, type Hit struct, Score float64
 pkg trilha, type Hit struct, Snippet Snippet
 pkg trilha, type Hit struct, embedded Doc
+pkg trilha, type IdempotencyStore interface
+pkg trilha, type IdempotencyStore interface, Seen(context.Context, string, time.Duration) (bool, error)
 pkg trilha, type KindOpts struct
 pkg trilha, type KindOpts struct, Label string
 pkg trilha, type KindOpts struct, Module string
@@ -518,6 +543,7 @@ pkg trilha, type ListParams struct, Page int
 pkg trilha, type ListParams struct, PerPage int
 pkg trilha, type ListParams struct, Q string
 pkg trilha, type ListParams struct, Sort string
+pkg trilha, type ListParams struct, Unit string
 pkg trilha, type Metrics struct
 pkg trilha, type Metrics struct, MaxSeries int
 pkg trilha, type MiddlewareFunc func(*Ctx, Next) error
@@ -545,6 +571,7 @@ pkg trilha, type RateLimit struct, RPS float64
 pkg trilha, type RedirectError struct
 pkg trilha, type RedirectError struct, Code int
 pkg trilha, type RedirectError struct, URL string
+pkg trilha, type RequestHook func(*Ctx, func() int)
 pkg trilha, type Route struct
 pkg trilha, type Route struct, CORS *CORS
 pkg trilha, type Route struct, Kind RouteKind
@@ -552,6 +579,7 @@ pkg trilha, type Route struct, Layouts []LayoutFunc
 pkg trilha, type Route struct, Methods map[string]HandlerFunc
 pkg trilha, type Route struct, Middlewares []MiddlewareFunc
 pkg trilha, type Route struct, MiddlewaresByMethod map[string][]MiddlewareFunc
+pkg trilha, type Route struct, Offline bool
 pkg trilha, type Route struct, Page PageFunc
 pkg trilha, type Route struct, Pattern string
 pkg trilha, type RouteKind int
@@ -714,7 +742,9 @@ pkg ai, func Typed[T any](func(context.Context, T) (string, error)) ToolFunc
 pkg ai, func User(string) Message
 pkg ai, method (*Agent) AsTool(*Client, string) *Tool
 pkg ai, method (*Client) Chat(context.Context, Request) (*Response, error)
+pkg ai, method (*Client) Speak(context.Context, string, SpeakOpts) (io.ReadCloser, error)
 pkg ai, method (*Client) Stream(context.Context, Request, func(Delta) error) error
+pkg ai, method (*Client) Transcribe(context.Context, io.Reader, TranscribeOpts) (Transcript, error)
 pkg ai, method (*Error) Error() string
 pkg ai, method (*Response) Text() string
 pkg ai, method (*Response) ToolCalls() []ToolCall
@@ -722,6 +752,7 @@ pkg ai, method (*Tool) Def() ToolDef
 pkg ai, method (*Usage) Add(Usage)
 pkg ai, method (Request) MarshalJSON() ([]byte, error)
 pkg ai, method (ServeOpts) Serve(*trilha.Ctx, *Client, *Agent) error
+pkg ai, method (SpeakOpts) ContentType() string
 pkg ai, type Agent struct
 pkg ai, type Agent struct, Handoffs []*Agent
 pkg ai, type Agent struct, Instructions string
@@ -802,6 +833,11 @@ pkg ai, type ServeOpts struct, HTML func(string) string
 pkg ai, type ServeOpts struct, MaxHistory int
 pkg ai, type ServeOpts struct, MaxInput int64
 pkg ai, type ServeOpts struct, Page func(*trilha.Ctx, *Result) error
+pkg ai, type SpeakOpts struct
+pkg ai, type SpeakOpts struct, Format string
+pkg ai, type SpeakOpts struct, Model string
+pkg ai, type SpeakOpts struct, Speed float64
+pkg ai, type SpeakOpts struct, Voice string
 pkg ai, type Step struct
 pkg ai, type Step struct, Agent string
 pkg ai, type Step struct, Arguments string
@@ -823,6 +859,17 @@ pkg ai, type ToolDef struct
 pkg ai, type ToolDef struct, Function FunctionDef
 pkg ai, type ToolDef struct, Type string
 pkg ai, type ToolFunc func(context.Context, json.RawMessage) (string, error)
+pkg ai, type TranscribeOpts struct
+pkg ai, type TranscribeOpts struct, Filename string
+pkg ai, type TranscribeOpts struct, Format string
+pkg ai, type TranscribeOpts struct, Language string
+pkg ai, type TranscribeOpts struct, MaxBytes int64
+pkg ai, type TranscribeOpts struct, Model string
+pkg ai, type TranscribeOpts struct, Prompt string
+pkg ai, type Transcript struct
+pkg ai, type Transcript struct, Duration float64
+pkg ai, type Transcript struct, Language string
+pkg ai, type Transcript struct, Text string
 pkg ai, type Usage struct
 pkg ai, type Usage struct, CompletionTokens int
 pkg ai, type Usage struct, PromptTokens int
@@ -945,6 +992,9 @@ pkg approval, var ErrNotYours
 pkg approval, var ErrUnknown
 pkg approval, var States
 pkg auth, const DefaultPBKDF2Iterations
+pkg auth, const ScopeOrg Scope
+pkg auth, const ScopeUnit Scope
+pkg auth, const ScopeUnitTree Scope
 pkg auth, func APIKeys(KeyOptions) *Keys
 pkg auth, func All(string) Grants
 pkg auth, func BindPolicy(*trilha.Ctx, Policy) (map[string]Grants, error)
@@ -952,6 +1002,7 @@ pkg auth, func CheckPBKDF2(string, string) bool
 pkg auth, func Clerk(string, string, string, string) *Provider
 pkg auth, func Cognito(string, string, string, string, string) *Provider
 pkg auth, func EntraID(string, string, string, string) *Provider
+pkg auth, func Grant(string, Scope) string
 pkg auth, func HashPBKDF2(string) (string, error)
 pkg auth, func Keycloak(string, string, string, string, string) *Provider
 pkg auth, func MemoryKeyStore() KeyStore
@@ -962,13 +1013,18 @@ pkg auth, func PBKDF2([]byte, []byte, int, int) []byte
 pkg auth, func PolicyFrom(context.Context, PolicyStore, Policy) (Policy, error)
 pkg auth, func Sessions(Options) *Auth
 pkg auth, func Tenant(*trilha.Ctx) string
+pkg auth, func Unit(*trilha.Ctx) string
+pkg auth, func UnitWithin(string, string) bool
+pkg auth, func Units(*trilha.Ctx) []string
 pkg auth, func UsageMemory() UsageStore
 pkg auth, method (*Auth) Callback(*trilha.Ctx) error
+pkg auth, method (*Auth) LocaleOf(*trilha.Ctx) string
 pkg auth, method (*Auth) Login(*trilha.Ctx, *User) error
 pkg auth, method (*Auth) LoginPath() string
 pkg auth, method (*Auth) Logout(*trilha.Ctx) error
 pkg auth, method (*Auth) LogoutOthers(*trilha.Ctx) error
 pkg auth, method (*Auth) Optional() trilha.MiddlewareFunc
+pkg auth, method (*Auth) Policy(Policy, string, string) Requirement
 pkg auth, method (*Auth) Provider() *Provider
 pkg auth, method (*Auth) Require() trilha.MiddlewareFunc
 pkg auth, method (*Auth) RequireFunc(func(*User, *trilha.Ctx) bool) trilha.MiddlewareFunc
@@ -997,11 +1053,17 @@ pkg auth, method (*MemoryStore) Save(string, *User, time.Duration) error
 pkg auth, method (*MemoryStore) Sessions(string) []*User
 pkg auth, method (*User) HasRole(string) bool
 pkg auth, method (Policy) Can(*User, string, string) bool
+pkg auth, method (Policy) CanIn(*User, string, string, string) bool
 pkg auth, method (Policy) Level(*User, string) string
 pkg auth, method (Policy) LevelNames() []string
 pkg auth, method (Policy) LevelOf(string, string) string
 pkg auth, method (Policy) ModuleNames() []string
 pkg auth, method (Policy) RolesSorted() []string
+pkg auth, method (Policy) ScopeNameOf(string, string) string
+pkg auth, method (Policy) ScopeNames() []string
+pkg auth, method (Policy) ScopeOf(string, string) Scope
+pkg auth, method (Policy) UnitScoped(string) bool
+pkg auth, method (Requirement) In(*trilha.Ctx, string) error
 pkg auth, type Auth struct
 pkg auth, type Claims struct
 pkg auth, type Claims struct, All map[string]any
@@ -1077,6 +1139,8 @@ pkg auth, type Provider struct, HTTPClient *http.Client
 pkg auth, type Provider struct, Issuer string
 pkg auth, type Provider struct, LogoutDomain string
 pkg auth, type Provider struct, RedirectURL string
+pkg auth, type Requirement struct
+pkg auth, type Scope string
 pkg auth, type SessionLister interface
 pkg auth, type SessionLister interface, Sessions(string) []*User
 pkg auth, type SessionListerContext interface
@@ -1135,12 +1199,14 @@ pkg auth, type User struct, EmailVerified bool
 pkg auth, type User struct, ExpiresAt time.Time
 pkg auth, type User struct, Extra map[string]string
 pkg auth, type User struct, IssuedAt time.Time
+pkg auth, type User struct, Locale string
 pkg auth, type User struct, Name string
 pkg auth, type User struct, Roles []string
 pkg auth, type User struct, Seen time.Time
 pkg auth, type User struct, SessionID string
 pkg auth, type User struct, Subject string
 pkg auth, type User struct, Tenant string
+pkg auth, type User struct, Units []string
 pkg auth, var ErrNoSession
 pkg auth, var ErrNoSessionList
 pkg auth, var ErrNoUsage
@@ -1525,6 +1591,7 @@ pkg task, var ErrNotFound
 pkg task, var ErrUnknownTask
 pkg webhook, const Delivered State
 pkg webhook, const Failed State
+pkg webhook, const HMACNoPrefix
 pkg webhook, const HeaderEvent
 pkg webhook, const HeaderID
 pkg webhook, const HeaderSignature
@@ -1536,6 +1603,7 @@ pkg webhook, func New(Options) *Hooks
 pkg webhook, func Sign(string, string, []byte) string
 pkg webhook, func TakeSecret(*trilha.Ctx) string
 pkg webhook, func Verify(*http.Request, string) ([]byte, error)
+pkg webhook, func VerifyHMAC(*http.Request, HMACOpts) ([]byte, error)
 pkg webhook, method (*Hooks) Deliveries(context.Context, ListParams) ([]Delivery, error)
 pkg webhook, method (*Hooks) Emit(*trilha.Ctx, string, any) error
 pkg webhook, method (*Hooks) Events() []string
@@ -1563,6 +1631,12 @@ pkg webhook, type Delivery struct, State State
 pkg webhook, type Delivery struct, Status int
 pkg webhook, type Delivery struct, SubscriptionID string
 pkg webhook, type Delivery struct, Tenant string
+pkg webhook, type HMACOpts struct
+pkg webhook, type HMACOpts struct, Hash func() hash.Hash
+pkg webhook, type HMACOpts struct, Header string
+pkg webhook, type HMACOpts struct, MaxBody int64
+pkg webhook, type HMACOpts struct, Prefix string
+pkg webhook, type HMACOpts struct, Secret string
 pkg webhook, type Hooks struct
 pkg webhook, type ListParams struct
 pkg webhook, type ListParams struct, Event string
@@ -1724,7 +1798,9 @@ pkg ui, func NoPush() h.Node
 pkg ui, func NoTransition() h.Node
 pkg ui, func Num() h.Node
 pkg ui, func Number(*trilha.Ctx, any, ...FormatOpt) h.Node
+pkg ui, func OfflineScript(*trilha.Ctx) h.Node
 pkg ui, func On(string, string) h.Node
+pkg ui, func Outbox(*trilha.Ctx) h.Node
 pkg ui, func Outline() h.Node
 pkg ui, func PageHeader(string, ...h.Node) h.Node
 pkg ui, func Pagination(Pages) h.Node
@@ -1735,6 +1811,8 @@ pkg ui, func Poll(string, string) h.Node
 pkg ui, func Preview(*trilha.Ctx, string, ...PreviewOpts) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func Radio(...h.Node) h.Node
+pkg ui, func Recorder(*trilha.Ctx, RecorderOpts) h.Node
+pkg ui, func RecorderScript(*trilha.Ctx) h.Node
 pkg ui, func Relative() FormatOpt
 pkg ui, func Row(...h.Node) h.Node
 pkg ui, func SchemaForm(trilha.Schema, map[string]string, map[string]string, ...h.Node) h.Node
@@ -2026,6 +2104,7 @@ pkg ui, type PolicyGridOpts struct, CSRF h.Node
 pkg ui, type PolicyGridOpts struct, Labels map[string]string
 pkg ui, type PolicyGridOpts struct, None string
 pkg ui, type PolicyGridOpts struct, ReadOnly bool
+pkg ui, type PolicyGridOpts struct, ScopeLabels map[string]string
 pkg ui, type PolicyGridOpts struct, Submit string
 pkg ui, type PreviewOpts struct
 pkg ui, type PreviewOpts struct, Download string
@@ -2033,6 +2112,18 @@ pkg ui, type PreviewOpts struct, Height string
 pkg ui, type PreviewOpts struct, NoOpen bool
 pkg ui, type PreviewOpts struct, Title string
 pkg ui, type PreviewOpts struct, Type string
+pkg ui, type RecorderOpts struct
+pkg ui, type RecorderOpts struct, Action string
+pkg ui, type RecorderOpts struct, Attrs []h.Node
+pkg ui, type RecorderOpts struct, Label string
+pkg ui, type RecorderOpts struct, MaxSeconds int
+pkg ui, type RecorderOpts struct, Mime string
+pkg ui, type RecorderOpts struct, Name string
+pkg ui, type RecorderOpts struct, Target string
+pkg ui, type ScopedPolicy interface
+pkg ui, type ScopedPolicy interface, ScopeNameOf(string, string) string
+pkg ui, type ScopedPolicy interface, ScopeNames() []string
+pkg ui, type ScopedPolicy interface, embedded Policy
 pkg ui, type SearchBoxOpts struct
 pkg ui, type SearchBoxOpts struct, Hint string
 pkg ui, type SearchBoxOpts struct, Name string

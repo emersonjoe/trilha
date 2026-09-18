@@ -2,6 +2,7 @@ package trilha
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -119,5 +120,24 @@ func TestRestrictDropsAColumnNobodyDeclared(t *testing.T) {
 	none := bindList(t, "")
 	if none.Restrict("name") {
 		t.Error("Restrict had something to drop with no sort at all")
+	}
+}
+
+// #271 — the unit filter of a listing lives in the URL like every other
+// filter, so paging and sorting keep it; and a path nobody could have drawn is
+// not a unit.
+func TestListParamsReadTheUnit(t *testing.T) {
+	q := bindList(t, "?unit=sec-adm/protocolo&page=2")
+	if q.Unit != "sec-adm/protocolo" {
+		t.Fatalf("unit = %q", q.Unit)
+	}
+	// Href keeps it, which is what makes page 3 of a filtered listing the same
+	// listing.
+	if got, want := q.PageHref(3), "?page=3&unit=sec-adm%2Fprotocolo"; got != want {
+		t.Fatalf("PageHref = %q, want %q", got, want)
+	}
+	long := bindList(t, "?unit="+strings.Repeat("a", maxUnitPath+1))
+	if long.Unit != "" {
+		t.Fatalf("a forged unit of %d characters was carried down to a query", len(long.Unit))
 	}
 }

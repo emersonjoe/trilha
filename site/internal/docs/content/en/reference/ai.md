@@ -147,3 +147,60 @@ status). After it, the status line is gone: the failure travels as an `error` ev
 stream closes.
 
 The history is the app's — the framework keeps no chat session.
+
+## Voice
+
+The same protocol transcribes and speaks. Two methods, the same `Client`, the same
+`*Error` when the provider refuses.
+
+```go
+func (c *Client) Transcribe(ctx context.Context, r io.Reader, o TranscribeOpts) (Transcript, error)
+func (c *Client) Speak(ctx context.Context, text string, o SpeakOpts) (io.ReadCloser, error)
+```
+
+`Transcribe` posts `r` as `multipart/form-data` to `/audio/transcriptions` and answers with a
+`Transcript` (`Text`, and `Language` and `Duration` when the format is `"verbose_json"`).
+
+| Field of `TranscribeOpts` | What it does |
+|---|---|
+| `Model` | the transcription model: `TRILHA_AI_TRANSCRIBE_MODEL`, then `"whisper-1"` |
+| `Language` | ISO-639-1 of what was said; empty leaves the detection to the provider |
+| `Prompt` | spells the names and acronyms the model would otherwise get wrong |
+| `Format` | the `response_format`: `"json"` (default), `"verbose_json"`, `"text"` |
+| `Filename` | the name the provider sees; default `"audio.webm"` |
+| `MaxBytes` | the most read from `r`; default 25 MB. A longer recording is an `*Error` with `Status` 413 and no request leaves |
+
+`Speak` posts `{model, input, voice, response_format, speed}` to `/audio/speech` and returns
+the audio as it streams in; the caller closes the body. `SpeakOpts.ContentType()` is the media
+type of `Format` — `"audio/mpeg"` for the default `"mp3"` — which is what the route serves it
+as, so [`ui.Audio`](/reference/ui#audio) plays it.
+
+| Field of `SpeakOpts` | What it does |
+|---|---|
+| `Model` | the speech model: `TRILHA_AI_SPEECH_MODEL`, then `"tts-1"` |
+| `Voice` | the provider's voice name; default `"alloy"` |
+| `Format` | `"mp3"` (default), `"opus"`, `"aac"`, `"flac"`, `"wav"`, `"pcm"` |
+| `Speed` | multiplies the pace (0.25 to 4); zero leaves the provider's 1 |
+
+```go
+// app/api/voice/route.go
+up, err := c.File("audio", trilha.FileRules{Accept: []string{"audio/*", "video/webm"}})
+if err != nil {
+	return err
+}
+defer up.Close()
+t, err := client.Transcribe(c.Context(), up, ai.TranscribeOpts{Language: "en", Filename: up.Name})
+
+// app/api/voice/speech/route.go
+body, err := client.Speak(c.Context(), c.Query("text"), ai.SpeakOpts{Voice: "nova"})
+if err != nil {
+	return err
+}
+defer body.Close()
+c.Header("Cache-Control", "private, no-store")
+return c.Inline("answer.mp3", body, ai.SpeakOpts{}.ContentType())
+```
+
+The recording comes from [`ui.Recorder`](/reference/ui#recorder), and the whole round trip —
+record, transcribe, answer, speak — is the [voice section](/learn/ai-and-agents#voice) of the
+chapter.

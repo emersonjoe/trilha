@@ -1,0 +1,20 @@
+// Package app is where the routes live, and setup.go is what runs before the
+// first request.
+package app
+
+import (
+	"github.com/emersonjoe/trilha"
+)
+
+// Setup runs once, before the first request: it is where the dependencies of
+// the app are put where the pages find them with trilha.Use[T](c), and where
+// the configuration that is not a flag is set.
+func Setup(a *trilha.App) error {
+	cfg := a.Config()
+	// The languages this app answers in, the first being the default. With
+	// more than one, c.Locale negotiates per request — the preference in the
+	// session, ?lang=, the trilha_lang cookie, Accept-Language — and the
+	// layout's h.Lang(c.Locale()) follows it.
+	cfg.Locales = []string{"{{.T.html_lang}}"}
+	return nil
+}

@@ -12,6 +12,7 @@ description: Tabela completa do que cada arquivo e nome de pasta em app/ signifi
 | `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` (ao menos um) | `func(c *trilha.Ctx) error` | API JSON da pasta |
 | `kind.go`, ou qualquer arquivo (opcional) | `Kind` | `var Kind = trilha.KindPage` ou `KindAPI` | subárvore: como erros são renderizados e se há CSRF (veja [Erros](/pt/referencia/erros)) |
 | `route.go` (opcional) | `CORS` | `var CORS = trilha.CORS{...}` | política de origem cruzada só desta rota, preflight incluído |
+| `offline.go`, ou qualquer arquivo do pacote de um `page.go` (opcional) | `Offline` | `var Offline = true` | a página de que o service worker guarda uma cópia, para abrir sem rede — veja [Offline](/pt/receitas/pwa#offline-a-casca-do-app-e-um-outbox-de-formularios) |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subárvore |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore |
 | `middleware.go` (opcional) | `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH`, `MiddlewareDELETE`, `MiddlewareOPTIONS` | `func(c *trilha.Ctx, next trilha.Next) error` | subárvore, só naquele método |
@@ -141,6 +142,26 @@ A cadeia do método roda por dentro da cadeia da rota: uma regra de um método s
 a rota já decidiu. Para `POST` é `MiddlewarePOST`, e assim por diante; um método sem cadeia
 própria roda só a da rota.
 
+## Uma página que funciona offline
+
+`var Offline = true` no pacote de um `page.go` diz que esta tela é uma de que o service worker
+guarda uma cópia. É a marca da própria página e não desce pela subárvore, porque o que abre
+sem rede é decidido tela a tela:
+
+```go
+// app/coleta/offline.go
+package coleta
+
+var Offline = true
+```
+
+O framework serve a rota exatamente como antes; a marca é um fato que o app publica.
+`App.OfflineRoutes()` devolve os padrões declarados, em ordem, e
+[`ui.OfflineScript`](/pt/referencia/ui) os entrega ao worker de
+[`trilha add pwa-offline`](/pt/receitas/pwa#offline-a-casca-do-app-e-um-outbox-de-formularios)
+— rota que ninguém declarou nunca entra em cache. `var Offline` num `route.go` é erro: uma
+resposta JSON não é navegação.
+
 ## Erros de geração
 
 | Código | Causa |
@@ -159,3 +180,4 @@ própria roda só a da rota.
 | `E_HIDDEN_ROUTE` | `page.go` ou `route.go` dentro de pasta cujo nome começa com ponto |
 | `E_UNROUTABLE_METHOD` | `func HEAD`, `TRACE` ou `CONNECT`: o roteador não tira esses de um arquivo |
 | `E_CORS_ON_PAGE` | `var CORS` num `page.go` |
+| `E_OFFLINE_ON_API` | `var Offline` num `route.go`: só uma página é guardada para uso offline |

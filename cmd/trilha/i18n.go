@@ -57,6 +57,7 @@ Usage:
   trilha audit [--no-vuln]                          check the project's security and configuration
   trilha secret                                     print a signing key for TRILHA_SECRET
   trilha add [recipe...] [--lang pt] [--dry-run]    write framework recipes into the project
+  trilha i18n extract [--write] | missing <locale>  the keys c.T uses, and what a locale still lacks
   trilha ui [--force] [--css-only|--js-only]        write/update the ui kit in public/
   trilha ui describe [Name] [--json]                the ui catalogue: what exists and how it is called
   trilha ui components [--json]                     list the component catalogue for tools and agents
@@ -89,6 +90,7 @@ Uso:
   trilha audit [--no-vuln]                            verifica segurança e configuração do projeto
   trilha secret                                       imprime uma chave para o TRILHA_SECRET
   trilha add [receita...] [--lang pt] [--dry-run]     escreve receitas do framework no projeto
+  trilha i18n extract [--write] | missing <locale>    as chaves que o c.T usa, e o que falta num idioma
   trilha ui [--force] [--css-only|--js-only]          grava/atualiza o kit ui em public/
   trilha ui describe [Nome] [--json]                  o catálogo do ui: o que existe e como se chama
   trilha ui components [--json]                       lista o catálogo de componentes para ferramentas e agentes
@@ -121,6 +123,16 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"fix vet":           {"fix what go vet reports at this line", "conserte o que o go vet aponta nesta linha"},
 	"fix test":          {"run go test ./... and read this test's output", "rode go test ./... e leia a saída deste teste"},
 	"fix openapi":       {"run trilha openapi", "rode trilha openapi"},
+
+	// i18n
+	"i18n usage":        {"usage: trilha i18n extract [--write] | trilha i18n missing <locale>", "uso: trilha i18n extract [--write] | trilha i18n missing <locale>"},
+	"i18n extracted":    {"✓ %d keys used, %d added to %s\n", "✓ %d chaves usadas, %d acrescentadas em %s\n"},
+	"i18n missing":      {"%d key(s) missing from %s", "%d chave(s) faltando em %s"},
+	"i18n complete":     {"✓ %s has every one of the %d keys the code uses\n", "✓ %s tem todas as %d chaves que o código usa\n"},
+	"i18n keys missing": {"%d key(s) used in the code and not defined here: %s", "%d chave(s) usadas no código e não definidas aqui: %s"},
+	"warning prefix":    {"warning: ", "aviso: "},
+	"fix i18n":          {"run trilha i18n extract --write and write the messages", "rode trilha i18n extract --write e escreva as mensagens"},
+	"fix i18n locale":   {"run trilha i18n missing %s for the whole list; until it is translated the fallback answers", "rode trilha i18n missing %s para a lista inteira; até traduzir, o fallback responde"},
 	"unknown command":   {"unknown command: %s\n\n%s", "comando desconhecido: %s\n\n%s"},
 	"error:":            {"error:", "erro:"},
 	"no app dir":        {"app/ directory not found: run at the project root (or use `trilha new`)", "pasta app/ não encontrada: rode na raiz do projeto (ou use `trilha new`)"},
@@ -358,6 +370,9 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"policy ok":                   {"every module of the policy is required by a route", "todo módulo da política é exigido por alguma rota"},
 	"policy loose":                {"the policy declares %s and no route requires it", "a política declara %s e nenhuma rota exige"},
 	"policy loose hint":           {"add auth.RequirePolicy(Policy, module, level) to the middleware.go of that area, or take the module out of the policy", "ponha auth.RequirePolicy(Policy, módulo, nível) no middleware.go daquela área, ou tire o módulo da política"},
+	"policy unit":                 {"%d route(s) guard a module scoped by unit and never check the unit", "%d rota(s) guardam módulo com escopo por unidade e nunca conferem a unidade"},
+	"policy unit hint":            {"the folder was entered and every record of it is served the same: call Requirement.In(c, unit) with the unit of the record (%s)", "a pasta foi aberta e todo registro dela é servido igual: chame Requirement.In(c, unidade) com a unidade do registro (%s)"},
+	"policy unit ok":              {"every route on a unit-scoped module checks the unit", "toda rota de módulo com escopo por unidade confere a unidade"},
 	"time format":                 {"%d date(s) formatted with a layout of their own", "%d data(s) formatada(s) com layout próprio"},
 	"time format hint":            {"ui.Date(c, t) writes the date in the app language and zone; a layout in the page ignores Config.TimeZone", "ui.Date(c, t) escreve a data no idioma e no fuso do app; layout na página ignora o Config.TimeZone"},
 	"audit anon":                  {"c.Audit is called and no route requires a session", "c.Audit é chamado e nenhuma rota exige sessão"},

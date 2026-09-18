@@ -546,3 +546,76 @@ func TestAuditoriaDoQueDaParaVerSemRodar(t *testing.T) {
 		t.Errorf("campos sem limite = %v", campos)
 	}
 }
+
+// #271 — a module held by unit is a folder whose door is not the whole check:
+// each record has a unit, and a route that never asks which one serves a
+// sibling unit's rows to whoever typed the address.
+func TestAuditoriaDoModuloComEscopoPorUnidade(t *testing.T) {
+	const politica = `package acesso
+
+import "github.com/emersonjoe/trilha/auth"
+
+var Policy = auth.Policy{
+	Modules: []string{"demandas", "relatorios"},
+	Levels:  auth.Levels{"ver", "editar"},
+	Roles: map[string]auth.Grants{
+		"analista":   {"demandas": "editar/unit"},
+		"secretario": {"demandas": auth.Grant("editar", auth.ScopeUnitTree)},
+		"auditor":    {"relatorios": "ver"},
+	},
+}
+`
+	if got := policyUnitScoped(politica); !got["demandas"] || got["relatorios"] {
+		t.Fatalf("módulos com escopo por unidade = %v", got)
+	}
+	// auth.All com escopo alcança todo módulo declarado.
+	todos := policyUnitScoped("Modules: []string{\"a\", \"b\"}\nRoles: map[string]auth.Grants{\"chefe\": auth.All(\"ver/tree\")}")
+	if !todos["a"] || !todos["b"] {
+		t.Fatalf("All com escopo = %v", todos)
+	}
+	// E uma matriz sem escopo nenhum não liga a checagem.
+	if got := policyUnitScoped("Roles: map[string]auth.Grants{\"leitor\": {\"docs\": \"ver\"}}"); len(got) > 0 {
+		t.Fatalf("matriz sem escopo = %v", got)
+	}
+
+	escreve := func(t *testing.T, arquivos map[string]string) (*project, *scan.Result) {
+		t.Helper()
+		dir := t.TempDir()
+		for nome, src := range arquivos {
+			caminho := filepath.Join(dir, filepath.FromSlash(nome))
+			if err := os.MkdirAll(filepath.Dir(caminho), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(caminho, []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		res, err := scan.Scan(dir, "exemplo.com/x")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &project{Root: dir, Module: "exemplo.com/x"}, res
+	}
+	const pagina = "package app\n\nimport (\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n)\n\nfunc Page(c *trilha.Ctx) (h.Node, error) { return h.Div(), nil }\n"
+	const guarda = "package demandas\n\nimport \"github.com/emersonjoe/trilha\"\n\nvar ver = sessao.Flow.RequirePolicy(acesso.Policy, \"demandas\", \"ver\")\n\nfunc Middleware(c *trilha.Ctx, next trilha.Next) error { return ver(c, next) }\n"
+	const semUnidade = "package demandas\n\nimport \"github.com/emersonjoe/trilha\"\n\nfunc POST(c *trilha.Ctx) error { return c.Text(200, \"ok\") }\n"
+	const comUnidade = "package demandas\n\nimport \"github.com/emersonjoe/trilha\"\n\nvar editar = sessao.Flow.Policy(acesso.Policy, \"demandas\", \"editar\")\n\nfunc POST(c *trilha.Ctx) error {\n\tif err := editar.In(c, c.Form(\"unidade\")); err != nil {\n\t\treturn err\n\t}\n\treturn c.Text(200, \"ok\")\n}\n"
+
+	escopo := map[string]bool{"demandas": true}
+	p, solta := escreve(t, map[string]string{
+		"app/page.go": pagina, "app/demandas/route.go": semUnidade, "app/demandas/middleware.go": guarda})
+	if got := unitUnchecked(p, solta, escopo); len(got) != 1 || got[0] != "/demandas" {
+		t.Errorf("rota sem checagem de unidade não apontada: %v", got)
+	}
+	p, checada := escreve(t, map[string]string{
+		"app/page.go": pagina, "app/demandas/route.go": comUnidade, "app/demandas/middleware.go": guarda})
+	if got := unitUnchecked(p, checada, escopo); got != nil {
+		t.Errorf("a rota que chama .In não devia entrar: %v", got)
+	}
+	// Um módulo sem escopo por unidade não cobra nada de ninguém.
+	p, outra := escreve(t, map[string]string{
+		"app/page.go": pagina, "app/demandas/route.go": semUnidade, "app/demandas/middleware.go": guarda})
+	if got := unitUnchecked(p, outra, map[string]bool{"relatorios": true}); got != nil {
+		t.Errorf("módulo sem escopo cobrou checagem: %v", got)
+	}
+}

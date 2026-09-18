@@ -122,6 +122,22 @@ func (a *App) Routes() map[string][]string {
 	return out
 }
 
+// OfflineRoutes lists the patterns of the pages that declared
+// `var Offline = true`, sorted. It is what a service worker is told to keep a
+// copy of, and the kit's ui.OfflineScript writes it into the page so the
+// worker never guesses: a route nobody declared is never cached, which is how
+// the private area of another audience stays out of the browser's disk.
+func (a *App) OfflineRoutes() []string {
+	var out []string
+	for p, r := range a.routes {
+		if r.Offline && r.Page != nil {
+			out = append(out, p)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 // chainFor is the middleware chain of one method: the route's own chain first,
 // then whatever middleware.go declared for that method alone, outermost first.
 func chainFor(r *Route, method string) []MiddlewareFunc {
@@ -151,42 +167,47 @@ func (a *App) wrap(r *Route, kind routeKind, mws []MiddlewareFunc, final Handler
 		a.applySecurity(c)
 		rw.Header().Set("X-Request-ID", c.requestID)
 
-		if a.limiter != nil && !c.Probing() {
-			if err := a.limiter.check(c); err != nil {
-				a.handleError(c, err)
-				a.logRequest(c, rw, start)
-				a.observe(req.Method, r.Pattern, rw.status, start)
-				return
-			}
-		}
-		err := a.run(c, mws, func(c *Ctx) (err error) {
-			defer func() {
-				if v := recover(); v != nil {
-					if v == http.ErrAbortHandler {
-						panic(v)
-					}
-					if a.instrument {
-						a.mPanics.Inc()
-					}
-					err = &panicError{value: v, stack: string(debug.Stack())}
-				}
-			}()
-			if c.Probing() {
-				// The chain let the caller through; that is the whole answer.
-				return nil
-			}
-			if bodyMethods[req.Method] && (kind == kindPage || a.cfg.CSRFForAPI) {
-				if err := a.checkCSRF(c); err != nil {
-					return err
+		// Everything that answers this request, as one call: the hook of
+		// Config.OnRequest wraps it and gets the status back, and the access
+		// log below still runs exactly once whichever way it ended.
+		serve := func() int {
+			if a.limiter != nil && !c.Probing() {
+				if err := a.limiter.check(c); err != nil {
+					a.handleError(c, err)
+					return rw.status
 				}
 			}
-			return final(c)
-		})
-		a.handleError(c, err)
-		if !rw.wrote {
-			// Handler returned nil without writing: treat as empty 204.
-			rw.WriteHeader(http.StatusNoContent)
+			err := a.run(c, mws, func(c *Ctx) (err error) {
+				defer func() {
+					if v := recover(); v != nil {
+						if v == http.ErrAbortHandler {
+							panic(v)
+						}
+						if a.instrument {
+							a.mPanics.Inc()
+						}
+						err = &panicError{value: v, stack: string(debug.Stack())}
+					}
+				}()
+				if c.Probing() {
+					// The chain let the caller through; that is the whole answer.
+					return nil
+				}
+				if bodyMethods[req.Method] && (kind == kindPage || a.cfg.CSRFForAPI) {
+					if err := a.checkCSRF(c); err != nil {
+						return err
+					}
+				}
+				return final(c)
+			})
+			a.handleError(c, err)
+			if !rw.wrote {
+				// Handler returned nil without writing: treat as empty 204.
+				rw.WriteHeader(http.StatusNoContent)
+			}
+			return rw.status
 		}
+		a.onRequest(c, serve)
 		if c.Probing() {
 			return
 		}

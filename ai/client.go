@@ -72,29 +72,28 @@ func (c *Client) httpClient() *http.Client {
 	return &http.Client{Timeout: 2 * time.Minute}
 }
 
-func (c *Client) do(ctx context.Context, req Request) (*http.Response, error) {
-	if req.Model == "" {
-		req.Model = c.Model
-	}
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
+// newRequest builds a POST to path under BaseURL, with the content type and
+// the credentials. Client.Headers are applied by send, so a caller may still
+// set its own before the request leaves.
+func (c *Client) newRequest(ctx context.Context, path, ctype string, body io.Reader) (*http.Request, error) {
 	base := c.BaseURL
 	if base == "" {
 		base = DefaultBaseURL
 	}
-	hr, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(base, "/")+"/chat/completions", bytes.NewReader(body))
+	hr, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(base, "/")+path, body)
 	if err != nil {
 		return nil, err
 	}
-	hr.Header.Set("Content-Type", "application/json")
+	hr.Header.Set("Content-Type", ctype)
 	if c.APIKey != "" {
 		hr.Header.Set("Authorization", "Bearer "+c.APIKey)
 	}
-	if req.Stream {
-		hr.Header.Set("Accept", "text/event-stream")
-	}
+	return hr, nil
+}
+
+// send applies Client.Headers, sends the request and turns a non-2xx answer
+// into an *Error carrying the provider's own message.
+func (c *Client) send(hr *http.Request) (*http.Response, error) {
 	for k, v := range c.Headers {
 		hr.Header.Set(k, v)
 	}
@@ -123,6 +122,24 @@ func (c *Client) do(ctx context.Context, req Request) (*http.Response, error) {
 		return nil, e
 	}
 	return resp, nil
+}
+
+func (c *Client) do(ctx context.Context, req Request) (*http.Response, error) {
+	if req.Model == "" {
+		req.Model = c.Model
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	hr, err := c.newRequest(ctx, "/chat/completions", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	if req.Stream {
+		hr.Header.Set("Accept", "text/event-stream")
+	}
+	return c.send(hr)
 }
 
 // Chat sends a request and returns the full response.

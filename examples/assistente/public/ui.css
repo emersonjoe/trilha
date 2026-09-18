@@ -1,4 +1,4 @@
-/* trilha ui 79bfb323dce72748 */
+/* trilha ui 4fec7910c78b62f8 */
 /* Kit ui do Trilha — componentes. Atualizado por `trilha ui`; o tema fica em ui.theme.css.
    Consome só as variáveis do tema; classes têm prefixo ui-. */
 :root {
@@ -145,6 +145,8 @@ a[data-trilha-pending], button[data-trilha-pending], [data-trilha-pending] > but
 .ui-alert-destructive .ui-alert-description { color: color-mix(in oklch, var(--destructive) 90%, var(--foreground)); }
 
 /* table */
+.ui-policy-cell { display: grid; gap: .25rem; min-width: 10rem; }
+.ui-policy-scope { font-size: .8125rem; color: var(--muted-foreground); }
 .ui-table-wrap { width: 100%; overflow-x: auto; }
 .ui-table { width: 100%; border-collapse: collapse; font-size: .875rem; caption-side: bottom; }
 .ui-table caption { color: var(--muted-foreground); margin-top: 1rem; }
@@ -461,3 +463,13 @@ html.ui-sidebar-collapsed .ui-shell > .ui-sidebar { display: none; }
 .ui-search-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
 .ui-search-snippet { color: var(--muted-foreground); font-size: .875rem; margin: .125rem 0 0; }
 .ui-search-snippet mark { background: color-mix(in oklch, #d97706 30%, transparent); color: inherit; border-radius: .125rem; }
+
+/* Recorder: a ilha de captura. O campo de arquivo é o caminho que sempre
+   funciona, e por isso ele fica visível até o script achar um microfone. */
+.ui-recorder { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.ui-recorder-time { font-variant-numeric: tabular-nums; color: var(--muted-foreground); font-size: .875rem; min-width: 3ch; }
+.ui-recorder[data-recording] .ui-recorder-time { color: var(--destructive); font-weight: 600; }
+.ui-recorder-note { flex-basis: 100%; margin: 0; color: var(--muted-foreground); font-size: .8125rem; }
+.ui-outbox { display: grid; gap: .5rem; justify-items: start; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); color: var(--card-foreground); font-size: .875rem; }
+.ui-outbox-count { margin: 0; font-weight: 500; }
+.ui-outbox-error { margin: 0; color: var(--destructive); }

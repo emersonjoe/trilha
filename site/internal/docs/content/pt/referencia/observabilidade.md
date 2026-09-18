@@ -115,6 +115,37 @@ func (c *Ctx) Log() *slog.Logger  // logger com request_id e trace_id
 Um `traceparent` fora do formato é descartado em silêncio: valor escolhido por terceiro não
 entra no log como se fosse traço legítimo.
 
+## O gancho da requisição
+
+O `Config.OnRequest` envolve toda requisição que chegou a uma rota, com o id da requisição e o
+do trace já definidos e antes do primeiro middleware. É a costura em que um módulo opcional se
+prende — tracing, profile, um orçamento por requisição — e ela não carrega dependência
+nenhuma: a assinatura fala só de `*Ctx` e de um `int`.
+
+```go
+type RequestHook func(c *Ctx, next func() (status int))
+
+cfg.OnRequest = func(c *trilha.Ctx, next func() int) {
+	ctx, span := tracer.Start(c.Context(), c.Pattern())
+	defer span.End()
+	c.SetContext(ctx) // viaja para o handler, para o Upstream e para o ai
+	span.SetAttributes(attribute.Int("http.response.status_code", next()))
+}
+```
+
+As regras são curtas: chame `next` exatamente uma vez; ele executa todo o resto da requisição —
+middlewares, CSRF, o handler, a página de erro — e devolve o status que foi escrito, de modo
+que um panic no handler volta como 500 em vez de desenrolar por cima do gancho. Trocar o
+contexto com `c.SetContext` antes do `next` é como um valor chega ao handler e a tudo que o
+framework manda para fora depois. Um gancho que esquece de chamar `next` não engole a
+requisição: a resposta é servida do mesmo jeito. O gancho roda na goroutine da requisição e não
+pode dar panic — o recover que transforma o panic do handler em 500 está dentro do `next`, não
+em volta dele.
+
+O exportador que usa essa costura é o módulo opcional `github.com/emersonjoe/trilha/otel`
+(`otel.Install`, `otel.Options`, `otel.Transport`); veja
+[Observabilidade](/pt/aprender/observabilidade). O núcleo nunca o importa.
+
 ## O que a auditoria verifica
 
 `trilha audit` acrescenta três itens: token curto demais (crítico), métricas configuradas

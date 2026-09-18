@@ -15,6 +15,10 @@ func Setup(a *trilha.App) error {
 		return err
 	}
 	a.Logger().Info("assistente: modelo", "base_url", ferramentas.Client.BaseURL, "model", ferramentas.Client.Model)
+	// O padrão do framework nega o microfone, e a tela de voz precisa dele: a
+	// política é reescrita inteira, liberando só o microfone e só para esta
+	// origem. A CSP não muda — o gravador é um script do kit, com nonce.
+	a.Config().Security.PermissionsPolicy = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
 	// The chat streams for a while: allow long responses on /api/chat.
 	return nil
 }

@@ -130,6 +130,48 @@ remetente considera fora do ar e reenvia. O `X-Webhook-Id` é estável entre as 
 entrega: guarde-o e recuse repetido, porque "pelo menos uma vez" é o que o remetente promete e
 "exatamente uma vez" é o que o receptor decide.
 
+## Recebendo o webhook de outra pessoa
+
+```go
+func VerifyHMAC(r *http.Request, o HMACOpts) ([]byte, error)
+
+type HMACOpts struct {
+	Header  string           // padrão X-Hub-Signature-256
+	Prefix  string           // padrão "sha256="; HMACNoPrefix para o hex nu
+	Secret  string           // o segredo compartilhado, vindo de uma Connection selada
+	MaxBody int64            // padrão 1 MiB
+	Hash    func() hash.Hash // padrão sha256.New
+}
+
+const HMACNoPrefix = "\x00"
+```
+
+O `Verify` confere o esquema do próprio Trilha, que mais ninguém fala. A Cloud API do WhatsApp,
+da Meta, assina o corpo cru e põe o hex em `X-Hub-Signature-256: sha256=…`; o GitHub manda a
+mesma coisa no mesmo cabeçalho; o Stripe muda o cabeçalho e o prefixo e mais nada. O `VerifyHMAC`
+é esse formato, e o `HMACOpts` zerado já é o da Meta e o do GitHub:
+
+```go
+body, err := webhook.VerifyHMAC(c.Request(), webhook.HMACOpts{Secret: appSecret})
+if err != nil {
+	return trilha.Errorf(http.StatusUnauthorized, "assinatura inválida")
+}
+```
+
+Ele lê o corpo uma vez, limitado pelo `MaxBody`, compara em tempo constante e devolve os bytes —
+a mesma assinatura do `Verify`, pelo mesmo motivo: quem chama ficar com um reader já consumido é
+o erro que os dois existem para tornar impossível. Toda forma de falhar é o mesmo `ErrSignature`:
+sem cabeçalho, um MAC que não é hex, um corpo alterado, um corpo acima do limite, um segredo
+vazio.
+
+O `Secret` é uma string porque o HMAC do corpo é a única coisa que o `Connections` não consegue
+fazer no lugar da aplicação — então é aqui que o `conn.Secret.Reveal()` é escrito de propósito, e
+em nenhum outro lugar.
+
+Não há carimbo de tempo aqui porque esses provedores não assinam um. O que impede o replay é o id
+de mensagem do próprio provedor, guardado e recusado na segunda vez — a regra do `X-Webhook-Id`
+aplicada ao id de outra pessoa. O `trilha add channel-whatsapp` escreve esse receptor inteiro.
+
 ## A checagem de endereço
 
 `https` sempre; `http` só em `Dev`. Todo endereço para o qual o nome resolve tem de ser público —

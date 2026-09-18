@@ -382,7 +382,12 @@ func TestE2E(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(projPT, "app", "page.go")); !strings.Contains(string(b), "Olá, app-pt!") {
 		t.Fatal("--lang default must follow the CLI language:", string(b))
 	}
-	if b, _ := os.ReadFile(filepath.Join(projPT, "app", "layout.go")); !strings.Contains(string(b), `h.Lang("pt-BR")`) {
+	// The layout writes the locale of the request (#270) and setup.go says
+	// which one that is by default: the project's language.
+	if b, _ := os.ReadFile(filepath.Join(projPT, "app", "layout.go")); !strings.Contains(string(b), `h.Lang(c.Locale())`) {
+		t.Fatal(string(b))
+	}
+	if b, _ := os.ReadFile(filepath.Join(projPT, "app", "setup.go")); !strings.Contains(string(b), `cfg.Locales = []string{"pt-BR"}`) {
 		t.Fatal(string(b))
 	}
 	// Explicit --lang en wins over TRILHA_LANG.
@@ -687,7 +692,7 @@ func TestAddE2E(t *testing.T) {
 
 	// The listing is how anybody finds out a recipe exists.
 	lista := run(t, proj, cli, "add")
-	for _, nome := range []string{"approvals", "audit", "api-keys", "blob", "connections", "login", "mail", "permissions", "profile", "search", "settings", "share-link", "tasks", "tenant", "users", "webhooks"} {
+	for _, nome := range []string{"approvals", "audit", "api-keys", "blob", "channel-whatsapp", "connections", "login", "mail", "permissions", "profile", "public-lookup", "pwa", "pwa-offline", "search", "settings", "share-link", "tasks", "tenant", "users", "webhooks"} {
 		if !strings.Contains(lista, nome) {
 			t.Fatalf("`trilha add` does not list %s:\n%s", nome, lista)
 		}
@@ -704,7 +709,7 @@ func TestAddE2E(t *testing.T) {
 
 	// Every recipe into the same project: they have to coexist, because a
 	// project that wants one usually wants two.
-	for _, nome := range []string{"audit", "settings", "api-keys", "login", "users", "permissions", "profile", "webhooks", "tasks", "mail", "blob", "share-link", "tenant", "approvals", "search", "connections"} {
+	for _, nome := range []string{"audit", "settings", "api-keys", "login", "users", "permissions", "profile", "public-lookup", "webhooks", "tasks", "mail", "blob", "share-link", "tenant", "approvals", "search", "connections", "channel-whatsapp", "pwa", "pwa-offline"} {
 		out := run(t, proj, cli, "add", nome)
 		if !strings.Contains(out, "  + ") {
 			t.Fatalf("add %s wrote nothing:\n%s", nome, out)
@@ -727,6 +732,17 @@ func TestAddE2E(t *testing.T) {
 	testOut := run(t, proj, "go", "test", ".", "-run", "TestChavesRevogarPeloFormularioDaTela", "-v")
 	if !strings.Contains(testOut, "PASS: TestChavesRevogarPeloFormularioDaTela") {
 		t.Fatalf("TestChavesRevogarPeloFormularioDaTela did not run:\n%s", testOut)
+	}
+	// #268: the server half of the outbox — the resend carries the same key,
+	// one collection is recorded and the second answer is the first one.
+	outbox := run(t, proj, "go", "test", ".", "-run", "TestColetaReenviadaNaoDuplica", "-v")
+	if !strings.Contains(outbox, "PASS: TestColetaReenviadaNaoDuplica") {
+		t.Fatalf("TestColetaReenviadaNaoDuplica did not run:\n%s", outbox)
+	}
+	// And the routes the worker is allowed to keep are the declared ones.
+	rotas := run(t, proj, cli, "gen", "--check")
+	if strings.Contains(rotas, "desatualizado") || strings.Contains(rotas, "out of date") {
+		t.Fatalf("trilha gen is not up to date after the recipes:\n%s", rotas)
 	}
 
 	// A second run adds nothing and duplicates nothing.

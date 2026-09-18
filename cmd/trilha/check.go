@@ -92,6 +92,7 @@ func runCheck(p *project, fix bool) report {
 		{"test", checkStepTest},
 		{"audit", checkStepAudit},
 		{"openapi", checkStepOpenAPI},
+		{"i18n", checkStepI18n},
 	}
 	r := report{OK: true}
 	failed := false
