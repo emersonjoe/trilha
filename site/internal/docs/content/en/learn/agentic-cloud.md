@@ -524,6 +524,58 @@ user without sudo, receives a minimal environment and redacts secret values from
 
 ![Responsive portal at 390 pixels](/docs/agentic-cloud/cloud-mobile.png "Specifications, Kanban, environments, runs and fleet remain operable on a mobile screen.")
 
+### 12. Pause a project and let the circuit breaker pull the brake
+
+Cancelling stops one run. Pausing stops one project: queued runs stay queued in the same order,
+workers keep sending heartbeats, and `POST /api/runs/next` answers `204` for that project until a
+human resumes it. Managed runs started from **Specs** are refused with `409` while paused.
+
+1. In **Projects**, select **Pause** on the project. The dialog asks for a reason (up to 240
+   characters) and a confirmation; the reason goes to the audit trail and is what the next
+   operator reads before resuming.
+2. The row shows the **Paused** badge, the reason, who paused and when. The product's
+   **Overview** page shows the same in the **Fleet brake** panel.
+3. Select **Resume** and confirm. The queue is delivered again in the same order. Resuming is
+   always a human decision; nothing resumes a project automatically.
+
+The same brake, from the API:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/projects/cadastro-usuarios/pause" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"reason":"spec 004 changes the schema; hold until it is reviewed"}'
+
+curl -sS -X POST "$CLOUD/api/admin/projects/cadastro-usuarios/resume" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN"
+```
+
+Both routes need the admin token or an operator session. A worker key — even one with
+`runs:write` — gets `403`: the worker delivers work, it does not decide whether the fleet works.
+
+**The circuit breaker** pauses the project by itself when the numbers say it is burning money.
+In the product's **Overview**, open **Configure circuit breaker** and set the thresholds you
+want; zero disables one:
+
+| Threshold | Trips when |
+|---|---|
+| `max_cost_per_hour` | the estimated cost of attempts finished in the last hour exceeds it |
+| `max_failure_rate` | over the last `failure_window` finished runs (default 10) the failed fraction exceeds it; it waits for a full window |
+| `max_repeated_failure_class` | this many attempts in a row failed with the same `failure_class` |
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/cadastro-usuarios/breaker" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"max_cost_per_hour":5,"max_failure_rate":0.5,"failure_window":10,"max_repeated_failure_class":3}'
+```
+
+When a threshold is crossed, the project is paused with the reason `breaker:<threshold>` and
+`paused_by: circuit breaker`; a human cannot write a reason that starts with `breaker:`, so the
+trail never lies about who pulled the brake. The `project.paused` audit record carries the
+limit, the measured value and the signals of that moment (`cost_last_hour`, `failure_rate`,
+`repeated_failure_class`), the same numbers the **Fleet brake** panel and
+`GET /api/admin/products/{name}/metrics` show. Every pause, resume and threshold change is in
+`GET /api/admin/audit`.
+
 ## The contract
 
 The worker only needs three routes, so another control plane — yours — can implement them:
