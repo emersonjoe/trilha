@@ -425,3 +425,62 @@ func TestInsertIfLigaEmQualquerOrdem(t *testing.T) {
 		})
 	}
 }
+
+// #274 — words("pt") used to return the Portuguese table as-is, so a key that
+// only existed in English became <no value> in the file. Overlay English first.
+func TestWordsPtCaiNoIngles(t *testing.T) {
+	en, pt := words("en"), words("pt")
+	for k, ev := range en {
+		got, ok := pt[k]
+		if !ok || got == "" {
+			t.Errorf("pt[%q] empty after fallback (en=%q)", k, ev)
+		}
+	}
+	if pt["share_title"] == en["share_title"] {
+		t.Fatal("share_title in pt is still English; the overlay did not take the translation")
+	}
+	if pt["share_item"] != "Item %s." {
+		t.Fatalf("share_item lost the %%s: %q", pt["share_item"])
+	}
+}
+
+// #274 — every recipe in pt writes a screen without text/template's missing-key
+// marker. share-link, blob and approvals were the ones that used English-only
+// keys; walking all of them is what keeps the next forgotten key from shipping.
+func TestReceitasEmPtNaoNascemComNoValue(t *testing.T) {
+	for _, r := range All() {
+		t.Run(r.Name, func(t *testing.T) {
+			raiz := projeto(t)
+			if len(r.Needs) > 0 {
+				if _, err := Add(raiz, mustGet(t, "login"), Options{Module: "example.com/x", Lang: "pt"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			res, err := Add(raiz, r, Options{Module: "example.com/x", Lang: "pt"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, rel := range res.Written {
+				if strings.HasSuffix(rel, ".png") {
+					continue
+				}
+				body := ler(t, raiz, rel)
+				if strings.Contains(body, "<no value>") {
+					t.Errorf("%s contains <no value>", rel)
+				}
+			}
+		})
+	}
+
+	raiz := projeto(t)
+	if _, err := Add(raiz, mustGet(t, "share-link"), Options{Module: "example.com/x", Lang: "pt"}); err != nil {
+		t.Fatal(err)
+	}
+	pag := ler(t, raiz, "app/compartilhado/token_/page.go")
+	if !strings.Contains(pag, `c.SetTitle("Compartilhado com você")`) {
+		t.Fatalf("share-link title in pt:\n%s", pag)
+	}
+	if !strings.Contains(pag, `h.Textf("Item %s.", id)`) {
+		t.Fatalf("share-link item lost %%s:\n%s", pag)
+	}
+}
