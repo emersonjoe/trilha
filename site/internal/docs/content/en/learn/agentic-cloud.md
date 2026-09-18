@@ -640,6 +640,75 @@ production, `TRILHA_OBS_TOKEN_FILE` pointing to a 32+ byte secret. Prometheus sc
 a worker silent for five minutes fires `TrilhaWorkerStopped`, an open breaker fires
 `TrilhaBreakerOpen`, a queue older than fifteen minutes fires `TrilhaQueueAging`.
 
+### 14. Let GitHub drive the round: App, signed webhooks and the way back
+
+Until now the Cloud only spoke to GitHub on the way out, with a PAT. A round that starts from
+an issue and ends with that issue closed needs the other direction too, signed.
+
+**A GitHub App instead of a PAT.** Create an App in your organization with **Issues: Read and
+write**, **Pull requests: Read and write**, **Checks: Read** and **Contents: Read**, install it
+on the repository, download its private key and hand the three values to the project. From then
+on every call to GitHub uses a short-lived installation token minted from an RS256 JWT; the PAT,
+if any, is only the fallback:
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/cadastro-usuarios/github/app" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"app_id\":12345,\"installation_id\":67890,\"private_key\":$(jq -Rs . < app.pem)}"
+```
+
+The key is sealed in the snapshot and never answered. The audit records `github.app_configured`.
+
+**A secret for the webhook.** Choose one with at least 16 characters and register it on both
+sides — the project and the repository's webhook (**Settings → Webhooks**, content type
+`application/json`, events `Issues`, `Pull requests`, `Check runs`, `Pushes`, URL
+`https://<your-cloud>/api/github/webhook`):
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/cadastro-usuarios/github/webhook" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"secret":"'"$(openssl rand -hex 24)"'"}'
+```
+
+That route has no bearer token: each delivery is authenticated by `X-Hub-Signature-256`, the HMAC
+GitHub computes with the secret, verified in constant time against the project registered for
+`repository.full_name`. A wrong signature or an unknown repository gets `401` and an audit record
+`github.webhook_rejected`; a repeated `X-GitHub-Delivery` is answered `{"status":"duplicate"}`
+and does nothing. `GET .../github/webhook` lists what arrived and what each delivery did.
+
+**What each event does.**
+
+- `issues` with the label `ready-for-agent` becomes a `ready` task in the active round (the
+  task already linked to the issue, or a new `TASK-nnn` in the last stage). Labelling it again
+  changes nothing.
+- `pull_request` opened on the branch the runner reported (`trilha/task-002`) is linked to that
+  run: `GET /api/runs/{id}` now shows `pull_request` with number, URL, state and head, and the
+  PR receives one status comment per transition, not per event.
+- `check_run` completed becomes a `check` evidence record on the run —
+  `github:check_run:CI / test`, passed when the conclusion is `success` — without touching the
+  verdict. Only the reviewer moves a run to `done`.
+- `push` records the last commit on the project.
+
+**The way back.** When the reviewer closes the run (`DELETE /api/runs/{id}`), the Cloud
+comments the issue with the evidence summary — run, branch@commit, the table of checks, evals
+and attestations — closes it, and comments the pull request one last time. In the audit:
+`github.issue_closed`, `github.pr_commented`.
+
+**Your own subscribers.** The Cloud emits signed webhooks for `task.ready`, `run.finished`,
+`run.closed`, `pull_request.linked`, `check.recorded`, `deployment.finished`,
+`project.paused` and `project.resumed`:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/webhooks" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"url":"https://ci.example.com/trilha","events":["run.closed","check.recorded"],"label":"ci"}'
+```
+
+The answer carries the secret once; verify `X-Webhook-Signature` (HMAC of
+`X-Webhook-Timestamp` and the body) on your side. Failed deliveries are retried with backoff
+and then wait in `GET /api/admin/webhooks/deliveries?state=failed`;
+`POST /api/admin/webhooks/deliveries/{id}/retry` sends the same bytes again.
+
 ## The contract
 
 The worker only needs three routes, so another control plane — yours — can implement them:
