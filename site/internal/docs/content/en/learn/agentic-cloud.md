@@ -576,6 +576,70 @@ limit, the measured value and the signals of that moment (`cost_last_hour`, `fai
 `GET /api/admin/products/{name}/metrics` show. Every pause, resume and threshold change is in
 `GET /api/admin/audit`.
 
+### 13. Evidence beyond the exit code: evals, attestations and quorum
+
+A check that exits `0` proves the command ran. It does not prove the model is still accurate,
+nor that the people who must sign off did. Three things close that gap.
+
+**Evals with a threshold.** An evidence record with `kind: "eval"` carries the metric in
+`meta`. The runner reports it like any other evidence; the Cloud applies the gate on
+`POST /api/runs/{id}/result` and marks the run `failed` when the value misses the threshold,
+whatever `passed` the worker declared:
+
+```json
+{"kind":"eval","task":"TASK-002","seq":2,"passed":true,
+ "meta":{"metric":"triage_top1","value":"0.71","threshold":"0.85","comparator":">="}}
+```
+
+The run ends with `failure_class: eval_below_threshold`, `error_code: EVAL_BELOW_THRESHOLD`
+and the message `eval below threshold: triage_top1=0.71 >= 0.85`. Comparators: `>=`
+(default), `>`, `<=`, `<`, `==`.
+
+**A review policy with quorum.** Decide how many attestations, from which roles, and whether
+they must be signed:
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/cadastro-usuarios/review" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"quorum":2,"roles":["uat"],"require_signature":true}'
+```
+
+From now on `DELETE /api/runs/{id}` answers `409 control: review quorum is incomplete: 0 of 2 attestations,
+missing roles uat` until the quorum is met. `GET /api/runs/{id}/quorum` shows who attested and
+what is missing.
+
+**Signed attestations.** Each reviewer has an Ed25519 key pair; the public key is registered
+in the project (`POST /api/admin/projects/{name}/attestation-keys` with `{id, public_key,
+owner}`, base64 of the 32-byte key). The signature covers the canonical JSON
+`{"at":…,"by":…,"role":…,"run":…,"statement":…,"task":…}` with sorted keys, so a signature
+never fits another run:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs/$RUN/attest" \
+  -H "Authorization: Bearer $WORKER_KEY" -H 'Content-Type: application/json' \
+  -d '{"by":"maria","role":"uat","statement":"Accepted in UAT on 2026-09-18",
+       "at":"2026-09-18T14:00:00Z","key_id":"uat-maria","signature":"<base64>"}'
+```
+
+An unsigned attestation is accepted only from an operator session in the browser; a key
+without a signature gets `403` and an audit record `run.attestation_refused`. One attestation
+per `(by, role)`.
+
+**Trend and export.** The spec board shows a per-round chart (tasks done, checks passed, evals
+within threshold, the average of each metric) rendered as SVG on the server; the same numbers
+come from `GET /api/admin/specs/{id}/trend`. For an auditor,
+`GET /api/admin/projects/{name}/evidence?format=csv&spec=<id>` downloads the evidence and
+attestation rows exactly as the screen lists them (`format=json` for machines).
+
+**Metrics and alerts.** Start the Cloud with `TRILHA_METRICS=/_trilha/metrics` and, in
+production, `TRILHA_OBS_TOKEN_FILE` pointing to a 32+ byte secret. Prometheus scrapes
+`trilha_cloud_runs{status}`, `trilha_cloud_queue_age_seconds{project}`,
+`trilha_cloud_breaker_open{project}`, `trilha_cloud_workers{state}`,
+`trilha_cloud_worker_last_seen_seconds{worker,project}` and `trilha_cloud_runs_awaiting_quorum`.
+`deploy/eoslab/compose.observability.yml` brings Prometheus and Grafana with versioned rules:
+a worker silent for five minutes fires `TrilhaWorkerStopped`, an open breaker fires
+`TrilhaBreakerOpen`, a queue older than fifteen minutes fires `TrilhaQueueAging`.
+
 ## The contract
 
 The worker only needs three routes, so another control plane — yours — can implement them:
@@ -596,7 +660,7 @@ All with `Authorization: Bearer <key>`. The body of the result is `trilha-runner
 | Control plane | projects, specifications, rounds, Kanban, execution and review | organisations and teams, billing |
 | Fleet | persistent project workers, isolated Git checkout, `.trilha` synchronization and optional push | configurable parallelism and remote sandboxes |
 | Delivery | environments, encrypted secrets, local profiles, deploy, health check and rollback | progressive delivery and multiple approvals |
-| Governance | login, CSRF, persistent project-scoped expiring/revocable keys and audit | SSO and signed evidence |
+| Governance | login, CSRF, persistent project-scoped expiring/revocable keys, audit, eval gate, signed attestations with quorum, evidence export and Prometheus metrics | SSO and runner-signed evidence |
 | Storage | atomic JSON snapshot on every write | SQL and high availability |
 
 ## Challenge

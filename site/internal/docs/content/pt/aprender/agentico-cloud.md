@@ -587,6 +587,70 @@ Ao cruzar um limiar, o projeto é pausado com o motivo `breaker:<limiar>` e
 **Freio da frota** e `GET /api/admin/products/{name}/metrics` mostram. Toda pausa, retomada e
 mudança de limiar está em `GET /api/admin/audit`.
 
+### 13. Evidência além do exit code: evals, atestações e quórum
+
+Um check que sai com `0` prova que o comando rodou. Não prova que o modelo continua preciso,
+nem que as pessoas que precisam assinar assinaram. Três coisas fecham essa lacuna.
+
+**Evals com limiar.** Um registro de evidência com `kind: "eval"` carrega a métrica em `meta`.
+O runner reporta como qualquer outra evidência; o Cloud aplica o gate em
+`POST /api/runs/{id}/result` e marca o run como `failed` quando o valor não atinge o limiar,
+seja qual for o `passed` que o worker declarou:
+
+```json
+{"kind":"eval","task":"TASK-002","seq":2,"passed":true,
+ "meta":{"metric":"triage_top1","value":"0.71","threshold":"0.85","comparator":">="}}
+```
+
+O run termina com `failure_class: eval_below_threshold`, `error_code: EVAL_BELOW_THRESHOLD` e a
+mensagem `eval below threshold: triage_top1=0.71 >= 0.85`. Comparadores: `>=` (padrão), `>`,
+`<=`, `<`, `==`.
+
+**Uma política de revisão com quórum.** Decida quantas atestações, de quais papéis, e se
+precisam ser assinadas:
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/cadastro-usuarios/review" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"quorum":2,"roles":["uat"],"require_signature":true}'
+```
+
+A partir daí `DELETE /api/runs/{id}` responde `409 control: review quorum is incomplete: 0 of 2 attestations,
+missing roles uat` até o quórum ser atingido. `GET /api/runs/{id}/quorum` mostra quem atestou e
+o que falta.
+
+**Atestações assinadas.** Cada revisor tem um par de chaves Ed25519; a chave pública é
+registrada no projeto (`POST /api/admin/projects/{name}/attestation-keys` com `{id, public_key,
+owner}`, base64 da chave de 32 bytes). A assinatura cobre o JSON canônico
+`{"at":…,"by":…,"role":…,"run":…,"statement":…,"task":…}` com chaves ordenadas, então uma
+assinatura nunca serve para outro run:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs/$RUN/attest" \
+  -H "Authorization: Bearer $WORKER_KEY" -H 'Content-Type: application/json' \
+  -d '{"by":"maria","role":"uat","statement":"Aceito em UAT em 2026-09-18",
+       "at":"2026-09-18T14:00:00Z","key_id":"uat-maria","signature":"<base64>"}'
+```
+
+Uma atestação sem assinatura só é aceita pela sessão do operador no navegador; uma chave sem
+assinatura recebe `403` e um registro de auditoria `run.attestation_refused`. Uma atestação por
+par `(by, role)`.
+
+**Tendência e exportação.** O quadro da spec mostra um gráfico por rodada (tarefas concluídas,
+checks aprovados, evals dentro do limiar, média de cada métrica) renderizado como SVG no
+servidor; os mesmos números vêm de `GET /api/admin/specs/{id}/trend`. Para um auditor,
+`GET /api/admin/projects/{name}/evidence?format=csv&spec=<id>` baixa as linhas de evidência e
+atestação exatamente como a tela lista (`format=json` para máquinas).
+
+**Métricas e alertas.** Inicie o Cloud com `TRILHA_METRICS=/_trilha/metrics` e, em produção,
+`TRILHA_OBS_TOKEN_FILE` apontando para um segredo de 32+ bytes. O Prometheus coleta
+`trilha_cloud_runs{status}`, `trilha_cloud_queue_age_seconds{project}`,
+`trilha_cloud_breaker_open{project}`, `trilha_cloud_workers{state}`,
+`trilha_cloud_worker_last_seen_seconds{worker,project}` e `trilha_cloud_runs_awaiting_quorum`.
+`deploy/eoslab/compose.observability.yml` traz Prometheus e Grafana com regras versionadas: um
+worker calado por cinco minutos dispara `TrilhaWorkerStopped`, um disjuntor aberto dispara
+`TrilhaBreakerOpen`, uma fila com mais de quinze minutos dispara `TrilhaQueueAging`.
+
 ## O contrato
 
 O worker só precisa de três rotas, então outro control plane — o seu — pode implementá-las:
@@ -607,7 +671,7 @@ Todas com `Authorization: Bearer <chave>`. O corpo do resultado é o `queue.Resu
 | Control plane | projetos, specs, rodadas, kanban, execução e revisão | organizações e times, billing |
 | Frota | workers persistentes por projeto, checkout Git isolado, sincronização `.trilha` e push opcional | paralelismo configurável e sandboxes remotos |
 | Entrega | ambientes, segredos cifrados, perfis locais, deploy, health check e rollback | estratégias progressivas e aprovações múltiplas |
-| Governança | login, CSRF, chaves persistentes com escopo/projeto/expiração/revogação, auditoria | SSO e evidência assinada |
+| Governança | login, CSRF, chaves persistentes com escopo/projeto/expiração/revogação, auditoria, gate de eval, atestações assinadas com quórum, exportação de evidência e métricas Prometheus | SSO e evidência assinada pelo runner |
 | Armazenamento | snapshot JSON atômico a cada escrita | SQL e alta disponibilidade |
 
 ## Desafio
