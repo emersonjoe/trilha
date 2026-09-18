@@ -781,6 +781,80 @@ evidência com seu digest, perdendo só a saída capturada; logs de entrega e, n
 auditoria antiga vão embora. Uma tarefa que chegou a `done` nunca perde o registro de como. A
 auditoria guarda `retention.compacted` com essas contagens.
 
+### 16. Dê a cada projeto seu modelo, suas regras e sua conta
+
+Até aqui os runs de todo projeto usavam uma credencial global e qualquer worker pegava o run
+mais antigo da fila. Uma frota que serve vários projetos precisa saber, por projeto, qual
+modelo pode rodar suas tarefas, para onde os dados podem ir, quem pode executar e quanto já
+custou. Nada disso toca o código; tudo passa pelo store e é auditado.
+
+**Registre um provedor com sua região e aponte o projeto para ele.** A credencial fica selada
+em repouso e só viaja dentro do claim que o worker recebe:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/ai/providers" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"id":"gateway-br","kind":"compatible","endpoint":"https://ai.example.com.br/v1","model":"gpt-5","region":"br","credential":"sk-…"}'
+curl -sS -X PUT "$CLOUD/api/admin/projects/app/ai" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"provider_id":"gateway-br","driver":"openai-compatible"}'
+```
+
+O driver decide o que o runner faz com isso. `openai-compatible` entrega base URL, chave e
+modelo. `claude-code` entrega a chave do projeto e o runner invoca a CLI do Claude Code com
+`ANTHROPIC_API_KEY` (ou `CLAUDE_CODE_OAUTH_TOKEN` para um provedor com `auth_mode` `oauth`),
+sob a mesma allow-list de ambiente e redação de saída que o runner aplica a todo driver. A chave nunca aparece na
+saída do run nem na auditoria.
+
+**Escreva a política.** Uma política diz quais provedores o projeto pode usar, onde seus dados
+devem ficar, quais labels um worker precisa anunciar e quanto o projeto pode gastar:
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/app/policy" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"data_residency":"br","allowed_providers":["gateway-br"],"required_labels":["region:br"],"cost_ceiling":25}'
+```
+
+A política é verificada duas vezes: ao configurar o provedor e a cada enfileiramento, então
+mudar qualquer um dos dois depois não deixa um run escapar. Aponte o projeto para um provedor
+de outra região e as duas respostas são iguais:
+
+```
+HTTP 422  control: policy data_residency: provider "openai-us" is in region "us" (api.openai.com), the project requires "br"
+```
+
+e a auditoria ganha `policy.refused` com a regra, o provedor e onde foi pego.
+
+**Deixe o escalonador escolher.** Enfileire com o que importa, um prazo ou uma prioridade:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs" -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d '{"project":"app","task_id":"TASK-002","deadline":"2026-10-01T00:00:00Z","priority":10}'
+```
+
+Um worker que anuncia `--label region:br --capacity 2` faz claim do run com prazo mais
+próximo entre os que têm as labels que ele tem, depois o de maior prioridade, depois o mais
+antigo. Um worker de outra região recebe 204, não o run; um worker cujo `running` iguala a
+capacidade também recebe 204. Dois workers com labels diferentes servem o mesmo projeto sem
+nunca tomar o trabalho um do outro.
+
+**Leia a conta.** O runner reporta modelo, tokens e custo estimado de cada tentativa. O Cloud
+soma:
+
+```bash
+curl -sS "$CLOUD/api/admin/cost?project=app" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN"
+```
+
+```json
+{"projects":[{"project":"app","org":"acme","runs":1,"attempts":1,"tokens":1200,"cost":0.42,"by_model":{"gpt-5":0.42},"ceiling":25}],
+ "organizations":[{"org":"acme","projects":1,"runs":1,"tokens":1200,"cost":0.42}]}
+```
+
+A coluna **Custo** do painel de projetos mostra o mesmo número. Quando um projeto cruza o
+`cost_ceiling`, o circuit breaker do capítulo 12 o pausa com o motivo `breaker:cost_ceiling`;
+nada mais é reclamado até um operador retomar. A conta não é um pagamento, é evidência: as
+mesmas tentativas que o runner anotou, somadas.
+
 ## O contrato
 
 O worker só precisa de três rotas, então outro control plane — o seu — pode implementá-las:

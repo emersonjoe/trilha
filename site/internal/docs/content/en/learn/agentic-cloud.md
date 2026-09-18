@@ -772,6 +772,80 @@ record with its digest, losing only the captured output; delivery logs and, on P
 audit rows go. A task that reached `done` never loses the record of how. The audit keeps
 `retention.compacted` with these counts.
 
+### 16. Give each project its own model, its rules and its bill
+
+Until now every project's runs used one global credential and any worker took the oldest run
+in the queue. A fleet that serves several projects needs to know, per project, which model may
+run its tasks, where the data may go, who may execute it and how much it has already cost.
+None of this touches the code; all of it goes through the store and is audited.
+
+**Register a provider with its region, then point the project at it.** The credential is
+sealed at rest and only ever travels inside the claim a worker receives:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/ai/providers" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"id":"gateway-br","kind":"compatible","endpoint":"https://ai.example.com.br/v1","model":"gpt-5","region":"br","credential":"sk-…"}'
+curl -sS -X PUT "$CLOUD/api/admin/projects/app/ai" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"provider_id":"gateway-br","driver":"openai-compatible"}'
+```
+
+The driver decides what the runner does with it. `openai-compatible` hands it a base URL, key
+and model. `claude-code` hands it the project's key and the runner invokes the Claude Code CLI
+with `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN` for a provider whose `auth_mode` is
+`oauth`), under the same environment allow-list and output redaction the runner applies to every driver. The key
+never appears in the run's output or in the audit.
+
+**Write the policy down.** A policy says which providers a project may use, where its data
+must stay, which labels a worker must advertise and how much the project may spend:
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/app/policy" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"data_residency":"br","allowed_providers":["gateway-br"],"required_labels":["region:br"],"cost_ceiling":25}'
+```
+
+The policy is checked twice: when the provider is configured and on every enqueue, so
+changing either one later cannot let a run slip through. Point the project at a provider in
+another region and both answers are the same:
+
+```
+HTTP 422  control: policy data_residency: provider "openai-us" is in region "us" (api.openai.com), the project requires "br"
+```
+
+and the audit gains `policy.refused` with the rule, the provider and where it was caught.
+
+**Let the scheduler choose.** Enqueue with what matters, a deadline or a priority:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs" -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d '{"project":"app","task_id":"TASK-002","deadline":"2026-10-01T00:00:00Z","priority":10}'
+```
+
+A worker that advertises `--label region:br --capacity 2` claims the run with the earliest
+deadline among those whose labels it has, then the highest priority, then the oldest. A
+worker in another region gets 204, not the run; a worker whose `running` equals its capacity
+gets 204 as well. Two workers with different labels can serve the same project and never take
+each other's work.
+
+**Read the bill.** The runner reports model, tokens and estimated cost for every attempt. The
+Cloud sums them:
+
+```bash
+curl -sS "$CLOUD/api/admin/cost?project=app" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN"
+```
+
+```json
+{"projects":[{"project":"app","org":"acme","runs":1,"attempts":1,"tokens":1200,"cost":0.42,"by_model":{"gpt-5":0.42},"ceiling":25}],
+ "organizations":[{"org":"acme","projects":1,"runs":1,"tokens":1200,"cost":0.42}]}
+```
+
+The **Cost** column of the projects panel shows the same number. When a project crosses its
+`cost_ceiling`, the circuit breaker from chapter 12 pauses it with the reason
+`breaker:cost_ceiling`; nothing more is claimed until an operator resumes it. The bill is not
+a payment, it is evidence: the same attempts the runner wrote down, added up.
+
 ## The contract
 
 The worker only needs three routes, so another control plane — yours — can implement them:
