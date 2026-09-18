@@ -9,3 +9,4 @@ coverage.out
 *.exe
 # `go test -c` cruzado para rodar dentro do WSL: auth.test.linux, blob.test.linux.
 *.linux
+.claude/worktrees/

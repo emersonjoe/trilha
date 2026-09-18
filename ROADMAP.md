@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.136.0)
+## Onde o Trilha está (setembro de 2026, v0.137.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -287,6 +287,7 @@ registra a divisão. O que cabe a este repositório é conviver com eles.
 123. ~~[#248](https://github.com/emersonjoe/trilha/issues/248) Agentes precisavam ler código e documentação livre para descobrir componentes, ícones e tokens operacionais do kit.~~ **Entregue na 0.133.0** (spec 154): `trilha ui components --json`, `trilha ui icons --json` e `trilha inspect api ui.Component` publicam contratos estáveis; o tema claro e escuro ganhou tokens semânticos de intenção e sombras.
 124. ~~[#249](https://github.com/emersonjoe/trilha/issues/249) Cada produto reimplementava o ciclo de erro de formulários assíncronos, e uma falha dentro do diálogo podia aparecer atrás dele.~~ **Entregue na 0.133.0** (spec 154): `ui.FormError`, `ui.formError`, `ui.clearFormErrors` e `ui.formPending` mantêm feedback, foco, acessibilidade e estado pendente dentro do formulário; o site demonstra o fluxo completo nas duas línguas.
 125. ~~Quinze issues abertas pelo uso do kit e da CLI num app real — a página com largura zero com o menu recolhido, a gaveta do celular que não fechava, o `trilha add login users audit --lang pt` que aplicava uma receita em inglês, o `Grid` sem como dizer quantas colunas.~~ **Entregues na 0.136.0** (spec 157, [#251](https://github.com/emersonjoe/trilha/issues/251) a [#265](https://github.com/emersonjoe/trilha/issues/265)): `ui.Cols`, `ui.Subtitle`, `SearchBoxOpts.Submit`, `Security.CSPRemove`, `Config.PipeHeaders`, o `add` com várias receitas e flags em qualquer posição, a gaveta separada da preferência do desktop, e o teste que garante que toda classe que o kit escreve tem regra ou é gancho documentado.
+126. ~~Sete issues abertas pelo programa CPSI Toledo — o webhook de terceiro reescrito à mão, a consulta por protocolo sem conta, o formulário que morre com a rede, o atendimento por voz, o locale um por processo, a unidade dentro da organização e os spans que ninguém exportava.~~ **Entregues na 0.137.0** (spec 158, [#266](https://github.com/emersonjoe/trilha/issues/266) a [#272](https://github.com/emersonjoe/trilha/issues/272)): `webhook.VerifyHMAC` e a receita `channel-whatsapp`, `trilha.CheckDigit` e a receita `public-lookup`, `var Offline = true` com `trilha.OfflineForm`/`Idempotent`, `ui.Outbox` e a receita `pwa-offline`, `ui.Recorder` com `ai.Transcribe`/`Speak`, `Config.Locales` com `c.T` e `trilha i18n extract|missing`, `User.Units` com escopo por unidade no `auth.Policy`, e o módulo opcional `otel/` sobre `Config.OnRequest`.
 
 ## O que não vamos fazer, e por quê
 
@@ -296,7 +297,7 @@ registra a divisão. O que cabe a este repositório é conviver com eles.
 | Obrigar React, Vite, bundler | não | quebra "um binário, sem cadeia de build" |
 | Publicar números contra Gin, Echo, Fiber, Next.js | não | decisão registrada na spec 011: comparação de abordagem é verificável, tabela de números entre projetos configurados de formas diferentes é briga, não informação |
 | Repositórios separados (`trilha-ui`, `trilha-auth`…) | não agora | módulos Go separados **dentro deste repositório** (como `bench/`) dão o mesmo isolamento de dependências sem fragmentar versão, CI e issues. Reavaliar na 1.0. A exceção é o que **não é o framework**: `trilha-spec`, `trilha-runner` e `trilha-cloud` são produtos com ciclo próprio (Fase 10, ADR 001 do trilha-spec) |
-| Exportador OpenTelemetry no núcleo | não | o Trilha propaga `traceparent` e registra `trace_id`; exportar spans traz dezenas de dependências. Cabe um módulo opcional |
+| Exportador OpenTelemetry no núcleo | não | o Trilha propaga `traceparent` e registra `trace_id`; exportar spans traz dezenas de dependências. O módulo opcional é o `otel/` (go.mod próprio, como `bench/`), desde a 0.137.0 (#272) |
 | ISR (regeneração incremental) | não | pressupõe estado compartilhado entre réplicas e invalidação distribuída; conflita com "um binário estático". Cache com tags (item 7) resolve o caso real |
 | Criar um design system grande | não | o kit `ui` existe para compor, não para virar biblioteca de componentes |
 
