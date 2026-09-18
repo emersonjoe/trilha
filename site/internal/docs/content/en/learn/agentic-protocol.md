@@ -189,6 +189,60 @@ trilha spec task next
 A record is never edited; a correction is a new record. That is the whole idea of the
 protocol: a task is done when its acceptance criteria have evidence, not when a chat says so.
 
+## When a number, a date or a person decides
+
+Protocol 0.3 added four things you will type the day the agenda stops being a toy: a metric
+instead of an exit code, a calendar, a named human sign-off, and a dependency in another
+repository.
+
+A **metric** is evidence with the number in it, so a reviewer sees the value and a tool can
+trend it. A harness prints one JSON line per measurement and `verify` turns each into an
+`eval` record — a metric below its threshold fails the verification even when the command
+exits 0:
+
+```bash
+# in the check: echo '{"metric":"reminder_p95","value":1.4,"threshold":2,"comparator":"<="}'
+trilha spec evidence TASK-001
+# #4   ✓ eval     trilha-spec verify   reminder_p95 1.4 <= 2
+```
+
+Write the same gate as an acceptance criterion — `--accept "metric: reminder_p95 <= 2"` — and
+`doctor` tells you when a task reaches `review` with a gate no `eval` answers.
+
+A **milestone** gives the queue a calendar. `next` then prefers the nearest deadline among
+what can run:
+
+```bash
+trilha spec project milestone M1 --title "Reminders live" --due 2027-03-31
+trilha spec task add "Reminder e-mail" --milestone M1 --status ready --accept "an e-mail goes out"
+trilha spec task list --milestone M1
+```
+
+An **attestation** is a decision by a named person, signed, rather than a note anyone could
+have typed. A task that declares `review: {quorum: 2, roles: [uat, legal]}` in its front
+matter does not close until two distinct people have signed:
+
+```bash
+trilha spec keygen ana
+trilha spec evidence TASK-001 add --attestation --by "Ana Souza" --role uat \
+  --statement "Tried it with the reminder on a real event." --sign-key ~/.trilha/keys/ana.key
+trilha spec task move TASK-001 done   # refused until the quorum is met, and it says what is missing
+```
+
+A **dependency in another repository** is written `alias:TASK-NNN`, after an alias
+`project.md` declares in `repos`. Until somebody answers for it — a sibling checkout, or a
+control plane — the task waits, and the reason says which repository:
+
+```bash
+trilha spec task list                          # waiting:trilha:TASK-004
+trilha spec task next --repo trilha=../trilha  # now it can be answered
+```
+
+There is one more, for work whose scope comes from a document outside the repository: a spec
+carries `requirements: [{id, source, text}]`, a task says which it `covers`, and
+`trilha spec spec show 001-event-reminders --coverage` answers requirement → tasks → status →
+evidence. You will not need it for the agenda; a public tender will.
+
 ## The same thing over MCP
 
 Everything above is available to any MCP host — Claude Code, Cursor, the `ai.Agent` of the
@@ -199,8 +253,9 @@ previous chapter — through a stdio server:
 ```
 
 Read-only by default (`trilha_list_tasks`, `trilha_get_task`, `trilha_next`, `trilha_context`,
-`trilha_graph`); `--write` adds `trilha_move`, `trilha_evidence` and `trilha_verify`. A tool
-that is not offered cannot be called — the same posture as [`trilha mcp`](/reference/cli#trilha-mcp).
+`trilha_list_specs`, `trilha_list_evidence`, `trilha_coverage`, `trilha_graph`); `--write` adds
+`trilha_move`, `trilha_spec_move`, `trilha_evidence`, `trilha_attest` and `trilha_verify`. A
+tool that is not offered cannot be called — the same posture as [`trilha mcp`](/reference/cli#trilha-mcp).
 
 The full protocol — file formats, the transition table, the evidence schema — is in
 [docs/protocol.md](https://github.com/emersonjoe/trilha-spec/blob/main/docs/protocol.md).
