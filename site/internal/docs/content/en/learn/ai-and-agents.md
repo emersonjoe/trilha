@@ -140,6 +140,58 @@ The whole thing assembled — the key, the settings an administrator changes, th
 context, the history, the limit and the test that runs with no key — is the
 [AI chat recipe](/cookbook/ai-chat), and it ends at [a running demo](/demos/ai-chat).
 
+## Voice
+
+An assistant at a counter is not always typed at. Recording, transcribing, answering and
+speaking back are four steps, and three of them are the same protocol as the chat.
+
+```go
+// the page
+ui.Recorder(c, ui.RecorderOpts{Action: "/api/voice", Target: "answer", MaxSeconds: 60})
+ui.RecorderScript(c)
+ui.UploadScript(c)
+
+// app/api/voice/route.go — record → transcribe → answer
+up, err := c.File("audio", trilha.FileRules{Accept: []string{"audio/*", "video/webm"}})
+if err != nil {
+    return err
+}
+defer up.Close()
+t, err := cli.Transcribe(c.Context(), up, ai.TranscribeOpts{Language: "en", Filename: up.Name})
+res, err := cli.Chat(c.Context(), ai.Request{Messages: []ai.Message{
+    {Role: "system", Content: "Answer in Haitian Creole, short and spoken."},
+    {Role: "user", Content: t.Text},
+}})
+return c.Render(200, answer(c, t.Text, res.Text()))
+
+// app/api/voice/speech/route.go — speak, and ui.Audio plays it
+body, err := cli.Speak(c.Context(), c.Query("text"), ai.SpeakOpts{Voice: "nova"})
+if err != nil {
+    return err
+}
+defer body.Close()
+return c.Inline("answer.mp3", body, ai.SpeakOpts{}.ContentType())
+```
+
+`ui.Recorder` records with `MediaRecorder`, puts the recording into the file field and submits
+the form, so the upload with progress and the swap of `#answer` are the ones you already have.
+What is left without JavaScript, without `MediaRecorder` or when the microphone is denied is
+the `<input type="file" accept="audio/*" capture>` the markup always carries — on a phone, the
+recorder of the system. The route is written once, against `c.File`.
+
+The microphone needs HTTPS and a policy that allows it; the framework's default denies it:
+
+```go
+a.Config().Security.PermissionsPolicy = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
+```
+
+The CSP does not change. Translation is not a feature of its own — it is the system message
+above — and the browser's `SpeechRecognition` is not part of this: it is not on every browser,
+it sends the audio to whoever the browser chose, and it leaves the server with nothing to log.
+The recording arrives at your route, and what happens to it is yours. The whole thing runs in
+[`examples/assistente`](https://github.com/emersonjoe/trilha/tree/main/examples/assistente),
+on the `/voz` page.
+
 ## MCP: use and expose tools
 
 The *Model Context Protocol* standardizes how hosts (Claude, Cursor, VS Code...) discover

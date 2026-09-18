@@ -117,6 +117,32 @@ func (a *Auth) User(c *trilha.Ctx) *User {
 	return u
 }
 
+// LocaleOf is the language of whoever is asking, for Config.LocaleOf: the
+// User.Locale of the open session, or "" when there is no session or the
+// person never picked one — and then Ctx.Locale carries on with ?lang, the
+// cookie and Accept-Language.
+//
+// There is no App to hook it up from here — auth.Sessions builds the flow
+// before the app exists — so the application wires it where it configures
+// everything else:
+//
+//	// app/setup.go
+//	func Setup(a *trilha.App) error {
+//		a.Config().Locales = []string{"pt-BR", "ht", "fr"}
+//		a.Config().LocaleOf = sessao.Flow.LocaleOf
+//		return nil
+//	}
+//
+// It never touches the store: it reads the session the guard already loaded,
+// or the cookie, which is one read per request and not one per page element.
+func (a *Auth) LocaleOf(c *trilha.Ctx) string {
+	u := a.User(c)
+	if u == nil {
+		return ""
+	}
+	return u.Locale
+}
+
 // Optional loads the user when there is a session and lets anonymous
 // requests through, for pages that only change a greeting.
 func (a *Auth) Optional() trilha.MiddlewareFunc {

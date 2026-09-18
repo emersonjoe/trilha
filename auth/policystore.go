@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"net/url"
 	"strings"
 
 	"github.com/emersonjoe/trilha"
@@ -44,13 +45,17 @@ func PolicyFrom(ctx context.Context, s PolicyStore, defaults Policy) (Policy, er
 }
 
 // BindPolicy reads what the grid posted: one field per cell, named
-// "grant.<role>.<module>", holding a level or the empty string for none.
+// "grant.<role>.<module>", holding a level or the empty string for none — and,
+// when the grid drew the scope, "scope.<role>.<module>" beside it, holding
+// "", "unit" or "tree".
 //
 // A cell naming a module or a level the policy does not declare is dropped, not
 // refused: the form is the only way in, and the answer to a field that should
 // not exist is to not write it down — a 400 here would only tell whoever forged
-// it which name to try next. A role with no cell at all disappears, which is
-// how the grid deletes one.
+// it which name to try next. A scope nobody declared is read as the whole
+// organisation for the same reason it is everywhere else: the safe reading of a
+// word this package does not know is the one that changes no level. A role with
+// no cell at all disappears, which is how the grid deletes one.
 func BindPolicy(c *trilha.Ctx, p Policy) (map[string]Grants, error) {
 	if err := c.Request().ParseForm(); err != nil {
 		return nil, err
@@ -60,7 +65,8 @@ func BindPolicy(c *trilha.Ctx, p Policy) (map[string]Grants, error) {
 		known[m] = true
 	}
 	out := map[string]Grants{}
-	for field, values := range c.Request().PostForm {
+	form := c.Request().PostForm
+	for field, values := range form {
 		rest, ok := strings.CutPrefix(field, "grant.")
 		if !ok || len(values) == 0 {
 			continue
@@ -79,7 +85,22 @@ func BindPolicy(c *trilha.Ctx, p Policy) (map[string]Grants, error) {
 		if p.Levels.rank(level) < 0 {
 			continue
 		}
-		out[role][module] = level
+		out[role][module] = Grant(level, scopePosted(form, role, module))
 	}
 	return out, nil
+}
+
+// scopePosted is the scope the cell beside this one carried. A grid drawn
+// without the scope column posts nothing here, and the cell stays what it has
+// always been: the whole organisation.
+func scopePosted(form url.Values, role, module string) Scope {
+	values := form["scope."+role+"."+module]
+	if len(values) == 0 {
+		return ScopeOrg
+	}
+	switch s := Scope(strings.TrimSpace(values[0])); s {
+	case ScopeUnit, ScopeUnitTree:
+		return s
+	}
+	return ScopeOrg
 }

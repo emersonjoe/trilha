@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,8 +15,18 @@ import (
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/ai"
+	apivoz "github.com/emersonjoe/trilha/examples/assistente/app/api/voz"
 	"github.com/emersonjoe/trilha/examples/assistente/internal/config"
 	"github.com/emersonjoe/trilha/examples/assistente/internal/ferramentas"
+)
+
+// The audio half of the fake provider keeps what arrived, and audioStatus
+// scripts a refusal.
+var (
+	audioStatus int
+	audioSent   int
+	audioLang   string
+	spokenText  string
 )
 
 // fakeModel is a scripted OpenAI-compatible server: on the first call it asks
@@ -23,6 +34,45 @@ import (
 func fakeModel(t *testing.T) *httptest.Server {
 	calls := 0
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The audio half of the protocol: the same fake server answers the
+		// transcription and the speech, so the voice route is exercised
+		// end to end without a provider.
+		switch r.URL.Path {
+		case "/audio/transcriptions":
+			if audioStatus != 0 {
+				w.WriteHeader(audioStatus)
+				_, _ = w.Write([]byte(`{"error":{"message":"scripted failure"}}`))
+				return
+			}
+			if err := r.ParseMultipartForm(8 << 20); err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			f, _, err := r.FormFile("file")
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+			defer f.Close()
+			b, _ := io.ReadAll(f)
+			audioSent = len(b)
+			audioLang = r.FormValue("language")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{"text":%q}`, "onde fica o guichê?")
+			return
+		case "/audio/speech":
+			if audioStatus != 0 {
+				w.WriteHeader(audioStatus)
+				_, _ = w.Write([]byte(`{"error":{"message":"scripted failure"}}`))
+				return
+			}
+			var in map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&in)
+			spokenText, _ = in["input"].(string)
+			w.Header().Set("Content-Type", "audio/mpeg")
+			_, _ = w.Write([]byte("ID3fake-mp3"))
+			return
+		}
 		var req ai.Request
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		calls++
@@ -62,6 +112,7 @@ func newClient(t *testing.T) *trilha.TestClient {
 	t.Cleanup(fm.Close)
 	ferramentas.Client = &ai.Client{BaseURL: fm.URL, Model: "fake"}
 	ferramentas.Reset()
+	audioStatus, audioSent, audioLang, spokenText = 0, 0, "", ""
 	ferramentas.Now = func() time.Time { return time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC) }
 	return trilha.NewTestClient(t, newApp())
 }
@@ -205,5 +256,95 @@ func TestChaveDoProvedorEhSegredo(t *testing.T) {
 	}
 	if config.Cfg.Get().Temperatura != 0.5 {
 		t.Fatal("o resto do formulário devia ter mudado")
+	}
+}
+
+// ---- #269: voz -------------------------------------------------------------
+
+// gravacao builds the multipart a browser sends: the recording, the language
+// and the CSRF field the form carries.
+func gravacao(t *testing.T, bytes int, idioma string) (string, string) {
+	t.Helper()
+	var body strings.Builder
+	mw := multipart.NewWriter(&body)
+	fw, err := mw.CreateFormFile("audio", "recording.webm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A WebM header, so the type detected in the content is a real one.
+	if _, err := fw.Write(append([]byte{0x1A, 0x45, 0xDF, 0xA3}, make([]byte, bytes)...)); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.WriteField("idioma", idioma); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return mw.FormDataContentType(), body.String()
+}
+
+// A tela de voz é um formulário que posta um arquivo, e a política de
+// permissões é a linha que deixa o microfone existir.
+func TestPaginaDeVozLiberaOMicrofone(t *testing.T) {
+	res := newClient(t).Get("/voz").WantStatus(200).WantContains(
+		`data-ui-recorder=""`, `accept="audio/*"`, `capture=""`,
+		`data-trilha-upload="resposta"`, `name="idioma"`, "ui.recorder.js", "ui.upload.js")
+	if got := res.Header().Get("Permissions-Policy"); !strings.Contains(got, "microphone=(self)") {
+		t.Fatalf("Permissions-Policy = %q", got)
+	}
+	if csp := res.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "script-src 'self'") {
+		t.Fatal("a CSP mudou:", csp)
+	}
+}
+
+// Gravou, transcreveu, respondeu no idioma pedido e o pedaço volta com o
+// player apontando para a rota que fala.
+func TestVozTranscreveEResponde(t *testing.T) {
+	c := newClient(t)
+	ctype, body := gravacao(t, 2048, "en")
+	res := c.Request("POST", "/api/voz", trilha.WithBody(ctype, body))
+	res.WantStatus(200).WantContains("onde fica o guichê?", "O resultado é 20.", "/api/voz/fala?", "<audio")
+	if audioSent == 0 {
+		t.Fatal("a gravação não chegou ao provedor")
+	}
+	if audioLang != "en" {
+		t.Fatalf("idioma enviado = %q", audioLang)
+	}
+
+	// A fala é servida como áudio, sem cache e com o texto da resposta.
+	fala := c.Get("/api/voz/fala?texto=hello+there&idioma=en").WantStatus(200)
+	if got := fala.Header().Get("Content-Type"); got != "audio/mpeg" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := fala.Header().Get("Cache-Control"); !strings.Contains(got, "no-store") {
+		t.Fatalf("Cache-Control = %q", got)
+	}
+	if fala.Body.String() != "ID3fake-mp3" || spokenText != "hello there" {
+		t.Fatalf("falou %q com o corpo %q", spokenText, fala.Body.String())
+	}
+	c.Get("/api/voz/fala").WantStatus(422)
+	c.Get("/api/voz/fala?texto=" + strings.Repeat("a", 700)).WantStatus(413)
+}
+
+// O provedor que falha não vira 500 nem mensagem dele na tela.
+func TestVozComProvedorFora(t *testing.T) {
+	c := newClient(t)
+	audioStatus = 500
+	ctype, body := gravacao(t, 512, "pt-BR")
+	res := c.Request("POST", "/api/voz", trilha.WithBody(ctype, body)).WantStatus(502)
+	if strings.Contains(res.Body.String(), "scripted failure") {
+		t.Fatal("a mensagem do provedor vazou para a tela:", res.Body.String())
+	}
+	c.Get("/api/voz/fala?texto=oi").WantStatus(502)
+}
+
+// A gravação grande demais para antes do provedor, no limite da própria rota.
+func TestVozRecusaGravacaoGrande(t *testing.T) {
+	c := newClient(t)
+	ctype, body := gravacao(t, apivoz.MaxAudio+1024, "pt-BR")
+	c.Request("POST", "/api/voz", trilha.WithBody(ctype, body)).WantStatus(413)
+	if audioSent != 0 {
+		t.Fatal("a gravação grande chegou ao provedor")
 	}
 }

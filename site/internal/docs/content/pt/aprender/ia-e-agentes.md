@@ -141,6 +141,58 @@ histórico, o limite e o teste que roda sem chave — é a
 [receita do chat de IA](/pt/receitas/chat-de-ia), que termina numa
 [demo rodando](/pt/demos/ai-chat).
 
+## Voz
+
+Nem sempre quem chega ao balcão vai digitar. Gravar, transcrever, responder e falar de volta
+são quatro passos, e três deles são o mesmo protocolo do chat.
+
+```go
+// a página
+ui.Recorder(c, ui.RecorderOpts{Action: "/api/voz", Target: "resposta", MaxSeconds: 60})
+ui.RecorderScript(c)
+ui.UploadScript(c)
+
+// app/api/voz/route.go — gravar → transcrever → responder
+up, err := c.File("audio", trilha.FileRules{Accept: []string{"audio/*", "video/webm"}})
+if err != nil {
+    return err
+}
+defer up.Close()
+t, err := cli.Transcribe(c.Context(), up, ai.TranscribeOpts{Language: "pt", Filename: up.Name})
+res, err := cli.Chat(c.Context(), ai.Request{Messages: []ai.Message{
+    {Role: "system", Content: "Responda em crioulo haitiano, curto e falado."},
+    {Role: "user", Content: t.Text},
+}})
+return c.Render(200, resposta(c, t.Text, res.Text()))
+
+// app/api/voz/fala/route.go — falar, e o ui.Audio toca
+body, err := cli.Speak(c.Context(), c.Query("texto"), ai.SpeakOpts{Voice: "nova"})
+if err != nil {
+    return err
+}
+defer body.Close()
+return c.Inline("resposta.mp3", body, ai.SpeakOpts{}.ContentType())
+```
+
+O `ui.Recorder` grava com o `MediaRecorder`, põe a gravação no campo de arquivo e envia o
+formulário, então o upload com progresso e a troca do `#resposta` são os que você já tem. O que
+sobra sem JavaScript, sem `MediaRecorder` ou com o microfone negado é o `<input type="file"
+accept="audio/*" capture>` que a marcação sempre carrega — no celular, o gravador do sistema. A
+rota é escrita uma vez, contra o `c.File`.
+
+O microfone exige HTTPS e uma política que o libere; o padrão do framework nega:
+
+```go
+a.Config().Security.PermissionsPolicy = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
+```
+
+A CSP não muda. Tradução não é um recurso à parte — é a mensagem de sistema ali em cima — e o
+`SpeechRecognition` do navegador está fora: não está em todo navegador, manda o áudio para quem
+o navegador escolheu e deixa o servidor sem nada para registrar. A gravação chega na sua rota,
+e o que acontece com ela é seu. Tudo isso roda no
+[`examples/assistente`](https://github.com/emersonjoe/trilha/tree/main/examples/assistente), na
+página `/voz`.
+
 ## MCP: usar e expor ferramentas
 
 O *Model Context Protocol* padroniza como hosts (Claude, Cursor, VS Code...) descobrem e

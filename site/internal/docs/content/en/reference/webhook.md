@@ -132,6 +132,47 @@ gives up on and retries. `X-Webhook-Id` is stable across the retries of one deli
 refuse a repeat, because at-least-once is what a sender can promise and exactly-once is what the
 receiver decides.
 
+## Receiving somebody else's webhook
+
+```go
+func VerifyHMAC(r *http.Request, o HMACOpts) ([]byte, error)
+
+type HMACOpts struct {
+	Header  string           // default X-Hub-Signature-256
+	Prefix  string           // default "sha256="; HMACNoPrefix for a bare hex digest
+	Secret  string           // the shared secret, out of a sealed Connection
+	MaxBody int64            // default 1 MiB
+	Hash    func() hash.Hash // default sha256.New
+}
+
+const HMACNoPrefix = "\x00"
+```
+
+`Verify` checks Trilha's own scheme, which nobody else speaks. Meta's WhatsApp Cloud API signs
+the raw body and puts the hex in `X-Hub-Signature-256: sha256=…`; GitHub sends the same thing in
+the same header; Stripe changes the header and the prefix and nothing else. `VerifyHMAC` is that
+shape, and the zero `HMACOpts` is already Meta's and GitHub's:
+
+```go
+body, err := webhook.VerifyHMAC(c.Request(), webhook.HMACOpts{Secret: appSecret})
+if err != nil {
+	return trilha.Errorf(http.StatusUnauthorized, "assinatura inválida")
+}
+```
+
+It reads the body once, bounded by `MaxBody`, compares in constant time and hands the bytes back
+— the same signature as `Verify`, for the same reason: a caller left with a consumed reader is
+the mistake both exist to make impossible. Every way of failing is the same `ErrSignature`: no
+header, a MAC that is not hex, a body that changed, a body over the limit, an empty secret.
+
+`Secret` is a string because an HMAC of the body is the one thing `Connections` cannot do on the
+application's behalf — so this is the place where `conn.Secret.Reveal()` is written on purpose,
+and the only one.
+
+There is no timestamp here because these providers do not sign one. What stops a replay is the
+provider's own message id, kept and refused a second time — the rule `X-Webhook-Id` follows,
+applied to somebody else's id. `trilha add channel-whatsapp` writes that whole receiver.
+
 ## The address check
 
 `https` always; `http` only in `Dev`. Every address the name resolves to must be public —

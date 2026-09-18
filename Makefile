@@ -1,4 +1,4 @@
-.PHONY: test vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry release
+.PHONY: test test-otel vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry release
 
 GOVULNCHECK_VERSION ?= v1.1.4
 SECURITY_GO_VERSION ?= go1.25.13
@@ -10,8 +10,14 @@ vet:
 	test -z "$$(gofmt -l *.go h internal cmd examples tmpl)"
 	go vet ./...
 
+# O módulo opcional do exportador OpenTelemetry: módulo próprio, com o SDK
+# de fora, para que o núcleo continue só com a biblioteca padrão.
+test-otel:
+	test -z "$$(gofmt -l otel)"
+	cd otel && go vet ./... && go test ./...
+
 fmt:
-	gofmt -w *.go h internal cmd examples tmpl
+	gofmt -w *.go h internal cmd examples tmpl otel
 
 # NIST SSDF/OWASP evidence. Go 1.22+ downloads the patched toolchain automatically.
 security:

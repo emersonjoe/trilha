@@ -3,6 +3,89 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.137.0 — 2026-09-18
+
+Spec 158. Closes [#266](https://github.com/emersonjoe/trilha/issues/266),
+[#267](https://github.com/emersonjoe/trilha/issues/267),
+[#268](https://github.com/emersonjoe/trilha/issues/268),
+[#269](https://github.com/emersonjoe/trilha/issues/269),
+[#270](https://github.com/emersonjoe/trilha/issues/270),
+[#271](https://github.com/emersonjoe/trilha/issues/271),
+[#272](https://github.com/emersonjoe/trilha/issues/272),
+[#274](https://github.com/emersonjoe/trilha/issues/274).
+
+Seven issues from one place: a public-sector programme whose four products each needed
+something every public application writes by hand and nobody gets right the first time.
+
+### Added
+
+- **`webhook.VerifyHMAC(r, webhook.HMACOpts{…})` receives somebody else's webhook** (#266):
+  Meta, GitHub and Stripe sign a delivery with an HMAC of the raw body, and the hand-written
+  answer reads the body twice, compares in variable time and has no size limit. This reads it
+  once under `MaxBody`, hex-decodes, compares with `hmac.Equal`, and returns the same
+  `ErrSignature` for every way it can fail. `HMACNoPrefix` says "no prefix", because an empty
+  `Prefix` already means the default. The recipe `trilha add channel-whatsapp` writes the
+  verification handshake, the normalisation of the Cloud API payload into a `Message`, dedup by
+  message id, and the sending client, with the 24-hour window in the delivered code instead of
+  discovered in production. `TestReceitaWhatsApp` and the fixtures in the generated project —
+  text, audio, image, document, location, reaction, edited message and delivery status — are
+  the proof.
+- **`trilha.CheckDigit` and `trilha.HasCheckDigit`** (#267) are the two ISO 7064 MOD 97-10
+  digits that reject a mistyped protocol number before the database sees it. The recipe
+  `trilha add public-lookup` writes the screen a citizen uses with no account: a code plus a
+  second factor, a limiter per IP **and** per code, a constant-time comparison of the factor,
+  and one identical answer for "no such code" and "wrong factor" — because two different
+  answers are an enumeration oracle. Only events the server marked visible are rendered, and
+  the query is audited with the code masked.
+- **Offline forms that survive the network dropping** (#268): a route folder declares
+  `var Offline = true`, the same way it declares `var Kind`, and `App.OfflineRoutes()` hands
+  that list to the service worker. `trilha.OfflineForm(c)` marks a form and mints an
+  `Idempotency-Key`; `ui.OfflineScript(c)` queues the submission in IndexedDB when the network
+  is gone and replays it in order when it returns; `ui.Outbox(c)` shows how many are waiting
+  and the last error. On the server `trilha.Idempotent(c, ttl)` tells the handler a replay is a
+  replay, `trilha.QueuedAt(c)` gives the client's stamp for last-write-wins, and
+  `Config.Idempotency` swaps the in-process store. `trilha add pwa-offline` writes the service
+  worker, which caches the shell and the declared routes and never stores a response carrying
+  `Set-Cookie` or `no-store`.
+- **Voice** (#269): `ui.Recorder(c, ui.RecorderOpts{…})` records with `MediaRecorder` and sends
+  through the same progress upload the dropzone uses, falling back to a file input with
+  `capture` when the browser refuses the microphone — no inline script, the CSP untouched.
+  `ai.Client.Transcribe` and `ai.Client.Speak` speak the OpenAI audio protocol, so the same
+  client that talks to OpenAI talks to a local Whisper. The size limit is checked before the
+  request leaves.
+- **One language per request, and the app's own messages** (#270): `Config.Locales` turns
+  `c.Locale()` from one value per process into a negotiation — the preference stored in the
+  session, then `?lang` (remembered in a cookie), then `Accept-Language`, then the default.
+  `trilha.LoadCatalog` reads `i18n/<locale>.json` embedded with `embed`, and `c.T(key, args…)`
+  looks a message up with simple plurals and a fallback chain, so Haitian Creole can fall
+  through French to Portuguese. A key that is missing falls back and is never rendered raw.
+  `trilha i18n extract` and `trilha i18n missing` find the gaps, and `trilha check` fails on a
+  key missing from the default locale.
+- **Units inside the organisation** (#271): `auth.Tenant` answers which organisation, and now
+  `auth.Unit`/`auth.Units` answer which department. The scope rides in the grant value
+  (`auth.Grant("edit", auth.ScopeUnitTree)` is `"edit/tree"`), so every policy already written
+  keeps its meaning and the permission grid keeps working. `Policy.CanIn` and
+  `sso.Policy(p, module, level).In(c, unit)` are the check for the route that receives the
+  resource's unit: a sibling department is 403, a manager with tree scope sees everything below
+  them, and the unit lands in `Actor.Unit` so the audit trail can answer "which department".
+  `trilha audit` now warns about a route guarding a unit-scoped module that never calls `.In`.
+- **`Config.OnRequest`** (#272) is a generic, dependency-free seam: one hook per request that
+  sees the route template and the final status and may replace the context. The optional module
+  `otel/` uses it — its own `go.mod`, like `bench/` — to export OTLP spans carrying
+  `http.route`, the status and the tenant id, never the concrete path and never PII. The core
+  keeps its zero dependencies, and `TestNoExternalDeps` is untouched.
+
+### Fixed
+
+- **`trilha add share-link|blob|approvals --lang pt` wrote `<no value>` on the screen**
+  (#274): seventeen keys lived only in the English table, and `words` returned the Portuguese
+  one whole, with no fallback. A missing key is not an empty string — `text/template` writes
+  `<no value>` — so three recipes shipped a page whose heading was literally that. The keys are
+  translated, and a key the Portuguese table does not carry now falls back to English, because
+  a translation somebody still owes is a smaller problem than a heading nobody can read.
+  `TestNenhumaReceitaEscreveValorAusente` adds every recipe in both languages and reads what
+  was written, so the next forgotten key fails a test instead of a screen.
+
 ## 0.136.0 — 2026-09-17
 
 Spec 157. Closes [#251](https://github.com/emersonjoe/trilha/issues/251),

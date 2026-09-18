@@ -15,7 +15,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 		title += " · Trilha Blog"
 	}
 	cur := c.Request().URL.Path
-	return h.Html(h.Lang("pt-BR"),
+	return h.Html(h.Lang(c.Locale()),
 		h.Head(
 			h.Meta(h.Charset("utf-8")),
 			h.Meta(h.Name("viewport"), h.Content("width=device-width, initial-scale=1")),

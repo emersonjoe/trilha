@@ -27,9 +27,15 @@ type Config struct {
 	StaticHeaders func(name string, hdr http.Header) // cabeçalhos por arquivo estático
 	LogRequest   func(c *Ctx, status int, dur time.Duration) bool // nil loga todas
 	OnSecurityEvent func(SecurityEvent)
+	OnRequest    RequestHook  // envolve toda requisição que chegou a uma rota (tracing)
 	DevReload    string       // trilha.Off desliga o script de recarga em dev; TRILHA_DEV_RELOAD=off
 	Observability Observability // sondas de saúde e o endereço de métricas
 	CORS         CORS         // origens que podem chamar o app (zero = desligado)
+	Locale       string       // o idioma único do processo: "en" (valor zero) ou "pt-BR"
+	Locales      []string     // os idiomas do app, o primeiro sendo o padrão
+	LocaleOf     func(c *Ctx) string // a preferência que o app guardou (auth: a sessão)
+	Catalog      *Catalog     // as mensagens do próprio app, lidas pelo c.T
+	Idempotency  IdempotencyStore // chaves das submissões já feitas (nil = no processo)
 }
 ```
 
@@ -47,13 +53,83 @@ só *quando* o valor é lido:
 
 | Campos | Lidos em | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
-| `Security`, `Public`, `MaxBodyBytes`, `MaxFormMemory`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders` | a cada requisição | ✓ | ✓ |
+| `Security`, `Public`, `MaxBodyBytes`, `MaxFormMemory`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders`, `OnRequest` | a cada requisição | ✓ | ✓ |
 | `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS`, `Upstreams` | derivados em `New` e **reaplicados** ao começar a servir (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
 | `Env` | `New` (chave efêmera em dev) e por requisição | ✓ | parcial |
 
 Use `Config` quando quiser montar a configuração a partir do seu próprio pacote (arquivo,
 Vault, flags) em vez do ambiente.
+
+
+### Vários idiomas
+
+O `Locale` é um idioma para o processo inteiro. O `Locales` é uma lista, e com uma lista o
+idioma passa a ser uma propriedade do pedido:
+
+```go
+func Setup(a *trilha.App) error {
+	cfg := a.Config()
+	cfg.Locales = []string{"pt-BR", "ht", "fr"} // o primeiro é o padrão
+	cfg.LocaleOf = sessao.Flow.LocaleOf         // o que a pessoa escolheu, vindo da sessão
+	return nil
+}
+```
+
+O `c.Locale()` então negocia uma vez por requisição, e vale a primeira resposta oferecida:
+
+| Ordem | Fonte | De onde vem |
+|---|---|---|
+| 1 | `cfg.LocaleOf(c)` | a preferência que o app guardou — `auth.User.Locale`, pelo `Auth.LocaleOf` |
+| 2 | `?lang=ht` | um link da página; a escolha é gravada no cookie `trilha_lang` |
+| 3 | `trilha_lang` | o cookie que o `?lang` deixou, para o clique seguinte continuar no idioma |
+| 4 | `Accept-Language` | por q e por idioma base: `pt` casa com `pt-BR`, `fr-CA` casa com `fr` |
+| 5 | `cfg.Locales[0]` | o padrão |
+
+Idioma que não está na lista não é resposta; a comparação ignora maiúsculas e cai no idioma
+base, e o que volta é sempre a grafia que você configurou. O `c.SetLocale` força o idioma no
+resto da requisição. Tudo que lê o idioma — `ui.Date`, `ui.Relative`, `ui.Number`, os rótulos
+do kit, o `c.CSV`, o `c.T` — segue o pedido, e o layout escreve `h.Lang(c.Locale())`.
+
+### O catálogo de mensagens
+
+O `Catalog` é onde moram as frases do próprio app: um arquivo JSON plano por idioma,
+embutido para que o build continue sendo um executável só. O `embed` só enxerga para baixo,
+então a pasta fica ao lado do pacote que a embute — `app/i18n/`, no `app/setup.go` abaixo.
+
+```go
+//go:embed i18n
+var mensagens embed.FS
+
+func Setup(a *trilha.App) error {
+	cat, err := trilha.LoadCatalog(mensagens, "i18n") // i18n/pt-BR.json, i18n/ht.json…
+	if err != nil {
+		return err
+	}
+	cat.Fallback = map[string]string{"ht": "fr"} // o crioulo lê o francês antes do padrão
+	a.Config().Catalog = cat
+	return nil
+}
+```
+
+```json
+{
+  "protocolo.recebido": "Protocolo %s recebido",
+  "protocolo.pendentes": {"one": "%d protocolo pendente", "other": "%d protocolos pendentes"}
+}
+```
+
+| Símbolo | O que é |
+|---|---|
+| `LoadCatalog(fsys fs.FS, dir string) (*Catalog, error)` | lê cada `<locale>.json` da pasta; arquivo que não é objeto JSON para a carga dizendo qual é |
+| `Catalog.Fallback map[string]string` | a cadeia: `ht` → `fr` → o padrão → a própria chave |
+| `cat.Locales() []string` | os idiomas que o catálogo carrega, em ordem |
+| `cat.Missing(locale string, keys []string) []string` | daquelas chaves, as que este idioma não define — o que o `trilha i18n missing` imprime |
+
+O `c.T("protocolo.recebido", numero)` diz a frase no idioma do pedido; `%s`/`%d` passam pelo
+`fmt.Sprintf`, e um primeiro argumento numérico escolhe `one` no 1 e `other` no resto. Chave
+que nenhum idioma define volta como a própria chave e é logada uma vez — o `trilha check`
+reprova antes de alguém ver isso numa tela.
 
 ### Nomes do CSRF
 
@@ -204,6 +280,7 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 | `ListenAndServe() error` | serve com desligamento gracioso em SIGINT/SIGTERM; depois roda os ganchos de `OnShutdown` |
 | `OnShutdown(func(*App) error)` | registra o que fechar ao encerrar (pool, fila, flush); `setup.go` pode exportar `Shutdown`, que o arquivo gerado registra |
 | `Routes() map[string][]string` | padrões registrados e seus métodos |
+| `OfflineRoutes() []string` | os padrões das páginas que declararam `var Offline = true`, em ordem: o que um service worker pode guardar — veja [Offline](/pt/receitas/pwa#offline-a-casca-do-app-e-um-outbox-de-formularios) |
 | `Route(pattern) (Route, bool)` | uma rota registrada, em cópia: o `Kind`, os métodos e a cadeia |
 | `Probe(*http.Request) bool` | roda a cadeia da rota sem o handler; `true` quando quem chama passaria (ver "Sondar uma rota") |
 | `AddExportPath(paths...)` | caminhos extras para `Export`; último segmento com ponto exporta como o arquivo, não como `index.html` |

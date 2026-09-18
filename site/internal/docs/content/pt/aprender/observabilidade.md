@@ -131,6 +131,92 @@ custaria dezenas de dependências.
 O que nunca entra no log, por decisão de projeto: corpo da requisição, cookies, cabeçalho
 `Authorization` e query string (ASVS V7.1.1). É lá que segredo viaja.
 
+## Traces para o OpenTelemetry
+
+Propagar não é exportar. O trecho acima diz que o framework carrega o `traceparent` e escreve
+o `trace_id`; para de fato *ver* um upload atravessar web → API → worker → provedor de IA num
+Grafana ou num Tempo, os spans precisam sair do processo. Isso é um módulo opcional com
+`go.mod` próprio, `github.com/emersonjoe/trilha/otel`, para que o framework continue
+dependendo só da biblioteca padrão:
+
+```go
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	trilhaotel "github.com/emersonjoe/trilha/otel"
+)
+
+func Setup(a *trilha.App) error {
+	shutdown, err := trilhaotel.Install(a, trilhaotel.Options{
+		Endpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"), // "http://coletor:4318"
+		Service:  "blog",
+		Version:  os.Getenv("BUILD_VERSION"),
+		Sample:   0.1, // um trace em dez, entre os que começam aqui
+	})
+	if err != nil {
+		return err
+	}
+	// Sem isto os últimos segundos de trace nunca chegam: o exportador
+	// acumula em lote, e um processo que sai leva o lote junto.
+	a.OnShutdown(func(*trilha.App) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return shutdown(ctx)
+	})
+	return nil
+}
+```
+
+O `trilhaotel.Install` lê o `traceparent` que já chegou, abre um span de servidor por
+requisição e exporta por OTLP/HTTP. O que o span carrega é o formato agregável da requisição,
+e nada além disso:
+
+| Atributo | Valor |
+|---|---|
+| nome do span, `http.route` | o gabarito da rota — `/blog/{slug}`, nunca `/blog/meu-post` |
+| `http.request.method`, `url.scheme` | `GET`, `https` |
+| `http.response.status_code` | o status que foi escrito, inclusive 500 |
+| `trilha.request_id` | o mesmo id do `X-Request-ID` e do log de acesso |
+| `trilha.tenant` | `Actor().Tenant`, o id da organização — nunca nome nem e-mail |
+
+O caminho concreto, a query string, cabeçalhos e corpos não estão lá, e não são opção: um
+trace sai do processo, e o que sai do processo é escolhido (ASVS V7.1.1). O `Sample` é
+baseado no pai — quem já amostrou o trace dele é sempre seguido, então este serviço nunca
+vira um buraco no meio do trace de outro.
+
+### O próximo salto
+
+O span viaja no contexto da requisição, que é o contexto com que o cliente `ai` é chamado e o
+que as suas próprias chamadas devem usar. O `otel.Transport` o coloca no fio:
+
+```go
+cliente := ai.Client{HTTPClient: &http.Client{Transport: trilhaotel.Transport(nil)}}
+resp, err := cliente.Chat(c.Context(), req)
+
+req, _ := http.NewRequestWithContext(c.Context(), "GET", urlDoFornecedor, nil)
+res, err := (&http.Client{Transport: trilhaotel.Transport(nil)}).Do(req)
+```
+
+Um prefixo encaminhado por `Upstreams` não precisa de nada: ele é respondido antes de qualquer
+rota, então não abre span próprio, e o proxy reverso repassa intacto o `traceparent` que
+recebeu — a API do outro lado continua o mesmo trace. Vale o mesmo para o resto do que o
+fallback responde, um arquivo estático ou um 404 em caminho desconhecido: não há gabarito de
+rota para dar nome a um span, e um span por URL é um coletor que não agrega nada.
+
+### O que o núcleo sabe disso tudo
+
+Nada, de propósito. O módulo se prende a uma única costura genérica, a `Config.OnRequest`,
+cuja assinatura fala só de `*trilha.Ctx` e de um status; o framework nunca importa um
+exportador nem um SDK. Escrever um gancho seu — um orçamento, um profile, um cabeçalho — são
+as mesmas duas linhas: veja [`RequestHook`](/pt/referencia/observabilidade).
+
+O exemplo mora em `otel/example`, dentro daquele módulo, e não em `examples/`, porque tudo em
+`examples/` compartilha o módulo da raiz e arrastaria o SDK para dentro dele. Os testes dele
+rodam com `make test-otel`; o `make test` do framework não os enxerga.
+
 ## Custo
 
 Com o endereço de métricas desligado, a instrumentação não roda: é uma comparação de

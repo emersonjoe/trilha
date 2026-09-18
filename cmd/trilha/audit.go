@@ -227,6 +227,17 @@ func runAudit(p *project, vuln bool) []check {
 			add("warn", fmt.Sprintf(t("stream open"), len(open)),
 				fmt.Sprintf(t("stream open hint"), strings.Join(open, ", ")))
 		}
+		// A module held by unit and a route that never asks which unit: the
+		// folder was entered, and then every record of it is served the same
+		// — which is the cross-unit read the scope exists to prevent.
+		if scoped := policyUnitScoped(src); len(scoped) > 0 {
+			if loose := unitUnchecked(p, res, scoped); len(loose) > 0 {
+				add("warn", fmt.Sprintf(t("policy unit"), len(loose)),
+					fmt.Sprintf(t("policy unit hint"), strings.Join(first(loose, 5), ", ")))
+			} else {
+				add("ok", t("policy unit ok"), "")
+			}
+		}
 		// A trail that names nobody is an expensive log file.
 		if anon := anonymousAudit(p, res); len(anon) > 0 {
 			add("warn", fmt.Sprintf(t("audit anonymous"), len(anon)),
@@ -698,6 +709,59 @@ func policyModules(src string) []string {
 	return out
 }
 
+// policyUnitScoped is the modules some role holds by unit rather than by
+// organisation: a grant written "edit/unit", "manage/tree", or built with
+// auth.Grant. Those are the modules where entering the folder is not the whole
+// check — each record has a unit, and the route owes an In.
+func policyUnitScoped(src string) map[string]bool {
+	out := map[string]bool{}
+	for _, m := range policyScopedRe.FindAllStringSubmatch(src, -1) {
+		out[m[1]] = true
+	}
+	for _, m := range policyGrantRe.FindAllStringSubmatch(src, -1) {
+		out[m[1]] = true
+	}
+	// auth.All("view/unit") scopes every module the policy declares.
+	if policyAllScopedRe.MatchString(src) {
+		for _, m := range policyModules(src) {
+			out[m] = true
+		}
+	}
+	delete(out, "*")
+	return out
+}
+
+// unitUnchecked lists the routes guarded on a unit-scoped module whose own
+// source never asks about a unit. The folder was entered — that is what
+// RequirePolicy answers — and then every record of it is served the same, which
+// is the cross-unit read this scope exists to prevent.
+func unitUnchecked(p *project, res *scan.Result, scoped map[string]bool) []string {
+	var out []string
+	for _, r := range res.Routes {
+		src := routeSource(p, r)
+		guards := src
+		for _, ref := range r.Middlewares {
+			guards += middlewareSource(p, ref)
+		}
+		for _, chain := range r.MiddlewaresByMethod {
+			for _, ref := range chain {
+				guards += middlewareSource(p, ref)
+			}
+		}
+		onScoped := false
+		for _, m := range policyRequired(guards) {
+			if scoped[m] {
+				onScoped = true
+			}
+		}
+		if onScoped && !strings.Contains(src, ".In(") {
+			out = append(out, r.Pattern)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 // policyRequired is the modules some route actually asks for.
 func policyRequired(src string) []string {
 	var out []string
@@ -710,7 +774,13 @@ func policyRequired(src string) []string {
 var (
 	policyModulesRe = regexp.MustCompile(`(?s)Modules:\s*\[\]string\{([^}]*)\}`)
 	policyRequireRe = regexp.MustCompile(`RequirePolicy\([^,]+,\s*"([^"]+)"`)
-	quotedRe        = regexp.MustCompile(`"([^"]*)"`)
+	// A cell of the matrix written as a level with a scope after it, and the
+	// same cell written with auth.Grant. Both are one literal in the Roles
+	// block, which is how the audit reads a policy: the way a reviewer does.
+	policyScopedRe    = regexp.MustCompile(`"([^"]+)"\s*:\s*"[^"]*/(?:unit|tree)"`)
+	policyGrantRe     = regexp.MustCompile(`"([^"]+)"\s*:\s*(?:auth\.)?Grant\(`)
+	policyAllScopedRe = regexp.MustCompile(`All\(\s*(?:"[^"]*/(?:unit|tree)"|(?:auth\.)?Grant\()`)
+	quotedRe          = regexp.MustCompile(`"([^"]*)"`)
 )
 
 // timeFormatRe finds a call that formats a moment with a layout of its own. The

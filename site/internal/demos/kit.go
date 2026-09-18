@@ -209,6 +209,19 @@ func emptyDataTableDemo(pt bool) h.Node {
 
 // treeDemo builds ui-arvore: the hierarchy as navigation, and the same nodes
 // as a TreePicker field.
+// recorderDemo renders the capture island. The page of the docs has no
+// microphone and no route: what is drawn is the fallback everybody starts
+// from — the file field and the button that sends it.
+func recorderDemo(pt bool) h.Node {
+	locale, action, target := "en", "/api/voice", "answer"
+	if pt {
+		locale, action, target = "pt-BR", "/api/voz", "resposta"
+	}
+	return wrap(demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		return kit.Recorder(c, kit.RecorderOpts{Action: action, Target: target, MaxSeconds: 60})
+	}))
+}
+
 func treeDemo(pt bool) h.Node {
 	nodes, label := classificationNodesEN, "Classification"
 	if pt {
@@ -414,19 +427,26 @@ func policyGridDemo(pt bool) h.Node {
 		},
 	}
 	labels := map[string]string{"docs": "Documents"}
+	// The second half of a cell: how far the grant reaches inside the
+	// organisation. The analyst holds documents in their own unit, which is
+	// what makes the column worth drawing here.
+	scopes := map[string]string{}
 	if pt {
 		p = auth.Policy{
 			Modules: []string{"docs", "processos", "rh"},
 			Levels:  auth.Levels{"ver", "editar", "administrar"},
 			Roles: map[string]auth.Grants{
 				"admin":    auth.All("administrar"),
-				"analista": {"docs": "editar", "processos": "ver"},
+				"analista": {"docs": auth.Grant("editar", auth.ScopeUnit), "processos": "ver"},
 				"leitor":   auth.All("ver"),
 			},
 		}
 		labels = map[string]string{"docs": "Documentos"}
+		scopes = map[string]string{"": "organização", "unit": "unidade", "tree": "unidade e abaixo"}
+	} else {
+		p.Roles["analyst"] = auth.Grants{"docs": auth.Grant("edit", auth.ScopeUnit), "processes": "view"}
 	}
-	return wrap(kit.PolicyGrid(p, kit.PolicyGridOpts{Action: "#", Labels: labels}))
+	return wrap(kit.PolicyGrid(p, kit.PolicyGridOpts{Action: "#", Labels: labels, ScopeLabels: scopes}))
 }
 
 // demoAssistantEN/PT are the settings section the app.md chapter's own
@@ -648,6 +668,73 @@ func flashesCSVDemo(pt bool) h.Node {
 		return wrap(h.Div(h.Class("ui-stack"),
 			kit.Flashes(c),
 			kit.CSVErrors(c, res),
+		))
+	})
+}
+
+// publicLookupDemo builds public-lookup: the screen `trilha add public-lookup`
+// writes, in its two states side by side — the form somebody types a protocol
+// number into, and the timeline that comes back.
+//
+// The dates are ui.Date with ui.Relative, off a fixed reference, so what the
+// demo shows is the thing the recipe renders and not a drawing of it. Nothing
+// here is posted anywhere: the form's action is "#", because the interesting
+// part of this pattern is the refusal, and a refusal is not something a page
+// on a documentation site can honestly perform.
+func publicLookupDemo(pt bool) h.Node {
+	title, desc := "Track your request", "Type the protocol number and the code you were given. No account, no password."
+	code, codeHelp := "Protocol number", "It is on your receipt, with or without the hyphens."
+	factor, factorHelp := "Confirmation code", "The four digits sent to you when the request was opened."
+	submit, protocol := "Look it up", "Protocol 2026000104."
+	caseTitle := "Request 2026-0001"
+	steps := []string{"Received", "Under review", "Answered"}
+	texts := []string{"The request joined the queue.", "An analyst has it.", "The answer is on its way to you."}
+	locale := ""
+	if pt {
+		locale = "pt-BR"
+		title, desc = "Acompanhe seu pedido", "Digite o número do protocolo e o código que você recebeu. Sem conta, sem senha."
+		code, codeHelp = "Número do protocolo", "Está no seu comprovante, com ou sem os hífens."
+		factor, factorHelp = "Código de confirmação", "Os quatro dígitos enviados a você quando o pedido foi aberto."
+		submit, protocol = "Consultar", "Protocolo 2026000104."
+		caseTitle = "Pedido 2026-0001"
+		steps = []string{"Recebido", "Em análise", "Respondido"}
+		texts = []string{"O pedido entrou na fila.", "Um analista está com ele.", "A resposta está a caminho."}
+	}
+	return demoCtx(locale, func(c *trilha.Ctx) h.Node {
+		passos := make([]kit.Step, 0, len(steps))
+		detalhes := []h.Node{h.Class("ui-stack")}
+		for i, s := range steps {
+			passos = append(passos, kit.Step{Label: s})
+			detalhes = append(detalhes, h.Li(
+				h.Strong(h.Text(s)), h.Text(" "),
+				kit.Date(c, demoRefDate.Add(-time.Duration(len(steps)-i)*24*time.Hour), kit.Relative()),
+				h.P(h.Text(texts[i])),
+			))
+		}
+		return wrap(h.Div(h.Class("ui-stack"),
+			kit.Card(kit.CardContent(
+				h.Form(h.Method("post"), h.Action("#"), h.Class("ui-stack"),
+					h.H3(h.Class("ui-card-title"), h.Text(title)),
+					kit.Muted(h.Text(desc)),
+					kit.Field("demo-codigo", code,
+						kit.Input(h.ID("demo-codigo"), h.Name("codigo"), h.Type("text"),
+							h.Inputmode("numeric"), h.Autocomplete("off"),
+							h.Aria("describedby", "demo-codigo-help")),
+						kit.Help(codeHelp)),
+					kit.Field("demo-fator", factor,
+						kit.Input(h.ID("demo-fator"), h.Name("fator"), h.Type("text"),
+							h.Inputmode("numeric"), h.Autocomplete("off"),
+							h.Aria("describedby", "demo-fator-help")),
+						kit.Help(factorHelp)),
+					h.Div(kit.Submit(h.Text(submit))),
+				),
+			)),
+			kit.Card(kit.CardContent(
+				kit.CardTitle(caseTitle),
+				kit.Muted(h.Text(protocol)),
+				kit.Steps(passos, len(passos)),
+				h.Ol(detalhes...),
+			)),
 		))
 	})
 }
@@ -1358,6 +1445,29 @@ if !res.OK() {
 c.Flash(ui.FlashSuccess, "3 linhas importadas, 2 rejeitadas")`,
 		Node: func() h.Node { return flashesCSVDemo(true) },
 	})
+	add("pt", Demo{
+		Name:  "ui-gravador",
+		Title: "Gravar no balcão e mandar o áudio para a rota",
+		Source: `ui.Recorder(c, ui.RecorderOpts{
+	Action: "/api/voz", Target: "resposta", MaxSeconds: 60,
+})
+ui.RecorderScript(c)
+ui.UploadScript(c)`,
+		Node: func() h.Node { return recorderDemo(true) },
+	})
+	add("pt", Demo{
+		Name:  "public-lookup",
+		Title: "Consulta por código: o formulário e a linha do tempo",
+		Source: `if !trilha.HasCheckDigit(codigo) {
+	return naoEncontrado(c) // a mesma resposta do "não existe", e sem consulta
+}
+reg, err := consulta.Buscar(c.Request().Context(), codigo, fator)
+if err != nil {
+	return naoEncontrado(c)
+}
+return c.Render(200, ui.Steps(passos, len(passos)))`,
+		Node: func() h.Node { return publicLookupDemo(true) },
+	})
 
 	// ---- en ----
 	add("en", Demo{
@@ -2059,5 +2169,28 @@ if !res.OK() {
 }
 c.Flash(ui.FlashSuccess, "3 rows imported, 2 rejected")`,
 		Node: func() h.Node { return flashesCSVDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "ui-gravador",
+		Title: "Record at the counter and post the audio to the route",
+		Source: `ui.Recorder(c, ui.RecorderOpts{
+	Action: "/api/voice", Target: "answer", MaxSeconds: 60,
+})
+ui.RecorderScript(c)
+ui.UploadScript(c)`,
+		Node: func() h.Node { return recorderDemo(false) },
+	})
+	add("en", Demo{
+		Name:  "public-lookup",
+		Title: "Lookup by code: the form and the timeline",
+		Source: `if !trilha.HasCheckDigit(codigo) {
+	return naoEncontrado(c) // the same answer as "no such code", and no query
+}
+reg, err := consulta.Buscar(c.Request().Context(), codigo, fator)
+if err != nil {
+	return naoEncontrado(c)
+}
+return c.Render(200, ui.Steps(passos, len(passos)))`,
+		Node: func() h.Node { return publicLookupDemo(false) },
 	})
 }

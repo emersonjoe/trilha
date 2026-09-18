@@ -52,6 +52,8 @@ type Ctx struct {
 	flashOut     []Flash
 	flashIn      []Flash
 	flashRead    bool
+	locale       string
+	localeDone   bool
 }
 
 func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
@@ -388,9 +390,6 @@ func (w *responseWriter) Flush() {
 
 // Unwrap lets http.ResponseController reach the original writer.
 func (w *responseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
-
-// Locale is the language the kit's formatters write in: "en" or "pt-BR".
-func (c *Ctx) Locale() string { return c.app.cfg.Locale }
 
 // Location is the zone a date is shown in. An empty Config.TimeZone means UTC,
 // because a server whose clock happens to be local is not a decision anybody

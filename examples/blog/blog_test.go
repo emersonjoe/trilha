@@ -1269,3 +1269,66 @@ func TestAPIComoFerramentasMCP(t *testing.T) {
 		t.Fatalf("esperava o 404 da rota: %+v", res)
 	}
 }
+
+// #268 — a tela de coleta declara `var Offline = true`, e é isso que o
+// service worker recebe: a lista sai do app, não de um arquivo escrito à mão.
+func TestRotasOfflineSaemDaConvencao(t *testing.T) {
+	c := newClient(t, "prod")
+	rotas := c.app.OfflineRoutes()
+	if len(rotas) != 1 || rotas[0] != "/coleta" {
+		t.Fatalf("OfflineRoutes() = %v", rotas)
+	}
+	// E a página manda a lista para o navegador junto com a versão do kit.
+	corpo := c.Get("/coleta").WantStatus(200).Body.String()
+	for _, quero := range []string{
+		`data-ui-offline-routes="/coleta"`, "ui.offline.js",
+		`data-trilha-offline=""`, `name="_idempotency_key"`, `data-ui-outbox=""`,
+	} {
+		if !strings.Contains(corpo, quero) {
+			t.Fatalf("a tela não tem %q:\n%s", quero, corpo)
+		}
+	}
+}
+
+// O reenvio do outbox chega com a mesma chave: uma anotação só, e a segunda
+// resposta é igual à primeira.
+func TestColetaReenviadaNaoDuplica(t *testing.T) {
+	c := newClient(t, "prod")
+	campos := "_idempotency_key=chave-do-aparelho&_queued_at=2026-01-02T03%3A04%3A05Z&texto=poste+4+sem+placa"
+	primeira := c.postForm("/coleta", campos).WantStatus(303)
+	segunda := c.postForm("/coleta", campos).WantStatus(303)
+	if primeira.Header().Get("Location") != segunda.Header().Get("Location") {
+		t.Fatalf("o reenvio foi respondido de outro jeito: %q e %q",
+			primeira.Header().Get("Location"), segunda.Header().Get("Location"))
+	}
+	tela := c.Get("/coleta").WantStatus(200).Body.String()
+	if n := strings.Count(tela, "poste 4 sem placa"); n != 1 {
+		t.Fatalf("a anotação aparece %d vezes:\n%s", n, tela)
+	}
+}
+
+// #270 — /idiomas é o posto de atendimento: a mesma página no idioma de quem
+// pergunta. Aqui estão as fontes da negociação e a cadeia de fallback do
+// catálogo, contra o app de verdade.
+func TestIdiomaDoPedidoEMensagensDoApp(t *testing.T) {
+	c := newClient(t, "prod")
+	// Sem dizer nada: o padrão, que é o primeiro de Config.Locales.
+	c.Get("/idiomas").WantStatus(200).WantContains("Atendimento ao migrante", "3 protocolos abertos")
+	// O navegador pede francês.
+	c.Get("/idiomas", trilha.WithHeader("Accept-Language", "fr-CA,fr;q=0.9")).
+		WantStatus(200).WantContains("Service aux migrants", "3 dossiers ouverts")
+	// A pessoa clica no link do crioulo: a tela traduzida sai em crioulo e o
+	// que o crioulo não traduziu cai no francês, nunca na chave crua.
+	rec := c.Get("/idiomas?lang=ht")
+	rec.WantStatus(200).WantContains("Sèvis pou migran", "Byenveni, Jean.", "3 dossiers ouverts")
+	if strings.Contains(rec.Body.String(), "atendimento.") {
+		t.Fatalf("chave crua na tela:\n%s", rec.Body.String())
+	}
+	// E a escolha volta num cookie, então o clique seguinte continua em crioulo.
+	if ck := rec.Cookie("trilha_lang"); ck == nil || ck.Value != "ht" {
+		t.Fatalf("o ?lang não deixou preferência: %+v", ck)
+	}
+	c.Get("/idiomas", trilha.WithCookie("trilha_lang", "ht")).WantContains("Sèvis pou migran")
+	// O <html lang> do layout segue o pedido.
+	c.Get("/idiomas?lang=fr").WantContains(`<html lang="fr">`)
+}

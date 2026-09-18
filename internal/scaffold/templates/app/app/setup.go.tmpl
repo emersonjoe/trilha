@@ -16,6 +16,12 @@ import (
 func Setup(a *trilha.App) error {
 	db := store.New()
 	trilha.Provide(a, db)
+	cfg := a.Config()
+	// The languages this app answers in, the first being the default. With
+	// more than one, c.Locale negotiates per request — the preference in the
+	// session, ?lang=, the trilha_lang cookie, Accept-Language — and the
+	// layout's h.Lang(c.Locale()) follows it.
+	cfg.Locales = []string{"{{.T.html_lang}}"}
 	// A readiness check is what /_trilha/ready answers with. Point this at
 	// the database ping when there is a database.
 	a.Check("store", func(ctx context.Context) error { return nil })

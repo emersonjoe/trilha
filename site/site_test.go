@@ -481,6 +481,18 @@ func TestKitPatternDemosRender(t *testing.T) {
 			[]string{`due_date`},
 			[]string{"3 rows imported, 2 rejected", "not a valid date"},
 			[]string{"3 linhas importadas, 2 rejeitadas", "não é uma data válida"}},
+		// #267: the public lookup is a form plus a timeline, and the timeline
+		// is an ordered list with aria-current on where the case is — this
+		// public is a citizen on a phone, so the demo has to be the real
+		// component and not a picture of one.
+		{"/cookbook/public-link", "/pt/receitas/link-publico",
+			[]string{
+				"trilha add public-lookup", "trilha.CheckDigit", "trilha.HasCheckDigit",
+				"2026000104", `class="ui-steps"`, `aria-current="step"`,
+				`inputmode="numeric"`, `autocomplete="off"`, `aria-describedby="demo-codigo-help"`,
+			},
+			[]string{"Track your request", "Protocol number", "Under review"},
+			[]string{"Acompanhe seu pedido", "Número do protocolo", "Em análise"}},
 	}
 	for _, c := range cases {
 		_, enBody := get(t, c.en)

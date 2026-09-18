@@ -12,7 +12,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 |---|---|
 | `ui.Head(c) h.Node` | `<link>` para `ui.theme.css` e `ui.css`, script inline (com nonce) que aplica o tema salvo, `<script defer src=ui.js>`; respeita `c.Base()` |
 | `ui.Body() h.Node` | classe `ui-body` para o `<body>` |
-| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js`, `ui.live.js`, `ui.chat.js` ou `ui.island.js` |
+| `ui.Asset(nome) []byte` | conteúdo embutido de `ui.css`, `ui.theme.css`, `ui.js`, `ui.nav.js`, `ui.upload.js`, `ui.recorder.js`, `ui.live.js`, `ui.chat.js` ou `ui.island.js` |
 | `ui.Files` | os seis nomes, na ordem em que `trilha ui` os grava |
 
 ## Variantes e tamanhos
@@ -71,6 +71,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Preview(c, src, PreviewOpts{...})` | o arquivo ao lado do que se sabe dele: barra, quadro, imagem ou "não dá para pré-visualizar" — veja [Ctx](/pt/referencia/ctx), [Uploads](/pt/receitas/uploads) e [demo](/pt/aprender/interface-com-ui#um-arquivo-ao-lado-dos-seus-metadados) |
 | `Audio(c, src, AudioOpts{Preload AudioPreload, ...})` | player nativo e acessível com duração, ações de abrir/baixar e fallback para formato sem reprodução |
 | `InstallApp(c, InstallAppOpts{...})` | convite progressivo para instalar a PWA; use com [`trilha add pwa`](/pt/receitas/pwa) |
+| `Outbox(c)`, `OfflineScript(c)` | o que espera para ser enviado — a contagem, o último erro e o botão "Enviar agora" — e o script que põe na fila um formulário marcado com `trilha.OfflineForm` quando não há rede; use com [`trilha add pwa-offline`](/pt/receitas/pwa#offline-a-casca-do-app-e-um-outbox-de-formularios) |
 | `Defer(c, id, src, DeferOpts{...})` | serve a página agora e preenche esta parte um instante depois — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#a-parte-lenta-um-instante-depois) |
 | `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#uma-celula-que-se-atualiza-sozinha) |
 | `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |
@@ -84,7 +85,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Shell(c, ShellOpts{...}, children...)`, `PageHeader(título, ações...)` | a moldura de um app com seções: navegação lateral, barra de cima e o título da tela com seus botões — `Back{}` acima dele, `Subtitle("…")` abaixo — veja [Shell](/pt/referencia/shell) e [demo](/pt/aprender/interface-com-ui#a-moldura-de-um-app-interno) |
 | `Stat(rótulo, valor, ...)`, `StatHint(texto, ...)`, `Sparkline(valores, SparkOpts{...})`, `SparklineTitle(valores, SparkOpts{...}, ...)`, `Bars([]Datum, ...)`, `Donut([]Datum, ...)`, `ChartTitle(nome)` | um número no painel e o desenho ao lado, em SVG escrito pelo servidor; `ChartTitle` é o que faz o desenho ser uma imagem com nome em vez de enfeite — veja [Gráficos](/pt/referencia/graficos) e [demo](/pt/aprender/interface-com-ui#quatro-numeros-e-os-desenhos-ao-lado) |
 | `Inbox(c, []InboxRow, InboxOpts{...})`, `InboxBadge(n)` | o que espera decisão de quem está lendo, e a contagem ao lado do item de menu (zero não desenha nada) — veja [Approval](/pt/referencia/approval) e [demo](/pt/referencia/approval#a-tela) |
-| `PolicyGrid(policy, PolicyGridOpts{...})` | a grade papel × módulo de um `auth.Policy`, como formulário — veja [Auth](/pt/referencia/auth) e [demo](/pt/referencia/auth#matriz-que-se-edita) |
+| `PolicyGrid(policy, PolicyGridOpts{...})` | a grade papel × módulo de um `auth.Policy`, como formulário; uma `ScopedPolicy` (que é o que o `auth.Policy` é, via `ScopeNameOf` e `ScopeNames`) ganha também um select de escopo por célula — organização, unidade, unidade e abaixo — renomeado pelo `PolicyGridOpts.ScopeLabels` — veja [Auth](/pt/referencia/auth) e [demo](/pt/referencia/auth#matriz-que-se-edita) |
 | `TaskTable(c, tarefas, TaskTableOpts{...})`, `TaskProgress(c, tarefas, id)` | o trabalho em segundo plano: a lista com seus estados e o progresso de uma execução — veja [Tarefas](/pt/referencia/task) e [demo](/pt/referencia/task#as-telas) |
 | `WebhooksPanel(c, hooks, entregas, WebhooksOpts{...})` | as assinaturas, o segredo e o registro de entregas de um `webhook.Hooks` — veja [Webhook](/pt/referencia/webhook) e [demo](/pt/referencia/webhook#a-tela) |
 | `Empty(EmptyOpts{...})`, `EmptyError(c, título, err, ação)` | a tela sem nada para mostrar, e a que não conseguiu carregar: a mensagem é o que a pessoa lê, e o `err` aparece só em desenvolvimento — veja [demo](/pt/aprender/interface-com-ui#nada-para-mostrar-e-o-que-nao-deu-para-carregar) |
@@ -286,6 +287,48 @@ O `Accept` e o `MaxSize` das opções só poupam uma ida ao servidor: dá para d
 ao navegador. Quem decide é o [`c.Files`](/pt/referencia/ctx) com as `FileRules` — as mesmas
 regras, aplicadas a bytes que já chegaram. Sem JavaScript o campo é um `multiple` comum e o
 formulário posta todos os arquivos de uma vez, no mesmo handler.
+
+### Recorder
+
+O `ui.Recorder(c, ui.RecorderOpts{Action, Name, MaxSeconds, Mime, Label, Target, Attrs})` é a
+metade de microfone do [`Audio`](#audio): um formulário que grava no balcão e posta a gravação
+para uma rota, com a barra de progresso do upload acima.
+
+```go
+ui.Recorder(c, ui.RecorderOpts{Action: "/api/voz", Target: "resposta", MaxSeconds: 60})
+ui.RecorderScript(c)
+ui.UploadScript(c)
+```
+
+@demo ui-gravador
+
+| Campo de `RecorderOpts` | Papel |
+|---|---|
+| `Action` | a rota que recebe a gravação, como o action de qualquer formulário |
+| `Name` | o campo que a rota lê com `c.File`; padrão `"audio"` |
+| `MaxSeconds` | para a gravação sozinho; zero deixa isso com a pessoa |
+| `Mime` | o que é pedido ao `MediaRecorder` quando o navegador suporta; padrão `"audio/webm"` |
+| `Label` | o texto do botão de gravar; o padrão vem do idioma do pedido |
+| `Target` | o id que a resposta troca, como no `ui.UploadTo`; vazio deixa um formulário comum |
+
+O `ui.RecorderScript(c)` carrega o `ui.recorder.js`, que mostra o botão de gravar quando o
+`navigator.mediaDevices` e o `MediaRecorder` estão lá, conta os segundos, põe a gravação no
+campo de arquivo e envia o formulário — daí para a frente quem envia é o `ui.UploadScript`, com
+o progresso e a troca. O que sobra quando o script está desligado, o navegador não tem
+`MediaRecorder` ou a pessoa nega o microfone é o `<input type="file" accept="audio/*" capture>`
+que a marcação sempre carrega: no celular ele abre o gravador do sistema.
+
+O navegador só entrega o microfone por HTTPS e sob uma política de permissões que o libere, e o
+padrão do framework nega. Um app que grava define isso uma vez:
+
+```go
+a.Config().Security.PermissionsPolicy = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
+```
+
+A CSP não muda: o gravador é um arquivo do kit, carregado como qualquer outro script. A rota lê
+um arquivo com o [`c.File`](/pt/referencia/ctx) e as `FileRules`, e o que ela faz com ele —
+[`ai.Transcribe`](/pt/referencia/ai#voz), uma resposta, [`ai.Speak`](/pt/referencia/ai#voz) — é
+a [seção de voz](/pt/aprender/ia-e-agentes#voz) do capítulo de IA.
 
 ## Combobox
 
@@ -654,7 +697,7 @@ por duas versões.
 
 ## CLI
 
-`trilha ui [--force] [--css-only|--js-only]` grava os seis arquivos em `public/`:
+`trilha ui [--force] [--css-only|--js-only]` grava os arquivos em `public/`:
 `ui.theme.css` só é criado (nunca sobrescrito); `ui.css`, `ui.js`, `ui.nav.js`,
-`ui.upload.js`, `ui.live.js`, `ui.chat.js` e `ui.island.js` são atualizados quando iguais a uma versão anterior e, se você os editou, só
+`ui.upload.js`, `ui.recorder.js`, `ui.live.js`, `ui.chat.js` e `ui.island.js` são atualizados quando iguais a uma versão anterior e, se você os editou, só
 com `--force`.

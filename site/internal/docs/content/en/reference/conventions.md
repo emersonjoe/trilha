@@ -12,6 +12,7 @@ description: Complete table of what each file and folder name in app/ means.
 | `route.go` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` (at least one) | `func(c *trilha.Ctx) error` | the folder's JSON API |
 | `kind.go`, or any file (optional) | `Kind` | `var Kind = trilha.KindPage` or `KindAPI` | subtree: how errors are rendered and whether CSRF applies (see [Errors](/reference/errors)) |
 | `route.go` (optional) | `CORS` | `var CORS = trilha.CORS{...}` | cross-origin policy of this route alone, preflight included |
+| `offline.go`, or any file of a `page.go` package (optional) | `Offline` | `var Offline = true` | the page a service worker keeps a copy of, so it opens with no network — see [Offline](/cookbook/pwa#offline-the-app-shell-and-an-outbox-of-forms) |
 | `layout.go` | `Layout` | `func(c *trilha.Ctx, children h.Node) (h.Node, error)` | subtree |
 | `middleware.go` | `Middleware` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree |
 | `middleware.go` (optional) | `MiddlewareGET`, `MiddlewarePOST`, `MiddlewarePUT`, `MiddlewarePATCH`, `MiddlewareDELETE`, `MiddlewareOPTIONS` | `func(c *trilha.Ctx, next trilha.Next) error` | subtree, that method only |
@@ -139,6 +140,26 @@ The per-method chain runs inside the route-wide one: a rule for a single method 
 the route already decided. For `POST` it is `MiddlewarePOST`, and so on; a method with no
 chain of its own just runs the route's.
 
+## A page that works offline
+
+`var Offline = true` in the package of a `page.go` says this screen is one a service worker
+keeps a copy of. It is the page's own flag and is not inherited down the subtree, because
+what opens with no network is decided screen by screen:
+
+```go
+// app/coleta/offline.go
+package coleta
+
+var Offline = true
+```
+
+The framework serves the route exactly as before; the flag is a fact the app publishes.
+`App.OfflineRoutes()` answers the declared patterns, sorted, and
+[`ui.OfflineScript`](/reference/ui) hands them to the worker of
+[`trilha add pwa-offline`](/cookbook/pwa#offline-the-app-shell-and-an-outbox-of-forms) — a
+route nobody declared is never cached. `var Offline` in a `route.go` is an error: a JSON
+answer is not a navigation.
+
 ## Generation errors
 
 | Code | Cause |
@@ -157,3 +178,4 @@ chain of its own just runs the route's.
 | `E_HIDDEN_ROUTE` | `page.go` or `route.go` inside a folder whose name starts with a dot |
 | `E_UNROUTABLE_METHOD` | `func HEAD`, `TRACE` or `CONNECT`: the router does not take those from a file |
 | `E_CORS_ON_PAGE` | `var CORS` in a `page.go` |
+| `E_OFFLINE_ON_API` | `var Offline` in a `route.go`: only a page is kept for offline use |

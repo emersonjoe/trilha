@@ -122,6 +122,27 @@ ninguém usa de novo não fica na memória. O `auth.APIKeys` limita por chave co
 é por isso que ele é exportado: uma aplicação que tem uma string para indexar não deveria estar
 escrevendo um segundo token bucket, e o que ela escreveria é o que vaza um mapa.
 
+**O código que diz não antes da consulta.** Uma tela em que alguém digita um número — um
+protocolo, o código de um comprovante — é enumerada no minuto em que existe, e a recusa mais
+barata é a que não chega ao banco. O `trilha.CheckDigit(base)` devolve os dois dígitos
+verificadores ISO 7064 MOD 97-10 de um código (o esquema do IBAN: `A=10 … Z=35`, espaços e hífens
+ignorados), e o `trilha.HasCheckDigit(codigo)` é a conferência na entrada:
+
+```go
+codigo := base + trilha.CheckDigit(base) // emitindo: "20260001" + "04"
+
+if !trilha.HasCheckDigit(c.Form("codigo")) {
+	return naoEncontrado(c) // a mesma resposta do "esse código não existe", e sem consulta
+}
+```
+
+Dois dígitos pegam todo erro de um caractere e toda troca de dois vizinhos, então quem digitou
+errado é avisado na hora; e só um código em noventa e sete chega a valer uma busca, então o
+limite acima é consultado noventa e sete vezes menos. O que eles não são é segredo: os dígitos
+vêm impressos no comprovante, e um código que não passa neles é recusado exatamente com as
+palavras que um código inexistente recebe. O `trilha add public-lookup` é a tela inteira montada
+assim.
+
 ## Cookies assinados
 
 | Símbolo | Descrição |

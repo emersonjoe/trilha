@@ -121,6 +121,26 @@ does not stay in memory. `auth.APIKeys` limits per key with this exact type, whi
 exported: an application that has a string to key on should not be writing a second token
 bucket, and the one it would write is the one that leaks a map.
 
+**The code that says no before the query.** A screen where somebody types a number — a protocol,
+the code on a receipt — is enumerated the moment it exists, and the cheapest refusal is the one
+that never reaches the database. `trilha.CheckDigit(base)` returns the two ISO 7064 MOD 97-10
+check digits of a code (the IBAN's scheme: `A=10 … Z=35`, spaces and hyphens ignored), and
+`trilha.HasCheckDigit(code)` is the check on the way in:
+
+```go
+codigo := base + trilha.CheckDigit(base) // minting: "20260001" + "04"
+
+if !trilha.HasCheckDigit(c.Form("codigo")) {
+	return naoEncontrado(c) // the same answer as "no such code", and no query
+}
+```
+
+Two digits catch every single-character typo and every swap of two neighbours, so the honest
+person who mistyped is told at once; and only one code in ninety-seven is even worth looking up,
+so the rate limit above is asked ninety-seven times less often. What it is not is a secret: the
+digits are printed on the receipt, and a code that fails them is refused with exactly the words a
+code that does not exist gets. `trilha add public-lookup` is the whole screen built this way.
+
 ## Signed cookies
 
 | Symbol | Description |
