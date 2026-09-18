@@ -37,6 +37,17 @@ type ListParams struct {
 	Sort    string `form:"sort" json:"sort"`
 	Dir     string `form:"dir" json:"dir"`
 	Q       string `form:"q" json:"q"`
+	// Unit is the organisational unit the listing is filtered by, as the path
+	// auth.Units carries — "sec-adm/protocolo". It comes from the query, so a
+	// listing keeps it while paging and sorting like every other filter.
+	//
+	// Nothing here writes SQL: the clause is the application's, the same way
+	// the tenant column is, and it is written against what auth.Units says the
+	// person may see rather than against what the address asks for.
+	//
+	//	units := auth.Units(c)
+	//	rows, err := repo.List(c.Context(), auth.Tenant(c), q.Unit, units, q.Limit(), q.Offset())
+	Unit string `form:"unit" json:"unit"`
 
 	base url.Values // the query this came from, for Href
 }
@@ -56,6 +67,12 @@ func (p *ListParams) after(form map[string][]string) {
 	if p.Dir != "desc" {
 		p.Dir = "asc"
 	}
+	// A path longer than any hierarchy anybody drew is not a unit: it is a
+	// filter forged in the address bar, and the listing answers unfiltered
+	// rather than carrying it down to a query.
+	if len(p.Unit) > maxUnitPath {
+		p.Unit = ""
+	}
 	p.base = url.Values{}
 	for k, vals := range form {
 		if k == CSRFField {
@@ -64,6 +81,10 @@ func (p *ListParams) after(form map[string][]string) {
 		p.base[k] = append([]string(nil), vals...)
 	}
 }
+
+// maxUnitPath bounds the unit filter. Deep hierarchies are three or four
+// levels; this is room for far more, and a ceiling all the same.
+const maxUnitPath = 200
 
 // Offset is how many rows to skip, for the repository.
 func (p ListParams) Offset() int { return (p.Page - 1) * p.PerPage }

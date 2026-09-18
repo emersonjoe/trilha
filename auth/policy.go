@@ -31,7 +31,75 @@ func (l Levels) rank(level string) int {
 
 // Grants is what one role may do, by module. A module the role does not name is
 // a module it cannot reach: the absence is a denial, never an inheritance.
+//
+// The value is the level, optionally followed by the scope it holds in:
+// "edit" is the whole organisation, "edit/unit" is the person's own unit, and
+// "edit/tree" is their unit and everything under it. Write it with Grant
+// rather than by hand.
 type Grants map[string]string
+
+// Scope is how far a grant reaches inside the organisation: everywhere, the
+// person's own unit, or that unit and its children.
+//
+// It is the second half of a cell, and not a second matrix, because the
+// question a screen asks is one question — "may this role edit documents, and
+// where" — and two matrices side by side are two things to keep in step.
+type Scope string
+
+const (
+	// ScopeOrg is the whole organisation, which is what a grant with no scope
+	// written on it means. It is the empty string so that a policy written
+	// before units existed keeps meaning exactly what it meant.
+	ScopeOrg Scope = ""
+	// ScopeUnit is the person's own unit and nothing else: a sibling unit is
+	// somebody else's, and that is the answer a demands screen needs.
+	ScopeUnit Scope = "unit"
+	// ScopeUnitTree is the person's unit and everything under it, which is the
+	// secretary seeing what their departments do.
+	ScopeUnitTree Scope = "tree"
+)
+
+// Grant is the value of one cell: a level, and the scope it holds in.
+//
+//	Roles: map[string]auth.Grants{
+//		"secretary": {"demands": auth.Grant("manage", auth.ScopeUnitTree)},
+//		"analyst":   {"demands": auth.Grant("edit", auth.ScopeUnit)},
+//		"auditor":   {"demands": "view"},  // the whole organisation
+//	},
+//
+// A level with no scope is the organisation, so the declarations that existed
+// before units go on meaning what they meant.
+func Grant(level string, s Scope) string {
+	if level == "" || s == ScopeOrg {
+		return level
+	}
+	return level + "/" + string(s)
+}
+
+// splitGrant reads a cell back: the level, and the scope written after the
+// slash. A scope nobody declared reads as the organisation — the value came
+// from a table somebody edits, and the safe reading of a word this package
+// does not know is the one that changes nothing about the levels.
+func splitGrant(value string) (string, Scope) {
+	level, rest, ok := strings.Cut(value, "/")
+	if !ok {
+		return value, ScopeOrg
+	}
+	switch Scope(rest) {
+	case ScopeUnit:
+		return level, ScopeUnit
+	case ScopeUnitTree:
+		return level, ScopeUnitTree
+	}
+	return level, ScopeOrg
+}
+
+// ScopeNames is the scopes a cell may hold, in the order a select shows them.
+// It is what ui.PolicyGrid asks of a policy to draw the second column of a
+// cell.
+func (p Policy) ScopeNames() []string {
+	return []string{string(ScopeOrg), string(ScopeUnit), string(ScopeUnitTree)}
+}
 
 // Policy is the permission matrix of an application, declared once as data.
 //
@@ -116,21 +184,127 @@ func (p Policy) roleKey(role string) string {
 	return role
 }
 
-// rankOf is the level a set of grants gives on a module, as a position.
+// rankOf is the level a set of grants gives on a module, as a position,
+// wherever it holds: Can answers "may do it somewhere", and where is CanIn.
 func (p Policy) rankOf(g Grants, module string) int {
+	rank, _ := p.bestOf(g, module)
+	return rank
+}
+
+// bestOf is the strongest grant a set gives on a module: its position and the
+// scope it holds in. The module's own cell wins a tie against the "*" of All,
+// because the cell somebody wrote about this module is the more specific
+// sentence.
+func (p Policy) bestOf(g Grants, module string) (int, Scope) {
+	if g == nil {
+		return -1, ScopeOrg
+	}
+	best, scope := -1, ScopeOrg
+	if lvl, ok := g[allModules]; ok {
+		level, s := splitGrant(lvl)
+		best, scope = p.Levels.rank(level), s
+	}
+	if lvl, ok := g[module]; ok {
+		level, s := splitGrant(lvl)
+		if r := p.Levels.rank(level); r >= best {
+			best, scope = r, s
+		}
+	}
+	return best, scope
+}
+
+// rankIn is the level a set of grants gives on a module for one unit: a grant
+// whose scope does not reach that unit is not a grant here at all.
+func (p Policy) rankIn(g Grants, u *User, module, unit string) int {
 	if g == nil {
 		return -1
 	}
 	best := -1
-	if lvl, ok := g[module]; ok {
-		best = p.Levels.rank(lvl)
+	consider := func(value string) {
+		level, scope := splitGrant(value)
+		r := p.Levels.rank(level)
+		if r <= best || r < 0 || !admits(u, scope, unit) {
+			return
+		}
+		best = r
 	}
 	if lvl, ok := g[allModules]; ok {
-		if r := p.Levels.rank(lvl); r > best {
-			best = r
-		}
+		consider(lvl)
+	}
+	if lvl, ok := g[module]; ok {
+		consider(lvl)
 	}
 	return best
+}
+
+// admits reports whether a grant of this scope reaches this unit.
+func admits(u *User, s Scope, unit string) bool {
+	switch s {
+	case ScopeUnit:
+		return unitIn(u, unit)
+	case ScopeUnitTree:
+		return unitUnder(u, unit)
+	}
+	return true // the organisation contains every unit of it
+}
+
+// CanIn reports whether the user may do level on module inside one unit.
+//
+//	if acesso.Policy.CanIn(u, "demands", "edit", demand.Unit) { … }
+//
+// It is the question Can cannot answer: Can says "somewhere", and a screen
+// about one record needs "here". A grant on the whole organisation admits
+// every unit; a unit grant admits the person's own units and not their
+// siblings; a tree grant admits those and everything under them. Default
+// counts as the organisation, because a default about one unit would be a
+// default nobody could read.
+//
+// The guard that goes with it is Auth.Policy(...).In, which answers 403 and
+// records the unit on the trail.
+func (p Policy) CanIn(u *User, module, level, unit string) bool {
+	if u == nil {
+		return false
+	}
+	want := p.Levels.rank(level)
+	if want < 0 {
+		return false
+	}
+	best := -1
+	for _, role := range u.Roles {
+		if got := p.rankIn(p.Roles[p.roleKey(role)], u, module, unit); got > best {
+			best = got
+		}
+	}
+	if got := p.rankOf(p.Default, module); got > best {
+		best = got
+	}
+	return best >= want
+}
+
+// ScopeOf is the scope of the grant a role holds on a module — what the grid
+// draws in the second half of a cell.
+func (p Policy) ScopeOf(role, module string) Scope {
+	_, scope := p.bestOf(p.Roles[p.roleKey(role)], module)
+	return scope
+}
+
+// ScopeNameOf is ScopeOf as the string the grid posts back, which is what
+// ui.PolicyGrid asks of a policy: the kit does not import this package, and an
+// interface over a named type of it would be one it could not spell.
+func (p Policy) ScopeNameOf(role, module string) string {
+	return string(p.ScopeOf(role, module))
+}
+
+// UnitScoped reports whether any role holds this module by unit rather than by
+// organisation. It is what tells a screen to show the unit column and what
+// tells `trilha audit` that a route guarding this module owes an In.
+func (p Policy) UnitScoped(module string) bool {
+	for role := range p.Roles {
+		if p.ScopeOf(role, module) != ScopeOrg {
+			return true
+		}
+	}
+	return false
 }
 
 // Level is the level the user has on a module, or "" for none. It is what a
@@ -220,4 +394,74 @@ func (p Policy) LevelOf(role, module string) string {
 		return ""
 	}
 	return p.Levels[r]
+}
+
+// Requirement is one question about a module and a level, asked again per
+// record: the route is entered once and then each demand, task or document has
+// its own unit. RequirePolicy is the door of the subtree; this is the check
+// inside it.
+//
+// It is a value and not a middleware because the unit is not known when the
+// chain is built — it comes out of the record the handler has just read.
+type Requirement struct {
+	a      *Auth
+	p      Policy
+	module string
+	level  string
+}
+
+// Policy is the requirement a handler checks per record.
+//
+//	// app/demands/id_/page.go
+//	var edit = acesso.Auth.Policy(acesso.Policy, "demands", "edit")
+//
+//	func POST(c *trilha.Ctx) error {
+//		d, err := demands.Find(c.Context(), c.Param("id"))
+//		if err != nil {
+//			return err
+//		}
+//		if err := edit.In(c, d.Unit); err != nil {
+//			return err
+//		}
+//		…
+//	}
+//
+// The name is Policy and not Require because Require already means "block
+// anonymous" here, and two guards with one name is how a chain ends up doing
+// the weaker of the two.
+func (a *Auth) Policy(p Policy, module, level string) Requirement {
+	return Requirement{a: a, p: p, module: module, level: level}
+}
+
+// In answers nil when the session may do this inside that unit, and otherwise
+// the refusal: the login for anonymous, 403 for somebody known who is in
+// another unit.
+//
+// The message names the unit — "needs edit on demands in sec-adm/protocolo" —
+// because "forbidden" in an application with a hierarchy is a support thread
+// about which of forty units the person is actually in.
+//
+// On the way through it writes the unit onto the actor, so every c.Audit after
+// this line says which unit the action happened in without the handler
+// repeating it.
+func (r Requirement) In(c *trilha.Ctx, unit string) error {
+	if r.a == nil {
+		return &trilha.HTTPError{Code: http.StatusForbidden, Message: "no policy guard"}
+	}
+	u := r.a.User(c)
+	if u == nil {
+		return r.a.challenge(c)
+	}
+	if !r.p.CanIn(u, r.module, r.level, unit) {
+		c.Log().Warn("auth: policy denied in unit",
+			"sub", u.Subject, "module", r.module, "need", r.level, "unit", unit)
+		return &trilha.HTTPError{
+			Code:    http.StatusForbidden,
+			Message: "needs " + r.level + " on " + r.module + " in " + unit,
+		}
+	}
+	act := c.Actor()
+	act.Unit = unit
+	c.SetActor(act)
+	return nil
 }

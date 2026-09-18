@@ -39,7 +39,7 @@ trilha version
 | `routes` | prints `METHODS PATTERN SOURCE` for each route |
 | `check` | the single gate: `gen`, `gofmt`, `vet`, `test`, `audit` and `openapi`, in that order, stopping at the first failure |
 | `ctx` | the map of the project — routes, API, types, setup — in one read, as Markdown or JSON |
-| `audit` | security checklist before publishing (see [Security](/reference/security)) |
+| `audit` | security checklist before publishing (see [Security](/reference/security)); among the checks, a route that guards a module held by unit — `auth.Grant("edit", auth.ScopeUnit)` — and never calls `Requirement.In(c, unit)` with the record's unit |
 | `agents` | writes `AGENTS.md` and `CLAUDE.md` so a coding agent finds the conventions |
 | `mcp` | MCP server over stdio for an agent without a shell; read-only unless `--write` |
 
@@ -602,10 +602,11 @@ What is deduced and the `openapi:` directives are in [APIs](/learn/api#the-opena
 
 ## trilha check
 
-Six gates in one command, in the order that fails cheapest first: `gen`, `gofmt`, `vet`,
-`test`, `audit` (without the vulnerability scan, which needs the network) and `openapi` (only
+Seven gates in one command, in the order that fails cheapest first: `gen`, `gofmt`, `vet`,
+`test`, `audit` (without the vulnerability scan, which needs the network), `openapi` (only
 if the project keeps the document — the root `openapi.json` and every copy under `app/`, such
-as the one [`mcp.FromRoutes`](/reference/mcp#your-api-as-tools) embeds). It stops at the first failure — what comes after a broken
+as the one [`mcp.FromRoutes`](/reference/mcp#your-api-as-tools) embeds) and `i18n` (only if
+the project keeps a catalog folder). It stops at the first failure — what comes after a broken
 build says nothing about the project — and the steps that never ran say so:
 
 ```text
@@ -617,6 +618,7 @@ build says nothing about the project — and the steps that never ran say so:
 - test (not run)
 - audit (not run)
 - openapi (not run)
+- i18n (not run)
 ```
 
 Every problem carries the file, the line and the sentence that resolves it. `--fix` rewrites
@@ -644,6 +646,34 @@ Exit `1` when anything failed, so in CI it is the single line:
 ```yaml
 - run: trilha check
 ```
+
+## trilha i18n
+
+The keys `c.T` uses live in the code; the sentences live in `<locale>.json` inside the
+catalog folder — `app/i18n/`, next to the package whose `//go:embed i18n` carries it, or
+`i18n/` at the root of the project; the CLI takes whichever exists. These two
+commands are how the two stay in step — no build, no types: the code is read for
+`c.T("key")` under `app/` and `internal/`.
+
+```console
+$ trilha i18n extract                 # every key the code asks for, sorted
+atendimento.bemvindo
+atendimento.protocolos
+$ trilha i18n extract --write         # adds the missing ones to the default locale
+✓ 24 keys used, 3 added to app/i18n/pt-BR.json
+$ trilha i18n missing ht              # what Haitian Creole still lacks (exit 1 if any)
+atendimento.protocolos
+```
+
+`--write` puts the key itself as the text, so the screen says something readable while the
+translation is written, and it never touches a message that is already there. The default
+locale is the first of `cfg.Locales` in `app/setup.go`, or `en` when the project never said.
+
+The `i18n` step of `trilha check` is the same reading: a key used in the code and **missing
+from the default locale** fails the check — that is the screen showing `atendimento.titulo`
+to somebody — and a key another locale has not translated yet is a warning line, because a
+translation always arrives after the code that needs it and the fallback chain answers
+meanwhile.
 
 ## trilha generate crud
 
@@ -881,11 +911,13 @@ touch a project that already has code.
 | `blob` | keeping files somebody sent: upload, list, serve — with the key as the digest |
 | `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
 | `approvals` | the queue that waits for a person: open, decide, and the deadline that expires |
+| `channel-whatsapp` | receiving from the WhatsApp Cloud API: signature, normalised message, dedup, and the two ways to answer |
 | `connections` | the external services this app talks to: name, URL, sealed secret, and the Test button |
 | `login` | a session of your own: the users table, the sign-in screen and the way out |
 | `mail` | the file this app sends e-mail from: one function per message, and a test with no network |
 | `permissions` | the permission matrix as data, the screen that edits it, roles created and removed, who has what |
 | `profile` | the account screen: own name, password, e-mail confirmed at the new address, sessions — the id comes from the session |
+| `public-lookup` | a code plus a second factor: the public timeline of one case, without an account |
 | `share-link` | a signed link with a deadline: access to one thing, without an account |
 | `settings` | a section declared as a struct, and the screen `ui.SettingsForm` draws from it |
 | `tasks` | the work that does not fit in a request: queue, dedupe, retry, and the screen |
@@ -893,7 +925,7 @@ touch a project that already has code.
 | `webhooks` | what this app announces to the outside: signed delivery with retry, and the screen for it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
-Five of these — `approvals`, `permissions`, `profile`, `tenant`, `users` — declare a `Needs`:
+Six of these — `approvals`, `channel-whatsapp`, `permissions`, `profile`, `tenant`, `users` — declare a `Needs`:
 a file another recipe writes that has to be there first. `trilha add` checks it before writing
 anything, and refuses by name — "run `trilha add login` first" — rather than leaving a project
 with files that do not compile because the package they belong to was never written. `Needs`

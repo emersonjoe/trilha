@@ -154,6 +154,58 @@ Papéis do Keycloak que pertencem a **outro** cliente não entram: quem é `admi
 de contabilidade não vira `admin` no seu. Se a sua instalação usa outro nome de claim,
 acrescente-o em `Options.RoleClaims`.
 
+## Unidades dentro da organização
+
+Uma prefeitura é uma organização com secretarias dentro, e departamentos dentro delas, e setores
+dentro deles. O `auth.Tenant` responde "qual organização"; o que as telas perguntam é um nível
+abaixo — *este analista vê as demandas do setor dele*, *o secretário vê o que os departamentos
+abaixo dele estão fazendo*.
+
+Uma unidade é um caminho, e a sessão carrega os caminhos:
+
+```go
+u.Units = []string{"sec-adm/protocolo"}   // o setor de protocolo da secretaria de administração
+```
+
+Aí a matriz diz até onde cada concessão alcança:
+
+```go
+Roles: map[string]auth.Grants{
+	"analista":   {"demandas": auth.Grant("editar", auth.ScopeUnit)},          // o setor dele
+	"secretario": {"demandas": auth.Grant("administrar", auth.ScopeUnitTree)}, // o dele e tudo abaixo
+	"auditor":    {"demandas": "ver"},                                          // a organização inteira
+},
+```
+
+Três escopos e não uma segunda matriz: `auth.ScopeOrg` — o vazio, que é o que toda concessão
+escrita antes das unidades significava —, `auth.ScopeUnit` e `auth.ScopeUnitTree`. O
+`auth.UnitWithin` é o que "abaixo" quer dizer, por segmento: `sec-adm/protocolo` está dentro de
+`sec-adm` e *não* está dentro de `sec`.
+
+O guarda da pasta continua o que era. O que é novo é a checagem do registro, porque a rota é
+aberta uma vez e cada demanda tem uma unidade própria:
+
+```go
+var editar = sso.Policy(acesso.Policy, "demandas", "editar")
+
+func POST(c *trilha.Ctx) error {
+	d, err := demandas.Buscar(c.Context(), c.Param("id"))
+	if err != nil {
+		return err
+	}
+	if err := editar.In(c, d.Unidade); err != nil {   // unidade irmã → 403, chefe do galho → segue
+		return err
+	}
+	…
+}
+```
+
+O `Requirement.In` responde 403 com a unidade na frase e a escreve na trilha de auditoria, então
+o `c.Audit` abaixo dele diz onde aconteceu. A listagem filtra em vez de decidir: o
+`trilha.ListParams` carrega o `Unit` da query, e o que a consulta pode ver vem do `auth.Units(c)`
+— a cláusula é sua, como na coluna de tenant. O `trilha audit` avisa da rota que guarda módulo
+com escopo por unidade e nunca chama o `.In`.
+
 ## A sessão
 
 Depois do login, o `id_token` cumpriu o papel dele e é descartado. O que fica é um cookie

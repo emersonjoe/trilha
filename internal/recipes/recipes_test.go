@@ -2,6 +2,7 @@ package recipes
 
 import (
 	"errors"
+	"go/format"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -423,5 +424,193 @@ func TestInsertIfLigaEmQualquerOrdem(t *testing.T) {
 				t.Fatalf("segunda vez mexeu no setup: %v", res.Setup)
 			}
 		})
+	}
+}
+
+// #266 — a receita do canal do WhatsApp escreve a normalização, a rota e o
+// teste, e recusa antes de escrever nada quando a tela de conexões não está
+// lá: é dela que saem os dois segredos selados.
+func TestReceitaWhatsApp(t *testing.T) {
+	raiz := projeto(t)
+	r := mustGet(t, "channel-whatsapp")
+
+	if res, err := Add(raiz, r, Options{Module: "example.com/x", Lang: "en"}); err == nil {
+		t.Fatalf("escreveu sem as conexões: %v", res.Written)
+	} else if !errors.Is(err, ErrMissing) || !strings.Contains(err.Error(), "connections") {
+		t.Fatalf("err = %v", err)
+	}
+
+	if _, err := Add(raiz, mustGet(t, "connections"), Options{Module: "example.com/x", Lang: "en"}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Add(raiz, r, Options{Module: "example.com/x", Lang: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	quero := "internal/whatsapp/whatsapp.go internal/whatsapp/whatsapp_test.go " +
+		"app/webhooks/whatsapp/route.go app/webhooks/whatsapp/kind.go whatsapp_test.go"
+	if got := strings.Join(res.Written, " "); got != quero {
+		t.Fatalf("escreveu %q", got)
+	}
+
+	// A rota é uma API — é isso que mantém o CSRF fora do caminho de um POST
+	// que vem de terceiro.
+	if kind := ler(t, raiz, "app/webhooks/whatsapp/kind.go"); !strings.Contains(kind, "trilha.KindAPI") {
+		t.Fatalf("a rota não se declara API:\n%s", kind)
+	}
+	// E o módulo do projeto chega nos arquivos.
+	rota := ler(t, raiz, "app/webhooks/whatsapp/route.go")
+	for _, q := range []string{`wa "example.com/x/internal/whatsapp"`, "webhook.VerifyHMAC", "wa.Vistas.Seen", "hub.challenge"} {
+		if !strings.Contains(rota, q) {
+			t.Fatalf("faltou %q na rota:\n%s", q, rota)
+		}
+	}
+	// A janela de 24 h fica escrita na receita, e não descoberta em produção.
+	if decl := ler(t, raiz, "internal/whatsapp/whatsapp.go"); !strings.Contains(decl, "24-hour window") {
+		t.Fatal("a janela de 24 h não está documentada no código entregue")
+	}
+}
+
+// O Go que a receita entrega já sai formatado: quem a recebeu não abre o
+// projeto com um gofmt pendente num arquivo que não escreveu.
+func TestReceitaWhatsAppSaiFormatada(t *testing.T) {
+	raiz := projeto(t)
+	if _, err := Add(raiz, mustGet(t, "connections"), Options{Module: "example.com/x", Lang: "pt"}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Add(raiz, mustGet(t, "channel-whatsapp"), Options{Module: "example.com/x", Lang: "pt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range res.Written {
+		if !strings.HasSuffix(rel, ".go") {
+			continue
+		}
+		src := ler(t, raiz, rel)
+		limpo, err := format.Source([]byte(src))
+		if err != nil {
+			t.Fatalf("%s não compila como Go: %v", rel, err)
+		}
+		if string(limpo) != src {
+			t.Fatalf("%s saiu fora do gofmt", rel)
+		}
+	}
+}
+
+// #267 — a receita public-lookup escreve a tela pública e o motor da consulta,
+// e a tela não acompanha o --at: quem digita um protocolo é justamente quem
+// não tem conta, e uma pasta debaixo de /admin é um login na frente dela.
+func TestReceitaPublicLookup(t *testing.T) {
+	raiz := projeto(t)
+	r, err := Get("public-lookup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := Add(raiz, r, Options{Module: "example.com/x", Lang: "en", At: "app/admin/"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	quero := "internal/consulta/consulta.go internal/consulta/consulta_test.go " +
+		"app/consulta/page.go app/consulta/kind.go consulta_test.go"
+	if got := strings.Join(res.Written, " "); got != quero {
+		t.Fatalf("escreveu %q", got)
+	}
+
+	// O motor traz o filtro por evento e a comparação em tempo constante: as
+	// duas coisas que separam esta receita de um SELECT.
+	store := ler(t, raiz, "internal/consulta/consulta.go")
+	for _, q := range []string{"func Publicos(", "Visivel bool", "crypto/subtle",
+		"subtle.ConstantTimeCompare", "ErrNaoEncontrado", "var Buscar", "func Mascarar("} {
+		if !strings.Contains(store, q) {
+			t.Fatalf("faltou %q no motor da consulta", q)
+		}
+	}
+
+	// A tela: dígito verificador antes do banco, dois baldes, auditoria com o
+	// código mascarado, e uma negativa só para os dois jeitos de dar errado.
+	pag := ler(t, raiz, "app/consulta/page.go")
+	for _, q := range []string{"trilha.HasCheckDigit(", "trilha.NewLimiter(", "porIP.Allow(c.ClientIP())",
+		"porCodigo.Allow(", "trilha.ErrRateLimited", `c.Audit("consulta.publica"`,
+		"consulta.Mascarar(codigo)", "ui.Steps(", "ui.Relative()", "trilha.CSRFInput(c)",
+		`h.Autocomplete("off")`, `h.Inputmode("numeric")`, `h.Aria("describedby"`} {
+		if !strings.Contains(pag, q) {
+			t.Fatalf("faltou %q na tela da consulta", q)
+		}
+	}
+	if n := strings.Count(pag, "func naoEncontrado("); n != 1 {
+		t.Fatalf("a tela tem %d negativas", n)
+	}
+	if strings.Contains(pag, "sessao.") || strings.Contains(pag, ".Require()") {
+		t.Fatalf("a tela pública pede sessão:\n%s", pag)
+	}
+
+	// E em pt o texto sai traduzido, sem sobrar chave vazia.
+	outra := projeto(t)
+	if _, err := Add(outra, r, Options{Module: "example.com/x", Lang: "pt"}); err != nil {
+		t.Fatal(err)
+	}
+	ptPag := ler(t, outra, "app/consulta/page.go")
+	for _, q := range []string{"Acompanhe seu pedido", "Número do protocolo", "Consultar"} {
+		if !strings.Contains(ptPag, q) {
+			t.Fatalf("faltou %q na tela em pt", q)
+		}
+	}
+	if strings.Contains(ptPag, `ui.PageHeader("")`) {
+		t.Fatal("a tela em pt nasceu com um título vazio")
+	}
+}
+
+// #268 — a receita do offline é escrita sobre a pwa e recusa sem ela: meia
+// receita num projeto é pior do que nenhuma.
+func TestReceitaPWAOfflinePrecisaDaPWA(t *testing.T) {
+	raiz := projeto(t)
+	receita, err := Get("pwa-offline")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(raiz, receita, Options{Module: "example.com/campo", Lang: "pt"}); !errors.Is(err, ErrMissing) {
+		t.Fatalf("escreveu sem a pwa: %v", err)
+	}
+
+	pwa, _ := Get("pwa")
+	if _, err := Add(raiz, pwa, Options{Module: "example.com/campo", Lang: "pt"}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Add(raiz, receita, Options{Module: "example.com/campo", Lang: "pt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, arquivo := range []string{
+		"public/sw.js", "internal/offline/offline.go", "internal/offline/offline_test.go",
+		"app/coleta/page.go", "app/coleta/offline.go", "coleta_test.go",
+	} {
+		if _, err := os.Stat(filepath.Join(raiz, filepath.FromSlash(arquivo))); err != nil {
+			t.Errorf("faltou %s: %v (escreveu %v)", arquivo, err, res.Written)
+		}
+	}
+	// A tela declara a convenção, manda o formulário pelo outbox e mostra o
+	// que está esperando.
+	pagina := ler(t, raiz, "app/coleta/page.go")
+	for _, quero := range []string{"trilha.OfflineForm(c)", "ui.Outbox(c)", "ui.OfflineScript(c)", "offline.Recebido"} {
+		if !strings.Contains(pagina, quero) {
+			t.Errorf("a página não tem %q", quero)
+		}
+	}
+	if flag := ler(t, raiz, "app/coleta/offline.go"); !strings.Contains(flag, "var Offline = true") {
+		t.Errorf("a tela não declarou a convenção:\n%s", flag)
+	}
+	// O worker só guarda o que a página declarou, e nunca uma resposta que
+	// carrega sessão.
+	sw := ler(t, raiz, "public/sw.js")
+	for _, quero := range []string{"set-cookie", "no-store", "routes", "caches.delete", "skipWaiting"} {
+		if !strings.Contains(sw, quero) {
+			t.Errorf("sw.js não trata %q", quero)
+		}
+	}
+	// E o próximo passo diz o que não funciona sem rede, em vez de fingir.
+	for _, l := range []string{"en", "pt"} {
+		if !strings.Contains(receita.Next[l], "var Offline = true") {
+			t.Errorf("o próximo passo em %s não diz o que não funciona offline", l)
+		}
 	}
 }

@@ -204,6 +204,54 @@ func POST(c *trilha.Ctx) error { return DELETE(c) }
 O corpo da requisição tem limite de 1 MiB por padrão (`Config.MaxBodyBytes`). Acima disso a
 resposta é 413 antes de o seu código rodar.
 
+## Vários idiomas
+
+Um formulário que atende migrantes é lido por quem não lê o idioma em que o posto escreve. O
+`Config.Locales` faz do idioma uma propriedade do pedido, e o `c.T` diz nele as frases do
+próprio formulário.
+
+```go
+// app/setup.go
+//go:embed i18n
+var mensagens embed.FS
+
+func Setup(a *trilha.App) error {
+	cfg := a.Config()
+	cfg.Locales = []string{"pt-BR", "ht", "fr"} // o primeiro é o padrão
+	cfg.LocaleOf = sessao.Flow.LocaleOf         // o que a pessoa escolheu, vindo da sessão
+	cat, err := trilha.LoadCatalog(mensagens, "i18n")
+	if err != nil {
+		return err
+	}
+	cat.Fallback = map[string]string{"ht": "fr"} // o crioulo lê o francês antes do português
+	cfg.Catalog = cat
+	return nil
+}
+```
+
+O `c.Locale()` negocia uma vez por requisição: a preferência da sessão, depois o `?lang=ht` (o
+link da página, que deixa um cookie `trilha_lang` para o clique seguinte continuar no idioma),
+depois esse cookie, depois o `Accept-Language` — num guichê o idioma do navegador é o do
+guichê, não o da pessoa, e é por isso que a sessão e o link vêm antes — e por fim o padrão.
+
+```go
+// i18n/ht.json: {"inscricao.titulo": "Enskripsyon", "inscricao.nome": "Non ou"}
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return ui.Form(h.Method("post"), trilha.CSRFInput(c),
+		ui.Legend(h.Text(c.T("inscricao.titulo"))),
+		ui.Field(ui.Label("nome", c.T("inscricao.nome")), ui.Input(h.Name("nome"))),
+		ui.Field(h.Text(c.T("inscricao.vagas", n))), // "1 vaga" / "4 vagas"
+		ui.Submit(h.Text(c.T("inscricao.enviar"))),
+	), nil
+}
+```
+
+O layout escreve `h.Lang(c.Locale())`, então a tag `<html>` diz o idioma em que a página
+realmente está — que é o que o leitor de tela e a tradução do navegador leem. Chave que o
+idioma não traduziu cai pela cadeia (`ht` → `fr` → `pt-BR`) e nunca chega crua na tela; o
+`trilha i18n missing ht` lista o que falta traduzir, e o `trilha check` reprova a chave que
+falta no idioma padrão.
+
 ## Desafio
 
 Adicione ao formulário um campo `vagas` numérico, aceite só de 1 a 10, e mostre a mensagem

@@ -115,6 +115,36 @@ func (c *Ctx) Log() *slog.Logger  // logger with request_id and trace_id
 A malformed `traceparent` is silently dropped: a value chosen by a third party does not enter
 the log as if it were a legitimate trace.
 
+## The request hook
+
+`Config.OnRequest` wraps every request that reached a route, with the request id and the trace
+id already set and before the first middleware. It is the seam an optional module hooks into —
+tracing, profiling, a per-request budget — and it carries no dependency of its own: the
+signature speaks only of `*Ctx` and of an `int`.
+
+```go
+type RequestHook func(c *Ctx, next func() (status int))
+
+cfg.OnRequest = func(c *trilha.Ctx, next func() int) {
+	ctx, span := tracer.Start(c.Context(), c.Pattern())
+	defer span.End()
+	c.SetContext(ctx) // travels to the handler, to Upstream and to ai
+	span.SetAttributes(attribute.Int("http.response.status_code", next()))
+}
+```
+
+The rules are short: call `next` exactly once; it runs the whole rest of the request —
+middlewares, CSRF, the handler, the error page — and returns the status that was written, so a
+panic in the handler comes back as 500 instead of unwinding through the hook. Replacing the
+context with `c.SetContext` before `next` is how a value reaches the handler and everything the
+framework sends out afterwards. A hook that forgets to call `next` does not swallow the
+request: the answer is served anyway. The hook runs in the request goroutine and must not
+panic — the recover that turns a handler panic into a 500 is inside `next`, not around it.
+
+The exporter that uses this seam is the optional module `github.com/emersonjoe/trilha/otel`
+(`otel.Install`, `otel.Options`, `otel.Transport`); see
+[Observability](/learn/observability). The core never imports it.
+
 ## What the audit checks
 
 `trilha audit` adds these items: token too short (critical), metrics configured without a

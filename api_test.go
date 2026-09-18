@@ -104,10 +104,13 @@ func TestPacotesPublicosNaLista(t *testing.T) {
 	for _, p := range pacotesPublicos {
 		listados[p.Dir] = true
 	}
+	// bench and otel are Go modules of their own — they are not part of this
+	// module's surface and are not built by `go build ./...` here, which is
+	// exactly why the OpenTelemetry SDK never reaches the framework.
 	fora := map[string]bool{
 		"api": true, "bench": true, "cmd": true, "docs": true,
-		"examples": true, "internal": true, "scripts": true, "site": true,
-		"specs": true, "testdata": true,
+		"examples": true, "internal": true, "otel": true, "scripts": true,
+		"site": true, "specs": true, "testdata": true,
 	}
 	err := filepath.WalkDir(".", func(caminho string, d fs.DirEntry, err error) error {
 		if err != nil {

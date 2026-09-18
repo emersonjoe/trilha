@@ -93,7 +93,8 @@ func langOf(locale string) string {
 //
 // Each column's heading comes from the csv tag, or from the field name when
 // there is none; a field tagged "-" is left out. Dates, decimals and booleans
-// are written the way Config.Locale and Config.TimeZone write them, and the
+// are written the way the request's locale (Ctx.Locale) and Config.TimeZone
+// write them, and the
 // file starts with a UTF-8 BOM — without it Excel reads every accent as
 // mojibake, which is the first thing anybody notices and the last thing
 // anybody expects a framework to have handled.
@@ -115,7 +116,7 @@ func (c *Ctx) CSV(name string, rows any) error {
 	}
 	// Everything reflection can refuse is refused before a byte goes out, so a
 	// bad call is still a 500 and not a half-written download.
-	x, err := newCSVWriter(c.w, rows, langOf(c.app.cfg.Locale), c.Location())
+	x, err := newCSVWriter(c.w, rows, langOf(c.Locale()), c.Location())
 	if err != nil {
 		return err
 	}

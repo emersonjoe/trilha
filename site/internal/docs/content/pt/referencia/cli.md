@@ -39,7 +39,7 @@ trilha version
 | `routes` | imprime `MÉTODOS PADRÃO ORIGEM` para cada rota |
 | `check` | o portão único: `gen`, `gofmt`, `vet`, `test`, `audit` e `openapi`, nesta ordem, parando na primeira falha |
 | `ctx` | o mapa do projeto — rotas, API, tipos, setup — numa leitura só, em Markdown ou JSON |
-| `audit` | checklist de segurança antes de publicar (veja [Segurança](/pt/referencia/seguranca)) |
+| `audit` | checklist de segurança antes de publicar (veja [Segurança](/pt/referencia/seguranca)); entre as checagens, a rota que guarda módulo segurado por unidade — `auth.Grant("editar", auth.ScopeUnit)` — e nunca chama o `Requirement.In(c, unidade)` com a unidade do registro |
 | `agents` | grava `AGENTS.md` e `CLAUDE.md` para um agente de código achar as convenções |
 | `mcp` | servidor MCP por stdio, para agente sem shell; somente leitura até passar `--write` |
 
@@ -598,10 +598,11 @@ O que é deduzido e as diretivas `openapi:` estão em [APIs](/pt/aprender/api#do
 
 ## trilha check
 
-Seis portões num comando, na ordem que falha mais barato primeiro: `gen`, `gofmt`, `vet`,
-`test`, `audit` (sem a varredura de vulnerabilidades, que precisa de rede) e `openapi` (só se o
+Sete portões num comando, na ordem que falha mais barato primeiro: `gen`, `gofmt`, `vet`,
+`test`, `audit` (sem a varredura de vulnerabilidades, que precisa de rede), `openapi` (só se o
 projeto guarda o documento — o `openapi.json` da raiz e cada cópia dentro de `app/`, como a
-que [`mcp.FromRoutes`](/pt/referencia/mcp#a-sua-api-como-ferramentas) embute). Ele para na primeira falha — o que vem depois de uma compilação
+que [`mcp.FromRoutes`](/pt/referencia/mcp#a-sua-api-como-ferramentas) embute) e `i18n` (só se
+o projeto guarda uma pasta de catálogo). Ele para na primeira falha — o que vem depois de uma compilação
 quebrada não diz nada sobre o projeto — e os passos que não rodaram dizem isso:
 
 ```text
@@ -613,6 +614,7 @@ quebrada não diz nada sobre o projeto — e os passos que não rodaram dizem is
 - test (not run)
 - audit (not run)
 - openapi (not run)
+- i18n (not run)
 ```
 
 Todo problema vem com o arquivo, a linha e a frase que resolve. O `--fix` regrava o
@@ -640,6 +642,33 @@ Sai com `1` quando algo falhou, então no CI é a linha única:
 ```yaml
 - run: trilha check
 ```
+
+## trilha i18n
+
+As chaves que o `c.T` usa moram no código; as frases moram em `<locale>.json` dentro da pasta
+do catálogo — `app/i18n/`, ao lado do pacote cujo `//go:embed i18n` a carrega, ou `i18n/` na
+raiz do projeto; a CLI pega a que existir. Estes dois
+comandos são como os dois andam juntos — sem build, sem tipos: o código é lido atrás de
+`c.T("chave")` dentro de `app/` e de `internal/`.
+
+```console
+$ trilha i18n extract                 # todas as chaves que o código pede, em ordem
+atendimento.bemvindo
+atendimento.protocolos
+$ trilha i18n extract --write         # acrescenta as que faltam no idioma padrão
+✓ 24 chaves usadas, 3 acrescentadas em app/i18n/pt-BR.json
+$ trilha i18n missing ht              # o que falta no crioulo (sai 1 se faltar)
+atendimento.protocolos
+```
+
+O `--write` põe a própria chave como texto, para a tela dizer algo legível enquanto a tradução
+não vem, e nunca encosta numa mensagem que já está escrita. O idioma padrão é o primeiro do
+`cfg.Locales` no `app/setup.go`, ou `en` quando o projeto nunca disse.
+
+O passo `i18n` do `trilha check` é a mesma leitura: chave usada no código e **faltando no
+idioma padrão** reprova — é a tela mostrando `atendimento.titulo` para alguém — e chave que
+outro idioma ainda não traduziu é uma linha de aviso, porque tradução sempre chega depois do
+código que precisa dela e a cadeia de fallback responde enquanto isso.
 
 ## trilha generate crud
 
@@ -875,11 +904,13 @@ mexer num projeto que já tem código.
 | `blob` | guardar arquivo que alguém mandou: enviar, listar, servir — com a chave sendo o digest |
 | `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
 | `approvals` | a fila que espera uma pessoa: abrir, decidir, e o prazo que vence |
+| `channel-whatsapp` | recebendo da Cloud API do WhatsApp: assinatura, mensagem normalizada, dedup e os dois jeitos de responder |
 | `connections` | os serviços externos com que este app fala: nome, URL, segredo selado e o botão Testar |
 | `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
 | `mail` | o arquivo de onde este app manda e-mail: uma função por mensagem, e teste sem rede |
 | `permissions` | a matriz de permissões como dado, a tela que a edita, papéis criados e removidos, quem tem o quê |
 | `profile` | a tela da própria conta: nome, senha, e-mail confirmado no endereço novo, sessões — o id vem da sessão |
+| `public-lookup` | um código mais um segundo fator: a linha do tempo pública de um caso, sem conta |
 | `share-link` | um link assinado com prazo: acesso a uma coisa, sem conta |
 | `settings` | uma seção declarada como struct, e a tela que o `ui.SettingsForm` desenha a partir dela |
 | `tasks` | o trabalho que não cabe numa requisição: fila, dedupe, retry, e a tela |
@@ -887,7 +918,7 @@ mexer num projeto que já tem código.
 | `webhooks` | o que este app avisa para fora: entrega assinada com retry, e a tela dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
-Cinco delas — `approvals`, `permissions`, `profile`, `tenant`, `users` — declaram um `Needs`:
+Seis delas — `approvals`, `channel-whatsapp`, `permissions`, `profile`, `tenant`, `users` — declaram um `Needs`:
 um arquivo que outra receita escreve e que precisa estar lá antes. O `trilha add` confere isso
 antes de escrever qualquer coisa, e recusa pelo nome — "rode `trilha add login` primeiro" — em
 vez de deixar um projeto com arquivos que não compilam porque o pacote deles nunca foi escrito.

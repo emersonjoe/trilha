@@ -1,0 +1,9 @@
+{
+  "atendimento.titulo": "Service aux migrants",
+  "atendimento.bemvindo": "Bienvenue, %s.",
+  "atendimento.protocolos": {
+    "one": "%d dossier ouvert",
+    "other": "%d dossiers ouverts"
+  },
+  "atendimento.escolha": "Choisissez votre langue"
+}

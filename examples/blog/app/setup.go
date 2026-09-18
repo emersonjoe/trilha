@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -32,6 +32,20 @@ func Config(cfg *trilha.Config) error {
 	// separador de uma planilha, o formato de uma data e a palavra para
 	// verdadeiro. Sem esta linha, o Excel daqui abre o CSV como uma coluna só.
 	cfg.Locale = "pt-BR"
+	// E o posto de atendimento em /idiomas fala com quem não lê português: com
+	// mais de um idioma na lista, o c.Locale passa a ser do pedido — o que a
+	// sessão guardou, o `?lang`, o cookie que ele deixou, o Accept-Language —
+	// e o cfg.Locale acima só sobra como o padrão de quem não pediu nada.
+	cfg.Locales = []string{"pt-BR", "ht", "fr"}
+	// As mensagens do app moram em i18n/<locale>.json, embutidas no binário. O
+	// crioulo traduziu a primeira tela; o que falta nele é lido em francês
+	// antes de cair no português.
+	cat, err := trilha.LoadCatalog(mensagens, "i18n")
+	if err != nil {
+		return err
+	}
+	cat.Fallback = map[string]string{"ht": "fr"}
+	cfg.Catalog = cat
 	cfg.TimeZone = "America/Sao_Paulo"
 	// As sondas /_trilha/health/live e /ready já existem sem configuração. O
 	// endereço de métricas é opt-in: aqui ele só aparece quando o ambiente
@@ -73,6 +87,12 @@ func Config(cfg *trilha.Config) error {
 //
 //go:embed mcp/openapi.json
 var openAPI []byte
+
+// mensagens é o catálogo do app: um arquivo por idioma, embutido no binário
+// para que o build continue sendo um executável só.
+//
+//go:embed i18n
+var mensagens embed.FS
 
 // Setup runs once before the server starts.
 func Setup(a *trilha.App) error {

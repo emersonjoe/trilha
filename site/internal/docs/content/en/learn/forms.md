@@ -203,6 +203,55 @@ func POST(c *trilha.Ctx) error { return DELETE(c) }
 The request body is limited to 1 MiB by default (`Config.MaxBodyBytes`). Above that the
 response is 413 before your code runs.
 
+## Many languages
+
+A form that serves migrants is read by people who do not read the language the office
+writes in. `Config.Locales` makes the language a property of the request, and `c.T` says the
+form's own sentences in it.
+
+```go
+// app/setup.go
+//go:embed i18n
+var messages embed.FS
+
+func Setup(a *trilha.App) error {
+	cfg := a.Config()
+	cfg.Locales = []string{"pt-BR", "ht", "fr"} // the first one is the default
+	cfg.LocaleOf = sessao.Flow.LocaleOf         // what the person picked, from the session
+	cat, err := trilha.LoadCatalog(messages, "i18n")
+	if err != nil {
+		return err
+	}
+	cat.Fallback = map[string]string{"ht": "fr"} // Creole reads French before Portuguese
+	cfg.Catalog = cat
+	return nil
+}
+```
+
+`c.Locale()` negotiates once per request: the preference in the session, then `?lang=ht` (the
+link on the page, which leaves a `trilha_lang` cookie so the next click stays in the
+language), then that cookie, then `Accept-Language` — at a public counter the browser's
+language is the counter's, not the person's, which is why the session and the link come
+first — and then the default.
+
+```go
+// i18n/ht.json: {"inscricao.titulo": "Enskripsyon", "inscricao.nome": "Non ou"}
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return ui.Form(h.Method("post"), trilha.CSRFInput(c),
+		ui.Legend(h.Text(c.T("inscricao.titulo"))),
+		ui.Field(ui.Label("nome", c.T("inscricao.nome")), ui.Input(h.Name("nome"))),
+		ui.Field(h.Text(c.T("inscricao.vagas", n))), // "1 vaga" / "4 vagas"
+		ui.Submit(h.Text(c.T("inscricao.enviar"))),
+	), nil
+}
+```
+
+The layout writes `h.Lang(c.Locale())`, so the `<html>` tag says the language the page is
+actually in — which is what a screen reader and a browser's translation both read. A key the
+locale has not translated falls through the chain (`ht` → `fr` → `pt-BR`) and never reaches
+the screen as a raw key; `trilha i18n missing ht` lists what is left to translate, and
+`trilha check` fails on a key that is missing from the default locale.
+
 ## Challenge
 
 Add a numeric `seats` field to the form, accept only 1 to 10, and show the message next to

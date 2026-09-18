@@ -131,6 +131,92 @@ cost dozens of dependencies.
 What never goes in the log, by design: request body, cookies, the `Authorization` header and
 the query string (ASVS V7.1.1). That is where secrets travel.
 
+## Traces to OpenTelemetry
+
+Propagating is not exporting. The paragraph above says the framework carries `traceparent`
+and writes `trace_id`; to actually *watch* one upload cross web → API → worker → an AI
+provider in a Grafana or a Tempo, the spans have to leave the process. That is an optional
+module with its own `go.mod`, `github.com/emersonjoe/trilha/otel`, so the framework itself
+keeps depending on the standard library alone:
+
+```go
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	trilhaotel "github.com/emersonjoe/trilha/otel"
+)
+
+func Setup(a *trilha.App) error {
+	shutdown, err := trilhaotel.Install(a, trilhaotel.Options{
+		Endpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"), // "http://collector:4318"
+		Service:  "blog",
+		Version:  os.Getenv("BUILD_VERSION"),
+		Sample:   0.1, // one trace in ten of the ones that start here
+	})
+	if err != nil {
+		return err
+	}
+	// Without this the last seconds of traces never arrive: the exporter
+	// batches, and a process that exits takes the batch with it.
+	a.OnShutdown(func(*trilha.App) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return shutdown(ctx)
+	})
+	return nil
+}
+```
+
+`trilhaotel.Install` reads the `traceparent` that already arrived, opens one server span per
+request and exports over OTLP/HTTP. What the span carries is the aggregatable shape of the
+request and nothing else:
+
+| Attribute | Value |
+|---|---|
+| span name, `http.route` | the route template — `/blog/{slug}`, never `/blog/my-post` |
+| `http.request.method`, `url.scheme` | `GET`, `https` |
+| `http.response.status_code` | the status that was written, 500 included |
+| `trilha.request_id` | the same id as `X-Request-ID` and the access log |
+| `trilha.tenant` | `Actor().Tenant`, the organisation id — never a name or an e-mail |
+
+The concrete path, the query string, headers and bodies are not there, and are not an option:
+a trace leaves the process, and what leaves the process is chosen (ASVS V7.1.1). `Sample` is
+parent-based — a caller that already sampled its trace is always followed, so this service
+never becomes a hole in the middle of somebody else's trace.
+
+### The next hop
+
+The span travels in the request context, which is the context the `ai` client is called with
+and the one your own calls should use. `otel.Transport` puts it on the wire:
+
+```go
+client := ai.Client{HTTPClient: &http.Client{Transport: trilhaotel.Transport(nil)}}
+resp, err := client.Chat(c.Context(), req)
+
+req, _ := http.NewRequestWithContext(c.Context(), "GET", supplierURL, nil)
+res, err := (&http.Client{Transport: trilhaotel.Transport(nil)}).Do(req)
+```
+
+A prefix proxied by `Upstreams` needs nothing: it is answered before any route, so it opens no
+span of its own, and the reverse proxy forwards the `traceparent` it received untouched — the
+API on the other side continues the same trace. The same goes for everything else the fallback
+answers, a static file or a 404 on an unknown path: there is no route template to name a span
+with, and a span per URL is a collector that cannot aggregate anything.
+
+### What the core knows about all this
+
+Nothing, on purpose. The module hooks into one generic seam, `Config.OnRequest`, whose
+signature speaks only of `*trilha.Ctx` and a status code; the framework never imports an
+exporter or an SDK. Writing your own hook — a budget, a profile, a header — is the same two
+lines: see [`RequestHook`](/reference/observability).
+
+The example lives at `otel/example` inside that module and not under `examples/`, because
+everything under `examples/` shares the root module and would drag the SDK into it. Its tests
+run with `make test-otel`; `make test` of the framework does not see them.
+
 ## Cost
 
 With the metrics endpoint off, the instrumentation does not run: it is a pointer comparison.

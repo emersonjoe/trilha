@@ -10,8 +10,11 @@ import (
 	trilha "github.com/emersonjoe/trilha"
 	app "github.com/emersonjoe/trilha/examples/assistente/app"
 	app_api_chat "github.com/emersonjoe/trilha/examples/assistente/app/api/chat"
+	app_api_voz "github.com/emersonjoe/trilha/examples/assistente/app/api/voz"
+	app_api_voz_fala "github.com/emersonjoe/trilha/examples/assistente/app/api/voz/fala"
 	app_config "github.com/emersonjoe/trilha/examples/assistente/app/config"
 	app_mcp "github.com/emersonjoe/trilha/examples/assistente/app/mcp"
+	app_voz "github.com/emersonjoe/trilha/examples/assistente/app/voz"
 )
 
 //go:embed public
@@ -38,6 +41,18 @@ func newApp() *trilha.App {
 		},
 	})
 	a.Register(trilha.Route{
+		Pattern: "/api/voz",
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": app_api_voz.POST,
+		},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/api/voz/fala",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_api_voz_fala.GET,
+		},
+	})
+	a.Register(trilha.Route{
 		Pattern: "/config",
 		Page:    app_config.Page,
 		Methods: map[string]trilha.HandlerFunc{
@@ -50,6 +65,11 @@ func newApp() *trilha.App {
 		Methods: map[string]trilha.HandlerFunc{
 			"POST": app_mcp.POST,
 		},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/voz",
+		Page:    app_voz.Page,
+		Layouts: []trilha.LayoutFunc{app.Layout},
 	})
 	return a
 }

@@ -482,6 +482,37 @@ cima da política dele. Para
 um prefixo inteiro encaminhado a outro serviço, veja [Upstreams](/pt/referencia/upstreams); o
 `Pipe` é a resposta que você mesmo foi buscar.
 
+## Idioma do pedido
+
+| Chamada | O que responde |
+|---|---|
+| `c.Locale() string` | o idioma desta requisição: `"pt-BR"`, `"ht"`, `"fr"` |
+| `c.SetLocale(l string)` | força o idioma no resto da requisição, sem gravar cookie |
+| `c.T(key string, args ...any) string` | a mensagem do próprio app naquele idioma |
+
+Só com o `Config.Locale` é um idioma para o processo inteiro. Com o `Config.Locales` ele é
+negociado por requisição — a preferência que o app guardou (`Config.LocaleOf`), o `?lang=`, o
+cookie `trilha_lang` que ele deixa, o `Accept-Language`, o padrão — e resolvido uma vez só:
+uma página com cinquenta datas lê o cabeçalho uma vez. Veja
+[Vários idiomas](/pt/referencia/app) para a ordem e para o catálogo.
+
+```go
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle(c.T("atendimento.titulo"))
+	return h.Div(
+		h.P(h.Text(c.T("atendimento.bemvindo", nome))),
+		h.P(h.Text(c.T("atendimento.protocolos", n))), // "1 protocolo pendente" / "4 pendentes"
+		h.A(h.Href("?lang=ht"), h.Text("Kreyòl")),
+	), nil
+}
+```
+
+O `c.T` procura a chave no `c.Locale()`, depois no que o `Catalog.Fallback` aponta, depois no
+idioma padrão. Chave que ninguém definiu volta como a própria chave e é logada uma vez —
+nunca volta vazia, e o `trilha check` reprova antes de uma tela mostrar isso. Sem o
+`Config.Catalog`, o `c.T` devolve a chave: um app de um idioma só não precisa de catálogo
+para compilar.
+
 ## Links públicos
 
 `c.Link(nome, opts)` monta uma URL assinada que funciona sem sessão, e `c.Claim(nome)` é o que a

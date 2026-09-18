@@ -27,6 +27,9 @@ jobs:
           cache: false
       - run: test -z "$(gofmt -l *.go h internal cmd examples tmpl ui)"
       - run: cd bench && go test ./... && go test -run XXX -bench . -benchtime=50ms
+      # O módulo opcional do OpenTelemetry tem go.mod próprio: roda aqui, ao
+      # lado do bench, e não entra no `go test ./...` do núcleo.
+      - run: cd otel && go vet ./... && go test ./...
       - run: go vet ./...
       - run: go test ./...
       - name: Remove job caches

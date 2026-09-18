@@ -145,6 +145,106 @@ chama com um reader já consumido é o engano que ele existe para tornar imposs�
 idade nos dois sentidos — um horário do futuro é um relógio errado ou uma assinatura que alguém
 está preparando para usar depois — e compara em tempo constante.
 
+## Recebendo de outra pessoa: `trilha add channel-whatsapp`
+
+O `Verify` é o esquema do Trilha nas duas pontas. No instante em que o remetente é a Meta, o
+GitHub ou o Stripe, o handler volta a escrever `hmac.Equal` à mão — e com ele o corpo lido duas
+vezes, a comparação que volta no primeiro byte errado, o corpo sem limite e o segredo numa
+variável de ambiente. O `webhook.VerifyHMAC` é a resposta para a assinatura; esta receita é a
+resposta para tudo o que a assinatura não cobre.
+
+```bash
+trilha add channel-whatsapp --dry-run
+```
+
+```text
+  + internal/whatsapp/whatsapp.go
+  + internal/whatsapp/whatsapp_test.go
+  + app/webhooks/whatsapp/route.go
+  + app/webhooks/whatsapp/kind.go
+  + whatsapp_test.go
+
+--dry-run: nada foi escrito
+```
+
+Ela precisa do `trilha add connections` antes, e recusa dizendo o nome quando ele não está lá,
+porque as duas credenciais moram seladas naquela tela: uma conexão chamada `whatsapp` (auth
+bearer, o token de acesso, URL base `https://graph.facebook.com/v21.0/<phone_number_id>`) e uma
+chamada `whatsapp-webhook` (auth header, `X-Hub-Signature-256`, o app secret). Mais nada vai para
+variável de ambiente — o token de verificação do aperto de mão é o
+`whatsapp.VerifyToken(appSecret)`, derivado do app secret com um rótulo próprio, então não há uma
+terceira coisa para manter em dia e o valor que a Meta devolve numa query string não conta nada.
+
+**O endereço é fixo.** O `app/webhooks/whatsapp/` não se move com o `--at` como uma tela se move,
+porque ele é digitado no painel de outra pessoa; mudá-lo é voltar lá. E o `kind.go` diz `var Kind
+= trilha.KindAPI`, que é o que mantém o CSRF fora do caminho: o cliente é a Meta, que não tem
+como carregar um token deste site, e o HMAC do corpo é o que fica no lugar dele.
+
+**O que chega vem normalizado.** O payload da Meta é um envelope dentro de outro —
+`entry[].changes[].value.messages[]` — e cada tipo tem uma forma diferente lá dentro. O
+`whatsapp.Parse` achata tudo:
+
+```go
+// Message is one thing somebody sent, whatever its shape on the wire.
+type Message struct {
+	// ID is the provider's message id (wamid.…). It is stable across the
+	// retries of one delivery, which is what makes Dedup possible.
+	ID string
+	// From is the sender's phone number, digits only, no plus.
+	From string
+	// Kind is the type: text, image, audio, video, document, sticker,
+	// location, reaction, edit — or whatever else Meta invents, passed
+	// through as it came rather than collapsed into "unknown".
+	Kind string
+	// Text is the body of a text message, the emoji of a reaction, or
+	// "lat,lon" for a location — the two numbers with a comma between, the
+	// way a link to a map wants them.
+	Text string
+	// Media is the file, when there is one.
+	Media *Media
+	// ReplyTo is the message this one answers: the quoted message of a reply,
+	// the reacted-to message of a reaction, or the replaced message of an
+	// edit.
+	ReplyTo string
+	// At is when the sender sent it.
+	At time.Time
+}
+```
+
+(O código que a receita entrega é em inglês, como o resto do framework; os comentários dos
+arquivos de teste que ela escreve são em português.)
+
+Os testes que vêm junto são as formas reais: texto, resposta, áudio, imagem, documento,
+localização, reação, mensagem editada e status de entrega. Uma edição chega como mensagem
+própria — com id próprio, para o dedup não engoli-la — carregando o conteúdo novo e com o
+`ReplyTo` apontando para o que ela substitui.
+
+**Reenvio não é segunda mensagem.** A rota recusa um id que já viu, com
+`if wa.Vistas.Seen(m.ID) { continue }`, por um `Dedup` cujo padrão mora neste processo e tem
+tamanho limitado:
+
+```go
+// Dedup is what keeps a provider's retry from becoming two messages. Meta
+// promises at least once; exactly once is what the receiver decides, and it
+// decides it with the message id.
+type Dedup interface {
+	// Seen records the id and reports whether it had already been recorded.
+	// An empty id is never seen: there is nothing to remember it by.
+	Seen(id string) bool
+}
+```
+
+"Pelo menos uma vez" é o que o provedor promete; "exatamente uma vez" é essa linha. Quando um
+duplicado custa mais do que custa aqui — quando ele é uma fatura — o `Dedup` é uma interface, e a
+aplicação o implementa sobre o armazenamento dela. A persistência é da aplicação de qualquer
+jeito: esta receita entrega a normalização e o contrato, e não há fila no núcleo.
+
+**A janela de 24 h.** Uma empresa só pode mandar texto livre para alguém dentro de 24 horas
+desde a última mensagem daquela pessoa. Fora dela, o `SendText` é recusado pela Meta — erro
+131047 — e a única coisa que passa é o `SendTemplate`, com um template aprovado antes. Não é
+limite de taxa, é o produto: todo desenho que diz "a gente te responde amanhã" sai como template.
+Isso está escrito no comentário das duas chamadas para ser lido antes do deploy, e não depois.
+
 ## A checagem de endereço
 
 É a parte que ninguém escreve sozinho, e o motivo é que o caso perigoso não parece perigoso: a

@@ -40,6 +40,7 @@ const (
 	ErrHiddenRoute      = "E_HIDDEN_ROUTE"
 	ErrUnroutableMethod = "E_UNROUTABLE_METHOD"
 	ErrCORSOnPage       = "E_CORS_ON_PAGE"
+	ErrOfflineOnAPI     = "E_OFFLINE_ON_API"
 )
 
 // WellKnown is the single dot-prefixed directory that is not skipped: RFC 8414,
@@ -114,6 +115,7 @@ var fixes = map[string]string{
 	ErrParse:            "fix the syntax error the compiler reports; go build ./... shows the same line",
 	ErrUnroutableMethod: "delete the function, or answer that request from the method the router knows",
 	ErrCORSOnPage:       "move the route to a route.go, or drop the var: a page is navigation on your own site",
+	ErrOfflineOnAPI:     "drop the var: the service worker keeps page navigations, and a JSON answer is not one",
 	ErrNoApp:            "run trilha from the project root, the directory that has app/",
 }
 
@@ -157,7 +159,13 @@ type Route struct {
 	KindRef *Ref
 	// HasCORS is true when route.go exports `var CORS = trilha.CORS{...}`: the
 	// cross-origin policy of this route alone, preflight included.
-	HasCORS     bool
+	HasCORS bool
+	// Offline is true when the package of a page.go declares
+	// `var Offline = true`: the page is one the service worker of the
+	// pwa-offline recipe keeps a copy of, so it opens with no network. It is
+	// the page's own flag and is not inherited down the subtree — what works
+	// without the network is decided screen by screen.
+	Offline     bool
 	Layouts     []Ref // innermost first
 	Middlewares []Ref // outermost first
 	// MiddlewaresByMethod holds the chains declared per method
@@ -487,6 +495,7 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 				s.errf(rel+"/page.go", ErrCORSOnPage, "var CORS is a route.go declaration: a page cannot carry a cross-origin policy")
 			}
 			r.HasPage = pkg.funcs["Page"]
+			r.Offline = pkg.vars["Offline"]
 			for _, m := range Methods[1:] {
 				if pkg.funcs[m] {
 					r.Methods = append(r.Methods, m)
@@ -499,6 +508,11 @@ func (s *scanner) walk(abs, rel string, segs []segment, layouts, mws []Ref, byMe
 				s.use(kind.Alias, kind.ImportPath)
 			}
 			r.HasCORS = pkg.vars["CORS"]
+			if pkg.vars["Offline"] {
+				// Same reason as CORS on a page: a var nobody reads is the
+				// silent discard these conventions exist to avoid.
+				s.errf(rel+"/route.go", ErrOfflineOnAPI, "var Offline is a page.go declaration: only a page is kept for offline use")
+			}
 			r.Layouts = nil
 			for _, m := range Methods {
 				if pkg.funcs[m] {

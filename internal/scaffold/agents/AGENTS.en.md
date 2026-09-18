@@ -35,6 +35,7 @@ HTML is written in Go with the `h` package, not with templates:
 | `trilha audit` | checks security and configuration: secrets, CSP, cookies, dependencies |
 | `trilha secret` | prints a signing key for `TRILHA_SECRET`; production refuses to start with a short one |
 | `trilha add` | writes a framework recipe into the project — audit trail, API keys, settings. Run `trilha add` to see what there is **before writing any of them by hand** |
+| `trilha i18n extract [--write]` | the keys `c.T` uses; `--write` adds the missing ones to the default locale. `trilha i18n missing <locale>` says what a translation still lacks |
 | `trilha build` | generates and compiles a single binary |
 | `trilha export` | writes the static pages as HTML |
 | `trilha openapi` | writes the OpenAPI document of the API routes |

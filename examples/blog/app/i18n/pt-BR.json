@@ -1,0 +1,9 @@
+{
+  "atendimento.titulo": "Atendimento ao migrante",
+  "atendimento.bemvindo": "Bem-vindo, %s.",
+  "atendimento.protocolos": {
+    "one": "%d protocolo aberto",
+    "other": "%d protocolos abertos"
+  },
+  "atendimento.escolha": "Escolha o seu idioma"
+}

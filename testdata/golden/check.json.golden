@@ -24,6 +24,10 @@
     {
       "tool": "openapi",
       "status": "not run"
+    },
+    {
+      "tool": "i18n",
+      "status": "not run"
     }
   ],
   "problems": [

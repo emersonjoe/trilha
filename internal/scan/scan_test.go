@@ -438,3 +438,31 @@ func TestKindIsInherited(t *testing.T) {
 		t.Errorf("got %d routes, want %d: %v", len(got), len(want), got)
 	}
 }
+
+// #268 — `var Offline = true` is the page's own flag, read the way Kind and
+// CORS are: any file of the package declares it and the generator hears about
+// it. It is not inherited, because what opens without the network is decided
+// screen by screen, and a page that never says it is not offline.
+func TestOfflineIsThePagesOwnFlag(t *testing.T) {
+	res, errs := scanApp(t, "offline")
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	byPat := map[string]Route{}
+	for _, r := range res.Routes {
+		byPat[r.Pattern] = r
+	}
+	if !byPat["/campo"].Offline {
+		t.Fatal("var Offline = true in app/campo has to reach the generator")
+	}
+	if byPat["/"].Offline || byPat["/api/itens"].Offline {
+		t.Fatalf("Offline is not inherited: / = %v, /api/itens = %v", byPat["/"].Offline, byPat["/api/itens"].Offline)
+	}
+}
+
+func TestOfflineOnAPIIsReported(t *testing.T) {
+	_, errs := scanApp(t, "err_offline_on_api")
+	if len(errs) != 1 || errs[0].Code != ErrOfflineOnAPI || errs[0].File != "app/api/route.go" {
+		t.Fatalf("want one %s about app/api/route.go, got %v", ErrOfflineOnAPI, errs)
+	}
+}

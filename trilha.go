@@ -72,6 +72,23 @@ type Config struct {
 	// date, a size and a count need and what every application otherwise
 	// rewrites by hand.
 	Locale string
+	// Locales is the list of languages this app answers in, the first being
+	// the default: []string{"pt-BR", "ht", "fr"}. Empty keeps Locale, one
+	// language for the whole process; set, it makes Ctx.Locale negotiate per
+	// request — the stored preference, ?lang=, the trilha_lang cookie,
+	// Accept-Language, the default — and everything that reads the locale
+	// (the ui kit's formatters and labels, c.CSV, c.T) follows the request.
+	Locales []string
+	// LocaleOf is the preference the application itself stored, asked first
+	// and before any header: auth.Auth.LocaleOf reads it from the session
+	// (User.Locale), and an app that keeps it in its own table gives its own
+	// function here. Returning "" means no preference, and the negotiation
+	// carries on without it.
+	LocaleOf func(c *Ctx) string
+	// Catalog holds the application's own messages, loaded from
+	// i18n/<locale>.json with LoadCatalog. Nil means c.T returns the key it
+	// was given, which is what an app with a single language wants.
+	Catalog *Catalog
 	// TimeZone is the zone a date is shown in, by IANA name
 	// ("America/Sao_Paulo"). Empty means UTC, because a server whose clock
 	// happens to be local is not a decision anybody made. A name the machine
@@ -84,6 +101,11 @@ type Config struct {
 	// Links counts the uses of a link made with a Uses limit. Nil keeps the
 	// count in the process, which is enough for one replica and for a test.
 	Links LinkStore
+	// Idempotency remembers the keys of the submissions already handled, so
+	// the outbox of a browser that was offline can resend without doing the
+	// same thing twice (see trilha.Idempotent). Nil keeps them in the
+	// process, bounded and expiring, which is enough for one replica.
+	Idempotency IdempotencyStore
 	// Drafts is where c.Draft keeps a form in progress that is too large for
 	// a cookie (over 2 KB of JSON). Nil is the common case: a wizard's draft
 	// is a handful of fields and travels signed in the browser.
@@ -119,6 +141,10 @@ type Config struct {
 	LogRequest func(c *Ctx, status int, dur time.Duration) bool
 	// OnSecurityEvent is called for blocked requests (CSRF, 401/403, 413, 429, panic).
 	OnSecurityEvent func(SecurityEvent)
+	// OnRequest wraps every request that reached a route, before the first
+	// middleware. It is the seam for an optional module — tracing, profiling
+	// — and carries no dependency of its own; see RequestHook.
+	OnRequest RequestHook
 	// DevReload controls the live-reload script injected in Dev pages; Off
 	// disables it (snapshot tests, HTML diffs). TRILHA_DEV_RELOAD=off does the same.
 	DevReload string
@@ -250,6 +276,12 @@ type Route struct {
 	// adds the headers to every response of the route, leaving the rest of the
 	// app same-origin. Nil means only the app-wide Config.CORS decides.
 	CORS *CORS
+	// Offline is true when the page's package declares `var Offline = true`:
+	// the screen is one a service worker keeps a copy of, so it opens with no
+	// network. The framework serves it exactly as before — the flag is a fact
+	// the app publishes, read by App.OfflineRoutes and handed to the worker
+	// by ui.OfflineScript.
+	Offline bool
 }
 
 // RouteKind is the error/CSRF behaviour of a Route; see Route.Kind.
@@ -291,6 +323,8 @@ type App struct {
 	signer         *Signer
 	linkOnce       sync.Once
 	links          LinkStore
+	idemOnce       sync.Once
+	idem           IdempotencyStore
 	linkGuardOnce  sync.Once
 	linkLimiter    *Limiter
 

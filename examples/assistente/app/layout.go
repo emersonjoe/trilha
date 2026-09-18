@@ -24,7 +24,10 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 		h.Body(ui.Body(),
 			ui.Header(
 				ui.Brand("/", "Assistente"),
-				ui.Nav(h.A(h.Href("https://emersonjoe.github.io/trilha/aprender/ia-e-agentes"), h.Text("Como funciona"))),
+				ui.Nav(
+					h.A(h.Href("/voz"), h.Text("Voz")),
+					h.A(h.Href("https://emersonjoe.github.io/trilha/aprender/ia-e-agentes"), h.Text("Como funciona")),
+				),
 				ui.Spacer(),
 				ui.ThemeToggle(),
 			),

@@ -44,6 +44,17 @@ type User struct {
 	// query is yours: there is no ORM here, and a WHERE this package wrote
 	// would be a WHERE nobody could read.
 	Tenant string `json:"tenant,omitempty"`
+	// Units are the organisational units this person belongs to, as paths
+	// inside the organisation: "sec-adm/protocolo" is the protocol sector of
+	// the administration secretariat. An organisation is not flat, and the
+	// questions people ask below the organisation — the analyst who sees
+	// their own sector, the chief who sees everything under theirs — are
+	// questions about these paths.
+	//
+	// Empty is somebody with no unit, which the policy reads as "only what is
+	// granted on the whole organisation". The paths are read with auth.Unit,
+	// auth.Units and Policy.CanIn.
+	Units []string `json:"units,omitempty"`
 	// Audience is the public this session belongs to: Options.Audience of the
 	// Auth that wrote it, empty when the application never named one. It is
 	// what an application with two publics in the same process — the internal
@@ -53,6 +64,16 @@ type User struct {
 	//
 	// The check is Session's: a session of another public is no session here.
 	Audience string `json:"aud,omitempty"`
+	// Locale is the language this person picked, in the spelling of
+	// Config.Locales ("ht", "pt-BR"). It is a field of its own and not one
+	// more entry in Extra for the same reason Tenant is: Auth.LocaleOf hands
+	// it to the framework on every request, so it has to be in the same place
+	// in every application.
+	//
+	// Write it with Update, from the screen where the person chooses:
+	//
+	//	sessao.Flow.Update(c, func(u *auth.User) { u.Locale = c.Form("lang") })
+	Locale string `json:"locale,omitempty"`
 	// Extra carries what this app's session needs and OIDC has no claim for:
 	// the token the upstream wants, the tenant, the plan. It travels where the
 	// rest of the session travels — the signed cookie, or the Store — so keep

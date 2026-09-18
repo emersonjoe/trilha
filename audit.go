@@ -23,6 +23,11 @@ type Actor struct {
 	// the field that says whether "they saw the wrong rows" is about a query
 	// or about somebody having changed organisation.
 	Tenant string `json:"tenant,omitempty"`
+	// Unit is the organisational unit the action happened in, inside that
+	// organisation — "sec-adm/protocolo". auth.Requirement.In writes it when
+	// it lets the request through, so the trail of an app with a hierarchy
+	// answers "which sector" without every handler repeating it.
+	Unit string `json:"unit,omitempty"`
 }
 
 // AuditRecord is one line of the trail: who, what, to what, from where.

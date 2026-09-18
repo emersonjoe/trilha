@@ -477,6 +477,37 @@ does not travel, listed or not, and neither do `Content-Security-Policy` and
 session or overrule its policy. For a whole prefix forwarded to another service, see
 [Upstreams](/reference/upstreams); `Pipe` is the one response you fetched yourself.
 
+## Language of the request
+
+| Call | What it answers |
+|---|---|
+| `c.Locale() string` | the language of this request: `"pt-BR"`, `"ht"`, `"fr"` |
+| `c.SetLocale(l string)` | forces it for the rest of the request, writing no cookie |
+| `c.T(key string, args ...any) string` | the app's own message in that language |
+
+With `Config.Locale` alone it is one language for the whole process. With `Config.Locales`
+it is negotiated per request — the preference the app stored (`Config.LocaleOf`), `?lang=`,
+the `trilha_lang` cookie it leaves behind, `Accept-Language`, the default — and resolved
+once: a page with fifty dates parses the header once. See
+[Many languages](/reference/app) for the order and the catalog.
+
+```go
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle(c.T("atendimento.titulo"))
+	return h.Div(
+		h.P(h.Text(c.T("atendimento.bemvindo", nome))),
+		h.P(h.Text(c.T("atendimento.protocolos", n))), // "1 protocolo pendente" / "4 pendentes"
+		h.A(h.Href("?lang=ht"), h.Text("Kreyòl")),
+	), nil
+}
+```
+
+`c.T` looks the key up in `c.Locale()`, then in what `Catalog.Fallback` points at, then in
+the default locale. A key nobody defined comes back as the key and is logged once — it never
+comes back empty, and `trilha check` fails on it before a screen shows it. Without
+`Config.Catalog`, `c.T` returns the key: an app with one language needs no catalog to
+compile.
+
 ## Public links
 
 `c.Link(name, opts)` builds a signed URL that works with no session, and `c.Claim(name)` is what

@@ -1566,12 +1566,41 @@
     ]
   },
   {
+    "name": "OfflineScript",
+    "kind": "func",
+    "group": "offline",
+    "signature": "OfflineScript(c *trilha.Ctx) h.Node",
+    "doc": "OfflineScript loads the outbox: the script that registers the service\nworker of `trilha add pwa-offline`, queues a form marked with\ntrilha.OfflineForm when there is no network, and sends what is queued when\nthe network comes back.\n\nThe tag carries what the worker is allowed to keep: the patterns of the\npages that declared `var Offline = true` (App.OfflineRoutes) and the version\nof the kit's stylesheet, which is the content hash — a deploy changes it,\nthe worker drops the old cache, and nobody is left with a copy of last\nweek's screen.",
+    "summary": "OfflineScript loads the outbox: the script that registers the service worker of `trilha add pwa-offline`, queues a form marked with trilha.OfflineForm when there is no network, and sends what is queued when the network comes back.",
+    "example": "ui.OfflineScript(c)",
+    "see": [
+      "trilha.OfflineForm"
+    ]
+  },
+  {
+    "name": "Outbox",
+    "kind": "func",
+    "group": "offline",
+    "signature": "Outbox(c *trilha.Ctx) h.Node",
+    "doc": "Outbox draws what is waiting to be sent: how many submissions the browser is\nholding, the last error the server gave back, and the button that tries\nagain now. It is hidden while the outbox is empty, and the script shows it.\n\nIt needs OfflineScript on the same page; without JavaScript there is no\noutbox and the box never appears.",
+    "summary": "Outbox draws what is waiting to be sent: how many submissions the browser is holding, the last error the server gave back, and the button that tries again now.",
+    "example": "ui.Outbox(c)"
+  },
+  {
     "name": "Policy",
     "kind": "type",
     "group": "policygrid",
     "signature": "type Policy interface",
     "doc": "Policy is what PolicyGrid needs to draw a permission matrix: the columns, the\nvalues a cell may hold, the rows, and what is in each cell.\n\nIt is an interface and not auth.Policy because the kit must not drag\nauthentication into an application that only draws buttons. auth.Policy\nsatisfies it as it is.",
     "summary": "Policy is what PolicyGrid needs to draw a permission matrix: the columns, the values a cell may hold, the rows, and what is in each cell."
+  },
+  {
+    "name": "ScopedPolicy",
+    "kind": "type",
+    "group": "policygrid",
+    "signature": "type ScopedPolicy interface",
+    "doc": "ScopedPolicy is a Policy whose cells also say how far a grant reaches: the\nwhole organisation, the person's own unit, or that unit and everything under\nit. A policy that satisfies it gets a second select per cell; one that does\nnot is drawn exactly as before.\n\nauth.Policy satisfies it with ScopeNameOf and ScopeNames.",
+    "summary": "ScopedPolicy is a Policy whose cells also say how far a grant reaches: the whole organisation, the person's own unit, or that unit and everything under it."
   },
   {
     "name": "PolicyGridOpts",
@@ -1605,6 +1634,11 @@
         "name": "ReadOnly",
         "type": "bool",
         "doc": "ReadOnly draws the same grid with every control disabled, which is what somebody who may see the matrix but not change it should get."
+      },
+      {
+        "name": "ScopeLabels",
+        "type": "map[string]string",
+        "doc": "ScopeLabels renames a scope for the screen, by the value the policy gives: \"\" is the organisation, \"unit\" the person's own unit, \"tree\" that unit and everything under it."
       },
       {
         "name": "CSRF",
@@ -1674,6 +1708,73 @@
       "ui.Empty",
       "ui.PreviewOpts"
     ]
+  },
+  {
+    "name": "RecorderOpts",
+    "kind": "type",
+    "group": "recorder",
+    "signature": "type RecorderOpts struct",
+    "doc": "RecorderOpts describes the capture island: where the recording goes and how\nlong it may be.",
+    "summary": "RecorderOpts describes the capture island: where the recording goes and how long it may be.",
+    "fields": [
+      {
+        "name": "Action",
+        "type": "string",
+        "doc": "Action is the route that receives the recording, as any form's action."
+      },
+      {
+        "name": "Name",
+        "type": "string",
+        "doc": "Name is the form field the route reads with c.File; default \"audio\"."
+      },
+      {
+        "name": "MaxSeconds",
+        "type": "int",
+        "doc": "MaxSeconds stops the recording on its own."
+      },
+      {
+        "name": "Mime",
+        "type": "string",
+        "doc": "Mime is what MediaRecorder is asked for, when the browser supports it; default \"audio/webm\"."
+      },
+      {
+        "name": "Label",
+        "type": "string",
+        "doc": "Label is the text of the record button; the default comes from the request's locale (\"Record\" / \"Gravar\")."
+      },
+      {
+        "name": "Target",
+        "type": "string",
+        "doc": "Target is the id of the element the answer swaps, as in UploadTo."
+      },
+      {
+        "name": "Attrs",
+        "type": "[]h.Node"
+      }
+    ]
+  },
+  {
+    "name": "Recorder",
+    "kind": "func",
+    "group": "recorder",
+    "signature": "Recorder(c *trilha.Ctx, o RecorderOpts) h.Node",
+    "doc": "Recorder is the microphone half of ui.Audio: a form that records at the\ncounter and posts the recording to a route, with the same progress bar the\nupload has. With ui.RecorderScript and ui.UploadScript on the page, the\nbutton records with MediaRecorder and the form is sent by XHR, so the answer\nswaps Target; with JavaScript off, denied or unsupported, what is left is an\n\u003cinput type=\"file\" accept=\"audio/*\" capture\u003e — on a phone, the recorder of\nthe system — and the form posts as any other form.\n\nThe route reads one file (c.File with FileRules) and answers the fragment.\nThe browser only gives the microphone over HTTPS and with a\nPermissions-Policy that allows it: the framework's default denies it, so an\napp that records sets Config.Security.PermissionsPolicy with\n\"microphone=(self)\" in it.",
+    "summary": "Recorder is the microphone half of ui.Audio: a form that records at the counter and posts the recording to a route, with the same progress bar the upload has.",
+    "example": "ui.Recorder(c, ui.RecorderOpts{Action: \"/api/voice\", Target: \"answer\", MaxSeconds: 60})\nui.RecorderScript(c)\nui.UploadScript(c)",
+    "see": [
+      "ui.Audio",
+      "ui.RecorderOpts",
+      "ui.RecorderScript",
+      "ui.UploadScript"
+    ]
+  },
+  {
+    "name": "RecorderScript",
+    "kind": "func",
+    "group": "recorder",
+    "signature": "RecorderScript(c *trilha.Ctx) h.Node",
+    "doc": "RecorderScript loads ui.recorder.js, the behaviour behind Recorder: the\nmicrophone, the elapsed time and the recording put into the file field. Put\nit once on the page that records — Head does not load it, so a page without\na recorder downloads nothing. The upload with progress is still\nUploadScript's, and a page that swaps the answer loads both.",
+    "summary": "RecorderScript loads ui.recorder.js, the behaviour behind Recorder: the microphone, the elapsed time and the recording put into the file field."
   },
   {
     "name": "SchemaForm",
