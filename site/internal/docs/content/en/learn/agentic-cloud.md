@@ -846,6 +846,99 @@ The **Cost** column of the projects panel shows the same number. When a project 
 `breaker:cost_ceiling`; nothing more is claimed until an operator resumes it. The bill is not
 a payment, it is evidence: the same attempts the runner wrote down, added up.
 
+### 17. Promote a multi-service stack: migration first, a second person, a report
+
+Chapter 11 deployed one service with one profile. A real product is a stack: an API, a web
+front, a worker, Postgres and an AI gateway from one compose file, with a schema migration
+that must run before traffic moves and must never run in production what staging did not
+see. The Cloud still stores no command; it stores where each environment lives, what it may
+receive, who has to agree and what each deploy did.
+
+**Give the profile a migration and a health check per service.** On the runner host, in
+`/etc/trilha-runner/delivery.json`, a `compose` profile has fixed steps, a `migrate` block
+and one health URL per service:
+
+```json
+{"profiles":{"compose":{
+  "steps":[{"name":"pull","argv":["docker","compose","-f","docker-compose.prod.yml","pull"],"on_fail":"abort"},
+           {"name":"switch","argv":["docker","compose","-f","docker-compose.prod.yml","up","-d","--wait"],"on_fail":"abort"}],
+  "migrate":{"argv":["docker","compose","-f","docker-compose.prod.yml","run","--rm","api","alembic","upgrade","head"],
+             "downgrade":["docker","compose","-f","docker-compose.prod.yml","run","--rm","api","alembic","downgrade","-1"],
+             "reversible":false},
+  "rollback":["/usr/local/libexec/trilha/rollback-compose-image"],
+  "health":[{"name":"api","url":"https://acervo.example.com.br/health/ready","timeout_seconds":60},
+            {"name":"web","url":"https://acervo.example.com.br/","timeout_seconds":60}],
+  "timeout_seconds":900}}}
+```
+
+The migration runs **before** `switch`. If it fails, the deploy aborts and the previous image
+keeps serving. `reversible: false` tells the runner that a rollback restores the previous
+image and leaves the schema alone; set it to `true` only for a release whose `downgrade` was
+rehearsed.
+
+**Put staging and production in a region, and make production promote staging.** An
+environment now carries `region`, `data_residency`, the environment it promotes from,
+whether a second person must approve and a deploy window:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/environments" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"project":"acervo","name":"staging","profile":"compose","region":"br-sp"}'
+curl -sS -X POST "$CLOUD/api/admin/environments" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"project":"acervo","name":"prod","url":"https://acervo.example.com.br","profile":"compose","region":"br-sp","data_residency":"br","promotes_from":"staging","require_approval":true,"window":{"days":["mon","tue","wed","thu"],"from":"09:00","to":"18:00","timezone":"America/Sao_Paulo"}}'
+```
+
+A region outside the project's data residency from chapter 16 is refused with 422 and
+`deployment.refused`; the same rule applies to `PUT /api/admin/environments/acervo/prod`
+later. The card in **Environments** shows the region, `staging · Requires a second person's approval`,
+the window and the version of each service after the last good deploy.
+
+**Promote by tag.** Deploy `v2.3.0` to `staging` and, once it is green, request the same tag
+on `prod`:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/environments/acervo/prod/deployments" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"action":"deploy","revision":"v2.3.0"}'
+```
+
+`main` is refused because it is mutable; `v2.2.9` is refused because it is not what staging
+runs; outside the window the answer is 422 with the rule `window`. What passes stays in
+`pending_approval` with who requested it, and no runner claims it. The person who requested
+cannot approve: the bootstrap token approving its own request gets 403 and
+`deployment.approval_refused`. Another operator, signed in with their own session, selects
+**Approve** on the card or calls:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/environments/acervo/prod/deployments/$ID/approve" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN"
+```
+
+Only then the deployment is `queued`, with `approved_by` next to `requested_by`, and the
+audit gains `deployment.approved`.
+
+**Read the report.** The runner reports the result with the version of each service and the
+migrations it applied, and the Cloud turns its log into a report:
+
+```json
+{"status":"succeeded","revision":"v2.3.0","previous_revision":"v2.2.9",
+ "report":{"steps":[{"name":"pull","duration":"12.4s","exit":0},{"name":"migrate","duration":"3.1s","exit":0},{"name":"switch","duration":"41.7s","exit":0}],
+           "health":[{"name":"api","status":"200"},{"name":"web","status":"200"}],
+           "migration":"applied","migrations":["0007_add_shelf_index"],
+           "changes":[{"service":"api","from":"v2.2.9","to":"v2.3.0"},{"service":"web","from":"v2.2.9","to":"v2.3.0"}],
+           "duration":"57.2s"}}
+```
+
+When the migration fails, `migration` is `failed`, `failed` names the step, and the
+environment's `current_revision` does not move: production stays on the previous tag,
+marked `degraded`. When a health check fails after the switch, the runner rolls the image
+back and the report says `rolled_back: true` with `not reversible; image-only rollback` when
+the schema was left alone. A rollback requested by an operator still needs a reason and the
+environment's name typed back, and ignores the window, the promotion rule and the approval.
+
+**Rotate a secret without showing it.** `PUT .../secrets` with a name that already exists
+replaces its value; the audit gains `environment.secret_rotated` with the name. The value
+appears in exactly one place, the claim a runner with the project's `deployments:write` key
+receives, and never in the environments list, the deployment history, the report or the
+audit.
+
 ## The contract
 
 The worker only needs three routes, so another control plane — yours — can implement them:

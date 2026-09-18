@@ -855,6 +855,96 @@ A coluna **Custo** do painel de projetos mostra o mesmo número. Quando um proje
 nada mais é reclamado até um operador retomar. A conta não é um pagamento, é evidência: as
 mesmas tentativas que o runner anotou, somadas.
 
+### 17. Promova uma stack multi-serviço: migração antes, uma segunda pessoa, um relatório
+
+O capítulo 11 fez deploy de um serviço com um perfil. Um produto de verdade é uma stack: uma
+API, um front web, um worker, Postgres e um gateway de IA num único compose, com uma migração
+de esquema que precisa rodar antes de o tráfego mudar e nunca pode rodar em produção o que o
+staging não viu. O Cloud continua sem guardar comando; guarda onde cada ambiente vive, o que
+ele pode receber, quem precisa concordar e o que cada deploy fez.
+
+**Dê ao perfil uma migração e uma verificação de saúde por serviço.** No host do runner, em
+`/etc/trilha-runner/delivery.json`, um perfil `compose` tem passos fixos, um bloco `migrate`
+e uma URL de saúde por serviço:
+
+```json
+{"profiles":{"compose":{
+  "steps":[{"name":"pull","argv":["docker","compose","-f","docker-compose.prod.yml","pull"],"on_fail":"abort"},
+           {"name":"switch","argv":["docker","compose","-f","docker-compose.prod.yml","up","-d","--wait"],"on_fail":"abort"}],
+  "migrate":{"argv":["docker","compose","-f","docker-compose.prod.yml","run","--rm","api","alembic","upgrade","head"],
+             "downgrade":["docker","compose","-f","docker-compose.prod.yml","run","--rm","api","alembic","downgrade","-1"],
+             "reversible":false},
+  "rollback":["/usr/local/libexec/trilha/rollback-compose-image"],
+  "health":[{"name":"api","url":"https://acervo.example.com.br/health/ready","timeout_seconds":60},
+            {"name":"web","url":"https://acervo.example.com.br/","timeout_seconds":60}],
+  "timeout_seconds":900}}}
+```
+
+A migração roda **antes** do `switch`. Se falhar, o deploy aborta e a imagem anterior continua
+servindo. `reversible: false` diz ao runner que um rollback restaura a imagem anterior e deixa
+o esquema em paz; marque `true` só para uma release cujo `downgrade` foi ensaiado.
+
+**Coloque staging e produção numa região, e faça a produção promover o staging.** Um
+ambiente agora carrega `region`, `data_residency`, o ambiente de onde promove, se uma
+segunda pessoa precisa aprovar e uma janela de deploy:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/environments" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"project":"acervo","name":"staging","profile":"compose","region":"br-sp"}'
+curl -sS -X POST "$CLOUD/api/admin/environments" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"project":"acervo","name":"prod","url":"https://acervo.example.com.br","profile":"compose","region":"br-sp","data_residency":"br","promotes_from":"staging","require_approval":true,"window":{"days":["mon","tue","wed","thu"],"from":"09:00","to":"18:00","timezone":"America/Sao_Paulo"}}'
+```
+
+Uma região fora da residência de dados do projeto, do capítulo 16, é recusada com 422 e
+`deployment.refused`; a mesma regra vale depois em `PUT /api/admin/environments/acervo/prod`.
+O card em **Ambientes** mostra a região, `staging · Exige aprovação de uma segunda pessoa`,
+a janela e a versão de cada serviço depois do último deploy bom.
+
+**Promova por tag.** Faça deploy de `v2.3.0` em `staging` e, quando estiver verde, peça a
+mesma tag em `prod`:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/environments/acervo/prod/deployments" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"action":"deploy","revision":"v2.3.0"}'
+```
+
+`main` é recusado porque é mutável; `v2.2.9` é recusado porque não é o que o staging roda;
+fora da janela a resposta é 422 com a regra `window`. O que passa fica em `pending_approval`
+com quem pediu, e nenhum runner o reclama. Quem pediu não aprova: o token de bootstrap
+aprovando o próprio pedido recebe 403 e `deployment.approval_refused`. Outro operador, com a
+própria sessão, escolhe **Aprovar** no card ou chama:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/environments/acervo/prod/deployments/$ID/approve" -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN"
+```
+
+Só então o deployment fica `queued`, com `approved_by` ao lado de `requested_by`, e a
+auditoria ganha `deployment.approved`.
+
+**Leia o relatório.** O runner reporta o resultado com a versão de cada serviço e as
+migrações que aplicou, e o Cloud transforma o log dele em relatório:
+
+```json
+{"status":"succeeded","revision":"v2.3.0","previous_revision":"v2.2.9",
+ "report":{"steps":[{"name":"pull","duration":"12.4s","exit":0},{"name":"migrate","duration":"3.1s","exit":0},{"name":"switch","duration":"41.7s","exit":0}],
+           "health":[{"name":"api","status":"200"},{"name":"web","status":"200"}],
+           "migration":"applied","migrations":["0007_add_shelf_index"],
+           "changes":[{"service":"api","from":"v2.2.9","to":"v2.3.0"},{"service":"web","from":"v2.2.9","to":"v2.3.0"}],
+           "duration":"57.2s"}}
+```
+
+Quando a migração falha, `migration` é `failed`, `failed` nomeia o passo e o
+`current_revision` do ambiente não se move: a produção fica na tag anterior, marcada
+`degraded`. Quando uma verificação de saúde falha depois do `switch`, o runner volta a imagem
+e o relatório diz `rolled_back: true` com `not reversible; image-only rollback` quando o
+esquema ficou como estava. Um rollback pedido por um operador continua exigindo motivo e o
+nome do ambiente digitado de volta, e ignora a janela, a regra de promoção e a aprovação.
+
+**Rotacione um segredo sem mostrá-lo.** `PUT .../secrets` com um nome que já existe troca o
+valor; a auditoria ganha `environment.secret_rotated` com o nome. O valor aparece num único
+lugar, o claim que um runner com a chave `deployments:write` do projeto recebe, e nunca na
+lista de ambientes, no histórico de deployments, no relatório ou na auditoria.
+
 ## O contrato
 
 O worker só precisa de três rotas, então outro control plane — o seu — pode implementá-las:
