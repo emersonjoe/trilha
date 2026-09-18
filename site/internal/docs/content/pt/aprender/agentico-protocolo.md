@@ -190,6 +190,60 @@ trilha spec task next
 Um registro nunca é editado; correção é registro novo. Essa é a ideia inteira do protocolo:
 uma task está pronta quando seus critérios de aceite têm evidência, não quando um chat diz.
 
+## Quando quem decide é um número, uma data ou uma pessoa
+
+O protocolo 0.3 acrescentou quatro coisas que você vai digitar no dia em que a agenda deixar
+de ser brinquedo: um número no lugar de um código de saída, um calendário, um aceite humano
+nomeado, e uma dependência em outro repositório.
+
+Uma **métrica** é evidência com o número dentro, para o revisor ver o valor e uma ferramenta
+acompanhá-lo. Um harness imprime uma linha JSON por medição e o `verify` transforma cada uma
+em um registro `eval` — métrica abaixo do limiar reprova a verificação mesmo com código de
+saída 0:
+
+```bash
+# no check: echo '{"metric":"reminder_p95","value":1.4,"threshold":2,"comparator":"<="}'
+trilha spec evidence TASK-001
+# #4   ✓ eval     trilha-spec verify   reminder_p95 1.4 <= 2
+```
+
+Escreva o mesmo portão como critério de aceite — `--accept "metric: reminder_p95 <= 2"` — e o
+`doctor` avisa quando uma task chega a `review` com um portão que nenhum `eval` responde.
+
+Um **marco** dá calendário à fila. O `next` passa a preferir o prazo mais próximo entre o que
+pode rodar:
+
+```bash
+trilha spec project milestone M1 --title "Lembretes no ar" --due 2027-03-31
+trilha spec task add "E-mail de lembrete" --milestone M1 --status ready --accept "o e-mail sai"
+trilha spec task list --milestone M1
+```
+
+Uma **atestação** é a decisão de uma pessoa nomeada, assinada, e não uma nota que qualquer um
+poderia ter digitado. Uma task que declara `review: {quorum: 2, roles: [uat, legal]}` no front
+matter não fecha até duas pessoas distintas assinarem:
+
+```bash
+trilha spec keygen ana
+trilha spec evidence TASK-001 add --attestation --by "Ana Souza" --role uat \
+  --statement "Testei com o lembrete em um evento real." --sign-key ~/.trilha/keys/ana.key
+trilha spec task move TASK-001 done   # recusado até o quórum fechar, dizendo o que falta
+```
+
+Uma **dependência em outro repositório** se escreve `alias:TASK-NNN`, com um alias que o
+`project.md` declara em `repos`. Até alguém responder por ela — um checkout irmão, ou um
+control plane — a task espera, e o motivo diz qual repositório:
+
+```bash
+trilha spec task list                          # waiting:trilha:TASK-004
+trilha spec task next --repo trilha=../trilha  # agora dá para responder
+```
+
+Tem mais uma, para trabalho cujo escopo vem de um documento fora do repositório: a spec carrega
+`requirements: [{id, source, text}]`, a task diz o que `covers`, e
+`trilha spec spec show 001-lembretes-de-evento --coverage` responde requisito → tasks → status
+→ evidência. Você não vai precisar disso na agenda; um edital vai.
+
 ## O mesmo por MCP
 
 Tudo acima está disponível a qualquer host MCP — Claude Code, Cursor, o `ai.Agent` do
@@ -200,8 +254,9 @@ capítulo anterior — por um servidor stdio:
 ```
 
 Só leitura por padrão (`trilha_list_tasks`, `trilha_get_task`, `trilha_next`, `trilha_context`,
-`trilha_graph`); `--write` acrescenta `trilha_move`, `trilha_evidence` e `trilha_verify`.
-Ferramenta não oferecida não pode ser chamada — a mesma postura do
+`trilha_list_specs`, `trilha_list_evidence`, `trilha_coverage`, `trilha_graph`); `--write`
+acrescenta `trilha_move`, `trilha_spec_move`, `trilha_evidence`, `trilha_attest` e
+`trilha_verify`. Ferramenta não oferecida não pode ser chamada — a mesma postura do
 [`trilha mcp`](/pt/referencia/cli#trilha-mcp).
 
 O protocolo completo — formatos de arquivo, tabela de transições, esquema da evidência — está
