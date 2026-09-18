@@ -534,6 +534,59 @@ devolvido ao Cloud.
 
 ![Portal responsivo em 390 pixels](/docs/agentic-cloud/cloud-mobile.png "Specs, Kanban, ambientes, execuções e frota continuam operáveis em uma tela móvel.")
 
+### 12. Pause um projeto e deixe o disjuntor puxar o freio
+
+Cancelar para uma execução. Pausar para um projeto: as execuções na fila continuam na fila, na
+mesma ordem, os workers seguem enviando heartbeat, e `POST /api/runs/next` responde `204` para
+aquele projeto até um humano retomar. Execuções gerenciadas iniciadas em **Specs** recebem
+`409` enquanto o projeto está pausado.
+
+1. Em **Projetos**, selecione **Pausar** no projeto. O diálogo pede um motivo (até 240
+   caracteres) e uma confirmação; o motivo vai para a auditoria e é o que a próxima pessoa lê
+   antes de retomar.
+2. A linha mostra o selo **Pausado**, o motivo, quem pausou e quando. A página **Visão geral**
+   do produto mostra o mesmo no painel **Freio da frota**.
+3. Selecione **Retomar** e confirme. A fila volta a ser entregue na mesma ordem. Retomar é
+   sempre uma decisão humana; nada retoma um projeto automaticamente.
+
+O mesmo freio, pela API:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/projects/cadastro-usuarios/pause" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"reason":"a spec 004 muda o schema; segurar até a revisão"}'
+
+curl -sS -X POST "$CLOUD/api/admin/projects/cadastro-usuarios/resume" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN"
+```
+
+As duas rotas exigem o token de admin ou uma sessão de operador. Uma chave de worker — mesmo
+com `runs:write` — recebe `403`: o worker entrega trabalho, não decide se a frota trabalha.
+
+**O disjuntor** pausa o projeto sozinho quando os números dizem que ele está queimando dinheiro.
+Na **Visão geral** do produto, abra **Configurar disjuntor** e defina os limiares que quiser;
+zero desativa um limiar:
+
+| Limiar | Dispara quando |
+|---|---|
+| `max_cost_per_hour` | o custo estimado das tentativas concluídas na última hora passa dele |
+| `max_failure_rate` | nas últimas `failure_window` execuções concluídas (padrão 10) a fração de falhas passa dele; espera a janela encher |
+| `max_repeated_failure_class` | esse número de tentativas seguidas falhou com o mesmo `failure_class` |
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/cadastro-usuarios/breaker" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"max_cost_per_hour":5,"max_failure_rate":0.5,"failure_window":10,"max_repeated_failure_class":3}'
+```
+
+Ao cruzar um limiar, o projeto é pausado com o motivo `breaker:<limiar>` e
+`paused_by: circuit breaker`; um humano não consegue escrever um motivo que comece com
+`breaker:`, então a trilha nunca mente sobre quem puxou o freio. O registro de auditoria
+`project.paused` carrega o limite, o valor medido e os sinais daquele momento
+(`cost_last_hour`, `failure_rate`, `repeated_failure_class`), os mesmos números que o painel
+**Freio da frota** e `GET /api/admin/products/{name}/metrics` mostram. Toda pausa, retomada e
+mudança de limiar está em `GET /api/admin/audit`.
+
 ## O contrato
 
 O worker só precisa de três rotas, então outro control plane — o seu — pode implementá-las:
