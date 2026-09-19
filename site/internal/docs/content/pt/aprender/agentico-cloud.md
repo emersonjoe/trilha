@@ -399,8 +399,17 @@ curl -X POST http://localhost:3000/api/admin/keys \
 
 ### 8. Enfileire a task e conecte o runner
 
-No portal, selecione **Nova execução**, escolha `cadastro-usuarios` e informe
-`TASK-001`. Pela API:
+No portal, selecione **Nova execução** e escolha `cadastro-usuarios`; o diálogo busca
+`GET /api/projects/cadastro-usuarios/tasks` e preenche um seletor com cada task que
+`.trilha/tasks/` do repositório lista, seu status e — quando o servidor recusaria
+enfileirá-la — o motivo: ainda não está `ready`, já tem uma execução em andamento ou
+depende de uma task sem run `done`. Escolha `TASK-001` e confirme. Quando várias tasks
+estão `ready` ao mesmo tempo, **Enfileirar todas as prontas** envia cada uma em sequência e
+mostra quantas foram aceitas e quantas foram recusadas, em vez de um `POST /api/runs` de
+cada vez. Uma task que ainda não chegou na branch padrão não aparece no seletor; o diálogo
+mantém um campo de texto livre ("Outra task…") para esse caso.
+
+A mesma operação pela API:
 
 ```bash
 export TRILHA_CLOUD_API_KEY='tc_…'

@@ -399,8 +399,16 @@ curl -X POST http://localhost:3000/api/admin/keys \
 
 ### 8. Queue the task and connect the runner
 
-In the portal, select **New run**, choose `cadastro-usuarios` and enter
-`TASK-001`. Through the API:
+In the portal, select **New run** and choose `cadastro-usuarios`; the dialog fetches
+`GET /api/projects/cadastro-usuarios/tasks` and fills a picker with every task the
+repository's `.trilha/tasks/` names, its status, and — for a task the server would refuse to
+queue — why: not yet `ready`, a run already in flight, or a dependency without a `done` run
+yet. Select `TASK-001` and confirm. When several tasks are `ready` at once, **Queue all
+ready** submits each of them in sequence and reports how many were accepted and how many
+were refused, instead of one `POST /api/runs` at a time. A task not yet on the default
+branch has no entry in the picker; the dialog keeps a free-text "Other task…" field for it.
+
+The same operation through the API:
 
 ```bash
 export TRILHA_CLOUD_API_KEY='tc_…'
