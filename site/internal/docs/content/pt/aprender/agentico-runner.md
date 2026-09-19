@@ -182,8 +182,9 @@ registra o comando embrulhado, então o registro diz onde rodou.
 
 Quatro coisas são do runner e não do manifesto, de propósito: o worktree é o único caminho
 gravável que sobrevive (o sistema de arquivos raiz é somente leitura, `/tmp` morre com o
-container), os limites de recurso são fixados pelo runner, o agente roda como o usuário dono do
-worktree e não como root, e nada monta o socket do Docker. Um sandbox que fala com o daemon não
+container), os limites de recurso são fixados pelo runner (uma CPU, 1 GiB de memória, 256 PIDs
+e `no-new-privileges`), o agente roda como o usuário dono do worktree e não como root, e nada
+monta o socket do Docker. Um sandbox que fala com o daemon não
 é sandbox. O que foi criado é removido depois, mesmo quando a
 execução falhou no meio, então `docker ps` está vazio no fim.
 
@@ -193,7 +194,8 @@ worktree continua sendo o sandbox.
 ## Esperando por outro repositório
 
 Uma task de produto pode depender de uma task de framework que mora em outro repositório. Diga
-isso com `depends_on_remote` e diga ao `next` onde está o outro checkout:
+isso em `depends_on` com o alias na frente — `trilha:TASK-004` — e diga ao `next` onde está o
+outro checkout:
 
 ```bash
 trilha runner next --repo trilha=../trilha
@@ -221,13 +223,18 @@ trilha runner worker --cloud https://cloud.exemplo --token "$TOKEN" --project ac
 
 Os labels e a capacidade viajam no heartbeat e na claim, junto das execuções em voo, para o
 control plane mandar uma execução cujos checks precisam de Postgres para o host que tem Docker,
-e manter um projeto cujos dados não podem sair do país num worker daquela região. Uma execução
-que este host não pode honrar é recusada e reportada, nunca executada em silêncio. Com
-`--capacity 2` o worker toca duas execuções ao mesmo tempo, cada uma no seu worktree.
+e manter um projeto cujos dados não podem sair do país num worker daquela região. O payload
+também leva as execuções em voo e as versões do runner e dos drivers, para uma claim
+incompatível ser recusada antes de tocar em qualquer código. Uma execução que este host não
+pode honrar é recusada e reportada, nunca executada em silêncio. Com `--capacity 2` o worker
+toca duas execuções ao mesmo tempo, cada uma no seu worktree.
 
 A mesma claim pode trazer o acesso ao modelo do próprio projeto — provedor, endpoint, credencial
 e os hosts em que essa credencial pode ser gasta. Ele chega ao agente como ambiente do processo e
-em nenhum outro lugar, e é redigido da saída. Quando o projeto lista hosts permitidos, um
+em nenhum outro lugar — o driver `claude-code` sempre executa `claude -p -` e recebe a
+credencial como `CLAUDE_CODE_OAUTH_TOKEN` ou `ANTHROPIC_API_KEY` — e é redigido da saída. Ele
+substitui a configuração do próprio worker só nessa execução. Quando o projeto lista hosts
+permitidos, um
 endpoint fora deles é recusado *antes da primeira requisição*: a evidência é um registro `run`
 com `stage: policy` e a task vai para `failed`. Residência é imposta pelo runner, não por
 confiar na configuração de cada worker.
@@ -239,69 +246,6 @@ marcado `switch`, e `health[]` por serviço — então uma migração que falha 
 revisão anterior ainda servindo, e um serviço que nunca fica saudável dispara o rollback. O
 rollback reverte o schema só quando a migração se declarou reversível; caso contrário é
 só-imagem e o log diz que o schema mantém a forma nova.
-
-O worker anuncia seu envelope de execução em cada heartbeat e claim. Labels são repetíveis e a
-capacidade padrão é um:
-
-```bash
-trilha runner worker --cloud https://cloud.exemplo --token "$TOKEN" --project meu-app \
-  --label docker --label region:br --capacity 2
-```
-
-Com capacidade dois, duas runs executam em paralelo em worktrees separados. O payload também
-leva a quantidade ativa e as versões do runner e dos drivers, permitindo ao control plane
-recusar claims incompatíveis antes de tocar no código-fonte.
-
-## IA por projeto e residência
-
-Uma run reivindicada pode carregar configuração transitória de IA (`provider`, `base_url`,
-`model`, `credential`, `allowed_hosts`). Ela substitui o ambiente global do worker somente nessa
-run. O preset `claude-code` sempre executa `claude -p -`; credenciais entram por
-`CLAUDE_CODE_OAUTH_TOKEN` ou `ANTHROPIC_API_KEY` e são censuradas da saída capturada. O driver
-`ai` recusa URL base cujo hostname não esteja em `allowed_hosts`, grava evidência `run` com
-`stage: policy` e move a task para `failed` sem retry.
-
-## Gates de métrica
-
-Um check pode imprimir um objeto JSON por métrica:
-
-```json
-{"metric":"triage_top1","value":0.87,"threshold":0.85,"comparator":">=","dataset":{"id":"triage-v3","manifest":"eval/golden/manifest.json"}}
-```
-
-O runner mantém a evidência `check` normal e acrescenta um registro `eval`. Comparador reprovado
-falha a verificação mesmo quando o processo termina com zero. Só o manifesto nomeado do dataset
-é hasheado; os dados não são copiados para a evidência.
-
-## Dependências entre repositórios
-
-Use `depends_on: trilha:TASK-007` para uma dependência de outro repositório e mapeie o alias ao
-selecionar trabalho local:
-
-```bash
-trilha runner next --repo trilha=../trilha --repo cloud=../trilha-cloud
-```
-
-Dependências ausentes ou incompletas aparecem como `waiting:<alias>:TASK-NNN`. Workers remotos
-consultam o endpoint de status de task do control plane e aplicam a mesma regra.
-
-## Entrega compose e sandbox Docker
-
-Perfis de entrega podem declarar `steps` ordenados, gate `migrate` antes do passo `switch`, vários
-endpoints `health` e rollback fixo. Falha de health dispara rollback; migração não reversível é
-registrada como rollback somente da imagem.
-
-Para checks que precisam de serviços, um manifesto de agente pode selecionar Docker:
-
-```yaml
-sandbox:
-  image: ghcr.io/acme/app-ci:latest
-  services: '[{"name":"db","image":"pgvector/pgvector:pg16","env":{"POSTGRES_PASSWORD":"test"},"ready":["pg_isready","-U","postgres"]}]'
-```
-
-Os limites pertencem ao runner: raiz somente leitura, uma CPU, 1 GiB de memória, 256 PIDs e
-`no-new-privileges`. Só o worktree é montado para escrita. O socket Docker nunca é montado, e os
-containers e a rede privada são removidos mesmo após falha.
 
 ## Desafio
 

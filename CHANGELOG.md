@@ -3,6 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.139.0 — 2026-09-19
+
+Documentation only. Companion to
+[trilha-runner#8](https://github.com/emersonjoe/trilha-runner/pull/8).
+
+### Documentation
+
+- **The hands-on runner chapter follows trilha-runner 0.3.0 in both locales**, rewritten as a
+  walk rather than a list: a check that measures (`eval` metrics with a threshold that fails
+  the task even when the script exits 0, the dataset manifest hashed and never the data),
+  `--sandbox docker` with the services the agent manifest declares (answering by name on their
+  own network; the worktree as the only writable path, one CPU, 1 GiB, 256 PIDs,
+  `no-new-privileges`, no Docker socket), `depends_on` with an alias in front and
+  `next --repo alias=path`, worker `--label` and `--capacity`, per-project model access with the
+  residency refusal as `stage: policy` evidence, delivery profiles with `steps[]`, the `migrate`
+  gate before `switch`, `health[]` per service and the rollback that reverses the schema only
+  when the migration said it could, and the `claude-code` driver. The four short sections
+  0.138.0 added on the same subjects are folded into these.
+
 ## 0.138.0 — 2026-09-19
 
 Documentation only: the agentic chapters of the site catch up with what Trilha Spec 0.3,
@@ -115,16 +134,6 @@ something every public application writes by hand and nobody gets right the firs
   a translation somebody still owes is a smaller problem than a heading nobody can read.
   `TestNenhumaReceitaEscreveValorAusente` adds every recipe in both languages and reads what
   was written, so the next forgotten key fails a test instead of a screen.
-
-## Unreleased
-
-### Changed
-
-- The hands-on runner chapter follows trilha-runner 0.3.0 in both locales: `eval` metrics from
-  checks that measure, `--sandbox docker` with declared services, `next --repo alias=path` for a
-  dependency in another repository, worker `--label` and `--capacity`, per-project model access
-  with the residency refusal, delivery profiles with steps and a migration gate, and the
-  `claude-code` driver.
 
 ## 0.136.0 — 2026-09-17
 

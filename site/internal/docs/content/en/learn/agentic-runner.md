@@ -181,8 +181,9 @@ network, and the evidence records the wrapped command, so the record says where 
 
 Four things are the runner's and not the manifest's, on purpose: the worktree is the only
 writable path that survives (the root filesystem is read-only, `/tmp` dies with the container),
-the resource limits are fixed by the runner, the agent runs as the user that owns the worktree
-rather than as root, and nothing mounts the Docker socket. A sandbox that can talk to the
+the resource limits are fixed by the runner (one CPU, 1 GiB of memory, 256 PIDs and
+`no-new-privileges`), the agent runs as the user that owns the worktree rather than as root,
+and nothing mounts the Docker socket. A sandbox that can talk to the
 daemon is not a sandbox. Whatever was created is removed afterwards, even
 when the run failed halfway, so `docker ps` is empty when it is over.
 
@@ -191,8 +192,9 @@ worktree is still the sandbox.
 
 ## Waiting on another repository
 
-A product task can depend on a framework task that lives in a different repository. Say so with
-`depends_on_remote`, and tell `next` where the other checkout is:
+A product task can depend on a framework task that lives in a different repository. Say so in
+`depends_on` with the alias in front — `trilha:TASK-004` — and tell `next` where the other
+checkout is:
 
 ```bash
 trilha runner next --repo trilha=../trilha
@@ -220,13 +222,17 @@ trilha runner worker --cloud https://cloud.example --token "$TOKEN" --project ac
 
 The labels and the capacity ride both the heartbeat and the claim, with the runs in flight, so
 the control plane can send a run whose checks need Postgres to the host that has Docker, and
-keep a project whose data must not leave the country on a worker in that region. A run this
-host cannot honour is refused and reported, never executed quietly. With `--capacity 2` the
-worker keeps two runs going at once, each in its own worktree.
+keep a project whose data must not leave the country on a worker in that region. The payload
+also carries the runs in flight and the runner and driver versions, so an incompatible claim is
+refused before any source is touched. A run this host cannot honour is refused and reported,
+never executed quietly. With `--capacity 2` the worker keeps two runs going at once, each in
+its own worktree.
 
 The same claim can carry the project's own model access — provider, endpoint, credential and
 the hosts that credential may be spent on. It reaches the agent as process environment and
-nowhere else, and it is redacted from the output. When the project lists allowed hosts, a
+nowhere else — the `claude-code` driver always executes `claude -p -` and takes the credential
+as `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` — and it is redacted from the output. It
+overrides the worker's own configuration for that run only. When the project lists allowed hosts, a
 model endpoint outside them is refused *before the first request*: the evidence is a `run`
 record with `stage: policy` and the task goes to `failed`. Residency is enforced by the runner,
 not by trusting each worker's configuration.
@@ -238,69 +244,6 @@ sequence — `steps[]` in order, a `migrate` that runs immediately before the st
 previous revision still serving, and a service that never becomes healthy triggers the
 rollback. The rollback reverses the schema only when the migration declared itself reversible;
 otherwise it is image-only and the log says the schema keeps the new shape.
-
-The worker advertises its execution envelope on every heartbeat and claim. Labels are repeatable
-and capacity defaults to one:
-
-```bash
-trilha runner worker --cloud https://cloud.example --token "$TOKEN" --project my-app \
-  --label docker --label region:br --capacity 2
-```
-
-At capacity two, two runs execute concurrently in separate worktrees. The payload also includes
-the active-run count and runner/driver versions, allowing the control plane to reject incompatible
-claims before source code is touched.
-
-## Project-scoped AI and residency
-
-A claimed run may carry a transient AI configuration (`provider`, `base_url`, `model`,
-`credential`, `allowed_hosts`). It overrides the worker's global environment for that run only.
-The `claude-code` preset always executes `claude -p -`; credentials are injected through
-`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` and redacted from captured output. The `ai`
-driver refuses a base URL whose hostname is outside `allowed_hosts`, records a `run` evidence
-entry with `stage: policy`, and moves the task to `failed` without retrying.
-
-## Metric gates
-
-A check can print one JSON object per metric:
-
-```json
-{"metric":"triage_top1","value":0.87,"threshold":0.85,"comparator":">=","dataset":{"id":"triage-v3","manifest":"eval/golden/manifest.json"}}
-```
-
-The runner keeps the ordinary `check` evidence and adds an `eval` record. A failed comparator
-fails verification even when the process exits zero. Only the named dataset manifest is hashed;
-the underlying dataset is never copied into evidence.
-
-## Cross-repository dependencies
-
-Use `depends_on: trilha:TASK-007` for a dependency owned by another repository and map its alias
-when selecting local work:
-
-```bash
-trilha runner next --repo trilha=../trilha --repo cloud=../trilha-cloud
-```
-
-Missing or incomplete dependencies are reported as `waiting:<alias>:TASK-NNN`. Remote workers use
-the control-plane task-status endpoint and apply the same rule.
-
-## Compose delivery and Docker sandbox
-
-Delivery profiles can declare ordered `steps`, a `migrate` gate before the `switch` step, several
-`health` endpoints and a fixed rollback. Health failure triggers rollback; a non-reversible
-migration is logged as image-only rollback.
-
-For checks that need services, an agent manifest can select Docker:
-
-```yaml
-sandbox:
-  image: ghcr.io/acme/app-ci:latest
-  services: '[{"name":"db","image":"pgvector/pgvector:pg16","env":{"POSTGRES_PASSWORD":"test"},"ready":["pg_isready","-U","postgres"]}]'
-```
-
-The runner owns the limits: read-only roots, one CPU, 1 GiB memory, 256 PIDs and
-`no-new-privileges`. Only the worktree is mounted writable. The Docker socket is never mounted,
-and containers plus their private network are removed even after failure.
 
 ## Challenge
 
