@@ -45,7 +45,8 @@ messages.
 ├── tasks/            TASK-001.md … the executable units
 ├── agents/           coder.md, reviewer.md — who may execute, with what
 ├── context/          extra documents every agent receives
-└── evidence/         the proof each task produced
+├── evidence/         the proof each task produced
+└── keys/             public keys of whoever signs evidence; private keys never here
 ```
 
 :::note
@@ -87,8 +88,28 @@ trilha spec new "Event reminders"
 ```
 
 Write the *why* and the *what* in that file — or hand them in on the command line with
-`--body "…"` or `--body-file PATH` (`-` reads stdin), which replaces the skeleton. The tasks
-point at the spec. Then cut it into work an agent can pick up on its own:
+`--body "…"` or `--body-file PATH` (`-` reads stdin), which replaces the skeleton. A spec is
+born `draft`; when the team agrees on it, `trilha spec move 001-event-reminders approved`,
+and `done` once every task is delivered. A spec that was judged and refused goes to
+`rejected`; one replaced by a newer spec goes to `superseded`, and the newer one names it —
+`trilha spec set 002-… --supersedes 001-event-reminders` (`--depends` for the specs it builds
+on; `doctor` reports a reference that does not exist). `trilha spec list --status approved`
+filters.
+
+A spec also carries its **security impact**, in front matter the tools read: `--asset` for what
+the change touches, `--boundary` for the trust boundaries it crosses, `--control` for the
+controls it affects (`ASVS V4.1`, or whatever your constitution names) and `--evidence` for
+the commands a reviewer must see run — program and arguments, no shell, like a task's checks.
+Each flag repeats; `spec set` replaces the lists it is given. The context pack hands all of it
+to the agent next to the acceptance criteria, `spec show --json` exposes it, and `doctor` warns
+when an `approved` spec declares none of it:
+
+```bash
+trilha spec set 001-event-reminders --asset "events table" --boundary "browser → api" \
+  --control "ASVS V4.1" --evidence "go test ./internal/events/..."
+```
+
+The tasks point at the spec. Then cut it into work an agent can pick up on its own:
 
 ```bash
 trilha spec task add "Reminder field on Event" --spec 001-event-reminders --status ready \
@@ -144,6 +165,15 @@ with `blocked` and `failed` as the two ways out — and a transition that skips 
 refused. The graph is Mermaid by default (`--dot` for Graphviz), so it drops into a README or
 a pull request.
 
+The project as a whole has an envelope and a switch. `trilha spec project limit
+max_cost_per_hour 5` writes a numeric threshold under `limits:` in `project.md` (the protocol
+names `max_cost_per_hour`, `max_failure_rate` and `max_repeated_failure_class`; any other key
+is carried as is); `trilha spec project pause --reason "breaker:max_cost_per_hour"` stops the
+queue without losing it, and `project resume` reopens it. While paused, `task next` answers
+nothing and says why — `--json` stays an empty list, the reason goes to stderr — and the MCP
+`trilha_next` answers an error with the reason. The protocol carries the limits; the runner
+enforces them. `trilha spec project show --json` is the whole state for a tool.
+
 ## What the agent receives
 
 ```bash
@@ -188,6 +218,42 @@ trilha spec task next
 
 A record is never edited; a correction is a new record. That is the whole idea of the
 protocol: a task is done when its acceptance criteria have evidence, not when a chat says so.
+
+A runner leaves a fourth kind, `run`, with its cost in standard fields — `provider`, `model`,
+`tokens_in`, `tokens_out`, `cost`, `currency` — so ledgers from different runners add up:
+
+```bash
+trilha spec evidence TASK-001 add --run --by runner --provider anthropic --model claude-sonnet-5 \
+  --tokens-in 12345 --tokens-out 678 --cost 0.0421 --currency USD
+# #5   ✓ run      runner   anthropic/claude-sonnet-5 12345+678 tokens 0.0421 USD
+```
+
+`cost` is what the runner observed, not a verified number; checking it against the provider's
+invoice is the control plane's job. `--json` exposes every field.
+
+A record anyone could have typed is a claim. A runner can **sign** what it attests: `keygen`
+makes an Ed25519 pair — the private key outside the repository, the public key in
+`.trilha/keys/`, committed — and `--sign-key` puts the signature on the record. `--verify`
+then answers one verdict per record — `unsigned`, `valid` or `invalid` — and fails when any
+signature is invalid, which is what an edited record becomes:
+
+```bash
+trilha spec keygen runner-01
+# private key /Users/ana/.trilha/keys/runner-01.key (keep it out of the repository)
+# public key  .trilha/keys/runner-01.pub (commit it)
+trilha spec evidence TASK-001 add --run --by runner-01 --model claude-sonnet-5 \
+  --sign-key ~/.trilha/keys/runner-01.key
+# recorded #6 (.trilha/evidence/TASK-001/006-run.json), signed by runner-01
+trilha spec evidence TASK-001 --verify
+# #1   ✓ check    trilha-spec verify   unsigned
+# …
+# #6   ✓ run      runner-01            valid runner-01
+# 6 record(s), 1 key(s) in .trilha/keys
+```
+
+The context pack marks each record the same way (`· signed by runner-01`, `· unverified`), so
+an agent reading the evidence knows what is proven and what is only said. `doctor` complains
+if a private key ever lands inside `.trilha/`.
 
 ## When a number, a date or a person decides
 

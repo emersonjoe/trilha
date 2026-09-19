@@ -45,7 +45,8 @@ deste capítulo estão em inglês para bater com o que o agente lê.
 ├── tasks/            TASK-001.md … as unidades executáveis
 ├── agents/           coder.md, reviewer.md — quem pode executar, com o quê
 ├── context/          documentos extras que todo agente recebe
-└── evidence/         a prova que cada task produziu
+├── evidence/         a prova que cada task produziu
+└── keys/             chaves públicas de quem assina evidência; chave privada nunca aqui
 ```
 
 :::nota
@@ -87,8 +88,28 @@ trilha spec new "Lembretes de evento"
 ```
 
 Escreva o *porquê* e o *o quê* nesse arquivo — ou entregue-os na linha de comando com
-`--body "…"` ou `--body-file CAMINHO` (`-` lê stdin), que substitui o esqueleto. As tasks
-apontam para a spec. Depois corte em trabalho que um agente pega sozinho:
+`--body "…"` ou `--body-file CAMINHO` (`-` lê stdin), que substitui o esqueleto. Uma spec
+nasce `draft`; quando o time concorda, `trilha spec move 001-lembretes-de-evento approved`, e
+`done` quando toda task foi entregue. Uma spec julgada e recusada vai para `rejected`; uma
+substituída por outra mais nova vai para `superseded`, e a nova a cita —
+`trilha spec set 002-… --supersedes 001-lembretes-de-evento` (`--depends` para as specs em que
+se apoia; `doctor` aponta referência que não existe). `trilha spec list --status approved`
+filtra.
+
+Uma spec também carrega seu **impacto de segurança**, em front matter que as ferramentas leem:
+`--asset` para o que a mudança toca, `--boundary` para as fronteiras de confiança que cruza,
+`--control` para os controles que afeta (`ASVS V4.1`, ou o que a sua constituição nomear) e
+`--evidence` para os comandos que um revisor precisa ver rodar — programa e argumentos, sem
+shell, como os checks de uma task. Cada flag repete; `spec set` substitui as listas que recebe.
+O pacote de contexto entrega tudo isso ao agente ao lado dos critérios de aceite, `spec show
+--json` expõe, e `doctor` avisa quando uma spec `approved` não declara nada disso:
+
+```bash
+trilha spec set 001-lembretes-de-evento --asset "tabela events" --boundary "browser → api" \
+  --control "ASVS V4.1" --evidence "go test ./internal/events/..."
+```
+
+As tasks apontam para a spec. Depois corte em trabalho que um agente pega sozinho:
 
 ```bash
 trilha spec task add "Campo de lembrete no Event" --spec 001-lembretes-de-evento --status ready \
@@ -143,6 +164,15 @@ percorre uma vida estrita — `idea → spec → ready → running → verify �
 `blocked` e `failed` como as duas saídas — e uma transição que pula etapa é recusada. O grafo
 sai em Mermaid (`--dot` para Graphviz), então cabe num README ou num pull request.
 
+O projeto inteiro tem um envelope e um interruptor. `trilha spec project limit
+max_cost_per_hour 5` grava um limiar numérico sob `limits:` no `project.md` (o protocolo nomeia
+`max_cost_per_hour`, `max_failure_rate` e `max_repeated_failure_class`; qualquer outra chave é
+carregada como está); `trilha spec project pause --reason "breaker:max_cost_per_hour"` para a
+fila sem perdê-la, e `project resume` a reabre. Pausado, `task next` não responde nada e diz por
+quê — `--json` continua uma lista vazia, o motivo vai para stderr — e o `trilha_next` do MCP
+responde erro com o motivo. O protocolo carrega os limites; o runner os faz valer.
+`trilha spec project show --json` é o estado inteiro para uma ferramenta.
+
 ## O que o agente recebe
 
 ```bash
@@ -189,6 +219,42 @@ trilha spec task next
 
 Um registro nunca é editado; correção é registro novo. Essa é a ideia inteira do protocolo:
 uma task está pronta quando seus critérios de aceite têm evidência, não quando um chat diz.
+
+Um runner deixa um quarto tipo, `run`, com o custo em campos padrão — `provider`, `model`,
+`tokens_in`, `tokens_out`, `cost`, `currency` — para que ledgers de runners diferentes somem:
+
+```bash
+trilha spec evidence TASK-001 add --run --by runner --provider anthropic --model claude-sonnet-5 \
+  --tokens-in 12345 --tokens-out 678 --cost 0.0421 --currency USD
+# #5   ✓ run      runner   anthropic/claude-sonnet-5 12345+678 tokens 0.0421 USD
+```
+
+`cost` é o que o runner observou, não um número verificado; conferir com a fatura do provedor
+é trabalho do control plane. `--json` expõe todos os campos.
+
+Um registro que qualquer um poderia ter digitado é uma alegação. Um runner pode **assinar** o
+que atesta: `keygen` gera um par Ed25519 — a chave privada fora do repositório, a pública em
+`.trilha/keys/`, commitada — e `--sign-key` põe a assinatura no registro. `--verify` responde
+então um veredito por registro — `unsigned`, `valid` ou `invalid` — e falha quando alguma
+assinatura é inválida, que é no que um registro editado se transforma:
+
+```bash
+trilha spec keygen runner-01
+# chave privada /Users/ana/.trilha/keys/runner-01.key (mantenha fora do repositório)
+# chave pública .trilha/keys/runner-01.pub (commite)
+trilha spec evidence TASK-001 add --run --by runner-01 --model claude-sonnet-5 \
+  --sign-key ~/.trilha/keys/runner-01.key
+# gravado #6 (.trilha/evidence/TASK-001/006-run.json), assinado por runner-01
+trilha spec evidence TASK-001 --verify
+# #1   ✓ check    trilha-spec verify   unsigned
+# …
+# #6   ✓ run      runner-01            valid runner-01
+# 6 registro(s), 1 chave(s) em .trilha/keys
+```
+
+O pacote de contexto marca cada registro do mesmo jeito (`· signed by runner-01`,
+`· unverified`), para que um agente lendo a evidência saiba o que está provado e o que só foi
+dito. `doctor` reclama se uma chave privada aparecer dentro de `.trilha/`.
 
 ## Quando quem decide é um número, uma data ou uma pessoa
 

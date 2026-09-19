@@ -131,6 +131,69 @@ versioned Trilha Spec bundles and publish specification and implementation branc
 Cloud never supplies a shell line. The runner still executes one task per process and its default
 sandbox remains the worktree; container isolation remains optional.
 
+The worker advertises its execution envelope on every heartbeat and claim. Labels are repeatable
+and capacity defaults to one:
+
+```bash
+trilha runner worker --cloud https://cloud.example --token "$TOKEN" --project my-app \
+  --label docker --label region:br --capacity 2
+```
+
+At capacity two, two runs execute concurrently in separate worktrees. The payload also includes
+the active-run count and runner/driver versions, allowing the control plane to reject incompatible
+claims before source code is touched.
+
+## Project-scoped AI and residency
+
+A claimed run may carry a transient AI configuration (`provider`, `base_url`, `model`,
+`credential`, `allowed_hosts`). It overrides the worker's global environment for that run only.
+The `claude-code` preset always executes `claude -p -`; credentials are injected through
+`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` and redacted from captured output. The `ai`
+driver refuses a base URL whose hostname is outside `allowed_hosts`, records a `run` evidence
+entry with `stage: policy`, and moves the task to `failed` without retrying.
+
+## Metric gates
+
+A check can print one JSON object per metric:
+
+```json
+{"metric":"triage_top1","value":0.87,"threshold":0.85,"comparator":">=","dataset":{"id":"triage-v3","manifest":"eval/golden/manifest.json"}}
+```
+
+The runner keeps the ordinary `check` evidence and adds an `eval` record. A failed comparator
+fails verification even when the process exits zero. Only the named dataset manifest is hashed;
+the underlying dataset is never copied into evidence.
+
+## Cross-repository dependencies
+
+Use `depends_on: trilha:TASK-007` for a dependency owned by another repository and map its alias
+when selecting local work:
+
+```bash
+trilha runner next --repo trilha=../trilha --repo cloud=../trilha-cloud
+```
+
+Missing or incomplete dependencies are reported as `waiting:<alias>:TASK-NNN`. Remote workers use
+the control-plane task-status endpoint and apply the same rule.
+
+## Compose delivery and Docker sandbox
+
+Delivery profiles can declare ordered `steps`, a `migrate` gate before the `switch` step, several
+`health` endpoints and a fixed rollback. Health failure triggers rollback; a non-reversible
+migration is logged as image-only rollback.
+
+For checks that need services, an agent manifest can select Docker:
+
+```yaml
+sandbox:
+  image: ghcr.io/acme/app-ci:latest
+  services: '[{"name":"db","image":"pgvector/pgvector:pg16","env":{"POSTGRES_PASSWORD":"test"},"ready":["pg_isready","-U","postgres"]}]'
+```
+
+The runner owns the limits: read-only roots, one CPU, 1 GiB memory, 256 PIDs and
+`no-new-privileges`. Only the worktree is mounted writable. The Docker socket is never mounted,
+and containers plus their private network are removed even after failure.
+
 ## Challenge
 
 Give the agenda a `reviewer` agent that may only read, and use the manifest's constraints so

@@ -132,6 +132,69 @@ Deploy e rollback usam `--delivery-config`: somente comandos cadastrados localme
 o Cloud nunca fornece uma linha de shell. O runner ainda executa uma task por processo e o
 sandbox padrão continua sendo o worktree; isolamento por container permanece opcional.
 
+O worker anuncia seu envelope de execução em cada heartbeat e claim. Labels são repetíveis e a
+capacidade padrão é um:
+
+```bash
+trilha runner worker --cloud https://cloud.exemplo --token "$TOKEN" --project meu-app \
+  --label docker --label region:br --capacity 2
+```
+
+Com capacidade dois, duas runs executam em paralelo em worktrees separados. O payload também
+leva a quantidade ativa e as versões do runner e dos drivers, permitindo ao control plane
+recusar claims incompatíveis antes de tocar no código-fonte.
+
+## IA por projeto e residência
+
+Uma run reivindicada pode carregar configuração transitória de IA (`provider`, `base_url`,
+`model`, `credential`, `allowed_hosts`). Ela substitui o ambiente global do worker somente nessa
+run. O preset `claude-code` sempre executa `claude -p -`; credenciais entram por
+`CLAUDE_CODE_OAUTH_TOKEN` ou `ANTHROPIC_API_KEY` e são censuradas da saída capturada. O driver
+`ai` recusa URL base cujo hostname não esteja em `allowed_hosts`, grava evidência `run` com
+`stage: policy` e move a task para `failed` sem retry.
+
+## Gates de métrica
+
+Um check pode imprimir um objeto JSON por métrica:
+
+```json
+{"metric":"triage_top1","value":0.87,"threshold":0.85,"comparator":">=","dataset":{"id":"triage-v3","manifest":"eval/golden/manifest.json"}}
+```
+
+O runner mantém a evidência `check` normal e acrescenta um registro `eval`. Comparador reprovado
+falha a verificação mesmo quando o processo termina com zero. Só o manifesto nomeado do dataset
+é hasheado; os dados não são copiados para a evidência.
+
+## Dependências entre repositórios
+
+Use `depends_on: trilha:TASK-007` para uma dependência de outro repositório e mapeie o alias ao
+selecionar trabalho local:
+
+```bash
+trilha runner next --repo trilha=../trilha --repo cloud=../trilha-cloud
+```
+
+Dependências ausentes ou incompletas aparecem como `waiting:<alias>:TASK-NNN`. Workers remotos
+consultam o endpoint de status de task do control plane e aplicam a mesma regra.
+
+## Entrega compose e sandbox Docker
+
+Perfis de entrega podem declarar `steps` ordenados, gate `migrate` antes do passo `switch`, vários
+endpoints `health` e rollback fixo. Falha de health dispara rollback; migração não reversível é
+registrada como rollback somente da imagem.
+
+Para checks que precisam de serviços, um manifesto de agente pode selecionar Docker:
+
+```yaml
+sandbox:
+  image: ghcr.io/acme/app-ci:latest
+  services: '[{"name":"db","image":"pgvector/pgvector:pg16","env":{"POSTGRES_PASSWORD":"test"},"ready":["pg_isready","-U","postgres"]}]'
+```
+
+Os limites pertencem ao runner: raiz somente leitura, uma CPU, 1 GiB de memória, 256 PIDs e
+`no-new-privileges`. Só o worktree é montado para escrita. O socket Docker nunca é montado, e os
+containers e a rede privada são removidos mesmo após falha.
+
 ## Desafio
 
 Dê à agenda um agente `reviewer` que só pode ler, e use as restrições do manifesto para que um
