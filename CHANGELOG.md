@@ -116,6 +116,16 @@ something every public application writes by hand and nobody gets right the firs
   `TestNenhumaReceitaEscreveValorAusente` adds every recipe in both languages and reads what
   was written, so the next forgotten key fails a test instead of a screen.
 
+## Unreleased
+
+### Changed
+
+- The hands-on runner chapter follows trilha-runner 0.3.0 in both locales: `eval` metrics from
+  checks that measure, `--sandbox docker` with declared services, `next --repo alias=path` for a
+  dependency in another repository, worker `--label` and `--capacity`, per-project model access
+  with the residency refusal, delivery profiles with steps and a migration gate, and the
+  `claude-code` driver.
+
 ## 0.136.0 — 2026-09-17
 
 Spec 157. Closes [#251](https://github.com/emersonjoe/trilha/issues/251),
