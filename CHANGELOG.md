@@ -3,6 +3,16 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## Unreleased
+
+### Changed
+
+- The hands-on runner chapter says, in both locales, what makes the Docker sandbox both usable
+  and safe: dropping every capability is what forces the agent to run as the worktree's owner
+  (without `CAP_DAC_OVERRIDE`, a root agent cannot write a worktree you own), and the project's
+  credential enters the container through a file rather than on the `docker exec` command line,
+  which `ps` would show to every user on the machine.
+
 ## 0.139.0 — 2026-09-19
 
 Documentation only. Companion to
