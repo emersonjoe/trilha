@@ -21,6 +21,7 @@ go install github.com/emersonjoe/trilha-runner/cmd/trilha-runner@latest
 cd agenda
 trilha runner drivers
 # ai
+# claude-code
 # echo
 # exec
 ```
@@ -123,13 +124,119 @@ worktree — and, when `trilha-spec` is on the `PATH`, the protocol's read-only 
 can look at the task's dependencies and evidence by itself. The fence is the same whatever
 the driver: the worktree, the manifest's tools, and the checks.
 
+## A check that measures: metrics as evidence
+
+Some acceptance is not a yes or a no. Triage accuracy on a labelled set, a translation score, a
+p95 latency, accessibility violations — each is a number against a threshold, and a number
+buried inside a command's output is invisible to whoever reviews the task. So a harness prints
+one line of JSON per number and the runner turns each into an `eval` record:
+
+```bash
+cat > eval/triage.sh <<'SH'
+#!/bin/sh
+python eval/triage.py            # whatever measures it
+echo '{"metric":"triage_top1","value":0.87,"threshold":0.85,"comparator":">=","dataset":{"id":"triage-v3","manifest":"eval/golden/manifest.json"}}'
+SH
+trilha spec task add "Triage stays above 0.85" --status ready \
+  --accept "top-1 accuracy is at least 0.85" --check "sh eval/triage.sh"
+trilha runner run TASK-005 --driver echo
+# · eval triage_top1=0.87 >= 0.85 (passed=true)
+# TASK-005 → review (driver echo, 1.2s)
+```
+
+The comparators are `>=`, `<=`, `>`, `<`, `==` and `!=`. **A metric that misses its threshold
+fails the task even when the script exits 0** — the exit code says the harness ran, the metric
+says whether the result is good enough. The optional `dataset` names a manifest; the runner
+hashes the manifest, never the data, so a golden set that is large or private still gets
+pinned. Any other line the script prints is ordinary output.
+
+## The sandbox: when the checks need services
+
+The worktree fences what the agent may *touch*. It does not provide what the checks *need*: an
+API suite that wants Postgres fails in it, and correctly so. The agent manifest declares what
+to bring up, and `--sandbox docker` brings it:
+
+```markdown
+---
+name: coder
+role: Implements a task inside its own worktree and produces evidence.
+driver: exec
+command: claude -p -
+tools: [read, write, run]
+sandbox: {"image":"golang:1.22","services":[{"name":"postgres","image":"pgvector/pgvector:pg16","env":{"POSTGRES_PASSWORD":"trilha","POSTGRES_DB":"acervo"},"ready":["pg_isready","-U","postgres"]}]}
+---
+```
+
+```bash
+trilha runner run TASK-006 --sandbox docker
+# · sandbox: service postgres started
+# · sandbox: service postgres ready
+# · sandbox: trilha-task-006 running golang:1.22
+# · sandbox docker: commands run in /workspace
+```
+
+The services come up on a network of their own and answer by name — the check connects to
+`postgres`, not to a port on your machine. The agent and the checks run in a container on that
+network, and the evidence records the wrapped command, so the record says where it ran.
+
+Three things are the runner's and not the manifest's, on purpose: the worktree is the only
+writable path that survives (the root filesystem is read-only, `/tmp` dies with the container),
+the resource limits are fixed by the runner, and nothing mounts the Docker socket. A sandbox
+that can talk to the daemon is not a sandbox. Whatever was created is removed afterwards, even
+when the run failed halfway, so `docker ps` is empty when it is over.
+
+A machine without Docker does not lose anything it had: `--sandbox` defaults to `none` and the
+worktree is still the sandbox.
+
+## Waiting on another repository
+
+A product task can depend on a framework task that lives in a different repository. Say so with
+`depends_on_remote`, and tell `next` where the other checkout is:
+
+```bash
+trilha runner next --repo trilha=../trilha
+# · TASK-005: waiting:trilha:TASK-004 (running)
+# error: runner: no task is ready with every dependency done
+```
+
+The task is not offered, it is reported as `blocked` with the reason as evidence, and the queue
+puts it back to `ready` by itself once the other repository's task is `done`. A dependency the
+runner cannot resolve at all blocks too — it never reads what it cannot see as done. A
+Cloud-connected worker resolves the same dependency against the control plane instead of a path.
+
 ## Persistent worker and delivery
 
 A Cloud-connected worker can keep dedicated checkouts under `--workspace-root`, materialize
 versioned Trilha Spec bundles and publish specification and implementation branches with
-`--push`. Deploy and rollback use `--delivery-config`: only commands configured locally may run;
-Cloud never supplies a shell line. The runner still executes one task per process and its default
-sandbox remains the worktree; container isolation remains optional.
+`--push`.
+
+A fleet is rarely one kind of machine, so a worker says what it is:
+
+```bash
+trilha runner worker --cloud https://cloud.example --token "$TOKEN" --project acervo \
+  --label docker --label region:br --capacity 2
+```
+
+The labels and the capacity ride both the heartbeat and the claim, with the runs in flight, so
+the control plane can send a run whose checks need Postgres to the host that has Docker, and
+keep a project whose data must not leave the country on a worker in that region. A run this
+host cannot honour is refused and reported, never executed quietly. With `--capacity 2` the
+worker keeps two runs going at once, each in its own worktree.
+
+The same claim can carry the project's own model access — provider, endpoint, credential and
+the hosts that credential may be spent on. It reaches the agent as process environment and
+nowhere else, and it is redacted from the output. When the project lists allowed hosts, a
+model endpoint outside them is refused *before the first request*: the evidence is a `run`
+record with `stage: policy` and the task goes to `failed`. Residency is enforced by the runner,
+not by trusting each worker's configuration.
+
+Deploy and rollback use `--delivery-config`: only commands configured locally may run; Cloud
+never supplies a shell line. A profile that is a compose stack with a database declares its own
+sequence — `steps[]` in order, a `migrate` that runs immediately before the step marked
+`switch`, and `health[]` per service — so a migration that fails aborts the delivery with the
+previous revision still serving, and a service that never becomes healthy triggers the
+rollback. The rollback reverses the schema only when the migration declared itself reversible;
+otherwise it is image-only and the log says the schema keeps the new shape.
 
 The worker advertises its execution envelope on every heartbeat and claim. Labels are repeatable
 and capacity defaults to one:

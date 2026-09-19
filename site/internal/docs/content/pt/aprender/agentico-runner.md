@@ -22,6 +22,7 @@ go install github.com/emersonjoe/trilha-runner/cmd/trilha-runner@latest
 cd agenda
 trilha runner drivers
 # ai
+# claude-code
 # echo
 # exec
 ```
@@ -124,13 +125,119 @@ O modelo recebe `read_file` e `list_files` sempre, `write_file` só quando o man
 dependências e a evidência da task. A cerca é a mesma seja qual for o driver: o worktree, as
 ferramentas do manifesto e os checks.
 
+## Um check que mede: métricas como evidência
+
+Nem toda aceitação é um sim ou um não. Acurácia de triagem num conjunto rotulado, nota de
+tradução, p95 de latência, violações de acessibilidade — cada um é um número contra um limiar, e
+um número enterrado na saída de um comando é invisível para quem revisa a task. Então a bateria
+imprime uma linha de JSON por número e o runner transforma cada uma num registro `eval`:
+
+```bash
+cat > eval/triagem.sh <<'SH'
+#!/bin/sh
+python eval/triagem.py           # o que quer que meça
+echo '{"metric":"triage_top1","value":0.87,"threshold":0.85,"comparator":">=","dataset":{"id":"triage-v3","manifest":"eval/golden/manifest.json"}}'
+SH
+trilha spec task add "Triagem fica acima de 0.85" --status ready \
+  --accept "acurácia top-1 de pelo menos 0.85" --check "sh eval/triagem.sh"
+trilha runner run TASK-005 --driver echo
+# · eval triage_top1=0.87 >= 0.85 (passed=true)
+# TASK-005 → review (driver echo, 1.2s)
+```
+
+Os comparadores são `>=`, `<=`, `>`, `<`, `==` e `!=`. **Uma métrica que não alcança o limiar
+reprova a task mesmo que o script saia com 0** — o código de saída diz que a bateria rodou, a
+métrica diz se o resultado é bom o bastante. O `dataset` opcional nomeia um manifesto; o runner
+faz o hash do manifesto, nunca dos dados, então um conjunto dourado grande ou privado também
+fica fixado. Qualquer outra linha que o script imprima é saída comum.
+
+## O sandbox: quando os checks precisam de serviços
+
+O worktree cerca o que o agente pode *tocar*. Ele não fornece o que os checks *precisam*: uma
+suíte de API que quer Postgres falha nele, e com razão. O manifesto do agente declara o que
+subir, e `--sandbox docker` sobe:
+
+```markdown
+---
+name: coder
+role: Implementa uma task no worktree dela e produz evidência.
+driver: exec
+command: claude -p -
+tools: [read, write, run]
+sandbox: {"image":"golang:1.22","services":[{"name":"postgres","image":"pgvector/pgvector:pg16","env":{"POSTGRES_PASSWORD":"trilha","POSTGRES_DB":"acervo"},"ready":["pg_isready","-U","postgres"]}]}
+---
+```
+
+```bash
+trilha runner run TASK-006 --sandbox docker
+# · sandbox: service postgres started
+# · sandbox: service postgres ready
+# · sandbox: trilha-task-006 running golang:1.22
+# · sandbox docker: commands run in /workspace
+```
+
+Os serviços sobem numa rede própria e respondem pelo nome — o check conecta em `postgres`, não
+numa porta da sua máquina. O agente e os checks rodam num container nessa rede, e a evidência
+registra o comando embrulhado, então o registro diz onde rodou.
+
+Três coisas são do runner e não do manifesto, de propósito: o worktree é o único caminho
+gravável que sobrevive (o sistema de arquivos raiz é somente leitura, `/tmp` morre com o
+container), os limites de recurso são fixados pelo runner, e nada monta o socket do Docker. Um
+sandbox que fala com o daemon não é sandbox. O que foi criado é removido depois, mesmo quando a
+execução falhou no meio, então `docker ps` está vazio no fim.
+
+Uma máquina sem Docker não perde nada do que tinha: `--sandbox` vale `none` por padrão e o
+worktree continua sendo o sandbox.
+
+## Esperando por outro repositório
+
+Uma task de produto pode depender de uma task de framework que mora em outro repositório. Diga
+isso com `depends_on_remote` e diga ao `next` onde está o outro checkout:
+
+```bash
+trilha runner next --repo trilha=../trilha
+# · TASK-005: waiting:trilha:TASK-004 (running)
+# error: runner: no task is ready with every dependency done
+```
+
+A task não é oferecida, é reportada como `blocked` com o motivo em evidência, e a própria fila a
+devolve para `ready` assim que a task do outro repositório estiver `done`. Uma dependência que o
+runner não consegue resolver também bloqueia — ele nunca lê como pronto o que não consegue ver.
+Um worker conectado ao Cloud resolve a mesma dependência contra o control plane, não contra um
+caminho.
+
 ## Worker persistente e entrega
 
 O worker conectado ao Cloud pode manter checkouts dedicados em `--workspace-root`, materializar
 bundles versionados do Trilha Spec e publicar os branches de spec e implementação com `--push`.
+
+Uma frota raramente é de um tipo só de máquina, então o worker diz o que ele é:
+
+```bash
+trilha runner worker --cloud https://cloud.exemplo --token "$TOKEN" --project acervo \
+  --label docker --label region:br --capacity 2
+```
+
+Os labels e a capacidade viajam no heartbeat e na claim, junto das execuções em voo, para o
+control plane mandar uma execução cujos checks precisam de Postgres para o host que tem Docker,
+e manter um projeto cujos dados não podem sair do país num worker daquela região. Uma execução
+que este host não pode honrar é recusada e reportada, nunca executada em silêncio. Com
+`--capacity 2` o worker toca duas execuções ao mesmo tempo, cada uma no seu worktree.
+
+A mesma claim pode trazer o acesso ao modelo do próprio projeto — provedor, endpoint, credencial
+e os hosts em que essa credencial pode ser gasta. Ele chega ao agente como ambiente do processo e
+em nenhum outro lugar, e é redigido da saída. Quando o projeto lista hosts permitidos, um
+endpoint fora deles é recusado *antes da primeira requisição*: a evidência é um registro `run`
+com `stage: policy` e a task vai para `failed`. Residência é imposta pelo runner, não por
+confiar na configuração de cada worker.
+
 Deploy e rollback usam `--delivery-config`: somente comandos cadastrados localmente podem rodar;
-o Cloud nunca fornece uma linha de shell. O runner ainda executa uma task por processo e o
-sandbox padrão continua sendo o worktree; isolamento por container permanece opcional.
+o Cloud nunca fornece uma linha de shell. Um perfil que é uma stack `compose` com banco declara
+a própria sequência — `steps[]` em ordem, um `migrate` que roda imediatamente antes do passo
+marcado `switch`, e `health[]` por serviço — então uma migração que falha aborta a entrega com a
+revisão anterior ainda servindo, e um serviço que nunca fica saudável dispara o rollback. O
+rollback reverte o schema só quando a migração se declarou reversível; caso contrário é
+só-imagem e o log diz que o schema mantém a forma nova.
 
 O worker anuncia seu envelope de execução em cada heartbeat e claim. Labels são repetíveis e a
 capacidade padrão é um:
