@@ -89,3 +89,50 @@ func trechoDaLinha(s string, i int) string {
 	}
 	return strings.TrimSpace(s[inicio : i+fim])
 }
+
+// A rede de segurança do fallback tem um custo: se alguém apagar uma tradução,
+// o inglês entra no lugar e a tela continua legível — então o teste acima, que
+// só procura "<no value>", passa calado. Este fecha essa porta.
+//
+// A ideia é do PR #276, aberto contra a mesma #274: afirmar que o português
+// traduz de fato, em vez de só cair no inglês.
+func TestPortuguesTraduzEmVezDeCairNoIngles(t *testing.T) {
+	en, pt := wordsEN(), words("pt")
+
+	// O fallback cobre toda chave: é o que a #274 pediu.
+	for chave := range en {
+		if pt[chave] == "" {
+			t.Errorf("pt[%q] ficou vazia; o fallback para o inglês não cobriu", chave)
+		}
+	}
+
+	// E as dezessete que a #274 encontrou estão na tabela em português, não
+	// emprestadas do inglês. Sem isto, apagar uma tradução não reprova nada.
+	dezessete := []string{
+		"blob_title", "blob_desc", "blob_field", "blob_send", "blob_empty",
+		"blob_name", "blob_type", "blob_size", "blob_when",
+		"share_title", "share_desc", "share_item",
+		"inbox_title", "inbox_desc", "inbox_recent", "inbox_done", "inbox_not_yours",
+	}
+	tabela := wordsPT()
+	for _, chave := range dezessete {
+		valor, tem := tabela[chave]
+		if !tem || valor == "" {
+			t.Errorf("%q saiu da tabela em português; voltaria a ser servida em inglês", chave)
+			continue
+		}
+		// share_item é "Item %s." nos dois idiomas, e é assim mesmo: o verbo
+		// do Sprintf é o conteúdo. Os outros têm de diferir.
+		if chave != "share_item" && valor == en[chave] {
+			t.Errorf("pt[%q] é o texto em inglês", chave)
+		}
+	}
+
+	// O verbo do Sprintf sobrevive à tradução: uma chave que o perdesse
+	// escreveria a tela sem o id.
+	for _, chave := range []string{"share_item", "mail_welcome_hi"} {
+		if !strings.Contains(tabela[chave], "%s") {
+			t.Errorf("pt[%q] perdeu o %%s: %q", chave, tabela[chave])
+		}
+	}
+}
