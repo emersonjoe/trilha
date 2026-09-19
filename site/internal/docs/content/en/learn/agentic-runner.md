@@ -179,10 +179,11 @@ The services come up on a network of their own and answer by name — the check 
 `postgres`, not to a port on your machine. The agent and the checks run in a container on that
 network, and the evidence records the wrapped command, so the record says where it ran.
 
-Three things are the runner's and not the manifest's, on purpose: the worktree is the only
+Four things are the runner's and not the manifest's, on purpose: the worktree is the only
 writable path that survives (the root filesystem is read-only, `/tmp` dies with the container),
-the resource limits are fixed by the runner, and nothing mounts the Docker socket. A sandbox
-that can talk to the daemon is not a sandbox. Whatever was created is removed afterwards, even
+the resource limits are fixed by the runner, the agent runs as the user that owns the worktree
+rather than as root, and nothing mounts the Docker socket. A sandbox that can talk to the
+daemon is not a sandbox. Whatever was created is removed afterwards, even
 when the run failed halfway, so `docker ps` is empty when it is over.
 
 A machine without Docker does not lose anything it had: `--sandbox` defaults to `none` and the

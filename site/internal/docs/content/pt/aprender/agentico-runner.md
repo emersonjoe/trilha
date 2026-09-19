@@ -180,10 +180,11 @@ Os serviços sobem numa rede própria e respondem pelo nome — o check conecta 
 numa porta da sua máquina. O agente e os checks rodam num container nessa rede, e a evidência
 registra o comando embrulhado, então o registro diz onde rodou.
 
-Três coisas são do runner e não do manifesto, de propósito: o worktree é o único caminho
+Quatro coisas são do runner e não do manifesto, de propósito: o worktree é o único caminho
 gravável que sobrevive (o sistema de arquivos raiz é somente leitura, `/tmp` morre com o
-container), os limites de recurso são fixados pelo runner, e nada monta o socket do Docker. Um
-sandbox que fala com o daemon não é sandbox. O que foi criado é removido depois, mesmo quando a
+container), os limites de recurso são fixados pelo runner, o agente roda como o usuário dono do
+worktree e não como root, e nada monta o socket do Docker. Um sandbox que fala com o daemon não
+é sandbox. O que foi criado é removido depois, mesmo quando a
 execução falhou no meio, então `docker ps` está vazio no fim.
 
 Uma máquina sem Docker não perde nada do que tinha: `--sandbox` vale `none` por padrão e o
