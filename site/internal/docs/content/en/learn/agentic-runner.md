@@ -181,11 +181,22 @@ network, and the evidence records the wrapped command, so the record says where 
 
 Four things are the runner's and not the manifest's, on purpose: the worktree is the only
 writable path that survives (the root filesystem is read-only, `/tmp` dies with the container),
-the resource limits are fixed by the runner (one CPU, 1 GiB of memory, 256 PIDs and
-`no-new-privileges`), the agent runs as the user that owns the worktree rather than as root,
-and nothing mounts the Docker socket. A sandbox that can talk to the
+the resource limits are fixed by the runner (one CPU, 1 GiB of memory, 256 PIDs,
+`cap-drop ALL` and `no-new-privileges`), the agent runs as the user that owns the worktree
+rather than as root, and nothing mounts the Docker socket. A sandbox that can talk to the
 daemon is not a sandbox. Whatever was created is removed afterwards, even
 when the run failed halfway, so `docker ps` is empty when it is over.
+
+The third of those is not politeness, it is what makes the first one work. Dropping every
+capability takes away `CAP_DAC_OVERRIDE`, and root inside a container then stops bypassing file
+permission checks — so a root agent could not write the worktree at all, because the worktree
+belongs to you. Running as its owner is what keeps the one writable path writable.
+
+There is a fourth thing you never have to arrange, and it is worth knowing why. Your project's
+credential goes into the container **once**, through a file only you can read, when the
+container starts. Nothing is passed on the `docker exec` line, because that line is the argv of
+a process on your own machine — and `ps` shows a process's arguments to every user on it. A
+secret that rides a command line is a secret you have published locally.
 
 A machine without Docker does not lose anything it had: `--sandbox` defaults to `none` and the
 worktree is still the sandbox.

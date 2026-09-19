@@ -182,11 +182,23 @@ registra o comando embrulhado, então o registro diz onde rodou.
 
 Quatro coisas são do runner e não do manifesto, de propósito: o worktree é o único caminho
 gravável que sobrevive (o sistema de arquivos raiz é somente leitura, `/tmp` morre com o
-container), os limites de recurso são fixados pelo runner (uma CPU, 1 GiB de memória, 256 PIDs
-e `no-new-privileges`), o agente roda como o usuário dono do worktree e não como root, e nada
-monta o socket do Docker. Um sandbox que fala com o daemon não
+container), os limites de recurso são fixados pelo runner (uma CPU, 1 GiB de memória, 256 PIDs,
+`cap-drop ALL` e `no-new-privileges`), o agente roda como o usuário dono do worktree e não como
+root, e nada monta o socket do Docker. Um sandbox que fala com o daemon não
 é sandbox. O que foi criado é removido depois, mesmo quando a
 execução falhou no meio, então `docker ps` está vazio no fim.
+
+A terceira dessas não é boa educação, é o que faz a primeira funcionar. Derrubar todas as
+capabilities tira o `CAP_DAC_OVERRIDE`, e aí root dentro do container para de burlar as
+permissões de arquivo — então um agente root não conseguiria escrever no worktree de jeito
+nenhum, porque o worktree é seu. Rodar como o dono dele é o que mantém gravável o único caminho
+gravável.
+
+Existe uma quarta coisa que você nunca precisa arranjar, e vale saber por quê. A credencial do
+seu projeto entra no container **uma vez**, por um arquivo que só você pode ler, quando o
+container sobe. Nada é passado na linha do `docker exec`, porque aquela linha é a argv de um
+processo na sua própria máquina — e o `ps` mostra os argumentos de um processo para qualquer
+usuário dela. Segredo que anda em linha de comando é segredo que você publicou localmente.
 
 Uma máquina sem Docker não perde nada do que tinha: `--sandbox` vale `none` por padrão e o
 worktree continua sendo o sandbox.
