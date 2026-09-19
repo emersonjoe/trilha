@@ -3,6 +3,36 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.138.0 — 2026-09-19
+
+Documentation only: the agentic chapters of the site catch up with what Trilha Spec 0.3,
+Trilha Runner and Trilha Cloud already do. No runtime, CLI or kit change.
+
+### Documentation
+
+- **The agentic-protocol chapter reads the whole of a spec's front matter.** The status
+  lifecycle (`draft`, `approved`, `done`, `rejected`, `superseded`, with `--supersedes` and
+  `--depends`), the security impact the tools carry (`--asset`, `--boundary`, `--control`,
+  `--evidence`), project limits with `project pause` and `resume`, the `run` evidence record
+  with its cost fields, and Ed25519 signing of what a runner attests (`keygen`, `--sign-key`,
+  `--verify`). It sits beside the protocol 0.3 section — metric gates, milestones,
+  attestations with quorum, cross-repository dependencies — and the MCP tool list names
+  `trilha_coverage` and `trilha_attest`.
+- **The agentic-runner chapter documents the same from the runner's side**: project-scoped
+  AI and residency, metric gates, cross-repository dependencies, Compose delivery and the
+  Docker sandbox.
+- **The agentic-cloud chapter gains chapters 13 to 18**: pause, resume and circuit breaker;
+  evals, signed attestations, quorum, export and metrics; the GitHub App, signed webhooks and
+  the way back; Postgres, migration, backup and retention; provider, policy, scheduling and
+  cost per project; multi-service promotion with approval and report; organizations, roles,
+  OpenID Connect and the program board.
+- **`TestPortuguesTraduzEmVezDeCairNoIngles` closes the door the #274 fallback opened**: a
+  key dropped from the Portuguese table would be served in English with the `<no value>` test
+  still green. The test now asserts every key is translated, not borrowed, and that the
+  `Sprintf` verb survives the translation (from PR #276 by team-humaki).
+
+English and Portuguese in the same commits.
+
 ## 0.137.0 — 2026-09-18
 
 Spec 158. Closes [#266](https://github.com/emersonjoe/trilha/issues/266),
