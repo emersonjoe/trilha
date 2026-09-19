@@ -378,26 +378,40 @@ curl -X POST http://localhost:3000/api/admin/projects \
   -d '{"name":"cadastro-usuarios","org":"trilha","repo":"local:///workspace/cadastro-usuarios"}'
 ```
 
-### 7. Issue the worker key
+### 7. Add the worker
 
-Select **Issue key**, use the name `cadastro-usuarios-worker` and keep the
-`runs:read` and `runs:write` scopes. The `tc_…` secret is shown only once;
-store it in a secret manager. In the portal, **Use this key** also fills it in
-for the current browser session.
+In the **Fleet** section, select **Add worker**, choose `cadastro-usuarios`, name the worker
+`cadastro-usuarios-worker` and confirm. This issues a key scoped to `runs:read` and
+`runs:write` for that project — the same `POST /api/admin/keys` any key goes through — and
+shows, once, the install command built from the project you actually picked and the `tc_…`
+secret, each with its own copy button.
 
-![Issue API key dialog](/docs/agentic-cloud/cloud-issue-key.png "The worker key must read the queue and publish the result.")
+![Add worker dialog](/docs/agentic-cloud/cloud-issue-key.png "Picking the project fills in the install command and issues a worker key scoped to it.")
 
-The equivalent API operation is:
+Paste the command on the machine that will run the worker — it installs `trilha-runner`,
+`trilha-spec` and the Claude Code CLI, creates a dedicated `runner` system user, generates a
+deploy key and waits for it to be added to the repository, clones the checkout and starts a
+hardened `systemd` service that keeps the worker running:
 
 ```bash
-curl -X POST http://localhost:3000/api/admin/keys \
-  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"cadastro-usuarios-worker","project":"cadastro-usuarios","expires_days":30,"scopes":["runs:read","runs:write","deployments:write","secrets:read"]}'
-# copy the response key field to TRILHA_CLOUD_API_KEY
+curl -fsSL http://localhost:3000/install/worker.sh -o worker.sh && sudo \
+  TRILHA_CLOUD=http://localhost:3000 \
+  TRILHA_PROJECT=cadastro-usuarios \
+  TRILHA_REPO=git@github.com:trilha/cadastro-usuarios.git \
+  TRILHA_WORKER_NAME=cadastro-usuarios-worker \
+  bash worker.sh
+# pastes the tc_… key when it asks — it is never a CLI argument
 ```
 
-### 8. Queue the task and connect the runner
+`TRILHA_DRY_RUN=1` prints the same plan — the system user, `worker.env`'s path, mode and
+owner, the systemd unit name, `WorkingDirectory` — without touching the host, requiring root,
+or asking for the token; it is the way to read what the script would do before running it for
+real. Two steps stay manual after it finishes: `sudo -u runner -H claude auth login`, and
+confirming the unit is up with `systemctl status trilha-runner-cadastro-usuarios`. Whatever the
+worker's own project needs — a database, an AI provider key — is that project's setup, not the
+installer's.
+
+### 8. Queue the task
 
 In the portal, select **New run** and choose `cadastro-usuarios`; the dialog fetches
 `GET /api/projects/cadastro-usuarios/tasks` and fills a picker with every task the
@@ -418,9 +432,10 @@ curl -X POST http://localhost:3000/api/runs \
   -d '{"project":"cadastro-usuarios","task_id":"TASK-001"}'
 ```
 
-Run a worker from the application checkout. The `echo` driver makes this
-acceptance deterministic: it proves the protocol, worktree, commit and checks
-without depending on an AI provider.
+The worker the installer started in step 7 picks this up on its own — watch it arrive under
+**Details**. To reproduce the same proof locally and deterministically, without an AI
+provider or the installed worker's own driver in the way, run a temporary worker in the
+foreground with the `echo` driver instead — this is what this tutorial's own acceptance uses:
 
 ```bash
 cd cadastro-usuarios

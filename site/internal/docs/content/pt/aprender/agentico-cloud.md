@@ -378,26 +378,40 @@ curl -X POST http://localhost:3000/api/admin/projects \
   -d '{"name":"cadastro-usuarios","org":"trilha","repo":"local:///workspace/cadastro-usuarios"}'
 ```
 
-### 7. Emita a chave do worker
+### 7. Adicione o worker
 
-Selecione **Emitir chave**, use o nome `cadastro-usuarios-worker` e mantenha os
-escopos `runs:read` e `runs:write`. O segredo `tc_…` aparece uma única vez;
-guarde-o em um gerenciador de segredos. No portal, **Usar esta chave** também a
-preenche na configuração da sessão atual.
+Na seção **Frota**, selecione **Adicionar worker**, escolha `cadastro-usuarios`, dê ao worker
+o nome `cadastro-usuarios-worker` e confirme. Isso emite uma chave com os escopos
+`runs:read` e `runs:write` presa a esse projeto — o mesmo `POST /api/admin/keys` por onde
+qualquer chave passa — e mostra, uma única vez, o comando de instalação já montado a partir do
+projeto escolhido e o segredo `tc_…`, cada um com seu próprio botão de copiar.
 
-![Diálogo Emitir API key](/docs/agentic-cloud/cloud-issue-key.png "A chave do worker precisa ler a fila e publicar o resultado.")
+![Diálogo Adicionar worker](/docs/agentic-cloud/cloud-issue-key.png "Escolher o projeto preenche o comando de instalação e emite uma chave de worker presa a ele.")
 
-Pela API, a operação equivalente é:
+Cole o comando na máquina que vai rodar o worker — ele instala o `trilha-runner`, o
+`trilha-spec` e o CLI do Claude Code, cria um usuário de sistema `runner` dedicado, gera uma
+deploy key e espera ela ser cadastrada no repositório, clona o checkout e sobe um serviço
+`systemd` reforçado que mantém o worker rodando:
 
 ```bash
-curl -X POST http://localhost:3000/api/admin/keys \
-  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"cadastro-usuarios-worker","project":"cadastro-usuarios","expires_days":30,"scopes":["runs:read","runs:write","deployments:write","secrets:read"]}'
-# copie o campo key da resposta para TRILHA_CLOUD_API_KEY
+curl -fsSL http://localhost:3000/install/worker.sh -o worker.sh && sudo \
+  TRILHA_CLOUD=http://localhost:3000 \
+  TRILHA_PROJECT=cadastro-usuarios \
+  TRILHA_REPO=git@github.com:trilha/cadastro-usuarios.git \
+  TRILHA_WORKER_NAME=cadastro-usuarios-worker \
+  bash worker.sh
+# cole a chave tc_… quando o script pedir — ela nunca é um argumento de linha de comando
 ```
 
-### 8. Enfileire a task e conecte o runner
+`TRILHA_DRY_RUN=1` imprime o mesmo plano — usuário de sistema, caminho/permissão/dono de
+`worker.env`, nome do unit do systemd, `WorkingDirectory` — sem tocar no host, sem exigir
+root nem pedir o token; é a forma de ler o que o script faria antes de rodá-lo de verdade.
+Dois passos continuam manuais depois que ele termina: `sudo -u runner -H claude auth login` e
+conferir o unit com `systemctl status trilha-runner-cadastro-usuarios`. O que o próprio
+projeto do worker precisar — um banco de dados, a chave de um provedor de IA — é configuração
+desse projeto, não do instalador.
+
+### 8. Enfileire a task
 
 No portal, selecione **Nova execução** e escolha `cadastro-usuarios`; o diálogo busca
 `GET /api/projects/cadastro-usuarios/tasks` e preenche um seletor com cada task que
@@ -419,9 +433,10 @@ curl -X POST http://localhost:3000/api/runs \
   -d '{"project":"cadastro-usuarios","task_id":"TASK-001"}'
 ```
 
-No checkout da aplicação, execute um worker. O driver `echo` torna esta
-homologação determinística: ele prova o protocolo, o worktree, o commit e os
-checks sem depender de um provedor de IA.
+O worker que o instalador ligou no passo 7 pega essa task sozinho — acompanhe a chegada em
+**Detalhes**. Para reproduzir a mesma prova localmente e de forma determinística, sem depender
+de um provedor de IA nem do driver do worker instalado, rode um worker temporário em primeiro
+plano com o driver `echo` — é exatamente o que a homologação deste tutorial usa:
 
 ```bash
 cd cadastro-usuarios
