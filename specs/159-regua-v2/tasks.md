@@ -71,19 +71,21 @@ porque `bench` é módulo separado — **correção de caminho** sobre o plano, 
   `TestCustosPageMatchesResults` (`go test ./site/... -run TestCustos`) +
   `make test` verde.
 
-- [ ] **T07** — Capítulo curto no Learn (en+pt) "The ruler"/"A régua" apontando para
+- [x] **T07** — Capítulo curto no Learn (en+pt) "The ruler"/"A régua" apontando para
   `/custos`, registrado nas duas `Locales`, no mesmo commit das páginas. *Aceite:*
   `go test ./site/... -run TestLocalesInSync` verde.
 
 ## Bloco 4 — CI e governança
 
-- [ ] **T08** — CI: job `bench` em `.github/workflows/bench.yml` (`workflow_dispatch` +
+- [x] **T08** — CI: job `bench` em `.github/workflows/bench.yml` (`workflow_dispatch` +
   agenda semanal) rodando a régua e abrindo PR com o `results.json` novo; nada automático
   na `main`; segredo do agente via GitHub Secrets. *Aceite:* YAML válido
   (`python3 -c "import yaml,sys;yaml.safe_load(open('.github/workflows/bench.yml'))"`) e
-  mesma forma dos workflows existentes.
+  mesma forma dos workflows existentes. **Nota:** a abertura do PR usa o `gh` do runner com
+  o token efêmero do workflow — nenhuma action de terceiros entra na cadeia (disciplina da
+  spec 152); a medição só roda com `vars.AGENT_MEASURE=1` e o segredo do agente presentes.
 
-- [ ] **T09** — Seção NIST SSDF 1.1 / OWASP ASVS 5.0 nível 2 com evidências na spec
+- [x] **T09** — Seção NIST SSDF 1.1 / OWASP ASVS 5.0 nível 2 com evidências na spec
   (a régua não toca fronteiras de confiança do produto; página com dados agregados e escape
   padrão; CI sem gatilho por PR; nenhum segredo commitado). *Aceite:* seção preenchida em
   spec.md (Requirements → Security and privacy impact) e revisada no fim da sessão.

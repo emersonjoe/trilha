@@ -1,0 +1,63 @@
+name: bench
+# A régua de agente (spec 159). Roda por despacho e uma vez por semana,
+# nunca por PR: o custo da régua não entra na conta, e um runner de PR não
+# tem as credenciais do agente. A série nova vira um PR para o mantenedor
+# revisar — nada é commitado direto na main.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # segundas-feiras, 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    # Escalado só quando a medição roda: a prova seca não escreve nada.
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Configure ephemeral Go caches
+        run: |
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.25"
+          cache: false
+      - name: Prove the ruler without spending tokens
+        run: make bench-agent-dry
+      # A medição gasta tokens de verdade: só roda quando a sessão do agente
+      # está configurada (secret/vars do repositório). Sem elas, o job fica
+      # na prova seca — que já é o contrato sem custo.
+      - name: Measure the savings series
+        if: ${{ vars.AGENT_MEASURE == '1' }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.AGENT_TOKEN }}
+        run: |
+          cd bench/agent && go run . -measure -runs 3
+          go run . -verify -min 45
+      # O PR é aberto com o gh do runner e o token efêmero do próprio
+      # workflow — nenhuma action de terceiros entra na cadeia, e a main
+      # continua intocada: quem revisa a série é o mantenedor.
+      - name: Open the series as a pull request
+        if: ${{ vars.AGENT_MEASURE == '1' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "trilha-bench"
+          git config user.email "bench@users.noreply.github.com"
+          git checkout -b bench/weekly-series
+          git add bench/agent/results/results.json
+          git commit -m "bench: weekly savings series"
+          gh auth setup-git
+          gh pr create --base main --head bench/weekly-series \
+            --title "bench: weekly savings series" \
+            --body "Automated measurement of the agent ruler (spec 159). Review the series before merging; the gate passed at the milestone minimum."
