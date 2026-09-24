@@ -44,12 +44,12 @@ func TestInstalledRecipes(t *testing.T) {
 	// Strict is the caller's decision, but the cut is the pack's: a tight
 	// budget cuts the recipes before the routes — and an empty section is
 	// absence, not a cut.
-	tight, err := c.PackOf("app", got, 40)
+	tight, err := c.PackOf("app", got, 35)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(tight.Truncated) == 0 {
-		t.Fatal("a 40-token budget must cut something on this map")
+		t.Fatal("a 35-token budget must cut something on this map")
 	}
 	if strings.Join(tight.Truncated, ",") != "recipes" {
 		t.Fatalf("truncated = %v", tight.Truncated)
