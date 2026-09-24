@@ -14,11 +14,53 @@ import (
 // that decides whether it was done. The prompt is part of the contract: it
 // does not change without a version, or the before and the after would be
 // two different rulers.
+//
+// The v2 fields (spec 159) add the other side of the measurement: a scenario
+// may name its own starting app (AppDir, a committed fixture under apps/)
+// instead of an example, and a Go-pure baseline (BaseDir, under baseline/)
+// doing the same job with the standard library alone — that pairing is what
+// turns a cost into a saving. Prompts live in frozen files under prompts/
+// and are loaded from there; the inline Prompt field is what the ruler uses
+// and the freeze test proves it is byte-for-byte the file's.
 type Scenario struct {
 	Name    string
 	Title   string
 	Example string // examples/blog or examples/sso, relative to the repo
 	Prompt  string
+
+	// ID is the key the measurement series uses for this scenario, on both
+	// sides ("comments", "s5-login"). Empty on the scenarios that are not in
+	// the savings series (no baseline).
+	ID string
+	// PromptMD is the frozen file this scenario's prompt comes from,
+	// relative to bench/agent ("prompts/comments.md").
+	PromptMD string
+	// AppDir is a committed starting app under bench/agent/apps/, for the
+	// scenarios that do not start from an example. Empty means Example.
+	AppDir string
+	// Gate lists the commands that must pass when the agent is done, in
+	// order, split on spaces ("trilha check"); empty means the v1 default
+	// of `go vet ./...` then `go test ./...`. The trilha command resolves
+	// to the CLI the ruler built.
+	Gate []string
+	// MaxRounds caps the agent's turns on this scenario; 0 leaves the
+	// command-line cap in charge.
+	MaxRounds int
+
+	// BaseDir is the Go-pure baseline of the same task, under
+	// bench/agent/baseline/ — one go.mod of its own, stdlib only. Empty
+	// means this scenario is not in the savings series yet.
+	BaseDir          string
+	BaselinePromptMD string // prompts/<id>.baseline.md, frozen like the rest
+	// BaselineGate is Gate for the baseline side (no trilha there).
+	BaselineGate []string
+	// BaselinePrepare edits the copied baseline before the agent sees it.
+	BaselinePrepare func(dir string) error
+	// BaselineTests are the baseline side's hidden tests, same shape as
+	// Tests: they fail on the untouched fixture and pass when the task is
+	// done in stdlib terms.
+	BaselineTests map[string]string
+
 	// Prepare edits the copied example before the agent sees it. Nil keeps
 	// the example as it is.
 	Prepare func(dir string) error
@@ -36,9 +78,29 @@ type Scenario struct {
 	Serve func() (env []string, stop func())
 }
 
-// Scenarios in the order the table shows them.
+// Scenarios in the order the table shows them: the eight v1 ones first, the
+// four the savings series starts with after.
 func Scenarios() []Scenario {
-	return []Scenario{comments, contactForm, cognito, pagination, generateCRUD, fixHint, portListing, apiCall}
+	return []Scenario{
+		comments, contactForm, cognito, pagination, generateCRUD, fixHint, portListing, apiCall,
+		s5Login, s6CRUD, s7Tela, s8Conserto,
+	}
+}
+
+// SeriesScenarios are the ones the savings series covers: the four v1
+// scenarios that have an honest stdlib twin, plus the four new ones.
+// cognito (switching OIDC providers is not a stdlib task), fix-hint (what it
+// measures is the framework's own Hint), port-listing and api-call (they
+// measure porting into Trilha and need a live service) stay ruler-side until
+// they earn a baseline.
+func SeriesScenarios() []Scenario {
+	var out []Scenario
+	for _, s := range Scenarios() {
+		if s.BaseDir != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // ScenarioByName finds one; "" is not a name.
@@ -52,10 +114,16 @@ func ScenarioByName(name string) (Scenario, bool) {
 }
 
 var comments = Scenario{
-	Name:    "comments",
-	Title:   "rota de API com Bind, validação e 404",
-	Example: "examples/blog",
-	Prompt:  `Adicione comentários à API deste blog: POST /api/posts/{id}/comments recebe JSON {"author": "...", "body": "..."} (os dois obrigatórios, body com no máximo 500 caracteres), responde 201 com o comentário criado em JSON (campos author, body, created), 422 quando o corpo é inválido e 404 quando o post não existe; GET /api/posts/{id}/comments lista os comentários do post em JSON (array). Guarde em memória, como os posts. Escreva um teste da rota com os auxiliares de teste do próprio Trilha e deixe go vet ./... e go test ./... verdes.`,
+	Name:             "comments",
+	Title:            "rota de API com Bind, validação e 404",
+	Example:          "examples/blog",
+	ID:               "comments",
+	PromptMD:         "prompts/comments.md",
+	Prompt:           mustPrompt("prompts/comments.md"),
+	BaseDir:          "baseline/comments",
+	BaselinePromptMD: "prompts/comments.baseline.md",
+	BaselineGate:     []string{"go vet ./...", "go test ./..."},
+	BaselineTests:    map[string]string{"zz_bench_test.go": baselineCommentsTest},
 	Tests: map[string]string{"zz_bench_test.go": `package main
 
 import (
@@ -97,10 +165,16 @@ func TestBenchComments(t *testing.T) {
 }
 
 var contactForm = Scenario{
-	Name:    "contact-form",
-	Title:   "página com formulário do kit ui no layout raiz",
-	Example: "examples/blog",
-	Prompt:  `Adicione a página /contato a este blog, dentro do layout raiz que já existe, com um formulário de contato feito com o kit ui do Trilha: campos nome, email e mensagem (todos obrigatórios, email válido). O POST vai para a própria página: com erro, a página volta com as mensagens nos campos e status 422; válido, mostra um agradecimento. Deixe go vet ./... e go test ./... verdes.`,
+	Name:             "contact-form",
+	Title:            "página com formulário do kit ui no layout raiz",
+	Example:          "examples/blog",
+	ID:               "contact-form",
+	PromptMD:         "prompts/contact-form.md",
+	Prompt:           mustPrompt("prompts/contact-form.md"),
+	BaseDir:          "baseline/contact-form",
+	BaselinePromptMD: "prompts/contact-form.baseline.md",
+	BaselineGate:     []string{"go vet ./...", "go test ./..."},
+	BaselineTests:    map[string]string{"zz_bench_test.go": baselineContactFormTest},
 	Tests: map[string]string{"zz_bench_test.go": `package main
 
 import (
@@ -129,11 +203,13 @@ func TestBenchContato(t *testing.T) {
 }
 
 var cognito = Scenario{
-	Name:    "cognito",
-	Title:   "trocar o provedor de login de Keycloak para Cognito",
-	Example: "examples/sso",
-	Prompt:  `Este app faz login com Keycloak. Troque o provedor para AWS Cognito usando o pacote auth do Trilha: a região vem de SSO_REGION, o user pool de SSO_USER_POOL_ID e o domínio de logout de SSO_LOGOUT_DOMAIN (as variáveis SSO_URL e SSO_REALM deixam de existir). Atualize a mensagem que explica o que falta configurar e o README. Deixe go vet ./... e go test ./... verdes.`,
-	Prepare: keycloakOnly,
+	Name:     "cognito",
+	Title:    "trocar o provedor de login de Keycloak para Cognito",
+	Example:  "examples/sso",
+	ID:       "cognito",
+	PromptMD: "prompts/cognito.md",
+	Prompt:   mustPrompt("prompts/cognito.md"),
+	Prepare:  keycloakOnly,
 	Tests: map[string]string{"internal/sso/zz_bench_test.go": `package sso
 
 import (
@@ -257,10 +333,16 @@ func TestSemConfiguracaoOAppExplica(t *testing.T) {
 `
 
 var pagination = Scenario{
-	Name:    "pagination",
-	Title:   "paginar a lista de posts",
-	Example: "examples/blog",
-	Prompt:  `A página /blog lista todos os posts de uma vez. Faça-a mostrar 5 posts por página: ?page=N escolhe a página (1 por padrão), e abaixo da lista aparecem os links para a página anterior e a próxima quando existem, com a página atual indicada, usando o componente de paginação do kit ui ou a receita do cookbook do Trilha. Deixe go vet ./... e go test ./... verdes.`,
+	Name:             "pagination",
+	Title:            "paginar a lista de posts",
+	Example:          "examples/blog",
+	ID:               "pagination",
+	PromptMD:         "prompts/pagination.md",
+	Prompt:           mustPrompt("prompts/pagination.md"),
+	BaseDir:          "baseline/pagination",
+	BaselinePromptMD: "prompts/pagination.baseline.md",
+	BaselineGate:     []string{"go vet ./...", "go test ./..."},
+	BaselineTests:    map[string]string{"zz_bench_test.go": baselinePaginationTest},
 	Tests: map[string]string{"zz_bench_test.go": `package main
 
 import (
@@ -310,13 +392,13 @@ func TestBenchPaginacao(t *testing.T) {
 }
 
 var fixHint = Scenario{
-	Name:    "fix-hint",
-	Title:   "corrigir um erro pelo Hint",
-	Example: "examples/blog",
-	Prompt: `Depois do login, este projeto deve ir para https://example.com/portal. Hoje o teste recebe 500 e o log mostra: ` +
-		`"trilha: refusing to redirect to https://example.com/portal, which leaves this site (E_REDIRECT_ABSOLUTE)". ` +
-		`Corrija o erro seguindo a orientação do Hint, sem remover a validação do login. Deixe go vet ./... e go test ./... verdes.`,
-	Prepare: fixHintPrepare,
+	Name:     "fix-hint",
+	Title:    "corrigir um erro pelo Hint",
+	Example:  "examples/blog",
+	ID:       "fix-hint",
+	PromptMD: "prompts/fix-hint.md",
+	Prompt:   mustPrompt("prompts/fix-hint.md"),
+	Prepare:  fixHintPrepare,
 	Tests: map[string]string{"zz_bench_test.go": `package main
 
 import (
@@ -341,13 +423,17 @@ func TestBenchFixHint(t *testing.T) {
 }
 
 var generateCRUD = Scenario{
-	Name:    "generate-crud",
-	Title:   "adicionar um cadastro a partir do struct",
-	Example: "examples/blog",
-	Prompt: `Adicione um cadastro completo de Categoria em /categorias a partir do struct ` +
-		`internal/categorias.Categoria que já está no projeto. Use o gerador de CRUD do Trilha, ` +
-		`mantenha o código gerado legível e deixe go vet ./... e go test ./... verdes.`,
-	Prepare: generateCRUDPrepare,
+	Name:             "generate-crud",
+	Title:            "adicionar um cadastro a partir do struct",
+	Example:          "examples/blog",
+	ID:               "generate-crud",
+	PromptMD:         "prompts/generate-crud.md",
+	Prompt:           mustPrompt("prompts/generate-crud.md"),
+	BaseDir:          "baseline/generate-crud",
+	BaselinePromptMD: "prompts/generate-crud.baseline.md",
+	BaselineGate:     []string{"go vet ./...", "go test ./..."},
+	BaselineTests:    map[string]string{"zz_bench_test.go": baselineGenerateCRUDTest},
+	Prepare:          generateCRUDPrepare,
 	Tests: map[string]string{"zz_bench_test.go": `package main
 
 import (
@@ -415,17 +501,14 @@ var fixtures embed.FS
 // has to write it, and the screen that was replaced is the proof that the
 // hidden test is passable — which TestPortListingEhAtingivel runs.
 var portListing = Scenario{
-	Name:    "port-listing",
-	Title:   "portar uma listagem .tsx para o Trilha",
-	Example: "examples/blog",
-	Prompt: `A tela de documentos deste projeto existia em Next.js e o arquivo original está em ` +
-		`app/documentos/page.tsx.txt, com a linha correspondente do MIGRATION.md ao lado. ` +
-		`Escreva o equivalente em app/documentos/page.go, contra o pacote internal/documentos ` +
-		`que já existe, mantendo o filtro por busca e por tipo, a ordenação por coluna vinda da ` +
-		`URL, a paginação e a atualização automática da tabela. Deixe go vet ./... e ` +
-		`go test ./... verdes.`,
-	Prepare: portListingPrepare,
-	Tests:   map[string]string{"zz_bench_test.go": portListingTest},
+	Name:     "port-listing",
+	Title:    "portar uma listagem .tsx para o Trilha",
+	Example:  "examples/blog",
+	ID:       "port-listing",
+	PromptMD: "prompts/port-listing.md",
+	Prompt:   mustPrompt("prompts/port-listing.md"),
+	Prepare:  portListingPrepare,
+	Tests:    map[string]string{"zz_bench_test.go": portListingTest},
 }
 
 // portListingPrepare replaces the page with a stub and leaves the source
@@ -634,21 +717,16 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 // It is the only scenario with a service of its own up during the run, and
 // that is what it costs to measure a call instead of a page.
 var apiCall = Scenario{
-	Name:    "api-call",
-	Title:   "portar a chamada à API que ficou onde estava",
-	Example: "examples/local-login",
-	Prompt: `A tela de documentos deste app existia em Next.js e rodava no browser: o arquivo ` +
-		`original está em app/painel/documentos/page.tsx.txt, com a linha correspondente do ` +
-		`MIGRATION.md ao lado. Escreva o equivalente em app/painel/documentos/page.go, ` +
-		`renderizado no servidor, contra a API que continua onde estava: a base dela está na ` +
-		`variável API_URL e o documento OpenAPI que ela publica é o openapi.json na raiz do ` +
-		`projeto. A tela lista os documentos com o filtro de busca que vem da URL, e a ` +
-		`credencial da chamada é a da sessão de quem está logado — nunca uma que o browser ` +
-		`mande. Deixe go vet ./... e go test ./... verdes.`,
-	Prepare: apiCallPrepare,
-	Tests:   map[string]string{"zz_bench_test.go": apiCallTest},
-	Serve:   serveAcervo,
-	Check:   clienteGerado,
+	Name:     "api-call",
+	Title:    "portar a chamada à API que ficou onde estava",
+	Example:  "examples/local-login",
+	ID:       "api-call",
+	PromptMD: "prompts/api-call.md",
+	Prompt:   mustPrompt("prompts/api-call.md"),
+	Prepare:  apiCallPrepare,
+	Tests:    map[string]string{"zz_bench_test.go": apiCallTest},
+	Serve:    serveAcervo,
+	Check:    clienteGerado,
 }
 
 // apiCallPrepare puts the screen back to a stub, takes the generated client

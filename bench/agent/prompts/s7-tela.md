@@ -1,0 +1,1 @@
+O pacote internal/vendas deste app guarda as vendas do mês. Adicione a tela /relatorios usando o kit ui: uma ui.DataTable com busca por cliente (?q=), paginação de 5 em 5 (?page=) e um gráfico de barras (ui.Bars) com o total por estado (SP, RJ e MG). Os controles conversam pela URL, como o resto do app. Deixe go vet ./... e go test ./... verdes.

@@ -1,0 +1,1 @@
+O pacote internal/vendas deste app em Go puro (net/http + html/template) guarda as vendas do mês. Adicione a tela /relatorios: uma tabela HTML com busca por cliente (?q=), paginação de 5 em 5 (?page=) e um gráfico de barras desenhado em SVG puro no servidor, com o total por estado (SP, RJ e MG). Os controles conversam pela URL. Deixe go vet ./... e go test ./... verdes.

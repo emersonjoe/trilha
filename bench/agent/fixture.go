@@ -19,12 +19,20 @@ import (
 // package in two modules) into one of its own, as a user's project is.
 func Module(sc Scenario) string { return "example.com/" + filepath.Base(sc.Example) }
 
-// Build copies the scenario's example into dir as a module of its own,
-// pointing at the repo, and applies the scenario's preparation. Imports of
-// the example's old path are rewritten to the new module on the way.
+// Build copies the scenario's starting project into dir as a module of its
+// own, pointing at the repo, and applies the scenario's preparation. Imports
+// of the example's old path are rewritten to the new module on the way.
+//
+// A scenario with an AppDir starts from a committed app under bench/agent/
+// instead of an example: the copy is the same, except that nothing is
+// rewritten — the fixture already declares the module path Build writes.
 func Build(repo string, sc Scenario, dir string, agents bool) error {
 	src := filepath.Join(repo, filepath.FromSlash(sc.Example))
 	old := "github.com/emersonjoe/trilha/" + sc.Example
+	if sc.AppDir != "" {
+		src = filepath.Join(repo, filepath.FromSlash(sc.AppDir))
+		old = ""
+	}
 	if err := copyTree(src, dir, old, Module(sc)); err != nil {
 		return err
 	}
@@ -67,6 +75,14 @@ func BuildCLI(repo, bin string) error {
 // talks to the same API the app does, which is how it can read the credential
 // that arrived instead of the one the code says it sends.
 func Verify(ctx context.Context, dir string, sc Scenario) (bool, string) {
+	return VerifyCLI(ctx, dir, sc, "")
+}
+
+// VerifyCLI is Verify with the ruler's own trilha CLI on the table: a gate
+// that names "trilha" runs that binary, and one without it falls back to
+// whatever the PATH has. Default gates, when a scenario names none, are the
+// v1 ones — vet, then test.
+func VerifyCLI(ctx context.Context, dir string, sc Scenario, trilhaBin string) (bool, string) {
 	env := []string{"TRILHA_LANG=en"}
 	if sc.Serve != nil {
 		e, stop := sc.Serve()
@@ -82,7 +98,18 @@ func Verify(ctx context.Context, dir string, sc Scenario) (bool, string) {
 			return false, err.Error()
 		}
 	}
-	for _, args := range [][]string{{"go", "vet", "./..."}, {"go", "test", "-count=1", "./..."}} {
+	gates := [][]string{{"go", "vet", "./..."}, {"go", "test", "-count=1", "./..."}}
+	if len(sc.Gate) > 0 {
+		gates = nil
+		for _, g := range sc.Gate {
+			args := strings.Fields(g)
+			if args[0] == "trilha" && trilhaBin != "" {
+				args[0] = trilhaBin
+			}
+			gates = append(gates, args)
+		}
+	}
+	for _, args := range gates {
 		c := exec.CommandContext(ctx, args[0], args[1:]...)
 		c.Dir = dir
 		c.Env = append(os.Environ(), env...)
@@ -93,6 +120,37 @@ func Verify(ctx context.Context, dir string, sc Scenario) (bool, string) {
 	if sc.Check != nil {
 		if err := sc.Check(dir); err != nil {
 			return false, err.Error()
+		}
+	}
+	return true, ""
+}
+
+// VerifyBaseline is the baseline side of Verify: a plain copy of the fixture
+// (its module stands on its own), the hidden tests copied in, the scenario's
+// baseline gates — vet and test when it names none.
+func VerifyBaseline(ctx context.Context, dir string, sc Scenario) (bool, string) {
+	for rel, src := range sc.BaselineTests {
+		p := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			return false, err.Error()
+		}
+		if err := os.WriteFile(p, []byte(src), 0o644); err != nil {
+			return false, err.Error()
+		}
+	}
+	gates := [][]string{{"go", "vet", "./..."}, {"go", "test", "-count=1", "./..."}}
+	if len(sc.BaselineGate) > 0 {
+		gates = nil
+		for _, g := range sc.BaselineGate {
+			gates = append(gates, strings.Fields(g))
+		}
+	}
+	for _, args := range gates {
+		c := exec.CommandContext(ctx, args[0], args[1:]...)
+		c.Dir = dir
+		c.Env = append(os.Environ(), "TRILHA_LANG=en")
+		if out, err := c.CombinedOutput(); err != nil {
+			return false, tail(strings.Join(args, " ")+": "+err.Error()+"\n"+string(out), 4000)
 		}
 	}
 	return true, ""
@@ -207,7 +265,7 @@ func copyTree(src, dst, oldModule, newModule string) error {
 		if err != nil {
 			return err
 		}
-		if strings.HasSuffix(path, ".go") {
+		if oldModule != "" && strings.HasSuffix(path, ".go") {
 			b = bytes.ReplaceAll(b, []byte(oldModule), []byte(newModule))
 		}
 		return os.WriteFile(target, b, 0o644)

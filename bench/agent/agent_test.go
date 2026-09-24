@@ -2,15 +2,185 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 )
+
+var update = flag.Bool("update", false, "rewrite prompts/CHECKSUMS.txt from the files on disk")
+
+// TestScenarioPromptsFrozen is the anti-vise of spec 159: every scenario's
+// prompt lives in a file under prompts/, the field the ruler uses is
+// byte-for-byte that file, and CHECKSUMS.txt pins the hash of every prompt
+// file — so a quiet edit cannot split the ruler into two rulers. Run with
+// -update after *deliberately* changing or adding a prompt: the diff of
+// CHECKSUMS.txt is the record that the contract moved.
+func TestScenarioPromptsFrozen(t *testing.T) {
+	if *update {
+		if err := writeChecksums(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pins, err := checksums()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range Scenarios() {
+		if s.PromptMD == "" {
+			t.Errorf("%s: no frozen prompt file", s.Name)
+			continue
+		}
+		if s.Prompt != mustPrompt(s.PromptMD) {
+			t.Errorf("%s: the inline prompt is not byte-for-byte %s", s.Name, s.PromptMD)
+		}
+		if s.BaseDir == "" {
+			continue // not in the savings series: no baseline side yet
+		}
+		// s8's baseline carries its own red tests in the fixture, like its
+		// trilha side; the others get hidden tests copied in at verify time.
+		if s.BaselinePromptMD == "" {
+			t.Errorf("%s: in the series without a frozen baseline prompt", s.Name)
+		}
+	}
+	files, err := promptFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for name := range pins {
+		got = append(got, name)
+	}
+	sort.Strings(got)
+	if !reflect.DeepEqual(files, got) {
+		t.Fatalf("CHECKSUMS.txt pins %v, the prompts/ directory holds %v", got, files)
+	}
+	for _, f := range files {
+		sum := sha256.Sum256([]byte(mustPrompt(f)))
+		want := hex.EncodeToString(sum[:])
+		if pins[f] != want {
+			t.Errorf("%s: hash %s, CHECKSUMS.txt pins %s — the prompt moved; re-measure before publishing", f, want, pins[f])
+		}
+	}
+}
+
+// writeChecksums rewrites CHECKSUMS.txt from the prompt files, sorted by name.
+func writeChecksums() error {
+	files, err := promptFiles()
+	if err != nil {
+		return err
+	}
+	var sb strings.Builder
+	for _, f := range files {
+		sum := sha256.Sum256([]byte(mustPrompt(f)))
+		name := strings.TrimPrefix(f, "prompts/")
+		sb.WriteString(hex.EncodeToString(sum[:]) + "  " + name + "\n")
+	}
+	return os.WriteFile(filepath.Join("prompts", "CHECKSUMS.txt"), []byte(sb.String()), 0o644)
+}
+
+// TestScenarioApps proves the committed starting apps are what the plan asks
+// for: each one passes `trilha check` as committed — except s8, which must
+// fail at the first gate with the planted duplicate route, keep failing its
+// own tests, and go green when the three canonical fixes land (the ruler is
+// reachable; without this half a scenario can measure a bar nobody reaches).
+func TestScenarioApps(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds the CLI and runs a project check per app")
+	}
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	if err := BuildCLI(repo, bin); err != nil {
+		t.Fatal(err)
+	}
+	cli := filepath.Join(bin, "trilha")
+	for _, sc := range Scenarios() {
+		if sc.AppDir == "" {
+			continue
+		}
+		t.Run(sc.Name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "app")
+			if err := Build(repo, sc, dir, false); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			if sc.Name != "s8-conserto" {
+				c := exec.CommandContext(ctx, cli, "check")
+				c.Dir = dir
+				out, err := c.CombinedOutput()
+				if err != nil {
+					t.Fatalf("trilha check on the untouched %s: %v\n%s", sc.AppDir, err, out)
+				}
+				return
+			}
+			// Planted: the first gate says the route is duplicated.
+			c := exec.CommandContext(ctx, cli, "check")
+			c.Dir = dir
+			out, err := c.CombinedOutput()
+			if err == nil {
+				t.Fatalf("s8 passed check with three defects planted:\n%s", out)
+			}
+			if !strings.Contains(string(out), "already served by") {
+				t.Fatalf("s8's first failure is not the duplicate route:\n%s", out)
+			}
+			// Planted: the app's own tests are red, and stay red after the
+			// duplicate route is gone — the other two defects hold the line.
+			s8 := sc
+			fix1 := filepath.Join(t.TempDir(), "fix1")
+			if err := Build(repo, s8, fix1, false); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(filepath.Join(fix1, "app", "admin-", "route.go")); err != nil {
+				t.Fatal(err)
+			}
+			if ok, why := VerifyCLI(ctx, fix1, s8, cli); ok || (!strings.Contains(why, "_csrf") && !strings.Contains(why, "want 422")) {
+				t.Fatalf("s8 with only the route fixed: ok=%v, want the tests still failing:\n%s", ok, why)
+			}
+			// Reachable: the three canonical fixes take it green.
+			fix3 := filepath.Join(t.TempDir(), "fix3")
+			if err := Build(repo, s8, fix3, false); err != nil {
+				t.Fatal(err)
+			}
+			for _, fix := range []struct{ file, from, to string }{
+				{"app/contas/page.go", `validate:"obrigatorio,email"`, `validate:"required,email"`},
+				{"app/contas/page.go",
+					`h.Form(h.Method("post"), h.Action("/contas"), h.Class("ui-stack"),`,
+					`h.Form(h.Method("post"), h.Action("/contas"), h.Class("ui-stack"), trilha.CSRFInput(c),`},
+			} {
+				b, err := os.ReadFile(filepath.Join(fix3, filepath.FromSlash(fix.file)))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(string(b), fix.from) {
+					t.Fatalf("the fixture drifted; %s no longer holds %q", fix.file, fix.from)
+				}
+				if err := os.WriteFile(filepath.Join(fix3, filepath.FromSlash(fix.file)),
+					[]byte(strings.Replace(string(b), fix.from, fix.to, 1)), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Remove(filepath.Join(fix3, "app", "admin-", "route.go")); err != nil {
+				t.Fatal(err)
+			}
+			if ok, why := VerifyCLI(ctx, fix3, s8, cli); !ok {
+				t.Fatalf("the canonical fixes do not make s8 green — the ruler measures a bar nobody reaches:\n%s", why)
+			}
+		})
+	}
+}
 
 const successJSON = `{"type":"result","subtype":"success","is_error":false,"duration_ms":184000,"num_turns":23,"result":"Done.\nAdded the route.","total_cost_usd":0.42,"usage":{"input_tokens":1200,"cache_creation_input_tokens":30000,"cache_read_input_tokens":410000,"output_tokens":9800},"modelUsage":{"claude-sonnet-5":{}},"permission_denials":[{"tool_name":"Bash","tool_input":{"command":"go install ./..."}}]}`
 
@@ -74,10 +244,12 @@ func TestRender(t *testing.T) {
 	if !strings.Contains(Render(Results{}, Scenarios()), "Ainda sem medição") {
 		t.Fatal("empty results must say so")
 	}
-	// Scenarios are the contract, in order, each with a hidden test.
-	names := []string{"comments", "contact-form", "cognito", "pagination", "generate-crud", "fix-hint", "port-listing", "api-call"}
+	// Scenarios are the contract, in order, each with a hidden test or a
+	// gate of its own (s8 carries its proof inside the fixture).
+	names := []string{"comments", "contact-form", "cognito", "pagination", "generate-crud", "fix-hint", "port-listing", "api-call",
+		"s5-login", "s6-crud", "s7-tela", "s8-conserto"}
 	for i, s := range Scenarios() {
-		if s.Name != names[i] || len(s.Tests) == 0 || s.Prompt == "" {
+		if s.Name != names[i] || (len(s.Tests) == 0 && len(s.Gate) == 0) || s.Prompt == "" || s.ID == "" || s.PromptMD == "" {
 			t.Fatalf("scenario %d = %+v", i, s.Name)
 		}
 	}
@@ -112,7 +284,9 @@ func TestFixturesFailWithoutTheAgent(t *testing.T) {
 			if BrokenRuler(why) {
 				t.Fatalf("the fixture does not compile with the hidden test beside it, so a run would measure the agent repairing the ruler: %s", why)
 			}
-			if !strings.Contains(why, "--- FAIL") {
+			// s8's proof is its gate going red on the planted defects, not a
+			// copied-in test running; everything else must show "--- FAIL".
+			if len(s.Gate) == 0 && !strings.Contains(why, "--- FAIL") {
 				t.Fatalf("the hidden test did not run and fail; verify said: %s", why)
 			}
 		})

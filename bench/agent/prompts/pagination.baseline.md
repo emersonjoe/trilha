@@ -1,0 +1,1 @@
+A página /blog deste site em Go puro (net/http + html/template) lista todos os posts de uma vez. Faça-a mostrar 5 posts por página: ?page=N escolhe a página (1 por padrão), e abaixo da lista aparecem os links para a página anterior e a próxima quando existem, com a página atual indicada. Deixe go vet ./... e go test ./... verdes.

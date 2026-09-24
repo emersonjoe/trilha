@@ -10,7 +10,7 @@ porque `bench` é módulo separado — **correção de caminho** sobre o plano, 
 
 ## Bloco 1 — a régua mede de verdade
 
-- [ ] **T01** — Estender `bench/agent/scenario.go` com o `Scenario` do plano (`ID`,
+- [x] **T01** — Estender `bench/agent/scenario.go` com o `Scenario` do plano (`ID`,
   `PromptMD`, `AppDir`, `BaseDir`, `Gate`, `MaxRounds`) e os campos do lado baseline; mover
   os 8 prompts v1 para `bench/agent/prompts/<nome>.md` byte a byte (dump do próprio
   `s.Prompt`, não digitação) e carregá-los do embed; criar os prompts congelados dos 4
@@ -20,7 +20,7 @@ porque `bench` é módulo separado — **correção de caminho** sobre o plano, 
   existente continua provando ordem e conteúdo). *Aceite:*
   `cd bench && go test ./agent/... -run 'TestScenarioPromptsFrozen|TestRender'`.
 
-- [ ] **T02** — Apps de partida trilha em `bench/agent/apps/{s5-login,s6-crud,s7-tela,
+- [x] **T02** — Apps de partida trilha em `bench/agent/apps/{s5-login,s6-crud,s7-tela,
   s8-conserto}/` (mínimos, commitados, `trilha_gen.go` gerado e `go.mod` com `replace`
   para a raiz; o S8 com os 3 erros plantados: rota duplicada `E_DUPLICATE_ROUTE`, POST de
   página sem token CSRF no formulário, validação por tag quebrada); `Build` passa a entender

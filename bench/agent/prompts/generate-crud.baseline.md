@@ -1,0 +1,1 @@
+Adicione um cadastro completo de Categoria em /categorias a este site em Go puro (net/http + html/template), a partir do struct internal/categorias.Categoria que já está no projeto: listagem em tabela e formulário de criação (POST /categorias/new) que valida o nome e redireciona para a listagem. Deixe go vet ./... e go test ./... verdes.

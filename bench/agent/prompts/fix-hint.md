@@ -1,0 +1,1 @@
+Depois do login, este projeto deve ir para https://example.com/portal. Hoje o teste recebe 500 e o log mostra: "trilha: refusing to redirect to https://example.com/portal, which leaves this site (E_REDIRECT_ABSOLUTE)". Corrija o erro seguindo a orientação do Hint, sem remover a validação do login. Deixe go vet ./... e go test ./... verdes.

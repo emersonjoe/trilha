@@ -1,0 +1,1 @@
+Este app está vazio. Instale um login funcional usando a receita do Trilha (`trilha add login`): a tela /entrar com e-mail e senha, /sair para encerrar a sessão e a sessão guardando quem entrou. O primeiro usuário vem das variáveis ADMIN_EMAIL e ADMIN_PASSWORD — ao testar, use admin@exemplo.com e senha-trilha-2026. Deixe go vet ./... e go test ./... verdes.

@@ -1,0 +1,1 @@
+Adicione um cadastro completo de Categoria em /categorias a partir do struct internal/categorias.Categoria que já está no projeto. Use o gerador de CRUD do Trilha, mantenha o código gerado legível e deixe go vet ./... e go test ./... verdes.

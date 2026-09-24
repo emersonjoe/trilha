@@ -1,0 +1,4 @@
+bin/
+# the framework's build cache and the runner's scratch; the rest of .trilha/ is committed
+.trilha/cache/
+.trilha/runs/
