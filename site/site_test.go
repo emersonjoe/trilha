@@ -62,9 +62,16 @@ func errorCatalogPaths() []string {
 	return out
 }
 
+// custosPaths are the pages of the Tokens 70 vitrine (spec 159): app pages of
+// their own, like the demos, unknown to docs.All().
+func custosPaths() []string {
+	return []string{"/custos", "/pt/custos"}
+}
+
 func allPaths() []string {
 	out := append(homes(), pagePaths()...)
 	out = append(out, demoPaths()...)
+	out = append(out, custosPaths()...)
 	return append(out, errorCatalogPaths()...)
 }
 
