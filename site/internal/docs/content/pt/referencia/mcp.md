@@ -164,6 +164,24 @@ type FromRoutesOpts struct {
 }
 ```
 
+### As ferramentas de contexto
+
+```go
+func ContextTools(opts ContextOpts) []*ai.Tool
+
+type ContextOpts struct {
+	Root    string // a pasta do projeto
+	Module  string // o caminho do módulo; lido do go.mod quando vazio
+	Version string // o que o mapa carimba
+}
+```
+
+`ContextTools` devolve `get_context` e `search_code`, as duas ferramentas que um agente usa
+antes de escrever uma linha: o mapa do projeto fatiado por pack e com preço em tokens
+estimados (as mesmas fatias que o [`trilha ctx --pack`](/pt/aprender/contexto-sob-orcamento)
+responde), e código em janelas `caminho:linha` em vez de arquivos inteiros. Junte-as às
+ferramentas de domínio no mesmo servidor.
+
 Uma API escrita em `app/api/` já é o que um agente precisa: nome, descrição, esquema de
 argumentos, handler. `FromRoutes` a publica como ferramentas MCP sem uma segunda declaração —
 uma ferramenta por (método, rota), com o nome do operation id do documento (`getApiPosts`,

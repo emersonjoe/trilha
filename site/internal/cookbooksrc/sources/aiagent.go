@@ -528,6 +528,21 @@ func AIAgentMCPPOST(c *trilha.Ctx) error {
 	return mcp.NewServer("orders", "1.0", AIAgentTools(c)...).ServeHTTP(c)
 }
 
+// AIAgentContextTools are the two tools an agent uses before it writes a
+// line: the project map, sliced for one job and priced, and code as path:line
+// windows instead of whole files. They join the domain tools in the same
+// server, so the conversation that asks "what does this app already have?"
+// stays in one place.
+//
+//	mcp.NewServer("orders", "1.0", append(mcp.ContextTools(mcp.ContextOpts{
+//		Root: ".", Version: "1.0",
+//	}), AIAgentTools(c)...)...)
+//
+// AIAgentContextToolsFunc is that wiring, ready to serve.
+func AIAgentContextToolsFunc() *mcp.Server {
+	return mcp.NewServer("orders", "1.0", mcp.ContextTools(mcp.ContextOpts{Root: ".", Version: "1.0"})...)
+}
+
 // AIAgentSetup is app/setup.go: the queue, what a decision means, and the
 // check that says the tool's route is there. The check is a health check and
 // not a panic at startup because Setup runs before the routes are registered —

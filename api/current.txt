@@ -876,6 +876,7 @@ pkg ai, type Usage struct, PromptTokens int
 pkg ai, type Usage struct, TotalTokens int
 pkg ai, var ErrMaxTurns
 pkg ai/mcp, const ProtocolVersion
+pkg ai/mcp, func ContextTools(ContextOpts) []*ai.Tool
 pkg ai/mcp, func Dial(context.Context, Dialer) (*Client, error)
 pkg ai/mcp, func FromRoutes(*trilha.App, FromRoutesOpts) *Server
 pkg ai/mcp, func HTTP(string, map[string]string) Dialer
@@ -902,6 +903,10 @@ pkg ai/mcp, type Content struct, Data string
 pkg ai/mcp, type Content struct, MimeType string
 pkg ai/mcp, type Content struct, Text string
 pkg ai/mcp, type Content struct, Type string
+pkg ai/mcp, type ContextOpts struct
+pkg ai/mcp, type ContextOpts struct, Module string
+pkg ai/mcp, type ContextOpts struct, Root string
+pkg ai/mcp, type ContextOpts struct, Version string
 pkg ai/mcp, type Dialer func(context.Context) (Transport, error)
 pkg ai/mcp, type FromRoutesOpts struct
 pkg ai/mcp, type FromRoutesOpts struct, Exclude []string

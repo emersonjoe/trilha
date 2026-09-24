@@ -163,6 +163,23 @@ type FromRoutesOpts struct {
 }
 ```
 
+### The context tools
+
+```go
+func ContextTools(opts ContextOpts) []*ai.Tool
+
+type ContextOpts struct {
+	Root    string // the project's directory
+	Module  string // its module path; read from go.mod when empty
+	Version string // what the map stamps
+}
+```
+
+`ContextTools` returns `get_context` and `search_code`, the two tools an agent uses before it
+writes a line: the project map sliced for one pack and priced in estimated tokens (the same
+slices [`trilha ctx --pack`](/learn/context-under-budget) answers), and code as `path:line`
+windows instead of whole files. Append them to the server's tools next to the domain ones.
+
 An API written under `app/api/` is already what an agent needs: a name, a description, an
 argument schema, a handler. `FromRoutes` publishes it as MCP tools without a second
 declaration — one tool per (method, route), named by the operation id of the document
