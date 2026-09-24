@@ -13,7 +13,7 @@ import (
 // landed — a marker for a recipe whose files are gone is not installed.
 func TestInstalledRecipes(t *testing.T) {
 	p := appProject(t, "recipes", "example.com/recipes")
-	got := installedRecipes(p)
+	got := ctx.InstalledRecipes(p.Root)
 	if len(got) != 1 || got[0].Name != "login" {
 		t.Fatalf("installed = %+v, want only login", got)
 	}

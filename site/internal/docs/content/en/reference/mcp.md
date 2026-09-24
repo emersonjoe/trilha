@@ -103,6 +103,8 @@ the documentation out of the CLI binary and reads the exact Markdown embedded by
 | `search_docs` | matching pages by title, description and body; `locale` is `en` or `pt` |
 | `get_page` | one page by site path, such as `/reference/ui` |
 | `get_recipe` | one Cookbook page by slug, such as `pagination` |
+| `get_context` | the slice of documentation one recipe touches — the recipe's page and the pages it links to — each priced in estimated tokens (`est.`, 4 chars/token) |
+| `search_code` | the Cookbook's Go sources as `path:line` windows, the matching line plus one after it, a handful of matches at most — never a whole file |
 
 `get_recipe` returns the canonical recipe Markdown. The site test already checks that its Go
 blocks occur character for character in `examples/cookbook`, so the MCP and the published page

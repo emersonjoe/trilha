@@ -114,11 +114,10 @@ func (p *Pack) budget() {
 		if alone.Len() == 0 {
 			continue // nothing to say: not a cut, just absence
 		}
-		var sb strings.Builder
-		sb.WriteString(body)
-		sb.WriteString(alone.String())
-		if p.Budget == 0 || tokbudget.Estimate(sb.String()) <= p.Budget {
-			body = sb.String()
+		candidate := body + alone.String()
+		p.Used = tokbudget.Estimate(candidate)
+		if p.Budget == 0 || tokbudget.Estimate(candidate+p.footer()) <= p.Budget {
+			body = candidate
 			continue
 		}
 		p.Truncated = append(p.Truncated, s.name)

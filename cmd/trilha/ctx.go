@@ -5,13 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/emersonjoe/trilha/internal/ctx"
-	"github.com/emersonjoe/trilha/internal/recipes"
 )
 
 // cmdCtx prints the map of the project: what an agent would otherwise learn
@@ -48,7 +44,7 @@ func cmdCtx(args []string) error {
 	if err != nil {
 		return err
 	}
-	installed := installedRecipes(p)
+	installed := ctx.InstalledRecipes(p.Root)
 	c, err := ctx.Build(p.Root, p.Module, version)
 	if err != nil {
 		return err
@@ -86,44 +82,4 @@ func cmdCtx(args []string) error {
 	}
 	fmt.Print(c.Markdown(view))
 	return nil
-}
-
-// installedRecipes names the recipes the project brought in: the markers the
-// recipes themselves wrote into setup.go are the record, and each file a
-// recipe brings is looked up where it actually landed. Nothing here trusts
-// the registry alone — a file that is not on disk is not installed.
-func installedRecipes(p *project) []ctx.RecipeInfo {
-	src, err := os.ReadFile(filepath.Join(p.Root, "app", "setup.go"))
-	if err != nil {
-		return nil
-	}
-	var marker = regexp.MustCompile(`^// trilha:add ([a-z0-9-]+)$`)
-	seen := map[string]bool{}
-	var names []string
-	for _, line := range strings.Split(string(src), "\n") {
-		if m := marker.FindStringSubmatch(strings.TrimSpace(line)); m != nil && !seen[m[1]] {
-			seen[m[1]] = true
-			names = append(names, m[1])
-		}
-	}
-	sort.Strings(names)
-	var out []ctx.RecipeInfo
-	for _, name := range names {
-		r, err := recipes.Get(name)
-		if err != nil {
-			continue // a marker nobody answers to is not a recipe
-		}
-		info := ctx.RecipeInfo{Name: r.Name, Doc: r.Doc}
-		for _, f := range r.Files {
-			rest := strings.ReplaceAll(f.Rel, "{{.At}}", "")
-			for _, cand := range []string{rest, filepath.ToSlash(filepath.Join("app", rest)), filepath.ToSlash(filepath.Join("app/admin", rest))} {
-				if _, err := os.Stat(filepath.Join(p.Root, filepath.FromSlash(cand))); err == nil {
-					info.Files = append(info.Files, cand)
-					break
-				}
-			}
-		}
-		out = append(out, info)
-	}
-	return out
 }

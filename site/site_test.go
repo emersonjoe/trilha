@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/site/internal/cookbooksrc"
 	"github.com/emersonjoe/trilha/site/internal/demos"
 	"github.com/emersonjoe/trilha/site/internal/docs"
 	"github.com/emersonjoe/trilha/site/internal/ui"
@@ -836,6 +837,34 @@ func TestLLMsExported(t *testing.T) {
 	for _, p := range llmsPaths() {
 		if !strings.Contains(got, " "+p+" ") {
 			t.Errorf("export misses %s", p)
+		}
+	}
+}
+
+// TestCookbookSourcesAreEmbedded is the drift alarm for the site's MCP
+// search_code: the copies in site/internal/cookbooksrc/sources must be the
+// files examples/cookbook carries, byte for byte. A recipe that changes
+// without the copy is a search that answers a ruler that no longer exists —
+// copy the sources again (cp examples/cookbook/*.go site/internal/cookbooksrc/sources/).
+func TestCookbookSourcesAreEmbedded(t *testing.T) {
+	entries, err := os.ReadDir(filepath.Join("..", "examples", "cookbook"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
+			continue
+		}
+		want, err := os.ReadFile(filepath.Join("..", "examples", "cookbook", e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := cookbooksrc.Read("sources/" + e.Name())
+		if err != nil {
+			t.Fatalf("%s is not embedded: %v", e.Name(), err)
+		}
+		if string(got) != string(want) {
+			t.Errorf("%s drifted from examples/cookbook; copy the sources again", e.Name())
 		}
 	}
 }

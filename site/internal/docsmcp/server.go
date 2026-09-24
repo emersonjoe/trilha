@@ -16,11 +16,13 @@ import (
 // New returns the read-only MCP server backed by the same Markdown pages as
 // the documentation site.
 func New(version string) *mcp.Server {
-	return mcp.NewServer("trilha-docs", version,
+	tools := []*ai.Tool{
 		ai.NewTool("search_docs", "Search Trilha documentation pages by title, description and body.", ai.Schema(`{"type":"object","properties":{"query":{"type":"string","minLength":1},"locale":{"type":"string","enum":["en","pt"]},"limit":{"type":"integer","minimum":1,"maximum":20}},"required":["query"]}`), ai.Typed(search)),
 		ai.NewTool("get_page", "Return one Trilha documentation page as Markdown by its site path.", ai.Schema(`{"type":"object","properties":{"path":{"type":"string","minLength":1}},"required":["path"]}`), ai.Typed(page)),
 		ai.NewTool("get_recipe", "Return one Trilha cookbook recipe as Markdown by slug.", ai.Schema(`{"type":"object","properties":{"name":{"type":"string","minLength":1},"locale":{"type":"string","enum":["en","pt"]}},"required":["name"]}`), ai.Typed(recipe)),
-	)
+	}
+	tools = append(tools, contextTools()...)
+	return mcp.NewServer("trilha-docs", version, tools...)
 }
 
 type searchInput struct {
