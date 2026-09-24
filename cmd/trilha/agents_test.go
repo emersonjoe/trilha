@@ -27,11 +27,14 @@ func commands(text string) []string {
 	return out
 }
 
-// TestAgentsMatchesUsage keeps AGENTS.md from aging: it names exactly the
-// commands the CLI's own usage names, in both languages. A command added,
-// renamed or dropped fails here until the file follows.
+// TestAgentsMatchesUsage keeps AGENTS.md from inventing commands: every
+// command the file names has to be one the CLI's own usage names, in both
+// languages. Since spec 160 shrank the file on purpose — the map moved into
+// `trilha ctx` — the invariant is one-way: the file names a subset of the
+// CLI, never a typo of one. A command the file must mention again fails
+// TestAgentsMdBudget's section check instead.
 func TestAgentsMatchesUsage(t *testing.T) {
-	for i, l := range []string{"en", "pt"} {
+	for _, l := range []string{"en", "pt"} {
 		dir := t.TempDir()
 		if _, err := scaffold.WriteAgents(dir, scaffold.Data{Name: "loja", Lang: l}, false); err != nil {
 			t.Fatal(err)
@@ -40,10 +43,10 @@ func TestAgentsMatchesUsage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got := strings.Join(commands(string(b)), " ")
-		want := strings.Join(commands(msgs["usage"][i]), " ")
-		if got != want {
-			t.Errorf("AGENTS.md (%s) names\n  %s\nusage names\n  %s", l, got, want)
+		for _, c := range commands(string(b)) {
+			if !strings.Contains(msgs["usage"][0], c) && !strings.Contains(msgs["usage"][1], c) {
+				t.Errorf("AGENTS.md (%s) names %q, which the CLI does not have", l, c)
+			}
 		}
 	}
 }

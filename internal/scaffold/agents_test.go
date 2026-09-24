@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/emersonjoe/trilha/internal/tokbudget"
 )
 
 func TestWriteAgents(t *testing.T) {
@@ -73,5 +75,31 @@ func TestAgentsPortuguese(t *testing.T) {
 	a, _ := os.ReadFile(filepath.Join(en, "AGENTS.md"))
 	if string(a) == string(b) {
 		t.Fatal("both languages produced the same file")
+	}
+}
+
+// TestAgentsMdBudget is the spec 160 contract: the AGENTS.md the scaffold
+// writes stays under the 2,500-token estimate, and it carries the four fixed
+// sections — the map first, the recipes, the gates, and the narrow-reading
+// rules. A bigger file is a regression even when it is right: the whole point
+// of the v2 file is that the map moved into `trilha ctx`.
+func TestAgentsMdBudget(t *testing.T) {
+	for _, lang := range []string{"en", "pt"} {
+		dir := t.TempDir()
+		if _, err := WriteAgents(dir, Data{Name: "loja", Lang: lang}, false); err != nil {
+			t.Fatal(err)
+		}
+		b, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := tokbudget.Estimate(string(b)); n > 2500 {
+			t.Errorf("%s: AGENTS.md = %d est. tokens, over the 2,500 budget", lang, n)
+		}
+		for _, section := range []string{"## ", "ctx --json", "check"} {
+			if !strings.Contains(string(b), section) {
+				t.Errorf("%s: AGENTS.md lacks %q", lang, section)
+			}
+		}
 	}
 }
