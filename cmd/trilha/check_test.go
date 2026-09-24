@@ -56,7 +56,7 @@ func TestCheckTextoTrazOConserto(t *testing.T) {
 // --json é contrato: um agente lê este formato, não a nossa prosa.
 func TestCheckGolden(t *testing.T) {
 	r := runCheck(appProject(t, "err_no_page_func", "example.com/x"), false)
-	b, err := json.MarshalIndent(r, "", "  ")
+	b, err := json.MarshalIndent(r.machine(), "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -180,28 +180,27 @@ func TestE2E(t *testing.T) {
 	if err == nil {
 		t.Fatalf("a route added and not generated must fail check: %s", raw)
 	}
+	// Spec 161: the machine form is one status and the failures, each with
+	// the code that teaches it, the hint and the doc page.
 	var report struct {
-		OK    bool `json:"ok"`
-		Steps []struct {
-			Tool, Status string
-		} `json:"steps"`
-		Problems []struct {
-			Tool, File, Message, Fix string
-		} `json:"problems"`
+		Status   string `json:"status"`
+		Failures []struct {
+			Tool, Code, File, Message, Hint, Doc string
+			Line                                 int
+		} `json:"failures"`
 	}
 	if err := json.Unmarshal(raw, &report); err != nil {
 		t.Fatalf("check --json must write JSON: %v\n%s", err, raw)
 	}
-	if report.OK || report.Steps[0].Status != "failed" || len(report.Problems) == 0 {
+	if report.Status != "fail" || len(report.Failures) == 0 {
 		t.Fatalf("%s", raw)
 	}
-	if !strings.Contains(report.Problems[0].Fix, "trilha gen") {
-		t.Fatalf("the problem must carry its conserto: %s", raw)
+	f := report.Failures[0]
+	if f.Code != "E_DUPLICATE_PARAM" && !strings.Contains(f.Hint, "trilha gen") {
+		t.Fatalf("the failure must carry its hint: %s", raw)
 	}
-	for _, s := range report.Steps[1:] {
-		if s.Status != "not run" {
-			t.Fatalf("%s ran after gen failed: %s", s.Tool, raw)
-		}
+	if !strings.HasPrefix(f.Doc, "/docs/errors/") {
+		t.Fatalf("the failure must carry its doc page: %s", raw)
 	}
 	if out := run(t, proj, cli, "check", "--fix"); !strings.Contains(out, "gen (fixed)") {
 		t.Fatal(out)

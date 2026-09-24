@@ -8,9 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/emersonjoe/trilha/internal/checkerr"
 	"github.com/emersonjoe/trilha/internal/gen"
 	"github.com/emersonjoe/trilha/internal/openapi"
 	"github.com/emersonjoe/trilha/internal/scan"
@@ -28,9 +30,13 @@ type step struct {
 }
 
 // problem is one thing to fix. Fix is the sentence that resolves it; it is
-// what saves the round trip that finding out would cost.
+// what saves the round trip that finding out would cost. Code is the stable
+// name of this failure — E_DUPLICATE_ROUTE — which is what the JSON form
+// carries with the hint and the doc page, so a machine reads the same repair
+// a person reads.
 type problem struct {
 	Tool    string `json:"tool"`
+	Code    string `json:"code,omitempty"`
 	File    string `json:"file,omitempty"`
 	Line    int    `json:"line,omitempty"`
 	Message string `json:"message"`
@@ -41,7 +47,7 @@ type problem struct {
 type report struct {
 	OK       bool      `json:"ok"`
 	Steps    []step    `json:"steps"`
-	Problems []problem `json:"problems"`
+	Problems []problem `json:"-"`
 }
 
 const (
@@ -57,7 +63,7 @@ func cmdCheck(args []string) error {
 	asJSON := fs.Bool("json", false, t("flag check json"))
 	fix := fs.Bool("fix", false, t("flag check fix"))
 	if err := fs.Parse(args); err != nil {
-		return err
+		return usageError{err}
 	}
 	p, err := findProject()
 	if err != nil {
@@ -65,7 +71,7 @@ func cmdCheck(args []string) error {
 	}
 	r := runCheck(p, *fix)
 	if *asJSON {
-		b, err := json.MarshalIndent(r, "", "  ")
+		b, err := json.MarshalIndent(r.machine(), "", "  ")
 		if err != nil {
 			return err
 		}
@@ -77,6 +83,46 @@ func cmdCheck(args []string) error {
 		return errors.New(t("check failed"))
 	}
 	return nil
+}
+
+// machine is the shape --json answers in (spec 161): one status, and every
+// failure carrying the code that teaches it — the hint from the catalog and
+// the page that holds the whole story. Steps stay in the human form; a
+// machine that wants progress reads the failures, not the choreography.
+func (r report) machine() machineReport {
+	out := machineReport{Status: "ok"}
+	for _, pb := range r.Problems {
+		code := pb.Code
+		hint := pb.Fix
+		doc := ""
+		if d, ok := checkerr.ByCode(code); ok {
+			if hint == "" {
+				hint = d.Fix
+			}
+			doc = d.Doc
+		}
+		out.Status = "fail"
+		out.Failures = append(out.Failures, failure{
+			Tool: pb.Tool, Code: code, File: pb.File, Line: pb.Line,
+			Message: pb.Message, Hint: hint, Doc: doc,
+		})
+	}
+	return out
+}
+
+type machineReport struct {
+	Status   string    `json:"status"` // "ok" | "fail"
+	Failures []failure `json:"failures"`
+}
+
+type failure struct {
+	Tool    string `json:"tool"`
+	Code    string `json:"code"`
+	File    string `json:"file,omitempty"`
+	Line    int    `json:"line,omitempty"`
+	Message string `json:"message"`
+	Hint    string `json:"hint,omitempty"`
+	Doc     string `json:"doc,omitempty"`
 }
 
 // runCheck runs the gates in order and stops at the first failure: what comes
@@ -93,6 +139,8 @@ func runCheck(p *project, fix bool) report {
 		{"audit", checkStepAudit},
 		{"openapi", checkStepOpenAPI},
 		{"i18n", checkStepI18n},
+		{"vuln", checkStepVuln},
+		{"surface", checkStepSurface},
 	}
 	r := report{OK: true}
 	failed := false
@@ -161,7 +209,7 @@ func checkStepGen(p *project, fix bool) (string, []problem) {
 		if errors.As(err, &errs) {
 			var out []problem
 			for _, e := range errs {
-				out = append(out, problem{Tool: "gen", File: e.File, Line: e.Line, Message: e.Msg, Fix: e.Fix})
+				out = append(out, problem{Tool: "gen", Code: e.Code, File: e.File, Line: e.Line, Message: e.Msg, Fix: e.Fix})
 			}
 			return statusFailed, out
 		}
@@ -180,10 +228,11 @@ func checkStepGen(p *project, fix bool) (string, []problem) {
 		return statusFixed, nil
 	}
 	msg := t("gen stale")
+	code := "E_GEN_STALE"
 	if err != nil {
 		msg = t("gen missing")
 	}
-	return statusFailed, []problem{{Tool: "gen", File: gen.FileName, Message: msg, Fix: t("fix gen")}}
+	return statusFailed, []problem{{Tool: "gen", Code: code, File: gen.FileName, Message: msg, Fix: t("fix gen")}}
 }
 
 // checkStepGofmt keeps the diff about the change and not about the spacing.
@@ -210,7 +259,7 @@ func checkStepGofmt(p *project, fix bool) (string, []problem) {
 	}
 	var probs []problem
 	for _, f := range files {
-		probs = append(probs, problem{Tool: "gofmt", File: f, Message: t("gofmt unformatted"), Fix: t("fix gofmt")})
+		probs = append(probs, problem{Tool: "gofmt", Code: "E_GOFMT", File: f, Message: t("gofmt unformatted"), Fix: t("fix gofmt")})
 	}
 	return statusFailed, probs
 }
@@ -220,11 +269,30 @@ func checkStepVet(p *project, _ bool) (string, []problem) {
 	if err == nil {
 		return statusOK, nil
 	}
+	return statusFailed, vetProblems(out)
+}
+
+// vetProblems turns vet's output into problems, naming the printf analyzer
+// by name and the rest by the family code.
+func vetProblems(out string) []problem {
 	probs := positions("vet", out, t("fix vet"))
-	if len(probs) == 0 {
-		probs = []problem{{Tool: "vet", Message: firstLines(out, 3), Fix: t("fix vet")}}
+	for i := range probs {
+		probs[i].Code = vetCode(probs[i].Message)
 	}
-	return statusFailed, probs
+	if len(probs) == 0 {
+		probs = []problem{{Tool: "vet", Code: "E_VET", Message: firstLines(out, 3), Fix: t("fix vet")}}
+	}
+	return probs
+}
+
+// vetCode names the failure after the analyzer that wrote it: printf is the
+// one an agent looks up by name — %d handed a string — and the rest answer
+// under the family code.
+func vetCode(msg string) string {
+	if strings.HasPrefix(msg, "printf:") {
+		return "E_VET_PRINTF"
+	}
+	return "E_VET"
 }
 
 // checkStepTest keeps only what says which test failed and where: the rest of
@@ -244,17 +312,17 @@ func checkStepTest(p *project, _ bool) (string, []problem) {
 			if i := strings.Index(name, " "); i > 0 {
 				name = name[:i]
 			}
-			probs = append(probs, problem{Tool: "test", Message: name, Fix: t("fix test")})
+			probs = append(probs, problem{Tool: "test", Code: "E_TEST", Message: name, Fix: t("fix test")})
 		case name != "" && strings.HasPrefix(l, " ") && strings.Contains(trimmed, ".go:"):
 			file, line, msg := position(trimmed)
 			if file == "" {
 				continue
 			}
-			probs[len(probs)-1] = problem{Tool: "test", File: file, Line: line, Message: name + ": " + msg, Fix: t("fix test")}
+			probs[len(probs)-1] = problem{Tool: "test", Code: "E_TEST", File: file, Line: line, Message: name + ": " + msg, Fix: t("fix test")}
 		}
 	}
 	if len(probs) == 0 {
-		probs = []problem{{Tool: "test", Message: firstLines(out, 3), Fix: t("fix test")}}
+		probs = []problem{{Tool: "test", Code: "E_TEST", Message: firstLines(out, 3), Fix: t("fix test")}}
 	}
 	return statusFailed, probs
 }
@@ -265,7 +333,7 @@ func checkStepAudit(p *project, _ bool) (string, []problem) {
 	var probs []problem
 	for _, c := range runAudit(p, false) {
 		if c.level == "critical" {
-			probs = append(probs, problem{Tool: "audit", Message: c.title, Fix: c.hint})
+			probs = append(probs, problem{Tool: "audit", Code: "E_AUDIT", Message: c.title, Fix: c.hint})
 		}
 	}
 	if len(probs) == 0 {
@@ -407,4 +475,79 @@ func firstLines(s string, n int) string {
 		lines = lines[:n]
 	}
 	return strings.Join(lines, "; ")
+}
+
+// checkStepVuln runs govulncheck, the one gate that needs the network's
+// cache, so it only runs when the project asks for it: TRILHA_CHECK_VULN=1.
+// Every finding carries the advisory's ID in the code — E_VULN_GO-2026-0123 —
+// because the upgrade is the fix and the ID is how the advisory is found.
+func checkStepVuln(p *project, _ bool) (string, []problem) {
+	if os.Getenv("TRILHA_CHECK_VULN") != "1" {
+		return statusSkipped, nil
+	}
+	out, err := tool(p.Root, "govulncheck", "-show", "verbose", "./...")
+	if err != nil && out == "" {
+		return statusSkipped, nil // not installed: the gate is opt-in, not required
+	}
+	probs := vulnProblems(out)
+	if len(probs) == 0 {
+		return statusOK, nil
+	}
+	return statusFailed, probs
+}
+
+// vulnProblems reads govulncheck's text output: every "Vulnerability" block
+// names an advisory ID, which becomes the code, and the module line says what
+// to upgrade.
+func vulnProblems(out string) []problem {
+	var probs []problem
+	for _, l := range strings.Split(out, "\n") {
+		l = strings.TrimSpace(l)
+		if m := vulnHead.FindStringSubmatch(l); m != nil {
+			probs = append(probs, problem{Tool: "vuln", Code: "E_VULN_" + strings.ToUpper(m[1]), Message: l, Fix: t("fix vuln")})
+			continue
+		}
+		if len(probs) > 0 && strings.Contains(l, "Found in") {
+			probs[len(probs)-1].Message += " — " + l
+		}
+	}
+	return probs
+}
+
+// vulnHead is the line that starts an advisory; the plain ID shows up again
+// in the More info URL, which is not a new advisory.
+var vulnHead = regexp.MustCompile(`^Vulnerability #\d+: (GO-\d{4}-\d{4,})`)
+
+// checkStepSurface is the API-surface lock, and it only speaks where a
+// surface exists: a project that carries api/current.txt is held to it, the
+// same test `make api` answers.
+func checkStepSurface(p *project, _ bool) (string, []problem) {
+	if _, err := os.Stat(filepath.Join(p.Root, "api", "current.txt")); err != nil {
+		return statusSkipped, nil
+	}
+	out, err := tool(p.Root, "go", "test", "-run", "TestSuperficiePublica", ".")
+	if err == nil {
+		return statusOK, nil
+	}
+	return statusFailed, surfaceProblems(out)
+}
+
+// surfaceProblems keeps the diff the test prints — the part a reader acts
+// on — and names the whole failure E_API_SURFACE.
+func surfaceProblems(out string) []problem {
+	var lines []string
+	for _, l := range strings.Split(out, "\n") {
+		l = strings.TrimSpace(l)
+		if (strings.HasPrefix(l, "+") || strings.HasPrefix(l, "-")) && strings.Contains(l, "pkg ") {
+			lines = append(lines, l)
+			if len(lines) == 8 {
+				break
+			}
+		}
+	}
+	msg := "the surface moved without api/current.txt following"
+	if len(lines) > 0 {
+		msg += " (diff: " + strings.Join(lines, " ") + ")"
+	}
+	return []problem{{Tool: "surface", Code: "E_API_SURFACE", Message: msg, Fix: t("fix surface")}}
 }

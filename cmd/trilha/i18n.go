@@ -117,6 +117,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"flag ctx strict":   {"fail when the budget cuts anything", "falha quando o orçamento cortar algo"},
 	"ctx pack view":     {"--pack chooses its own slice; drop --routes/--types/--all", "--pack escolhe a própria fatia; largue --routes/--types/--all"},
 	"ctx budget cut":    {"budget cut: %s — raise --budget or drop --strict", "orçamento estourado: %s — suba --budget ou largue --strict"},
+	"fix vuln":          {"upgrade the module to at least the fixed version the advisory names", "suba o módulo para ao menos a versão corrigida que o advisory cita"},
+	"fix surface":       {"run make api and commit api/current.txt with the change", "rode make api e commite api/current.txt junto da mudança"},
 	"flag check json":   {"print the report as JSON", "imprime o relatório em JSON"},
 	"flag check fix":    {"fix what can be fixed: trilha_gen.go and the formatting", "conserta o que dá: trilha_gen.go e a formatação"},
 	"check ok":          {"ok", "ok"},

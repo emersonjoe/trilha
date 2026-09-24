@@ -1,42 +1,14 @@
 {
-  "ok": false,
-  "steps": [
+  "status": "fail",
+  "failures": [
     {
       "tool": "gen",
-      "status": "failed"
-    },
-    {
-      "tool": "gofmt",
-      "status": "not run"
-    },
-    {
-      "tool": "vet",
-      "status": "not run"
-    },
-    {
-      "tool": "test",
-      "status": "not run"
-    },
-    {
-      "tool": "audit",
-      "status": "not run"
-    },
-    {
-      "tool": "openapi",
-      "status": "not run"
-    },
-    {
-      "tool": "i18n",
-      "status": "not run"
-    }
-  ],
-  "problems": [
-    {
-      "tool": "gen",
+      "code": "E_NO_PAGE_FUNC",
       "file": "app/page.go",
       "line": 3,
       "message": "page.go must export func Page(c *trilha.Ctx) (h.Node, error); found func Render",
-      "fix": "rename the function to Page, or delete page.go if this directory is not a page"
+      "hint": "rename the function to Page, or delete page.go if this directory is not a page",
+      "doc": "/docs/errors/E_NO_PAGE_FUNC"
     }
   ]
 }

@@ -287,7 +287,7 @@ func checkStepI18n(p *project, _ bool) (string, []problem) {
 	}
 	keys, err := i18nKeys(p.Root)
 	if err != nil {
-		return statusFailed, []problem{{Tool: "i18n", Message: err.Error()}}
+		return statusFailed, []problem{{Tool: "i18n", Code: "E_I18N", Message: err.Error()}}
 	}
 	def := i18nDefaultLocale(p.Root)
 	var problems []problem
@@ -304,7 +304,7 @@ func checkStepI18n(p *project, _ bool) (string, []problem) {
 		abs, rel := i18nFile(p.Root, locale)
 		have, err := i18nRead(abs)
 		if err != nil {
-			return statusFailed, []problem{{Tool: "i18n", File: rel, Message: err.Error()}}
+			return statusFailed, []problem{{Tool: "i18n", Code: "E_I18N", File: rel, Message: err.Error()}}
 		}
 		var missing []string
 		for _, k := range keys {
@@ -318,11 +318,11 @@ func checkStepI18n(p *project, _ bool) (string, []problem) {
 		msg := fmt.Sprintf(t("i18n keys missing"), len(missing), strings.Join(firstKeys(missing, 3), ", "))
 		if locale == def {
 			failed = true
-			problems = append(problems, problem{Tool: "i18n", File: rel,
+			problems = append(problems, problem{Tool: "i18n", Code: "E_I18N", File: rel,
 				Message: msg, Fix: t("fix i18n")})
 			continue
 		}
-		problems = append(problems, problem{Tool: "i18n", File: rel,
+		problems = append(problems, problem{Tool: "i18n", Code: "E_I18N", File: rel,
 			Message: t("warning prefix") + msg, Fix: fmt.Sprintf(t("fix i18n locale"), locale)})
 	}
 	if failed {

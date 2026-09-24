@@ -146,9 +146,22 @@ func fatal(err error) {
 		}
 		os.Exit(1)
 	}
+	// Misuse — a bad flag, a bad argument — is a different thing from a gate
+	// that failed: the shell needs to tell one from the other.
+	var usage usageError
+	if errors.As(err, &usage) {
+		fmt.Fprintln(os.Stderr, t("error:"), usage.err.Error())
+		os.Exit(2)
+	}
 	fmt.Fprintln(os.Stderr, t("error:"), err)
 	os.Exit(1)
 }
+
+// usageError marks a command the caller got wrong, which is exit 2 (spec 161).
+type usageError struct{ err error }
+
+func (u usageError) Error() string { return u.err.Error() }
+func (u usageError) Unwrap() error { return u.err }
 
 // project locates the project root (the nearest go.mod) and its module path.
 type project struct {
