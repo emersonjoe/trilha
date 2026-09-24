@@ -88,6 +88,138 @@ func writeChecksums() error {
 	return os.WriteFile(filepath.Join("prompts", "CHECKSUMS.txt"), []byte(sb.String()), 0o644)
 }
 
+// TestMeasureSeries runs the series measurement with a lying agent and a
+// lying gate: every run writes a file (so FilesOpened counts it) and passes
+// its verify. Two runs per side of the eight series scenarios must leave the
+// exact series shape the plan asks for — sixteen rows, ISO dates, medians
+// from two runs, and no saving stored anywhere in the file.
+func TestMeasureSeries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds every fixture of the series")
+	}
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seriesPath := filepath.Join(t.TempDir(), "results.json")
+	run := func(ctx context.Context, dir, prompt string, o AgentOptions) (Usage, []byte, error) {
+		if err := os.WriteFile(filepath.Join(dir, "written_by_agent.go"), []byte("package main\n"), 0o644); err != nil {
+			return Usage{}, nil, err
+		}
+		return Usage{Input: 900 + len(dir), CacheRead: 1000, Output: 200, Turns: 11, Model: "stub-1"}, []byte(`{}`), nil
+	}
+	verify := func(ctx context.Context, dir string, sc Scenario, side string) bool { return true }
+	if err := measureSeries(repo, "", run, verify, seriesPath, 2, "", "stub", 40, 5*time.Minute, false); err != nil {
+		t.Fatal(err)
+	}
+	s, err := LoadSeries(seriesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Measurements) != 16 {
+		t.Fatalf("série com %d linhas, queria 16 (8 cenários × 2 lados)", len(s.Measurements))
+	}
+	seen := map[string]bool{}
+	for _, m := range s.Measurements {
+		seen[m.Scenario+"/"+m.Side] = true
+		if len(m.Date) != 10 || m.Date[4] != '-' {
+			t.Fatalf("date %q não é ISO", m.Date)
+		}
+		if m.Runs != 2 {
+			t.Fatalf("%s/%s: Runs = %d, queria 2", m.Scenario, m.Side, m.Runs)
+		}
+		if m.FilesOpened == 0 {
+			t.Fatalf("%s/%s: FilesOpened = 0, e o stub gravou um arquivo", m.Scenario, m.Side)
+		}
+	}
+	for _, sc := range SeriesScenarios() {
+		if !seen[sc.ID+"/trilha"] || !seen[sc.ID+"/baseline"] {
+			t.Fatalf("falta a linha de %s", sc.ID)
+		}
+	}
+	raw, _ := os.ReadFile(seriesPath)
+	if strings.Contains(string(raw), "savings") || strings.Contains(string(raw), "economia") {
+		t.Fatal("a série guarda economia — ela é para ser derivada, nunca armazenada")
+	}
+	// Re-measuring the same day overwrites the day's rows instead of
+	// duplicating them.
+	if err := measureSeries(repo, "", run, verify, seriesPath, 1, "", "stub", 40, 5*time.Minute, false); err != nil {
+		t.Fatal(err)
+	}
+	s, _ = LoadSeries(seriesPath)
+	if len(s.Measurements) != 16 {
+		t.Fatalf("re-medição deixou %d linhas, queria 16", len(s.Measurements))
+	}
+}
+
+// TestVerifyGate is the gate's table: the three failures the plan names —
+// average below the milestone, a scenario under the floor, a regression past
+// the band — plus an incomplete series and one pass.
+func TestVerifyGate(t *testing.T) {
+	row := func(scenario, side, date string, tin, tout int64) Measurement {
+		return Measurement{Date: date, Model: "m", Scenario: scenario, Side: side, TokensIn: tin, TokensOut: tout, Runs: 3}
+	}
+	// The baseline of every scenario is 1000 tokens; the trilha side's tokens
+	// state the saving.
+	full := func(trilhaTokens int64) Series {
+		var s Series
+		for _, sc := range []string{"comments", "s5-login"} {
+			s.Measurements = append(s.Measurements,
+				row(sc, SideBaseline, "2026-09-01", 1000, 0),
+				row(sc, SideTrilha, "2026-09-01", trilhaTokens, 0))
+		}
+		return s
+	}
+	names := []string{"comments", "s5-login"}
+
+	// 40% average: below a 45% target.
+	if fails := GateFailures(full(600), names, 45); len(fails) == 0 || !strings.Contains(strings.Join(fails, "\n"), "media") {
+		t.Fatalf("média baixa não falhou o gate: %v", fails)
+	}
+	// One scenario at 25%: under the 60% floor even with a good average.
+	mixed := Series{}
+	mixed.Measurements = append(mixed.Measurements,
+		row("comments", SideBaseline, "2026-09-01", 1000, 0),
+		row("comments", SideTrilha, "2026-09-01", 750, 0),
+		row("s5-login", SideBaseline, "2026-09-01", 1000, 0),
+		row("s5-login", SideTrilha, "2026-09-01", 150, 0))
+	fails := GateFailures(mixed, names, 45)
+	if !strings.Contains(strings.Join(fails, "\n"), "comments") || !strings.Contains(strings.Join(fails, "\n"), "piso") {
+		t.Fatalf("piso não apontou o comments: %v", fails)
+	}
+	// Regression: comments goes 80% -> 70%, six points past the band.
+	series := Series{}
+	series.Measurements = append(series.Measurements,
+		row("comments", SideBaseline, "2026-09-01", 1000, 0),
+		row("comments", SideTrilha, "2026-09-01", 200, 0),
+		row("comments", SideBaseline, "2026-09-02", 1000, 0),
+		row("comments", SideTrilha, "2026-09-02", 300, 0),
+		row("s5-login", SideBaseline, "2026-09-01", 1000, 0),
+		row("s5-login", SideTrilha, "2026-09-01", 200, 0),
+		row("s5-login", SideBaseline, "2026-09-02", 1000, 0),
+		row("s5-login", SideTrilha, "2026-09-02", 200, 0))
+	fails = GateFailures(series, names, 45)
+	if !strings.Contains(strings.Join(fails, "\n"), "comments") || !strings.Contains(strings.Join(fails, "\n"), "regrediu") {
+		t.Fatalf("regressão de 6 pontos não falhou o gate: %v", fails)
+	}
+	// Incomplete: a trilha row with no baseline beside it.
+	incomplete := full(200)
+	incomplete.Measurements = incomplete.Measurements[:1]
+	if fails := GateFailures(incomplete, names, 45); len(fails) == 0 || !strings.Contains(strings.Join(fails, "\n"), "incompleta") {
+		t.Fatalf("série incompleta não falhou o gate: %v", fails)
+	}
+	// The pass: 80% and 85% on the same day, nothing before.
+	good := Series{}
+	good.Measurements = append(good.Measurements,
+		row("comments", SideBaseline, "2026-09-01", 1000, 0),
+		row("comments", SideTrilha, "2026-09-01", 200, 0),
+		row("s5-login", SideBaseline, "2026-09-01", 1000, 0),
+		row("s5-login", SideTrilha, "2026-09-01", 150, 0))
+	if fails := GateFailures(good, names, 45); len(fails) != 0 {
+		t.Fatalf("série boa falhou o gate: %v", fails)
+	}
+}
+
 // TestBaselineBuilds is the stdlib half of the contract: every baseline of
 // the savings series builds on its own (stdlib only, one go.mod, no replace),
 // and the side's hidden test fails on the untouched fixture — a baseline

@@ -40,7 +40,7 @@ porque `bench` é módulo separado — **correção de caminho** sobre o plano, 
   `s8-conserto` baseline com 3 erros plantados equivalentes e testes vermelhos. *Aceite:*
   `cd bench && go test ./agent/... -run TestBaselineBuilds`.
 
-- [ ] **T04** — `Measurement` (esquema do plano + `Runs`) e `bench/agent/results/results.json`
+- [x] **T04** — `Measurement` (esquema do plano + `Runs`) e `bench/agent/results/results.json`
   commitado (nasce vazio e honesto — a primeira medição real é do mantenedor, com
   `claude auth login`); executor com modo `-measure` (roda os dois lados dos cenários com
   baseline, grava a série; rodada com erro do agente não entra; `FilesOpened` = arquivos
@@ -51,7 +51,7 @@ porque `bench` é módulo separado — **correção de caminho** sobre o plano, 
   economia). *Aceite:* `cd bench && go test ./agent/... -run TestMeasureSeries` e
   `python3 -c "import json;json.load(open('bench/agent/results/results.json'))"`.
 
-- [ ] **T05** — `Savings()` (medianas das rodadas verdes da data mais recente;
+- [x] **T05** — `Savings()` (medianas das rodadas verdes da data mais recente;
   `1 − trilha/baseline`) + `make bench-agent-verify MIN=45` no Makefile: falha se a média <
   MIN, se qualquer cenário < 0,60, se regredir > 5 pontos contra a última medição do
   cenário, ou se a série estiver incompleta; `-verify` no executor. *Aceite:* teste com

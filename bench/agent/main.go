@@ -27,21 +27,44 @@ func main() {
 		render   = flag.Bool("render", false, "only rewrite -md from -out")
 		list     = flag.Bool("list", false, "print the scenarios and exit")
 		agentsMD = flag.Bool("agents", false, "write AGENTS.md into every fixture, as `trilha new --agents` does")
+		measure  = flag.Bool("measure", false, "run the savings series (spec 159): both sides of every scenario with a baseline, into -series")
+		series   = flag.String("series", "results/results.json", "the savings series file -measure writes and -verify reads")
+		verify   = flag.Bool("verify", false, "run the regression gate over -series and exit nonzero on failure")
+		min      = flag.Float64("min", 45, "gate: minimum average saving, in percent")
 	)
 	flag.Parse()
-	if err := run(*scenario, *runs, *model, *agent, *maxTurns, *timeout, *out, *md, *keep, *dry, *render, *list, *agentsMD); err != nil {
+	if err := run(*scenario, *runs, *model, *agent, *maxTurns, *timeout, *out, *md, *keep, *dry, *render, *list, *agentsMD, *measure, *series, *verify, *min); err != nil {
 		fmt.Fprintln(os.Stderr, "agent:", err)
 		os.Exit(1)
 	}
 }
 
-func run(scenario string, runs int, model, agent string, maxTurns int, timeout time.Duration, out, md string, keep, dry, render, list, agentsMD bool) error {
+func run(scenario string, runs int, model, agent string, maxTurns int, timeout time.Duration, out, md string, keep, dry, render, list, agentsMD, measure bool, seriesPath string, verify bool, min float64) error {
 	all := Scenarios()
 	if list {
 		for _, s := range all {
 			fmt.Printf("%-14s %s (%s)\n", s.Name, s.Title, s.Example)
 		}
 		return nil
+	}
+	if verify {
+		s, err := LoadSeries(seriesPath)
+		if err != nil {
+			return err
+		}
+		var names []string
+		for _, sc := range SeriesScenarios() {
+			names = append(names, sc.ID)
+		}
+		fails := GateFailures(s, names, min)
+		if len(fails) == 0 {
+			fmt.Printf("gate: pass (média alvo %.0f%%)\n", min)
+			return nil
+		}
+		for _, f := range fails {
+			fmt.Println("gate: " + f)
+		}
+		return fmt.Errorf("bench-agent-verify: %d falha(s)", len(fails))
 	}
 	if render {
 		r, err := Load(out)
@@ -53,6 +76,35 @@ func run(scenario string, runs int, model, agent string, maxTurns int, timeout t
 	repo, err := repoRoot()
 	if err != nil {
 		return err
+	}
+	if measure {
+		// The series is the one file a human reviews before publishing, so
+		// the measurement runs on the same isolation the v1 ruler runs on:
+		// a read-only workspace the fixtures point at.
+		work, err := os.MkdirTemp("", "trilha-agent-")
+		if err != nil {
+			return err
+		}
+		if !keep {
+			defer os.RemoveAll(work)
+			defer Unlock(work)
+		}
+		if repo, err = Workspace(repo, work); err != nil {
+			return err
+		}
+		binDir := filepath.Join(work, "bin")
+		if err := BuildCLI(repo, binDir); err != nil {
+			return err
+		}
+		bin := filepath.Join(binDir, "trilha")
+		return measureSeries(repo, bin, RunAgent, func(ctx context.Context, dir string, sc Scenario, side string) bool {
+			if side == SideTrilha {
+				ok, _ := VerifyCLI(ctx, dir, sc, bin)
+				return ok
+			}
+			ok, _ := VerifyBaseline(ctx, dir, sc)
+			return ok
+		}, seriesPath, runs, model, agent, maxTurns, timeout, agentsMD)
 	}
 	selected := all
 	if scenario != "all" {

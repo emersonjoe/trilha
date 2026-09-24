@@ -1,4 +1,4 @@
-.PHONY: test test-otel vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry release
+.PHONY: test test-otel vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release
 
 GOVULNCHECK_VERSION ?= v1.1.4
 SECURITY_GO_VERSION ?= go1.25.13
@@ -83,3 +83,14 @@ bench-agent-dry:
 release:
 	@test -n "$(VERSION)" || { echo 'uso: make release VERSION=X.Y.Z [ISSUES="20 21"] [DRY_RUN=1]'; exit 2; }
 	./scripts/release.sh $(VERSION) $(if $(ISSUES),--issues "$(ISSUES)") $(if $(DRY_RUN),--dry-run)
+
+# A régua v2 (spec 159): mede a série de economia — os dois lados de cada
+# cenário com baseline — em results/results.json. Exige `claude auth login`;
+# dezenas de execuções e custo real. O gate `bench-agent-verify` é quem decide
+# se a série avança o marco (média ≥ MIN, piso 60% por cenário, regressão ≤ 5
+# pontos); a primeira medição é do mantenedor.
+bench-agent-measure:
+	cd bench/agent && go run . -measure -runs 3
+
+bench-agent-verify:
+	cd bench/agent && go run . -verify -min $(if $(MIN),$(MIN),45)
