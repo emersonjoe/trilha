@@ -1,3 +1,6 @@
+// Package code renderiza uma entrada do catálogo de erros, da mesma tabela Go
+// que o portão imprime (spec 161): causa, conserto e exemplo, por código
+// estável.
 package code
 
 import (
@@ -5,43 +8,24 @@ import (
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
-	"github.com/emersonjoe/trilha/site/internal/docs"
+	"github.com/emersonjoe/trilha/internal/checkerr"
 )
 
-// Page renderiza uma entrada do catálogo de erros de runtime.
+// Page renderiza uma entrada, ou 404 com as famílias que o leitor quis dizer.
 func Page(c *trilha.Ctx) (h.Node, error) {
-	guide, ok := trilha.ErrorGuideByCode(strings.ToUpper(c.Param("code")))
+	code := strings.ToUpper(c.Param("code"))
+	d, ok := checkerr.ByCode(code)
 	if !ok {
 		return nil, trilha.ErrNotFound
 	}
-	c.SetTitle(guide.Code)
+	c.SetTitle(d.Code)
 	return h.Article(h.Class("conteudo"),
 		h.P(h.Class("secao"), h.A(h.Href(c.Base()+"/pt/docs/errors"), h.Text("Catálogo de erros"))),
-		h.H1(h.Code(h.Text(guide.Code))),
-		h.H2(h.Text(guide.Title)),
-		h.P(h.Text(guide.Description)),
-		h.H2(h.Text("Como corrigir")),
-		h.P(h.Text(guide.Repair)),
-		h.P(h.A(h.Href(c.Base()+translatedReference(guide.Reference)), h.Text("Leia a referência relacionada"))),
+		h.H1(h.Code(h.Text(d.Code))),
+		h.H2(h.Text(d.Title)),
+		h.P(h.Text(d.Cause)),
+		h.H2(h.Text("Conserto")),
+		h.P(h.Text(d.Fix)),
+		h.If(d.Example != "", h.Pre(h.Code(h.Class("lang-go"), h.Text(d.Example)))),
 	), nil
-}
-
-func translatedReference(reference string) string {
-	path, fragment, hasFragment := strings.Cut(reference, "#")
-	section, slug, ok := strings.Cut(strings.TrimPrefix(path, "/"), "/")
-	if !ok {
-		return reference
-	}
-	page, ok := docs.Get("en", section, slug)
-	if !ok {
-		return reference
-	}
-	translated, ok := docs.Translation(page, "pt")
-	if !ok {
-		return reference
-	}
-	if hasFragment {
-		return translated.Path() + "#" + fragment
-	}
-	return translated.Path()
 }

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/internal/checkerr"
 	"github.com/emersonjoe/trilha/site/internal/cookbooksrc"
 	"github.com/emersonjoe/trilha/site/internal/demos"
 	"github.com/emersonjoe/trilha/site/internal/docs"
@@ -57,8 +57,8 @@ func demoPaths() []string {
 
 func errorCatalogPaths() []string {
 	out := []string{"/docs/errors", "/pt/docs/errors"}
-	for _, guide := range trilha.ErrorGuides() {
-		out = append(out, "/docs/errors/"+guide.Code, "/pt/docs/errors/"+guide.Code)
+	for _, d := range checkerr.Docs() {
+		out = append(out, "/docs/errors/"+d.Code, "/pt/docs/errors/"+d.Code)
 	}
 	return out
 }

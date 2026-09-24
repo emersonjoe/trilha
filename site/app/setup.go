@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/internal/checkerr"
 	"github.com/emersonjoe/trilha/site/internal/docs"
 	"github.com/emersonjoe/trilha/site/internal/ui"
 )
@@ -18,8 +19,8 @@ func Setup(a *trilha.App) error {
 	// docs.All().
 	a.AddExportPath("/demos/assistant", "/pt/demos/assistant")
 	a.AddExportPath("/docs/errors", "/pt/docs/errors")
-	for _, guide := range trilha.ErrorGuides() {
-		a.AddExportPath("/docs/errors/"+guide.Code, "/pt/docs/errors/"+guide.Code)
+	for _, d := range checkerr.Docs() {
+		a.AddExportPath("/docs/errors/"+d.Code, "/pt/docs/errors/"+d.Code)
 	}
 	for _, p := range docs.All() {
 		a.AddExportPath(p.Path())

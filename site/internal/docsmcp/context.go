@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/emersonjoe/trilha/ai"
+	"github.com/emersonjoe/trilha/internal/checkerr"
 	"github.com/emersonjoe/trilha/internal/tokbudget"
 	"github.com/emersonjoe/trilha/site/internal/cookbooksrc"
 	"github.com/emersonjoe/trilha/site/internal/docs"
@@ -20,9 +21,11 @@ import (
 
 var linkRe = regexp.MustCompile(`\]\((/[a-z0-9/-]+)\)`)
 
-// contextTools returns get_context and search_code for the docs server.
+// contextTools returns get_context, search_code and get_error for the docs
+// server: the slices an agent reads before writing, and the catalog entry
+// for a code it just saw in a gate's output.
 func contextTools() []*ai.Tool {
-	return []*ai.Tool{
+	tools := []*ai.Tool{
 		ai.NewTool("get_context",
 			"Return the slice of documentation one recipe touches: the recipe's page and the pages it links to, each priced in estimated tokens. The pack is a cookbook slug (\"database\", \"uploads\", \"login\").",
 			ai.Schema(`{"type":"object","properties":{"pack":{"type":"string","minLength":1},"locale":{"type":"string","enum":["en","pt"]}},"required":["pack"]}`),
@@ -34,6 +37,34 @@ func contextTools() []*ai.Tool {
 			ai.Typed(searchSources),
 		),
 	}
+	return append(tools, getErrorTool())
+}
+
+// getErrorTool answers one catalog entry - the cause, the fix, the example -
+// for the code a gate printed. Unknown codes say what a code looks like.
+func getErrorTool() *ai.Tool {
+	return ai.NewTool("get_error",
+		"Return the catalog entry for a stable error code (E_DUPLICATE_ROUTE, E_VET_PRINTF...): the cause, the fix and an example. A family code such as E_VULN_GO-2026-0001 answers the family's entry.",
+		ai.Schema(`{"type":"object","properties":{"code":{"type":"string","minLength":1}},"required":["code"]}`),
+		ai.Typed(func(_ context.Context, in struct {
+			Code string `json:"code"`
+		}) (string, error) {
+			code := strings.TrimSpace(in.Code)
+			if code == "" {
+				return "", fmt.Errorf("code is required")
+			}
+			d, ok := checkerr.ByCode(code)
+			if !ok {
+				return "", fmt.Errorf("no entry for %q; codes are E_ in caps - try the family, like E_VULN_", code)
+			}
+			var sb strings.Builder
+			fmt.Fprintf(&sb, "# %s — %s\n\n%s\n\n## Fix\n\n%s\n", d.Code, d.Title, d.Cause, d.Fix)
+			if d.Example != "" {
+				fmt.Fprintf(&sb, "\n## Example\n\n%s\n", d.Example)
+			}
+			fmt.Fprintf(&sb, "\n%s\n", d.Doc)
+			return sb.String(), nil
+		}))
 }
 
 // packOfDocs answers the pack: the page the slug names, the pages that page

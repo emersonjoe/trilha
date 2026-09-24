@@ -105,6 +105,7 @@ the documentation out of the CLI binary and reads the exact Markdown embedded by
 | `get_recipe` | one Cookbook page by slug, such as `pagination` |
 | `get_context` | the slice of documentation one recipe touches — the recipe's page and the pages it links to — each priced in estimated tokens (`est.`, 4 chars/token) |
 | `search_code` | the Cookbook's Go sources as `path:line` windows, the matching line plus one after it, a handful of matches at most — never a whole file |
+| `get_error` | one catalog entry by code — cause, fix, example — the same table [`trilha check`](/reference/cli) prints beside every failure; a family code such as `E_VULN_GO-2026-0001` answers the family's entry |
 
 `get_recipe` returns the canonical recipe Markdown. The site test already checks that its Go
 blocks occur character for character in `examples/cookbook`, so the MCP and the published page

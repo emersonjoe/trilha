@@ -106,6 +106,7 @@ mantém a documentação fora do binário da CLI e lê exatamente o Markdown emb
 | `get_recipe` | uma página de Receitas pelo slug, como `paginacao` |
 | `get_context` | a fatia de documentação que uma receita toca — a página da receita e as páginas que ela liga — cada uma com o custo estimado (`est.`, 4 caracteres por token) |
 | `search_code` | as fontes Go das Receitas em janelas `caminho:linha`, a linha achada mais uma depois, poucas ocorrências de uma vez — nunca o arquivo inteiro |
+| `get_error` | uma entrada do catálogo pelo código — causa, conserto, exemplo — a mesma tabela que o [`trilha check`](/pt/referencia/cli) imprime ao lado de cada falha; um código de família como `E_VULN_GO-2026-0001` responde a entrada da família |
 
 `get_recipe` devolve o Markdown canônico da receita. O teste do site já confirma que os blocos
 Go aparecem caractere por caractere em `examples/cookbook`, então o MCP e a página publicada não
