@@ -21,4 +21,4 @@
   dá o mesmo para máquina), e o AGENTS.md v2 já aponta o portão. A re-medição do S8 é do
   mantenedor, junto da primeira medição da série.
   *Aceite:* tasks.md.
-- [ ] **T08** — CHANGELOG/ROADMAP + suítes. *Aceite:* `make test` verde.
+- [x] **T08** — CHANGELOG/ROADMAP + suítes. *Aceite:* `make test` verde.
