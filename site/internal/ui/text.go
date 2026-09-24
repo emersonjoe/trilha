@@ -33,6 +33,7 @@ var texts = map[string]map[string]string{
 		"notfound.p":       "The page you looked for is not here. Maybe the chapter was renamed.",
 		"notfound.learn":   "Go to Learn",
 		"notfound.home":    "Home",
+		"pack.badge":       "ctx --pack · est.",
 	},
 	"pt": {
 		"site.title":       "Trilha — framework web para Go com roteamento por arquivos",
@@ -56,6 +57,7 @@ var texts = map[string]map[string]string{
 		"notfound.p":       "A página que você procurou não está aqui. Talvez o capítulo tenha mudado de nome.",
 		"notfound.learn":   "Ir para Aprender",
 		"notfound.home":    "Início",
+		"pack.badge":       "ctx --pack · est.",
 	},
 }
 

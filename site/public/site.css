@@ -218,3 +218,7 @@ th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color:
 .custos-meta .ui-muted { margin-top: 1.6rem; }
 .custos-economia { font-variant-numeric: tabular-nums; font-weight: 600; }
 .custos-economia-abaixo { color: var(--fg-2); font-weight: 400; }
+
+/* o preço de um pacote de receita (spec 160) */
+.custo-pack { font-family: var(--mono); font-size: .82rem; color: var(--fg-2); margin: .2rem 0 1.2rem; }
+.custo-pack code { background: var(--bg-2); border: 1px solid var(--linha); border-radius: .3rem; padding: .1rem .4rem; }

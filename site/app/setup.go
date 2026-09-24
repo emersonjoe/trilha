@@ -27,10 +27,17 @@ func Setup(a *trilha.App) error {
 			a.AddExportPath(strings.TrimPrefix(p.Path(), pt.Prefix))
 		}
 	}
-	// Texto puro para agentes: índice curto e documentação inteira, por locale.
-	// Nenhuma das quatro é página, então entram no export pela lista.
+	// Texto puro para agentes: índice curto e documentação inteira, por locale,
+	// e o llms.txt de cada receita (spec 160). Nenhuma é página, então entram
+	// no export pela lista.
 	for _, l := range docs.Locales {
 		a.AddExportPath(l.Prefix+"/llms.txt", l.Prefix+"/llms-full.txt")
+	}
+	for _, slug := range docs.RecipeSlugs("en") {
+		a.AddExportPath("/llms/recipes/" + slug + ".txt")
+	}
+	for _, slug := range docs.RecipeSlugs("pt") {
+		a.AddExportPath("/pt/llms/receitas/" + slug + ".txt")
 	}
 	// Fontes do Google no site (o export estático não envia cabeçalhos, mas o dev sim).
 	a.Security().CSPExtra = map[string][]string{

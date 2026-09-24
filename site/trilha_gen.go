@@ -23,6 +23,7 @@ import (
 	app_learn_slug_ "github.com/emersonjoe/trilha/site/app/learn/slug_"
 	app_llms_full_txt "github.com/emersonjoe/trilha/site/app/llms-full.txt"
 	app_llms_txt "github.com/emersonjoe/trilha/site/app/llms.txt"
+	app_llms_recipes_slug_ "github.com/emersonjoe/trilha/site/app/llms/recipes/slug_"
 	app_mcp "github.com/emersonjoe/trilha/site/app/mcp"
 	app_pt "github.com/emersonjoe/trilha/site/app/pt"
 	app_pt_aprender "github.com/emersonjoe/trilha/site/app/pt/aprender"
@@ -35,6 +36,7 @@ import (
 	app_pt_docs_errors_code_ "github.com/emersonjoe/trilha/site/app/pt/docs/errors/code_"
 	app_pt_llms_full_txt "github.com/emersonjoe/trilha/site/app/pt/llms-full.txt"
 	app_pt_llms_txt "github.com/emersonjoe/trilha/site/app/pt/llms.txt"
+	app_pt_llms_receitas_slug_ "github.com/emersonjoe/trilha/site/app/pt/llms/receitas/slug_"
 	app_pt_receitas "github.com/emersonjoe/trilha/site/app/pt/receitas"
 	app_pt_receitas_slug_ "github.com/emersonjoe/trilha/site/app/pt/receitas/slug_"
 	app_pt_referencia "github.com/emersonjoe/trilha/site/app/pt/referencia"
@@ -153,6 +155,13 @@ func newApp() *trilha.App {
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})
 	a.Register(trilha.Route{
+		Pattern: "/llms/recipes/{slug}",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_llms_recipes_slug_.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
 		Pattern: "/mcp",
 		Methods: map[string]trilha.HandlerFunc{
 			"POST": app_mcp.POST,
@@ -224,6 +233,13 @@ func newApp() *trilha.App {
 		Pattern: "/pt/llms.txt",
 		Methods: map[string]trilha.HandlerFunc{
 			"GET": app_pt_llms_txt.GET,
+		},
+		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
+	})
+	a.Register(trilha.Route{
+		Pattern: "/pt/llms/receitas/{slug}",
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": app_pt_llms_receitas_slug_.GET,
 		},
 		Middlewares: []trilha.MiddlewareFunc{app.Middleware},
 	})

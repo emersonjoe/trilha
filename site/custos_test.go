@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/emersonjoe/trilha/site/internal/custos"
+	"github.com/emersonjoe/trilha/site/internal/docs"
 )
 
 // TestCustosEmbedsTheSeries is the drift alarm: the copy of the series the
@@ -145,4 +146,67 @@ func formataPct(v float64) string {
 		return strconv.Itoa(int(p)) + "%"
 	}
 	return strconv.FormatFloat(p, 'f', 1, 64) + "%"
+}
+
+// TestLLMsTxtPerRecipe is the spec 160 contract: every cookbook slug of both
+// locales has a recipe llms.txt that answers the priced pack — each page
+// with its estimated cost and the total — followed by the recipe's page
+// verbatim. A slug without its file is a pack the agent cannot buy.
+func TestLLMsTxtPerRecipe(t *testing.T) {
+	for _, l := range docs.Locales {
+		section := "cookbook"
+		base := "/llms/recipes/"
+		if l.Code == "pt" {
+			section = "receitas"
+			base = "/pt/llms/receitas/"
+		}
+		for _, slug := range docs.RecipeSlugs(l.Code) {
+			code, body := get(t, base+slug+".txt")
+			if code != 200 {
+				t.Errorf("%s: %s = %d", l.Code, base+slug+".txt", code)
+				continue
+			}
+			if !strings.Contains(body, "tokens est. in all") || !strings.Contains(body, "tokens est.\n") {
+				t.Errorf("%s/%s: the pack is not priced:\n%.400s", l.Code, slug, body)
+			}
+			p, ok := docs.Get(l.Code, section, slug)
+			if !ok {
+				t.Fatalf("no page for %s/%s", l.Code, slug)
+			}
+			// The recipe's own page comes whole: its first heading is on the
+			// file, and so is a cost line naming it.
+			if !strings.Contains(body, "["+p.Title+"]") {
+				t.Errorf("%s/%s: the file does not list the recipe's page", l.Code, slug)
+			}
+			if cost, ok := docs.PackCost(l.Code, slug); !ok || cost <= 0 {
+				t.Errorf("%s/%s: PackCost = %d, %v", l.Code, slug, cost, ok)
+			}
+		}
+		// A slug nobody wrote is a 404, not an empty file.
+		code, _ := get(t, base+"nao-existe.txt")
+		if code != 404 {
+			t.Errorf("%s: unknown slug = %d, want 404", l.Code, code)
+		}
+	}
+}
+
+// TestRecipePageShowsThePackBadge renders a cookbook page and checks the
+// price tag: the mono badge with the pack's estimated cost, in both locales.
+func TestRecipePageShowsThePackBadge(t *testing.T) {
+	for _, path := range []string{"/cookbook/database", "/pt/receitas/banco-de-dados"} {
+		code, body := get(t, path)
+		if code != 200 {
+			t.Fatalf("%s = %d", path, code)
+		}
+		if !strings.Contains(body, "custo-pack") || !strings.Contains(body, "ctx --pack") {
+			t.Fatalf("%s: no pack badge:\n%.600s", path, body)
+		}
+		if !strings.Contains(body, "tokens est.") {
+			t.Fatalf("%s: the badge does not say est.:", path)
+		}
+	}
+	// A non-recipe page carries no badge.
+	if _, body := get(t, "/learn/pages-and-routes"); strings.Contains(body, "custo-pack") {
+		t.Fatal("a learn page grew a pack badge")
+	}
 }

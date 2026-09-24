@@ -69,10 +69,36 @@ func custosPaths() []string {
 	return []string{"/custos", "/pt/custos"}
 }
 
+// recipeLLMsPaths are the per-recipe llms.txt files (spec 160), one per
+// cookbook slug per locale.
+func recipeLLMsPaths() []string {
+	var out []string
+	for _, l := range docs.Locales {
+		section := "cookbook"
+		base := "/llms/recipes/"
+		if l.Code == "pt" {
+			section = "receitas"
+			base = "/pt/llms/receitas/"
+		}
+		for _, s := range docs.LocaleOf(l.Code).Sections {
+			if s.Key != section {
+				continue
+			}
+			for _, slug := range s.Slugs {
+				if slug != "" {
+					out = append(out, base+slug+".txt")
+				}
+			}
+		}
+	}
+	return out
+}
+
 func allPaths() []string {
 	out := append(homes(), pagePaths()...)
 	out = append(out, demoPaths()...)
 	out = append(out, custosPaths()...)
+	out = append(out, recipeLLMsPaths()...)
 	return append(out, errorCatalogPaths()...)
 }
 

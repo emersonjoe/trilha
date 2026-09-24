@@ -131,6 +131,7 @@ func DocPage(c *trilha.Ctx, p docs.Page) (h.Node, error) {
 			h.P(h.Class("secao"), h.Text(sectionTitle(p))),
 			h.H1(h.Text(p.Title)),
 			h.If(p.Description != "", h.P(h.Class("descricao"), h.Text(p.Description))),
+			packBadge(c, p),
 			h.Raw(r.HTML),
 			h.Nav(h.Class("vizinhos"), h.Aria("label", T(c, "neighbors")),
 				h.If(prev != nil, h.A(h.Class("anterior"), h.Href(b+safePath(prev)), h.Small(h.Text(T(c, "prev"))), h.Span(h.Text(safeTitle(prev))))),
@@ -139,6 +140,46 @@ func DocPage(c *trilha.Ctx, p docs.Page) (h.Node, error) {
 		),
 		h.Aside(h.Class("sumario-coluna"), TOC(c, r)),
 	), nil
+}
+
+// packBadge is the recipe page's price tag (spec 160): what reading the pack
+// of this recipe costs, at the shared estimator, labeled est. until a
+// measurement replaces it. It links to the recipe's llms.txt, which is the
+// pack priced and the page verbatim.
+func packBadge(c *trilha.Ctx, p docs.Page) h.Node {
+	section := "cookbook"
+	path := "/llms/recipes/"
+	if p.Locale == "pt" {
+		section = "receitas"
+		path = "/pt/llms/receitas/"
+	}
+	if p.Section != section || p.Slug == "" {
+		return h.Nil
+	}
+	cost, ok := docs.PackCost(p.Locale, p.Slug)
+	if !ok {
+		return h.Nil
+	}
+	badge := T(c, "pack.badge")
+	return h.P(h.Class("custo-pack"),
+		h.Code(h.Textf("%s %d tokens %s", badge, cost, estLabel(c))),
+		h.Text(" · "),
+		h.A(h.Href(c.Base()+path+p.Slug+".txt"), h.Text(llmsLabel(c))),
+	)
+}
+
+func estLabel(c *trilha.Ctx) string {
+	if Locale(c) == "pt" {
+		return "est."
+	}
+	return "est."
+}
+
+func llmsLabel(c *trilha.Ctx) string {
+	if Locale(c) == "pt" {
+		return "llms.txt da receita"
+	}
+	return "the recipe's llms.txt"
 }
 
 // Legacy redirects an old (pre-i18n) Portuguese path to its home under /pt.
