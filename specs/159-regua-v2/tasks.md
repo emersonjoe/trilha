@@ -60,7 +60,7 @@ porque `bench` é módulo separado — **correção de caminho** sobre o plano, 
 
 ## Bloco 3 — a vitrine
 
-- [ ] **T06** — Página `/custos` e `/pt/custos` (`site/app/custos/page.go`,
+- [x] **T06** — Página `/custos` e `/pt/custos` (`site/app/custos/page.go`,
   `site/app/pt/custos/page.go`, dados em `site/internal/custos/`): herói com a economia
   média em verde da marca, barra de progresso da meta (45/60/70), tabela cenário · tokens
   baseline · tokens trilha · economia · rodadas com badge por linha e cartões no celular
@@ -92,6 +92,6 @@ porque `bench` é módulo separado — **correção de caminho** sobre o plano, 
 
 ## Fim da spec
 
-- [ ] **T10** — Entrada no topo do `CHANGELOG.md` (inglês, formato `## X.Y.Z — YYYY-MM-DD`)
+- [x] **T10** — Entrada no topo do `CHANGELOG.md` (inglês, formato `## X.Y.Z — YYYY-MM-DD`)
   e `ROADMAP.md` se a área muda de estado; sem `make release`, sem tocar `const version`,
   sem push, sem issues. *Aceite:* revisão do diff final + `make test` verde.

@@ -3,15 +3,46 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
-## Unreleased
+## 0.140.0 — 2026-09-24
+
+The ruler measures before it cuts (spec 159, the first milestone of Tokens 70): the agent
+ruler now measures every scenario **against a committed Go-pure twin**, and the site publishes
+the series. No runtime, CLI or kit change; nothing here is part of the public API surface.
+
+### Added
+
+- **The savings series.** Every scenario of the ruler that has an honest standard-library twin
+  is measured on both sides — as Trilha asks it, and as the same task in pure Go
+  (`net/http` + `html/template`), with the baseline committed under `bench/agent/baseline/`,
+  one `go.mod` each, stdlib alone. The saving is derived wherever it is read
+  (`1 − tokens(Trilha)/tokens(pure Go)`); the series file records what was spent, nothing
+  else. The first real measurement is the maintainer's to run (`make bench-agent-measure`).
+- **Four scenarios** (`s5-login`, `s6-crud`, `s7-tela`, `s8-conserto`) with committed starting
+  apps under `bench/agent/apps/`. The s8 app carries three planted defects — a duplicate
+  route, a form that posts without the CSRF token, a validation rule misspelled — and its own
+  tests prove both directions: red as committed, green under the three canonical fixes.
+- **Frozen prompts.** Every prompt of the ruler now lives in `bench/agent/prompts/` with its
+  SHA-256 pinned in `CHECKSUMS.txt`; the eight v1 prompts moved byte-for-byte, so the
+  historical series stands. `TestScenarioPromptsFrozen` refuses a ruler whose contract moved.
+- **The regression gate.** `make bench-agent-verify MIN=n` fails when the average saving
+  misses the milestone target, when any scenario is under 60%, when any scenario regressed
+  more than five points against its own previous measurement, or when the series is
+  incomplete.
+- **/custos and /pt/custos**: the series as a page — the average saving as the hero number,
+  the milestone bar (45/60/70), a per-scenario table that becomes cards on the phone, a
+  server-drawn bar chart, and the methodology in prose. The embedded copy of the series is
+  commit-tested against the ruler's file, and every number on the page is checked against an
+  independent reading of it. An empty series says the first measurement is pending instead of
+  inventing one.
+- **The ruler chapter** in the Learn section, both locales, with the challenge every chapter
+  carries.
 
 ### Changed
 
-- The hands-on runner chapter says, in both locales, what makes the Docker sandbox both usable
-  and safe: dropping every capability is what forces the agent to run as the worktree's owner
-  (without `CAP_DAC_OVERRIDE`, a root agent cannot write a worktree you own), and the project's
-  credential enters the container through a file rather than on the `docker exec` command line,
-  which `ps` would show to every user on the machine.
+- **The bench workflow** (`.github/workflows/bench.yml`): dispatch and a weekly schedule,
+  never a PR. It proves the ruler dry first, measures only when the repository carries the
+  agent's credentials, gates the series, and hands the result to the maintainer as a pull
+  request — no third-party action enters the chain.
 
 ## 0.139.0 — 2026-09-19
 

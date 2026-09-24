@@ -289,6 +289,23 @@ registra a divisão. O que cabe a este repositório é conviver com eles.
 125. ~~Quinze issues abertas pelo uso do kit e da CLI num app real — a página com largura zero com o menu recolhido, a gaveta do celular que não fechava, o `trilha add login users audit --lang pt` que aplicava uma receita em inglês, o `Grid` sem como dizer quantas colunas.~~ **Entregues na 0.136.0** (spec 157, [#251](https://github.com/emersonjoe/trilha/issues/251) a [#265](https://github.com/emersonjoe/trilha/issues/265)): `ui.Cols`, `ui.Subtitle`, `SearchBoxOpts.Submit`, `Security.CSPRemove`, `Config.PipeHeaders`, o `add` com várias receitas e flags em qualquer posição, a gaveta separada da preferência do desktop, e o teste que garante que toda classe que o kit escreve tem regra ou é gancho documentado.
 126. ~~Sete issues abertas pelo programa CPSI Toledo — o webhook de terceiro reescrito à mão, a consulta por protocolo sem conta, o formulário que morre com a rede, o atendimento por voz, o locale um por processo, a unidade dentro da organização e os spans que ninguém exportava.~~ **Entregues na 0.137.0** (spec 158, [#266](https://github.com/emersonjoe/trilha/issues/266) a [#272](https://github.com/emersonjoe/trilha/issues/272)): `webhook.VerifyHMAC` e a receita `channel-whatsapp`, `trilha.CheckDigit` e a receita `public-lookup`, `var Offline = true` com `trilha.OfflineForm`/`Idempotent`, `ui.Outbox` e a receita `pwa-offline`, `ui.Recorder` com `ai.Transcribe`/`Speak`, `Config.Locales` com `c.T` e `trilha i18n extract|missing`, `User.Units` com escopo por unidade no `auth.Policy`, e o módulo opcional `otel/` sobre `Config.OnRequest`.
 
+### Fase 11 — Tokens 70
+
+A pergunta agora tem número: **um agente de IA gasta 70% menos tokens para criar um app com
+o Trilha do que em Go puro**, medido na régua do `bench/agent`, com prompts congelados,
+baselines commitados e a série publicada em [/custos](/custos). Seis specs, uma por sessão
+(159–164), com marcos em 45%, 60% e 70% — e um gate que falha a release quando qualquer
+cenário regrediu mais de cinco pontos.
+
+127. **M0 — a régua mede antes de cortar** (spec 159, **entregue na 0.140.0**): os doze
+cenários da régua com prompts congelados em arquivos com SHA-256 registrado (`CHECKSUMS.txt`),
+quatro cenários novos com apps de partida commitados (o S8 com três erros plantados que o
+`trilha check` aponta), oito baselines em Go puro com um `go.mod` cada e só biblioteca padrão,
+a série `results/results.json` com a economia derivada — nunca armazenada —, o gate
+`make bench-agent-verify MIN=n` (média ≥ meta, piso de 60% por cenário, regressão ≤ 5 pontos)
+e a vitrine `/custos` e `/pt/custos` no site, com o capítulo "A régua" no Learn. A primeira
+medição real é do mantenedor (`make bench-agent-measure`, exige `claude auth login`).
+
 ## O que não vamos fazer, e por quê
 
 | Item da avaliação | Decisão | Motivo |
