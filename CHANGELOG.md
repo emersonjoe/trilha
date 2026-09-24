@@ -3,6 +3,43 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.141.0 — 2026-09-24
+
+Context under budget (spec 160, the second milestone of Tokens 70): the agent stops opening
+files to find out what the project has. No runtime or kit change; the CLI gains flags and the
+map gains sections. Nothing here is part of the public API surface.
+
+### Added
+
+- **`internal/tokbudget`**: the one estimator every tool shares — four characters per token,
+  rounded up, and every number it produces is labeled `est.`.
+- **`trilha ctx --pack app|<recipe> --budget N --strict`**: the map sliced for one job. The
+  cut order is contracts, recipes, conventions — routes are never cut — what did not fit is
+  named, and `--strict` turns the cut into `E_CTX_BUDGET`.
+- **The map prices itself**: `trilha ctx` ends with its estimated token cost, lists the
+  recipes the project installed (read from the markers the recipes write into `setup.go`) and
+  the conventions the tree actually uses.
+- **`mcp.ContextTools`**: `get_context` and `search_code` for a project's own MCP server —
+  the budgeted map, and `path:line` windows instead of whole files.
+- **A priced llms.txt per recipe** (`/llms/recipes/<slug>.txt`, and the Portuguese mirror):
+  the pages the recipe touches, each with its estimated cost and the total, then the recipe's
+  page verbatim. The recipe's HTML page wears the same number as a badge.
+- **The docs MCP server gains the two tools** over its own material: `get_context` prices the
+  pages a recipe touches, `search_code` opens windows into the cookbook's Go sources,
+  embedded and commit-tested against `examples/cookbook`.
+- **The Learn chapter** "Context under budget", both locales, with the cut order and its
+  floor.
+
+### Changed
+
+- **`AGENTS.md` v2**: four fixed sections — the map first, the recipes installed, the gates,
+  the narrow-reading rules — tested to stay under 2,500 estimated tokens. It points at
+  `trilha ctx` instead of copying the map, and the command invariant is now one-way: every
+  command the file names must exist, never a typo of one.
+- **`trilha ctx` quotes less**: string literals inside a `Provide` expression are masked, so
+  a secret written next to the code it guards cannot leak into the map an agent reads.
+  `TestCtxNeverLeaksSecrets` holds every output form to it.
+
 ## 0.140.0 — 2026-09-24
 
 The ruler measures before it cuts (spec 159, the first milestone of Tokens 70): the agent
