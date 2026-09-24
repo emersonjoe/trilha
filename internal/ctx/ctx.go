@@ -36,6 +36,10 @@ type Context struct {
 	// screen from inventing a second spelling of "status".
 	Enums []Enum `json:"enums,omitempty"`
 	Setup *Setup `json:"setup,omitempty"`
+	// InstalledRecipes is what the caller detected in the project (the ctx
+	// package reads no registry): the map names them and where their docs
+	// are, nothing more.
+	InstalledRecipes []RecipeInfo `json:"installedRecipes,omitempty"`
 }
 
 // Generated says whether trilha_gen.go matches what app/ asks for. A route
@@ -296,7 +300,7 @@ func provided(file string) []Value {
 		if typ == "" {
 			typ = literalType(fset, arg)
 		}
-		out = append(out, Value{Type: typ, From: expr(fset, arg)})
+		out = append(out, Value{Type: typ, From: maskLiterals(expr(fset, arg))})
 		return true
 	})
 	sort.Slice(out, func(i, j int) bool {
@@ -338,4 +342,34 @@ func expr(fset *token.FileSet, e ast.Expr) string {
 		s = s[:59] + "…"
 	}
 	return s
+}
+
+// maskLiterals replaces the content of every "…" string literal with a
+// placeholder: the map quotes an expression for its shape — which
+// constructor, which type — never for the values somebody wrote inside it,
+// least of all a secret that only made sense next to the code it guarded.
+func maskLiterals(s string) string {
+	var sb strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] == '"' {
+			sb.WriteString(`"…"`)
+			j := i + 1
+			for j < len(s) {
+				if s[j] == '\\' {
+					j += 2
+					continue
+				}
+				if s[j] == '"' {
+					j++
+					break
+				}
+				j++
+			}
+			i = j
+			continue
+		}
+		sb.WriteByte(s[i])
+		i++
+	}
+	return sb.String()
 }

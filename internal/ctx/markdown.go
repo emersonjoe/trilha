@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/emersonjoe/trilha/internal/tokbudget"
 )
 
 // View decides how much of the map gets printed. The compact view is the
@@ -24,7 +26,9 @@ const (
 // project; the compact view says it once instead of once per status.
 const problemType = "Problem"
 
-// Markdown renders the map for a reader that pays by the token.
+// Markdown renders the map for a reader that pays by the token. The footer
+// prices the page with the shared estimator — labeled est., because a
+// four-characters-per-token rule is a budget, not a bill.
 func (c *Context) Markdown(v View) string {
 	var sb strings.Builder
 	if v == Compact || v == All {
@@ -44,12 +48,42 @@ func (c *Context) Markdown(v View) string {
 	}
 	if v == Compact || v == All {
 		c.api(&sb, v)
+		c.recipes(&sb)
 	}
 	if v != OnlyRoutes {
 		c.types(&sb, v)
 	}
 	c.enums(&sb)
+	if v == Compact || v == All {
+		if cs := conventions(c, true); len(cs) > 0 {
+			sb.WriteString("## Conventions\n\n")
+			for _, cn := range cs {
+				fmt.Fprintf(&sb, "- %s\n", cn)
+			}
+			sb.WriteString("\n")
+		}
+		body := sb.String()
+		fmt.Fprintf(&sb, "---\n\n- %d tokens est. (%d chars/token)\n", tokbudget.Estimate(body), tokbudget.CharsPerToken)
+	}
 	return sb.String()
+}
+
+// recipes lists what the project installed, from what the caller detected
+// (the ctx package reads no registry). A project with none pays nothing: the
+// section only exists when there is something to list.
+func (c *Context) recipes(sb *strings.Builder) {
+	if len(c.InstalledRecipes) == 0 {
+		return
+	}
+	sb.WriteString("## Recipes\n\n")
+	for _, r := range c.InstalledRecipes {
+		line := "- `" + r.Name + "`"
+		if r.Doc != "" {
+			line += " — " + r.Doc
+		}
+		sb.WriteString(line + "\n")
+	}
+	sb.WriteString("\n")
 }
 
 // enums is a section only when there are any: a project that declares none
