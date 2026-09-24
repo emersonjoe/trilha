@@ -89,6 +89,7 @@ func TestBenchBaselineComments(t *testing.T) {
 const baselineContactFormTest = `package main
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -104,8 +105,8 @@ func TestBenchBaselineContato(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sb strings.Builder
-	if _, err := sb.ReadFrom(res.Body); err != nil {
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()
@@ -114,7 +115,7 @@ func TestBenchBaselineContato(t *testing.T) {
 	}
 	// "Preços" is a link of the layout: the page must be inside it.
 	for _, quero := range []string{"<form", "Preços"} {
-		if !strings.Contains(sb.String(), quero) {
+		if !strings.Contains(string(b), quero) {
 			t.Fatalf("a página não tem %q", quero)
 		}
 	}
@@ -140,6 +141,7 @@ func TestBenchBaselineContato(t *testing.T) {
 const baselinePaginationTest = `package main
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -161,15 +163,15 @@ func TestBenchBaselinePaginacao(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var sb strings.Builder
-		if _, err := sb.ReadFrom(res.Body); err != nil {
+		b, err := io.ReadAll(res.Body)
+		if err != nil {
 			t.Fatal(err)
 		}
 		res.Body.Close()
 		if res.StatusCode != http.StatusOK {
 			t.Fatalf("GET /blog%s = %d", q, res.StatusCode)
 		}
-		return sb.String()
+		return string(b)
 	}
 	p1 := pagina("")
 	if n := quantos(p1); n != 5 {
@@ -195,6 +197,7 @@ func TestBenchBaselinePaginacao(t *testing.T) {
 const baselineGenerateCRUDTest = `package main
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -228,12 +231,12 @@ func TestBenchBaselineGenerateCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sb strings.Builder
-	if _, err := sb.ReadFrom(res.Body); err != nil {
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()
-	if !strings.Contains(sb.String(), "Contratos") {
+	if !strings.Contains(string(b), "Contratos") {
 		t.Fatal("a listagem não mostra o que foi criado")
 	}
 }
@@ -247,7 +250,6 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -326,6 +328,7 @@ const baselineS6CRUDTest = `package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -380,12 +383,12 @@ func TestBenchBaselineS6CRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sb strings.Builder
-	if _, err := sb.ReadFrom(res.Body); err != nil {
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()
-	if res.StatusCode != http.StatusOK || !strings.Contains(sb.String(), "<form") {
+	if res.StatusCode != http.StatusOK || !strings.Contains(string(b), "<form") {
 		t.Fatalf("GET /produtos = %d, want a form on it", res.StatusCode)
 	}
 	res, err = http.PostForm(srv.URL+"/produtos", url.Values{"nome": {""}, "preco": {"-1"}})
@@ -408,12 +411,12 @@ func TestBenchBaselineS6CRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sb.Reset()
-	if _, err := sb.ReadFrom(res.Body); err != nil {
+	b, err = io.ReadAll(res.Body)
+	if err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()
-	if !strings.Contains(sb.String(), "Monitor") {
+	if !strings.Contains(string(b), "Monitor") {
 		t.Fatal("a listagem não mostra o que foi criado")
 	}
 }
@@ -422,6 +425,7 @@ func TestBenchBaselineS6CRUD(t *testing.T) {
 const baselineS7TelaTest = `package main
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -434,15 +438,15 @@ func relatorio(t *testing.T, srv, q string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var sb strings.Builder
-	if _, err := sb.ReadFrom(res.Body); err != nil {
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
 		t.Fatal(err)
 	}
 	res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("GET /relatorios%s = %d", q, res.StatusCode)
 	}
-	return sb.String()
+	return string(b)
 }
 
 func TestBenchBaselineS7Tela(t *testing.T) {

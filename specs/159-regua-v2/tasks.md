@@ -32,7 +32,7 @@ porque `bench` é módulo separado — **correção de caminho** sobre o plano, 
 
 ## Bloco 2 — a série e o gate
 
-- [ ] **T03** — Baselines Go puro em `bench/agent/baseline/{comments,contact-form,
+- [x] **T03** — Baselines Go puro em `bench/agent/baseline/{comments,contact-form,
   pagination,generate-crud,s5-login,s6-crud,s7-tela,s8-conserto}/`, um `go.mod` por app,
   só stdlib, mesma feature do lado trilha e o mesmo contrato que o prompt congelado fixa
   (rotas, campos, credenciais, gatilhos); testes escondidos do lado baseline no cenário;

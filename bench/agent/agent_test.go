@@ -88,6 +88,80 @@ func writeChecksums() error {
 	return os.WriteFile(filepath.Join("prompts", "CHECKSUMS.txt"), []byte(sb.String()), 0o644)
 }
 
+// TestBaselineBuilds is the stdlib half of the contract: every baseline of
+// the savings series builds on its own (stdlib only, one go.mod, no replace),
+// and the side's hidden test fails on the untouched fixture — a baseline
+// whose test passes before the task is done measures nothing. s8 is the
+// exception by design: its fixture is red as committed, and the test proves
+// the canonical fixes take it green, so the bar is reachable.
+func TestBaselineBuilds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds every baseline")
+	}
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sc := range SeriesScenarios() {
+		t.Run(sc.Name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "base")
+			if err := copyTree(filepath.Join(repo, filepath.FromSlash(sc.BaseDir)), dir, "", ""); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			if err := exec.CommandContext(ctx, "go", "build", "./...").Run(); err != nil {
+				c := exec.CommandContext(ctx, "go", "build", "./...")
+				c.Dir = dir
+				out, _ := c.CombinedOutput()
+				t.Fatalf("%s does not build: %s", sc.BaseDir, out)
+			}
+			if sc.Name == "s8-conserto" {
+				// Red as committed, green under the canonical fixes: delete
+				// the double registration and put the two checks in.
+				if err := os.Remove(filepath.Join(dir, "extras.go")); err != nil {
+					t.Fatal(err)
+				}
+				b, err := os.ReadFile(filepath.Join(dir, "main.go"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "main.go"),
+					[]byte(strings.Replace(string(b), "\tregistrarExtras(mux)\n", "", 1)), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				b, err = os.ReadFile(filepath.Join(dir, "paginas.go"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				fixed := strings.Replace(string(b), "\t// TODO(csrf): verificar o token do formulário contra o cookie antes de\n"+
+					"\t// gravar qualquer coisa.\n"+
+					"\t// TODO(validacao): recusar nome vazio com 422 em vez de gravar.\n",
+					"\t"+`if r.FormValue("_csrf") == "" || r.FormValue("_csrf") != tokenDoCookie(r) {`+"\n"+
+						"\t\thttp.Error(w, \"token csrf inválido\", http.StatusForbidden)\n\t\treturn\n\t}\n"+
+						"\t"+`if nome == "" {`+"\n"+
+						"\t\thttp.Error(w, \"nome é obrigatório\", http.StatusUnprocessableEntity)\n\t\treturn\n\t}\n", 1)
+				if fixed == string(b) {
+					t.Fatal("the fixture drifted; the planted TODO block is not where it was")
+				}
+				if err := os.WriteFile(filepath.Join(dir, "paginas.go"), []byte(fixed), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if ok, why := VerifyBaseline(ctx, dir, sc); !ok {
+					t.Fatalf("the canonical fixes do not make the baseline green:\n%s", why)
+				}
+				return
+			}
+			if ok, why := VerifyBaseline(ctx, dir, sc); ok {
+				t.Fatalf("%s: the baseline hidden test passes on the untouched fixture; it measures nothing", sc.BaseDir)
+			} else if !strings.Contains(why, "--- FAIL") {
+				t.Fatalf("%s: the baseline does not compile with its hidden test: %s", sc.BaseDir, why)
+			}
+		})
+	}
+}
+
+// for: each one passes `trilha check` as committed — except s8, which must
 // TestScenarioApps proves the committed starting apps are what the plan asks
 // for: each one passes `trilha check` as committed — except s8, which must
 // fail at the first gate with the planted duplicate route, keep failing its
