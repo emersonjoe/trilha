@@ -305,7 +305,7 @@ a série `results/results.json` com a economia derivada — nunca armazenada —
 `make bench-agent-verify MIN=n` (média ≥ meta, piso de 60% por cenário, regressão ≤ 5 pontos)
 e a vitrine `/custos` e `/pt/custos` no site, com o capítulo "A régua" no Learn. A primeira
 medição real é do mantenedor (`make bench-agent-measure`, exige `claude auth login`).
-128. **M1a — menos leitura** (spec 160, **entregue na 0.141.0**): `internal/tokbudget` (4
+129. **M1a — menos leitura** (spec 160, **entregue na 0.141.0**): `internal/tokbudget` (4
 caracteres por token, tudo rotulado `est.`), `trilha ctx --pack app|<receita> --budget
 --strict` com ordem de corte documentada (contratos → receitas → convenções; rotas nunca) e
 `E_CTX_BUDGET`, o mapa listando receitas instaladas e convenções em uso com o próprio custo no
@@ -313,6 +313,11 @@ rodapé, `AGENTS.md` v2 com seções fixas e alvo testado de 2.500 tokens, as fe
 `get_context`/`search_code` (no projeto, no `ai/mcp`; no site, sobre docs e fontes das
 receitas), `llms.txt` por receita com preço e selo na página, máscara de literais em `Provide`
 com `TestCtxNeverLeaksSecrets`, e o capítulo "Contexto sob orçamento" no Learn.
+130. **M1b — menos rodadas de erro** (spec 161, **entregue na 0.142.0**): `internal/checkerr`
+como fonte única dos códigos estáveis (gates, convenções do scanner e hints de runtime), cada
+falha do `trilha check` com código, conserto e link da página, `check --json` no contrato do
+plano com exit 0/1/2, govulncheck opt-in emitindo `E_VULN_<id>`, o catálogo gerando
+`/docs/errors` nas duas línguas com busca e âncoras, e `get_error` no MCP do site.
 
 ## O que não vamos fazer, e por quê
 

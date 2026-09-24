@@ -3,6 +3,41 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.142.0 — 2026-09-24
+
+The gate that teaches (spec 161, the second half of M1): every failure of `trilha check`
+names its stable code, and the code's page holds the cause, the fix and an example. No
+runtime or kit change; `internal/checkerr` is internal and the CLI's JSON output was never a
+guaranteed surface.
+
+### Added
+
+- **`internal/checkerr`**, the single catalog of stable codes: the gates
+  (`E_GOFMT`, `E_VET`, `E_VET_PRINTF`, `E_TEST`, `E_AUDIT`, `E_OPENAPI`, `E_I18N`,
+  `E_GEN_STALE`, `E_API_SURFACE`, `E_CTX_BUDGET`), the scanner's conventions
+  (`E_DUPLICATE_ROUTE` and friends) and the runtime hints (`E_REDIRECT_ABSOLUTE` and
+  friends), each with its cause, its fix and an example. `TestErrorCatalogComplete` sweeps
+  the source for `E_*` literals and refuses a code nobody explained.
+- **The gate carries the teaching.** Every problem `trilha check` prints now has its code;
+  the JSON form is the plan's contract — one `status`, and `failures[]` with
+  `tool/code/file/line/message/hint/doc`. Exit codes split by audience: 0 green, 1 a failed
+  gate, 2 misuse.
+- **Two gates join the order.** govulncheck, opt-in through `TRILHA_CHECK_VULN=1`, emits
+  `E_VULN_<advisory id>` — the family entry says the upgrade; the API-surface lock speaks
+  where a surface exists, `E_API_SURFACE` with the diff.
+- **The catalog is the page.** `/docs/errors` and `/pt/docs/errors` are generated from the
+  table, with a server-side search and an anchor per code; `/docs/errors/<code>` serves any
+  entry, not only the runtime's four.
+- **`get_error` on the docs MCP server**: the catalog entry for a code the agent just saw,
+  family codes answering their family.
+- **The reference pages** document the tools in both languages.
+
+### Changed
+
+- **`check --json` changed shape** (spec 161's contract replaces the spec 047 one). The
+  human output is the same, and the steps' order is unchanged: cheapest first, stopping at
+  the first failure.
+
 ## 0.141.0 — 2026-09-24
 
 Context under budget (spec 160, the second milestone of Tokens 70): the agent stops opening
