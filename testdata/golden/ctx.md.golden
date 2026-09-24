@@ -29,3 +29,12 @@
 ### GET /api/posts/{id}
 - 200
 
+## Conventions
+
+- JSON APIs answered by route.go handlers
+- nested layouts (layout.go wraps its subtree)
+- folder middleware (middleware.go guards its subtree)
+
+---
+
+- 321 tokens est. (4 chars/token)
