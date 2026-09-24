@@ -24,7 +24,8 @@ type Doc struct {
 	Doc     string // the site page: "/docs/errors/<code>"
 }
 
-// Docs returns the whole catalog in code order.
+// Docs returns the whole catalog in code order: the gates, the scanner's
+// conventions and the runtime's hints — one table.
 func Docs() []Doc {
 	out := append([]Doc(nil), catalog...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Code < out[j].Code })
@@ -79,7 +80,7 @@ func init() {
 	// The runtime hints already have a catalog of their own; it is the same
 	// table, so it joins this one instead of living beside it.
 	for _, g := range trilha.ErrorGuides() {
-		exact[g.Code] = Doc{
+		d := Doc{
 			Code:    g.Code,
 			Title:   g.Title,
 			Cause:   g.Description,
@@ -87,6 +88,8 @@ func init() {
 			Example: "",
 			Doc:     "/docs/errors/" + g.Code,
 		}
+		exact[g.Code] = d
+		catalog = append(catalog, d)
 	}
 }
 
