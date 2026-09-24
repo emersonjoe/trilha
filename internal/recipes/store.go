@@ -23,7 +23,8 @@ package recipes
 //     (OWASP A09). It never reaches a log.
 func storeRecipe() Recipe {
 	return Recipe{
-		Name: "store",
+		Name:        "store",
+		CtxPackCost: 89,
 		Summary: map[string]string{
 			"en": "the SQL database: pool, dialect, migrations applied once and checked, and the kit that keeps a listing from building SQL out of the URL",
 			"pt": "o banco em SQL: pool, dialeto, migrações aplicadas uma vez e conferidas, e o kit que impede uma listagem de montar SQL com o que veio na URL",

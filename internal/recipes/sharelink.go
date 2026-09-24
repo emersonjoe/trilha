@@ -8,7 +8,8 @@ package recipes
 // adding one.
 func shareLinkRecipe() Recipe {
 	return Recipe{
-		Name: "share-link",
+		Name:        "share-link",
+		CtxPackCost: 67,
 		Summary: map[string]string{
 			"en": "a signed link with a deadline: access to one thing, without an account",
 			"pt": "um link assinado com prazo: acesso a uma coisa, sem conta",

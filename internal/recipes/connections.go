@@ -8,7 +8,8 @@ package recipes
 // before somebody notices it is one screen.
 func connectionsRecipe() Recipe {
 	return Recipe{
-		Name: "connections",
+		Name:        "connections",
+		CtxPackCost: 68,
 		Summary: map[string]string{
 			"en": "external services this app talks to: name, URL, sealed secret, and a Test button",
 			"pt": "serviços externos com que este app fala: nome, URL, segredo selado e o botão Testar",

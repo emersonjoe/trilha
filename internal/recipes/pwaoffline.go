@@ -2,7 +2,8 @@ package recipes
 
 func pwaOfflineRecipe() Recipe {
 	return Recipe{
-		Name: "pwa-offline",
+		Name:        "pwa-offline",
+		CtxPackCost: 71,
 		Summary: map[string]string{
 			"en": "service worker for the declared routes and an outbox that resends forms when the network is back",
 			"pt": "service worker das rotas declaradas e outbox que reenvia formulários quando a rede volta",

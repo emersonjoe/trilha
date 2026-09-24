@@ -8,7 +8,8 @@ package recipes
 // no longer there. The blob module answers all four; this is the path to it.
 func blobRecipe() Recipe {
 	return Recipe{
-		Name: "blob",
+		Name:        "blob",
+		CtxPackCost: 127,
 		Summary: map[string]string{
 			"en": "keeping files somebody sent: upload, list, serve — with the key as the digest",
 			"pt": "guardar arquivo que alguém mandou: enviar, listar, servir — com a chave sendo o digest",

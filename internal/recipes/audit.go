@@ -7,7 +7,8 @@ package recipes
 // live and a screen somebody can be sent to when they ask "who deleted this?".
 func auditRecipe() Recipe {
 	return Recipe{
-		Name: "audit",
+		Name:        "audit",
+		CtxPackCost: 52,
 		Summary: map[string]string{
 			"en": "the trail of who did what, and the screen that reads it",
 			"pt": "a trilha de quem fez o quê, e a tela que a lê",

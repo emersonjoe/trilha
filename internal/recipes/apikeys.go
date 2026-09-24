@@ -8,7 +8,8 @@ package recipes
 // the key was stored in the clear.
 func apiKeysRecipe() Recipe {
 	return Recipe{
-		Name: "api-keys",
+		Name:        "api-keys",
+		CtxPackCost: 62,
 		Summary: map[string]string{
 			"en": "keys for the API: issue, revoke, and the middleware that requires one",
 			"pt": "chaves para a API: emitir, revogar, e o middleware que exige uma",

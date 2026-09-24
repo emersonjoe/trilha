@@ -8,7 +8,8 @@ package recipes
 // that the person who knows the answer is not the person with the deploy.
 func settingsRecipe() Recipe {
 	return Recipe{
-		Name: "settings",
+		Name:        "settings",
+		CtxPackCost: 49,
 		Summary: map[string]string{
 			"en": "a settings section somebody edits on a screen instead of in the environment",
 			"pt": "uma seção de configurações que alguém edita numa tela, e não no ambiente",

@@ -614,3 +614,37 @@ func TestReceitaPWAOfflinePrecisaDaPWA(t *testing.T) {
 		}
 	}
 }
+
+// Spec 162: a recipe made of recipes. The included ones land first, in the
+// recipe's own folder when the caller did not choose one, and a composition
+// whose part needs something missing is refused before anything is written.
+func TestAddIncludesNaMesmaPasta(t *testing.T) {
+	raiz := projeto(t)
+	composta := Recipe{Name: "composta", At: "app/admin/", Includes: []string{"audit", "settings"},
+		Files: []File{{Rel: "{{.At}}inicio.txt", Body: "{{.URL}}"}}}
+	res, err := Add(raiz, composta, Options{Module: "example.com/x", Lang: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, quero := range []string{"app/admin/auditoria/page.go", "app/admin/config/page.go", "app/admin/inicio.txt"} {
+		if !strings.Contains(strings.Join(res.Written, " "), quero) {
+			t.Errorf("não escreveu %s: %v", quero, res.Written)
+		}
+	}
+	if got := ler(t, raiz, "app/admin/inicio.txt"); got != "/admin/" {
+		t.Fatalf("o endereço não seguiu a pasta: %q", got)
+	}
+	if len(res.Setup) != 2 {
+		t.Fatalf("as linhas do setup das incluídas se perderam: %v", res.Setup)
+	}
+
+	// A parte que precisa de outra recusa a composição inteira.
+	outra := projeto(t)
+	precisa := Recipe{Name: "precisa", Includes: []string{"users"}, Files: []File{{Rel: "x.txt", Body: "x"}}}
+	if _, err := Add(outra, precisa, Options{Module: "example.com/x", Lang: "en"}); !errors.Is(err, ErrMissing) {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outra, "x.txt")); err == nil {
+		t.Fatal("escreveu a composta mesmo recusando")
+	}
+}

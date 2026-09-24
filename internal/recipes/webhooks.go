@@ -9,7 +9,8 @@ package recipes
 // files out of an example changing the module path by hand.
 func webhooksRecipe() Recipe {
 	return Recipe{
-		Name: "webhooks",
+		Name:        "webhooks",
+		CtxPackCost: 64,
 		Summary: map[string]string{
 			"en": "what this app tells the outside: signed delivery with retry, and the screen for it",
 			"pt": "o que este app avisa para fora: entrega assinada com retry, e a tela dela",

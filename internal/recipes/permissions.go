@@ -10,7 +10,8 @@ package recipes
 // are there.
 func permissionsRecipe() Recipe {
 	return Recipe{
-		Name: "permissions",
+		Name:        "permissions",
+		CtxPackCost: 139,
 		Summary: map[string]string{
 			"en": "the permission matrix as data, the screen that edits it, roles created and removed, who has what",
 			"pt": "a matriz de permissões como dado, a tela que a edita, papéis criados e removidos, quem tem o quê",

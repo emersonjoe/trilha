@@ -9,7 +9,8 @@ import (
 
 func pwaRecipe() Recipe {
 	return Recipe{
-		Name: "pwa",
+		Name:        "pwa",
+		CtxPackCost: 67,
 		Summary: map[string]string{
 			"en": "installable app manifest, icons and a browser-aware install invitation",
 			"pt": "manifesto, ícones e convite de instalação que entende o navegador",

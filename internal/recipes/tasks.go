@@ -10,7 +10,8 @@ package recipes
 // because there is nothing to retry.
 func tasksRecipe() Recipe {
 	return Recipe{
-		Name: "tasks",
+		Name:        "tasks",
+		CtxPackCost: 63,
 		Summary: map[string]string{
 			"en": "the work that does not fit in a request: queue, dedupe, retry, and the screen",
 			"pt": "o trabalho que não cabe numa requisição: fila, dedupe, retry, e a tela",

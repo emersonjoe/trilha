@@ -14,7 +14,8 @@ package recipes
 // (Message, Status, Receber), the dedup, and the two calls that answer.
 func whatsappRecipe() Recipe {
 	return Recipe{
-		Name: "channel-whatsapp",
+		Name:        "channel-whatsapp",
+		CtxPackCost: 107,
 		Summary: map[string]string{
 			"en": "receiving from WhatsApp Cloud API: signature, normalised message, dedup, and the two ways to answer",
 			"pt": "recebendo da Cloud API do WhatsApp: assinatura, mensagem normalizada, dedup e os dois jeitos de responder",

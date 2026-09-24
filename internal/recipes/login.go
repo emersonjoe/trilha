@@ -13,7 +13,8 @@ package recipes
 // project would be a door left open by a tool they trusted.
 func loginRecipe() Recipe {
 	return Recipe{
-		Name: "login",
+		Name:        "login",
+		CtxPackCost: 129,
 		Summary: map[string]string{
 			"en": "a session of your own: a users table, the login screen and the way out",
 			"pt": "uma sessão própria: a tabela de gente, a tela de entrar e a saída",

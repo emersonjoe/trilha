@@ -9,7 +9,8 @@ package recipes
 // the session, which is the only place that knows whose account this is.
 func profileRecipe() Recipe {
 	return Recipe{
-		Name: "profile",
+		Name:        "profile",
+		CtxPackCost: 167,
 		Summary: map[string]string{
 			"en": "the account screen: own name, password, e-mail confirmed at the new address, sessions — the id comes from the session",
 			"pt": "a tela da própria conta: nome, senha, e-mail confirmado no endereço novo, sessões — o id vem da sessão",

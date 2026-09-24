@@ -1,6 +1,6 @@
 # Tasks: Receitas de plataforma — billing, notify, admin
 
-- [ ] **T01** — Metadados de receita em `recipes.go`: `CtxPackCost` (medido por
+- [x] **T01** — Metadados de receita em `recipes.go`: `CtxPackCost` (medido por
   `TestRecipeCtxPackCost` em `internal/ctx`), `At` e `Includes`; `trilha add --list` e
   `--json` com o custo `est.`; o `add` termina com o custo do pack. *Aceite:*
   `trilha add --list` mostra custo `est.` por receita (`go test ./internal/ctx/ ./cmd/trilha/ -run 'Cost|AddList'`).

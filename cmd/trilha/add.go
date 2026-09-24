@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/emersonjoe/trilha/internal/recipes"
@@ -24,7 +25,7 @@ func cmdAdd(args []string) error {
 	// there is, and answering with a usage error would be answering a
 	// different question.
 	if len(names) == 0 || o.list {
-		return listRecipes(o.asJSON, o.lang)
+		return listRecipes(os.Stdout, o.asJSON, o.lang)
 	}
 	p, err := findProject()
 	if err != nil {
@@ -61,6 +62,9 @@ func cmdAdd(args []string) error {
 		if res.Doc != "" {
 			tail = append(tail, t("add doc")+" https://trilha.dev"+res.Doc)
 		}
+		// The price of reading what just arrived, before anybody opens a file:
+		// the same number `trilha add --list` showed, labeled est.
+		tail = append(tail, fmt.Sprintf(t("add cost"), nome, r.CtxPackCost))
 	}
 	if o.dry {
 		fmt.Println("\n" + t("add dry"))
@@ -121,12 +125,15 @@ func parseAddArgs(args []string) ([]string, addOpts, error) {
 }
 
 // listRecipes answers what there is, in one line each — or as JSON, which is
-// what the MCP server and an editor's agent read.
-func listRecipes(asJSON bool, lang string) error {
+// what the MCP server and an editor's agent read. Each line carries the
+// recipe's price: what `trilha ctx --pack <name>` costs once it is installed,
+// in estimated tokens.
+func listRecipes(w io.Writer, asJSON bool, lang string) error {
 	type linha struct {
 		Name    string `json:"name"`
 		Summary string `json:"summary"`
 		Doc     string `json:"doc"`
+		Cost    int    `json:"ctx_pack_tokens"`
 	}
 	var out []linha
 	for _, r := range recipes.All() {
@@ -134,10 +141,10 @@ func listRecipes(asJSON bool, lang string) error {
 		if resumo == "" {
 			resumo = r.Summary["en"]
 		}
-		out = append(out, linha{Name: r.Name, Summary: resumo, Doc: r.Doc})
+		out = append(out, linha{Name: r.Name, Summary: resumo, Doc: r.Doc, Cost: r.CtxPackCost})
 	}
 	if asJSON {
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return enc.Encode(out)
 	}
@@ -148,7 +155,7 @@ func listRecipes(asJSON bool, lang string) error {
 		}
 	}
 	for _, l := range out {
-		fmt.Printf("  %-*s  %s\n", largura, l.Name, l.Summary)
+		fmt.Fprintf(w, "  %-*s  %-16s  %s\n", largura, l.Name, fmt.Sprintf(t("add list cost"), l.Cost), l.Summary)
 	}
 	return nil
 }

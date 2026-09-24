@@ -5,7 +5,8 @@ package recipes
 // whatever the decision means.
 func approvalsRecipe() Recipe {
 	return Recipe{
-		Name: "approvals",
+		Name:        "approvals",
+		CtxPackCost: 133,
 		Summary: map[string]string{
 			"en": "the queue that waits for a person: open, decide, and the deadline that expires",
 			"pt": "a fila que espera uma pessoa: abrir, decidir, e o prazo que vence",

@@ -204,6 +204,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"add wired":        {"one line added", "uma linha acrescentada"},
 	"add dry":          {"--dry-run: nothing was written", "--dry-run: nada foi escrito"},
 	"add doc":          {"Doc:", "Doc:"},
+	"add cost":         {"Reading it: `trilha ctx --pack %s` costs ~%d tokens (est.).", "Para ler: `trilha ctx --pack %s` custa ~%d tokens (est.)."},
+	"add list cost":    {"~%d tok (est.)", "~%d tok (est.)"},
 	"flag crud at":     {"where the screens go, under app/ (default app/<plural of the type>)", "onde as telas vão, dentro de app/ (padrão app/<plural do tipo>)"},
 	"flag crud store":  {"the store to write besides the in-memory one: sqlite or postgres, against the `store` recipe", "o store a escrever além do de memória: sqlite ou postgres, contra a receita `store`"},
 	"flag crud tenant": {"scope every read and write to c.Actor().Tenant and require a chosen tenant", "limita toda leitura e escrita a c.Actor().Tenant e exige uma organização escolhida"},

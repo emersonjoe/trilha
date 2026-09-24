@@ -8,7 +8,8 @@ package recipes
 // customer's rows, found by the customer.
 func tenantRecipe() Recipe {
 	return Recipe{
-		Name: "tenant",
+		Name:        "tenant",
+		CtxPackCost: 136,
 		Summary: map[string]string{
 			"en": "organisations: create, switch, activate or not, members, per-organisation settings",
 			"pt": "organizações: criar, trocar, ativar ou não, membros, configuração por organização",

@@ -9,7 +9,8 @@ package recipes
 // middle of a request.
 func mailRecipe() Recipe {
 	return Recipe{
-		Name: "mail",
+		Name:        "mail",
+		CtxPackCost: 41,
 		Summary: map[string]string{
 			"en": "the file this app sends e-mail from: one function per message, and a test with no network",
 			"pt": "o arquivo de onde este app manda e-mail: uma função por mensagem, e teste sem rede",

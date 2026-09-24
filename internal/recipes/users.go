@@ -9,7 +9,8 @@ package recipes
 // files that do not compile are worse than a refusal.
 func usersRecipe() Recipe {
 	return Recipe{
-		Name: "users",
+		Name:        "users",
+		CtxPackCost: 155,
 		Summary: map[string]string{
 			"en": "the people screen: invite, role, deactivate, reset — on the login recipe's table",
 			"pt": "a tela de gente: convidar, papel, desativar, resetar — sobre a tabela da receita login",

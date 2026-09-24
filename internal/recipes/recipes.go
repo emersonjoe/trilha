@@ -56,6 +56,21 @@ type Recipe struct {
 	// file it writes. Refusing costs one line; writing five files that do not
 	// compile costs somebody an afternoon of cleaning up after a tool.
 	Needs []Need
+	// At is the folder this recipe's screens land under when the caller did
+	// not choose one — "app/admin/" for a backoffice, whose screens name
+	// people and change their roles. Empty is "app/".
+	At string
+	// Includes are recipes applied first, into the same folder: a recipe made
+	// of recipes that already exist and already have tests, instead of a copy
+	// of their screens that would age on its own.
+	Includes []string
+	// CtxPackCost is what `trilha ctx --pack <name>` costs, in estimated
+	// tokens (internal/tokbudget), in a minimal project with the recipe
+	// installed: the price of reading what it brings before touching it.
+	// It is measured, not guessed — TestRecipeCtxPackCost installs every
+	// recipe and holds this number to the pack — and it is printed as est.
+	// until the ruler measures it on an agent.
+	CtxPackCost int
 }
 
 // Need is one recipe this one is written on top of.
@@ -151,6 +166,9 @@ func Get(name string) (Recipe, error) {
 func Add(root string, r Recipe, o Options) (Result, error) {
 	var res Result
 	res.Doc = r.Doc
+	if o.At == "" {
+		o.At = r.At
+	}
 
 	// What it needs comes before what it writes: half a recipe in a project is
 	// worse than none, because the person now has files to delete before they
@@ -160,6 +178,33 @@ func Add(root string, r Recipe, o Options) (Result, error) {
 			return res, fmt.Errorf("%w: run `trilha add %s` first (%s is not there)",
 				ErrMissing, need.Recipe, need.File)
 		}
+	}
+
+	// The included recipes go first and into the same folder, each checked
+	// for what it needs before anything is written: a composition is refused
+	// whole, for the same reason a single recipe is.
+	var parts []Recipe
+	for _, name := range r.Includes {
+		inc, err := Get(name)
+		if err != nil {
+			return res, err
+		}
+		for _, need := range inc.Needs {
+			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(need.File))); err != nil {
+				return res, fmt.Errorf("%w: run `trilha add %s` first (%s is not there)",
+					ErrMissing, need.Recipe, need.File)
+			}
+		}
+		parts = append(parts, inc)
+	}
+	for _, inc := range parts {
+		got, err := Add(root, inc, Options{Module: o.Module, Lang: o.Lang, At: o.At, DryRun: o.DryRun})
+		if err != nil {
+			return res, fmt.Errorf("%s: %w", inc.Name, err)
+		}
+		res.Written = append(res.Written, got.Written...)
+		res.Skipped = append(res.Skipped, got.Skipped...)
+		res.Setup = append(res.Setup, got.Setup...)
 	}
 
 	at := o.At
@@ -242,7 +287,7 @@ func Add(root string, r Recipe, o Options) (Result, error) {
 	if err != nil {
 		return res, err
 	}
-	res.Setup = feitas
+	res.Setup = append(res.Setup, feitas...)
 	return res, nil
 }
 

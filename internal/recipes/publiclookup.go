@@ -16,7 +16,8 @@ package recipes
 // cheap exactly when nothing counts it.
 func publicLookupRecipe() Recipe {
 	return Recipe{
-		Name: "public-lookup",
+		Name:        "public-lookup",
+		CtxPackCost: 73,
 		Summary: map[string]string{
 			"en": "a code plus a second factor: the public timeline of one case, without an account",
 			"pt": "um código mais um segundo fator: a linha do tempo pública de um caso, sem conta",

@@ -8,7 +8,8 @@ package recipes
 // recipe that guessed them would write an index of nothing.
 func searchRecipe() Recipe {
 	return Recipe{
-		Name: "search",
+		Name:        "search",
+		CtxPackCost: 58,
 		Summary: map[string]string{
 			"en": "one search box over several kinds of thing, grouped by kind",
 			"pt": "uma caixa de busca sobre vários tipos, agrupada por tipo",
