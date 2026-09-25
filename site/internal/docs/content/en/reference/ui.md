@@ -78,6 +78,7 @@ description: The kit's components, variants, assets and the theme contract.
 | `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error). `NavItem.IconNode`/`EmptyOpts.IconNode` draw the app's own node for an icon outside the set — see [Shell](/reference/shell) |
+| `Patterns() []Pattern` | the kit's screen patterns as data — name, summary, components, a complete `page.go` of at most 60 lines that compiles, the data contract and the accessibility notes; see [Patterns](#patterns) |
 | `APIUsage(c, data, opts)` | how much a key was used, where, and when it stopped — see [Auth](/reference/auth) and [demo](/reference/auth#who-is-using-this-key-where-and-when-did-they-stop) |
 | `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | the box in the top bar (`Submit` adds a button with that label) and the grouped result of a `trilha.Search` — see [Search](/reference/search) and [demo](/learn/ui-kit#one-box-several-kinds-of-thing) |
 | `DeadlineCards(c, summary)`, `DeadlineList(c, items, opts)`, `DeadlineBadge(c, overdue)` | what expires and when, from a `trilha.Deadlines` summary — see [DeadlineCards](#deadlinecards) |
@@ -699,3 +700,22 @@ misspelled for two releases.
 `ui.theme.css` is only created (never overwritten); `ui.css`, `ui.js`, `ui.nav.js`,
 `ui.upload.js`, `ui.recorder.js`, `ui.live.js`, `ui.chat.js` and `ui.island.js` are updated when they equal a previous version and, if you edited them, only
 with `--force`.
+
+## Patterns
+
+A component answers "how do I draw a table"; a **pattern** answers "how do I build a listing
+here". `ui.Patterns()` returns six, each a complete `page.go` from `examples/patterns/` — the
+repository compiles every one of them, and none is longer than 60 lines:
+
+| Pattern | When |
+|---|---|
+| `list-with-filter` | a listing somebody searches, filters, orders and pages, all in the address |
+| `async-form` | a form that posts without leaving the page, the 422 beside the wrong field |
+| `approval-inbox` | what waits for a person's decision, with the reason in the same form |
+| `dashboard-chart` | the numbers on top and server-rendered charts beside them |
+| `master-detail` | a list and the chosen row, the choice in the address |
+| `upload-progress` | files with a progress bar, checked by content, working without JavaScript |
+
+`trilha ui patterns` lists them (`--json` for a machine, a name for one of them), the MCP tool
+`get_pattern` answers one, `trilha ui describe <Component>` says which patterns a component
+takes part in, and each pattern's demo on this site ends with its "Use this pattern" section.

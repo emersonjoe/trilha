@@ -1810,6 +1810,7 @@ pkg ui, func Outline() h.Node
 pkg ui, func PageHeader(string, ...h.Node) h.Node
 pkg ui, func Pagination(Pages) h.Node
 pkg ui, func ParseConnectionForm(*trilha.Ctx) trilha.Connection
+pkg ui, func Patterns() []Pattern
 pkg ui, func PendingAfter(int) h.Node
 pkg ui, func PolicyGrid(Policy, PolicyGridOpts) h.Node
 pkg ui, func Poll(string, string) h.Node
@@ -2098,6 +2099,13 @@ pkg ui, type Pages struct, Next string
 pkg ui, type Pages struct, Page int
 pkg ui, type Pages struct, Prev string
 pkg ui, type Pages struct, Total int
+pkg ui, type Pattern struct
+pkg ui, type Pattern struct, A11y []string
+pkg ui, type Pattern struct, Components []string
+pkg ui, type Pattern struct, Data string
+pkg ui, type Pattern struct, Name string
+pkg ui, type Pattern struct, Snippet string
+pkg ui, type Pattern struct, Summary string
 pkg ui, type Policy interface
 pkg ui, type Policy interface, LevelNames() []string
 pkg ui, type Policy interface, LevelOf(string, string) string

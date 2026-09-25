@@ -1015,10 +1015,10 @@
     "signature": "Dropzone(o DropzoneOpts, children ...h.Node) h.Node",
     "doc": "Dropzone is an area that takes files by dragging or by clicking, inside the\nform that says where they go. With ui.UploadScript on the page the files are\nsent one request each — one line of the queue, one progress bar, one message\neach — and every answer swaps the element ui.UploadTo names. With the script\noff it is an \u003cinput type=file multiple\u003e and the form's own button sends them\nall at once, which is why the route is written once, against c.Files.\n\nA file the route refuses answers 4xx, and the queue shows the answer's text\non that file's line: the message belongs to the file, not to the form.",
     "summary": "Dropzone is an area that takes files by dragging or by clicking, inside the form that says where they go.",
-    "example": "h.Form(h.Method(\"post\"), h.Action(\"/files\"), h.EncType(\"multipart/form-data\"),\n\tui.UploadTo(\"list\"), trilha.CSRFInput(c),\n\tui.Dropzone(ui.DropzoneOpts{Name: \"files\", Accept: \"application/pdf\", MaxSize: 50 \u003c\u003c 20},\n\t\th.P(h.Text(\"Drop the PDFs here, or click to choose\"))),\n\tui.Submit(h.Text(\"Send\")))",
+    "example": "h.Form(h.Method(\"post\"), h.Action(\"/files\"), h.Enctype(\"multipart/form-data\"),\n\tui.UploadTo(\"list\"), trilha.CSRFInput(c),\n\tui.Dropzone(ui.DropzoneOpts{Name: \"files\", Accept: \"application/pdf\", MaxSize: 50 \u003c\u003c 20},\n\t\th.P(h.Text(\"Drop the PDFs here, or click to choose\"))),\n\tui.Submit(h.Text(\"Send\")))",
     "see": [
       "h.Action",
-      "h.EncType",
+      "h.Enctype",
       "h.Form",
       "h.Method",
       "h.P",
@@ -1585,6 +1585,55 @@
     "doc": "Outbox draws what is waiting to be sent: how many submissions the browser is\nholding, the last error the server gave back, and the button that tries\nagain now. It is hidden while the outbox is empty, and the script shows it.\n\nIt needs OfflineScript on the same page; without JavaScript there is no\noutbox and the box never appears.",
     "summary": "Outbox draws what is waiting to be sent: how many submissions the browser is holding, the last error the server gave back, and the button that tries again now.",
     "example": "ui.Outbox(c)"
+  },
+  {
+    "name": "Pattern",
+    "kind": "type",
+    "group": "patterns",
+    "signature": "type Pattern struct",
+    "doc": "Pattern is one screen the kit already knows how to build, as data: which\ncomponents it takes, a complete page.go that compiles, what the page needs\nto receive, and what keeps it usable with a keyboard and a screen reader.\n\nIt exists for whoever writes the next screen — a person or an agent — so the\nquestion \"how do I build a listing here?\" is one lookup and not an evening\nof reading demos. `trilha ui patterns --json` prints the list, the MCP tool\nget_pattern answers one, and every snippet is a file in examples/patterns\nthat the repository compiles.",
+    "summary": "Pattern is one screen the kit already knows how to build, as data: which components it takes, a complete page.go that compiles, what the page needs to receive, and what keeps it usable with a keyboard and a screen reader.",
+    "fields": [
+      {
+        "name": "Name",
+        "type": "string",
+        "doc": "Name is the address of the pattern: \"list-with-filter\"."
+      },
+      {
+        "name": "Summary",
+        "type": "string",
+        "doc": "Summary is the one sentence that says when to use it."
+      },
+      {
+        "name": "Components",
+        "type": "[]string",
+        "doc": "Components are the kit symbols the snippet uses, as the catalog of `trilha ui components --json` names them."
+      },
+      {
+        "name": "Snippet",
+        "type": "string",
+        "doc": "Snippet is a complete page.go, at most 60 lines, that compiles."
+      },
+      {
+        "name": "Data",
+        "type": "string",
+        "doc": "Data is the contract: what the page needs to receive and where it should come from."
+      },
+      {
+        "name": "A11y",
+        "type": "[]string",
+        "doc": "A11y are the notes that keep it usable without a mouse or a screen: focus, aria and keyboard."
+      }
+    ]
+  },
+  {
+    "name": "Patterns",
+    "kind": "func",
+    "group": "patterns",
+    "signature": "Patterns() []Pattern",
+    "doc": "Patterns returns the patterns in a stable order. The slice is new on every\ncall; changing it changes nothing.",
+    "summary": "Patterns returns the patterns in a stable order.",
+    "example": "for _, p := range ui.Patterns() {\n\tfmt.Println(p.Name, \"—\", p.Summary)\n}"
   },
   {
     "name": "Policy",
@@ -3063,10 +3112,10 @@
     "signature": "UploadTo(id string) h.Node",
     "doc": "UploadTo marks a form that sends a file: the kit sends it with XHR, shows how\nmuch has gone out and swaps element id with what comes back — the same\nfragment the route already answers. Without JavaScript the form submits\nnormally and the route answers the whole page.\n\nIt is a different attribute from Swap on purpose: a form carrying both would\nbe sent twice.",
     "summary": "UploadTo marks a form that sends a file: the kit sends it with XHR, shows how much has gone out and swaps element id with what comes back — the same fragment the route already answers.",
-    "example": "h.Form(h.Method(\"post\"), h.Action(\"/anexos\"), h.EncType(\"multipart/form-data\"),\n\tui.UploadTo(\"lista\"), trilha.CSRFInput(c),\n\tui.Input(h.Type(\"file\"), h.Name(\"arquivo\")), ui.UploadBar(),\n\tui.Submit(h.Text(\"Send\")))",
+    "example": "h.Form(h.Method(\"post\"), h.Action(\"/anexos\"), h.Enctype(\"multipart/form-data\"),\n\tui.UploadTo(\"lista\"), trilha.CSRFInput(c),\n\tui.Input(h.Type(\"file\"), h.Name(\"arquivo\")), ui.UploadBar(),\n\tui.Submit(h.Text(\"Send\")))",
     "see": [
       "h.Action",
-      "h.EncType",
+      "h.Enctype",
       "h.Form",
       "h.Method",
       "h.Name",

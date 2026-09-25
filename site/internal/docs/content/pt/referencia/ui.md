@@ -78,6 +78,7 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação). `NavItem.IconNode`/`EmptyOpts.IconNode` desenham o próprio nó do app para um ícone fora do conjunto — veja [Shell](/pt/referencia/shell) |
+| `Patterns() []Pattern` | os padrões de tela do kit como dado — nome, resumo, componentes, um `page.go` completo de no máximo 60 linhas que compila, o contrato de dados e as notas de acessibilidade; veja [Padrões](#padroes) |
 | `APIUsage(c, dados, opts)` | quanto uma chave foi usada, onde, e quando parou — veja [Auth](/pt/referencia/auth) e [demo](/pt/referencia/auth#quem-esta-usando-esta-chave-onde-e-quando-parou) |
 | `SearchBox(c, action, SearchBoxOpts{...})`, `SearchResults(c, res, SearchResultsOpts{...})` | a caixa da barra de cima (`Submit` acrescenta um botão com esse rótulo) e o resultado agrupado de um `trilha.Search` — veja [Search](/pt/referencia/search) e [demo](/pt/aprender/interface-com-ui#uma-caixa-varios-tipos-de-coisa) |
 | `DeadlineCards(c, resumo)`, `DeadlineList(c, itens, opts)`, `DeadlineBadge(c, vencidos)` | o que vence e quando, a partir de um resumo do `trilha.Deadlines` — veja [DeadlineCards](#deadlinecards) |
@@ -701,3 +702,23 @@ por duas versões.
 `ui.theme.css` só é criado (nunca sobrescrito); `ui.css`, `ui.js`, `ui.nav.js`,
 `ui.upload.js`, `ui.recorder.js`, `ui.live.js`, `ui.chat.js` e `ui.island.js` são atualizados quando iguais a uma versão anterior e, se você os editou, só
 com `--force`.
+
+## Padrões
+
+Um componente responde "como eu desenho uma tabela"; um **padrão** responde "como eu monto uma
+listagem aqui". O `ui.Patterns()` devolve seis, cada um um `page.go` completo de
+`examples/patterns/` — o repositório compila todos, e nenhum passa de 60 linhas:
+
+| Padrão | Quando |
+|---|---|
+| `list-with-filter` | uma listagem que alguém busca, filtra, ordena e pagina, tudo no endereço |
+| `async-form` | um formulário que posta sem sair da página, o 422 ao lado do campo errado |
+| `approval-inbox` | o que espera a decisão de uma pessoa, com o motivo no mesmo formulário |
+| `dashboard-chart` | os números em cima e os gráficos desenhados no servidor ao lado |
+| `master-detail` | uma lista e a linha escolhida, a escolha no endereço |
+| `upload-progress` | arquivos com barra de progresso, conferidos pelo conteúdo, funcionando sem JavaScript |
+
+O `trilha ui patterns` lista os padrões (`--json` para máquina, um nome para um deles), a
+ferramenta MCP `get_pattern` responde um, o `trilha ui describe <Componente>` diz de quais
+padrões um componente participa, e a demo de cada padrão neste site termina com a seção "Usar
+este padrão".

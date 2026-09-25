@@ -369,7 +369,7 @@ func NavigateScript(c *trilha.Ctx) h.Node {
 // fragment the route already answers. Without JavaScript the form submits
 // normally and the route answers the whole page.
 //
-//	h.Form(h.Method("post"), h.Action("/anexos"), h.EncType("multipart/form-data"),
+//	h.Form(h.Method("post"), h.Action("/anexos"), h.Enctype("multipart/form-data"),
 //		ui.UploadTo("lista"), trilha.CSRFInput(c),
 //		ui.Input(h.Type("file"), h.Name("arquivo")), ui.UploadBar(),
 //		ui.Submit(h.Text("Send")))

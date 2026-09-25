@@ -1,6 +1,6 @@
 # Tasks: Padrões de UI para agentes
 
-- [ ] **T01** — `ui.Pattern` + `ui.Patterns()` com os seis padrões + snippets em
+- [x] **T01** — `ui.Pattern` + `ui.Patterns()` com os seis padrões + snippets em
   `examples/patterns/` (arquivo gerado `ui/patterns_snippets.go`). *Aceite:*
   `TestPatternsCompile` + `TestPatternSnippetBudget` (+ `TestPatternSnippetsCurrent`,
   `TestPatternsNameRealComponents`, `TestPatternsKeepProtections`).
@@ -10,7 +10,7 @@
   bilíngue das ferramentas. *Aceite:* teste no `ai/mcp` + teste do `docsmcp`.
 - [ ] **T04** — Site: seção "usar este padrão" nas seis demos, nas duas línguas. *Aceite:*
   `TestPatternsPageBilingual`.
-- [ ] **T05** — Superfície: `make api` com `ui.Pattern`/`ui.Patterns()` registradas.
+- [x] **T05** — Superfície: `make api` com `ui.Pattern`/`ui.Patterns()` registradas.
   *Aceite:* `make test` verde com a trava da superfície atualizada.
 - [ ] **T06** — Golden `uidoc` por padrão + `patterns` no catálogo e no `ui describe`.
   *Aceite:* `TestUIDocPatternGoldens`.

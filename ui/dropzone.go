@@ -28,7 +28,7 @@ type DropzoneOpts struct {
 // off it is an <input type=file multiple> and the form's own button sends them
 // all at once, which is why the route is written once, against c.Files.
 //
-//	h.Form(h.Method("post"), h.Action("/files"), h.EncType("multipart/form-data"),
+//	h.Form(h.Method("post"), h.Action("/files"), h.Enctype("multipart/form-data"),
 //		ui.UploadTo("list"), trilha.CSRFInput(c),
 //		ui.Dropzone(ui.DropzoneOpts{Name: "files", Accept: "application/pdf", MaxSize: 50 << 20},
 //			h.P(h.Text("Drop the PDFs here, or click to choose"))),
