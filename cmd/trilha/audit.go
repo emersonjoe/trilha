@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -321,6 +324,14 @@ func runAudit(p *project, vuln bool) []check {
 		add("warn", t("iframe by hand"), t("iframe by hand hint"))
 	}
 
+	// An inline <script> or <style> without the nonce (spec 164, E_CSP_NONCE).
+	// The default policy refuses it in the browser, so the page passes every
+	// test that reads its HTML and breaks on the screen with one line in a
+	// console nobody opened.
+	if at := inlineWithoutNonce(p.Root); len(at) > 0 {
+		add("warn", t("csp nonce")+": "+strings.Join(first(at, 3), ", "), t("csp nonce hint"))
+	}
+
 	// A sealed value is only readable with the key that sealed it (spec 075).
 	// Rotating without keeping the previous key is not a warning about a
 	// theoretical risk: it is the moment every stored token stops opening.
@@ -381,6 +392,88 @@ func runAudit(p *project, vuln bool) []check {
 func handWrittenIframe(src string) bool {
 	return (strings.Contains(src, "h.Iframe(") || strings.Contains(src, "<iframe")) &&
 		!strings.Contains(src, "ui.Preview(")
+}
+
+// inlineWithoutNonce lists, as file:line, the h.Script and h.Style calls of
+// the project that carry their code inline (h.Raw or h.Text) with neither
+// trilha.NonceAttr nor h.Attr("nonce", …) nor a src. The kit's own scripts
+// carry the nonce already, and a script from a file is covered by 'self'.
+func inlineWithoutNonce(root string) []string {
+	var out []string
+	fset := token.NewFileSet()
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", ".trilha", "node_modules", "vendor", "bin", "testdata":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		f, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			return nil
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok || !isH(call.Fun, "Script", "Style") {
+				return true
+			}
+			inline, nonce := false, false
+			for _, arg := range call.Args {
+				a, ok := arg.(*ast.CallExpr)
+				if !ok {
+					continue
+				}
+				switch {
+				case isH(a.Fun, "Raw", "Text", "Textf"):
+					inline = true
+				case isH(a.Fun, "Src"):
+					nonce = true
+				case isH(a.Fun, "Attr") && len(a.Args) > 0 && isString(a.Args[0], "nonce"):
+					nonce = true
+				default:
+					if sel, ok := a.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "NonceAttr" {
+						nonce = true
+					}
+				}
+			}
+			if inline && !nonce {
+				rel, _ := filepath.Rel(root, path)
+				out = append(out, fmt.Sprintf("%s:%d", filepath.ToSlash(rel), fset.Position(call.Pos()).Line))
+			}
+			return true
+		})
+		return nil
+	})
+	return out
+}
+
+// isH says whether fun is h.<one of names>.
+func isH(fun ast.Expr, names ...string) bool {
+	sel, ok := fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	if x, ok := sel.X.(*ast.Ident); !ok || x.Name != "h" {
+		return false
+	}
+	for _, n := range names {
+		if sel.Sel.Name == n {
+			return true
+		}
+	}
+	return false
+}
+
+func isString(e ast.Expr, want string) bool {
+	lit, ok := e.(*ast.BasicLit)
+	return ok && lit.Kind == token.STRING && strings.Trim(lit.Value, "`\"") == want
 }
 
 // unpinnedVendor lists the modules in public/vendor that vendor.lock does not

@@ -51,6 +51,8 @@ import (
 
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/emulation"
+	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/kb"
@@ -246,8 +248,14 @@ func runOnce(t T, chrome, bin, appDir string, cfg Config, fn func(s *Session)) (
 	// browser nobody uses. Reduced motion: the kit then swaps without a view
 	// transition, whose overlay a headless tab may never finish drawing; a
 	// scenario checks where the page ends, not the animation on the way.
+	// And every document, before its own scripts, records what its
+	// Content-Security-Policy refused: CSPViolations reads it.
 	if err := chromedp.Run(bctx, emulation.SetFocusEmulationEnabled(true),
-		emulation.SetEmulatedMedia().WithFeatures([]*emulation.MediaFeature{{Name: "prefers-reduced-motion", Value: "reduce"}})); err != nil {
+		emulation.SetEmulatedMedia().WithFeatures([]*emulation.MediaFeature{{Name: "prefers-reduced-motion", Value: "reduce"}}),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			_, err := page.AddScriptToEvaluateOnNewDocument(cspWatch).Do(ctx)
+			return err
+		})); err != nil {
 		return &Failure{Step: "browser", Got: err.Error(), Fix: "check Chrome starts headless on this machine (UITEST_CHROME)"}
 	}
 
@@ -505,6 +513,31 @@ func (s *Session) Focus(sel string) {
 	}
 }
 
+// Select picks the option with value in a <select>, and tells the page the
+// way a choice by hand does, with input and change.
+func (s *Session) Select(sel, value string) {
+	s.WaitVisible(sel)
+	s.step = "Select"
+	got, err := s.probeJS(sel, `if (!el.options) return "not a select"; `+
+		`if (![...el.options].some((o) => o.value === `+quote(value)+`)) return "no option " + `+quote(quote(value))+
+		` + ", there are: " + [...el.options].map((o) => o.value).join(", "); `+
+		`el.value = `+quote(value)+`; el.dispatchEvent(new Event("input", {bubbles: true})); `+
+		`el.dispatchEvent(new Event("change", {bubbles: true})); return "";`)
+	if err != nil || got != "" {
+		if err != nil {
+			got = err.Error()
+		}
+		s.Fail(Failure{Step: "Select", Selector: sel, Want: "an option " + quote(value), Got: got,
+			Fix: "check the options the handler renders (ui.SelectOptions)"})
+	}
+}
+
+// ClearCookies signs the tab out of everything: the next page is what a
+// stranger gets.
+func (s *Session) ClearCookies() {
+	s.run("ClearCookies", "", "the browser refused to clear its cookies", network.ClearBrowserCookies())
+}
+
 var keys = map[string]string{
 	"Enter": kb.Enter, "Escape": kb.Escape, "Tab": kb.Tab, "Space": " ", "Backspace": kb.Backspace,
 	"ArrowUp": kb.ArrowUp, "ArrowDown": kb.ArrowDown, "ArrowLeft": kb.ArrowLeft, "ArrowRight": kb.ArrowRight,
@@ -705,4 +738,19 @@ func (s *Session) WaitJS(want, expr string) {
 			}
 			return fmt.Sprint(out), false
 		})
+}
+
+const cspWatch = `window.__uitestCSP = []; document.addEventListener("securitypolicyviolation", (e) => ` +
+	`window.__uitestCSP.push(e.violatedDirective + " refused " + (e.blockedURI || "inline") + ` +
+	`(e.sample ? ": " + e.sample.slice(0, 60) : "")));`
+
+// CSPViolations is what the Content-Security-Policy of the current page
+// refused so far — an inline script without the nonce, a style from another
+// host. The page still loads, so nothing else in a scenario would notice.
+func (s *Session) CSPViolations() []string {
+	var out []string
+	if err := s.eval(`window.__uitestCSP || []`, &out); err != nil {
+		s.Fail(Failure{Step: "CSPViolations", Got: err.Error()})
+	}
+	return out
 }

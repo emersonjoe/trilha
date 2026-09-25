@@ -655,3 +655,41 @@ func TestAuditoriaDaCobranca(t *testing.T) {
 		t.Error("avisou sobre cobrança um app sem a receita")
 	}
 }
+
+// Spec 164: um script inline sem o nonce passa em todo teste que lê o HTML e
+// quebra no navegador. A auditoria aponta arquivo e linha; o que leva o nonce,
+// o que vem de arquivo e o que não é inline ficam quietos.
+func TestAuditoriaApontaScriptSemNonce(t *testing.T) {
+	dir := t.TempDir()
+	src := `package pagina
+
+func Page(c *trilha.Ctx) (h.Node, error) {
+	return h.Div(
+		h.Script(trilha.NonceAttr(c), h.Raw("ok()")),
+		h.Script(h.Src("/app.js")),
+		h.Script(h.Attr("nonce", c.Nonce()), h.Raw("ok()")),
+		h.Style(h.Raw("body{}")),
+		h.Script(h.Raw("quebra()")),
+	), nil
+}
+`
+	if err := os.MkdirAll(filepath.Join(dir, "app", "x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "app", "x", "page.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := inlineWithoutNonce(dir)
+	if strings.Join(got, " ") != "app/x/page.go:8 app/x/page.go:9" {
+		t.Fatalf("achou %v", got)
+	}
+	var achou bool
+	for _, c := range runAudit(&project{Root: dir}, false) {
+		if strings.Contains(c.title, "E_CSP_NONCE") && strings.Contains(c.title, "app/x/page.go:8") && c.level == "warn" {
+			achou = true
+		}
+	}
+	if !achou {
+		t.Fatal("a auditoria não avisou o E_CSP_NONCE")
+	}
+}

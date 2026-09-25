@@ -10,9 +10,9 @@
   verde local (e no job `ui` da CI).
 - [x] **T04** — Cenários de fluxo (form 422, swap, upload, ilha, navegação, tooltip,
   paginação). *Aceite:* os sete `TestUI*` correspondentes.
-- [ ] **T05** — Cenários por receita (billing, notify, admin) incluindo `TestUIAdminDefaultDeny`.
+- [x] **T05** — Cenários por receita (billing, notify, admin) incluindo `TestUIAdminDefaultDeny`.
   *Aceite:* os três `TestUI<Receita>*`.
-- [ ] **T06** — Cenários de segurança (CSP nonce, CSRF por formulário, sem segredo no HTML).
+- [x] **T06** — Cenários de segurança (CSP nonce, CSRF por formulário, sem segredo no HTML).
   *Aceite:* testes + regra `E_CSP_NONCE` no `trilha audit` (+ `HasCSPNonce`, catálogo).
 - [ ] **T07** — Makefile `test-ui`/`test-ui-a` + CI (job `ui` opcional; vira bloqueante ao fechar
   o M3 trocando `continue-on-error`, registrado aqui). *Aceite:* workflow válido + suíte verde.
