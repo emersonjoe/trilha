@@ -3740,7 +3740,7 @@
     "kind": "func",
     "group": "form helpers for validation round-trips",
     "signature": "Errors(errs map[string]string, field string) FieldOpt",
-    "doc": "Errors is a Field option that shows the message for field from errs (a\ntrilha.FieldErrors or any map); no-op when the field has no error.",
+    "doc": "Errors is a Field option that shows the message for field from errs (a\ntrilha.FieldErrors or any map); no-op when the field has no error. A message\nunder an indexed name — files[1], as Ctx.Files names the file that failed —\nbelongs to the one input called files, and the lowest index is shown.",
     "summary": "Errors is a Field option that shows the message for field from errs (a trilha.FieldErrors or any map); no-op when the field has no error.",
     "see": [
       "trilha.FieldErrors"
@@ -3755,8 +3755,8 @@
     "kind": "func",
     "group": "form helpers for validation round-trips",
     "signature": "InvalidIf(errs map[string]string, field string) h.Node",
-    "doc": "InvalidIf marks a control invalid when errs has a message for field.",
-    "summary": "InvalidIf marks a control invalid when errs has a message for field.",
+    "doc": "InvalidIf marks a control invalid when errs has a message for field, or\nfor one of its indexed names (files[0], files[1]…).",
+    "summary": "InvalidIf marks a control invalid when errs has a message for field, or for one of its indexed names (files[0], files[1]…).",
     "patterns": [
       "async-form",
       "upload-progress"

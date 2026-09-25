@@ -1,4 +1,4 @@
-/* trilha ui a6d468fb380c450b */
+/* trilha ui 108f5f1414b3ad71 */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -349,16 +349,21 @@
     const old = document.getElementById(id);
     if (!old) return false;
     const act = document.activeElement;
-    const key = act && old.contains(act) ? (act.id || act.name || "") : "";
+    const inside = act !== document.body && old.contains(act);
+    const key = inside ? (act.id || act.name || "") : "";
+    const rel = inside && act.getAttribute("rel");
     const sel = key && act.selectionStart != null ? [act.selectionStart, act.selectionEnd] : null;
     old.outerHTML = html;
     const el = document.getElementById(id);
     if (!el) return false; // the fragment came back without the id: navigate instead
     const invalid = status === 422 ? el.querySelector("[aria-invalid='true']") : null;
     if (invalid) invalid.focus();
-    else if (key) {
-      const back = el.querySelector(`#${CSS.escape(key)}, [name="${CSS.escape(key)}"]`);
-      if (back) {
+    else if (inside) {
+      // Same control (id, name, pager rel) or the region, never <body>.
+      const back = (key && el.querySelector(`#${CSS.escape(key)}, [name="${CSS.escape(key)}"]`)) ||
+        (rel && el.querySelector(`[rel="${CSS.escape(rel)}"]`));
+      if (!back) { el.tabIndex = -1; el.focus(); }
+      else {
         back.focus();
         if (sel && back.setSelectionRange) { try { back.setSelectionRange(sel[0], sel[1]); } catch {} }
       }

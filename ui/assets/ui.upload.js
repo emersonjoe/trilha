@@ -32,7 +32,14 @@
       if (bar) bar.hidden = true;
       target.removeAttribute("aria-busy");
       f.removeAttribute("data-trilha-sending");
-      if (xhr.status >= 500 || !window.ui?.swap?.(id, xhr.responseText, xhr.status)) give();
+      // A redirect of a fragment request comes back as 204 with the address
+      // in Trilha-Location — the same answer ui.js follows for a form. Swapped
+      // in, that empty body would erase the form.
+      const loc = xhr.getResponseHeader("Trilha-Location");
+      if (loc) { location.assign(loc); return; }
+      if (xhr.status >= 500 || !window.ui?.swap) { give(); return; }
+      // swap resolves false when the fragment came back without its id.
+      Promise.resolve(window.ui.swap(id, xhr.responseText, xhr.status)).then((ok) => { if (!ok) give(); });
     });
     xhr.addEventListener("error", give);
     xhr.addEventListener("abort", give);

@@ -245,6 +245,21 @@ func TestHeadAndAssets(t *testing.T) {
 	}
 }
 
+// A refused file is files[i] (Ctx.Files); the one input called files is the
+// one marked, with the message of the lowest index — and files2 or files[x]
+// are other fields.
+func TestValidationHelpersIndexedNames(t *testing.T) {
+	errs := map[string]string{"files[3]": "third", "files[1]": "first", "files2": "other", "files[x]": "odd"}
+	got := render(t, Field("files", "Files", Input(h.ID("files"), InvalidIf(errs, "files")), Errors(errs, "files")))
+	if !strings.Contains(got, `aria-invalid="true"`) || !strings.Contains(got, `role="alert">first<`) {
+		t.Fatal(got)
+	}
+	none := map[string]string{"files2": "other", "files[x]": "odd", "files[0]": ""}
+	if got := render(t, Input(InvalidIf(none, "files"))); strings.Contains(got, "aria-invalid") {
+		t.Fatal(got)
+	}
+}
+
 func TestValidationHelpers(t *testing.T) {
 	errs := map[string]string{"cnpj": "inválido"}
 	got := render(t, Field("cnpj", "CNPJ", Input(h.ID("cnpj"), h.Value("1"), InvalidIf(errs, "cnpj")), Errors(errs, "cnpj")))

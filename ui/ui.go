@@ -875,21 +875,46 @@ func sortStrings(s []string) {
 // ---- form helpers for validation round-trips ------------------------------
 
 // Errors is a Field option that shows the message for field from errs (a
-// trilha.FieldErrors or any map); no-op when the field has no error.
+// trilha.FieldErrors or any map); no-op when the field has no error. A message
+// under an indexed name — files[1], as Ctx.Files names the file that failed —
+// belongs to the one input called files, and the lowest index is shown.
 func Errors(errs map[string]string, field string) FieldOpt {
 	return func(f *fieldCfg) {
-		if msg, ok := errs[field]; ok && msg != "" {
+		if msg := fieldMessage(errs, field); msg != "" {
 			f.err = msg
 		}
 	}
 }
 
-// InvalidIf marks a control invalid when errs has a message for field.
+// InvalidIf marks a control invalid when errs has a message for field, or
+// for one of its indexed names (files[0], files[1]…).
 func InvalidIf(errs map[string]string, field string) h.Node {
-	if msg, ok := errs[field]; ok && msg != "" {
+	if fieldMessage(errs, field) != "" {
 		return Invalid()
 	}
 	return h.Nil
+}
+
+// fieldMessage is the message of field, or of its lowest field[N].
+func fieldMessage(errs map[string]string, field string) string {
+	if msg := errs[field]; msg != "" {
+		return msg
+	}
+	best, msg := -1, ""
+	for k, v := range errs {
+		rest, ok := strings.CutPrefix(k, field+"[")
+		if !ok || v == "" || !strings.HasSuffix(rest, "]") {
+			continue
+		}
+		n, err := strconv.Atoi(strings.TrimSuffix(rest, "]"))
+		if err != nil || n < 0 {
+			continue
+		}
+		if best < 0 || n < best {
+			best, msg = n, v
+		}
+	}
+	return msg
 }
 
 // Option is one <option> of SelectOptions.
