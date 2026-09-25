@@ -1,4 +1,4 @@
-.PHONY: test test-otel test-ui test-ui-a vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release
+.PHONY: test test-otel test-ui test-ui-a test-sql vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release
 
 GOVULNCHECK_VERSION ?= v1.1.4
 SECURITY_GO_VERSION ?= go1.25.13
@@ -29,8 +29,17 @@ test-ui:
 	test -z "$$(gofmt -l uitest)"
 	cd uitest && go vet ./... && go test -count=1 ./...
 
+# As stores SQL de billing e notify num banco de verdade (spec 166), pelo
+# módulo sqltest/ (go.mod próprio, com o driver SQLite): projetos gerados com o
+# store nas duas ordens, cada teste gerado num banco novo. Com os programas do
+# PostgreSQL instalados, sobe um cluster temporário e roda nele também;
+# SQLTEST_POSTGRES=1 reprova se eles faltarem.
+test-sql:
+	test -z "$$(gofmt -l sqltest)"
+	cd sqltest && go vet ./... && go test -count=1 ./...
+
 fmt:
-	gofmt -w *.go h internal cmd examples tmpl otel uitest
+	gofmt -w *.go h internal cmd examples tmpl otel uitest sqltest
 
 # NIST SSDF/OWASP evidence. Go 1.22+ downloads the patched toolchain automatically.
 security:

@@ -72,6 +72,23 @@ jobs:
       - name: Failure reports
         if: failure()
         run: cat uitest/report/*.txt || true
+  # Spec 166: the SQL stores of billing and notify on SQLite and on a
+  # PostgreSQL cluster the test starts (the runner has the programs). Optional
+  # like the ui job until milestone M3 closes.
+  sql:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.25"
+      - run: make test-sql
+        env:
+          SQLTEST_POSTGRES: "1"
   security:
     runs-on: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.RUNNER_CI || 'ubuntu-latest' }}
     steps:
