@@ -39,6 +39,14 @@ database once `trilha add store` is in the project, in either order, with no scr
   The migration was never in a published version.
 - `CtxPackCost`: billing 356, notify 232.
 
+### Documentation
+
+- The hands-on runner chapter says, in both locales, what makes the Docker sandbox both usable
+  and safe: dropping every capability is what forces the agent to run as the worktree's owner
+  (without `CAP_DAC_OVERRIDE`, a root agent cannot write a worktree you own), and the project's
+  credential enters the container through a file rather than on the `docker exec` command line,
+  which `ps` would show to every user on the machine.
+
 ## 0.146.0 — 2026-09-25
 
 Finishing M3 (spec 165): the loose ends the UI tests of spec 164 and the close of Tokens 70
