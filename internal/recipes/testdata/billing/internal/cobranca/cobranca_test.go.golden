@@ -1,0 +1,96 @@
+package cobranca
+
+import (
+	"errors"
+	"testing"
+	"time"
+)
+
+// A máquina é fechada: o que a tabela permite passa, o resto é recusado — e
+// uma assinatura cancelada não volta porque um evento velho chegou atrasado.
+func TestBillingStates(t *testing.T) {
+	casos := []struct {
+		de, para Estado
+		pode     bool
+	}{
+		{Trial, Ativa, true}, {Trial, Atrasada, true}, {Trial, Cancelada, true},
+		{Ativa, Atrasada, true}, {Ativa, Cancelada, true}, {Ativa, Trial, false},
+		{Atrasada, Ativa, true}, {Atrasada, Cancelada, true}, {Atrasada, Trial, false},
+		{Cancelada, Ativa, false}, {Cancelada, Atrasada, false}, {Cancelada, Trial, false},
+	}
+	for _, c := range casos {
+		err := Mover(c.de, c.para)
+		if (err == nil) != c.pode {
+			t.Errorf("%s → %s: err = %v, pode = %v", c.de, c.para, err, c.pode)
+		}
+		if err != nil && !errors.Is(err, ErrTransicao) {
+			t.Errorf("%s → %s: o erro não é ErrTransicao: %v", c.de, c.para, err)
+		}
+	}
+	if len(Transicoes) != len(Estados()) {
+		t.Fatalf("a tabela tem %d estados e a lista %d", len(Transicoes), len(Estados()))
+	}
+
+	// O ciclo inteiro pelo store: falha, falha, paga, falha três vezes.
+	s := NovoStore()
+	agora := time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)
+	s.Assinar("a-1", "cliente@example.com", "plano-1", agora)
+	m, err := s.Falhou("a-1", "f-1", 4900, "brl", agora)
+	if err != nil || m.De != Trial || m.Assinatura.Estado != Atrasada || m.Assinatura.Tentativas != 1 {
+		t.Fatalf("primeira falha: %+v %v", m, err)
+	}
+	if m, err = s.Pagou("a-1", "f-1", 4900, "brl", agora); err != nil || m.Assinatura.Estado != Ativa || m.Assinatura.Tentativas != 0 {
+		t.Fatalf("pagou: %+v %v", m, err)
+	}
+	for i := 1; i <= MaxTentativas; i++ {
+		if m, err = s.Falhou("a-1", "f-2", 4900, "brl", agora); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if m.Assinatura.Estado != Cancelada {
+		t.Fatalf("depois de %d falhas: %+v", MaxTentativas, m)
+	}
+	// Recusada, a mudança não deixa rastro: nem o contador nem a fatura.
+	if _, err := s.Pagou("a-1", "f-3", 4900, "brl", agora); !errors.Is(err, ErrTransicao) {
+		t.Fatalf("uma cancelada voltou: %v", err)
+	}
+	for _, f := range s.Faturas() {
+		if f.ID == "f-3" {
+			t.Fatal("a fatura de uma transição recusada foi gravada")
+		}
+	}
+	if f := s.Faturas(); len(f) != 2 || f[0].Moeda != "BRL" {
+		t.Fatalf("faturas = %+v", f)
+	}
+}
+
+// O mesmo id de evento é visto uma vez.
+func TestVistoUmaVez(t *testing.T) {
+	s := NovoStore()
+	agora := time.Now()
+	if s.Visto("ev-1", agora) {
+		t.Fatal("um evento novo já era visto")
+	}
+	if !s.Visto("ev-1", agora) {
+		t.Fatal("o reenvio do mesmo evento não foi reconhecido")
+	}
+}
+
+// Um plano com assinatura viva não se apaga.
+func TestPlanoEmUso(t *testing.T) {
+	s := NovoStore()
+	p := s.SalvarPlano(Plano{Nome: "Pro", Centavos: 4900, Moeda: "brl", Intervalo: "month"})
+	if p.Moeda != "BRL" || p.ID == "" {
+		t.Fatalf("plano = %+v", p)
+	}
+	s.Assinar("a-1", "c@example.com", p.ID, time.Now())
+	if err := s.ApagarPlano(p.ID); !errors.Is(err, ErrPlanoEmUso) {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := s.Cancelar("a-1", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ApagarPlano(p.ID); err != nil {
+		t.Fatal(err)
+	}
+}

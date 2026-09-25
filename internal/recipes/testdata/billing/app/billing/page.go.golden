@@ -1,0 +1,111 @@
+// Package billing is the screen of the subscriptions: who is on which plan,
+// in which state, and how many charges failed in a row.
+package billing
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"example.com/golden/internal/cobranca"
+)
+
+// consulta is what this screen reads from the address.
+type consulta struct {
+	trilha.ListParams
+	Estado string `form:"estado"`
+}
+
+var colunas = ui.Columns[cobranca.Assinatura]{
+	{Key: "email", Label: "Customer", Cell: func(a cobranca.Assinatura) h.Node { return h.Text(a.Email) }},
+	{Key: "plano", Label: "Plan", Cell: func(a cobranca.Assinatura) h.Node { return h.Text(a.Plano) }},
+	{Key: "estado", Label: "State", Cell: func(a cobranca.Assinatura) h.Node {
+		return ui.Badge(ui.Outline(), h.Text(Rotulo(a.Estado)))
+	}},
+	{Key: "tentativas", Label: "Failed charges", Num: true, Cell: func(a cobranca.Assinatura) h.Node {
+		return h.Text(strconv.Itoa(a.Tentativas))
+	}},
+}
+
+// Page answers GET /billing: the whole screen, or only the table when
+// the kit asks for the fragment.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	var q consulta
+	if err := c.Bind(&q); err != nil {
+		return nil, err
+	}
+	estado := valido(q.Estado)
+	todas := trilha.Use[*cobranca.Billing](c).Store.Assinaturas(estado)
+	if q.Q != "" {
+		filtradas := todas[:0:0]
+		for _, a := range todas {
+			if strings.Contains(strings.ToLower(a.Email), strings.ToLower(q.Q)) {
+				filtradas = append(filtradas, a)
+			}
+		}
+		todas = filtradas
+	}
+	total := len(todas)
+	fim := q.Offset() + q.Limit()
+	if fim > total {
+		fim = total
+	}
+	pagina := []cobranca.Assinatura{}
+	if q.Offset() < total {
+		pagina = todas[q.Offset():fim]
+	}
+	tabela := ui.DataTable(c, colunas, pagina, ui.ListState{
+		Params: q.ListParams, Total: total, ID: "assinaturas",
+		Search: "Search by e-mail", Filters: filtro(string(estado)),
+		Caption: "Billing", Cards: true,
+		Empty: ui.Muted(h.Text("No subscriptions yet.")),
+	})
+	if c.Fragment() == "assinaturas" {
+		return tabela, nil
+	}
+	c.SetTitle("Billing")
+	return ui.Stack(
+		ui.PageHeader("Billing",
+			ui.ButtonLink("/billing/planos", ui.Outline(), h.Text("Plans")),
+			ui.ButtonLink("/billing/faturas", ui.Outline(), h.Text("Invoices"))),
+		ui.Muted(h.Text("Subscriptions by state. The provider charges the card; this application decides what each event means.")),
+		tabela,
+	), nil
+}
+
+// Rotulo is what a state is called on the screen.
+func Rotulo(e cobranca.Estado) string {
+	switch e {
+	case cobranca.Trial:
+		return "Trial"
+	case cobranca.Ativa:
+		return "Active"
+	case cobranca.Atrasada:
+		return "Past due"
+	case cobranca.Cancelada:
+		return "Canceled"
+	}
+	return string(e)
+}
+
+// valido lets through only a state the machine has: what comes from the
+// address reaches the store only when it is one of the values offered.
+func valido(s string) cobranca.Estado {
+	for _, e := range cobranca.Estados() {
+		if string(e) == s {
+			return e
+		}
+	}
+	return ""
+}
+
+func filtro(estado string) h.Node {
+	opcoes := []ui.Option{{Value: "", Label: "All states"}}
+	for _, e := range cobranca.Estados() {
+		opcoes = append(opcoes, ui.Option{Value: string(e), Label: Rotulo(e)})
+	}
+	return ui.Select(h.Name("estado"), h.Aria("label", "State"), ui.SelectOptions(opcoes, estado))
+}

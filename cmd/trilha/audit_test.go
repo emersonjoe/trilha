@@ -619,3 +619,39 @@ var Policy = auth.Policy{
 		t.Errorf("módulo sem escopo cobrou checagem: %v", got)
 	}
 }
+
+// Spec 162 — a cobrança lê o segredo do provedor de uma conexão; conexões em
+// memória somem no restart, e dali em diante todo evento é recusado.
+func TestAuditoriaDaCobranca(t *testing.T) {
+	acha := func(cs []check) (check, bool) {
+		for _, c := range cs {
+			if strings.HasPrefix(c.title, "billing") {
+				return c, true
+			}
+		}
+		return check{}, false
+	}
+	escreve := func(t *testing.T, src string) string {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	const cobranca = "package main\n\nconst ConexaoWebhook = \"billing-webhook\"\n\n"
+	memoria := escreve(t, cobranca+"var Conexoes = trilha.NewConnections(trilha.ConnectionsOpts{Kinds: Tipos})\n")
+	tabela := escreve(t, cobranca+"var Conexoes = trilha.NewConnections(trilha.ConnectionsOpts{Kinds: Tipos, Store: tabela})\n")
+	sem := escreve(t, "package main\n\nvar Conexoes = trilha.NewConnections(trilha.ConnectionsOpts{Kinds: Tipos})\n")
+
+	if got, ok := acha(runAudit(&project{Root: memoria}, false)); !ok || got.level != "warn" {
+		t.Errorf("cobrança com conexões em memória: %+v (achou: %v)", got, ok)
+	}
+	if got, ok := acha(runAudit(&project{Root: tabela}, false)); !ok || got.level != "ok" {
+		t.Errorf("cobrança com conexões numa tabela: %+v", got)
+	}
+	// Quem não cobra não ouve falar de cobrança.
+	if _, ok := acha(runAudit(&project{Root: sem}, false)); ok {
+		t.Error("avisou sobre cobrança um app sem a receita")
+	}
+}

@@ -15,10 +15,16 @@ package recipes
 // bug the person who ran the command has to clean up before they can read it.
 var words = func(lang string) map[string]string {
 	en := wordsEN()
+	for k, v := range platformWordsEN() {
+		en[k] = v
+	}
 	if lang != "pt" {
 		return en
 	}
 	pt := wordsPT()
+	for k, v := range platformWordsPT() {
+		pt[k] = v
+	}
 	for k, v := range en {
 		if _, ok := pt[k]; !ok {
 			pt[k] = v

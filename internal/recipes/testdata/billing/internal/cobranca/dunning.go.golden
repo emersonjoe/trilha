@@ -1,0 +1,60 @@
+package cobranca
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/mail"
+	"github.com/emersonjoe/trilha/task"
+)
+
+// TarefaLembrete is the task that tells a customer a charge failed.
+const TarefaLembrete = "cobranca.lembrete"
+
+// Mailer is what sends the reminders. A package variable on purpose: a test
+// puts a mail.Outbox in its place and asserts on what left.
+var Mailer = mail.New(mail.FromEnv())
+
+// Marca is the name in the messages.
+const Marca = "My application"
+
+// Lembrar queues the reminder for the failure the subscription just counted.
+// The key is the subscription and the attempt, so the same failure delivered
+// twice is one reminder and three failures are three.
+func (b *Billing) Lembrar(c *trilha.Ctx, a Assinatura) error {
+	_, err := b.tarefas.Run(c, TarefaLembrete, a.ID+":"+strconv.Itoa(a.Tentativas))
+	return err
+}
+
+// lembrete is the task: one e-mail per failed charge, and the last one says
+// the subscription is over. It reads the subscription when it runs and not
+// when it was queued, so the message never contradicts the screen.
+func (b *Billing) lembrete(ctx context.Context, p *task.Progress) error {
+	id, n, ok := strings.Cut(p.Key, ":")
+	if !ok {
+		return fmt.Errorf("cobranca: reminder key %q is not subscription:attempt", p.Key)
+	}
+	tentativa, err := strconv.Atoi(n)
+	if err != nil {
+		return fmt.Errorf("cobranca: reminder key %q: %w", p.Key, err)
+	}
+	a, err := b.Store.Assinatura(id)
+	if err != nil {
+		return err
+	}
+	assunto := fmt.Sprintf("Your payment did not go through (%d/%d)", tentativa, MaxTentativas)
+	texto := "We could not charge your subscription. We will try again; after the third failed charge the subscription is canceled."
+	if tentativa >= MaxTentativas {
+		assunto, texto = "Your subscription was canceled", "After three failed charges the subscription was canceled. You can subscribe again whenever you want."
+	}
+	p.Step("mail", 1, 1)
+	return Mailer.Send(ctx, mail.Message{
+		To:      []string{a.Email},
+		Subject: assunto + " — " + Marca,
+		Body:    mail.Layout(Marca, h.P(h.Text(texto))),
+	})
+}

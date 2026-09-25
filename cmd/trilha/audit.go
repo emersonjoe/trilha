@@ -114,6 +114,17 @@ func runAudit(p *project, vuln bool) []check {
 			add("ok", t("mail ok"), "")
 		}
 	}
+	// Billing (spec 162). The provider's signing secret lives in a sealed
+	// connection, and a connection kept in memory is gone on the next restart
+	// — after which every event the provider sends is refused, and the card
+	// keeps being charged for subscriptions this app no longer hears about.
+	if strings.Contains(src, `ConexaoWebhook = "billing-webhook"`) {
+		if connectionsInMemory(src) {
+			add("warn", t("billing memory"), t("billing memory hint"))
+		} else {
+			add("ok", t("billing ok"), "")
+		}
+	}
 	// A string that comes from outside with no size limit is the column the
 	// database refuses in production, with the driver's message instead of the
 	// field's.
@@ -897,4 +908,20 @@ func first(all []string, n int) []string {
 		return all
 	}
 	return append(append([]string{}, all[:n]...), "…")
+}
+
+// connectionsInMemoryRe is a NewConnections call and its options, up to the
+// closing brace of the literal.
+var connectionsInMemoryRe = regexp.MustCompile(`NewConnections\(trilha\.ConnectionsOpts\{[^}]*\}`)
+
+// connectionsInMemory says whether the project builds its list of connections
+// without a Store — which is memory, and forgets on restart.
+func connectionsInMemory(src string) bool {
+	calls := connectionsInMemoryRe.FindAllString(src, -1)
+	for _, call := range calls {
+		if !strings.Contains(call, "Store:") {
+			return true
+		}
+	}
+	return false
 }

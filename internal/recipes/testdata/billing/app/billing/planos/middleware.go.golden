@@ -1,0 +1,15 @@
+package planos
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"example.com/golden/internal/cobranca"
+	"example.com/golden/internal/sessao"
+)
+
+// exige is the stricter rule of this folder: "administrar" of the billing
+// module, which a billing:reader does not have.
+var exige = sessao.Flow.RequirePolicy(cobranca.Politica, "billing", "administrar")
+
+// Middleware guards this folder on top of the one above it.
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }

@@ -1,0 +1,20 @@
+// Package billing is the address the payment provider calls.
+//
+// It is an API — kind.go says so — which is what keeps CSRF out of the way:
+// the client here is the provider, not a form of this site, and the HMAC over
+// timestamp.body stands in for the token. The address is fixed because it is
+// typed into the provider's dashboard.
+package billing
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"example.com/golden/internal/cobranca"
+)
+
+// POST receives one event. Everything — signature, window, seen once, the
+// change and the trail — is cobranca.Receber, so this file stays the address
+// and nothing else.
+func POST(c *trilha.Ctx) error {
+	return trilha.Use[*cobranca.Billing](c).Receber(c)
+}

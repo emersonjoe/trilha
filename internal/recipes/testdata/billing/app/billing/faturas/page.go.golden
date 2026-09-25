@@ -1,0 +1,50 @@
+// Package faturas is the list of invoices. Reading it is billing:reader;
+// the export is billing:admin, and the button only appears for who has it.
+package faturas
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"example.com/golden/internal/cobranca"
+	"example.com/golden/internal/sessao"
+)
+
+// Page renders GET /billing/faturas.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Invoices")
+	faturas := trilha.Use[*cobranca.Billing](c).Store.Faturas()
+	var acoes []h.Node
+	// Hiding the button is cosmetic; the rule that holds is csv/middleware.go.
+	if cobranca.Pode(sessao.Atual(c), "administrar") {
+		acoes = append(acoes, ui.ButtonLink("/billing/faturas/csv", ui.Outline(), ui.Icon("download"), h.Text("Export CSV")))
+	}
+	var lista h.Node = ui.Empty(ui.EmptyOpts{Icon: "info", Title: "No invoices yet."})
+	if len(faturas) > 0 {
+		linhas := make([]h.Node, 0, len(faturas))
+		for _, f := range faturas {
+			estado := "Open"
+			if f.Paga {
+				estado = "Paid"
+			}
+			linhas = append(linhas, h.Tr(
+				h.Td(h.Text(f.ID)),
+				h.Td(h.Text(f.Assinatura)),
+				h.Td(h.Text(f.Moeda+" "), ui.Number(c, float64(f.Centavos)/100, ui.Decimals(2))),
+				h.Td(ui.Badge(ui.Outline(), h.Text(estado))),
+				h.Td(ui.Date(c, f.Emitida)),
+			))
+		}
+		lista = ui.Table(
+			h.Thead(h.Tr(h.Th(h.Text("Invoice")), h.Th(h.Text("Subscription")),
+				h.Th(h.Text("Amount")), h.Th(h.Text("State")),
+				h.Th(h.Text("Issued")))),
+			h.Tbody(linhas...),
+		)
+	}
+	return ui.Stack(
+		ui.PageHeader("Invoices", append(acoes, ui.ButtonLink("/billing", ui.Outline(), h.Text("Billing")))...),
+		lista,
+	), nil
+}

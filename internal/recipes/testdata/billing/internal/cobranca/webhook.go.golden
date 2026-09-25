@@ -1,0 +1,142 @@
+package cobranca
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/webhook"
+
+	"example.com/golden/internal/conexoes"
+)
+
+// ConexaoWebhook is the sealed connection that carries the secret the provider
+// signs with. It is a connection and not an environment variable: the secret
+// is sealed at rest, masked everywhere else, and rotated on a screen.
+const ConexaoWebhook = "billing-webhook"
+
+// CodigoNaoAssinado is the stable code of every refusal of this endpoint. It
+// has a page at /docs/errors/E_BILLING_WEBHOOK_UNSIGNED.
+const CodigoNaoAssinado = "E_BILLING_WEBHOOK_UNSIGNED"
+
+// Evento is what the provider sends. The names are this application's; a
+// provider with other names is a different struct here, and nothing else.
+type Evento struct {
+	ID         string `json:"id"`
+	Tipo       string `json:"type"`
+	Assinatura string `json:"subscription"`
+	Email      string `json:"customer_email"`
+	Plano      string `json:"plan"`
+	Fatura     string `json:"invoice"`
+	Centavos   int64  `json:"amount"`
+	Moeda      string `json:"currency"`
+}
+
+// The events this module understands. Anything else is recorded as seen and
+// answered 200: the provider should not retry what the application chose to
+// ignore.
+const (
+	EventoAssinou  = "subscription.created"
+	EventoPagou    = "invoice.paid"
+	EventoFalhou   = "invoice.payment_failed"
+	EventoCancelou = "subscription.canceled"
+)
+
+// Receber is the whole endpoint: signature over timestamp.body, the window,
+// the event seen once, the change, the trail, the answer.
+//
+// webhook.Verify checks the signature in constant time and refuses a
+// timestamp more than webhook.Tolerance (five minutes) away from now, in
+// either direction — a captured request stops working before anybody could
+// replay it. Every way of failing is the same 401 with the same code: saying
+// which part failed tells a stranger how close they got.
+func (b *Billing) Receber(c *trilha.Ctx) error {
+	segredo, err := Segredo(c)
+	if err != nil {
+		c.Log().Warn("cobranca: webhook refused", "code", CodigoNaoAssinado, "why", "no connection")
+		return naoAssinado()
+	}
+	corpo, err := webhook.Verify(c.Request(), segredo)
+	if err != nil {
+		c.Log().Warn("cobranca: webhook refused", "code", CodigoNaoAssinado)
+		return naoAssinado()
+	}
+	var ev Evento
+	if err := json.Unmarshal(corpo, &ev); err != nil || ev.ID == "" {
+		return trilha.Errorf(http.StatusBadRequest, "invalid event")
+	}
+	// Signed and not seen before, and only then: an unsigned request must not
+	// be able to burn an id a real event will carry later.
+	agora := time.Now().UTC()
+	if b.Store.Visto(ev.ID, agora) {
+		return c.JSON(http.StatusOK, map[string]string{"status": "duplicate"})
+	}
+	if err := b.aplicar(c, ev, agora); err != nil {
+		// The event was understood and refused by the machine — an old event
+		// arriving after a cancel, say. It is logged with the reason, and the
+		// answer is still 200: retrying it would not make it valid.
+		c.Log().Warn("cobranca: event not applied", "event", ev.ID, "type", ev.Tipo, "err", err)
+	}
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// aplicar turns an event into a change. Every change that touches money is
+// written to the audit trail, with the event id as the target and the
+// transition in the fields.
+func (b *Billing) aplicar(c *trilha.Ctx, ev Evento, agora time.Time) error {
+	var (
+		m   Mudanca
+		err error
+	)
+	switch ev.Tipo {
+	case EventoAssinou:
+		a := b.Store.Assinar(ev.Assinatura, ev.Email, ev.Plano, agora)
+		c.Audit("billing.assinatura_criada", a.ID, trilha.Fields{"evento": ev.ID, "plano": ev.Plano})
+		return nil
+	case EventoPagou:
+		m, err = b.Store.Pagou(ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
+	case EventoFalhou:
+		m, err = b.Store.Falhou(ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
+	case EventoCancelou:
+		m, err = b.Store.Cancelar(ev.Assinatura, agora)
+	default:
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	c.Audit("billing."+strings.ReplaceAll(ev.Tipo, ".", "_"), m.Assinatura.ID, trilha.Fields{
+		"evento": ev.ID, "fatura": ev.Fatura, "de": string(m.De), "para": string(m.Assinatura.Estado),
+		"centavos": ev.Centavos, "tentativa": m.Assinatura.Tentativas,
+	})
+	if ev.Tipo == EventoFalhou {
+		// The reminder goes out as a task: the provider is waiting for this
+		// answer, and an e-mail server is not a reason to make it wait.
+		return b.Lembrar(c, m.Assinatura)
+	}
+	return nil
+}
+
+// Segredo is the secret, out of the sealed connection. This is the one place
+// that reveals it: an HMAC of the body is the one thing Connections cannot
+// do on the application's behalf.
+func Segredo(c *trilha.Ctx) (string, error) {
+	lista, err := conexoes.Conexoes.List(c)
+	if err != nil {
+		return "", err
+	}
+	for _, conn := range lista {
+		if strings.EqualFold(conn.Name, ConexaoWebhook) && !conn.Secret.Empty() {
+			return conn.Secret.Reveal(), nil
+		}
+	}
+	return "", errors.New("cobranca: there is no connection named " + ConexaoWebhook)
+}
+
+func naoAssinado() error {
+	return &trilha.Problem{Status: http.StatusUnauthorized, Title: "invalid signature",
+		Extra: map[string]any{"code": CodigoNaoAssinado}}
+}

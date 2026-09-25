@@ -1,0 +1,23 @@
+// Package csv is the invoice export. Its middleware.go asks for
+// billing:admin: an export is every invoice at once, and it leaves the
+// application in somebody's downloads folder.
+package csv
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"example.com/golden/internal/cobranca"
+)
+
+// GET streams the invoices as CSV, with the BOM and the locale's decimals, and
+// writes the export to the audit trail.
+func GET(c *trilha.Ctx) error {
+	faturas := trilha.Use[*cobranca.Billing](c).Store.Faturas()
+	linhas := make([]cobranca.LinhaCSV, 0, len(faturas))
+	for _, f := range faturas {
+		linhas = append(linhas, cobranca.LinhaCSV{Fatura: f.ID, Assinatura: f.Assinatura,
+			Valor: float64(f.Centavos) / 100, Moeda: f.Moeda, Paga: f.Paga, Emitida: f.Emitida})
+	}
+	c.Audit("billing.csv_exportado", "faturas", trilha.Fields{"linhas": len(linhas)})
+	return c.CSV("faturas.csv", linhas)
+}

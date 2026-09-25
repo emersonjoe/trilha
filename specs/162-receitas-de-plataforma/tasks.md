@@ -4,15 +4,15 @@
   `TestRecipeCtxPackCost` em `internal/ctx`), `At` e `Includes`; `trilha add --list` e
   `--json` com o custo `est.`; o `add` termina com o custo do pack. *Aceite:*
   `trilha add --list` mostra custo `est.` por receita (`go test ./internal/ctx/ ./cmd/trilha/ -run 'Cost|AddList'`).
-- [ ] **T02** — Billing: migração `0100_billing.sql` + modelos + estados com transições
+- [x] **T02** — Billing: migração `0100_billing.sql` + modelos + estados com transições
   fechadas. *Aceite:* `TestBillingStates`.
-- [ ] **T03** — Billing: webhook HMAC `timestamp.body` (`webhook.Verify`) + idempotência por
+- [x] **T03** — Billing: webhook HMAC `timestamp.body` (`webhook.Verify`) + idempotência por
   `event_id` + janela de 5 min, em `/webhooks/billing` (caminho corrigido, ver spec).
   *Aceite:* `TestBillingWebhookValid`, `TestBillingWebhookUnsigned`,
   `TestBillingWebhookExpired`, `TestBillingIdempotentEvent`.
-- [ ] **T04** — Billing: dunning de três tentativas por `task` + `mail`. *Aceite:*
+- [x] **T04** — Billing: dunning de três tentativas por `task` + `mail`. *Aceite:*
   `TestBillingDunningCycle` (com `mail.Outbox`).
-- [ ] **T05** — Billing: telas (assinaturas com filtro, planos, faturas) + papéis
+- [x] **T05** — Billing: telas (assinaturas com filtro, planos, faturas) + papéis
   `billing:admin`/`billing:reader` + CSV + auditoria; regra do `trilha audit` para a conexão
   do webhook. *Aceite:* `TestBillingCSVAdminOnly`, `TestBillingInstall` (golden dos
   arquivos), `trilha audit` verde com a regra nova no e2e. Goldens de DOM: spec 164 T02.

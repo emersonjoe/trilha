@@ -1,0 +1,272 @@
+package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/mail"
+	"github.com/emersonjoe/trilha/webhook"
+
+	"example.com/golden/internal/cobranca"
+	"example.com/golden/internal/conexoes"
+	"example.com/golden/internal/usuarios"
+)
+
+const segredoDoProvedor = "um-segredo-do-provedor-de-teste"
+
+// trilhaDeTeste is the audit trail of one test, kept in memory.
+type trilhaDeTeste struct {
+	mu  sync.Mutex
+	rec []trilha.AuditRecord
+}
+
+func (tr *trilhaDeTeste) Write(r trilha.AuditRecord) error {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	tr.rec = append(tr.rec, r)
+	return nil
+}
+
+func (tr *trilhaDeTeste) acoes() string {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	var out []string
+	for _, r := range tr.rec {
+		out = append(out, r.Action)
+	}
+	return strings.Join(out, " ")
+}
+
+// appDeCobranca sobe o app com a conexão do provedor e uma trilha só deste
+// teste.
+func appDeCobranca(t *testing.T) (*trilha.App, *trilhaDeTeste) {
+	t.Helper()
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	t.Setenv("ADMIN_EMAIL", "admin@example.com")
+	t.Setenv("ADMIN_PASSWORD", "a-password-nobody-guesses")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := newApp()
+	tr := &trilhaDeTeste{}
+	a.Config().Audit = tr
+	// The list of connections is a package variable, so the one this test
+	// creates is removed when it ends: the next test starts from its own.
+	conn, err := conexoes.Conexoes.Save(nil, trilha.Connection{
+		Kind: "api", Name: cobranca.ConexaoWebhook, URL: "https://provedor.example.com",
+		Auth: "header", Header: webhook.HeaderSignature, Secret: trilha.Secret(segredoDoProvedor),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conexoes.Conexoes.Delete(nil, conn.ID) })
+	return a, tr
+}
+
+// evento manda um evento assinado sobre timestamp.body, com a hora que o
+// teste escolher.
+func evento(c *trilha.TestClient, corpo string, quando time.Time, segredo string) *trilha.TestResponse {
+	ts := strconv.FormatInt(quando.Unix(), 10)
+	return c.Request(http.MethodPost, "/webhooks/billing",
+		trilha.WithBody("application/json", corpo),
+		trilha.WithHeader(webhook.HeaderTimestamp, ts),
+		trilha.WithHeader(webhook.HeaderSignature, webhook.Sign(segredo, ts, []byte(corpo))))
+}
+
+func falhou(evID, fatura string) string {
+	return `{"id":"` + evID + `","type":"invoice.payment_failed","subscription":"a-1","invoice":"` + fatura + `","amount":4900,"currency":"brl"}`
+}
+
+// Assinado e dentro da janela, o evento muda a assinatura e deixa rastro na
+// trilha — nenhuma escrita de dinheiro sem nome ao lado.
+func TestBillingWebhookValid(t *testing.T) {
+	a, tr := appDeCobranca(t)
+	c := trilha.NewTestClient(t, a)
+	b := trilha.Use[*cobranca.Billing](a)
+
+	evento(c, `{"id":"ev-1","type":"subscription.created","subscription":"a-1","customer_email":"cliente@example.com","plan":"pro"}`,
+		time.Now(), segredoDoProvedor).WantStatus(http.StatusOK)
+	evento(c, `{"id":"ev-2","type":"invoice.paid","subscription":"a-1","invoice":"f-1","amount":4900,"currency":"brl"}`,
+		time.Now(), segredoDoProvedor).WantStatus(http.StatusOK).WantContains("ok")
+
+	as, err := b.Store.Assinatura("a-1")
+	if err != nil || as.Estado != cobranca.Ativa {
+		t.Fatalf("assinatura = %+v %v", as, err)
+	}
+	if f := b.Store.Faturas(); len(f) != 1 || !f[0].Paga || f[0].Centavos != 4900 {
+		t.Fatalf("faturas = %+v", f)
+	}
+	for _, quero := range []string{"billing.assinatura_criada", "billing.invoice_paid"} {
+		if !strings.Contains(tr.acoes(), quero) {
+			t.Fatalf("a trilha não registrou %s: %s", quero, tr.acoes())
+		}
+	}
+}
+
+// Sem assinatura, com a assinatura errada ou com o corpo alterado: o mesmo
+// 401, o mesmo código, e nada muda.
+func TestBillingWebhookUnsigned(t *testing.T) {
+	a, tr := appDeCobranca(t)
+	c := trilha.NewTestClient(t, a)
+	b := trilha.Use[*cobranca.Billing](a)
+	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+
+	corpo := falhou("ev-1", "f-1")
+	c.Request(http.MethodPost, "/webhooks/billing", trilha.WithBody("application/json", corpo)).
+		WantStatus(http.StatusUnauthorized).WantContains(cobranca.CodigoNaoAssinado)
+	evento(c, corpo, time.Now(), "outro-segredo").
+		WantStatus(http.StatusUnauthorized).WantContains(cobranca.CodigoNaoAssinado)
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	c.Request(http.MethodPost, "/webhooks/billing",
+		trilha.WithBody("application/json", corpo+" "),
+		trilha.WithHeader(webhook.HeaderTimestamp, ts),
+		trilha.WithHeader(webhook.HeaderSignature, webhook.Sign(segredoDoProvedor, ts, []byte(corpo)))).
+		WantStatus(http.StatusUnauthorized).WantContains(cobranca.CodigoNaoAssinado)
+
+	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Trial || as.Tentativas != 0 {
+		t.Fatalf("um evento não assinado mudou a assinatura: %+v", as)
+	}
+	if tr.acoes() != "" {
+		t.Fatalf("a recusa deixou rastro de mudança: %s", tr.acoes())
+	}
+	// E a recusa não queima o id: o mesmo evento, assinado, ainda vale.
+	evento(c, corpo, time.Now(), segredoDoProvedor).WantStatus(http.StatusOK)
+	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Atrasada {
+		t.Fatalf("o evento assinado depois da recusa não valeu: %+v", as)
+	}
+}
+
+// Assinado mas velho: fora da janela de cinco minutos é recusado, e é isso
+// que impede quem capturou uma requisição de repeti-la depois.
+func TestBillingWebhookExpired(t *testing.T) {
+	a, _ := appDeCobranca(t)
+	c := trilha.NewTestClient(t, a)
+	b := trilha.Use[*cobranca.Billing](a)
+	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+
+	evento(c, falhou("ev-1", "f-1"), time.Now().Add(-6*time.Minute), segredoDoProvedor).
+		WantStatus(http.StatusUnauthorized).WantContains(cobranca.CodigoNaoAssinado)
+	evento(c, falhou("ev-2", "f-1"), time.Now().Add(6*time.Minute), segredoDoProvedor).
+		WantStatus(http.StatusUnauthorized)
+	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Trial {
+		t.Fatalf("um evento fora da janela mudou a assinatura: %+v", as)
+	}
+}
+
+// O provedor reenvia; o app aplica uma vez.
+func TestBillingIdempotentEvent(t *testing.T) {
+	a, tr := appDeCobranca(t)
+	c := trilha.NewTestClient(t, a)
+	b := trilha.Use[*cobranca.Billing](a)
+	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	cobranca.Mailer = mail.New(mail.Options{From: "cobranca@example.com", Transport: &mail.Outbox{}})
+
+	evento(c, falhou("ev-1", "f-1"), time.Now(), segredoDoProvedor).WantStatus(http.StatusOK)
+	evento(c, falhou("ev-1", "f-1"), time.Now(), segredoDoProvedor).WantStatus(http.StatusOK).WantContains("duplicate")
+	if as, _ := b.Store.Assinatura("a-1"); as.Tentativas != 1 {
+		t.Fatalf("o reenvio contou de novo: %+v", as)
+	}
+	if n := strings.Count(tr.acoes(), "billing.invoice_payment_failed"); n != 1 {
+		t.Fatalf("a trilha registrou %d vezes: %s", n, tr.acoes())
+	}
+}
+
+// Três falhas seguidas: três lembretes por e-mail, e a terceira cancela.
+func TestBillingDunningCycle(t *testing.T) {
+	a, tr := appDeCobranca(t)
+	c := trilha.NewTestClient(t, a)
+	b := trilha.Use[*cobranca.Billing](a)
+	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	caixa := &mail.Outbox{}
+	antes := cobranca.Mailer
+	cobranca.Mailer = mail.New(mail.Options{From: "cobranca@example.com", Transport: caixa})
+	t.Cleanup(func() { cobranca.Mailer = antes })
+
+	for i := 1; i <= cobranca.MaxTentativas; i++ {
+		evento(c, falhou("ev-"+strconv.Itoa(i), "f-1"), time.Now(), segredoDoProvedor).WantStatus(http.StatusOK)
+	}
+	// Os lembretes saem numa tarefa, fora da requisição: a caixa é consultada
+	// até eles chegarem.
+	limite := time.Now().Add(5 * time.Second)
+	for len(caixa.Messages()) < cobranca.MaxTentativas && time.Now().Before(limite) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	msgs := caixa.Messages()
+	if len(msgs) != cobranca.MaxTentativas {
+		t.Fatalf("%d lembretes, esperava %d", len(msgs), cobranca.MaxTentativas)
+	}
+	assuntos := ""
+	for _, m := range msgs {
+		if len(m.To) != 1 || m.To[0] != "cliente@example.com" {
+			t.Fatalf("lembrete para %v", m.To)
+		}
+		assuntos += m.Subject + "\n"
+	}
+	for _, quero := range []string{"(1/3)", "(2/3)"} {
+		if !strings.Contains(assuntos, quero) {
+			t.Fatalf("faltou o lembrete %s:\n%s", quero, assuntos)
+		}
+	}
+	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Cancelada {
+		t.Fatalf("depois de três falhas: %+v", as)
+	}
+	if n := strings.Count(tr.acoes(), "billing.invoice_payment_failed"); n != cobranca.MaxTentativas {
+		t.Fatalf("a trilha registrou %d falhas: %s", n, tr.acoes())
+	}
+}
+
+// O CSV é só de quem administra a cobrança: o leitor lê as telas e recebe 403
+// na exportação, o anônimo vai para o login.
+func TestBillingCSVAdminOnly(t *testing.T) {
+	a, tr := appDeCobranca(t)
+	b := trilha.Use[*cobranca.Billing](a)
+	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	if _, err := b.Store.Pagou("a-1", "f-1", 4900, "brl", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := trilha.Use[*usuarios.Store](a).Add("u-leitor", "leitor@example.com", "Leitor",
+		cobranca.PapelLeitor, "a-password-for-the-reader"); err != nil {
+		t.Fatal(err)
+	}
+
+	anonimo := trilha.NewTestClient(t, a)
+	anonimo.Get("/billing/faturas/csv").WantStatus(http.StatusUnauthorized)
+
+	leitor := trilha.NewTestClient(t, a)
+	leitor.PostForm("/entrar", url.Values{"email": {"leitor@example.com"},
+		"password": {"a-password-for-the-reader"}}).WantStatus(http.StatusSeeOther)
+	leitor.Get("/billing").WantStatus(http.StatusOK).WantContains("cliente@example.com")
+	faturas := leitor.Get("/billing/faturas").WantStatus(http.StatusOK).Body.String()
+	if strings.Contains(faturas, "billing/faturas/csv") {
+		t.Fatal("o botão de exportar apareceu para o leitor")
+	}
+	leitor.Get("/billing/faturas/csv").WantStatus(http.StatusForbidden)
+	leitor.Get("/billing/planos").WantStatus(http.StatusForbidden)
+
+	admin := trilha.NewTestClient(t, a)
+	admin.PostForm("/entrar", url.Values{"email": {"admin@example.com"},
+		"password": {"a-password-nobody-guesses"}}).WantStatus(http.StatusSeeOther)
+	admin.Get("/billing/faturas").WantStatus(http.StatusOK).WantContains("billing/faturas/csv")
+	admin.Get("/billing/faturas/csv").WantStatus(http.StatusOK).
+		WantHeader("Content-Type", "text/csv; charset=utf-8").WantContains("f-1")
+	if !strings.Contains(tr.acoes(), "billing.csv_exportado") {
+		t.Fatalf("a exportação não entrou na trilha: %s", tr.acoes())
+	}
+
+	// E o plano: validado pelas tags, gravado com nome na trilha.
+	admin.PostForm("/billing/planos", url.Values{"nome": {""}, "centavos": {"-1"},
+		"moeda": {"reais"}, "intervalo": {"week"}}).WantStatus(http.StatusUnprocessableEntity)
+	admin.PostForm("/billing/planos", url.Values{"nome": {"Pro"}, "centavos": {"4900"},
+		"moeda": {"brl"}, "intervalo": {"month"}}).WantStatus(http.StatusSeeOther)
+	admin.Get("/billing/planos").WantStatus(http.StatusOK).WantContains("Pro", "BRL")
+	if !strings.Contains(tr.acoes(), "billing.plano_salvo") {
+		t.Fatalf("o plano não entrou na trilha: %s", tr.acoes())
+	}
+}

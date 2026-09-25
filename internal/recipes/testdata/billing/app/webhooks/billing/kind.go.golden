@@ -1,0 +1,8 @@
+package billing
+
+import "github.com/emersonjoe/trilha"
+
+// Kind says this is an API: the client is the provider, which cannot carry a
+// token of this site, and errors go out as JSON because nobody here reads a
+// page.
+var Kind = trilha.KindAPI

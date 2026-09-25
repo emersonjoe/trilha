@@ -1,0 +1,16 @@
+package billing
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"example.com/golden/internal/cobranca"
+	"example.com/golden/internal/sessao"
+)
+
+// exige is the rule: reading money needs the level "ler" of the billing
+// module — billing:reader, billing:admin or admin. Everybody else is refused,
+// including somebody signed in with another role.
+var exige = sessao.Flow.RequirePolicy(cobranca.Politica, "billing", "ler")
+
+// Middleware guards this folder and everything below it.
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
