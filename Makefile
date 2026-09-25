@@ -27,7 +27,7 @@ security:
 	GOTOOLCHAIN=$(SECURITY_GO_VERSION) go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
 golden:
-	go test ./internal/gen/ ./internal/openapi/ ./internal/ctx/ ./internal/recipes/ ./ui/ ./internal/scaffold/ ./internal/uidoc/ ./internal/migrate/ ./internal/client/ ./internal/islands/ ./cmd/trilha/ -update
+	go test ./internal/gen/ ./internal/openapi/ ./internal/ctx/ ./internal/recipes/ ./ui/ ./internal/scaffold/ ./internal/uidoc/ ./internal/migrate/ ./internal/client/ ./internal/islands/ ./cmd/trilha/ ./examples/blog/ -update
 
 # A superfície pública versionada: o diff de api/current.txt é a parte da
 # revisão que diz o que quem usa o framework vai sentir.

@@ -117,7 +117,8 @@ type TestResponse struct {
 	// fills it in.
 	Node h.Node
 
-	t TestingT
+	t   TestingT
+	app *App
 }
 
 // WantStatus fails unless the status matches.
@@ -253,7 +254,7 @@ func (c *TestClient) Request(method, target string, opts ...TestOption) *TestRes
 		}
 		c.jar[ck.Name] = ck.Value
 	}
-	return &TestResponse{ResponseRecorder: rec, Request: req, t: c.t}
+	return &TestResponse{ResponseRecorder: rec, Request: req, t: c.t, app: c.app}
 }
 
 // Get sends a GET.

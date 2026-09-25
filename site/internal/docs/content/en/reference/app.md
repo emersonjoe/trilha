@@ -426,10 +426,55 @@ Every request carries the CSRF cookie and, on a method with a body, the matching
 `X-CSRF-Token` header: cookie and token come from the same client, which is exactly what
 double submit asks a browser for. `WithoutCSRF()` is how a test proves the refusal.
 
-No assertion returns an `error` — in a test, the value of an error is stopping with the right
-message, so a failure prints the target, the status and the body. Anything the ready-made
+No `Want` assertion returns an `error` — in a test, the value of an error is stopping with the
+right message, so a failure prints the target, the status and the body. Anything the ready-made
 assertions do not cover is an `if` over the embedded recorder. See
 [Testing](/learn/testing) for the whole trail.
+
+### The served HTML (`PageSnapshot`)
+
+A snapshot is the response as the browser gets it, with what changes on every request taken
+out: the nonce of the Content-Security-Policy, the CSRF token, the request id, cookie values,
+timestamps and the durations of `Server-Timing` become `{{NONCE}}`, `{{CSRF}}`, `{{RID}}`,
+`{{COOKIE}}`, `{{DATE}}` and `{{DUR}}`. The values are the ones the response itself reveals,
+replaced literally — nothing is guessed from the shape of the HTML. Two runs give the same text,
+so a page can be held to a golden file:
+
+```go
+var update = flag.Bool("update", false, "rewrite the snapshots")
+
+func TestLoginPage(t *testing.T) {
+	snap := trilha.CapturePage(t, newApp(), "GET", "/login")
+	for _, err := range []error{
+		snap.MatchGolden("testdata/snapshots/login.txt", *update),
+		snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSafeCookies(),
+	} {
+		if err != nil {
+			t.Error(err)
+		}
+	}
+}
+```
+
+| Symbol | Role |
+|---|---|
+| `CapturePage(t, a *App, method, target string, opts ...TestOption) PageSnapshot` | one request, its snapshot |
+| `(*TestResponse) Snapshot() PageSnapshot` | the snapshot of a response — behind a login, from a `TestClient` that signed in |
+| `PageSnapshot` | `Status`, `Header`, `Body`, already normalized; `String()` is the golden format |
+| `(PageSnapshot) MatchGolden(path string, update bool) error` | compares with the file, or writes it when `update`; the error names the line and the column |
+| `(PageSnapshot) HasCSRFToken() error` | every form that is not GET carries the hidden CSRF field |
+| `(PageSnapshot) HasCSPNonce() error` | every inline `<script>`/`<style>` carries the nonce the policy announces (`E_CSP_NONCE`) |
+| `(PageSnapshot) HasSafeCookies() error` | every cookie set is `HttpOnly` and has `SameSite` |
+| `(PageSnapshot) HasNoSecret(values ...string) error` | none of the values is in the body or in a header |
+| `(PageSnapshot) HasAria(sel, attr string) error` | every element matching `sel` has `attr`; nothing matching is an error too |
+| `(PageSnapshot) FocusedOnError(sel string) error` | after a 422, the first `aria-invalid="true"` — where the kit puts the focus — is `sel` |
+
+These return an `error` instead of stopping, because a page is checked for several things at
+once and every failure is worth reading. Each message says what was looked for, what was found
+and what to change. Selectors are compound only: `tag`, `#id`, `.class`, `[attr]` and
+`[attr=value]` together, as in `input[name=email]`. What only a browser sees — the focus
+actually moving, a fragment swapped, an island mounted — is the `uitest` module's job; see
+[Testing](/learn/testing).
 
 ## Settings
 

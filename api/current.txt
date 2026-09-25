@@ -29,6 +29,7 @@ pkg trilha, func BusinessDays(...time.Time) *BusinessCalendar
 pkg trilha, func CSRFInput(*Ctx) h.Node
 pkg trilha, func CSRFTokenFrom(*http.Request) string
 pkg trilha, func CanInline(string) bool
+pkg trilha, func CapturePage(TestingT, *App, string, string, ...TestOption) PageSnapshot
 pkg trilha, func CheckDigit(string) string
 pkg trilha, func CompileErrorPage(string) string
 pkg trilha, func ConfigFromEnv() Config
@@ -261,6 +262,7 @@ pkg trilha, method (*TestClient) PostJSON(string, any, ...TestOption) *TestRespo
 pkg trilha, method (*TestClient) Request(string, string, ...TestOption) *TestResponse
 pkg trilha, method (*TestResponse) Cookie(string) *http.Cookie
 pkg trilha, method (*TestResponse) JSON(any) *TestResponse
+pkg trilha, method (*TestResponse) Snapshot() PageSnapshot
 pkg trilha, method (*TestResponse) WantContains(...string) *TestResponse
 pkg trilha, method (*TestResponse) WantHeader(string, string) *TestResponse
 pkg trilha, method (*TestResponse) WantStatus(int) *TestResponse
@@ -297,6 +299,14 @@ pkg trilha, method (ListParams) Limit() int
 pkg trilha, method (ListParams) Offset() int
 pkg trilha, method (ListParams) PageHref(int) string
 pkg trilha, method (ListParams) TotalPages(int) int
+pkg trilha, method (PageSnapshot) FocusedOnError(string) error
+pkg trilha, method (PageSnapshot) HasAria(string, string) error
+pkg trilha, method (PageSnapshot) HasCSPNonce() error
+pkg trilha, method (PageSnapshot) HasCSRFToken() error
+pkg trilha, method (PageSnapshot) HasNoSecret(...string) error
+pkg trilha, method (PageSnapshot) HasSafeCookies() error
+pkg trilha, method (PageSnapshot) MatchGolden(string, bool) error
+pkg trilha, method (PageSnapshot) String() string
 pkg trilha, method (Schema) Check() error
 pkg trilha, method (SearchResult) Group(string) (SearchGroup, bool)
 pkg trilha, method (Secret) Empty() bool
@@ -557,6 +567,10 @@ pkg trilha, type Observability struct, Timeout time.Duration
 pkg trilha, type Observability struct, Token string
 pkg trilha, type Observability struct, Trusted []string
 pkg trilha, type PageFunc func(*Ctx) (h.Node, error)
+pkg trilha, type PageSnapshot struct
+pkg trilha, type PageSnapshot struct, Body string
+pkg trilha, type PageSnapshot struct, Header http.Header
+pkg trilha, type PageSnapshot struct, Status int
 pkg trilha, type Problem struct
 pkg trilha, type Problem struct, Detail string
 pkg trilha, type Problem struct, Extra map[string]any

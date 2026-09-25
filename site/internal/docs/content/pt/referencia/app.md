@@ -423,9 +423,54 @@ Todo pedido leva o cookie do CSRF e, num método com corpo, o cabeçalho `X-CSRF
 correspondente: cookie e token vêm do mesmo cliente, que é exatamente o que o duplo envio
 pede de um navegador. O `WithoutCSRF()` é como um teste prova a recusa.
 
-Nenhuma asserção devolve `error` — em teste, o valor de um erro é parar com a mensagem certa,
-então a falha imprime o alvo, o status e o corpo. O que as asserções prontas não cobrem é um
-`if` sobre o recorder embutido. Veja [Testes](/pt/aprender/testes) para a trilha inteira.
+Nenhuma asserção `Want` devolve `error` — em teste, o valor de um erro é parar com a mensagem
+certa, então a falha imprime o alvo, o status e o corpo. O que as asserções prontas não cobrem é
+um `if` sobre o recorder embutido. Veja [Testes](/pt/aprender/testes) para a trilha inteira.
+
+### O HTML servido (`PageSnapshot`)
+
+Um retrato é a resposta como o navegador a recebe, sem o que muda a cada requisição: o nonce da
+Content-Security-Policy, o token CSRF, o request id, os valores de cookie, os carimbos de data e
+as durações do `Server-Timing` viram `{{NONCE}}`, `{{CSRF}}`, `{{RID}}`, `{{COOKIE}}`,
+`{{DATE}}` e `{{DUR}}`. Os valores são os que a própria resposta revela, trocados literalmente —
+nada é adivinhado pela forma do HTML. Duas execuções dão o mesmo texto, então a página pode ser
+segurada num arquivo golden:
+
+```go
+var update = flag.Bool("update", false, "regrava os retratos")
+
+func TestPaginaDeLogin(t *testing.T) {
+	snap := trilha.CapturePage(t, newApp(), "GET", "/login")
+	for _, err := range []error{
+		snap.MatchGolden("testdata/snapshots/login.txt", *update),
+		snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSafeCookies(),
+	} {
+		if err != nil {
+			t.Error(err)
+		}
+	}
+}
+```
+
+| Símbolo | Papel |
+|---|---|
+| `CapturePage(t, a *App, method, target string, opts ...TestOption) PageSnapshot` | um pedido, o seu retrato |
+| `(*TestResponse) Snapshot() PageSnapshot` | o retrato de uma resposta — atrás do login, de um `TestClient` que entrou |
+| `PageSnapshot` | `Status`, `Header`, `Body`, já normalizados; `String()` é o formato do golden |
+| `(PageSnapshot) MatchGolden(path string, update bool) error` | compara com o arquivo, ou o grava com `update`; o erro dá a linha e a coluna |
+| `(PageSnapshot) HasCSRFToken() error` | todo formulário que não é GET leva o campo oculto do CSRF |
+| `(PageSnapshot) HasCSPNonce() error` | todo `<script>`/`<style>` inline leva o nonce que a política anuncia (`E_CSP_NONCE`) |
+| `(PageSnapshot) HasSafeCookies() error` | todo cookie gravado é `HttpOnly` e tem `SameSite` |
+| `(PageSnapshot) HasNoSecret(values ...string) error` | nenhum dos valores está no corpo nem num cabeçalho |
+| `(PageSnapshot) HasAria(sel, attr string) error` | todo elemento que casa com `sel` tem `attr`; nenhum casar também é erro |
+| `(PageSnapshot) FocusedOnError(sel string) error` | depois de um 422, o primeiro `aria-invalid="true"` — onde o kit põe o foco — é `sel` |
+
+Estas devolvem `error` em vez de parar, porque uma página é conferida em várias coisas de uma
+vez e toda falha merece ser lida. Cada mensagem diz o que se procurou, o que se achou e o que
+mudar. Os seletores são só compostos: `tag`, `#id`, `.classe`, `[attr]` e `[attr=valor]`
+juntos, como em `input[name=email]`. O que só o navegador vê — o foco se movendo de fato, um
+fragmento trocado, uma ilha montada — é trabalho do módulo `uitest`; veja
+[Testes](/pt/aprender/testes).
 
 ## Configurações
 
