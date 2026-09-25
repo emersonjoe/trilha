@@ -237,7 +237,11 @@ func TestHeadAndAssets(t *testing.T) {
 	// already wrote (the search results, the small badge, the read-only field),
 	// gave the grid its column classes and the phone drawer its own state,
 	// with the veil and the close button that make a drawer a drawer.
-	if len(Asset("ui.css")) > 40<<10 || len(Asset("ui.js")) > 29<<10 {
+	//
+	// 0.146.0 raised ui.js to 30 KB: spec 164 left it 3 bytes short, and spec
+	// 165 puts the focus on the first invalid field of a form refused with a
+	// whole page — the 422 of a form without ui.Swap, which had nowhere to go.
+	if len(Asset("ui.css")) > 40<<10 || len(Asset("ui.js")) > 30<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {

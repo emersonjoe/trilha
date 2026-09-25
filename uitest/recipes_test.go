@@ -33,6 +33,9 @@ func TestUIBillingScreens(t *testing.T) {
 		s.Click("form[action='/billing/planos'] button[type=submit]")
 		s.WantAttr("#moeda", "aria-invalid", "true")
 		s.WantAttr("#nome", "value", "Pro")
+		// The form has no swap: the 422 is a whole page, and the kit still
+		// puts the focus on the field that failed (spec 165).
+		s.WantFocus("#moeda")
 
 		s.Fill("#moeda", "brl")
 		s.Click("form[action='/billing/planos'] button[type=submit]")
@@ -88,9 +91,12 @@ func TestUIAdminDefaultDeny(t *testing.T) {
 		s.Click("button[type=submit]")
 		s.WantURL("/entrar") // the password is set; the session opens by signing in
 		signIn(s, "leitor@example.com", "a-password-for-the-reader")
+		// Refused inside the app's layout, by the error page the login recipe
+		// brings (spec 165) — not the framework's bare one.
 		s.Navigate("/admin")
-		s.WantText("body", "403")
+		s.WantText("main h1", "No access")
+		s.WaitVisible("header a[href='/']")
 		s.Navigate("/admin/usuarios")
-		s.WantText("body", "403")
+		s.WantText("main h1", "No access")
 	})
 }

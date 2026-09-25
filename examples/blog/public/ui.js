@@ -1,4 +1,4 @@
-/* trilha ui 108f5f1414b3ad71 */
+/* trilha ui e33d4316a4d27832 */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -589,7 +589,10 @@
     if (box) setTimeout(() => { if (!box.contains(document.activeElement)) comboClose(box); }, 0);
   });
 
-  const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); };
+  // A form refused with a whole page (422 without a swap) comes back marked:
+  // the focus goes to its first invalid field, as after a swap.
+  const focusInvalid = () => document.querySelector("[autofocus]") || document.querySelector("form [aria-invalid='true']")?.focus();
+  const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); focusInvalid(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
   window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
 

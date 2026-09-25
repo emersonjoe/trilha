@@ -18,7 +18,9 @@ func TestUILoginFlow(t *testing.T) {
 		s.Fill("#email", adminEmail)
 		s.Fill("#password", "not-the-password")
 		s.Click("button[type=submit]")
-		s.WantText("[role=alert]", "")
+		// The refusal is a new page at the same address: wait for its message,
+		// not for the address, or the next Fill types into the page going away.
+		s.WantText("main", "Wrong e-mail or password")
 		s.WantURL("/entrar")
 
 		s.Fill("#password", adminPassword)
