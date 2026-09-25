@@ -318,6 +318,16 @@ como fonte única dos códigos estáveis (gates, convenções do scanner e hints
 falha do `trilha check` com código, conserto e link da página, `check --json` no contrato do
 plano com exit 0/1/2, govulncheck opt-in emitindo `E_VULN_<id>`, o catálogo gerando
 `/docs/errors` nas duas línguas com busca e âncoras, e `get_error` no MCP do site.
+131. **M2 — menos escrita** (spec 162, **entregue na 0.143.0**): as receitas de plataforma
+`billing` (planos, máquina de estados fechada, webhook assinado com janela e idempotência,
+dunning por e-mail, telas atrás de `billing:reader`/`billing:admin`, CSV só para admin, tabelas
+na convenção do `store`), `notify` (canal, horário silencioso e digesto por pessoa, limite por
+canal com `E_NOTIFY_RATE`, fila com reenvio; webhook e WhatsApp ligados por `Insert.If`) e
+`admin` (feita de receitas via `Includes`: `app/admin/` negado por padrão com usuários,
+trilha, aprovações e busca), cada uma com golden dos arquivos, testes nomeados no projeto
+gerado e página no cookbook nas duas línguas; o preço de toda receita (`CtxPackCost`, medido)
+no `trilha add --list`. A re-medição da régua com as receitas (gate: média ≥ 60%) é do
+mantenedor.
 
 ## O que não vamos fazer, e por quê
 

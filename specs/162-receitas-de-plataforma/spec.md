@@ -1,6 +1,6 @@
 # Feature Specification: Receitas de plataforma — billing, notify, admin
 
-**Feature Branch**: `162-receitas-de-plataforma` | **Created**: 2026-09-24 | **Status**: Draft
+**Feature Branch**: `162-receitas-de-plataforma` | **Created**: 2026-09-24 | **Status**: Implemented
 **Input**: Plano Tokens 70, spec 162 (`PLANO-TOKENS-70.md` §2) — o agente compõe features
 verificadas em vez de gerar do zero: três receitas de nível plataforma, cada uma com telas,
 política, auditoria, testes e custo em tokens publicado. Marco M2 (média ≥ 60%).

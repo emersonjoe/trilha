@@ -3,6 +3,59 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.143.0 — 2026-09-24
+
+Platform recipes (spec 162, milestone M2 of Tokens 70): the agent composes verified features
+instead of writing them. Three recipes that write application code — no line of runtime, kit
+or `auth` changes, and the public API surface is the same.
+
+### Added
+
+- **`trilha add billing`** — charging without a coupled provider. Plans, subscriptions on a
+  closed state machine (`trial → active → past_due → canceled`), invoices, and the four tables
+  as `migrations/0100_billing.sql` in the store recipe's convention. The provider calls
+  `POST /webhooks/billing`, signed over `timestamp.body` (`webhook.Verify`, five-minute
+  window), the secret read from the sealed `billing-webhook` connection; every refusal is one
+  `401` with `E_BILLING_WEBHOOK_UNSIGNED`, and an event id is applied once. A failed charge
+  sends a reminder by e-mail as a task; the third cancels. The screens sit behind an
+  `auth.Policy` of two roles, `billing:reader` and `billing:admin`, the CSV export for the
+  second only, and every write that touches money is audited.
+- **`trilha add notify`** — one call, `Notificar`, that follows each person's channel, quiet
+  hours (the digest respects them too) and daily digest, with a per-channel, per-person hourly
+  limit that leaves `E_NOTIFY_RATE` in the outbox. The outbox screen, for administrators,
+  resends and sends today's digest. E-mail is wired; the webhook and WhatsApp channels are
+  wired by lines the `webhooks` and `channel-whatsapp` recipes also carry, in either order.
+- **`trilha add admin`** — the backoffice made of recipes: `users`, `audit`, `approvals` and
+  `search` under `app/admin/`, plus the deny-by-default `middleware.go` (only the `admin`
+  role, the screen written there tomorrow included) and the landing screen.
+- **Every recipe has a price.** `Recipe.CtxPackCost` is what `trilha ctx --pack <recipe>`
+  costs in estimated tokens on a minimal project, measured by `TestRecipeCtxPackCost`.
+  `trilha add --list` shows it on every line, `--list --json` carries it as
+  `ctx_pack_tokens`, and `trilha add` ends with it.
+- **A recipe can be made of recipes**: `Recipe.Includes` applies other recipes first, in the
+  folder `Recipe.At` names, their needs checked before anything is written.
+- **`trilha audit`** warns when billing's secret lives in connections kept in memory — a
+  restart would forget it and every event would be refused.
+- **The catalog** explains `E_BILLING_WEBHOOK_UNSIGNED` and `E_NOTIFY_RATE`; three cookbook
+  pages (`/cookbook/billing`, `/cookbook/notifications`, `/cookbook/backoffice`, and the
+  Portuguese mirrors) with the command, what arrives, the price and how to extend.
+- **Goldens of what each platform recipe writes** under `internal/recipes/testdata/`
+  (`make golden` rewrites them), and an e2e that applies them next to the recipes they tie to,
+  with `trilha check` green and every test the plan names passing.
+
+### Changed
+
+- **The users screen audits its decisions**: a role changed, an account deactivated, a reset,
+  an invitation — each with the actor and the person.
+- **`trilha ctx` recognises a recipe that writes no marker** (users, mail, admin) by its
+  files, so `ctx --pack users` answers.
+
+### Fixed
+
+- **The approvals and search recipes' own tests** assumed their screens sat at the root and
+  failed under `app/admin/` — where the app template puts them. They sign in through
+  `sessaotest`, which knows where the login is.
+
 ## 0.142.0 — 2026-09-24
 
 The gate that teaches (spec 161, the second half of M1): every failure of `trilha check`

@@ -27,7 +27,7 @@
   custo, estender) com blocos Go vindos do código das receitas; códigos
   `E_BILLING_WEBHOOK_UNSIGNED`/`E_NOTIFY_RATE` no catálogo. *Aceite:* testes de conteúdo do
   site + `TestCookbookSnippetsAreReal` + `TestErrorCatalogComplete`.
-- [ ] **T09** — Régua: nota de fechamento. Prompts congelados e série histórica intocados;
+- [x] **T09** — Régua: nota de fechamento. Prompts congelados e série histórica intocados;
   a re-medição de S5/S6 com `trilha add billing/notify/admin` é do mantenedor com o executor
   da régua. *Aceite:* tasks.md.
-- [ ] **T10** — CHANGELOG + ROADMAP + suíte. *Aceite:* `make test` verde.
+- [x] **T10** — CHANGELOG + ROADMAP + suíte. *Aceite:* `make test` verde.
