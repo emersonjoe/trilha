@@ -6,9 +6,9 @@
 - [x] **T02** — Asserções da camada A (`HasCSRFToken`, `HasAria`, `FocusedOnError`,
   `HasSafeCookies`, `HasNoSecret`) + testes. *Aceite:* usados nos testes das receitas da spec
   162 (billing, notify, admin) e nos goldens dos padrões.
-- [ ] **T03** — Módulo `uitest/` com `go.mod` próprio + `Session`. *Aceite:* `TestUILoginFlow`
+- [x] **T03** — Módulo `uitest/` com `go.mod` próprio + `Session`. *Aceite:* `TestUILoginFlow`
   verde local (e no job `ui` da CI).
-- [ ] **T04** — Cenários de fluxo (form 422, swap, upload, ilha, navegação, tooltip,
+- [x] **T04** — Cenários de fluxo (form 422, swap, upload, ilha, navegação, tooltip,
   paginação). *Aceite:* os sete `TestUI*` correspondentes.
 - [ ] **T05** — Cenários por receita (billing, notify, admin) incluindo `TestUIAdminDefaultDeny`.
   *Aceite:* os três `TestUI<Receita>*`.
