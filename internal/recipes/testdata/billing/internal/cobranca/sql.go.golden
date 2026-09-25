@@ -1,0 +1,279 @@
+package cobranca
+
+import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
+	"errors"
+	"strings"
+	"time"
+)
+
+// SQL is the four tables of migrations/0100_billing.sql. It speaks only
+// database/sql: the driver and the dialect are the store recipe's, handed in
+// by Banco, so this package never imports them.
+//
+// Every query is written here with placeholders; nothing that came from a
+// request is ever part of the SQL text.
+type SQL struct {
+	banco func() (*sql.DB, func(int) string)
+}
+
+// NovoSQL is the store over the database Banco answers.
+func NovoSQL(banco func() (*sql.DB, func(int) string)) *SQL { return &SQL{banco: banco} }
+
+// errConcorrente is a row that changed between the read and the write — the
+// same subscription touched by two replicas at once. mudar reads it again.
+var errConcorrente = errors.New("cobranca: the subscription changed underneath")
+
+func idNovo(prefixo string) string {
+	var b [6]byte
+	_, _ = rand.Read(b[:])
+	return prefixo + hex.EncodeToString(b[:])
+}
+
+// linha is what Scan fills: a row of the database, whatever the driver.
+type linha interface{ Scan(dest ...any) error }
+
+func lerPlano(r linha) (Plano, error) {
+	var p Plano
+	err := r.Scan(&p.ID, &p.Nome, &p.Centavos, &p.Moeda, &p.Intervalo)
+	return p, err
+}
+
+func lerAssinatura(r linha) (Assinatura, error) {
+	var a Assinatura
+	var estado string
+	err := r.Scan(&a.ID, &a.Email, &a.Plano, &estado, &a.Tentativas, &a.Criada, &a.Atualizada)
+	a.Estado = Estado(estado)
+	return a, err
+}
+
+func lerFatura(r linha) (Fatura, error) {
+	var f Fatura
+	err := r.Scan(&f.ID, &f.Assinatura, &f.Centavos, &f.Moeda, &f.Paga, &f.Emitida)
+	return f, err
+}
+
+const (
+	colPlano      = "id, name, cents, currency, period"
+	colAssinatura = "id, email, plan_id, state, attempts, created_at, updated_at"
+	colFatura     = "id, subscription_id, cents, currency, paid, issued_at"
+)
+
+func (s *SQL) Planos(ctx context.Context) ([]Plano, error) {
+	db, _ := s.banco()
+	rows, err := db.QueryContext(ctx, "SELECT "+colPlano+" FROM billing_plans ORDER BY name, id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Plano
+	for rows.Next() {
+		p, err := lerPlano(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (s *SQL) SalvarPlano(ctx context.Context, p Plano) (Plano, error) {
+	db, arg := s.banco()
+	if p.ID == "" {
+		p.ID = idNovo("plano-")
+	}
+	p.Moeda = strings.ToUpper(p.Moeda)
+	_, err := db.ExecContext(ctx, "INSERT INTO billing_plans ("+colPlano+") VALUES ("+
+		arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", "+arg(5)+") ON CONFLICT (id) DO UPDATE SET "+
+		"name = excluded.name, cents = excluded.cents, currency = excluded.currency, period = excluded.period",
+		p.ID, p.Nome, p.Centavos, p.Moeda, p.Intervalo)
+	return p, err
+}
+
+func (s *SQL) ApagarPlano(ctx context.Context, id string) error {
+	db, arg := s.banco()
+	return emTx(ctx, db, func(tx *sql.Tx) error {
+		var n int
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM billing_plans WHERE id = "+arg(1), id).Scan(&n); err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNaoExiste
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM billing_subscriptions WHERE plan_id = "+arg(1)+
+			" AND state <> "+arg(2), id, string(Cancelada)).Scan(&n); err != nil {
+			return err
+		}
+		if n > 0 {
+			return ErrPlanoEmUso
+		}
+		_, err := tx.ExecContext(ctx, "DELETE FROM billing_plans WHERE id = "+arg(1), id)
+		return err
+	})
+}
+
+func (s *SQL) Assinaturas(ctx context.Context, estado Estado) ([]Assinatura, error) {
+	db, arg := s.banco()
+	q, args := "SELECT "+colAssinatura+" FROM billing_subscriptions", []any{}
+	if estado != "" {
+		q, args = q+" WHERE state = "+arg(1), append(args, string(estado))
+	}
+	rows, err := db.QueryContext(ctx, q+" ORDER BY created_at DESC, id", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Assinatura
+	for rows.Next() {
+		a, err := lerAssinatura(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (s *SQL) Assinatura(ctx context.Context, id string) (Assinatura, error) {
+	db, arg := s.banco()
+	return umaAssinatura(ctx, db, arg, id)
+}
+
+// consulta is what a pool and a transaction have in common.
+type consulta interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+func umaAssinatura(ctx context.Context, q consulta, arg func(int) string, id string) (Assinatura, error) {
+	a, err := lerAssinatura(q.QueryRowContext(ctx, "SELECT "+colAssinatura+" FROM billing_subscriptions WHERE id = "+arg(1), id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Assinatura{}, ErrNaoExiste
+	}
+	return a, err
+}
+
+func (s *SQL) Assinar(ctx context.Context, id, email, plano string, agora time.Time) (Assinatura, error) {
+	db, arg := s.banco()
+	if id == "" {
+		id = idNovo("assinatura-")
+	}
+	a := Assinatura{ID: id, Email: email, Plano: plano, Estado: Trial, Criada: agora, Atualizada: agora}
+	_, err := db.ExecContext(ctx, "INSERT INTO billing_subscriptions ("+colAssinatura+") VALUES ("+
+		arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", 0, "+arg(5)+", "+arg(6)+") ON CONFLICT (id) DO UPDATE SET "+
+		"email = excluded.email, plan_id = excluded.plan_id, state = excluded.state, attempts = 0, "+
+		"created_at = excluded.created_at, updated_at = excluded.updated_at",
+		a.ID, a.Email, a.Plano, string(a.Estado), a.Criada, a.Atualizada)
+	return a, err
+}
+
+func (s *SQL) Faturas(ctx context.Context) ([]Fatura, error) {
+	db, _ := s.banco()
+	rows, err := db.QueryContext(ctx, "SELECT "+colFatura+" FROM billing_invoices ORDER BY issued_at DESC, id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Fatura
+	for rows.Next() {
+		f, err := lerFatura(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+// Visto leans on the primary key: the insert of an id already there changes
+// nothing, and that is the answer — no read-then-write for two replicas to
+// race through.
+func (s *SQL) Visto(ctx context.Context, id string, agora time.Time) (bool, error) {
+	db, arg := s.banco()
+	res, err := db.ExecContext(ctx, "INSERT INTO billing_events (id, received_at) VALUES ("+arg(1)+", "+arg(2)+
+		") ON CONFLICT (id) DO NOTHING", id, agora)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 0, err
+}
+
+func (s *SQL) Esquecer(ctx context.Context, id string) error {
+	db, arg := s.banco()
+	_, err := db.ExecContext(ctx, "DELETE FROM billing_events WHERE id = "+arg(1), id)
+	return err
+}
+
+func (s *SQL) Pagou(ctx context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
+	return s.mudar(ctx, assinatura, fatura, centavos, moeda, true, agora, pagou)
+}
+
+func (s *SQL) Falhou(ctx context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
+	return s.mudar(ctx, assinatura, fatura, centavos, moeda, false, agora, falhou)
+}
+
+func (s *SQL) Cancelar(ctx context.Context, assinatura string, agora time.Time) (Mudanca, error) {
+	return s.mudar(ctx, assinatura, "", 0, "", false, agora, cancelar)
+}
+
+// mudar reads the subscription, applies the change with the same rule as
+// memory, and writes it only if the row is still what was read — an
+// optimistic check that works the same on both databases. A row that moved
+// is read again, a few times, before giving up.
+func (s *SQL) mudar(ctx context.Context, id, fatura string, centavos int64, moeda string, paga bool, agora time.Time, para func(*Assinatura) Estado) (Mudanca, error) {
+	db, arg := s.banco()
+	for tentativa := 0; ; tentativa++ {
+		var m Mudanca
+		err := emTx(ctx, db, func(tx *sql.Tx) error {
+			a, err := umaAssinatura(ctx, tx, arg, id)
+			if err != nil {
+				return err
+			}
+			m = Mudanca{Assinatura: a, De: a.Estado}
+			novo, err := aplicar(a, para, agora)
+			if err != nil {
+				return err
+			}
+			res, err := tx.ExecContext(ctx, "UPDATE billing_subscriptions SET state = "+arg(1)+", attempts = "+arg(2)+
+				", updated_at = "+arg(3)+" WHERE id = "+arg(4)+" AND state = "+arg(5)+" AND attempts = "+arg(6),
+				string(novo.Estado), novo.Tentativas, novo.Atualizada, id, string(a.Estado), a.Tentativas)
+			if err != nil {
+				return err
+			}
+			if n, err := res.RowsAffected(); err != nil || n != 1 {
+				return errConcorrente
+			}
+			if fatura != "" {
+				if _, err := tx.ExecContext(ctx, "INSERT INTO billing_invoices ("+colFatura+") VALUES ("+
+					arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", "+arg(5)+", "+arg(6)+") ON CONFLICT (id) DO UPDATE SET "+
+					"paid = billing_invoices.paid OR excluded.paid",
+					fatura, id, centavos, strings.ToUpper(moeda), paga, agora); err != nil {
+					return err
+				}
+			}
+			m.Assinatura = novo
+			return nil
+		})
+		if errors.Is(err, errConcorrente) && tentativa < 3 {
+			continue
+		}
+		return m, err
+	}
+}
+
+// emTx runs fn in a transaction. The rollback is deferred without a
+// condition: rolling back a committed transaction does nothing.
+func emTx(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // see above
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

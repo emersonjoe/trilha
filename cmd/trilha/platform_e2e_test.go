@@ -18,9 +18,10 @@ var platformTests = map[string][]string{
 		"TestBillingWebhookValid", "TestBillingWebhookUnsigned", "TestBillingWebhookExpired",
 		"TestBillingIdempotentEvent", "TestBillingDunningCycle", "TestBillingCSVAdminOnly",
 		"TestBillingScreensKeepProtections", "TestNotifyPreferences", "TestAdminDefaultDeny",
+		"TestBillingStoreContract", "TestNotifyStoreContractOnTheApp",
 	},
 	"./internal/cobranca/":  {"TestBillingStates"},
-	"./internal/notificar/": {"TestNotifyQuietHours", "TestNotifyDigest", "TestNotifyRateLimit"},
+	"./internal/notificar/": {"TestNotifyQuietHours", "TestNotifyDigest", "TestNotifyRateLimit", "TestNotifyStoreContract"},
 }
 
 func init() {
@@ -35,6 +36,7 @@ func init() {
 const notifyLinksTest = `package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -58,7 +60,10 @@ func TestNotifyChannelsLinked(t *testing.T) {
 	if !slices.Contains(trilha.Use[*webhook.Hooks](a).Events(), notificar.Evento) {
 		t.Fatalf("%s is not in the deliverer's list: %v", notificar.Evento, trilha.Use[*webhook.Hooks](a).Events())
 	}
-	trilha.Use[*notificar.Notificador](a).SalvarPreferencias("u-9", notificar.Preferencias{Canal: notificar.CanalWebhook})
+	if err := trilha.Use[*notificar.Notificador](a).SalvarPreferencias(context.Background(), "u-9",
+		notificar.Preferencias{Canal: notificar.CanalWebhook}); err != nil {
+		t.Fatal(err)
+	}
 	a.Register(trilha.Route{Pattern: "/_teste/webhook", Kind: trilha.KindAPI,
 		Methods: map[string]trilha.HandlerFunc{
 			"POST": func(c *trilha.Ctx) error {

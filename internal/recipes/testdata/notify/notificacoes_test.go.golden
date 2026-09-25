@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/emersonjoe/trilha/mail"
 
 	"example.com/golden/internal/notificar"
+	"example.com/golden/internal/notificar/notificartest"
 	"example.com/golden/internal/usuarios"
 )
 
@@ -61,7 +63,7 @@ func TestNotifyPreferences(t *testing.T) {
 	c.PostForm("/notificacoes", url.Values{"canal": {"mail"}, "digesto": {"true"},
 		"silencio_de": {"22"}, "silencio_ate": {"7"}}).WantStatus(http.StatusSeeOther)
 
-	p := trilha.Use[*notificar.Notificador](a).Preferencias("u-1")
+	p, _ := trilha.Use[*notificar.Notificador](a).Preferencias(context.Background(), "u-1")
 	if p.Canal != "mail" || !p.Digesto || p.SilencioDe != 22 || p.SilencioAte != 7 {
 		t.Fatalf("preferências = %+v", p)
 	}
@@ -118,9 +120,16 @@ func TestNotifyOutboxReplay(t *testing.T) {
 	if len(caixa.Messages()) != 2 || !strings.Contains(caixa.Last().Subject, "Pedido pago") {
 		t.Fatalf("o reenvio não saiu: %d mensagens", len(caixa.Messages()))
 	}
-	for _, no := range trilha.Use[*notificar.Notificador](a).Fila("") {
+	fila, _ := trilha.Use[*notificar.Notificador](a).Fila(context.Background(), "")
+	for _, no := range fila {
 		if no.Estado != notificar.Enviada {
 			t.Fatalf("depois do reenvio: %+v", no)
 		}
 	}
+}
+
+// O contrato do store sobre o que o app ligou: a memória num projeto sem
+// banco, as tabelas de migrations/0110_notify.sql com o store.
+func TestNotifyStoreContractOnTheApp(t *testing.T) {
+	notificartest.Contrato(t, trilha.Use[*notificar.Notificador](appDeNotificacoes(t)))
 }

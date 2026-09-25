@@ -1,0 +1,38 @@
+-- As tabelas do notificar, na convenção do `trilha add store`: sem banco, o
+-- internal/notificar guarda o mesmo formato em memória; com o store, sql.go lê
+-- e grava aqui.
+
+CREATE TABLE IF NOT EXISTS notify_preferences (
+	subject     TEXT PRIMARY KEY,
+	channel     TEXT NOT NULL,
+	digest      BOOLEAN NOT NULL DEFAULT FALSE,
+	quiet_from  INTEGER NOT NULL DEFAULT 0,
+	quiet_to    INTEGER NOT NULL DEFAULT 0,
+	phone       TEXT NOT NULL DEFAULT ''
+);
+
+-- O id começa pelo instante em hexadecimal de largura fixa: a ordem do id é a
+-- ordem de chegada, em qualquer banco, e é por ela que a fila se lê.
+CREATE TABLE IF NOT EXISTS notify_outbox (
+	id          TEXT PRIMARY KEY,
+	subject     TEXT NOT NULL,
+	email       TEXT NOT NULL,
+	phone       TEXT NOT NULL DEFAULT '',
+	channel     TEXT NOT NULL,
+	title       TEXT NOT NULL,
+	body        TEXT NOT NULL,
+	state       TEXT NOT NULL,
+	error       TEXT NOT NULL DEFAULT '',
+	attempts    INTEGER NOT NULL DEFAULT 0,
+	created_at  TIMESTAMP NOT NULL,
+	sent_at     TIMESTAMP NULL
+);
+
+CREATE INDEX IF NOT EXISTS notify_outbox_subject ON notify_outbox (subject, id);
+CREATE INDEX IF NOT EXISTS notify_outbox_state ON notify_outbox (state, id);
+
+-- Um digesto por dia: a chave primária é o dia, e é ela que segura o segundo
+-- digesto de um reinício ou de outra réplica.
+CREATE TABLE IF NOT EXISTS notify_digests (
+	day  TEXT PRIMARY KEY
+);

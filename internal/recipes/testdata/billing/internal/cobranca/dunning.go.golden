@@ -42,7 +42,7 @@ func (b *Billing) lembrete(ctx context.Context, p *task.Progress) error {
 	if err != nil {
 		return fmt.Errorf("cobranca: reminder key %q: %w", p.Key, err)
 	}
-	a, err := b.Store.Assinatura(id)
+	a, err := b.Store.Assinatura(ctx, id)
 	if err != nil {
 		return err
 	}

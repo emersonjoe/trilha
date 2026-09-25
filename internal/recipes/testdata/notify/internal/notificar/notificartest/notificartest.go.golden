@@ -1,0 +1,113 @@
+// Package notificartest is the contract of the notifier's store, for a test
+// to run against any of them: the one in memory and the one in the database
+// answer the same, or one of them is wrong.
+package notificartest
+
+import (
+	"context"
+	"errors"
+	"math/rand"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/mail"
+
+	"example.com/golden/internal/notificar"
+)
+
+// Contrato runs the whole store through n. The subjects carry a prefix of this
+// run and the clock a day nobody else uses, so a database with other rows
+// neither disturbs it nor is disturbed.
+func Contrato(t *testing.T, n *notificar.Notificador) {
+	t.Helper()
+	ctx := context.Background()
+	px := strconv.FormatInt(time.Now().UnixNano(), 36) + "-"
+	dia := time.Date(2100+rand.Intn(800), time.Month(1+rand.Intn(12)), 1+rand.Intn(28), 0, 0, 0, 0, time.UTC)
+	as := func(h int) func() time.Time { return func() time.Time { return dia.Add(time.Duration(h) * time.Hour) } }
+
+	var enviadas []notificar.Notificacao
+	antes, mailer := notificar.Canais[notificar.CanalEmail], notificar.Mailer
+	notificar.Canais[notificar.CanalEmail] = func(_ *trilha.Ctx, no notificar.Notificacao) error {
+		enviadas = append(enviadas, no)
+		return nil
+	}
+	caixa := &mail.Outbox{}
+	notificar.Mailer = mail.New(mail.Options{From: "avisos@example.com", Transport: caixa})
+	t.Cleanup(func() { notificar.Canais[notificar.CanalEmail], notificar.Mailer = antes, mailer })
+
+	ana := notificar.Pessoa{Sujeito: px + "ana", Email: "ana@example.com"}
+	bia := notificar.Pessoa{Sujeito: px + "bia", Email: "bia@example.com"}
+
+	// Quem nunca escolheu tem o padrão; o que se salva volta igual.
+	if p, err := n.Preferencias(ctx, ana.Sujeito); err != nil || p != notificar.Padrao {
+		t.Fatalf("padrão = %+v %v", p, err)
+	}
+	quer := notificar.Preferencias{Canal: notificar.CanalEmail, SilencioDe: 22, SilencioAte: 7, Telefone: "+5511999990000"}
+	if err := n.SalvarPreferencias(ctx, ana.Sujeito, quer); err != nil {
+		t.Fatal(err)
+	}
+	quer.SilencioAte = 6
+	if err := n.SalvarPreferencias(ctx, ana.Sujeito, quer); err != nil {
+		t.Fatal(err)
+	}
+	if p, err := n.Preferencias(ctx, ana.Sujeito); err != nil || p != quer {
+		t.Fatalf("lidas de volta = %+v %v", p, err)
+	}
+	if err := n.SalvarPreferencias(ctx, bia.Sujeito, notificar.Preferencias{Canal: notificar.CanalEmail, Digesto: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Às 23h a da Ana fica retida; a da Bia vai para o digesto; ao meio-dia
+	// a da Ana sai.
+	n.Agora = as(23)
+	retida, err := n.Notificar(nil, ana, "Retida", "corpo")
+	if err != nil || retida.Estado != notificar.Retida || retida.ID == "" || retida.Telefone != quer.Telefone {
+		t.Fatalf("retida = %+v %v", retida, err)
+	}
+	if no, err := n.Reenviar(nil, retida.ID); err != nil || no.Estado != notificar.Retida {
+		t.Fatalf("o reenvio furou o silêncio: %+v %v", no, err)
+	}
+	if no, err := n.Notificar(nil, bia, "Da Bia", "corpo"); err != nil || no.Estado != notificar.NoDigesto {
+		t.Fatalf("digesto = %+v %v", no, err)
+	}
+	n.Agora = as(12)
+	saiu, err := n.Notificar(nil, ana, "Saiu", "corpo")
+	if err != nil || saiu.Estado != notificar.Enviada || saiu.Tentativas != 1 || saiu.Enviada.IsZero() || len(enviadas) != 1 {
+		t.Fatalf("ao meio-dia = %+v %v (%d enviadas)", saiu, err, len(enviadas))
+	}
+	if _, err := n.Reenviar(nil, px+"nenhuma"); !errors.Is(err, notificar.ErrNaoExiste) {
+		t.Fatalf("reenviar uma que não existe: %v", err)
+	}
+
+	// A fila: a mais nova primeiro, e o filtro por pessoa.
+	fila, err := n.Fila(ctx, ana.Sujeito)
+	if err != nil || len(fila) != 2 || fila[0].ID != saiu.ID || fila[1].ID != retida.ID {
+		t.Fatalf("fila da Ana = %+v %v", fila, err)
+	}
+	if fila[1].Para != ana || fila[1].Titulo != "Retida" || fila[1].Canal != notificar.CanalEmail {
+		t.Fatalf("a linha não voltou inteira: %+v", fila[1])
+	}
+
+	// O digesto do dia seguinte, às 8h, leva a retida e a da Bia; o segundo
+	// do mesmo dia não manda nada.
+	n.Agora = func() time.Time { return dia.Add(32 * time.Hour) }
+	if k, err := n.Digesto(ctx); err != nil || k != 2 || len(caixa.Messages()) != 2 {
+		t.Fatalf("digesto = %d %v (%d e-mails)", k, err, len(caixa.Messages()))
+	}
+	if k, err := n.Digesto(ctx); err != nil || k != 0 || len(caixa.Messages()) != 2 {
+		t.Fatalf("o segundo digesto do dia mandou %d (%v)", k, err)
+	}
+	for _, p := range []notificar.Pessoa{ana, bia} {
+		fila, err := n.Fila(ctx, p.Sujeito)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, no := range fila {
+			if no.Estado != notificar.Enviada {
+				t.Fatalf("depois do digesto: %+v", no)
+			}
+		}
+	}
+}

@@ -12,7 +12,10 @@ import (
 // GET streams the invoices as CSV, with the BOM and the locale's decimals, and
 // writes the export to the audit trail.
 func GET(c *trilha.Ctx) error {
-	faturas := trilha.Use[*cobranca.Billing](c).Store.Faturas()
+	faturas, err := trilha.Use[*cobranca.Billing](c).Store.Faturas(c.Context())
+	if err != nil {
+		return err
+	}
 	linhas := make([]cobranca.LinhaCSV, 0, len(faturas))
 	for _, f := range faturas {
 		linhas = append(linhas, cobranca.LinhaCSV{Fatura: f.ID, Assinatura: f.Assinatura,

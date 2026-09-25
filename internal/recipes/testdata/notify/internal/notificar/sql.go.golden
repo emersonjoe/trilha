@@ -1,0 +1,151 @@
+package notificar
+
+import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"time"
+)
+
+// SQL is the preferences and the outbox in the tables of
+// migrations/0110_notify.sql. It speaks only database/sql: the driver and the
+// dialect are the store recipe's, handed in by Banco.
+//
+// Every query is written here with placeholders; nothing that came from a
+// request is ever part of the SQL text.
+type SQL struct {
+	banco func() (*sql.DB, func(int) string)
+}
+
+// NovoSQL is the store over the database Banco answers.
+func NovoSQL(banco func() (*sql.DB, func(int) string)) *SQL { return &SQL{banco: banco} }
+
+// idNovo orders by arrival: the instant in fixed-width hex, then a few random
+// bits so two replicas in the same nanosecond do not collide.
+func idNovo() string {
+	var b [2]byte
+	_, _ = rand.Read(b[:])
+	return fmt.Sprintf("n-%016x%04x", time.Now().UnixNano(), binary.BigEndian.Uint16(b[:]))
+}
+
+const colFila = "id, subject, email, phone, channel, title, body, state, error, attempts, created_at, sent_at"
+
+type linha interface{ Scan(dest ...any) error }
+
+func lerNotificacao(r linha) (Notificacao, error) {
+	var n Notificacao
+	var estado string
+	var enviada sql.NullTime
+	err := r.Scan(&n.ID, &n.Para.Sujeito, &n.Para.Email, &n.Telefone, &n.Canal, &n.Titulo, &n.Corpo,
+		&estado, &n.Erro, &n.Tentativas, &n.Criada, &enviada)
+	n.Estado = Estado(estado)
+	if enviada.Valid {
+		n.Enviada = enviada.Time
+	}
+	return n, err
+}
+
+func (s *SQL) Preferencias(ctx context.Context, sujeito string) (Preferencias, bool, error) {
+	db, arg := s.banco()
+	var p Preferencias
+	err := db.QueryRowContext(ctx, "SELECT channel, digest, quiet_from, quiet_to, phone FROM notify_preferences WHERE subject = "+
+		arg(1), sujeito).Scan(&p.Canal, &p.Digesto, &p.SilencioDe, &p.SilencioAte, &p.Telefone)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Preferencias{}, false, nil
+	}
+	return p, err == nil, err
+}
+
+func (s *SQL) SalvarPreferencias(ctx context.Context, sujeito string, p Preferencias) error {
+	db, arg := s.banco()
+	_, err := db.ExecContext(ctx, "INSERT INTO notify_preferences (subject, channel, digest, quiet_from, quiet_to, phone) VALUES ("+
+		arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", "+arg(5)+", "+arg(6)+") ON CONFLICT (subject) DO UPDATE SET "+
+		"channel = excluded.channel, digest = excluded.digest, quiet_from = excluded.quiet_from, "+
+		"quiet_to = excluded.quiet_to, phone = excluded.phone",
+		sujeito, p.Canal, p.Digesto, p.SilencioDe, p.SilencioAte, p.Telefone)
+	return err
+}
+
+func (s *SQL) Guardar(ctx context.Context, n Notificacao) (Notificacao, error) {
+	db, arg := s.banco()
+	n.ID = idNovo()
+	_, err := db.ExecContext(ctx, "INSERT INTO notify_outbox ("+colFila+") VALUES ("+
+		arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", "+arg(5)+", "+arg(6)+", "+arg(7)+", "+arg(8)+", "+arg(9)+", "+
+		arg(10)+", "+arg(11)+", NULL)",
+		n.ID, n.Para.Sujeito, n.Para.Email, n.Telefone, n.Canal, n.Titulo, n.Corpo, string(n.Estado), n.Erro,
+		n.Tentativas, n.Criada)
+	return n, err
+}
+
+func (s *SQL) Atualizar(ctx context.Context, n Notificacao) error {
+	db, arg := s.banco()
+	var enviada sql.NullTime
+	if !n.Enviada.IsZero() {
+		enviada = sql.NullTime{Time: n.Enviada, Valid: true}
+	}
+	res, err := db.ExecContext(ctx, "UPDATE notify_outbox SET state = "+arg(1)+", error = "+arg(2)+", attempts = "+
+		arg(3)+", sent_at = "+arg(4)+" WHERE id = "+arg(5), string(n.Estado), n.Erro, n.Tentativas, enviada, n.ID)
+	if err != nil {
+		return err
+	}
+	if k, err := res.RowsAffected(); err == nil && k == 0 {
+		return ErrNaoExiste
+	}
+	return nil
+}
+
+func (s *SQL) Uma(ctx context.Context, id string) (Notificacao, error) {
+	db, arg := s.banco()
+	n, err := lerNotificacao(db.QueryRowContext(ctx, "SELECT "+colFila+" FROM notify_outbox WHERE id = "+arg(1), id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Notificacao{}, ErrNaoExiste
+	}
+	return n, err
+}
+
+func (s *SQL) lista(ctx context.Context, q string, args ...any) ([]Notificacao, error) {
+	db, _ := s.banco()
+	rows, err := db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Notificacao
+	for rows.Next() {
+		n, err := lerNotificacao(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+func (s *SQL) Fila(ctx context.Context, para string) ([]Notificacao, error) {
+	_, arg := s.banco()
+	if para == "" {
+		return s.lista(ctx, "SELECT "+colFila+" FROM notify_outbox ORDER BY id DESC")
+	}
+	return s.lista(ctx, "SELECT "+colFila+" FROM notify_outbox WHERE subject = "+arg(1)+" ORDER BY id DESC", para)
+}
+
+func (s *SQL) Esperando(ctx context.Context) ([]Notificacao, error) {
+	_, arg := s.banco()
+	return s.lista(ctx, "SELECT "+colFila+" FROM notify_outbox WHERE state IN ("+arg(1)+", "+arg(2)+") ORDER BY id",
+		string(NoDigesto), string(Retida))
+}
+
+// Dia leans on the primary key: the second insert of the same day changes
+// nothing, and that is the answer.
+func (s *SQL) Dia(ctx context.Context, dia string) (bool, error) {
+	db, arg := s.banco()
+	res, err := db.ExecContext(ctx, "INSERT INTO notify_digests (day) VALUES ("+arg(1)+") ON CONFLICT (day) DO NOTHING", dia)
+	if err != nil {
+		return false, err
+	}
+	k, err := res.RowsAffected()
+	return k == 1, err
+}

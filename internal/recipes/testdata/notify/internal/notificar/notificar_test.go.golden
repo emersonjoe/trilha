@@ -40,20 +40,22 @@ func as(h int) func() time.Time {
 
 var ana = Pessoa{Sujeito: "u-ana", Email: "ana@example.com"}
 
+var bg = context.Background()
+
 // Das 22 às 7 nada sai: a notificação fica retida, e sai no digesto quando
 // a janela acaba — o digesto também é uma mensagem.
 func TestNotifyQuietHours(t *testing.T) {
 	enviadas := canalDeTeste(t)
 	caixa := caixaDeTeste(t)
 	n := Novo()
-	n.SalvarPreferencias(ana.Sujeito, Preferencias{Canal: CanalEmail, SilencioDe: 22, SilencioAte: 7})
+	n.SalvarPreferencias(bg, ana.Sujeito, Preferencias{Canal: CanalEmail, SilencioDe: 22, SilencioAte: 7})
 
 	for _, c := range []struct {
 		hora     int
 		silencio bool
 	}{{21, false}, {22, true}, {23, true}, {0, true}, {6, true}, {7, false}, {12, false}} {
-		if got := n.Preferencias(ana.Sujeito).Silencio(c.hora); got != c.silencio {
-			t.Errorf("%dh: silêncio = %v", c.hora, got)
+		if p, _ := n.Preferencias(bg, ana.Sujeito); p.Silencio(c.hora) != c.silencio {
+			t.Errorf("%dh: silêncio deveria ser %v", c.hora, c.silencio)
 		}
 	}
 	if (Preferencias{SilencioDe: 5, SilencioAte: 5}).Silencio(5) {
@@ -95,9 +97,9 @@ func TestNotifyDigest(t *testing.T) {
 	caixa := caixaDeTeste(t)
 	n := Novo()
 	n.Agora = as(9)
-	n.SalvarPreferencias(ana.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
+	n.SalvarPreferencias(bg, ana.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
 	bia := Pessoa{Sujeito: "u-bia", Email: "bia@example.com"}
-	n.SalvarPreferencias(bia.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
+	n.SalvarPreferencias(bg, bia.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
 
 	for _, titulo := range []string{"Um", "Dois", "Três"} {
 		if no, err := n.Notificar(nil, ana, titulo, "corpo de "+titulo); err != nil || no.Estado != NoDigesto {
@@ -129,7 +131,8 @@ func TestNotifyDigest(t *testing.T) {
 	if k, _ := n.Digesto(context.Background()); k != 0 || len(caixa.Messages()) != 2 {
 		t.Fatalf("o segundo digesto do dia mandou %d", k)
 	}
-	for _, no := range n.Fila(ana.Sujeito) {
+	fila, _ := n.Fila(bg, ana.Sujeito)
+	for _, no := range fila {
 		if no.Estado != Enviada {
 			t.Fatalf("depois do digesto: %+v", no)
 		}

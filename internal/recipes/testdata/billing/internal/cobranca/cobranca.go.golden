@@ -6,12 +6,14 @@
 // happened, signed, at /webhooks/billing; this package decides what it means.
 // Changing provider is rewriting the parse in webhook.go and nothing else.
 //
-// The rows live in memory behind the Store methods, which is the honest
-// starting point: migrations/0100_billing.sql is the same shape as tables, and
-// a store over them replaces this one without a screen changing.
+// The rows live behind the Store interface: in memory until the project has
+// a database, and in the tables of migrations/0100_billing.sql once
+// `trilha add store` is there (sql.go) — without a screen changing.
 package cobranca
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"sort"
@@ -141,8 +143,82 @@ type LinhaCSV struct {
 	Emitida    time.Time `csv:"Issued"`
 }
 
-// Store is the four tables, in memory.
-type Store struct {
+// Store is the four tables of migrations/0100_billing.sql. NovoStore keeps
+// them in memory; with `trilha add store` in the project, setup.go points
+// Banco at the database and Setup uses NovoSQL (sql.go) — the same methods,
+// so no screen changes. Every method takes the request's context and answers
+// an error: a database can fail where a map cannot.
+type Store interface {
+	// Planos is every plan, by name.
+	Planos(ctx context.Context) ([]Plano, error)
+	// SalvarPlano writes a plan, giving it an id when it has none.
+	SalvarPlano(ctx context.Context, p Plano) (Plano, error)
+	// ApagarPlano removes a plan nobody is subscribed to (ErrPlanoEmUso).
+	ApagarPlano(ctx context.Context, id string) error
+	// Assinaturas lists the subscriptions in one state, or all of them when
+	// estado is empty, the newest first.
+	Assinaturas(ctx context.Context, estado Estado) ([]Assinatura, error)
+	// Assinatura finds one, or ErrNaoExiste.
+	Assinatura(ctx context.Context, id string) (Assinatura, error)
+	// Assinar creates a subscription in trial — what the provider's
+	// subscription.created does, and where a test starts from.
+	Assinar(ctx context.Context, id, email, plano string, agora time.Time) (Assinatura, error)
+	// Faturas is every invoice, the newest first.
+	Faturas(ctx context.Context) ([]Fatura, error)
+	// Visto records an event id and says whether it had been seen already.
+	// The provider promises at least once; this is where that becomes
+	// exactly once.
+	Visto(ctx context.Context, id string, agora time.Time) (bool, error)
+	// Esquecer undoes Visto, for an event the store failed to apply: the
+	// provider's retry has to be processed, not answered "duplicate".
+	Esquecer(ctx context.Context, id string) error
+	// Pagou records a paid invoice: active, and the failures forgotten.
+	Pagou(ctx context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error)
+	// Falhou records a failed charge: past due, one more failure counted,
+	// and the last one allowed cancels.
+	Falhou(ctx context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error)
+	// Cancelar ends a subscription.
+	Cancelar(ctx context.Context, assinatura string, agora time.Time) (Mudanca, error)
+}
+
+// Mudanca is what one event did to a subscription, for the audit trail.
+type Mudanca struct {
+	Assinatura Assinatura
+	De         Estado
+}
+
+// The three events, as changes to a subscription. Both stores apply them
+// with aplicar, so the rule lives in one place.
+func pagou(a *Assinatura) Estado { a.Tentativas = 0; return Ativa }
+
+func falhou(a *Assinatura) Estado {
+	a.Tentativas++
+	if a.Tentativas >= MaxTentativas {
+		return Cancelada
+	}
+	return Atrasada
+}
+
+func cancelar(*Assinatura) Estado { return Cancelada }
+
+// aplicar is the one place a subscription changes state. The whole change is
+// checked before any of it is written: a refused transition leaves the row,
+// the counter and the invoice as they were.
+func aplicar(a Assinatura, para func(*Assinatura) Estado, agora time.Time) (Assinatura, error) {
+	novo := a
+	destino := para(&novo)
+	if destino != a.Estado {
+		if err := Mover(a.Estado, destino); err != nil {
+			return a, err
+		}
+	}
+	novo.Estado, novo.Atualizada = destino, agora
+	return novo, nil
+}
+
+// Memoria is the four tables in memory: the store of a project without a
+// database, and of every test that does not need one.
+type Memoria struct {
 	mu          sync.Mutex
 	seq         int
 	planos      map[string]Plano
@@ -151,19 +227,18 @@ type Store struct {
 	eventos     map[string]time.Time
 }
 
-// NovoStore is an empty store.
-func NovoStore() *Store {
-	return &Store{planos: map[string]Plano{}, assinaturas: map[string]Assinatura{},
+// NovoStore is an empty store in memory.
+func NovoStore() *Memoria {
+	return &Memoria{planos: map[string]Plano{}, assinaturas: map[string]Assinatura{},
 		faturas: map[string]Fatura{}, eventos: map[string]time.Time{}}
 }
 
-func (s *Store) novoID(prefixo string) string {
+func (s *Memoria) novoID(prefixo string) string {
 	s.seq++
 	return prefixo + strconv.Itoa(s.seq)
 }
 
-// Planos is every plan, by name.
-func (s *Store) Planos() []Plano {
+func (s *Memoria) Planos(context.Context) ([]Plano, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Plano, 0, len(s.planos))
@@ -171,11 +246,10 @@ func (s *Store) Planos() []Plano {
 		out = append(out, p)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Nome < out[j].Nome })
-	return out
+	return out, nil
 }
 
-// SalvarPlano writes a plan, giving it an id when it has none.
-func (s *Store) SalvarPlano(p Plano) Plano {
+func (s *Memoria) SalvarPlano(_ context.Context, p Plano) (Plano, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if p.ID == "" {
@@ -183,12 +257,10 @@ func (s *Store) SalvarPlano(p Plano) Plano {
 	}
 	p.Moeda = strings.ToUpper(p.Moeda)
 	s.planos[p.ID] = p
-	return p
+	return p, nil
 }
 
-// ApagarPlano removes a plan nobody is subscribed to. A plan with a live
-// subscription is refused: the subscription would point at nothing.
-func (s *Store) ApagarPlano(id string) error {
+func (s *Memoria) ApagarPlano(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.planos[id]; !ok {
@@ -203,9 +275,7 @@ func (s *Store) ApagarPlano(id string) error {
 	return nil
 }
 
-// Assinaturas lists the subscriptions in one state, or all of them when
-// estado is empty, the newest first.
-func (s *Store) Assinaturas(estado Estado) []Assinatura {
+func (s *Memoria) Assinaturas(_ context.Context, estado Estado) ([]Assinatura, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Assinatura, 0, len(s.assinaturas))
@@ -220,11 +290,10 @@ func (s *Store) Assinaturas(estado Estado) []Assinatura {
 		}
 		return out[i].ID < out[j].ID
 	})
-	return out
+	return out, nil
 }
 
-// Assinatura finds one.
-func (s *Store) Assinatura(id string) (Assinatura, error) {
+func (s *Memoria) Assinatura(_ context.Context, id string) (Assinatura, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, ok := s.assinaturas[id]
@@ -234,9 +303,7 @@ func (s *Store) Assinatura(id string) (Assinatura, error) {
 	return a, nil
 }
 
-// Assinar creates a subscription in trial. It is what the provider's
-// subscription.created event does; a test uses it to start from somewhere.
-func (s *Store) Assinar(id, email, plano string, agora time.Time) Assinatura {
+func (s *Memoria) Assinar(_ context.Context, id, email, plano string, agora time.Time) (Assinatura, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if id == "" {
@@ -244,11 +311,10 @@ func (s *Store) Assinar(id, email, plano string, agora time.Time) Assinatura {
 	}
 	a := Assinatura{ID: id, Email: email, Plano: plano, Estado: Trial, Criada: agora, Atualizada: agora}
 	s.assinaturas[id] = a
-	return a
+	return a, nil
 }
 
-// Faturas is every invoice, the newest first.
-func (s *Store) Faturas() []Fatura {
+func (s *Memoria) Faturas(context.Context) ([]Fatura, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Fatura, 0, len(s.faturas))
@@ -261,71 +327,49 @@ func (s *Store) Faturas() []Fatura {
 		}
 		return out[i].ID < out[j].ID
 	})
-	return out
+	return out, nil
 }
 
-// Visto records an event id and says whether it had been seen already. The
-// provider promises at least once; this is where that becomes exactly once.
-func (s *Store) Visto(id string, agora time.Time) bool {
+func (s *Memoria) Visto(_ context.Context, id string, agora time.Time) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.eventos[id]; ok {
-		return true
+		return true, nil
 	}
 	s.eventos[id] = agora
-	return false
+	return false, nil
 }
 
-// Mudanca is what one event did to a subscription, for the audit trail.
-type Mudanca struct {
-	Assinatura Assinatura
-	De         Estado
+func (s *Memoria) Esquecer(_ context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.eventos, id)
+	return nil
 }
 
-// Pagou records a paid invoice: the subscription is active and the failures
-// are forgotten.
-func (s *Store) Pagou(assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
-	return s.mudar(assinatura, fatura, centavos, moeda, true, agora, func(a *Assinatura) Estado {
-		a.Tentativas = 0
-		return Ativa
-	})
+func (s *Memoria) Pagou(_ context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
+	return s.mudar(assinatura, fatura, centavos, moeda, true, agora, pagou)
 }
 
-// Falhou records a failed charge: the subscription is past due, one more
-// failure is counted, and the last one allowed cancels it.
-func (s *Store) Falhou(assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
-	return s.mudar(assinatura, fatura, centavos, moeda, false, agora, func(a *Assinatura) Estado {
-		a.Tentativas++
-		if a.Tentativas >= MaxTentativas {
-			return Cancelada
-		}
-		return Atrasada
-	})
+func (s *Memoria) Falhou(_ context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
+	return s.mudar(assinatura, fatura, centavos, moeda, false, agora, falhou)
 }
 
-// Cancelar ends a subscription.
-func (s *Store) Cancelar(assinatura string, agora time.Time) (Mudanca, error) {
-	return s.mudar(assinatura, "", 0, "", false, agora, func(*Assinatura) Estado { return Cancelada })
+func (s *Memoria) Cancelar(_ context.Context, assinatura string, agora time.Time) (Mudanca, error) {
+	return s.mudar(assinatura, "", 0, "", false, agora, cancelar)
 }
 
-// mudar is the one place a subscription changes state. The whole change is
-// checked before any of it is written: a refused transition leaves the row,
-// the counter and the invoice as they were.
-func (s *Store) mudar(id, fatura string, centavos int64, moeda string, paga bool, agora time.Time, para func(*Assinatura) Estado) (Mudanca, error) {
+func (s *Memoria) mudar(id, fatura string, centavos int64, moeda string, paga bool, agora time.Time, para func(*Assinatura) Estado) (Mudanca, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, ok := s.assinaturas[id]
 	if !ok {
 		return Mudanca{}, ErrNaoExiste
 	}
-	novo := a
-	destino := para(&novo)
-	if destino != a.Estado {
-		if err := Mover(a.Estado, destino); err != nil {
-			return Mudanca{Assinatura: a, De: a.Estado}, err
-		}
+	novo, err := aplicar(a, para, agora)
+	if err != nil {
+		return Mudanca{Assinatura: a, De: a.Estado}, err
 	}
-	novo.Estado, novo.Atualizada = destino, agora
 	s.assinaturas[id] = novo
 	if fatura != "" {
 		f, ok := s.faturas[fatura]
@@ -343,14 +387,25 @@ func (s *Store) mudar(id, fatura string, centavos int64, moeda string, paga bool
 // the tasks recipe provides one too, and one application with two values of
 // the same type would lose one of them.
 type Billing struct {
-	Store   *Store
+	Store   Store
 	tarefas *task.Tasks
 }
+
+// Banco is the database, when the project has one: setup.go sets it when the
+// store recipe is there (trilha:link billing-store), and Setup then keeps the
+// rows in migrations/0100_billing.sql instead of in memory. It is a function
+// because the pool opens in store.Setup, which may run after this one; the
+// store asks for it on the first query. arg is the dialect's placeholder.
+var Banco func() (db *sql.DB, arg func(n int) string)
 
 // Setup builds the module, hands it to the application and starts the
 // reminder engine, whose Shutdown is hung on the app.
 func Setup(a *trilha.App) error {
-	b := &Billing{Store: NovoStore(), tarefas: task.New(task.Options{Logger: a.Logger()})}
+	var s Store = NovoStore()
+	if Banco != nil {
+		s = NovoSQL(Banco)
+	}
+	b := &Billing{Store: s, tarefas: task.New(task.Options{Logger: a.Logger()})}
 	b.tarefas.Handle(TarefaLembrete, b.lembrete)
 	trilha.Provide(a, b)
 	return b.tarefas.Setup(a)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,11 +17,15 @@ import (
 	"github.com/emersonjoe/trilha/webhook"
 
 	"example.com/golden/internal/cobranca"
+	"example.com/golden/internal/cobranca/cobrancatest"
 	"example.com/golden/internal/conexoes"
 	"example.com/golden/internal/usuarios"
 )
 
 const segredoDoProvedor = "um-segredo-do-provedor-de-teste"
+
+// bg is the context of what a test does to the store directly.
+var bg = context.Background()
 
 // trilhaDeTeste is the audit trail of one test, kept in memory.
 type trilhaDeTeste struct {
@@ -96,11 +101,11 @@ func TestBillingWebhookValid(t *testing.T) {
 	evento(c, `{"id":"ev-2","type":"invoice.paid","subscription":"a-1","invoice":"f-1","amount":4900,"currency":"brl"}`,
 		time.Now(), segredoDoProvedor).WantStatus(http.StatusOK).WantContains("ok")
 
-	as, err := b.Store.Assinatura("a-1")
+	as, err := b.Store.Assinatura(bg, "a-1")
 	if err != nil || as.Estado != cobranca.Ativa {
 		t.Fatalf("assinatura = %+v %v", as, err)
 	}
-	if f := b.Store.Faturas(); len(f) != 1 || !f[0].Paga || f[0].Centavos != 4900 {
+	if f, _ := b.Store.Faturas(bg); len(f) != 1 || !f[0].Paga || f[0].Centavos != 4900 {
 		t.Fatalf("faturas = %+v", f)
 	}
 	for _, quero := range []string{"billing.assinatura_criada", "billing.invoice_paid"} {
@@ -116,7 +121,7 @@ func TestBillingWebhookUnsigned(t *testing.T) {
 	a, tr := appDeCobranca(t)
 	c := trilha.NewTestClient(t, a)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 
 	corpo := falhou("ev-1", "f-1")
 	c.Request(http.MethodPost, "/webhooks/billing", trilha.WithBody("application/json", corpo)).
@@ -130,7 +135,7 @@ func TestBillingWebhookUnsigned(t *testing.T) {
 		trilha.WithHeader(webhook.HeaderSignature, webhook.Sign(segredoDoProvedor, ts, []byte(corpo)))).
 		WantStatus(http.StatusUnauthorized).WantContains(cobranca.CodigoNaoAssinado)
 
-	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Trial || as.Tentativas != 0 {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Estado != cobranca.Trial || as.Tentativas != 0 {
 		t.Fatalf("um evento não assinado mudou a assinatura: %+v", as)
 	}
 	if tr.acoes() != "" {
@@ -138,7 +143,7 @@ func TestBillingWebhookUnsigned(t *testing.T) {
 	}
 	// E a recusa não queima o id: o mesmo evento, assinado, ainda vale.
 	evento(c, corpo, time.Now(), segredoDoProvedor).WantStatus(http.StatusOK)
-	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Atrasada {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Estado != cobranca.Atrasada {
 		t.Fatalf("o evento assinado depois da recusa não valeu: %+v", as)
 	}
 }
@@ -149,13 +154,13 @@ func TestBillingWebhookExpired(t *testing.T) {
 	a, _ := appDeCobranca(t)
 	c := trilha.NewTestClient(t, a)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 
 	evento(c, falhou("ev-1", "f-1"), time.Now().Add(-6*time.Minute), segredoDoProvedor).
 		WantStatus(http.StatusUnauthorized).WantContains(cobranca.CodigoNaoAssinado)
 	evento(c, falhou("ev-2", "f-1"), time.Now().Add(6*time.Minute), segredoDoProvedor).
 		WantStatus(http.StatusUnauthorized)
-	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Trial {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Estado != cobranca.Trial {
 		t.Fatalf("um evento fora da janela mudou a assinatura: %+v", as)
 	}
 }
@@ -165,12 +170,12 @@ func TestBillingIdempotentEvent(t *testing.T) {
 	a, tr := appDeCobranca(t)
 	c := trilha.NewTestClient(t, a)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 	cobranca.Mailer = mail.New(mail.Options{From: "cobranca@example.com", Transport: &mail.Outbox{}})
 
 	evento(c, falhou("ev-1", "f-1"), time.Now(), segredoDoProvedor).WantStatus(http.StatusOK)
 	evento(c, falhou("ev-1", "f-1"), time.Now(), segredoDoProvedor).WantStatus(http.StatusOK).WantContains("duplicate")
-	if as, _ := b.Store.Assinatura("a-1"); as.Tentativas != 1 {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Tentativas != 1 {
 		t.Fatalf("o reenvio contou de novo: %+v", as)
 	}
 	if n := strings.Count(tr.acoes(), "billing.invoice_payment_failed"); n != 1 {
@@ -183,7 +188,7 @@ func TestBillingDunningCycle(t *testing.T) {
 	a, tr := appDeCobranca(t)
 	c := trilha.NewTestClient(t, a)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 	caixa := &mail.Outbox{}
 	antes := cobranca.Mailer
 	cobranca.Mailer = mail.New(mail.Options{From: "cobranca@example.com", Transport: caixa})
@@ -214,7 +219,7 @@ func TestBillingDunningCycle(t *testing.T) {
 			t.Fatalf("faltou o lembrete %s:\n%s", quero, assuntos)
 		}
 	}
-	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Cancelada {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Estado != cobranca.Cancelada {
 		t.Fatalf("depois de três falhas: %+v", as)
 	}
 	if n := strings.Count(tr.acoes(), "billing.invoice_payment_failed"); n != cobranca.MaxTentativas {
@@ -227,8 +232,8 @@ func TestBillingDunningCycle(t *testing.T) {
 func TestBillingCSVAdminOnly(t *testing.T) {
 	a, tr := appDeCobranca(t)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
-	if _, err := b.Store.Pagou("a-1", "f-1", 4900, "brl", time.Now()); err != nil {
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
+	if _, err := b.Store.Pagou(bg, "a-1", "f-1", 4900, "brl", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if err := trilha.Use[*usuarios.Store](a).Add("u-leitor", "leitor@example.com", "Leitor",
@@ -280,7 +285,7 @@ func TestBillingCSVAdminOnly(t *testing.T) {
 // HttpOnly e o segredo do provedor não aparece em lugar nenhum.
 func TestBillingScreensKeepProtections(t *testing.T) {
 	a, _ := appDeCobranca(t)
-	trilha.Use[*cobranca.Billing](a).Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	trilha.Use[*cobranca.Billing](a).Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 	admin := trilha.NewTestClient(t, a)
 	admin.PostForm("/entrar", url.Values{"email": {"admin@example.com"},
 		"password": {"a-password-nobody-guesses"}}).WantStatus(http.StatusSeeOther)
@@ -293,4 +298,12 @@ func TestBillingScreensKeepProtections(t *testing.T) {
 			}
 		}
 	}
+}
+
+// O contrato do store sobre o que o app ligou: a memória num projeto sem
+// banco, as tabelas de migrations/0100_billing.sql com o store — os mesmos
+// passos de internal/cobranca/cobrancatest, contra o store de verdade.
+func TestBillingStoreContract(t *testing.T) {
+	a, _ := appDeCobranca(t)
+	cobrancatest.Contrato(t, trilha.Use[*cobranca.Billing](a).Store)
 }

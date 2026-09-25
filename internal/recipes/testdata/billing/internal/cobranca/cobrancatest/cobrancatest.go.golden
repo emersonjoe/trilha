@@ -1,0 +1,152 @@
+// Package cobrancatest is the contract of cobranca.Store, for a test to run
+// against any store: the one in memory and the one in the database answer
+// the same, or one of them is wrong.
+package cobrancatest
+
+import (
+	"context"
+	"errors"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"example.com/golden/internal/cobranca"
+)
+
+// Contrato runs the whole store: the cycle of a subscription, the invoices,
+// the event seen once, the plan in use. Every id carries a prefix of this
+// run, so a database with other rows neither disturbs it nor is disturbed.
+func Contrato(t *testing.T, s cobranca.Store) {
+	t.Helper()
+	ctx := context.Background()
+	px := strconv.FormatInt(time.Now().UnixNano(), 36) + "-"
+	nossas := func(fs []cobranca.Fatura) []cobranca.Fatura {
+		var out []cobranca.Fatura
+		for _, f := range fs {
+			if strings.HasPrefix(f.ID, px) {
+				out = append(out, f)
+			}
+		}
+		return out
+	}
+	agora := time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)
+	id := px + "a-1"
+
+	// O ciclo: falha, paga, falha até cancelar.
+	if _, err := s.Assinar(ctx, id, "cliente@example.com", px+"plano-1", agora); err != nil {
+		t.Fatal(err)
+	}
+	m, err := s.Falhou(ctx, id, px+"f-1", 4900, "brl", agora)
+	if err != nil || m.De != cobranca.Trial || m.Assinatura.Estado != cobranca.Atrasada || m.Assinatura.Tentativas != 1 {
+		t.Fatalf("primeira falha: %+v %v", m, err)
+	}
+	if m, err = s.Pagou(ctx, id, px+"f-1", 4900, "brl", agora); err != nil || m.Assinatura.Estado != cobranca.Ativa || m.Assinatura.Tentativas != 0 {
+		t.Fatalf("pagou: %+v %v", m, err)
+	}
+	for i := 1; i <= cobranca.MaxTentativas; i++ {
+		if m, err = s.Falhou(ctx, id, px+"f-2", 4900, "brl", agora); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if m.Assinatura.Estado != cobranca.Cancelada {
+		t.Fatalf("depois de %d falhas: %+v", cobranca.MaxTentativas, m)
+	}
+	// Recusada, a mudança não deixa rastro: nem o contador nem a fatura.
+	if _, err := s.Pagou(ctx, id, px+"f-3", 4900, "brl", agora); !errors.Is(err, cobranca.ErrTransicao) {
+		t.Fatalf("uma cancelada voltou: %v", err)
+	}
+	a, err := s.Assinatura(ctx, id)
+	if err != nil || a.Estado != cobranca.Cancelada || a.Tentativas != cobranca.MaxTentativas || !a.Criada.Equal(agora) {
+		t.Fatalf("lida de volta: %+v %v", a, err)
+	}
+	if _, err := s.Assinatura(ctx, px+"nenhuma"); !errors.Is(err, cobranca.ErrNaoExiste) {
+		t.Fatalf("uma que não existe: %v", err)
+	}
+	if _, err := s.Cancelar(ctx, px+"nenhuma", agora); !errors.Is(err, cobranca.ErrNaoExiste) {
+		t.Fatalf("mudar uma que não existe: %v", err)
+	}
+	todas, err := s.Faturas(ctx)
+	f := nossas(todas)
+	if err != nil || len(f) != 2 || f[0].Moeda != "BRL" {
+		t.Fatalf("faturas = %+v %v", f, err)
+	}
+	for _, x := range f {
+		if x.ID == px+"f-1" && !x.Paga {
+			t.Fatal("a fatura paga depois de falhar não ficou paga")
+		}
+	}
+
+	// A mais nova primeiro, e o filtro por estado.
+	if _, err := s.Assinar(ctx, px+"a-2", "outra@example.com", px+"plano-1", agora.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	var ordem []string
+	lista, err := s.Assinaturas(ctx, "")
+	for _, x := range lista {
+		if strings.HasPrefix(x.ID, px) {
+			ordem = append(ordem, x.ID)
+		}
+	}
+	if err != nil || strings.Join(ordem, ",") != px+"a-2,"+id {
+		t.Fatalf("ordem = %v %v", ordem, err)
+	}
+	canceladas, err := s.Assinaturas(ctx, cobranca.Cancelada)
+	for _, x := range canceladas {
+		if x.Estado != cobranca.Cancelada || x.ID == px+"a-2" {
+			t.Fatalf("o filtro deixou passar %+v (%v)", x, err)
+		}
+	}
+
+	// O mesmo evento é visto uma vez; esquecido, é novo outra vez.
+	ev := px + "ev-1"
+	for i, quero := range []bool{false, true} {
+		if visto, err := s.Visto(ctx, ev, agora); err != nil || visto != quero {
+			t.Fatalf("visto #%d = %v %v", i+1, visto, err)
+		}
+	}
+	if err := s.Esquecer(ctx, ev); err != nil {
+		t.Fatal(err)
+	}
+	if visto, err := s.Visto(ctx, ev, agora); err != nil || visto {
+		t.Fatalf("esquecido e ainda visto: %v %v", visto, err)
+	}
+
+	// Um plano com assinatura viva não se apaga; salvar de novo atualiza.
+	p, err := s.SalvarPlano(ctx, cobranca.Plano{Nome: px + "Pro", Centavos: 4900, Moeda: "brl", Intervalo: "month"})
+	if err != nil || p.Moeda != "BRL" || p.ID == "" {
+		t.Fatalf("plano = %+v %v", p, err)
+	}
+	p.Centavos = 5900
+	if _, err := s.SalvarPlano(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	planos, err := s.Planos(ctx)
+	achados := 0
+	for _, x := range planos {
+		if x.ID == p.ID {
+			achados++
+			if x.Centavos != 5900 {
+				t.Fatalf("o plano não foi atualizado: %+v", x)
+			}
+		}
+	}
+	if err != nil || achados != 1 {
+		t.Fatalf("o plano aparece %d vezes (%v)", achados, err)
+	}
+	if _, err := s.Assinar(ctx, px+"a-3", "c@example.com", p.ID, agora); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ApagarPlano(ctx, p.ID); !errors.Is(err, cobranca.ErrPlanoEmUso) {
+		t.Fatalf("apagou um plano em uso: %v", err)
+	}
+	if _, err := s.Cancelar(ctx, px+"a-3", agora); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ApagarPlano(ctx, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ApagarPlano(ctx, p.ID); !errors.Is(err, cobranca.ErrNaoExiste) {
+		t.Fatalf("apagou duas vezes: %v", err)
+	}
+}

@@ -14,7 +14,7 @@ package recipes
 func notifyRecipe() Recipe {
 	return Recipe{
 		Name:        "notify",
-		CtxPackCost: 197,
+		CtxPackCost: 232,
 		Summary: map[string]string{
 			"en": "notifications by e-mail, webhook or WhatsApp: per-person preferences, quiet hours, daily digest, per-channel limit, and the outbox with resend",
 			"pt": "notificações por e-mail, webhook ou WhatsApp: preferências por pessoa, horário silencioso, digesto diário, limite por canal, e a fila com reenvio",
@@ -25,6 +25,10 @@ func notifyRecipe() Recipe {
 			{Rel: "internal/notificar/notificar.go", Go: true, Body: notifyEngine},
 			{Rel: "internal/notificar/canais.go", Go: true, Body: notifyChannels},
 			{Rel: "internal/notificar/notificar_test.go", Go: true, Body: notifyEngineTest},
+			{Rel: "internal/notificar/contrato_test.go", Go: true, Body: notifyContractTest},
+			{Rel: "internal/notificar/notificartest/notificartest.go", Go: true, Body: notifyContract},
+			{Rel: "internal/notificar/sql.go", Go: true, Body: notifySQL},
+			{Rel: "migrations/0110_notify.sql", Body: notifyMigration},
 			{Rel: "{{.At}}notificacoes/middleware.go", Go: true, Body: notifyMiddleware},
 			{Rel: "{{.At}}notificacoes/page.go", Go: true, Body: notifyPrefsPage},
 			{Rel: "{{.At}}notificacoes/fila/middleware.go", Go: true, Body: notifyOutboxMiddleware},
@@ -34,6 +38,7 @@ func notifyRecipe() Recipe {
 		Setup: []Insert{
 			notifyWebhookLink("internal/avisos/avisos.go"),
 			notifyWhatsAppLink("internal/whatsapp/whatsapp.go"),
+			notifyStoreLink("internal/store/store.go"),
 			{
 				Marker: "// trilha:add notify",
 				Line:   "\tif err := notificar.Setup(a); err != nil {\n\t\treturn err\n\t}\n",
@@ -91,13 +96,14 @@ const notifyEngine = `// Package notificar is how this application tells people 
 // thousand messages. Everything that was decided lands in an outbox an
 // administrator can read and resend from.
 //
-// The rows live in memory, like every recipe's first version: the outbox and
-// the preferences are two tables behind the same methods the day they need to
-// survive a restart.
+// The rows live behind the Store interface: in memory until the project has a
+// database, and in the tables of migrations/0110_notify.sql once
+// ` + "`trilha add store`" + ` is there (sql.go) — without a screen changing.
 package notificar
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sort"
 	"strconv"
@@ -238,13 +244,132 @@ const Marca = "{{.T.mail_brand}}"
 // TarefaDigesto is the task the outbox screen starts to send today's digest.
 const TarefaDigesto = "notificar.digesto"
 
-// Notificador is the module: preferences, the outbox, the limits.
+// Store is where the rows live: the preferences and the outbox, the tables
+// of migrations/0110_notify.sql. Novo keeps them in memory; with
+// ` + "`trilha add store`" + ` in the project, setup.go points Banco at the
+// database and Setup uses NovoSQL (sql.go) — the same methods, so no screen
+// changes.
+type Store interface {
+	// Preferencias is what the person chose, and whether they chose at all.
+	Preferencias(ctx context.Context, sujeito string) (Preferencias, bool, error)
+	SalvarPreferencias(ctx context.Context, sujeito string, p Preferencias) error
+	// Guardar writes a new row of the outbox and gives it its id.
+	Guardar(ctx context.Context, n Notificacao) (Notificacao, error)
+	// Atualizar writes what happened to a row: state, error, attempts, when
+	// it left.
+	Atualizar(ctx context.Context, n Notificacao) error
+	// Uma is one row, or ErrNaoExiste.
+	Uma(ctx context.Context, id string) (Notificacao, error)
+	// Fila is the outbox, the newest first; para filters by subject.
+	Fila(ctx context.Context, para string) ([]Notificacao, error)
+	// Esperando is what waits for the digest — asked for it, or held by the
+	// quiet hours — the oldest first.
+	Esperando(ctx context.Context) ([]Notificacao, error)
+	// Dia records the day of a digest and says whether it was the first
+	// time: the digest goes once a day, across restarts and replicas.
+	Dia(ctx context.Context, dia string) (bool, error)
+}
+
+// Memoria is the outbox and the preferences in memory.
+type Memoria struct {
+	mu    sync.Mutex
+	seq   int
+	prefs map[string]Preferencias
+	fila  []Notificacao
+	dias  map[string]bool
+}
+
+// NovaMemoria is an empty store in memory.
+func NovaMemoria() *Memoria {
+	return &Memoria{prefs: map[string]Preferencias{}, dias: map[string]bool{}}
+}
+
+func (m *Memoria) Preferencias(_ context.Context, sujeito string) (Preferencias, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p, ok := m.prefs[sujeito]
+	return p, ok, nil
+}
+
+func (m *Memoria) SalvarPreferencias(_ context.Context, sujeito string, p Preferencias) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.prefs[sujeito] = p
+	return nil
+}
+
+func (m *Memoria) Guardar(_ context.Context, n Notificacao) (Notificacao, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.seq++
+	n.ID = "n-" + strconv.Itoa(m.seq)
+	m.fila = append(m.fila, n)
+	return n, nil
+}
+
+func (m *Memoria) Atualizar(_ context.Context, n Notificacao) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i := range m.fila {
+		if m.fila[i].ID == n.ID {
+			m.fila[i] = n
+			return nil
+		}
+	}
+	return ErrNaoExiste
+}
+
+func (m *Memoria) Uma(_ context.Context, id string) (Notificacao, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, n := range m.fila {
+		if n.ID == id {
+			return n, nil
+		}
+	}
+	return Notificacao{}, ErrNaoExiste
+}
+
+func (m *Memoria) Fila(_ context.Context, para string) ([]Notificacao, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]Notificacao, 0, len(m.fila))
+	for i := len(m.fila) - 1; i >= 0; i-- {
+		if para == "" || m.fila[i].Para.Sujeito == para {
+			out = append(out, m.fila[i])
+		}
+	}
+	return out, nil
+}
+
+func (m *Memoria) Esperando(context.Context) ([]Notificacao, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []Notificacao
+	for _, n := range m.fila {
+		if n.Estado == NoDigesto || n.Estado == Retida {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+
+func (m *Memoria) Dia(_ context.Context, dia string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.dias[dia] {
+		return false, nil
+	}
+	m.dias[dia] = true
+	return true, nil
+}
+
+// Notificador is the module: the rules — preferences, quiet hours, digest,
+// limits — over a Store. The limit counts per process: it protects the
+// channel from a loop, not the person from a fleet of replicas.
 type Notificador struct {
+	store   Store
 	mu      sync.Mutex
-	seq     int
-	prefs   map[string]Preferencias
-	fila    []*Notificacao
-	ultimo  string // the day of the last digest, YYYY-MM-DD
 	limite  int
 	limites *trilha.Limiter
 	tarefas *task.Tasks
@@ -253,10 +378,17 @@ type Notificador struct {
 	Agora func() time.Time
 }
 
-// Novo is an empty notifier.
-func Novo() *Notificador {
-	return &Notificador{prefs: map[string]Preferencias{}, Agora: time.Now}
-}
+// Novo is a notifier over an empty store in memory.
+func Novo() *Notificador { return Sobre(NovaMemoria()) }
+
+// Sobre is a notifier over the store given — the database, in Setup.
+func Sobre(s Store) *Notificador { return &Notificador{store: s, Agora: time.Now} }
+
+// Banco is the database, when the project has one: setup.go sets it when the
+// store recipe is there (trilha:link notify-store), and Setup then keeps the
+// rows in migrations/0110_notify.sql instead of in memory. A function because
+// store.Setup, which opens the pool, may run after this one.
+var Banco func() (db *sql.DB, arg func(n int) string)
 
 // Setup binds the settings, builds the notifier, hands it to the application,
 // starts the digest engine and the clock that sends the digest once a day.
@@ -265,6 +397,9 @@ func Setup(a *trilha.App) error {
 		return err
 	}
 	n := Novo()
+	if Banco != nil {
+		n = Sobre(NovoSQL(Banco))
+	}
 	n.tarefas = task.New(task.Options{Logger: a.Logger()})
 	n.tarefas.Handle(TarefaDigesto, func(ctx context.Context, p *task.Progress) error {
 		_, err := n.Digesto(ctx)
@@ -296,47 +431,57 @@ func (n *Notificador) relogio(pare <-chan struct{}) {
 }
 
 // Preferencias is what the person chose, or Padrao.
-func (n *Notificador) Preferencias(sujeito string) Preferencias {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	if p, ok := n.prefs[sujeito]; ok {
-		return p
+func (n *Notificador) Preferencias(ctx context.Context, sujeito string) (Preferencias, error) {
+	p, ok, err := n.store.Preferencias(ctx, sujeito)
+	if err != nil || !ok {
+		return Padrao, err
 	}
-	return Padrao
+	return p, nil
 }
 
 // SalvarPreferencias writes what the person chose.
-func (n *Notificador) SalvarPreferencias(sujeito string, p Preferencias) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.prefs[sujeito] = p
+func (n *Notificador) SalvarPreferencias(ctx context.Context, sujeito string, p Preferencias) error {
+	return n.store.SalvarPreferencias(ctx, sujeito, p)
+}
+
+// Fila is the outbox, the newest first; para filters by subject when not
+// empty.
+func (n *Notificador) Fila(ctx context.Context, para string) ([]Notificacao, error) {
+	return n.store.Fila(ctx, para)
+}
+
+func ctxDe(c *trilha.Ctx) context.Context {
+	if c == nil {
+		return context.Background()
+	}
+	return c.Context()
 }
 
 // Notificar is the one call. It decides by the person's preferences and the
 // channel's limit, and always leaves the notification in the outbox —
 // ErrLimite when the limit held it back, the channel's error when it failed.
 func (n *Notificador) Notificar(c *trilha.Ctx, para Pessoa, titulo, corpo string) (Notificacao, error) {
-	p := n.Preferencias(para.Sujeito)
+	ctx := ctxDe(c)
+	p, err := n.Preferencias(ctx, para.Sujeito)
+	if err != nil {
+		return Notificacao{}, err
+	}
 	canal := p.Canal
 	if _, ok := Canais[canal]; !ok {
 		// A preference for a channel that was unwired since falls back to
 		// e-mail rather than to silence.
 		canal = CanalEmail
 	}
-	n.mu.Lock()
-	n.seq++
-	no := &Notificacao{ID: "n-" + strconv.Itoa(n.seq), Para: para, Telefone: p.Telefone, Canal: canal,
-		Titulo: titulo, Corpo: corpo, Criada: n.Agora()}
-	n.fila = append(n.fila, no)
-	n.mu.Unlock()
-
+	no, err := n.store.Guardar(ctx, Notificacao{Para: para, Telefone: p.Telefone, Canal: canal,
+		Titulo: titulo, Corpo: corpo, Criada: n.Agora()})
+	if err != nil {
+		return Notificacao{}, err
+	}
 	switch {
 	case p.Digesto:
-		n.marcar(no, NoDigesto, "")
-		return *no, nil
+		return n.marcar(ctx, no, NoDigesto, "")
 	case p.Silencio(n.Agora().Hour()):
-		n.marcar(no, Retida, "")
-		return *no, nil
+		return n.marcar(ctx, no, Retida, "")
 	}
 	return n.entregar(c, no)
 }
@@ -345,43 +490,40 @@ func (n *Notificador) Notificar(c *trilha.Ctx, para Pessoa, titulo, corpo string
 // quiet hours retained — the button of the outbox. The quiet hours still
 // hold: resending at 3 a.m. is still 3 a.m. for the person.
 func (n *Notificador) Reenviar(c *trilha.Ctx, id string) (Notificacao, error) {
-	n.mu.Lock()
-	var no *Notificacao
-	for _, x := range n.fila {
-		if x.ID == id {
-			no = x
-		}
+	ctx := ctxDe(c)
+	no, err := n.store.Uma(ctx, id)
+	if err != nil || no.Estado == Enviada {
+		return no, err
 	}
-	n.mu.Unlock()
-	if no == nil {
-		return Notificacao{}, ErrNaoExiste
+	p, err := n.Preferencias(ctx, no.Para.Sujeito)
+	if err != nil {
+		return no, err
 	}
-	if n.copia(no).Estado == Enviada {
-		return n.copia(no), nil
-	}
-	if n.Preferencias(no.Para.Sujeito).Silencio(n.Agora().Hour()) {
-		n.marcar(no, Retida, "")
-		return n.copia(no), nil
+	if p.Silencio(n.Agora().Hour()) {
+		return n.marcar(ctx, no, Retida, "")
 	}
 	return n.entregar(c, no)
 }
 
 // entregar is the limit and the channel.
-func (n *Notificador) entregar(c *trilha.Ctx, no *Notificacao) (Notificacao, error) {
+func (n *Notificador) entregar(c *trilha.Ctx, no Notificacao) (Notificacao, error) {
+	ctx := ctxDe(c)
 	if !n.permite(no.Canal + "\x00" + no.Para.Sujeito) {
-		n.marcar(no, Limitada, CodigoLimite)
-		return n.copia(no), ErrLimite
+		no, err := n.marcar(ctx, no, Limitada, CodigoLimite)
+		if err != nil {
+			return no, err
+		}
+		return no, ErrLimite
 	}
-	n.mu.Lock()
 	no.Tentativas++
-	copia := *no
-	n.mu.Unlock()
-	if err := Canais[copia.Canal](c, copia); err != nil {
-		n.marcar(no, Falhou, err.Error())
-		return n.copia(no), err
+	if err := Canais[no.Canal](c, no); err != nil {
+		no, merr := n.marcar(ctx, no, Falhou, err.Error())
+		if merr != nil {
+			return no, merr
+		}
+		return no, err
 	}
-	n.marcar(no, Enviada, "")
-	return n.copia(no), nil
+	return n.marcar(ctx, no, Enviada, "")
 }
 
 // permite is the per-channel, per-person limit. The limiter is rebuilt when
@@ -399,33 +541,13 @@ func (n *Notificador) permite(chave string) bool {
 	return ok
 }
 
-func (n *Notificador) marcar(no *Notificacao, e Estado, erro string) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
+// marcar writes what happened to one notification and answers it.
+func (n *Notificador) marcar(ctx context.Context, no Notificacao, e Estado, erro string) (Notificacao, error) {
 	no.Estado, no.Erro = e, erro
 	if e == Enviada {
 		no.Enviada = n.Agora()
 	}
-}
-
-func (n *Notificador) copia(no *Notificacao) Notificacao {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	return *no
-}
-
-// Fila is the outbox, the newest first; para filters by subject when not
-// empty.
-func (n *Notificador) Fila(para string) []Notificacao {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	out := make([]Notificacao, 0, len(n.fila))
-	for i := len(n.fila) - 1; i >= 0; i-- {
-		if para == "" || n.fila[i].Para.Sujeito == para {
-			out = append(out, *n.fila[i])
-		}
-	}
-	return out
+	return no, n.store.Atualizar(ctx, no)
 }
 
 // Digesto sends, once a day, one e-mail per person with what waited for it:
@@ -434,31 +556,32 @@ func (n *Notificador) Fila(para string) []Notificacao {
 // digest — the digest is a message too. It answers how many e-mails left.
 func (n *Notificador) Digesto(ctx context.Context) (int, error) {
 	agora := n.Agora()
-	dia := agora.Format("2006-01-02")
-	n.mu.Lock()
-	if n.ultimo == dia {
-		n.mu.Unlock()
-		return 0, nil
+	primeiro, err := n.store.Dia(ctx, agora.Format("2006-01-02"))
+	if err != nil || !primeiro {
+		return 0, err
 	}
-	n.ultimo = dia
-	porPessoa := map[string][]*Notificacao{}
+	esperando, err := n.store.Esperando(ctx)
+	if err != nil {
+		return 0, err
+	}
+	porPessoa := map[string][]Notificacao{}
 	var ordem []string
-	for _, no := range n.fila {
-		if no.Estado != NoDigesto && no.Estado != Retida {
-			continue
-		}
+	for _, no := range esperando {
 		if _, ok := porPessoa[no.Para.Sujeito]; !ok {
 			ordem = append(ordem, no.Para.Sujeito)
 		}
 		porPessoa[no.Para.Sujeito] = append(porPessoa[no.Para.Sujeito], no)
 	}
-	n.mu.Unlock()
 	sort.Strings(ordem)
 
 	enviados := 0
 	var erros []string
 	for _, sujeito := range ordem {
-		if n.Preferencias(sujeito).Silencio(agora.Hour()) {
+		p, err := n.Preferencias(ctx, sujeito)
+		if err != nil {
+			return enviados, err
+		}
+		if p.Silencio(agora.Hour()) {
 			continue
 		}
 		lista := porPessoa[sujeito]
@@ -466,16 +589,20 @@ func (n *Notificador) Digesto(ctx context.Context) (int, error) {
 		for _, no := range lista {
 			itens = append(itens, h.Li(h.Strong(h.Text(no.Titulo)), h.Text(" — "+no.Corpo)))
 		}
-		err := Mailer.Send(ctx, mail.Message{
+		err = Mailer.Send(ctx, mail.Message{
 			To:      []string{lista[0].Para.Email},
 			Subject: "{{.T.notify_digest_subject}} — " + Marca,
 			Body:    mail.Layout(Marca, h.P(h.Text("{{.T.notify_digest_intro}}")), h.Ul(itens...)),
 		})
 		for _, no := range lista {
+			var merr error
 			if err != nil {
-				n.marcar(no, Falhou, err.Error())
+				_, merr = n.marcar(ctx, no, Falhou, err.Error())
 			} else {
-				n.marcar(no, Enviada, "")
+				_, merr = n.marcar(ctx, no, Enviada, "")
+			}
+			if merr != nil {
+				return enviados, merr
 			}
 		}
 		if err != nil {
@@ -495,6 +622,348 @@ func (n *Notificador) Digesto(ctx context.Context) (int, error) {
 func (n *Notificador) DispararDigesto(c *trilha.Ctx) error {
 	_, err := n.tarefas.Run(c, TarefaDigesto, n.Agora().Format("2006-01-02"))
 	return err
+}
+`
+
+// notifyStoreLink is the line that moves the outbox and the preferences to
+// the database when the store recipe is there. Notify and store both carry
+// it, each conditioned on the other's file.
+func notifyStoreLink(ifFile string) Insert {
+	return Insert{
+		Marker:  "// trilha:link notify-store",
+		Line:    "\tnotificar.Banco = func() (*sql.DB, func(int) string) { return store.DB, store.D.Arg }\n",
+		If:      ifFile,
+		Imports: []string{"database/sql", "{{.Module}}/internal/notificar", "{{.Module}}/internal/store"},
+	}
+}
+
+const notifyMigration = `-- As tabelas do notificar, na convenção do ` + "`" + `trilha add store` + "`" + `: sem banco, o
+-- internal/notificar guarda o mesmo formato em memória; com o store, sql.go lê
+-- e grava aqui.
+
+CREATE TABLE IF NOT EXISTS notify_preferences (
+	subject     TEXT PRIMARY KEY,
+	channel     TEXT NOT NULL,
+	digest      BOOLEAN NOT NULL DEFAULT FALSE,
+	quiet_from  INTEGER NOT NULL DEFAULT 0,
+	quiet_to    INTEGER NOT NULL DEFAULT 0,
+	phone       TEXT NOT NULL DEFAULT ''
+);
+
+-- O id começa pelo instante em hexadecimal de largura fixa: a ordem do id é a
+-- ordem de chegada, em qualquer banco, e é por ela que a fila se lê.
+CREATE TABLE IF NOT EXISTS notify_outbox (
+	id          TEXT PRIMARY KEY,
+	subject     TEXT NOT NULL,
+	email       TEXT NOT NULL,
+	phone       TEXT NOT NULL DEFAULT '',
+	channel     TEXT NOT NULL,
+	title       TEXT NOT NULL,
+	body        TEXT NOT NULL,
+	state       TEXT NOT NULL,
+	error       TEXT NOT NULL DEFAULT '',
+	attempts    INTEGER NOT NULL DEFAULT 0,
+	created_at  TIMESTAMP NOT NULL,
+	sent_at     TIMESTAMP NULL
+);
+
+CREATE INDEX IF NOT EXISTS notify_outbox_subject ON notify_outbox (subject, id);
+CREATE INDEX IF NOT EXISTS notify_outbox_state ON notify_outbox (state, id);
+
+-- Um digesto por dia: a chave primária é o dia, e é ela que segura o segundo
+-- digesto de um reinício ou de outra réplica.
+CREATE TABLE IF NOT EXISTS notify_digests (
+	day  TEXT PRIMARY KEY
+);
+`
+
+const notifySQL = `package notificar
+
+import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"time"
+)
+
+// SQL is the preferences and the outbox in the tables of
+// migrations/0110_notify.sql. It speaks only database/sql: the driver and the
+// dialect are the store recipe's, handed in by Banco.
+//
+// Every query is written here with placeholders; nothing that came from a
+// request is ever part of the SQL text.
+type SQL struct {
+	banco func() (*sql.DB, func(int) string)
+}
+
+// NovoSQL is the store over the database Banco answers.
+func NovoSQL(banco func() (*sql.DB, func(int) string)) *SQL { return &SQL{banco: banco} }
+
+// idNovo orders by arrival: the instant in fixed-width hex, then a few random
+// bits so two replicas in the same nanosecond do not collide.
+func idNovo() string {
+	var b [2]byte
+	_, _ = rand.Read(b[:])
+	return fmt.Sprintf("n-%016x%04x", time.Now().UnixNano(), binary.BigEndian.Uint16(b[:]))
+}
+
+const colFila = "id, subject, email, phone, channel, title, body, state, error, attempts, created_at, sent_at"
+
+type linha interface{ Scan(dest ...any) error }
+
+func lerNotificacao(r linha) (Notificacao, error) {
+	var n Notificacao
+	var estado string
+	var enviada sql.NullTime
+	err := r.Scan(&n.ID, &n.Para.Sujeito, &n.Para.Email, &n.Telefone, &n.Canal, &n.Titulo, &n.Corpo,
+		&estado, &n.Erro, &n.Tentativas, &n.Criada, &enviada)
+	n.Estado = Estado(estado)
+	if enviada.Valid {
+		n.Enviada = enviada.Time
+	}
+	return n, err
+}
+
+func (s *SQL) Preferencias(ctx context.Context, sujeito string) (Preferencias, bool, error) {
+	db, arg := s.banco()
+	var p Preferencias
+	err := db.QueryRowContext(ctx, "SELECT channel, digest, quiet_from, quiet_to, phone FROM notify_preferences WHERE subject = "+
+		arg(1), sujeito).Scan(&p.Canal, &p.Digesto, &p.SilencioDe, &p.SilencioAte, &p.Telefone)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Preferencias{}, false, nil
+	}
+	return p, err == nil, err
+}
+
+func (s *SQL) SalvarPreferencias(ctx context.Context, sujeito string, p Preferencias) error {
+	db, arg := s.banco()
+	_, err := db.ExecContext(ctx, "INSERT INTO notify_preferences (subject, channel, digest, quiet_from, quiet_to, phone) VALUES ("+
+		arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", "+arg(5)+", "+arg(6)+") ON CONFLICT (subject) DO UPDATE SET "+
+		"channel = excluded.channel, digest = excluded.digest, quiet_from = excluded.quiet_from, "+
+		"quiet_to = excluded.quiet_to, phone = excluded.phone",
+		sujeito, p.Canal, p.Digesto, p.SilencioDe, p.SilencioAte, p.Telefone)
+	return err
+}
+
+func (s *SQL) Guardar(ctx context.Context, n Notificacao) (Notificacao, error) {
+	db, arg := s.banco()
+	n.ID = idNovo()
+	_, err := db.ExecContext(ctx, "INSERT INTO notify_outbox ("+colFila+") VALUES ("+
+		arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", "+arg(5)+", "+arg(6)+", "+arg(7)+", "+arg(8)+", "+arg(9)+", "+
+		arg(10)+", "+arg(11)+", NULL)",
+		n.ID, n.Para.Sujeito, n.Para.Email, n.Telefone, n.Canal, n.Titulo, n.Corpo, string(n.Estado), n.Erro,
+		n.Tentativas, n.Criada)
+	return n, err
+}
+
+func (s *SQL) Atualizar(ctx context.Context, n Notificacao) error {
+	db, arg := s.banco()
+	var enviada sql.NullTime
+	if !n.Enviada.IsZero() {
+		enviada = sql.NullTime{Time: n.Enviada, Valid: true}
+	}
+	res, err := db.ExecContext(ctx, "UPDATE notify_outbox SET state = "+arg(1)+", error = "+arg(2)+", attempts = "+
+		arg(3)+", sent_at = "+arg(4)+" WHERE id = "+arg(5), string(n.Estado), n.Erro, n.Tentativas, enviada, n.ID)
+	if err != nil {
+		return err
+	}
+	if k, err := res.RowsAffected(); err == nil && k == 0 {
+		return ErrNaoExiste
+	}
+	return nil
+}
+
+func (s *SQL) Uma(ctx context.Context, id string) (Notificacao, error) {
+	db, arg := s.banco()
+	n, err := lerNotificacao(db.QueryRowContext(ctx, "SELECT "+colFila+" FROM notify_outbox WHERE id = "+arg(1), id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Notificacao{}, ErrNaoExiste
+	}
+	return n, err
+}
+
+func (s *SQL) lista(ctx context.Context, q string, args ...any) ([]Notificacao, error) {
+	db, _ := s.banco()
+	rows, err := db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Notificacao
+	for rows.Next() {
+		n, err := lerNotificacao(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+func (s *SQL) Fila(ctx context.Context, para string) ([]Notificacao, error) {
+	_, arg := s.banco()
+	if para == "" {
+		return s.lista(ctx, "SELECT "+colFila+" FROM notify_outbox ORDER BY id DESC")
+	}
+	return s.lista(ctx, "SELECT "+colFila+" FROM notify_outbox WHERE subject = "+arg(1)+" ORDER BY id DESC", para)
+}
+
+func (s *SQL) Esperando(ctx context.Context) ([]Notificacao, error) {
+	_, arg := s.banco()
+	return s.lista(ctx, "SELECT "+colFila+" FROM notify_outbox WHERE state IN ("+arg(1)+", "+arg(2)+") ORDER BY id",
+		string(NoDigesto), string(Retida))
+}
+
+// Dia leans on the primary key: the second insert of the same day changes
+// nothing, and that is the answer.
+func (s *SQL) Dia(ctx context.Context, dia string) (bool, error) {
+	db, arg := s.banco()
+	res, err := db.ExecContext(ctx, "INSERT INTO notify_digests (day) VALUES ("+arg(1)+") ON CONFLICT (day) DO NOTHING", dia)
+	if err != nil {
+		return false, err
+	}
+	k, err := res.RowsAffected()
+	return k == 1, err
+}
+`
+
+// notifyContractTest runs the contract on memory, from outside the package —
+// notificartest imports notificar, so the test that calls it cannot be
+// inside.
+const notifyContractTest = `package notificar_test
+
+import (
+	"testing"
+
+	"{{.Module}}/internal/notificar"
+	"{{.Module}}/internal/notificar/notificartest"
+)
+
+// O contrato do store sobre a memória: os mesmos passos que o
+// notificacoes_test.go do projeto roda sobre o que o app ligou.
+func TestNotifyStoreContract(t *testing.T) {
+	notificartest.Contrato(t, notificar.Novo())
+}
+`
+
+// notifyContract is what every Store of the notifier promises, run through
+// the Notificador — the preferences, the outbox, the digest once a day — so
+// the memory and the database cannot drift apart.
+const notifyContract = `// Package notificartest is the contract of the notifier's store, for a test
+// to run against any of them: the one in memory and the one in the database
+// answer the same, or one of them is wrong.
+package notificartest
+
+import (
+	"context"
+	"errors"
+	"math/rand"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/mail"
+
+	"{{.Module}}/internal/notificar"
+)
+
+// Contrato runs the whole store through n. The subjects carry a prefix of this
+// run and the clock a day nobody else uses, so a database with other rows
+// neither disturbs it nor is disturbed.
+func Contrato(t *testing.T, n *notificar.Notificador) {
+	t.Helper()
+	ctx := context.Background()
+	px := strconv.FormatInt(time.Now().UnixNano(), 36) + "-"
+	dia := time.Date(2100+rand.Intn(800), time.Month(1+rand.Intn(12)), 1+rand.Intn(28), 0, 0, 0, 0, time.UTC)
+	as := func(h int) func() time.Time { return func() time.Time { return dia.Add(time.Duration(h) * time.Hour) } }
+
+	var enviadas []notificar.Notificacao
+	antes, mailer := notificar.Canais[notificar.CanalEmail], notificar.Mailer
+	notificar.Canais[notificar.CanalEmail] = func(_ *trilha.Ctx, no notificar.Notificacao) error {
+		enviadas = append(enviadas, no)
+		return nil
+	}
+	caixa := &mail.Outbox{}
+	notificar.Mailer = mail.New(mail.Options{From: "avisos@example.com", Transport: caixa})
+	t.Cleanup(func() { notificar.Canais[notificar.CanalEmail], notificar.Mailer = antes, mailer })
+
+	ana := notificar.Pessoa{Sujeito: px + "ana", Email: "ana@example.com"}
+	bia := notificar.Pessoa{Sujeito: px + "bia", Email: "bia@example.com"}
+
+	// Quem nunca escolheu tem o padrão; o que se salva volta igual.
+	if p, err := n.Preferencias(ctx, ana.Sujeito); err != nil || p != notificar.Padrao {
+		t.Fatalf("padrão = %+v %v", p, err)
+	}
+	quer := notificar.Preferencias{Canal: notificar.CanalEmail, SilencioDe: 22, SilencioAte: 7, Telefone: "+5511999990000"}
+	if err := n.SalvarPreferencias(ctx, ana.Sujeito, quer); err != nil {
+		t.Fatal(err)
+	}
+	quer.SilencioAte = 6
+	if err := n.SalvarPreferencias(ctx, ana.Sujeito, quer); err != nil {
+		t.Fatal(err)
+	}
+	if p, err := n.Preferencias(ctx, ana.Sujeito); err != nil || p != quer {
+		t.Fatalf("lidas de volta = %+v %v", p, err)
+	}
+	if err := n.SalvarPreferencias(ctx, bia.Sujeito, notificar.Preferencias{Canal: notificar.CanalEmail, Digesto: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Às 23h a da Ana fica retida; a da Bia vai para o digesto; ao meio-dia
+	// a da Ana sai.
+	n.Agora = as(23)
+	retida, err := n.Notificar(nil, ana, "Retida", "corpo")
+	if err != nil || retida.Estado != notificar.Retida || retida.ID == "" || retida.Telefone != quer.Telefone {
+		t.Fatalf("retida = %+v %v", retida, err)
+	}
+	if no, err := n.Reenviar(nil, retida.ID); err != nil || no.Estado != notificar.Retida {
+		t.Fatalf("o reenvio furou o silêncio: %+v %v", no, err)
+	}
+	if no, err := n.Notificar(nil, bia, "Da Bia", "corpo"); err != nil || no.Estado != notificar.NoDigesto {
+		t.Fatalf("digesto = %+v %v", no, err)
+	}
+	n.Agora = as(12)
+	saiu, err := n.Notificar(nil, ana, "Saiu", "corpo")
+	if err != nil || saiu.Estado != notificar.Enviada || saiu.Tentativas != 1 || saiu.Enviada.IsZero() || len(enviadas) != 1 {
+		t.Fatalf("ao meio-dia = %+v %v (%d enviadas)", saiu, err, len(enviadas))
+	}
+	if _, err := n.Reenviar(nil, px+"nenhuma"); !errors.Is(err, notificar.ErrNaoExiste) {
+		t.Fatalf("reenviar uma que não existe: %v", err)
+	}
+
+	// A fila: a mais nova primeiro, e o filtro por pessoa.
+	fila, err := n.Fila(ctx, ana.Sujeito)
+	if err != nil || len(fila) != 2 || fila[0].ID != saiu.ID || fila[1].ID != retida.ID {
+		t.Fatalf("fila da Ana = %+v %v", fila, err)
+	}
+	if fila[1].Para != ana || fila[1].Titulo != "Retida" || fila[1].Canal != notificar.CanalEmail {
+		t.Fatalf("a linha não voltou inteira: %+v", fila[1])
+	}
+
+	// O digesto do dia seguinte, às 8h, leva a retida e a da Bia; o segundo
+	// do mesmo dia não manda nada.
+	n.Agora = func() time.Time { return dia.Add(32 * time.Hour) }
+	if k, err := n.Digesto(ctx); err != nil || k != 2 || len(caixa.Messages()) != 2 {
+		t.Fatalf("digesto = %d %v (%d e-mails)", k, err, len(caixa.Messages()))
+	}
+	if k, err := n.Digesto(ctx); err != nil || k != 0 || len(caixa.Messages()) != 2 {
+		t.Fatalf("o segundo digesto do dia mandou %d (%v)", k, err)
+	}
+	for _, p := range []notificar.Pessoa{ana, bia} {
+		fila, err := n.Fila(ctx, p.Sujeito)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, no := range fila {
+			if no.Estado != notificar.Enviada {
+				t.Fatalf("depois do digesto: %+v", no)
+			}
+		}
+	}
 }
 `
 
@@ -601,20 +1070,22 @@ func as(h int) func() time.Time {
 
 var ana = Pessoa{Sujeito: "u-ana", Email: "ana@example.com"}
 
+var bg = context.Background()
+
 // Das 22 às 7 nada sai: a notificação fica retida, e sai no digesto quando
 // a janela acaba — o digesto também é uma mensagem.
 func TestNotifyQuietHours(t *testing.T) {
 	enviadas := canalDeTeste(t)
 	caixa := caixaDeTeste(t)
 	n := Novo()
-	n.SalvarPreferencias(ana.Sujeito, Preferencias{Canal: CanalEmail, SilencioDe: 22, SilencioAte: 7})
+	n.SalvarPreferencias(bg, ana.Sujeito, Preferencias{Canal: CanalEmail, SilencioDe: 22, SilencioAte: 7})
 
 	for _, c := range []struct {
 		hora     int
 		silencio bool
 	}{ {21, false}, {22, true}, {23, true}, {0, true}, {6, true}, {7, false}, {12, false} } {
-		if got := n.Preferencias(ana.Sujeito).Silencio(c.hora); got != c.silencio {
-			t.Errorf("%dh: silêncio = %v", c.hora, got)
+		if p, _ := n.Preferencias(bg, ana.Sujeito); p.Silencio(c.hora) != c.silencio {
+			t.Errorf("%dh: silêncio deveria ser %v", c.hora, c.silencio)
 		}
 	}
 	if (Preferencias{SilencioDe: 5, SilencioAte: 5}).Silencio(5) {
@@ -656,9 +1127,9 @@ func TestNotifyDigest(t *testing.T) {
 	caixa := caixaDeTeste(t)
 	n := Novo()
 	n.Agora = as(9)
-	n.SalvarPreferencias(ana.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
+	n.SalvarPreferencias(bg, ana.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
 	bia := Pessoa{Sujeito: "u-bia", Email: "bia@example.com"}
-	n.SalvarPreferencias(bia.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
+	n.SalvarPreferencias(bg, bia.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
 
 	for _, titulo := range []string{"Um", "Dois", "Três"} {
 		if no, err := n.Notificar(nil, ana, titulo, "corpo de "+titulo); err != nil || no.Estado != NoDigesto {
@@ -690,7 +1161,8 @@ func TestNotifyDigest(t *testing.T) {
 	if k, _ := n.Digesto(context.Background()); k != 0 || len(caixa.Messages()) != 2 {
 		t.Fatalf("o segundo digesto do dia mandou %d", k)
 	}
-	for _, no := range n.Fila(ana.Sujeito) {
+	fila, _ := n.Fila(bg, ana.Sujeito)
+	for _, no := range fila {
 		if no.Estado != Enviada {
 			t.Fatalf("depois do digesto: %+v", no)
 		}
@@ -789,7 +1261,11 @@ import (
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("{{.T.notify_title}}")
 	u := sessao.Atual(c)
-	return tela(c, trilha.Use[*notificar.Notificador](c).Preferencias(u.Subject), nil), nil
+	p, err := trilha.Use[*notificar.Notificador](c).Preferencias(c.Context(), u.Subject)
+	if err != nil {
+		return nil, err
+	}
+	return tela(c, p, nil)
 }
 
 // POST saves the preferences. The tags validate the shape; the channel has
@@ -809,14 +1285,20 @@ func POST(c *trilha.Ctx) error {
 		fe.Add("canal", "{{.T.notify_unwired}}")
 	}
 	if len(fe) > 0 {
-		return c.Render(http.StatusUnprocessableEntity, tela(c, p, fe))
+		pagina, err := tela(c, p, fe)
+		if err != nil {
+			return err
+		}
+		return c.Render(http.StatusUnprocessableEntity, pagina)
 	}
-	trilha.Use[*notificar.Notificador](c).SalvarPreferencias(u.Subject, p)
+	if err := trilha.Use[*notificar.Notificador](c).SalvarPreferencias(c.Context(), u.Subject, p); err != nil {
+		return err
+	}
 	c.Flash(ui.FlashSuccess, "{{.T.notify_saved}}")
 	return c.Redirect("{{.URL}}notificacoes")
 }
 
-func tela(c *trilha.Ctx, p notificar.Preferencias, errs trilha.FieldErrors) h.Node {
+func tela(c *trilha.Ctx, p notificar.Preferencias, errs trilha.FieldErrors) (h.Node, error) {
 	var canais []ui.Option
 	for _, canal := range notificar.Disponiveis() {
 		canais = append(canais, ui.Option{Value: canal, Label: RotuloCanal(canal)})
@@ -825,7 +1307,10 @@ func tela(c *trilha.Ctx, p notificar.Preferencias, errs trilha.FieldErrors) h.No
 	if p.Digesto {
 		digesto = h.Checked()
 	}
-	recentes := trilha.Use[*notificar.Notificador](c).Fila(sessao.Atual(c).Subject)
+	recentes, err := trilha.Use[*notificar.Notificador](c).Fila(c.Context(), sessao.Atual(c).Subject)
+	if err != nil {
+		return nil, err
+	}
 	var lista h.Node = ui.Muted(h.Text("{{.T.notify_empty}}"))
 	if len(recentes) > 0 {
 		linhas := make([]h.Node, 0, len(recentes))
@@ -859,7 +1344,7 @@ func tela(c *trilha.Ctx, p notificar.Preferencias, errs trilha.FieldErrors) h.No
 		),
 		ui.H2(h.Text("{{.T.notify_recent}}")),
 		lista,
-	)
+	), nil
 }
 
 // RotuloCanal is what a channel is called on the screen.
@@ -928,7 +1413,10 @@ import (
 // Page renders GET {{.URL}}notificacoes/fila.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("{{.T.notify_outbox}}")
-	fila := trilha.Use[*notificar.Notificador](c).Fila("")
+	fila, err := trilha.Use[*notificar.Notificador](c).Fila(c.Context(), "")
+	if err != nil {
+		return nil, err
+	}
 	var lista h.Node = ui.Muted(h.Text("{{.T.notify_outbox_empty}}"))
 	if len(fila) > 0 {
 		linhas := make([]h.Node, 0, len(fila))
@@ -1005,6 +1493,7 @@ func POST(c *trilha.Ctx) error {
 const notifyTest = `package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -1016,6 +1505,7 @@ import (
 	"github.com/emersonjoe/trilha/mail"
 
 	"{{.Module}}/internal/notificar"
+	"{{.Module}}/internal/notificar/notificartest"
 	"{{.Module}}/internal/usuarios"
 )
 
@@ -1065,7 +1555,7 @@ func TestNotifyPreferences(t *testing.T) {
 	c.PostForm("{{.URL}}notificacoes", url.Values{"canal": {"mail"}, "digesto": {"true"},
 		"silencio_de": {"22"}, "silencio_ate": {"7"}}).WantStatus(http.StatusSeeOther)
 
-	p := trilha.Use[*notificar.Notificador](a).Preferencias("u-1")
+	p, _ := trilha.Use[*notificar.Notificador](a).Preferencias(context.Background(), "u-1")
 	if p.Canal != "mail" || !p.Digesto || p.SilencioDe != 22 || p.SilencioAte != 7 {
 		t.Fatalf("preferências = %+v", p)
 	}
@@ -1122,10 +1612,17 @@ func TestNotifyOutboxReplay(t *testing.T) {
 	if len(caixa.Messages()) != 2 || !strings.Contains(caixa.Last().Subject, "Pedido pago") {
 		t.Fatalf("o reenvio não saiu: %d mensagens", len(caixa.Messages()))
 	}
-	for _, no := range trilha.Use[*notificar.Notificador](a).Fila("") {
+	fila, _ := trilha.Use[*notificar.Notificador](a).Fila(context.Background(), "")
+	for _, no := range fila {
 		if no.Estado != notificar.Enviada {
 			t.Fatalf("depois do reenvio: %+v", no)
 		}
 	}
+}
+
+// O contrato do store sobre o que o app ligou: a memória num projeto sem
+// banco, as tabelas de migrations/0110_notify.sql com o store.
+func TestNotifyStoreContractOnTheApp(t *testing.T) {
+	notificartest.Contrato(t, trilha.Use[*notificar.Notificador](appDeNotificacoes(t)))
 }
 `

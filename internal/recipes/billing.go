@@ -17,7 +17,7 @@ package recipes
 func billingRecipe() Recipe {
 	return Recipe{
 		Name:        "billing",
-		CtxPackCost: 338,
+		CtxPackCost: 356,
 		Summary: map[string]string{
 			"en": "charging without a coupled provider: plans, subscriptions trial → active → past_due → canceled, signed idempotent webhook, dunning by e-mail, CSV",
 			"pt": "cobrança sem provedor acoplado: planos, assinaturas trial → active → past_due → canceled, webhook assinado e idempotente, dunning por e-mail, CSV",
@@ -33,7 +33,9 @@ func billingRecipe() Recipe {
 			{Rel: "internal/cobranca/cobranca.go", Go: true, Body: billingDomain},
 			{Rel: "internal/cobranca/webhook.go", Go: true, Body: billingWebhook},
 			{Rel: "internal/cobranca/dunning.go", Go: true, Body: billingDunning},
+			{Rel: "internal/cobranca/sql.go", Go: true, Body: billingSQL},
 			{Rel: "internal/cobranca/cobranca_test.go", Go: true, Body: billingDomainTest},
+			{Rel: "internal/cobranca/cobrancatest/cobrancatest.go", Go: true, Body: billingContract},
 			{Rel: "migrations/0100_billing.sql", Body: billingMigration},
 			// The address is fixed on purpose: it is typed into the provider's
 			// dashboard, so it does not move with the screens.
@@ -48,7 +50,7 @@ func billingRecipe() Recipe {
 			{Rel: "{{.At}}billing/faturas/csv/route.go", Go: true, Body: billingCSV},
 			{Rel: "billing_test.go", Go: true, Body: billingTest},
 		},
-		Setup: []Insert{{
+		Setup: []Insert{billingStoreLink("internal/store/store.go"), {
 			Marker: "// trilha:add billing",
 			Line:   "\tif err := cobranca.Setup(a); err != nil {\n\t\treturn err\n\t}\n",
 		}},
@@ -59,14 +61,31 @@ func billingRecipe() Recipe {
 				"https://<your host>/webhooks/billing — it signs timestamp.body in X-Webhook-Timestamp and " +
 				"X-Webhook-Signature; a provider with another scheme is the parse in internal/cobranca/webhook.go, " +
 				"and nothing else. Give somebody the role billing:admin or billing:reader and open {{.URL}}billing. " +
-				"migrations/0100_billing.sql is the same shape as tables for the day `trilha add store` arrives.",
+				"The rows are in memory until `trilha add store` is in the project, before or after: then they go to " +
+				"the tables of migrations/0100_billing.sql, with no screen changing.",
 			"pt": "Abra {{.URL}}conexoes e crie uma conexão do tipo API chamada `billing-webhook` cujo segredo " +
 				"é o que o seu provedor usa para assinar. Aponte o provedor para " +
 				"https://<seu host>/webhooks/billing — ele assina timestamp.body em X-Webhook-Timestamp e " +
 				"X-Webhook-Signature; um provedor com outro esquema é o parse em internal/cobranca/webhook.go, e " +
 				"mais nada. Dê a alguém o papel billing:admin ou billing:reader e abra {{.URL}}billing. " +
-				"migrations/0100_billing.sql é o mesmo formato em tabelas para o dia em que o `trilha add store` chegar.",
+				"As linhas ficam em memória até o `trilha add store` estar no projeto, antes ou depois: aí vão para " +
+				"as tabelas de migrations/0100_billing.sql, sem nenhuma tela mudar.",
 		},
+	}
+}
+
+// billingStoreLink is the line that moves the billing rows to the database
+// when the store recipe is there: Banco answers the pool and the dialect's
+// placeholder, and cobranca.Setup uses NovoSQL. Billing and store both carry
+// it, each conditioned on the other's file, so the tie happens whichever
+// arrives second. Banco is a function because store.Setup, which opens the
+// pool, may run after cobranca.Setup.
+func billingStoreLink(ifFile string) Insert {
+	return Insert{
+		Marker:  "// trilha:link billing-store",
+		Line:    "\tcobranca.Banco = func() (*sql.DB, func(int) string) { return store.DB, store.D.Arg }\n",
+		If:      ifFile,
+		Imports: []string{"database/sql", "{{.Module}}/internal/cobranca", "{{.Module}}/internal/store"},
 	}
 }
 
@@ -78,12 +97,14 @@ const billingDomain = `// Package cobranca is what this application charges for:
 // happened, signed, at /webhooks/billing; this package decides what it means.
 // Changing provider is rewriting the parse in webhook.go and nothing else.
 //
-// The rows live in memory behind the Store methods, which is the honest
-// starting point: migrations/0100_billing.sql is the same shape as tables, and
-// a store over them replaces this one without a screen changing.
+// The rows live behind the Store interface: in memory until the project has
+// a database, and in the tables of migrations/0100_billing.sql once
+// ` + "`trilha add store`" + ` is there (sql.go) — without a screen changing.
 package cobranca
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"sort"
@@ -213,8 +234,82 @@ type LinhaCSV struct {
 	Emitida    time.Time ` + "`" + `csv:"{{.T.billing_issued}}"` + "`" + `
 }
 
-// Store is the four tables, in memory.
-type Store struct {
+// Store is the four tables of migrations/0100_billing.sql. NovoStore keeps
+// them in memory; with ` + "`trilha add store`" + ` in the project, setup.go points
+// Banco at the database and Setup uses NovoSQL (sql.go) — the same methods,
+// so no screen changes. Every method takes the request's context and answers
+// an error: a database can fail where a map cannot.
+type Store interface {
+	// Planos is every plan, by name.
+	Planos(ctx context.Context) ([]Plano, error)
+	// SalvarPlano writes a plan, giving it an id when it has none.
+	SalvarPlano(ctx context.Context, p Plano) (Plano, error)
+	// ApagarPlano removes a plan nobody is subscribed to (ErrPlanoEmUso).
+	ApagarPlano(ctx context.Context, id string) error
+	// Assinaturas lists the subscriptions in one state, or all of them when
+	// estado is empty, the newest first.
+	Assinaturas(ctx context.Context, estado Estado) ([]Assinatura, error)
+	// Assinatura finds one, or ErrNaoExiste.
+	Assinatura(ctx context.Context, id string) (Assinatura, error)
+	// Assinar creates a subscription in trial — what the provider's
+	// subscription.created does, and where a test starts from.
+	Assinar(ctx context.Context, id, email, plano string, agora time.Time) (Assinatura, error)
+	// Faturas is every invoice, the newest first.
+	Faturas(ctx context.Context) ([]Fatura, error)
+	// Visto records an event id and says whether it had been seen already.
+	// The provider promises at least once; this is where that becomes
+	// exactly once.
+	Visto(ctx context.Context, id string, agora time.Time) (bool, error)
+	// Esquecer undoes Visto, for an event the store failed to apply: the
+	// provider's retry has to be processed, not answered "duplicate".
+	Esquecer(ctx context.Context, id string) error
+	// Pagou records a paid invoice: active, and the failures forgotten.
+	Pagou(ctx context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error)
+	// Falhou records a failed charge: past due, one more failure counted,
+	// and the last one allowed cancels.
+	Falhou(ctx context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error)
+	// Cancelar ends a subscription.
+	Cancelar(ctx context.Context, assinatura string, agora time.Time) (Mudanca, error)
+}
+
+// Mudanca is what one event did to a subscription, for the audit trail.
+type Mudanca struct {
+	Assinatura Assinatura
+	De         Estado
+}
+
+// The three events, as changes to a subscription. Both stores apply them
+// with aplicar, so the rule lives in one place.
+func pagou(a *Assinatura) Estado { a.Tentativas = 0; return Ativa }
+
+func falhou(a *Assinatura) Estado {
+	a.Tentativas++
+	if a.Tentativas >= MaxTentativas {
+		return Cancelada
+	}
+	return Atrasada
+}
+
+func cancelar(*Assinatura) Estado { return Cancelada }
+
+// aplicar is the one place a subscription changes state. The whole change is
+// checked before any of it is written: a refused transition leaves the row,
+// the counter and the invoice as they were.
+func aplicar(a Assinatura, para func(*Assinatura) Estado, agora time.Time) (Assinatura, error) {
+	novo := a
+	destino := para(&novo)
+	if destino != a.Estado {
+		if err := Mover(a.Estado, destino); err != nil {
+			return a, err
+		}
+	}
+	novo.Estado, novo.Atualizada = destino, agora
+	return novo, nil
+}
+
+// Memoria is the four tables in memory: the store of a project without a
+// database, and of every test that does not need one.
+type Memoria struct {
 	mu          sync.Mutex
 	seq         int
 	planos      map[string]Plano
@@ -223,19 +318,18 @@ type Store struct {
 	eventos     map[string]time.Time
 }
 
-// NovoStore is an empty store.
-func NovoStore() *Store {
-	return &Store{planos: map[string]Plano{}, assinaturas: map[string]Assinatura{},
+// NovoStore is an empty store in memory.
+func NovoStore() *Memoria {
+	return &Memoria{planos: map[string]Plano{}, assinaturas: map[string]Assinatura{},
 		faturas: map[string]Fatura{}, eventos: map[string]time.Time{}}
 }
 
-func (s *Store) novoID(prefixo string) string {
+func (s *Memoria) novoID(prefixo string) string {
 	s.seq++
 	return prefixo + strconv.Itoa(s.seq)
 }
 
-// Planos is every plan, by name.
-func (s *Store) Planos() []Plano {
+func (s *Memoria) Planos(context.Context) ([]Plano, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Plano, 0, len(s.planos))
@@ -243,11 +337,10 @@ func (s *Store) Planos() []Plano {
 		out = append(out, p)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Nome < out[j].Nome })
-	return out
+	return out, nil
 }
 
-// SalvarPlano writes a plan, giving it an id when it has none.
-func (s *Store) SalvarPlano(p Plano) Plano {
+func (s *Memoria) SalvarPlano(_ context.Context, p Plano) (Plano, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if p.ID == "" {
@@ -255,12 +348,10 @@ func (s *Store) SalvarPlano(p Plano) Plano {
 	}
 	p.Moeda = strings.ToUpper(p.Moeda)
 	s.planos[p.ID] = p
-	return p
+	return p, nil
 }
 
-// ApagarPlano removes a plan nobody is subscribed to. A plan with a live
-// subscription is refused: the subscription would point at nothing.
-func (s *Store) ApagarPlano(id string) error {
+func (s *Memoria) ApagarPlano(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.planos[id]; !ok {
@@ -275,9 +366,7 @@ func (s *Store) ApagarPlano(id string) error {
 	return nil
 }
 
-// Assinaturas lists the subscriptions in one state, or all of them when
-// estado is empty, the newest first.
-func (s *Store) Assinaturas(estado Estado) []Assinatura {
+func (s *Memoria) Assinaturas(_ context.Context, estado Estado) ([]Assinatura, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Assinatura, 0, len(s.assinaturas))
@@ -292,11 +381,10 @@ func (s *Store) Assinaturas(estado Estado) []Assinatura {
 		}
 		return out[i].ID < out[j].ID
 	})
-	return out
+	return out, nil
 }
 
-// Assinatura finds one.
-func (s *Store) Assinatura(id string) (Assinatura, error) {
+func (s *Memoria) Assinatura(_ context.Context, id string) (Assinatura, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, ok := s.assinaturas[id]
@@ -306,9 +394,7 @@ func (s *Store) Assinatura(id string) (Assinatura, error) {
 	return a, nil
 }
 
-// Assinar creates a subscription in trial. It is what the provider's
-// subscription.created event does; a test uses it to start from somewhere.
-func (s *Store) Assinar(id, email, plano string, agora time.Time) Assinatura {
+func (s *Memoria) Assinar(_ context.Context, id, email, plano string, agora time.Time) (Assinatura, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if id == "" {
@@ -316,11 +402,10 @@ func (s *Store) Assinar(id, email, plano string, agora time.Time) Assinatura {
 	}
 	a := Assinatura{ID: id, Email: email, Plano: plano, Estado: Trial, Criada: agora, Atualizada: agora}
 	s.assinaturas[id] = a
-	return a
+	return a, nil
 }
 
-// Faturas is every invoice, the newest first.
-func (s *Store) Faturas() []Fatura {
+func (s *Memoria) Faturas(context.Context) ([]Fatura, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Fatura, 0, len(s.faturas))
@@ -333,71 +418,49 @@ func (s *Store) Faturas() []Fatura {
 		}
 		return out[i].ID < out[j].ID
 	})
-	return out
+	return out, nil
 }
 
-// Visto records an event id and says whether it had been seen already. The
-// provider promises at least once; this is where that becomes exactly once.
-func (s *Store) Visto(id string, agora time.Time) bool {
+func (s *Memoria) Visto(_ context.Context, id string, agora time.Time) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.eventos[id]; ok {
-		return true
+		return true, nil
 	}
 	s.eventos[id] = agora
-	return false
+	return false, nil
 }
 
-// Mudanca is what one event did to a subscription, for the audit trail.
-type Mudanca struct {
-	Assinatura Assinatura
-	De         Estado
+func (s *Memoria) Esquecer(_ context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.eventos, id)
+	return nil
 }
 
-// Pagou records a paid invoice: the subscription is active and the failures
-// are forgotten.
-func (s *Store) Pagou(assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
-	return s.mudar(assinatura, fatura, centavos, moeda, true, agora, func(a *Assinatura) Estado {
-		a.Tentativas = 0
-		return Ativa
-	})
+func (s *Memoria) Pagou(_ context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
+	return s.mudar(assinatura, fatura, centavos, moeda, true, agora, pagou)
 }
 
-// Falhou records a failed charge: the subscription is past due, one more
-// failure is counted, and the last one allowed cancels it.
-func (s *Store) Falhou(assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
-	return s.mudar(assinatura, fatura, centavos, moeda, false, agora, func(a *Assinatura) Estado {
-		a.Tentativas++
-		if a.Tentativas >= MaxTentativas {
-			return Cancelada
-		}
-		return Atrasada
-	})
+func (s *Memoria) Falhou(_ context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
+	return s.mudar(assinatura, fatura, centavos, moeda, false, agora, falhou)
 }
 
-// Cancelar ends a subscription.
-func (s *Store) Cancelar(assinatura string, agora time.Time) (Mudanca, error) {
-	return s.mudar(assinatura, "", 0, "", false, agora, func(*Assinatura) Estado { return Cancelada })
+func (s *Memoria) Cancelar(_ context.Context, assinatura string, agora time.Time) (Mudanca, error) {
+	return s.mudar(assinatura, "", 0, "", false, agora, cancelar)
 }
 
-// mudar is the one place a subscription changes state. The whole change is
-// checked before any of it is written: a refused transition leaves the row,
-// the counter and the invoice as they were.
-func (s *Store) mudar(id, fatura string, centavos int64, moeda string, paga bool, agora time.Time, para func(*Assinatura) Estado) (Mudanca, error) {
+func (s *Memoria) mudar(id, fatura string, centavos int64, moeda string, paga bool, agora time.Time, para func(*Assinatura) Estado) (Mudanca, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, ok := s.assinaturas[id]
 	if !ok {
 		return Mudanca{}, ErrNaoExiste
 	}
-	novo := a
-	destino := para(&novo)
-	if destino != a.Estado {
-		if err := Mover(a.Estado, destino); err != nil {
-			return Mudanca{Assinatura: a, De: a.Estado}, err
-		}
+	novo, err := aplicar(a, para, agora)
+	if err != nil {
+		return Mudanca{Assinatura: a, De: a.Estado}, err
 	}
-	novo.Estado, novo.Atualizada = destino, agora
 	s.assinaturas[id] = novo
 	if fatura != "" {
 		f, ok := s.faturas[fatura]
@@ -415,14 +478,25 @@ func (s *Store) mudar(id, fatura string, centavos int64, moeda string, paga bool
 // the tasks recipe provides one too, and one application with two values of
 // the same type would lose one of them.
 type Billing struct {
-	Store   *Store
+	Store   Store
 	tarefas *task.Tasks
 }
+
+// Banco is the database, when the project has one: setup.go sets it when the
+// store recipe is there (trilha:link billing-store), and Setup then keeps the
+// rows in migrations/0100_billing.sql instead of in memory. It is a function
+// because the pool opens in store.Setup, which may run after this one; the
+// store asks for it on the first query. arg is the dialect's placeholder.
+var Banco func() (db *sql.DB, arg func(n int) string)
 
 // Setup builds the module, hands it to the application and starts the
 // reminder engine, whose Shutdown is hung on the app.
 func Setup(a *trilha.App) error {
-	b := &Billing{Store: NovoStore(), tarefas: task.New(task.Options{Logger: a.Logger()})}
+	var s Store = NovoStore()
+	if Banco != nil {
+		s = NovoSQL(Banco)
+	}
+	b := &Billing{Store: s, tarefas: task.New(task.Options{Logger: a.Logger()})}
 	b.tarefas.Handle(TarefaLembrete, b.lembrete)
 	trilha.Provide(a, b)
 	return b.tarefas.Setup(a)
@@ -431,6 +505,287 @@ func Setup(a *trilha.App) error {
 // Pode is what a page asks before it draws a button. Hiding is cosmetic:
 // the rule that holds is the middleware of the folder.
 func Pode(u *auth.User, nivel string) bool { return Politica.Can(u, "billing", nivel) }
+`
+
+const billingSQL = `package cobranca
+
+import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
+	"errors"
+	"strings"
+	"time"
+)
+
+// SQL is the four tables of migrations/0100_billing.sql. It speaks only
+// database/sql: the driver and the dialect are the store recipe's, handed in
+// by Banco, so this package never imports them.
+//
+// Every query is written here with placeholders; nothing that came from a
+// request is ever part of the SQL text.
+type SQL struct {
+	banco func() (*sql.DB, func(int) string)
+}
+
+// NovoSQL is the store over the database Banco answers.
+func NovoSQL(banco func() (*sql.DB, func(int) string)) *SQL { return &SQL{banco: banco} }
+
+// errConcorrente is a row that changed between the read and the write — the
+// same subscription touched by two replicas at once. mudar reads it again.
+var errConcorrente = errors.New("cobranca: the subscription changed underneath")
+
+func idNovo(prefixo string) string {
+	var b [6]byte
+	_, _ = rand.Read(b[:])
+	return prefixo + hex.EncodeToString(b[:])
+}
+
+// linha is what Scan fills: a row of the database, whatever the driver.
+type linha interface{ Scan(dest ...any) error }
+
+func lerPlano(r linha) (Plano, error) {
+	var p Plano
+	err := r.Scan(&p.ID, &p.Nome, &p.Centavos, &p.Moeda, &p.Intervalo)
+	return p, err
+}
+
+func lerAssinatura(r linha) (Assinatura, error) {
+	var a Assinatura
+	var estado string
+	err := r.Scan(&a.ID, &a.Email, &a.Plano, &estado, &a.Tentativas, &a.Criada, &a.Atualizada)
+	a.Estado = Estado(estado)
+	return a, err
+}
+
+func lerFatura(r linha) (Fatura, error) {
+	var f Fatura
+	err := r.Scan(&f.ID, &f.Assinatura, &f.Centavos, &f.Moeda, &f.Paga, &f.Emitida)
+	return f, err
+}
+
+const (
+	colPlano      = "id, name, cents, currency, period"
+	colAssinatura = "id, email, plan_id, state, attempts, created_at, updated_at"
+	colFatura     = "id, subscription_id, cents, currency, paid, issued_at"
+)
+
+func (s *SQL) Planos(ctx context.Context) ([]Plano, error) {
+	db, _ := s.banco()
+	rows, err := db.QueryContext(ctx, "SELECT "+colPlano+" FROM billing_plans ORDER BY name, id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Plano
+	for rows.Next() {
+		p, err := lerPlano(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (s *SQL) SalvarPlano(ctx context.Context, p Plano) (Plano, error) {
+	db, arg := s.banco()
+	if p.ID == "" {
+		p.ID = idNovo("plano-")
+	}
+	p.Moeda = strings.ToUpper(p.Moeda)
+	_, err := db.ExecContext(ctx, "INSERT INTO billing_plans ("+colPlano+") VALUES ("+
+		arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", "+arg(5)+") ON CONFLICT (id) DO UPDATE SET "+
+		"name = excluded.name, cents = excluded.cents, currency = excluded.currency, period = excluded.period",
+		p.ID, p.Nome, p.Centavos, p.Moeda, p.Intervalo)
+	return p, err
+}
+
+func (s *SQL) ApagarPlano(ctx context.Context, id string) error {
+	db, arg := s.banco()
+	return emTx(ctx, db, func(tx *sql.Tx) error {
+		var n int
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM billing_plans WHERE id = "+arg(1), id).Scan(&n); err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNaoExiste
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM billing_subscriptions WHERE plan_id = "+arg(1)+
+			" AND state <> "+arg(2), id, string(Cancelada)).Scan(&n); err != nil {
+			return err
+		}
+		if n > 0 {
+			return ErrPlanoEmUso
+		}
+		_, err := tx.ExecContext(ctx, "DELETE FROM billing_plans WHERE id = "+arg(1), id)
+		return err
+	})
+}
+
+func (s *SQL) Assinaturas(ctx context.Context, estado Estado) ([]Assinatura, error) {
+	db, arg := s.banco()
+	q, args := "SELECT "+colAssinatura+" FROM billing_subscriptions", []any{}
+	if estado != "" {
+		q, args = q+" WHERE state = "+arg(1), append(args, string(estado))
+	}
+	rows, err := db.QueryContext(ctx, q+" ORDER BY created_at DESC, id", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Assinatura
+	for rows.Next() {
+		a, err := lerAssinatura(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (s *SQL) Assinatura(ctx context.Context, id string) (Assinatura, error) {
+	db, arg := s.banco()
+	return umaAssinatura(ctx, db, arg, id)
+}
+
+// consulta is what a pool and a transaction have in common.
+type consulta interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+func umaAssinatura(ctx context.Context, q consulta, arg func(int) string, id string) (Assinatura, error) {
+	a, err := lerAssinatura(q.QueryRowContext(ctx, "SELECT "+colAssinatura+" FROM billing_subscriptions WHERE id = "+arg(1), id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Assinatura{}, ErrNaoExiste
+	}
+	return a, err
+}
+
+func (s *SQL) Assinar(ctx context.Context, id, email, plano string, agora time.Time) (Assinatura, error) {
+	db, arg := s.banco()
+	if id == "" {
+		id = idNovo("assinatura-")
+	}
+	a := Assinatura{ID: id, Email: email, Plano: plano, Estado: Trial, Criada: agora, Atualizada: agora}
+	_, err := db.ExecContext(ctx, "INSERT INTO billing_subscriptions ("+colAssinatura+") VALUES ("+
+		arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", 0, "+arg(5)+", "+arg(6)+") ON CONFLICT (id) DO UPDATE SET "+
+		"email = excluded.email, plan_id = excluded.plan_id, state = excluded.state, attempts = 0, "+
+		"created_at = excluded.created_at, updated_at = excluded.updated_at",
+		a.ID, a.Email, a.Plano, string(a.Estado), a.Criada, a.Atualizada)
+	return a, err
+}
+
+func (s *SQL) Faturas(ctx context.Context) ([]Fatura, error) {
+	db, _ := s.banco()
+	rows, err := db.QueryContext(ctx, "SELECT "+colFatura+" FROM billing_invoices ORDER BY issued_at DESC, id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Fatura
+	for rows.Next() {
+		f, err := lerFatura(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+// Visto leans on the primary key: the insert of an id already there changes
+// nothing, and that is the answer — no read-then-write for two replicas to
+// race through.
+func (s *SQL) Visto(ctx context.Context, id string, agora time.Time) (bool, error) {
+	db, arg := s.banco()
+	res, err := db.ExecContext(ctx, "INSERT INTO billing_events (id, received_at) VALUES ("+arg(1)+", "+arg(2)+
+		") ON CONFLICT (id) DO NOTHING", id, agora)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 0, err
+}
+
+func (s *SQL) Esquecer(ctx context.Context, id string) error {
+	db, arg := s.banco()
+	_, err := db.ExecContext(ctx, "DELETE FROM billing_events WHERE id = "+arg(1), id)
+	return err
+}
+
+func (s *SQL) Pagou(ctx context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
+	return s.mudar(ctx, assinatura, fatura, centavos, moeda, true, agora, pagou)
+}
+
+func (s *SQL) Falhou(ctx context.Context, assinatura, fatura string, centavos int64, moeda string, agora time.Time) (Mudanca, error) {
+	return s.mudar(ctx, assinatura, fatura, centavos, moeda, false, agora, falhou)
+}
+
+func (s *SQL) Cancelar(ctx context.Context, assinatura string, agora time.Time) (Mudanca, error) {
+	return s.mudar(ctx, assinatura, "", 0, "", false, agora, cancelar)
+}
+
+// mudar reads the subscription, applies the change with the same rule as
+// memory, and writes it only if the row is still what was read — an
+// optimistic check that works the same on both databases. A row that moved
+// is read again, a few times, before giving up.
+func (s *SQL) mudar(ctx context.Context, id, fatura string, centavos int64, moeda string, paga bool, agora time.Time, para func(*Assinatura) Estado) (Mudanca, error) {
+	db, arg := s.banco()
+	for tentativa := 0; ; tentativa++ {
+		var m Mudanca
+		err := emTx(ctx, db, func(tx *sql.Tx) error {
+			a, err := umaAssinatura(ctx, tx, arg, id)
+			if err != nil {
+				return err
+			}
+			m = Mudanca{Assinatura: a, De: a.Estado}
+			novo, err := aplicar(a, para, agora)
+			if err != nil {
+				return err
+			}
+			res, err := tx.ExecContext(ctx, "UPDATE billing_subscriptions SET state = "+arg(1)+", attempts = "+arg(2)+
+				", updated_at = "+arg(3)+" WHERE id = "+arg(4)+" AND state = "+arg(5)+" AND attempts = "+arg(6),
+				string(novo.Estado), novo.Tentativas, novo.Atualizada, id, string(a.Estado), a.Tentativas)
+			if err != nil {
+				return err
+			}
+			if n, err := res.RowsAffected(); err != nil || n != 1 {
+				return errConcorrente
+			}
+			if fatura != "" {
+				if _, err := tx.ExecContext(ctx, "INSERT INTO billing_invoices ("+colFatura+") VALUES ("+
+					arg(1)+", "+arg(2)+", "+arg(3)+", "+arg(4)+", "+arg(5)+", "+arg(6)+") ON CONFLICT (id) DO UPDATE SET "+
+					"paid = billing_invoices.paid OR excluded.paid",
+					fatura, id, centavos, strings.ToUpper(moeda), paga, agora); err != nil {
+					return err
+				}
+			}
+			m.Assinatura = novo
+			return nil
+		})
+		if errors.Is(err, errConcorrente) && tentativa < 3 {
+			continue
+		}
+		return m, err
+	}
+}
+
+// emTx runs fn in a transaction. The rollback is deferred without a
+// condition: rolling back a committed transaction does nothing.
+func emTx(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // see above
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
 `
 
 const billingWebhook = `package cobranca
@@ -506,16 +861,42 @@ func (b *Billing) Receber(c *trilha.Ctx) error {
 	// Signed and not seen before, and only then: an unsigned request must not
 	// be able to burn an id a real event will carry later.
 	agora := time.Now().UTC()
-	if b.Store.Visto(ev.ID, agora) {
+	visto, err := b.Store.Visto(c.Context(), ev.ID, agora)
+	if err != nil {
+		return err // 500: the provider tries again
+	}
+	if visto {
 		return c.JSON(http.StatusOK, map[string]string{"status": "duplicate"})
 	}
 	if err := b.aplicar(c, ev, agora); err != nil {
+		var falha falhaDoStore
+		if errors.As(err, &falha) {
+			// The store failed and wrote nothing: the id is forgotten and the
+			// answer is 500, so the provider's retry is processed.
+			if ferr := b.Store.Esquecer(c.Context(), ev.ID); ferr != nil {
+				c.Log().Error("cobranca: event id kept after a failure", "event", ev.ID, "err", ferr)
+			}
+			return falha.err
+		}
 		// The event was understood and refused by the machine — an old event
 		// arriving after a cancel, say. It is logged with the reason, and the
 		// answer is still 200: retrying it would not make it valid.
 		c.Log().Warn("cobranca: event not applied", "event", ev.ID, "type", ev.Tipo, "err", err)
 	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// falhaDoStore is an error of the store itself — the database, not the
+// machine — for which nothing was written.
+type falhaDoStore struct{ err error }
+
+func (f falhaDoStore) Error() string { return f.err.Error() }
+
+func doStore(err error) error {
+	if err == nil || errors.Is(err, ErrTransicao) || errors.Is(err, ErrNaoExiste) {
+		return err
+	}
+	return falhaDoStore{err}
 }
 
 // aplicar turns an event into a change. Every change that touches money is
@@ -528,20 +909,23 @@ func (b *Billing) aplicar(c *trilha.Ctx, ev Evento, agora time.Time) error {
 	)
 	switch ev.Tipo {
 	case EventoAssinou:
-		a := b.Store.Assinar(ev.Assinatura, ev.Email, ev.Plano, agora)
+		a, err := b.Store.Assinar(c.Context(), ev.Assinatura, ev.Email, ev.Plano, agora)
+		if err != nil {
+			return doStore(err)
+		}
 		c.Audit("billing.assinatura_criada", a.ID, trilha.Fields{"evento": ev.ID, "plano": ev.Plano})
 		return nil
 	case EventoPagou:
-		m, err = b.Store.Pagou(ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
+		m, err = b.Store.Pagou(c.Context(), ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
 	case EventoFalhou:
-		m, err = b.Store.Falhou(ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
+		m, err = b.Store.Falhou(c.Context(), ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
 	case EventoCancelou:
-		m, err = b.Store.Cancelar(ev.Assinatura, agora)
+		m, err = b.Store.Cancelar(c.Context(), ev.Assinatura, agora)
 	default:
 		return nil
 	}
 	if err != nil {
-		return err
+		return doStore(err)
 	}
 	c.Audit("billing."+strings.ReplaceAll(ev.Tipo, ".", "_"), m.Assinatura.ID, trilha.Fields{
 		"evento": ev.ID, "fatura": ev.Fatura, "de": string(m.De), "para": string(m.Assinatura.Estado),
@@ -621,7 +1005,7 @@ func (b *Billing) lembrete(ctx context.Context, p *task.Progress) error {
 	if err != nil {
 		return fmt.Errorf("cobranca: reminder key %q: %w", p.Key, err)
 	}
-	a, err := b.Store.Assinatura(id)
+	a, err := b.Store.Assinatura(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -639,107 +1023,208 @@ func (b *Billing) lembrete(ctx context.Context, p *task.Progress) error {
 }
 `
 
-const billingDomainTest = `package cobranca
+const billingDomainTest = `package cobranca_test
 
 import (
 	"errors"
 	"testing"
-	"time"
+
+	"{{.Module}}/internal/cobranca"
+	"{{.Module}}/internal/cobranca/cobrancatest"
 )
 
 // A máquina é fechada: o que a tabela permite passa, o resto é recusado — e
 // uma assinatura cancelada não volta porque um evento velho chegou atrasado.
+// Depois, o contrato do store inteiro sobre a memória.
 func TestBillingStates(t *testing.T) {
 	casos := []struct {
-		de, para Estado
+		de, para cobranca.Estado
 		pode     bool
 	}{
-		{Trial, Ativa, true}, {Trial, Atrasada, true}, {Trial, Cancelada, true},
-		{Ativa, Atrasada, true}, {Ativa, Cancelada, true}, {Ativa, Trial, false},
-		{Atrasada, Ativa, true}, {Atrasada, Cancelada, true}, {Atrasada, Trial, false},
-		{Cancelada, Ativa, false}, {Cancelada, Atrasada, false}, {Cancelada, Trial, false},
+		{cobranca.Trial, cobranca.Ativa, true}, {cobranca.Trial, cobranca.Atrasada, true},
+		{cobranca.Trial, cobranca.Cancelada, true}, {cobranca.Ativa, cobranca.Atrasada, true},
+		{cobranca.Ativa, cobranca.Cancelada, true}, {cobranca.Ativa, cobranca.Trial, false},
+		{cobranca.Atrasada, cobranca.Ativa, true}, {cobranca.Atrasada, cobranca.Cancelada, true},
+		{cobranca.Atrasada, cobranca.Trial, false}, {cobranca.Cancelada, cobranca.Ativa, false},
+		{cobranca.Cancelada, cobranca.Atrasada, false}, {cobranca.Cancelada, cobranca.Trial, false},
 	}
 	for _, c := range casos {
-		err := Mover(c.de, c.para)
+		err := cobranca.Mover(c.de, c.para)
 		if (err == nil) != c.pode {
 			t.Errorf("%s → %s: err = %v, pode = %v", c.de, c.para, err, c.pode)
 		}
-		if err != nil && !errors.Is(err, ErrTransicao) {
+		if err != nil && !errors.Is(err, cobranca.ErrTransicao) {
 			t.Errorf("%s → %s: o erro não é ErrTransicao: %v", c.de, c.para, err)
 		}
 	}
-	if len(Transicoes) != len(Estados()) {
-		t.Fatalf("a tabela tem %d estados e a lista %d", len(Transicoes), len(Estados()))
+	if len(cobranca.Transicoes) != len(cobranca.Estados()) {
+		t.Fatalf("a tabela tem %d estados e a lista %d", len(cobranca.Transicoes), len(cobranca.Estados()))
 	}
+	cobrancatest.Contrato(t, cobranca.NovoStore())
+}
+`
 
-	// O ciclo inteiro pelo store: falha, falha, paga, falha três vezes.
-	s := NovoStore()
+// billingContract is what every Store promises, in a package of its own so
+// the testing package never reaches the binary. The package's test runs it on
+// memory and the project's billing_test.go on whatever the app wired — the
+// database, once the store recipe is there — so the two cannot drift apart.
+const billingContract = `// Package cobrancatest is the contract of cobranca.Store, for a test to run
+// against any store: the one in memory and the one in the database answer
+// the same, or one of them is wrong.
+package cobrancatest
+
+import (
+	"context"
+	"errors"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"{{.Module}}/internal/cobranca"
+)
+
+// Contrato runs the whole store: the cycle of a subscription, the invoices,
+// the event seen once, the plan in use. Every id carries a prefix of this
+// run, so a database with other rows neither disturbs it nor is disturbed.
+func Contrato(t *testing.T, s cobranca.Store) {
+	t.Helper()
+	ctx := context.Background()
+	px := strconv.FormatInt(time.Now().UnixNano(), 36) + "-"
+	nossas := func(fs []cobranca.Fatura) []cobranca.Fatura {
+		var out []cobranca.Fatura
+		for _, f := range fs {
+			if strings.HasPrefix(f.ID, px) {
+				out = append(out, f)
+			}
+		}
+		return out
+	}
 	agora := time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)
-	s.Assinar("a-1", "cliente@example.com", "plano-1", agora)
-	m, err := s.Falhou("a-1", "f-1", 4900, "brl", agora)
-	if err != nil || m.De != Trial || m.Assinatura.Estado != Atrasada || m.Assinatura.Tentativas != 1 {
+	id := px + "a-1"
+
+	// O ciclo: falha, paga, falha até cancelar.
+	if _, err := s.Assinar(ctx, id, "cliente@example.com", px+"plano-1", agora); err != nil {
+		t.Fatal(err)
+	}
+	m, err := s.Falhou(ctx, id, px+"f-1", 4900, "brl", agora)
+	if err != nil || m.De != cobranca.Trial || m.Assinatura.Estado != cobranca.Atrasada || m.Assinatura.Tentativas != 1 {
 		t.Fatalf("primeira falha: %+v %v", m, err)
 	}
-	if m, err = s.Pagou("a-1", "f-1", 4900, "brl", agora); err != nil || m.Assinatura.Estado != Ativa || m.Assinatura.Tentativas != 0 {
+	if m, err = s.Pagou(ctx, id, px+"f-1", 4900, "brl", agora); err != nil || m.Assinatura.Estado != cobranca.Ativa || m.Assinatura.Tentativas != 0 {
 		t.Fatalf("pagou: %+v %v", m, err)
 	}
-	for i := 1; i <= MaxTentativas; i++ {
-		if m, err = s.Falhou("a-1", "f-2", 4900, "brl", agora); err != nil {
+	for i := 1; i <= cobranca.MaxTentativas; i++ {
+		if m, err = s.Falhou(ctx, id, px+"f-2", 4900, "brl", agora); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if m.Assinatura.Estado != Cancelada {
-		t.Fatalf("depois de %d falhas: %+v", MaxTentativas, m)
+	if m.Assinatura.Estado != cobranca.Cancelada {
+		t.Fatalf("depois de %d falhas: %+v", cobranca.MaxTentativas, m)
 	}
 	// Recusada, a mudança não deixa rastro: nem o contador nem a fatura.
-	if _, err := s.Pagou("a-1", "f-3", 4900, "brl", agora); !errors.Is(err, ErrTransicao) {
+	if _, err := s.Pagou(ctx, id, px+"f-3", 4900, "brl", agora); !errors.Is(err, cobranca.ErrTransicao) {
 		t.Fatalf("uma cancelada voltou: %v", err)
 	}
-	for _, f := range s.Faturas() {
-		if f.ID == "f-3" {
-			t.Fatal("a fatura de uma transição recusada foi gravada")
+	a, err := s.Assinatura(ctx, id)
+	if err != nil || a.Estado != cobranca.Cancelada || a.Tentativas != cobranca.MaxTentativas || !a.Criada.Equal(agora) {
+		t.Fatalf("lida de volta: %+v %v", a, err)
+	}
+	if _, err := s.Assinatura(ctx, px+"nenhuma"); !errors.Is(err, cobranca.ErrNaoExiste) {
+		t.Fatalf("uma que não existe: %v", err)
+	}
+	if _, err := s.Cancelar(ctx, px+"nenhuma", agora); !errors.Is(err, cobranca.ErrNaoExiste) {
+		t.Fatalf("mudar uma que não existe: %v", err)
+	}
+	todas, err := s.Faturas(ctx)
+	f := nossas(todas)
+	if err != nil || len(f) != 2 || f[0].Moeda != "BRL" {
+		t.Fatalf("faturas = %+v %v", f, err)
+	}
+	for _, x := range f {
+		if x.ID == px+"f-1" && !x.Paga {
+			t.Fatal("a fatura paga depois de falhar não ficou paga")
 		}
 	}
-	if f := s.Faturas(); len(f) != 2 || f[0].Moeda != "BRL" {
-		t.Fatalf("faturas = %+v", f)
-	}
-}
 
-// O mesmo id de evento é visto uma vez.
-func TestVistoUmaVez(t *testing.T) {
-	s := NovoStore()
-	agora := time.Now()
-	if s.Visto("ev-1", agora) {
-		t.Fatal("um evento novo já era visto")
-	}
-	if !s.Visto("ev-1", agora) {
-		t.Fatal("o reenvio do mesmo evento não foi reconhecido")
-	}
-}
-
-// Um plano com assinatura viva não se apaga.
-func TestPlanoEmUso(t *testing.T) {
-	s := NovoStore()
-	p := s.SalvarPlano(Plano{Nome: "Pro", Centavos: 4900, Moeda: "brl", Intervalo: "month"})
-	if p.Moeda != "BRL" || p.ID == "" {
-		t.Fatalf("plano = %+v", p)
-	}
-	s.Assinar("a-1", "c@example.com", p.ID, time.Now())
-	if err := s.ApagarPlano(p.ID); !errors.Is(err, ErrPlanoEmUso) {
-		t.Fatalf("err = %v", err)
-	}
-	if _, err := s.Cancelar("a-1", time.Now()); err != nil {
+	// A mais nova primeiro, e o filtro por estado.
+	if _, err := s.Assinar(ctx, px+"a-2", "outra@example.com", px+"plano-1", agora.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ApagarPlano(p.ID); err != nil {
+	var ordem []string
+	lista, err := s.Assinaturas(ctx, "")
+	for _, x := range lista {
+		if strings.HasPrefix(x.ID, px) {
+			ordem = append(ordem, x.ID)
+		}
+	}
+	if err != nil || strings.Join(ordem, ",") != px+"a-2,"+id {
+		t.Fatalf("ordem = %v %v", ordem, err)
+	}
+	canceladas, err := s.Assinaturas(ctx, cobranca.Cancelada)
+	for _, x := range canceladas {
+		if x.Estado != cobranca.Cancelada || x.ID == px+"a-2" {
+			t.Fatalf("o filtro deixou passar %+v (%v)", x, err)
+		}
+	}
+
+	// O mesmo evento é visto uma vez; esquecido, é novo outra vez.
+	ev := px + "ev-1"
+	for i, quero := range []bool{false, true} {
+		if visto, err := s.Visto(ctx, ev, agora); err != nil || visto != quero {
+			t.Fatalf("visto #%d = %v %v", i+1, visto, err)
+		}
+	}
+	if err := s.Esquecer(ctx, ev); err != nil {
 		t.Fatal(err)
+	}
+	if visto, err := s.Visto(ctx, ev, agora); err != nil || visto {
+		t.Fatalf("esquecido e ainda visto: %v %v", visto, err)
+	}
+
+	// Um plano com assinatura viva não se apaga; salvar de novo atualiza.
+	p, err := s.SalvarPlano(ctx, cobranca.Plano{Nome: px + "Pro", Centavos: 4900, Moeda: "brl", Intervalo: "month"})
+	if err != nil || p.Moeda != "BRL" || p.ID == "" {
+		t.Fatalf("plano = %+v %v", p, err)
+	}
+	p.Centavos = 5900
+	if _, err := s.SalvarPlano(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	planos, err := s.Planos(ctx)
+	achados := 0
+	for _, x := range planos {
+		if x.ID == p.ID {
+			achados++
+			if x.Centavos != 5900 {
+				t.Fatalf("o plano não foi atualizado: %+v", x)
+			}
+		}
+	}
+	if err != nil || achados != 1 {
+		t.Fatalf("o plano aparece %d vezes (%v)", achados, err)
+	}
+	if _, err := s.Assinar(ctx, px+"a-3", "c@example.com", p.ID, agora); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ApagarPlano(ctx, p.ID); !errors.Is(err, cobranca.ErrPlanoEmUso) {
+		t.Fatalf("apagou um plano em uso: %v", err)
+	}
+	if _, err := s.Cancelar(ctx, px+"a-3", agora); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ApagarPlano(ctx, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ApagarPlano(ctx, p.ID); !errors.Is(err, cobranca.ErrNaoExiste) {
+		t.Fatalf("apagou duas vezes: %v", err)
 	}
 }
 `
 
 const billingMigration = `-- As tabelas da cobrança, na convenção do ` + "`" + `trilha add store` + "`" + `: aplicadas uma vez, em
--- ordem de nome, e conferidas depois. O internal/cobranca guarda em memória o
--- mesmo formato; um store sobre estas tabelas o substitui sem mudar tela.
+-- ordem de nome, e conferidas depois. Sem banco, o internal/cobranca guarda o
+-- mesmo formato em memória; com o store, sql.go lê e grava aqui.
 --
 -- Dinheiro é inteiro em centavos, com a moeda ao lado: ponto flutuante não
 -- soma dinheiro.
@@ -749,18 +1234,23 @@ CREATE TABLE IF NOT EXISTS billing_plans (
 	name       TEXT NOT NULL,
 	cents      BIGINT NOT NULL CHECK (cents >= 0),
 	currency   CHAR(3) NOT NULL,
-	interval   TEXT NOT NULL CHECK (interval IN ('month', 'year'))
+	period     TEXT NOT NULL CHECK (period IN ('month', 'year'))
 );
 
+-- plan_id é o id do plano no provedor, sem chave estrangeira: o evento
+-- subscription.created chega com o plano de lá, que pode não estar (ainda) em
+-- billing_plans, e um plano apagado não pode levar consigo o histórico.
 CREATE TABLE IF NOT EXISTS billing_subscriptions (
 	id          TEXT PRIMARY KEY,
 	email       TEXT NOT NULL,
-	plan_id     TEXT NOT NULL REFERENCES billing_plans (id),
+	plan_id     TEXT NOT NULL,
 	state       TEXT NOT NULL CHECK (state IN ('trial', 'active', 'past_due', 'canceled')),
 	attempts    INTEGER NOT NULL DEFAULT 0,
 	created_at  TIMESTAMP NOT NULL,
 	updated_at  TIMESTAMP NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS billing_subscriptions_plan ON billing_subscriptions (plan_id);
 
 CREATE TABLE IF NOT EXISTS billing_invoices (
 	id               TEXT PRIMARY KEY,
@@ -890,7 +1380,10 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		return nil, err
 	}
 	estado := valido(q.Estado)
-	todas := trilha.Use[*cobranca.Billing](c).Store.Assinaturas(estado)
+	todas, err := trilha.Use[*cobranca.Billing](c).Store.Assinaturas(c.Context(), estado)
+	if err != nil {
+		return nil, err
+	}
 	if q.Q != "" {
 		filtradas := todas[:0:0]
 		for _, a := range todas {
@@ -982,7 +1475,7 @@ import (
 // Page renders GET {{.URL}}billing/planos.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("{{.T.billing_plans}}")
-	return tela(c, cobranca.Plano{Moeda: "BRL", Intervalo: "month"}, nil), nil
+	return tela(c, cobranca.Plano{Moeda: "BRL", Intervalo: "month"}, nil)
 }
 
 // POST creates a plan or deletes one. Both are written to the audit trail:
@@ -992,11 +1485,13 @@ func POST(c *trilha.Ctx) error {
 	store := trilha.Use[*cobranca.Billing](c).Store
 	if c.Form("acao") == "apagar" {
 		id := c.Form("id")
-		switch err := store.ApagarPlano(id); {
+		switch err := store.ApagarPlano(c.Context(), id); {
 		case errors.Is(err, cobranca.ErrPlanoEmUso):
 			return trilha.Errorf(http.StatusConflict, "%s", "{{.T.billing_plan_in_use}}")
-		case err != nil:
+		case errors.Is(err, cobranca.ErrNaoExiste):
 			return trilha.ErrNotFound
+		case err != nil:
+			return err
 		}
 		c.Audit("billing.plano_apagado", id)
 		return c.Redirect("{{.URL}}billing/planos")
@@ -1005,17 +1500,27 @@ func POST(c *trilha.Ctx) error {
 	if err := c.Bind(&p); err != nil {
 		var fe trilha.FieldErrors
 		if errors.As(err, &fe) {
-			return c.Render(http.StatusUnprocessableEntity, tela(c, p, fe))
+			pagina, err := tela(c, p, fe)
+			if err != nil {
+				return err
+			}
+			return c.Render(http.StatusUnprocessableEntity, pagina)
 		}
 		return err
 	}
-	p = store.SalvarPlano(p)
+	p, err := store.SalvarPlano(c.Context(), p)
+	if err != nil {
+		return err
+	}
 	c.Audit("billing.plano_salvo", p.ID, trilha.Fields{"nome": p.Nome, "centavos": p.Centavos, "moeda": p.Moeda})
 	return c.Redirect("{{.URL}}billing/planos")
 }
 
-func tela(c *trilha.Ctx, p cobranca.Plano, errs trilha.FieldErrors) h.Node {
-	planos := trilha.Use[*cobranca.Billing](c).Store.Planos()
+func tela(c *trilha.Ctx, p cobranca.Plano, errs trilha.FieldErrors) (h.Node, error) {
+	planos, err := trilha.Use[*cobranca.Billing](c).Store.Planos(c.Context())
+	if err != nil {
+		return nil, err
+	}
 	var lista h.Node = ui.Empty(ui.EmptyOpts{Icon: "plus", Title: "{{.T.billing_plans_empty}}"})
 	if len(planos) > 0 {
 		linhas := make([]h.Node, 0, len(planos))
@@ -1058,7 +1563,7 @@ func tela(c *trilha.Ctx, p cobranca.Plano, errs trilha.FieldErrors) h.Node {
 				ui.Errors(errs, "intervalo")),
 			h.Div(ui.Submit(h.Text("{{.T.billing_plan_save}}"))),
 		),
-	)
+	), nil
 }
 `
 
@@ -1078,7 +1583,10 @@ import (
 // Page renders GET {{.URL}}billing/faturas.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("{{.T.billing_invoices}}")
-	faturas := trilha.Use[*cobranca.Billing](c).Store.Faturas()
+	faturas, err := trilha.Use[*cobranca.Billing](c).Store.Faturas(c.Context())
+	if err != nil {
+		return nil, err
+	}
 	var acoes []h.Node
 	// Hiding the button is cosmetic; the rule that holds is csv/middleware.go.
 	if cobranca.Pode(sessao.Atual(c), "administrar") {
@@ -1128,7 +1636,10 @@ import (
 // GET streams the invoices as CSV, with the BOM and the locale's decimals, and
 // writes the export to the audit trail.
 func GET(c *trilha.Ctx) error {
-	faturas := trilha.Use[*cobranca.Billing](c).Store.Faturas()
+	faturas, err := trilha.Use[*cobranca.Billing](c).Store.Faturas(c.Context())
+	if err != nil {
+		return err
+	}
 	linhas := make([]cobranca.LinhaCSV, 0, len(faturas))
 	for _, f := range faturas {
 		linhas = append(linhas, cobranca.LinhaCSV{Fatura: f.ID, Assinatura: f.Assinatura,
@@ -1147,6 +1658,7 @@ func GET(c *trilha.Ctx) error {
 const billingTest = `package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -1162,11 +1674,15 @@ import (
 	"github.com/emersonjoe/trilha/webhook"
 
 	"{{.Module}}/internal/cobranca"
+	"{{.Module}}/internal/cobranca/cobrancatest"
 	"{{.Module}}/internal/conexoes"
 	"{{.Module}}/internal/usuarios"
 )
 
 const segredoDoProvedor = "um-segredo-do-provedor-de-teste"
+
+// bg is the context of what a test does to the store directly.
+var bg = context.Background()
 
 // trilhaDeTeste is the audit trail of one test, kept in memory.
 type trilhaDeTeste struct {
@@ -1242,11 +1758,11 @@ func TestBillingWebhookValid(t *testing.T) {
 	evento(c, ` + "`" + `{"id":"ev-2","type":"invoice.paid","subscription":"a-1","invoice":"f-1","amount":4900,"currency":"brl"}` + "`" + `,
 		time.Now(), segredoDoProvedor).WantStatus(http.StatusOK).WantContains("ok")
 
-	as, err := b.Store.Assinatura("a-1")
+	as, err := b.Store.Assinatura(bg, "a-1")
 	if err != nil || as.Estado != cobranca.Ativa {
 		t.Fatalf("assinatura = %+v %v", as, err)
 	}
-	if f := b.Store.Faturas(); len(f) != 1 || !f[0].Paga || f[0].Centavos != 4900 {
+	if f, _ := b.Store.Faturas(bg); len(f) != 1 || !f[0].Paga || f[0].Centavos != 4900 {
 		t.Fatalf("faturas = %+v", f)
 	}
 	for _, quero := range []string{"billing.assinatura_criada", "billing.invoice_paid"} {
@@ -1262,7 +1778,7 @@ func TestBillingWebhookUnsigned(t *testing.T) {
 	a, tr := appDeCobranca(t)
 	c := trilha.NewTestClient(t, a)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 
 	corpo := falhou("ev-1", "f-1")
 	c.Request(http.MethodPost, "/webhooks/billing", trilha.WithBody("application/json", corpo)).
@@ -1276,7 +1792,7 @@ func TestBillingWebhookUnsigned(t *testing.T) {
 		trilha.WithHeader(webhook.HeaderSignature, webhook.Sign(segredoDoProvedor, ts, []byte(corpo)))).
 		WantStatus(http.StatusUnauthorized).WantContains(cobranca.CodigoNaoAssinado)
 
-	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Trial || as.Tentativas != 0 {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Estado != cobranca.Trial || as.Tentativas != 0 {
 		t.Fatalf("um evento não assinado mudou a assinatura: %+v", as)
 	}
 	if tr.acoes() != "" {
@@ -1284,7 +1800,7 @@ func TestBillingWebhookUnsigned(t *testing.T) {
 	}
 	// E a recusa não queima o id: o mesmo evento, assinado, ainda vale.
 	evento(c, corpo, time.Now(), segredoDoProvedor).WantStatus(http.StatusOK)
-	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Atrasada {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Estado != cobranca.Atrasada {
 		t.Fatalf("o evento assinado depois da recusa não valeu: %+v", as)
 	}
 }
@@ -1295,13 +1811,13 @@ func TestBillingWebhookExpired(t *testing.T) {
 	a, _ := appDeCobranca(t)
 	c := trilha.NewTestClient(t, a)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 
 	evento(c, falhou("ev-1", "f-1"), time.Now().Add(-6*time.Minute), segredoDoProvedor).
 		WantStatus(http.StatusUnauthorized).WantContains(cobranca.CodigoNaoAssinado)
 	evento(c, falhou("ev-2", "f-1"), time.Now().Add(6*time.Minute), segredoDoProvedor).
 		WantStatus(http.StatusUnauthorized)
-	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Trial {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Estado != cobranca.Trial {
 		t.Fatalf("um evento fora da janela mudou a assinatura: %+v", as)
 	}
 }
@@ -1311,12 +1827,12 @@ func TestBillingIdempotentEvent(t *testing.T) {
 	a, tr := appDeCobranca(t)
 	c := trilha.NewTestClient(t, a)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 	cobranca.Mailer = mail.New(mail.Options{From: "cobranca@example.com", Transport: &mail.Outbox{}})
 
 	evento(c, falhou("ev-1", "f-1"), time.Now(), segredoDoProvedor).WantStatus(http.StatusOK)
 	evento(c, falhou("ev-1", "f-1"), time.Now(), segredoDoProvedor).WantStatus(http.StatusOK).WantContains("duplicate")
-	if as, _ := b.Store.Assinatura("a-1"); as.Tentativas != 1 {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Tentativas != 1 {
 		t.Fatalf("o reenvio contou de novo: %+v", as)
 	}
 	if n := strings.Count(tr.acoes(), "billing.invoice_payment_failed"); n != 1 {
@@ -1329,7 +1845,7 @@ func TestBillingDunningCycle(t *testing.T) {
 	a, tr := appDeCobranca(t)
 	c := trilha.NewTestClient(t, a)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 	caixa := &mail.Outbox{}
 	antes := cobranca.Mailer
 	cobranca.Mailer = mail.New(mail.Options{From: "cobranca@example.com", Transport: caixa})
@@ -1360,7 +1876,7 @@ func TestBillingDunningCycle(t *testing.T) {
 			t.Fatalf("faltou o lembrete %s:\n%s", quero, assuntos)
 		}
 	}
-	if as, _ := b.Store.Assinatura("a-1"); as.Estado != cobranca.Cancelada {
+	if as, _ := b.Store.Assinatura(bg, "a-1"); as.Estado != cobranca.Cancelada {
 		t.Fatalf("depois de três falhas: %+v", as)
 	}
 	if n := strings.Count(tr.acoes(), "billing.invoice_payment_failed"); n != cobranca.MaxTentativas {
@@ -1373,8 +1889,8 @@ func TestBillingDunningCycle(t *testing.T) {
 func TestBillingCSVAdminOnly(t *testing.T) {
 	a, tr := appDeCobranca(t)
 	b := trilha.Use[*cobranca.Billing](a)
-	b.Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
-	if _, err := b.Store.Pagou("a-1", "f-1", 4900, "brl", time.Now()); err != nil {
+	b.Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
+	if _, err := b.Store.Pagou(bg, "a-1", "f-1", 4900, "brl", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if err := trilha.Use[*usuarios.Store](a).Add("u-leitor", "leitor@example.com", "Leitor",
@@ -1426,7 +1942,7 @@ func TestBillingCSVAdminOnly(t *testing.T) {
 // HttpOnly e o segredo do provedor não aparece em lugar nenhum.
 func TestBillingScreensKeepProtections(t *testing.T) {
 	a, _ := appDeCobranca(t)
-	trilha.Use[*cobranca.Billing](a).Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	trilha.Use[*cobranca.Billing](a).Store.Assinar(bg, "a-1", "cliente@example.com", "pro", time.Now())
 	admin := trilha.NewTestClient(t, a)
 	admin.PostForm("{{.URL}}entrar", url.Values{"email": {"admin@example.com"},
 		"password": {"a-password-nobody-guesses"}}).WantStatus(http.StatusSeeOther)
@@ -1439,5 +1955,13 @@ func TestBillingScreensKeepProtections(t *testing.T) {
 			}
 		}
 	}
+}
+
+// O contrato do store sobre o que o app ligou: a memória num projeto sem
+// banco, as tabelas de migrations/0100_billing.sql com o store — os mesmos
+// passos de internal/cobranca/cobrancatest, contra o store de verdade.
+func TestBillingStoreContract(t *testing.T) {
+	a, _ := appDeCobranca(t)
+	cobrancatest.Contrato(t, trilha.Use[*cobranca.Billing](a).Store)
 }
 `

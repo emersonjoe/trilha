@@ -17,7 +17,7 @@ import (
 // Page renders GET /billing/planos.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Plans")
-	return tela(c, cobranca.Plano{Moeda: "BRL", Intervalo: "month"}, nil), nil
+	return tela(c, cobranca.Plano{Moeda: "BRL", Intervalo: "month"}, nil)
 }
 
 // POST creates a plan or deletes one. Both are written to the audit trail:
@@ -27,11 +27,13 @@ func POST(c *trilha.Ctx) error {
 	store := trilha.Use[*cobranca.Billing](c).Store
 	if c.Form("acao") == "apagar" {
 		id := c.Form("id")
-		switch err := store.ApagarPlano(id); {
+		switch err := store.ApagarPlano(c.Context(), id); {
 		case errors.Is(err, cobranca.ErrPlanoEmUso):
 			return trilha.Errorf(http.StatusConflict, "%s", "A subscription still uses this plan.")
-		case err != nil:
+		case errors.Is(err, cobranca.ErrNaoExiste):
 			return trilha.ErrNotFound
+		case err != nil:
+			return err
 		}
 		c.Audit("billing.plano_apagado", id)
 		return c.Redirect("/billing/planos")
@@ -40,17 +42,27 @@ func POST(c *trilha.Ctx) error {
 	if err := c.Bind(&p); err != nil {
 		var fe trilha.FieldErrors
 		if errors.As(err, &fe) {
-			return c.Render(http.StatusUnprocessableEntity, tela(c, p, fe))
+			pagina, err := tela(c, p, fe)
+			if err != nil {
+				return err
+			}
+			return c.Render(http.StatusUnprocessableEntity, pagina)
 		}
 		return err
 	}
-	p = store.SalvarPlano(p)
+	p, err := store.SalvarPlano(c.Context(), p)
+	if err != nil {
+		return err
+	}
 	c.Audit("billing.plano_salvo", p.ID, trilha.Fields{"nome": p.Nome, "centavos": p.Centavos, "moeda": p.Moeda})
 	return c.Redirect("/billing/planos")
 }
 
-func tela(c *trilha.Ctx, p cobranca.Plano, errs trilha.FieldErrors) h.Node {
-	planos := trilha.Use[*cobranca.Billing](c).Store.Planos()
+func tela(c *trilha.Ctx, p cobranca.Plano, errs trilha.FieldErrors) (h.Node, error) {
+	planos, err := trilha.Use[*cobranca.Billing](c).Store.Planos(c.Context())
+	if err != nil {
+		return nil, err
+	}
 	var lista h.Node = ui.Empty(ui.EmptyOpts{Icon: "plus", Title: "No plans yet."})
 	if len(planos) > 0 {
 		linhas := make([]h.Node, 0, len(planos))
@@ -93,5 +105,5 @@ func tela(c *trilha.Ctx, p cobranca.Plano, errs trilha.FieldErrors) h.Node {
 				ui.Errors(errs, "intervalo")),
 			h.Div(ui.Submit(h.Text("Create plan"))),
 		),
-	)
+	), nil
 }

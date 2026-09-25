@@ -14,7 +14,10 @@ import (
 // Page renders GET /billing/faturas.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Invoices")
-	faturas := trilha.Use[*cobranca.Billing](c).Store.Faturas()
+	faturas, err := trilha.Use[*cobranca.Billing](c).Store.Faturas(c.Context())
+	if err != nil {
+		return nil, err
+	}
 	var acoes []h.Node
 	// Hiding the button is cosmetic; the rule that holds is csv/middleware.go.
 	if cobranca.Pode(sessao.Atual(c), "administrar") {

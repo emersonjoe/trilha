@@ -71,16 +71,42 @@ func (b *Billing) Receber(c *trilha.Ctx) error {
 	// Signed and not seen before, and only then: an unsigned request must not
 	// be able to burn an id a real event will carry later.
 	agora := time.Now().UTC()
-	if b.Store.Visto(ev.ID, agora) {
+	visto, err := b.Store.Visto(c.Context(), ev.ID, agora)
+	if err != nil {
+		return err // 500: the provider tries again
+	}
+	if visto {
 		return c.JSON(http.StatusOK, map[string]string{"status": "duplicate"})
 	}
 	if err := b.aplicar(c, ev, agora); err != nil {
+		var falha falhaDoStore
+		if errors.As(err, &falha) {
+			// The store failed and wrote nothing: the id is forgotten and the
+			// answer is 500, so the provider's retry is processed.
+			if ferr := b.Store.Esquecer(c.Context(), ev.ID); ferr != nil {
+				c.Log().Error("cobranca: event id kept after a failure", "event", ev.ID, "err", ferr)
+			}
+			return falha.err
+		}
 		// The event was understood and refused by the machine — an old event
 		// arriving after a cancel, say. It is logged with the reason, and the
 		// answer is still 200: retrying it would not make it valid.
 		c.Log().Warn("cobranca: event not applied", "event", ev.ID, "type", ev.Tipo, "err", err)
 	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// falhaDoStore is an error of the store itself — the database, not the
+// machine — for which nothing was written.
+type falhaDoStore struct{ err error }
+
+func (f falhaDoStore) Error() string { return f.err.Error() }
+
+func doStore(err error) error {
+	if err == nil || errors.Is(err, ErrTransicao) || errors.Is(err, ErrNaoExiste) {
+		return err
+	}
+	return falhaDoStore{err}
 }
 
 // aplicar turns an event into a change. Every change that touches money is
@@ -93,20 +119,23 @@ func (b *Billing) aplicar(c *trilha.Ctx, ev Evento, agora time.Time) error {
 	)
 	switch ev.Tipo {
 	case EventoAssinou:
-		a := b.Store.Assinar(ev.Assinatura, ev.Email, ev.Plano, agora)
+		a, err := b.Store.Assinar(c.Context(), ev.Assinatura, ev.Email, ev.Plano, agora)
+		if err != nil {
+			return doStore(err)
+		}
 		c.Audit("billing.assinatura_criada", a.ID, trilha.Fields{"evento": ev.ID, "plano": ev.Plano})
 		return nil
 	case EventoPagou:
-		m, err = b.Store.Pagou(ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
+		m, err = b.Store.Pagou(c.Context(), ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
 	case EventoFalhou:
-		m, err = b.Store.Falhou(ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
+		m, err = b.Store.Falhou(c.Context(), ev.Assinatura, ev.Fatura, ev.Centavos, ev.Moeda, agora)
 	case EventoCancelou:
-		m, err = b.Store.Cancelar(ev.Assinatura, agora)
+		m, err = b.Store.Cancelar(c.Context(), ev.Assinatura, agora)
 	default:
 		return nil
 	}
 	if err != nil {
-		return err
+		return doStore(err)
 	}
 	c.Audit("billing."+strings.ReplaceAll(ev.Tipo, ".", "_"), m.Assinatura.ID, trilha.Fields{
 		"evento": ev.ID, "fatura": ev.Fatura, "de": string(m.De), "para": string(m.Assinatura.Estado),

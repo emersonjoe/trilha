@@ -41,7 +41,7 @@ func storeRecipe() Recipe {
 			{Rel: "migrations/migrations.go", Go: true, Body: storeMigrationsPkg},
 			{Rel: "migrations/0001_init.sql", Body: storeFirstMigration},
 		},
-		Setup: []Insert{{
+		Setup: []Insert{billingStoreLink("internal/cobranca/cobranca.go"), notifyStoreLink("internal/notificar/notificar.go"), {
 			Marker: "// trilha:add store",
 			Line:   "\tif err := store.Setup(a); err != nil {\n\t\treturn err\n\t}\n",
 		}},

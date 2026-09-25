@@ -1,0 +1,14 @@
+package notificar_test
+
+import (
+	"testing"
+
+	"example.com/golden/internal/notificar"
+	"example.com/golden/internal/notificar/notificartest"
+)
+
+// O contrato do store sobre a memória: os mesmos passos que o
+// notificacoes_test.go do projeto roda sobre o que o app ligou.
+func TestNotifyStoreContract(t *testing.T) {
+	notificartest.Contrato(t, notificar.Novo())
+}

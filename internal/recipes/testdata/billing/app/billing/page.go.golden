@@ -38,7 +38,10 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		return nil, err
 	}
 	estado := valido(q.Estado)
-	todas := trilha.Use[*cobranca.Billing](c).Store.Assinaturas(estado)
+	todas, err := trilha.Use[*cobranca.Billing](c).Store.Assinaturas(c.Context(), estado)
+	if err != nil {
+		return nil, err
+	}
 	if q.Q != "" {
 		filtradas := todas[:0:0]
 		for _, a := range todas {

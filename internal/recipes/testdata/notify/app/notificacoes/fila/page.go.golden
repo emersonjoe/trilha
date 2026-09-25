@@ -17,7 +17,10 @@ import (
 // Page renders GET /notificacoes/fila.
 func Page(c *trilha.Ctx) (h.Node, error) {
 	c.SetTitle("Outbox")
-	fila := trilha.Use[*notificar.Notificador](c).Fila("")
+	fila, err := trilha.Use[*notificar.Notificador](c).Fila(c.Context(), "")
+	if err != nil {
+		return nil, err
+	}
 	var lista h.Node = ui.Muted(h.Text("Nothing in the outbox yet."))
 	if len(fila) > 0 {
 		linhas := make([]h.Node, 0, len(fila))
