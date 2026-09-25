@@ -14,7 +14,7 @@ package recipes
 func loginRecipe() Recipe {
 	return Recipe{
 		Name:        "login",
-		CtxPackCost: 129,
+		CtxPackCost: 152,
 		Summary: map[string]string{
 			"en": "a session of your own: a users table, the login screen and the way out",
 			"pt": "uma sessão própria: a tabela de gente, a tela de entrar e a saída",
@@ -26,6 +26,11 @@ func loginRecipe() Recipe {
 			{Rel: "internal/sessao/sessao.go", Go: true, Body: loginSession},
 			{Rel: "{{.At}}entrar/page.go", Go: true, Body: loginPage},
 			{Rel: "{{.At}}sair/route.go", Go: true, Body: loginLogout},
+			{Rel: "{{.At}}sair/middleware.go", Go: true, Body: loginLogoutCSRF},
+			// A project made from the blog template has no error page, and the
+			// 401/403 this recipe brings would fall to the framework's bare one.
+			// A project that has error.go keeps it: an existing file is skipped.
+			{Rel: "app/error.go", Go: true, Body: loginErrorPage},
 			{Rel: "internal/sessao/sessaotest/sessaotest.go", Go: true, Body: loginTestHelper},
 			{Rel: "login_test.go", Go: true, Body: loginTest},
 		},
@@ -397,8 +402,58 @@ func TestEntrarESair(t *testing.T) {
 		"password": {"a-password-nobody-guesses"},
 	}).WantStatus(http.StatusSeeOther)
 
+	// Another site cannot sign anybody out: without the token the way out is
+	// refused, and the session is still there.
+	c.PostForm("{{.URL}}sair", url.Values{}, trilha.WithoutCSRF()).WantStatus(http.StatusForbidden)
+
 	// And out again.
 	c.PostForm("{{.URL}}sair", url.Values{}).WantStatus(http.StatusSeeOther)
+}
+`
+
+// loginLogoutCSRF closes the way out to other sites. sair is a route.go —
+// an API by convention, and an API does not check the CSRF token — so without
+// this a page anywhere could sign out whoever visited it.
+const loginLogoutCSRF = `package sair
+
+import "github.com/emersonjoe/trilha"
+
+// MiddlewarePOST checks the CSRF token of the logout: the form that posts
+// here carries trilha.CSRFInput(c), and a post from another site does not.
+func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error { return trilha.RequireCSRF(c, next) }
+`
+
+// loginErrorPage is the page of every status but 404, in the app's layout:
+// a 403 from a folder behind a role reads like the app, not like the
+// framework, and in production says nothing but the request's id.
+const loginErrorPage = `package app
+
+import (
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+)
+
+// Error renders every error status but 404, with the app's own layout.
+func Error(c *trilha.Ctx, err error) (h.Node, error) {
+	switch trilha.StatusOf(err) {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		c.SetTitle("{{.T.error_no_access_title}}")
+		return ui.Stack(
+			ui.H1(h.Text("{{.T.error_no_access_title}}")),
+			ui.Muted(h.Text("{{.T.error_no_access}}")),
+			h.Div(ui.ButtonLink("{{.URL}}entrar", h.Text("{{.T.error_login}}"))),
+		), nil
+	}
+	c.SetTitle("{{.T.error_title}}")
+	return ui.Stack(
+		ui.H1(h.Text("{{.T.error_title}}")),
+		h.If(c.Env() == trilha.Dev, ui.Alert("dev", ui.Destructive(), ui.Icon("triangle-alert"),
+			ui.AlertDescription(h.Pre(h.Text(err.Error()))))),
+		ui.Muted(h.Textf("{{.T.error_id}} %s", c.RequestID())),
+	), nil
 }
 `
 
