@@ -19,6 +19,7 @@ func TestCatalogIsCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withPatterns(got)
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetIndent("", "  ")

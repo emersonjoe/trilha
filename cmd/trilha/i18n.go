@@ -281,6 +281,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"pattern components": {"Components", "Componentes"},
 	"pattern data":       {"Data", "Dados"},
 	"pattern a11y":       {"Accessibility", "Acessibilidade"},
+	"patterns:":          {"patterns:", "padrões:"},
 	"flag describe json": {"print the catalogue (or the component) as JSON", "imprime o catálogo (ou o componente) em JSON"},
 	"no such component":  {"no ui component named %q", "não há componente ui chamado %q"},
 	"did you mean":       {"did you mean: %s", "você quis dizer: %s"},

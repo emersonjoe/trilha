@@ -68,6 +68,7 @@ func Card(locale string, d Demo) h.Node {
 		h.Div(h.Class("demo-resultado"),
 			h.Div(h.Class("demo-rotulo"), h.Text(result)),
 			h.Div(h.Class("demo-saida"), d.Node())),
+		h.If(demoPattern[d.Name] != "", usePattern(locale, demoPattern[d.Name])),
 	)
 }
 

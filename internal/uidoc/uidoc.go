@@ -43,6 +43,9 @@ type Component struct {
 	Fields []Field `json:"fields,omitempty"`
 	// See are the other symbols the doc mentions.
 	See []string `json:"see,omitempty"`
+	// Patterns are the screen patterns (ui.Patterns) this component takes
+	// part in: from the part, the way to the whole it usually belongs to.
+	Patterns []string `json:"patterns,omitempty"`
 }
 
 var (

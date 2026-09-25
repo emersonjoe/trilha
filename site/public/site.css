@@ -90,6 +90,10 @@ h3 { font-size: 1.15rem; margin: 1.8em 0 .5em; }
 .demo-saida { padding: 1rem 1.1rem; font-size: .95rem; }
 .demo-saida ul { padding-left: 1.2rem; margin: 0; }
 .demo-saida form:not(.kit *) { display: grid; gap: .4rem; max-width: 20rem; }
+.demo-padrao { grid-column: 1 / -1; border-top: 1px solid var(--linha); padding: .7rem 1rem; background: var(--bg); }
+.demo-padrao > summary { cursor: pointer; font-weight: 600; }
+.demo-padrao h4 { margin: 1rem 0 .3rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-2); }
+.demo-padrao .codigo { margin: .4rem 0; }
 .demo-saida input:not(.kit *), .demo-saida button:not(.kit *) { font: inherit; padding: .4rem .6rem; border-radius: 6px; border: 1px solid var(--linha); background: var(--bg); color: var(--fg); }
 .demo-saida button:not(.kit *) { background: var(--marca); color: #fff; border-color: var(--marca); cursor: pointer; }
 .demo-saida .agenda { border: 1px dashed var(--linha); padding: .8rem; border-radius: 8px; }

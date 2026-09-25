@@ -423,6 +423,9 @@
         "type": "string",
         "doc": "Text is the value as a person reads it — \"R$ 1.204,50\", \"38 %\", \"1.2k\"."
       }
+    ],
+    "patterns": [
+      "dashboard-chart"
     ]
   },
   {
@@ -435,6 +438,9 @@
     "example": "ui.Stat(\"Documents\", \"1.204\", ui.StatHint(\"+38 this week\"))",
     "see": [
       "ui.StatHint"
+    ],
+    "patterns": [
+      "dashboard-chart"
     ]
   },
   {
@@ -451,7 +457,10 @@
     "group": "chart",
     "signature": "ChartTitle(s string) h.Node",
     "doc": "ChartTitle names a chart for whoever cannot see it. With a title the drawing\nis an image with a name (role=\"img\" plus \u003ctitle\u003e); without one the drawing is\ndecoration (aria-hidden) and the table beside it — hidden from the eye, not\nfrom the reader — is what says the numbers.",
-    "summary": "ChartTitle names a chart for whoever cannot see it."
+    "summary": "ChartTitle names a chart for whoever cannot see it.",
+    "patterns": [
+      "dashboard-chart"
+    ]
   },
   {
     "name": "Bars",
@@ -459,7 +468,10 @@
     "group": "chart",
     "signature": "Bars(data []Datum, attrs ...h.Node) h.Node",
     "doc": "Bars draws one horizontal bar per Datum, proportional to the largest value,\nwith the label to the left and the value at the end of the bar. It is the\n`\u003cdiv style=\"width:37%\"\u003e` of every dashboard, with the numbers still readable\nwhen the CSS does not arrive.\n\nA negative value draws no bar and keeps its label; a series whose largest\nvalue is zero or less draws every bar empty. The drawing widens to fit\nwhatever the longest value reads as — the tallest bar's label is always the\none closest to the edge — so a long Datum.Text never gets cut by the SVG.",
-    "summary": "Bars draws one horizontal bar per Datum, proportional to the largest value, with the label to the left and the value at the end of the bar."
+    "summary": "Bars draws one horizontal bar per Datum, proportional to the largest value, with the label to the left and the value at the end of the bar.",
+    "patterns": [
+      "dashboard-chart"
+    ]
   },
   {
     "name": "SparkOpts",
@@ -477,6 +489,9 @@
         "name": "Height",
         "type": "int"
       }
+    ],
+    "patterns": [
+      "dashboard-chart"
     ]
   },
   {
@@ -503,6 +518,9 @@
     "see": [
       "ui.ChartTitle",
       "ui.SparkOpts"
+    ],
+    "patterns": [
+      "dashboard-chart"
     ]
   },
   {
@@ -511,7 +529,10 @@
     "group": "chart",
     "signature": "Donut(data []Datum, attrs ...h.Node) h.Node",
     "doc": "Donut draws the share of each Datum in the total as a ring, with the legend\nas a list beside the drawing and not inside the SVG — a legend is text, and\ntext inside an SVG neither wraps nor is selected.\n\nThe ring is drawn with a dashed circle instead of arcs: no trigonometry, so\nthe same series always writes the same file. Negative values are ignored and\na total of zero draws the empty track.",
-    "summary": "Donut draws the share of each Datum in the total as a ring, with the legend as a list beside the drawing and not inside the SVG — a legend is text, and text inside an SVG neither wraps nor is selected."
+    "summary": "Donut draws the share of each Datum in the total as a ring, with the legend as a list beside the drawing and not inside the SVG — a legend is text, and text inside an SVG neither wraps nor is selected.",
+    "patterns": [
+      "dashboard-chart"
+    ]
   },
   {
     "name": "ChatMessage",
@@ -1063,6 +1084,10 @@
         "type": "h.Node",
         "doc": "Action is the way out — a link, a button, a form."
       }
+    ],
+    "patterns": [
+      "list-with-filter",
+      "master-detail"
     ]
   },
   {
@@ -1079,6 +1104,10 @@
       "ui.DataTable",
       "ui.EmptyError",
       "ui.EmptyOpts"
+    ],
+    "patterns": [
+      "list-with-filter",
+      "master-detail"
     ]
   },
   {
@@ -1242,6 +1271,9 @@
         "type": "string",
         "doc": "Progress is a free-form status string (\"1/3\") drawn beside State, for a queue with a quorum."
       }
+    ],
+    "patterns": [
+      "approval-inbox"
     ]
   },
   {
@@ -1272,6 +1304,9 @@
         "type": "string",
         "doc": "Reason names the justification field (default \"reason\")."
       }
+    ],
+    "patterns": [
+      "approval-inbox"
     ]
   },
   {
@@ -1286,6 +1321,9 @@
       "trilha.CSRFInput",
       "ui.InboxOpts",
       "ui.Relative"
+    ],
+    "patterns": [
+      "approval-inbox"
     ]
   },
   {
@@ -1382,7 +1420,11 @@
     "group": "list",
     "signature": "type Columns []Column[T]",
     "doc": "Columns is the columns of a listing, in the order they appear.",
-    "summary": "Columns is the columns of a listing, in the order they appear."
+    "summary": "Columns is the columns of a listing, in the order they appear.",
+    "patterns": [
+      "list-with-filter",
+      "master-detail"
+    ]
   },
   {
     "name": "ListSelect",
@@ -1463,6 +1505,10 @@
         "type": "bool",
         "doc": "Cards turns each row into a card below 640px instead of scrolling the table sideways — see ui.Cards."
       }
+    ],
+    "patterns": [
+      "list-with-filter",
+      "master-detail"
     ]
   },
   {
@@ -1478,6 +1524,10 @@
       "h.Text",
       "ui.Columns",
       "ui.ListState"
+    ],
+    "patterns": [
+      "list-with-filter",
+      "master-detail"
     ]
   },
   {
@@ -2150,6 +2200,11 @@
       "ui.Back",
       "ui.ButtonLink",
       "ui.Subtitle"
+    ],
+    "patterns": [
+      "list-with-filter",
+      "approval-inbox",
+      "upload-progress"
     ]
   },
   {
@@ -2581,6 +2636,11 @@
       "ui.H1",
       "ui.Row",
       "ui.Spacer"
+    ],
+    "patterns": [
+      "list-with-filter",
+      "approval-inbox",
+      "upload-progress"
     ]
   },
   {
@@ -2614,6 +2674,10 @@
       "ui.Row",
       "ui.Spacer",
       "ui.Stack"
+    ],
+    "patterns": [
+      "dashboard-chart",
+      "master-detail"
     ]
   },
   {
@@ -2642,6 +2706,10 @@
     "example": "ui.Grid(ui.Cols(2, 4), stat1, stat2, stat3, stat4)",
     "see": [
       "ui.Grid"
+    ],
+    "patterns": [
+      "dashboard-chart",
+      "master-detail"
     ]
   },
   {
@@ -2761,7 +2829,11 @@
     "group": "button",
     "signature": "Submit(children ...h.Node) h.Node",
     "doc": "Submit is a Button of type submit.",
-    "summary": "Submit is a Button of type submit."
+    "summary": "Submit is a Button of type submit.",
+    "patterns": [
+      "async-form",
+      "upload-progress"
+    ]
   },
   {
     "name": "ButtonLink",
@@ -2787,6 +2859,10 @@
       "ui.CardFooter",
       "ui.CardHeader",
       "ui.CardTitle"
+    ],
+    "patterns": [
+      "dashboard-chart",
+      "master-detail"
     ]
   },
   {
@@ -2805,6 +2881,10 @@
       "ui.CardDescription",
       "ui.CardFooter",
       "ui.CardTitle"
+    ],
+    "patterns": [
+      "dashboard-chart",
+      "master-detail"
     ]
   },
   {
@@ -2823,6 +2903,10 @@
       "ui.CardDescription",
       "ui.CardFooter",
       "ui.CardHeader"
+    ],
+    "patterns": [
+      "dashboard-chart",
+      "master-detail"
     ]
   },
   {
@@ -2841,6 +2925,9 @@
       "ui.CardFooter",
       "ui.CardHeader",
       "ui.CardTitle"
+    ],
+    "patterns": [
+      "master-detail"
     ]
   },
   {
@@ -2859,6 +2946,10 @@
       "ui.CardFooter",
       "ui.CardHeader",
       "ui.CardTitle"
+    ],
+    "patterns": [
+      "dashboard-chart",
+      "master-detail"
     ]
   },
   {
@@ -2892,6 +2983,10 @@
       "h.Required",
       "h.Type",
       "h.Value"
+    ],
+    "patterns": [
+      "async-form",
+      "upload-progress"
     ]
   },
   {
@@ -2924,6 +3019,9 @@
       "h.Type",
       "h.Value",
       "ui.Input"
+    ],
+    "patterns": [
+      "list-with-filter"
     ]
   },
   {
@@ -3019,6 +3117,10 @@
       "ui.Errors",
       "ui.Input",
       "ui.InvalidIf"
+    ],
+    "patterns": [
+      "async-form",
+      "upload-progress"
     ]
   },
   {
@@ -3058,6 +3160,9 @@
       "h.ID",
       "h.Text",
       "ui.Submit"
+    ],
+    "patterns": [
+      "async-form"
     ]
   },
   {
@@ -3125,6 +3230,9 @@
       "ui.Input",
       "ui.Submit",
       "ui.UploadBar"
+    ],
+    "patterns": [
+      "upload-progress"
     ]
   },
   {
@@ -3133,7 +3241,10 @@
     "group": "forms",
     "signature": "UploadBar(attrs ...h.Node) h.Node",
     "doc": "UploadBar is the progress element UploadTo fills in. It starts hidden and is\nonly shown while sending; style it through the progress selector.",
-    "summary": "UploadBar is the progress element UploadTo fills in."
+    "summary": "UploadBar is the progress element UploadTo fills in.",
+    "patterns": [
+      "upload-progress"
+    ]
   },
   {
     "name": "UploadScript",
@@ -3144,6 +3255,9 @@
     "summary": "UploadScript loads ui.upload.js, the behavior behind UploadTo.",
     "see": [
       "ui.Head"
+    ],
+    "patterns": [
+      "upload-progress"
     ]
   },
   {
@@ -3159,6 +3273,9 @@
       "h.Form",
       "h.ID",
       "h.Method"
+    ],
+    "patterns": [
+      "async-form"
     ]
   },
   {
@@ -3224,6 +3341,10 @@
     "see": [
       "h.Text",
       "ui.Secondary"
+    ],
+    "patterns": [
+      "list-with-filter",
+      "master-detail"
     ]
   },
   {
@@ -3623,6 +3744,10 @@
     "summary": "Errors is a Field option that shows the message for field from errs (a trilha.FieldErrors or any map); no-op when the field has no error.",
     "see": [
       "trilha.FieldErrors"
+    ],
+    "patterns": [
+      "async-form",
+      "upload-progress"
     ]
   },
   {
@@ -3631,7 +3756,11 @@
     "group": "form helpers for validation round-trips",
     "signature": "InvalidIf(errs map[string]string, field string) h.Node",
     "doc": "InvalidIf marks a control invalid when errs has a message for field.",
-    "summary": "InvalidIf marks a control invalid when errs has a message for field."
+    "summary": "InvalidIf marks a control invalid when errs has a message for field.",
+    "patterns": [
+      "async-form",
+      "upload-progress"
+    ]
   },
   {
     "name": "Option",
@@ -3649,6 +3778,9 @@
         "name": "Label",
         "type": "string"
       }
+    ],
+    "patterns": [
+      "list-with-filter"
     ]
   },
   {
@@ -3657,7 +3789,10 @@
     "group": "form helpers for validation round-trips",
     "signature": "SelectOptions(opts []Option, selected string) h.Node",
     "doc": "SelectOptions renders \u003coption\u003es, marking the one equal to selected. A\nleading placeholder can be given as Option{\"\", \"Escolha…\"}.",
-    "summary": "SelectOptions renders \u003coption\u003es, marking the one equal to selected."
+    "summary": "SelectOptions renders \u003coption\u003es, marking the one equal to selected.",
+    "patterns": [
+      "list-with-filter"
+    ]
   },
   {
     "name": "Checked",

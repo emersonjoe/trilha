@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/emersonjoe/trilha/ui"
 )
 
 // uiDir is the package this catalogue describes, from the test's directory.
@@ -190,4 +192,19 @@ func typeName(fset *token.FileSet, e ast.Expr) string {
 	var b strings.Builder
 	_ = printer.Fprint(&b, fset, e)
 	return b.String()
+}
+
+// withPatterns points each component at the patterns it takes part in, in
+// the order ui.Patterns lists them.
+func withPatterns(cs []Component) {
+	for i := range cs {
+		cs[i].Patterns = nil
+		for _, p := range ui.Patterns() {
+			for _, name := range p.Components {
+				if name == cs[i].Name {
+					cs[i].Patterns = append(cs[i].Patterns, p.Name)
+				}
+			}
+		}
+	}
 }

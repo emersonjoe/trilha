@@ -279,6 +279,9 @@ func describeComponent(c uidoc.Component) {
 			fmt.Println("    " + line)
 		}
 	}
+	if len(c.Patterns) > 0 {
+		fmt.Println("\n  " + t("patterns:") + " " + strings.Join(c.Patterns, ", ") + "  (trilha ui patterns <name>)")
+	}
 	if len(c.See) > 0 {
 		fmt.Println("\n  " + t("see:") + " " + strings.Join(c.See, ", "))
 	}
