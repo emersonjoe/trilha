@@ -1,14 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/emersonjoe/trilha/internal/recipes"
 )
 
 // platformTests are the tests the platform recipes write into the project
@@ -101,10 +100,16 @@ func TestAddPlatformE2E(t *testing.T) {
 	}
 
 	out := run(t, proj, cli, "add", "login", "connections", "notify", "webhooks", "channel-whatsapp", "billing", "admin")
-	// The add ends with the price of reading what arrived.
-	b, _ := recipes.Get("billing")
-	if want := fmt.Sprintf("`trilha ctx --pack billing` costs ~%d tokens (est.)", b.CtxPackCost); !strings.Contains(out, want) {
-		t.Fatalf("add did not end with the price %q:\n%s", want, out)
+	// The add ends with the price of reading what arrived — measured in this
+	// project (spec 165), so it is the number `ctx --pack` will cost here.
+	var measured struct {
+		Used int `json:"used_tokens"`
+	}
+	if err := json.Unmarshal([]byte(run(t, proj, cli, "ctx", "--pack", "billing", "--json")), &measured); err != nil || measured.Used == 0 {
+		t.Fatalf("ctx --pack billing --json: %v %+v", err, measured)
+	}
+	if want := fmt.Sprintf("`trilha ctx --pack billing` costs ~%d tokens (est.)", measured.Used); !strings.Contains(out, want) {
+		t.Fatalf("add did not end with the price measured here %q:\n%s", want, out)
 	}
 
 	mustWrite(t, filepath.Join(proj, "notify_links_test.go"), notifyLinksTest)
@@ -128,9 +133,7 @@ func TestAddPlatformE2E(t *testing.T) {
 	}
 
 	// The pack the price is about answers in a real project: the recipe's
-	// files and the fixed address the provider calls. (Its cost here is a
-	// little above the listed one, which is measured on a minimal project —
-	// this one has layouts, and the pack names the conventions in use.)
+	// files and the fixed address the provider calls.
 	pack := run(t, proj, cli, "ctx", "--pack", "billing", "--json")
 	for _, want := range []string{`"name": "billing"`, `"/webhooks/billing"`, `"internal/cobranca/webhook.go"`} {
 		if !strings.Contains(pack, want) {

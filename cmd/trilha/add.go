@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/emersonjoe/trilha/internal/ctx"
 	"github.com/emersonjoe/trilha/internal/recipes"
 )
 
@@ -32,7 +33,10 @@ func cmdAdd(args []string) error {
 		return err
 	}
 	var written int
-	var tail []string
+	// tail is printed after gen. A cost line names its recipe instead of
+	// carrying a number: the number is measured once the project is whole.
+	type line struct{ text, costOf string }
+	var tail []line
 	for _, nome := range names {
 		r, _ := recipes.Get(nome) // parseAddArgs already resolved every name
 		if len(names) > 1 {
@@ -57,14 +61,13 @@ func cmdAdd(args []string) error {
 		}
 		written += len(res.Written)
 		if res.Next != "" {
-			tail = append(tail, res.Next)
+			tail = append(tail, line{text: res.Next})
 		}
 		if res.Doc != "" {
-			tail = append(tail, t("add doc")+" https://trilha.dev"+res.Doc)
+			tail = append(tail, line{text: t("add doc") + " https://trilha.dev" + res.Doc})
 		}
-		// The price of reading what just arrived, before anybody opens a file:
-		// the same number `trilha add --list` showed, labeled est.
-		tail = append(tail, fmt.Sprintf(t("add cost"), nome, r.CtxPackCost))
+		// The price of reading what just arrived, before anybody opens a file.
+		tail = append(tail, line{costOf: nome})
 	}
 	if o.dry {
 		fmt.Println("\n" + t("add dry"))
@@ -75,10 +78,40 @@ func cmdAdd(args []string) error {
 			return err
 		}
 	}
-	for _, line := range tail {
-		fmt.Println("\n" + line)
+	measured := packCosts(p)
+	for _, l := range tail {
+		if l.costOf != "" {
+			r, _ := recipes.Get(l.costOf)
+			cost, ok := measured[l.costOf]
+			if !ok {
+				cost = r.CtxPackCost
+			}
+			l.text = fmt.Sprintf(t("add cost"), l.costOf, cost)
+		}
+		fmt.Println("\n" + l.text)
 	}
 	return nil
+}
+
+// packCosts measures `trilha ctx --pack <recipe>` in this project, for every
+// recipe installed in it: the number `--list` shows is measured on a minimal
+// project, and a real one — with layouts, and the conventions it uses — costs
+// a little more. What the add prints is what the command will cost here. A
+// project that cannot be read yet answers nothing, and the listed price stands.
+func packCosts(p *project) map[string]int {
+	out := map[string]int{}
+	installed := ctx.InstalledRecipes(p.Root)
+	c, err := ctx.Build(p.Root, p.Module, version)
+	if err != nil {
+		return out
+	}
+	c.InstalledRecipes = installed // what `trilha ctx --pack` does
+	for _, info := range installed {
+		if pk, err := c.PackOf(info.Name, installed, 0); err == nil {
+			out[info.Name] = pk.Used
+		}
+	}
+	return out
 }
 
 // addOpts is what the flags of `trilha add` said.
