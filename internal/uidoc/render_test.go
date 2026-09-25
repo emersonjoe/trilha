@@ -74,8 +74,9 @@ func TestUIDocPatternGoldens(t *testing.T) {
 		}
 		// The snapshot takes out what changes between two renders — the CSP
 		// nonce, the CSRF token, the request id — and checks what the pattern
-		// promises on the served HTML: the token in every form that writes,
-		// the nonce on every inline script, the focus rule of a 422.
+		// promises on the served HTML: the token in every form that writes and
+		// the nonce on every inline script. The focus of a 422 is a browser's
+		// to prove (uitest, TestUIAsyncForm422Focus).
 		snap := rec.Snapshot()
 		for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce()} {
 			if err != nil {

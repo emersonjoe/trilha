@@ -14,9 +14,9 @@
   *Aceite:* os três `TestUI<Receita>*`.
 - [x] **T06** — Cenários de segurança (CSP nonce, CSRF por formulário, sem segredo no HTML).
   *Aceite:* testes + regra `E_CSP_NONCE` no `trilha audit` (+ `HasCSPNonce`, catálogo).
-- [ ] **T07** — Makefile `test-ui`/`test-ui-a` + CI (job `ui` opcional; vira bloqueante ao fechar
+- [x] **T07** — Makefile `test-ui`/`test-ui-a` + CI (job `ui` opcional; vira bloqueante ao fechar
   o M3 trocando `continue-on-error`, registrado aqui). *Aceite:* workflow válido + suíte verde.
-- [ ] **T08** — Relatório de falha legível por agente (seletor + esperado + obtido + conserto).
+- [x] **T08** — Relatório de falha legível por agente (seletor + esperado + obtido + conserto).
   *Aceite:* fixture de falha produz o artefato em `uitest/report/`.
 - [ ] **T09** — Docs bilíngues (referência de testes, camada A e B) + CHANGELOG + ROADMAP.
   *Aceite:* testes de conteúdo do site + `make test` verde.

@@ -136,6 +136,9 @@ func RequireBrowser(t T) string {
 // BrowserPath is the browser Run would use, or "".
 func BrowserPath() string {
 	if p := os.Getenv("UITEST_CHROME"); p != "" {
+		if _, err := os.Stat(p); err != nil {
+			return "" // named and missing: the same as no browser, not another one
+		}
 		return p
 	}
 	for _, name := range []string{"google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome", "headless-shell"} {

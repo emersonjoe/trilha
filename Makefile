@@ -1,4 +1,4 @@
-.PHONY: test test-otel vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release
+.PHONY: test test-otel test-ui test-ui-a vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release
 
 GOVULNCHECK_VERSION ?= v1.1.4
 SECURITY_GO_VERSION ?= go1.25.13
@@ -16,8 +16,21 @@ test-otel:
 	test -z "$$(gofmt -l otel)"
 	cd otel && go vet ./... && go test ./...
 
+# Testes de UI, camada A (spec 164): o HTML servido, sem navegador — retrato
+# normalizado, token CSRF, nonce, cookies, foco do 422. Já roda dentro do
+# make test; este alvo é o recorte, para rodar só ele.
+test-ui-a:
+	go test . ./examples/blog/ ./internal/recipes/ ./internal/uidoc/ -run 'Snapshot|MatchGolden|Has|Focused|ParseElements|PaginasContraOGolden|PatternGoldens|Install'
+
+# Camada B: o app de verdade no Chrome, pelo módulo uitest/ (go.mod próprio,
+# com o chromedp). Sem Chrome os cenários pulam; UITEST_REQUIRED=1 reprova.
+# Uma falha deixa uitest/report/<cenário>.txt.
+test-ui:
+	test -z "$$(gofmt -l uitest)"
+	cd uitest && go vet ./... && go test -count=1 ./...
+
 fmt:
-	gofmt -w *.go h internal cmd examples tmpl otel
+	gofmt -w *.go h internal cmd examples tmpl otel uitest
 
 # NIST SSDF/OWASP evidence. Go 1.22+ downloads the patched toolchain automatically.
 security:

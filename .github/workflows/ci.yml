@@ -51,6 +51,27 @@ jobs:
           go-version: "1.25"
       - run: go vet ./...
       - run: go test ./...
+  # Spec 164: the app in a real Chrome (module uitest/, with chromedp). The
+  # hosted runner has Chrome; UITEST_REQUIRED=1 turns a missing one into a
+  # failure. Optional (continue-on-error) until milestone M3 closes — then the
+  # line goes and the job blocks like the others.
+  ui:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.25"
+      - run: make test-ui
+        env:
+          UITEST_REQUIRED: "1"
+      - name: Failure reports
+        if: failure()
+        run: cat uitest/report/*.txt || true
   security:
     runs-on: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.RUNNER_CI || 'ubuntu-latest' }}
     steps:
