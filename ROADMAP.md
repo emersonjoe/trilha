@@ -328,6 +328,11 @@ trilha, aprovações e busca), cada uma com golden dos arquivos, testes nomeados
 gerado e página no cookbook nas duas línguas; o preço de toda receita (`CtxPackCost`, medido)
 no `trilha add --list`. A re-medição da régua com as receitas (gate: média ≥ 60%) é do
 mantenedor.
+132. **M3a — UI legível por máquina** (spec 163, **entregue na 0.144.0**): `ui.Pattern` e
+`ui.Patterns()` com seis padrões de tela, cada um um `page.go` de até 60 linhas em
+`examples/patterns/` que o repositório compila, `trilha ui patterns [--json]`, `get_pattern`
+no MCP do projeto e do site, a seção "usar este padrão" nas demos nas duas línguas, o catálogo
+do `uidoc` apontando os padrões e um golden de render por padrão.
 
 ## O que não vamos fazer, e por quê
 

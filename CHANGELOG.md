@@ -3,6 +3,32 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.144.0 — 2026-09-24
+
+UI patterns for agents (spec 163, the first half of M3 of Tokens 70): the screens the site
+already demonstrates become data an agent asks for, with a snippet that compiles.
+
+### Added
+
+- **`ui.Pattern` and `ui.Patterns()`** — six screen patterns (`list-with-filter`,
+  `async-form`, `approval-inbox`, `dashboard-chart`, `master-detail`, `upload-progress`),
+  each with a summary, the components it takes, a complete `page.go` of at most 60 lines, the
+  data contract and the accessibility notes. The snippets are files in `examples/patterns/`,
+  compiled with the repository; `ui/patterns_snippets.go` is generated from them
+  (`make golden`), and tests hold every named component to the catalog and to the snippet,
+  the budget to 60 lines and every POST form to its CSRF token.
+- **`trilha ui patterns [name] [--json]`** — one line each, one pattern in full, or the
+  stable JSON an agent reads (held to a golden).
+- **`get_pattern`** in `mcp.ContextTools` and on the docs MCP server: one pattern whole.
+- **"Use this pattern"** under each pattern's demo on the site, in both languages; the
+  reference and the kit catalogue list `Patterns`.
+- **The uidoc catalog points at the patterns** each component takes part in, and
+  `trilha ui describe` says them; every pattern renders to a golden with fixed data.
+
+### Fixed
+
+- Two doc examples in `ui` wrote `h.EncType`; the function is `h.Enctype`.
+
 ## 0.143.0 — 2026-09-24
 
 Platform recipes (spec 162, milestone M2 of Tokens 70): the agent composes verified features

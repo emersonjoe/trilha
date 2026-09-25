@@ -14,4 +14,4 @@
   *Aceite:* `make test` verde com a trava da superfície atualizada.
 - [x] **T06** — Golden `uidoc` por padrão + `patterns` no catálogo e no `ui describe`.
   *Aceite:* `TestUIDocPatternGoldens`.
-- [ ] **T07** — CHANGELOG + ROADMAP + suíte. *Aceite:* `make test` verde.
+- [x] **T07** — CHANGELOG + ROADMAP + suíte. *Aceite:* `make test` verde.
