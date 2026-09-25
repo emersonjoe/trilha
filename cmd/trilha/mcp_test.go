@@ -75,3 +75,27 @@ func TestMCPWritingToolIsNotOfferedByDefault(t *testing.T) {
 		t.Fatal("the writing tool does not say that it writes")
 	}
 }
+
+// The context tools are on the project's server too (spec 165): an agent with
+// no shell gets the same one-read answer as `trilha ctx`. They read and never
+// write, so they are there with or without --write — and generate still only
+// with it.
+func TestMCPOffersTheContextTools(t *testing.T) {
+	root := t.TempDir()
+	r := &mcpRunner{root: root, self: "trilha"}
+	names := func(write bool) string {
+		var out []string
+		for _, tool := range mcpTools(r, &project{Root: root, Module: "example.com/x"}, write) {
+			out = append(out, tool.Name)
+		}
+		return strings.Join(out, " ")
+	}
+	for _, want := range []string{"get_context", "search_code", "get_pattern"} {
+		if !strings.Contains(names(false), want) {
+			t.Errorf("read-only server lacks %s: %s", want, names(false))
+		}
+	}
+	if strings.Contains(names(false), "generate") || !strings.Contains(names(true), "generate") {
+		t.Fatalf("the --write gate moved: %q / %q", names(false), names(true))
+	}
+}

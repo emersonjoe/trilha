@@ -1524,8 +1524,13 @@ func TestMCPServerE2E(t *testing.T) {
 	// Read-only by default: generate is not offered, so it cannot be called.
 	ro := dial("mcp")
 	got := names(ro)
-	if strings.Join(got, ",") != "check,describe_project,routes,ui_describe" {
+	if strings.Join(got, ",") != "check,describe_project,get_context,get_pattern,routes,search_code,ui_describe" {
 		t.Fatalf("tools without --write = %v", got)
+	}
+	// The context tools answer from the project (spec 165): the map an agent
+	// reads before it opens a file.
+	if res, err := ro.CallTool(ctx, "get_context", json.RawMessage(`{}`)); err != nil || !strings.Contains(res.Text(), "/") {
+		t.Fatalf("get_context: %v %v", err, res)
 	}
 	if !refused(t, ctx, ro, "generate", `{"kind":"page","target":"/x"}`) {
 		t.Fatal("a tool that was never offered answered anyway")
@@ -1552,7 +1557,7 @@ func TestMCPServerE2E(t *testing.T) {
 
 	// With --write the tool appears, and writing is all it does differently.
 	rw := dial("mcp", "--write")
-	if got := names(rw); strings.Join(got, ",") != "check,describe_project,generate,routes,ui_describe" {
+	if got := names(rw); strings.Join(got, ",") != "check,describe_project,generate,get_context,get_pattern,routes,search_code,ui_describe" {
 		t.Fatalf("tools with --write = %v", got)
 	}
 	if _, err := rw.CallTool(ctx, "generate", json.RawMessage(`{"kind":"page","target":"/relatorio"}`)); err != nil {

@@ -86,10 +86,7 @@ func cmdMCP(args []string) error {
 	}
 	r := &mcpRunner{root: p.Root, self: self}
 
-	tools := []*ai.Tool{r.describeProject(), r.check(), r.routes(), r.uiDescribe()}
-	if *write {
-		tools = append(tools, r.generate())
-	}
+	tools := mcpTools(r, p, *write)
 
 	names := make([]string, 0, len(tools))
 	for _, t := range tools {
@@ -104,6 +101,19 @@ func cmdMCP(args []string) error {
 
 	s := mcp.NewServer("trilha", version, tools...)
 	return s.ServeStdio(context.Background(), os.Stdin, os.Stdout)
+}
+
+// mcpTools is what the server offers: the project's own tools, the context
+// tools an agent reads before it opens a file (get_context, search_code,
+// get_pattern — read-only, under the project root, the same answer `trilha
+// ctx` gives), and the writing tool only with --write.
+func mcpTools(r *mcpRunner, p *project, write bool) []*ai.Tool {
+	tools := []*ai.Tool{r.describeProject(), r.check(), r.routes(), r.uiDescribe()}
+	tools = append(tools, mcp.ContextTools(mcp.ContextOpts{Root: p.Root, Module: p.Module, Version: version})...)
+	if write {
+		tools = append(tools, r.generate())
+	}
+	return tools
 }
 
 // mcpFromRoutes prints what mcp.FromRoutes would publish for this project:
