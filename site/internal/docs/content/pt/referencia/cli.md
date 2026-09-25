@@ -898,7 +898,9 @@ Cada linha do `trilha add` (e cada item do `--list --json`, como `ctx_pack_token
 preço: quanto custa o `trilha ctx --pack <receita>`, em tokens estimados, com a receita num
 projeto mínimo — a leitura que um agente faz para saber o que chegou. É medido, não chutado: um
 teste instala cada receita e segura o número contra o pack, então uma receita que ganha uma tela
-ganha o preço no mesmo commit. O `add` termina com a mesma linha, rotulada `est.` como todo
+ganha o preço no mesmo commit. O `add` termina com o preço medido no **seu** projeto, depois do
+`gen` — um projeto de verdade, com layouts e as convenções que usa, custa um pouco mais que o
+mínimo —, então é o número que o `trilha ctx --pack` vai custar ali, rotulado `est.` como todo
 número do estimador comum.
 
 ```text

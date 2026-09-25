@@ -904,8 +904,10 @@ Every line of `trilha add` (and every entry of `--list --json`, as `ctx_pack_tok
 price: what `trilha ctx --pack <recipe>` costs, in estimated tokens, once the recipe is in a
 minimal project — the reading an agent does to know what arrived. It is measured, not guessed:
 a test installs every recipe and holds the number to the pack, so a recipe that grows a screen
-grows its price in the same commit. `add` ends with the same line, labeled `est.` like every
-number from the shared estimator.
+grows its price in the same commit. `add` ends with the price measured in **your** project,
+after `gen` — a real project, with layouts and the conventions it uses, costs a little more
+than the minimal one — so it is the number `trilha ctx --pack` will cost there, labeled `est.`
+like every number from the shared estimator.
 
 ```text
   billing           ~338 tok (est.)   charging without a coupled provider: …

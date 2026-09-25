@@ -340,6 +340,10 @@ receitas de plataforma e os padrões, relatório de falha para agente, `E_CSP_NO
 no `trilha audit`, `make test-ui`/`test-ui-a` e o job `ui` da CI — opcional até o M3 fechar,
 quando o `continue-on-error` sai. Os cenários acharam três defeitos do kit, corrigidos na mesma
 versão.
+134. **Acabamentos do M3** (spec 165, **entregue na 0.146.0**): `trilha mcp` com as ferramentas
+de contexto, o preço do `trilha add` medido no projeto, o logout da receita login com CSRF e a
+página de erro no layout, e o foco no primeiro campo inválido de um 422 de página inteira. As
+stores SQL de billing e notify são a spec 166.
 
 ## O que não vamos fazer, e por quê
 

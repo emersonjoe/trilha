@@ -26,12 +26,18 @@ trilha add login --dry-run
   + internal/sessao/sessao.go
   + app/entrar/page.go
   + app/sair/route.go
+  + app/sair/middleware.go
+  + app/error.go
   + internal/sessao/sessaotest/sessaotest.go
   + login_test.go
   ~ app/setup.go (uma linha acrescentada)
 
 --dry-run: nada foi escrito
 ```
+
+A saída confere o token CSRF (`sair/middleware.go`, porque um `route.go` é API e não conferiria),
+e o `app/error.go` — escrito só quando o projeto não tem um — põe um 401 ou 403 no layout do app
+em vez da página nua do framework.
 
 Isso é uma tabela de usuários, uma tela de entrar e de sair, e a ligação em `app/setup.go` —
 um login que funciona antes de você escrever uma linha, e o que toda outra receita do

@@ -26,12 +26,18 @@ trilha add login --dry-run
   + internal/sessao/sessao.go
   + app/entrar/page.go
   + app/sair/route.go
+  + app/sair/middleware.go
+  + app/error.go
   + internal/sessao/sessaotest/sessaotest.go
   + login_test.go
   ~ app/setup.go (one line added)
 
 --dry-run: nothing was written
 ```
+
+The way out checks the CSRF token (`sair/middleware.go`, since a `route.go` is an API and would
+not), and `app/error.go` — written only when the project has none — puts a 401 or 403 in the
+app's layout instead of the framework's bare page.
 
 That is a users table, a sign-in and sign-out screen and the wiring in `app/setup.go` — a
 login that works before you write a line, and the one every other recipe in

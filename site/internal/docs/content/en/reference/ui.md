@@ -206,7 +206,8 @@ the feedback location; when omitted, the runtime creates the element.
 `[data-trilha-target=id]` on an `<a>` or `<form>` (see `ui.Swap`) makes the kit request the
 same URL with the `Trilha-Fragment` header and swap element `#id` for the HTML that comes
 back. Details: the target gets `aria-busy` while it waits; **204 with `Trilha-Location`**
-becomes a real navigation; **422** focuses the first `[aria-invalid=true]`, otherwise focus
+becomes a real navigation; **422** focuses the first `[aria-invalid=true]` (a form refused
+with a whole page, without a swap, gets the same on load), otherwise focus
 (and the caret) return to the field in use; what came in is hydrated (`fade`, `show-when`)
 and fires `trilha:swap` (`detail.target`, `detail.status`). On 5xx, a network error or a
 fragment without the id, the kit gives up and navigates/submits normally.

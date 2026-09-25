@@ -39,6 +39,9 @@ That shape works in Claude Desktop, Claude Code and any client that launches a s
 | `routes` | the route table in precedence order | `trilha routes` |
 | `ui_describe` | the `ui` catalogue: signature, purpose, an example that compiles | the catalogue in the binary — no project needed |
 | `check` | gen, `gofmt`, `vet`, tests, audit and OpenAPI, as JSON | `trilha check --json` |
+| `get_context` | the project map sliced for one job (`pack`), priced in estimated tokens, within a `budget` | `trilha ctx --pack` |
+| `search_code` | code as `path:line` windows, never a whole file | the project's files, read-only |
+| `get_pattern` | one screen pattern whole: components, snippet, data, accessibility | `trilha ui patterns <name>` |
 | `generate` | writes a page, route, test or component | `trilha generate` — **only with `--write`** |
 
 Each one is a wrapper: the tool answers what the command answers, byte for byte, and a test
@@ -71,7 +74,7 @@ every log line goes to stderr, where you can watch what the agent asked for:
 
 ```
 trilha mcp 0.43.0 · /path/to/my-project · read-only unless --write; no shell; arguments allow-listed
-tools: describe_project, check, routes, ui_describe
+tools: describe_project, check, routes, ui_describe, get_context, search_code, get_pattern
 → trilha ctx --json
 ```
 

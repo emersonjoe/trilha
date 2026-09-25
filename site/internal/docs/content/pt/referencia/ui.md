@@ -207,7 +207,8 @@ ponto do feedback; se ele não estiver presente, o runtime cria o elemento.
 `[data-trilha-target=id]` em `<a>` ou `<form>` (veja `ui.Swap`) faz o kit pedir a mesma URL
 com o cabeçalho `Trilha-Fragment` e trocar o elemento `#id` pelo HTML que voltou. Detalhes:
 o alvo ganha `aria-busy` durante a espera; **204 com `Trilha-Location`** vira navegação de
-verdade; **422** põe o foco no primeiro `[aria-invalid=true]`, senão o foco (e o cursor)
+verdade; **422** põe o foco no primeiro `[aria-invalid=true]` (um formulário recusado com a
+página inteira, sem swap, recebe o mesmo ao carregar), senão o foco (e o cursor)
 voltam para o campo em uso; o que entrou é hidratado (`fade`, `show-when`) e dispara
 `trilha:swap` (`detail.target`, `detail.status`). Em 5xx, erro de rede ou fragmento sem o
 id, o kit desiste e navega/envia normalmente. `ui.swap(id, html, status)` e

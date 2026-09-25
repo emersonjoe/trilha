@@ -3,6 +3,35 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.146.0 — 2026-09-25
+
+Finishing M3 (spec 165): the loose ends the UI tests of spec 164 and the close of Tokens 70
+pointed at.
+
+### Added
+
+- **`trilha mcp` offers the context tools** — `get_context`, `search_code` and `get_pattern`
+  (`mcp.ContextTools`) next to its own, read-only and under the project root, with or without
+  `--write`. An agent with no shell gets the same one-read map `trilha ctx` gives.
+
+### Changed
+
+- **`trilha add` prints the price measured in the project.** The cost line at the end is
+  `trilha ctx --pack <recipe>` measured after `gen`, in the project that received the recipe;
+  `--list` keeps the reference price measured on a minimal project.
+- **The login recipe writes `app/error.go` when the project has none**, so the 401 and 403 it
+  brings render in the app's layout instead of the framework's bare page (the blog template
+  has no error page). A project that has one keeps it.
+- **`ui.js` focuses the first invalid field on load**: a form refused with a whole page — a
+  422 without `ui.Swap` — gets the same focus a swap gives. The budget of `ui.js` goes from
+  29 KB to 30 KB.
+
+### Fixed
+
+- **The logout of the login recipe checked no CSRF token**: `sair` is a `route.go`, an API by
+  convention, so another site could sign anybody out. The recipe now writes
+  `sair/middleware.go` with `trilha.RequireCSRF`, and the generated test proves the 403.
+
 ## 0.145.0 — 2026-09-24
 
 UI tests from end to end (spec 164, the second half of M3 of Tokens 70): the agent proves the

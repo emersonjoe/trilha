@@ -39,6 +39,9 @@ por stdio. O `cwd` é quem decide o projeto, e nada que o modelo mande muda isso
 | `routes` | a tabela de rotas em ordem de precedência | `trilha routes` |
 | `ui_describe` | o catálogo do `ui`: assinatura, para que serve, exemplo que compila | o catálogo que vem no binário — dispensa projeto |
 | `check` | gen, `gofmt`, `vet`, testes, auditoria e OpenAPI, em JSON | `trilha check --json` |
+| `get_context` | o mapa do projeto recortado para um trabalho (`pack`), com preço em tokens estimados, dentro de um `budget` | `trilha ctx --pack` |
+| `search_code` | código em janelas `caminho:linha`, nunca o arquivo inteiro | os arquivos do projeto, só leitura |
+| `get_pattern` | um padrão de tela inteiro: componentes, snippet, dados, acessibilidade | `trilha ui patterns <nome>` |
 | `generate` | grava página, rota, teste ou componente | `trilha generate` — **só com `--write`** |
 
 Cada uma é um invólucro: a ferramenta responde o que o comando responde, byte a byte, e há um
@@ -71,7 +74,7 @@ log vai para o stderr, onde você acompanha o que o agente pediu:
 
 ```
 trilha mcp 0.43.0 · /caminho/do/meu-projeto · read-only unless --write; no shell; arguments allow-listed
-tools: describe_project, check, routes, ui_describe
+tools: describe_project, check, routes, ui_describe, get_context, search_code, get_pattern
 → trilha ctx --json
 ```
 

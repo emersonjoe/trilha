@@ -1,6 +1,6 @@
 # Feature Specification: Acabamentos do M3
 
-**Feature Branch**: `165-acabamentos-do-m3` | **Created**: 2026-09-25 | **Status**: Draft
+**Feature Branch**: `165-acabamentos-do-m3` | **Created**: 2026-09-25 | **Status**: Entregue (0.146.0)
 **Input**: as sugestões de issue deixadas pela spec 164 (`specs/164-testes-ui-a-ui/spec.md`,
 "Registro da implementação") e pelo relatório de fechamento do Plano Tokens 70, pedidas pelo
 mantenedor na mesma sessão. As stores SQL de billing e notify são a spec 166 (mudam o tipo da
@@ -45,11 +45,24 @@ store das duas receitas; não cabem aqui).
 
 ## Tarefas
 
-- [ ] **T01** — `trilha mcp` com `ContextTools`. *Aceite:* teste da lista de ferramentas.
-- [ ] **T02** — `add` mede o pack no projeto. *Aceite:* e2e exige o mesmo número do `ctx --pack`.
-- [ ] **T03** — login: `sair/middleware.go` com `RequireCSRF` + `app/error.go` quando falta.
+- [x] **T01** — `trilha mcp` com `ContextTools`. *Aceite:* teste da lista de ferramentas.
+- [x] **T02** — `add` mede o pack no projeto. *Aceite:* e2e exige o mesmo número do `ctx --pack`.
+- [x] **T03** — login: `sair/middleware.go` com `RequireCSRF` + `app/error.go` quando falta.
   *Aceite:* teste gerado do 403 sem token; `TestUIAdminDefaultDeny` vê a página com layout.
-- [ ] **T04** — `ui.js` foca o primeiro inválido ao carregar. *Aceite:* `TestUIBillingScreens`
+- [x] **T04** — `ui.js` foca o primeiro inválido ao carregar. *Aceite:* `TestUIBillingScreens`
   com `WantFocus("#moeda")` depois do 422 de página inteira.
-- [ ] **T05** — Docs bilíngues, CHANGELOG 0.146.0, ROADMAP. *Aceite:* `make test` e
+- [x] **T05** — Docs bilíngues, CHANGELOG 0.146.0, ROADMAP. *Aceite:* `make test` e
   `UITEST_REQUIRED=1 make test-ui` verdes.
+
+## Registro da implementação
+
+- O e2e do `trilha mcp` fixava a lista antiga de ferramentas; a lista nova é a mudança pedida,
+  e o teste ganhou uma chamada real de `get_context`.
+- `CtxPackCost` do login subiu de 129 para 152 (dois arquivos a mais no pack), medido pelo
+  `TestRecipeCtxPackCost`.
+- `TestUILoginFlow` esperava pelo endereço depois da senha errada, que já era `/entrar` antes da
+  página nova chegar; passou a esperar pela mensagem de erro. Era uma corrida do cenário, que o
+  foco no carregamento expôs.
+- Evidências: `make test` verde; `UITEST_REQUIRED=1 make test-ui` verde (16 testes), com
+  `TestUIBillingScreens` exigindo o foco em `#moeda` no 422 de página inteira e
+  `TestUIAdminDefaultDeny` exigindo o 403 dentro do layout.
