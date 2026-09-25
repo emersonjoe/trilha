@@ -344,6 +344,10 @@ versão.
 de contexto, o preço do `trilha add` medido no projeto, o logout da receita login com CSRF e a
 página de erro no layout, e o foco no primeiro campo inválido de um 422 de página inteira. As
 stores SQL de billing e notify são a spec 166.
+135. **Stores SQL de plataforma** (spec 166, **entregue na 0.147.0**): billing e notify com a
+store como interface (memória e `database/sql`), ligadas ao `trilha add store` em qualquer ordem,
+contratos que seguram as duas no mesmo comportamento e o módulo `sqltest/` provando em SQLite e
+num cluster PostgreSQL temporário; `make test-sql` e o job `sql` da CI.
 
 ## O que não vamos fazer, e por quê
 

@@ -50,7 +50,7 @@ var Politica = auth.Policy{
 
 ## Preço
 
-`trilha ctx --pack billing` custa **~338 tokens (est.)** — o que um agente lê para saber o que a
+`trilha ctx --pack billing` custa **~356 tokens (est.)** — o que um agente lê para saber o que a
 receita trouxe, medido num projeto mínimo pelo `TestRecipeCtxPackCost`. O `trilha add --list`
 mostra o mesmo número, e o selo desta página dá o preço da documentação para a qual ela aponta.
 
@@ -114,10 +114,23 @@ func (b *Billing) Receber(c *trilha.Ctx) error {
 	// Signed and not seen before, and only then: an unsigned request must not
 	// be able to burn an id a real event will carry later.
 	agora := time.Now().UTC()
-	if b.Store.Visto(ev.ID, agora) {
+	visto, err := b.Store.Visto(c.Context(), ev.ID, agora)
+	if err != nil {
+		return err // 500: the provider tries again
+	}
+	if visto {
 		return c.JSON(http.StatusOK, map[string]string{"status": "duplicate"})
 	}
 	if err := b.aplicar(c, ev, agora); err != nil {
+		var falha falhaDoStore
+		if errors.As(err, &falha) {
+			// The store failed and wrote nothing: the id is forgotten and the
+			// answer is 500, so the provider's retry is processed.
+			if ferr := b.Store.Esquecer(c.Context(), ev.ID); ferr != nil {
+				c.Log().Error("cobranca: event id kept after a failure", "event", ev.ID, "err", ferr)
+			}
+			return falha.err
+		}
 		// The event was understood and refused by the machine — an old event
 		// arriving after a cancel, say. It is logged with the reason, and the
 		// answer is still 200: retrying it would not make it valid.
@@ -137,7 +150,11 @@ auditoria com o id do evento e a transição.
 - **Outro provedor**: a struct `Evento` e os quatro nomes de evento em
   `internal/cobranca/webhook.go` são o único código com a forma do provedor. Um provedor que
   assina de outro jeito é `webhook.VerifyHMAC` no lugar de `webhook.Verify` em `Receber`.
-- **Um banco**: o store é memória atrás dos métodos de `Store`; a migração é o mesmo formato em
-  tabelas. Com o `trilha add store`, um store sobre `billing_*` o substitui e nenhuma tela muda.
+- **Um banco**: com o [`trilha add store`](/pt/receitas/banco-de-dados) no projeto — antes ou
+  depois —, a linha `trilha:link billing-store` do `app/setup.go` liga o `cobranca.Banco` ao
+  pool, e as linhas vão para `billing_*` (`internal/cobranca/sql.go`, SQLite ou PostgreSQL).
+  Nenhuma tela muda; o `cobrancatest.Contrato` segura memória e banco no mesmo comportamento, e
+  uma falha do banco no webhook responde 500 e esquece o id, para a nova tentativa do provedor
+  valer.
 - **Produção**: o segredo mora em `connections`, e o `trilha audit` avisa enquanto elas ficam
   em memória — um restart esqueceria o segredo e todo evento seria recusado.

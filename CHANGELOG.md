@@ -3,6 +3,42 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.147.0 — 2026-09-25
+
+SQL stores for the platform recipes (spec 166): billing and notify keep their rows in the
+database once `trilha add store` is in the project, in either order, with no screen changing.
+
+### Added
+
+- **`internal/cobranca/sql.go` and `internal/notificar/sql.go`** — the stores over the tables of
+  `migrations/0100_billing.sql` and the new `migrations/0110_notify.sql`, in plain
+  `database/sql` with the dialect's placeholders (SQLite or PostgreSQL). A line each recipe and
+  the store recipe carry — `trilha:link billing-store`, `trilha:link notify-store` — points
+  `cobranca.Banco` / `notificar.Banco` at the pool, whichever is added second.
+- **`cobrancatest.Contrato` and `notificartest.Contrato`** — what every store promises, run on
+  memory by the package's tests and on whatever the app wired by `TestBillingStoreContract` and
+  `TestNotifyStoreContractOnTheApp`.
+- **The module `sqltest/`** (its own `go.mod`, modernc SQLite and pgx) and **`make test-sql`**:
+  projects generated with the store in both orders, every generated test on a fresh database,
+  the rows counted in the tables afterwards; with PostgreSQL's programs installed it starts a
+  temporary cluster on 127.0.0.1 and runs there too (`SQLTEST_POSTGRES=1` requires it). An
+  optional `sql` CI job.
+
+### Changed
+
+- **The generated `cobranca.Store` is an interface** (memory: `NovoStore`, database: `NovoSQL`)
+  and its methods take a `context.Context` and return an `error`; `Esquecer` undoes `Visto`.
+  The generated `Notificador` sits on a `notificar.Store`, and `Preferencias`,
+  `SalvarPreferencias` and `Fila` take a context and return an error. Projects generated before
+  are not touched.
+- **The billing webhook answers 500 when the store fails** and forgets the event id, so the
+  provider's retry is processed; a refusal by the state machine is still 200. A state change on
+  the database is an optimistic update, read again when another replica moved the row.
+- **`migrations/0100_billing.sql`** has no foreign key on `plan_id` (the provider's plan may not
+  exist locally, and deleting a plan must not take the history) and names the column `period`.
+  The migration was never in a published version.
+- `CtxPackCost`: billing 356, notify 232.
+
 ## 0.146.0 — 2026-09-25
 
 Finishing M3 (spec 165): the loose ends the UI tests of spec 164 and the close of Tokens 70

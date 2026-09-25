@@ -50,7 +50,7 @@ var Politica = auth.Policy{
 
 ## Price
 
-`trilha ctx --pack billing` costs **~338 tokens (est.)** — what an agent reads to know what the
+`trilha ctx --pack billing` costs **~356 tokens (est.)** — what an agent reads to know what the
 recipe brought, measured on a minimal project by `TestRecipeCtxPackCost`. `trilha add --list`
 shows the same number, and the badge on this page prices the documentation it links to.
 
@@ -115,10 +115,23 @@ func (b *Billing) Receber(c *trilha.Ctx) error {
 	// Signed and not seen before, and only then: an unsigned request must not
 	// be able to burn an id a real event will carry later.
 	agora := time.Now().UTC()
-	if b.Store.Visto(ev.ID, agora) {
+	visto, err := b.Store.Visto(c.Context(), ev.ID, agora)
+	if err != nil {
+		return err // 500: the provider tries again
+	}
+	if visto {
 		return c.JSON(http.StatusOK, map[string]string{"status": "duplicate"})
 	}
 	if err := b.aplicar(c, ev, agora); err != nil {
+		var falha falhaDoStore
+		if errors.As(err, &falha) {
+			// The store failed and wrote nothing: the id is forgotten and the
+			// answer is 500, so the provider's retry is processed.
+			if ferr := b.Store.Esquecer(c.Context(), ev.ID); ferr != nil {
+				c.Log().Error("cobranca: event id kept after a failure", "event", ev.ID, "err", ferr)
+			}
+			return falha.err
+		}
 		// The event was understood and refused by the machine — an old event
 		// arriving after a cancel, say. It is logged with the reason, and the
 		// answer is still 200: retrying it would not make it valid.
@@ -138,8 +151,11 @@ trail with the event id and the transition.
 - **Another provider**: the struct `Evento` and the four event names in
   `internal/cobranca/webhook.go` are the only provider-shaped code. A provider that signs
   another way is `webhook.VerifyHMAC` in place of `webhook.Verify` in `Receber`.
-- **A database**: the store is memory behind the `Store` methods; the migration is the same
-  shape as tables. With `trilha add store`, a store over `billing_*` replaces it and no screen
-  changes.
+- **A database**: with [`trilha add store`](/cookbook/database) in the project — before or
+  after — the `trilha:link billing-store` line of `app/setup.go` points `cobranca.Banco` at the
+  pool, and the rows go to `billing_*` (`internal/cobranca/sql.go`, SQLite or PostgreSQL). No
+  screen changes; `cobrancatest.Contrato` holds memory and database to the same behaviour, and a
+  database failure in the webhook answers 500 and forgets the id, so the provider's retry
+  counts.
 - **Production**: the secret lives in `connections`, and `trilha audit` warns while those are
   kept in memory — a restart would forget the secret and every event would be refused.

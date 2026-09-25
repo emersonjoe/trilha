@@ -904,7 +904,7 @@ mínimo —, então é o número que o `trilha ctx --pack` vai custar ali, rotul
 número do estimador comum.
 
 ```text
-  billing           ~338 tok (est.)   cobrança sem provedor acoplado: …
+  billing           ~356 tok (est.)   cobrança sem provedor acoplado: …
 ```
 
 ### Rodar duas vezes acrescenta; não recomeça

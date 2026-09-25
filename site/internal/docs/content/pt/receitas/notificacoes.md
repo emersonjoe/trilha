@@ -25,6 +25,7 @@ ligados.
 | Onde | O quê |
 |---|---|
 | `internal/notificar/` | o notificador, os canais, as preferências, a fila, o digesto |
+| `migrations/0110_notify.sql` | as tabelas `notify_preferences`, `notify_outbox`, `notify_digests`, usadas quando o [`trilha add store`](/pt/receitas/banco-de-dados) está no projeto |
 | `app/notificacoes/` | as preferências de cada pessoa (canal, digesto, silêncio, telefone) |
 | `app/notificacoes/fila/` | a fila de saída, para o papel `admin`: o que aconteceu, reenviar, o digesto de hoje, os limites |
 | `notificacoes_test.go` | os testes das telas, no seu projeto |
@@ -36,27 +37,27 @@ A chamada é a única coisa que o seu código escreve:
 // channel's limit, and always leaves the notification in the outbox —
 // ErrLimite when the limit held it back, the channel's error when it failed.
 func (n *Notificador) Notificar(c *trilha.Ctx, para Pessoa, titulo, corpo string) (Notificacao, error) {
-	p := n.Preferencias(para.Sujeito)
+	ctx := ctxDe(c)
+	p, err := n.Preferencias(ctx, para.Sujeito)
+	if err != nil {
+		return Notificacao{}, err
+	}
 	canal := p.Canal
 	if _, ok := Canais[canal]; !ok {
 		// A preference for a channel that was unwired since falls back to
 		// e-mail rather than to silence.
 		canal = CanalEmail
 	}
-	n.mu.Lock()
-	n.seq++
-	no := &Notificacao{ID: "n-" + strconv.Itoa(n.seq), Para: para, Telefone: p.Telefone, Canal: canal,
-		Titulo: titulo, Corpo: corpo, Criada: n.Agora()}
-	n.fila = append(n.fila, no)
-	n.mu.Unlock()
-
+	no, err := n.store.Guardar(ctx, Notificacao{Para: para, Telefone: p.Telefone, Canal: canal,
+		Titulo: titulo, Corpo: corpo, Criada: n.Agora()})
+	if err != nil {
+		return Notificacao{}, err
+	}
 	switch {
 	case p.Digesto:
-		n.marcar(no, NoDigesto, "")
-		return *no, nil
+		return n.marcar(ctx, no, NoDigesto, "")
 	case p.Silencio(n.Agora().Hour()):
-		n.marcar(no, Retida, "")
-		return *no, nil
+		return n.marcar(ctx, no, Retida, "")
 	}
 	return n.entregar(c, no)
 }
@@ -64,7 +65,7 @@ func (n *Notificador) Notificar(c *trilha.Ctx, para Pessoa, titulo, corpo string
 
 ## Preço
 
-`trilha ctx --pack notify` custa **~197 tokens (est.)**, medido num projeto mínimo pelo
+`trilha ctx --pack notify` custa **~232 tokens (est.)**, medido num projeto mínimo pelo
 `TestRecipeCtxPackCost` — o número que o `trilha add --list` mostra.
 
 ## As regras que ela guarda
@@ -105,5 +106,8 @@ pessoa ouviu, e o log é lido por quem lê log.
 
 - **Outro canal**: um `notificar.Canal` em `notificar.Canais`, no `app/setup.go`. Um provedor
   que só manda texto é `notificar.PorTexto(envia)`, que é como a linha do WhatsApp é escrita.
-- **Um banco**: preferências e fila são memória atrás dos métodos do `Notificador` — duas
-  tabelas no dia em que precisarem sobreviver a um restart.
+- **Um banco**: com o [`trilha add store`](/pt/receitas/banco-de-dados) no projeto — antes ou
+  depois —, as preferências e a fila vão para as tabelas de `migrations/0110_notify.sql`
+  (`internal/notificar/sql.go`), e o digesto é um por dia através de reinícios e réplicas.
+  Nenhuma tela muda; o `notificartest.Contrato` segura memória e banco no mesmo comportamento.
+  O limite por canal continua por processo.
