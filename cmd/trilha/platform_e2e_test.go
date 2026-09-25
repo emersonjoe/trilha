@@ -18,6 +18,7 @@ var platformTests = map[string][]string{
 	".": {
 		"TestBillingWebhookValid", "TestBillingWebhookUnsigned", "TestBillingWebhookExpired",
 		"TestBillingIdempotentEvent", "TestBillingDunningCycle", "TestBillingCSVAdminOnly",
+		"TestBillingScreensKeepProtections", "TestNotifyPreferences", "TestAdminDefaultDeny",
 	},
 	"./internal/cobranca/":  {"TestBillingStates"},
 	"./internal/notificar/": {"TestNotifyQuietHours", "TestNotifyDigest", "TestNotifyRateLimit"},

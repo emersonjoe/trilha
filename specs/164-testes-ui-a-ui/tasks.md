@@ -1,9 +1,9 @@
 # Tasks: Testes UI a UI
 
-- [ ] **T01** — `PageSnapshot` + normalização + `CapturePage` (+ `TestResponse.Snapshot`,
+- [x] **T01** — `PageSnapshot` + normalização + `CapturePage` (+ `TestResponse.Snapshot`,
   `MatchGolden`) no pacote raiz; superfície registrada. *Aceite:* `make api` + golden do blog
   estável entre execuções (nonce muda, golden não).
-- [ ] **T02** — Asserções da camada A (`HasCSRFToken`, `HasAria`, `FocusedOnError`,
+- [x] **T02** — Asserções da camada A (`HasCSRFToken`, `HasAria`, `FocusedOnError`,
   `HasSafeCookies`, `HasNoSecret`) + testes. *Aceite:* usados nos testes das receitas da spec
   162 (billing, notify, admin) e nos goldens dos padrões.
 - [ ] **T03** — Módulo `uitest/` com `go.mod` próprio + `Session`. *Aceite:* `TestUILoginFlow`

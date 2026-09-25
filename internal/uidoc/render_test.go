@@ -3,7 +3,6 @@ package uidoc
 import (
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"github.com/emersonjoe/trilha"
@@ -44,17 +43,6 @@ func fakeData() {
 	}
 }
 
-// volatile is what changes between two renders of the same code: the CSP
-// nonce, the CSRF token, the request id.
-var volatile = []struct {
-	re   *regexp.Regexp
-	with string
-}{
-	{regexp.MustCompile(`nonce="[^"]*"`), `nonce="{{NONCE}}"`},
-	{regexp.MustCompile(`(name="_csrf" value=")[^"]*"`), `${1}{{CSRF}}"`},
-	{regexp.MustCompile(`(data-request-id=")[^"]*"`), `${1}{{RID}}"`},
-}
-
 // TestUIDocPatternGoldens renders every pattern's page.go with the fake data
 // and holds the HTML to testdata/patterns/<name>.html: the markup a pattern
 // promises is reviewed as a diff, and a kit change that moves it shows up
@@ -84,10 +72,17 @@ func TestUIDocPatternGoldens(t *testing.T) {
 		if rec.Code != 200 {
 			t.Fatalf("%s: %d\n%s", p.Name, rec.Code, rec.Body.String())
 		}
-		got := rec.Body.String()
-		for _, v := range volatile {
-			got = v.re.ReplaceAllString(got, v.with)
+		// The snapshot takes out what changes between two renders — the CSP
+		// nonce, the CSRF token, the request id — and checks what the pattern
+		// promises on the served HTML: the token in every form that writes,
+		// the nonce on every inline script, the focus rule of a 422.
+		snap := rec.Snapshot()
+		for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce()} {
+			if err != nil {
+				t.Errorf("%s: %v", p.Name, err)
+			}
 		}
+		got := snap.Body
 		golden := filepath.Join("testdata", "patterns", p.Name+".html")
 		if *update {
 			if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {

@@ -179,6 +179,16 @@ func TestAdminDefaultDeny(t *testing.T) {
 			}
 		}
 	}
+	// O que o admin vê é lido como o navegador recebe: todo formulário que
+	// escreve leva o token, todo script inline o nonce, e os cookies são HttpOnly.
+	for _, tela := range telasDoAdmin {
+		snap := quem[2].client.Get(tela).Snapshot()
+		for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSafeCookies()} {
+			if err != nil {
+				t.Errorf("%s: %v", tela, err)
+			}
+		}
+	}
 	// E escrever também: um POST do leitor não passa da porta.
 	quem[1].client.PostForm("/admin/usuarios", url.Values{"acao": {"papel"}, "id": {"u-leitor"}, "papel": {"admin"}}).
 		WantStatus(http.StatusForbidden)

@@ -41,8 +41,19 @@ func TestNotifyPreferences(t *testing.T) {
 	c := entrarComo(t, a, "admin@example.com", "a-password-nobody-guesses")
 	c.Get("/notificacoes").WantStatus(http.StatusOK).WantContains(`name="silencio_de"`)
 
-	c.PostForm("/notificacoes", url.Values{"canal": {"mail"}, "silencio_de": {"25"}}).
-		WantStatus(http.StatusUnprocessableEntity)
+	// A tela lida como o navegador a recebe: token no formulário, nonce nos
+	// scripts, cookies HttpOnly; e, na volta do 422, o foco no campo errado.
+	snap := c.Get("/notificacoes").Snapshot()
+	for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSafeCookies()} {
+		if err != nil {
+			t.Error(err)
+		}
+	}
+	recusado := c.PostForm("/notificacoes", url.Values{"canal": {"mail"}, "silencio_de": {"25"}}).
+		WantStatus(http.StatusUnprocessableEntity).Snapshot()
+	if err := recusado.FocusedOnError("#silencio_de"); err != nil {
+		t.Error(err)
+	}
 	if _, ligado := notificar.Canais[notificar.CanalWhatsApp]; !ligado {
 		c.PostForm("/notificacoes", url.Values{"canal": {"whatsapp"}}).
 			WantStatus(http.StatusUnprocessableEntity)

@@ -1044,14 +1044,17 @@ func tela(c *trilha.Ctx, p cobranca.Plano, errs trilha.FieldErrors) h.Node {
 		h.Form(h.Method("post"), h.Action("{{.URL}}billing/planos"), h.Class("ui-stack"),
 			trilha.CSRFInput(c),
 			ui.Field("nome", "{{.T.billing_plan_name}}",
-				ui.Input(h.ID("nome"), h.Name("nome"), h.Value(p.Nome), h.Required()), ui.Errors(errs, "nome")),
+				ui.Input(h.ID("nome"), h.Name("nome"), h.Value(p.Nome), h.Required(), ui.InvalidIf(errs, "nome")),
+				ui.Errors(errs, "nome")),
 			ui.Field("centavos", "{{.T.billing_plan_cents}}",
 				ui.Input(h.ID("centavos"), h.Name("centavos"), h.Type("number"), h.Attr("min", "0"),
-					h.Value(strconv.FormatInt(p.Centavos, 10))), ui.Errors(errs, "centavos")),
+					h.Value(strconv.FormatInt(p.Centavos, 10)), ui.InvalidIf(errs, "centavos")), ui.Errors(errs, "centavos")),
 			ui.Field("moeda", "{{.T.billing_plan_currency}}",
-				ui.Input(h.ID("moeda"), h.Name("moeda"), h.Value(p.Moeda), h.Attr("maxlength", "3")), ui.Errors(errs, "moeda")),
+				ui.Input(h.ID("moeda"), h.Name("moeda"), h.Value(p.Moeda), h.Attr("maxlength", "3"),
+					ui.InvalidIf(errs, "moeda")), ui.Errors(errs, "moeda")),
 			ui.Field("intervalo", "{{.T.billing_plan_interval}}",
-				ui.Select(h.ID("intervalo"), h.Name("intervalo"), ui.SelectOptions(intervalos, p.Intervalo)),
+				ui.Select(h.ID("intervalo"), h.Name("intervalo"), ui.SelectOptions(intervalos, p.Intervalo),
+					ui.InvalidIf(errs, "intervalo")),
 				ui.Errors(errs, "intervalo")),
 			h.Div(ui.Submit(h.Text("{{.T.billing_plan_save}}"))),
 		),
@@ -1403,14 +1406,38 @@ func TestBillingCSVAdminOnly(t *testing.T) {
 		t.Fatalf("a exportação não entrou na trilha: %s", tr.acoes())
 	}
 
-	// E o plano: validado pelas tags, gravado com nome na trilha.
-	admin.PostForm("{{.URL}}billing/planos", url.Values{"nome": {""}, "centavos": {"-1"},
-		"moeda": {"reais"}, "intervalo": {"week"}}).WantStatus(http.StatusUnprocessableEntity)
+	// E o plano: validado pelas tags, gravado com nome na trilha. Na volta do
+	// 422 o foco cai no primeiro campo errado — o que o leitor de tela anuncia.
+	recusado := admin.PostForm("{{.URL}}billing/planos", url.Values{"nome": {""}, "centavos": {"-1"},
+		"moeda": {"reais"}, "intervalo": {"week"}}).WantStatus(http.StatusUnprocessableEntity).Snapshot()
+	if err := recusado.FocusedOnError("input[name=nome]"); err != nil {
+		t.Error(err)
+	}
 	admin.PostForm("{{.URL}}billing/planos", url.Values{"nome": {"Pro"}, "centavos": {"4900"},
 		"moeda": {"brl"}, "intervalo": {"month"}}).WantStatus(http.StatusSeeOther)
 	admin.Get("{{.URL}}billing/planos").WantStatus(http.StatusOK).WantContains("Pro", "BRL")
 	if !strings.Contains(tr.acoes(), "billing.plano_salvo") {
 		t.Fatalf("o plano não entrou na trilha: %s", tr.acoes())
+	}
+}
+
+// Cada tela da cobrança, lida como o navegador a recebe: todo formulário que
+// escreve leva o token, todo script inline leva o nonce, os cookies são
+// HttpOnly e o segredo do provedor não aparece em lugar nenhum.
+func TestBillingScreensKeepProtections(t *testing.T) {
+	a, _ := appDeCobranca(t)
+	trilha.Use[*cobranca.Billing](a).Store.Assinar("a-1", "cliente@example.com", "pro", time.Now())
+	admin := trilha.NewTestClient(t, a)
+	admin.PostForm("{{.URL}}entrar", url.Values{"email": {"admin@example.com"},
+		"password": {"a-password-nobody-guesses"}}).WantStatus(http.StatusSeeOther)
+	for _, tela := range []string{"{{.URL}}billing", "{{.URL}}billing/planos", "{{.URL}}billing/faturas"} {
+		snap := admin.Get(tela).WantStatus(http.StatusOK).Snapshot()
+		for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSafeCookies(),
+			snap.HasNoSecret(segredoDoProvedor)} {
+			if err != nil {
+				t.Errorf("%s: %v", tela, err)
+			}
+		}
 	}
 }
 `

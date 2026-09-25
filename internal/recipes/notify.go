@@ -842,17 +842,19 @@ func tela(c *trilha.Ctx, p notificar.Preferencias, errs trilha.FieldErrors) h.No
 		h.Form(h.Method("post"), h.Action("{{.URL}}notificacoes"), h.Class("ui-stack"),
 			trilha.CSRFInput(c),
 			ui.Field("canal", "{{.T.notify_channel}}",
-				ui.Select(h.ID("canal"), h.Name("canal"), ui.SelectOptions(canais, p.Canal)), ui.Errors(errs, "canal")),
+				ui.Select(h.ID("canal"), h.Name("canal"), ui.SelectOptions(canais, p.Canal), ui.InvalidIf(errs, "canal")),
+				ui.Errors(errs, "canal")),
 			ui.Field("digesto", "{{.T.notify_digest}}",
 				ui.Checkbox(h.ID("digesto"), h.Name("digesto"), h.Value("true"), digesto)),
 			ui.Field("silencio_de", "{{.T.notify_quiet_from}}",
 				ui.Input(h.ID("silencio_de"), h.Name("silencio_de"), h.Type("number"), h.Attr("min", "0"), h.Attr("max", "23"),
-					h.Value(strconv.Itoa(p.SilencioDe))), ui.Errors(errs, "silencio_de")),
+					h.Value(strconv.Itoa(p.SilencioDe)), ui.InvalidIf(errs, "silencio_de")), ui.Errors(errs, "silencio_de")),
 			ui.Field("silencio_ate", "{{.T.notify_quiet_to}}",
 				ui.Input(h.ID("silencio_ate"), h.Name("silencio_ate"), h.Type("number"), h.Attr("min", "0"), h.Attr("max", "23"),
-					h.Value(strconv.Itoa(p.SilencioAte))), ui.Errors(errs, "silencio_ate")),
+					h.Value(strconv.Itoa(p.SilencioAte)), ui.InvalidIf(errs, "silencio_ate")), ui.Errors(errs, "silencio_ate")),
 			ui.Field("telefone", "{{.T.notify_phone}}",
-				ui.Input(h.ID("telefone"), h.Name("telefone"), h.Type("tel"), h.Value(p.Telefone)), ui.Errors(errs, "telefone")),
+				ui.Input(h.ID("telefone"), h.Name("telefone"), h.Type("tel"), h.Value(p.Telefone),
+					ui.InvalidIf(errs, "telefone")), ui.Errors(errs, "telefone")),
 			h.Div(ui.Submit(h.Text("{{.T.notify_save}}"))),
 		),
 		ui.H2(h.Text("{{.T.notify_recent}}")),
@@ -1043,8 +1045,19 @@ func TestNotifyPreferences(t *testing.T) {
 	c := entrarComo(t, a, "admin@example.com", "a-password-nobody-guesses")
 	c.Get("{{.URL}}notificacoes").WantStatus(http.StatusOK).WantContains(` + "`" + `name="silencio_de"` + "`" + `)
 
-	c.PostForm("{{.URL}}notificacoes", url.Values{"canal": {"mail"}, "silencio_de": {"25"}}).
-		WantStatus(http.StatusUnprocessableEntity)
+	// A tela lida como o navegador a recebe: token no formulário, nonce nos
+	// scripts, cookies HttpOnly; e, na volta do 422, o foco no campo errado.
+	snap := c.Get("{{.URL}}notificacoes").Snapshot()
+	for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSafeCookies()} {
+		if err != nil {
+			t.Error(err)
+		}
+	}
+	recusado := c.PostForm("{{.URL}}notificacoes", url.Values{"canal": {"mail"}, "silencio_de": {"25"}}).
+		WantStatus(http.StatusUnprocessableEntity).Snapshot()
+	if err := recusado.FocusedOnError("#silencio_de"); err != nil {
+		t.Error(err)
+	}
 	if _, ligado := notificar.Canais[notificar.CanalWhatsApp]; !ligado {
 		c.PostForm("{{.URL}}notificacoes", url.Values{"canal": {"whatsapp"}}).
 			WantStatus(http.StatusUnprocessableEntity)
