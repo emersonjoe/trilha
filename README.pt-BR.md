@@ -306,11 +306,20 @@ Contribuições são bem-vindas: veja [CONTRIBUTING](docs/pt-BR/CONTRIBUTING.md)
 
 ```bash
 make test        # gofmt + vet + go test ./... (inclui e2e da CLI e o exemplo)
+make test-ui     # o app num Chrome headless (módulo uitest/; pula sem Chrome)
+make test-sql    # as stores SQL em SQLite e num PostgreSQL temporário (módulo sqltest/)
 make dev-example # trilha dev em examples/blog
 make reload      # mede o ciclo editar→ver
 ```
 
-Projeto guiado por spec-kit: veja `specs/` (uma pasta por spec, da 001 núcleo à 015 i18n) e
+As telas são testadas em duas camadas. O `trilha.PageSnapshot` segura o HTML servido num
+arquivo golden, sem o nonce, o token e os ids, e confere o que a página promete — token CSRF,
+nonce da CSP, cookies seguros, o foco depois de um 422 — em todo `go test`. O módulo
+`github.com/emersonjoe/trilha/uitest` dirige o app rodando no Chrome, e um cenário que falha
+grava um relatório com que um agente consegue agir. Veja
+[Testes](https://emersonjoe.github.io/trilha/pt/aprender/testes).
+
+Projeto guiado por spec-kit: veja `specs/` (uma pasta por spec) e
 `.specify/memory/constitution.md`. Specs e constituição ficam em português; tudo o que é
 público (site, README, CLI) sai em inglês por padrão com tradução para o português.
 

@@ -312,11 +312,19 @@ follow the spec-kit flow in `specs/`.
 
 ```bash
 make test        # gofmt + vet + go test ./... (includes the CLI e2e and the examples)
+make test-ui     # the app in a headless Chrome (module uitest/; skips without Chrome)
+make test-sql    # the SQL stores on SQLite and on a temporary PostgreSQL (module sqltest/)
 make dev-example # trilha dev in examples/blog
 make reload      # measures the edit→see cycle
 ```
 
-Spec-kit driven project: see `specs/` (one folder per spec, from 001 core to 015 i18n) and
+Screens are tested in two layers. `trilha.PageSnapshot` holds the served HTML to a golden file
+with the nonce, token and ids taken out, and checks what a page promises — CSRF token, CSP
+nonce, safe cookies, the focus after a 422 — in every `go test`. The module
+`github.com/emersonjoe/trilha/uitest` drives the running app in Chrome, and a failing scenario
+writes a report an agent can act on. See [Testing](https://emersonjoe.github.io/trilha/learn/testing).
+
+Spec-kit driven project: see `specs/` (one folder per spec) and
 `.specify/memory/constitution.md`. Specs and the constitution are written in Brazilian
 Portuguese; everything public (site, README, CLI) is English by default with a Portuguese
 translation.
