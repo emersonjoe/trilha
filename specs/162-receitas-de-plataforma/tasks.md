@@ -23,7 +23,7 @@
 - [x] **T07** — Admin: `app/admin/` com `middleware.go` padrão-nega + tela inicial + as
   quatro telas compostas (`Includes`) + auditoria das decisões de usuário. *Aceite:*
   `TestAdminInstall`, `TestAdminDefaultDeny`, `TestAdminAuditTrail`, `TestAdminApprovalFlow`.
-- [ ] **T08** — Páginas de cookbook bilíngues das três receitas (comando, o que instala,
+- [x] **T08** — Páginas de cookbook bilíngues das três receitas (comando, o que instala,
   custo, estender) com blocos Go vindos do código das receitas; códigos
   `E_BILLING_WEBHOOK_UNSIGNED`/`E_NOTIFY_RATE` no catálogo. *Aceite:* testes de conteúdo do
   site + `TestCookbookSnippetsAreReal` + `TestErrorCatalogComplete`.

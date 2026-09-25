@@ -1,8 +1,11 @@
 package docs
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/emersonjoe/trilha/internal/recipes"
 )
 
 // recipePage is one cookbook page that teaches, by hand, what a `trilha add`
@@ -25,6 +28,9 @@ var recipePages = []recipePage{
 	{"email", "email", "mail"},
 	{"tasks", "tarefas", "tasks"},
 	{"webhooks", "webhooks", "webhooks"},
+	{"billing", "cobranca", "billing"},
+	{"notifications", "notificacoes", "notify"},
+	{"backoffice", "backoffice", "admin"},
 }
 
 // TestCookbookLinksRecipe is the alarm for #193: a cookbook page that
@@ -101,6 +107,31 @@ func TestCLIDocumentsAddMechanics(t *testing.T) {
 		}
 		if !strings.Contains(p.Body, "Needs") {
 			t.Errorf("%s reference/cli: does not mention Needs", c.locale)
+		}
+	}
+}
+
+// Spec 162: the page of a platform recipe states its price, and the price is
+// the recipe's measured CtxPackCost — in both locales, so a recipe that grows
+// cannot leave its page quoting the old number.
+func TestPlatformRecipePagesCarryThePrice(t *testing.T) {
+	for _, rp := range recipePages[len(recipePages)-3:] {
+		r, err := recipes.Get(rp.Recipe)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := fmt.Sprintf("`trilha ctx --pack %s` ", rp.Recipe)
+		price := fmt.Sprintf("~%d tokens (est.)", r.CtxPackCost)
+		for _, p := range []struct{ locale, section, slug string }{
+			{"en", "cookbook", rp.Slug}, {"pt", "receitas", rp.PT},
+		} {
+			page, ok := Get(p.locale, p.section, p.slug)
+			if !ok {
+				t.Fatalf("no %s/%s page", p.section, p.slug)
+			}
+			if !strings.Contains(page.Body, want) || !strings.Contains(page.Body, price) {
+				t.Errorf("%s: does not say %s costs %s", page.Path(), want, price)
+			}
 		}
 	}
 }

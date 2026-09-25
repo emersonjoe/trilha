@@ -25,6 +25,9 @@ what it has is a place for yours, and this is where the placing is written down.
 | [E-mail](/cookbook/email) | SMTP in production, the log in dev, a body from a template | `mail` |
 | [Background tasks](/cookbook/tasks) | queue, dedupe, retry with a name, the progress screen | `tasks` |
 | [Webhooks](/cookbook/webhooks) | signed delivery, retry with backoff, the record of every attempt | `webhooks` |
+| [Billing](/cookbook/billing) | plans, subscriptions on a closed state machine, the signed provider webhook, dunning | `billing` |
+| [Notifications](/cookbook/notifications) | the person's channel, quiet hours, daily digest, per-channel limit, the outbox | `notify` |
+| [Backoffice](/cookbook/backoffice) | `app/admin/` denied by default: users, audit, approvals, search | `admin` |
 | [Scheduled tasks](/cookbook/scheduled-tasks) | a ticker that starts with the app and stops with it | — |
 | [Installable app (PWA)](/cookbook/pwa) | manifest, icons and an install invitation that adapts to each browser | `pwa` |
 | [Docker](/cookbook/docker) | a small image, the variables, the health probe | — |

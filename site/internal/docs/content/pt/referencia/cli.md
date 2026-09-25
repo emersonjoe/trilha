@@ -874,6 +874,19 @@ Vários nomes vão numa chamada só e são aplicados na ordem dada, cada um com 
 saída; `--lang` e `--dry-run` valem em qualquer posição. Todo nome é conferido antes do
 primeiro arquivo ser escrito, então `trilha add login typo` não escreve nada e aponta o erro.
 
+### O preço de cada receita
+
+Cada linha do `trilha add` (e cada item do `--list --json`, como `ctx_pack_tokens`) traz um
+preço: quanto custa o `trilha ctx --pack <receita>`, em tokens estimados, com a receita num
+projeto mínimo — a leitura que um agente faz para saber o que chegou. É medido, não chutado: um
+teste instala cada receita e segura o número contra o pack, então uma receita que ganha uma tela
+ganha o preço no mesmo commit. O `add` termina com a mesma linha, rotulada `est.` como todo
+número do estimador comum.
+
+```text
+  billing           ~338 tok (est.)   cobrança sem provedor acoplado: …
+```
+
 ### Rodar duas vezes acrescenta; não recomeça
 
 Arquivo que já está lá é pulado com um aviso — não é sobrescrito nem vira recusa. Na segunda vez o
@@ -900,7 +913,9 @@ mexer num projeto que já tem código.
 
 | Receita | O que escreve |
 |---|---|
+| `admin` | o backoffice: `app/admin/` negado por padrão, feito de `users`, `audit`, `approvals` e `search` ([página](/pt/receitas/backoffice)) |
 | `audit` | o destino que o `Config.Audit` recebe, e a tela que o lê com o `ui.AuditTable` |
+| `billing` | cobrança sem provedor acoplado: planos, assinaturas numa máquina de estados fechada, webhook assinado e idempotente, dunning, CSV ([página](/pt/receitas/cobranca)) |
 | `blob` | guardar arquivo que alguém mandou: enviar, listar, servir — com a chave sendo o digest |
 | `api-keys` | o emissor, a tela que cria e revoga, e a chave mostrada uma vez com o `ui.SecretOnce` |
 | `approvals` | a fila que espera uma pessoa: abrir, decidir, e o prazo que vence |
@@ -908,6 +923,7 @@ mexer num projeto que já tem código.
 | `connections` | os serviços externos com que este app fala: nome, URL, segredo selado e o botão Testar |
 | `login` | uma sessão própria: a tabela de gente, a tela de entrar e a saída |
 | `mail` | o arquivo de onde este app manda e-mail: uma função por mensagem, e teste sem rede |
+| `notify` | notificações por e-mail, webhook ou WhatsApp: preferências, horário silencioso, digesto diário, limite por canal, fila ([página](/pt/receitas/notificacoes)) |
 | `permissions` | a matriz de permissões como dado, a tela que a edita, papéis criados e removidos, quem tem o quê |
 | `profile` | a tela da própria conta: nome, senha, e-mail confirmado no endereço novo, sessões — o id vem da sessão |
 | `public-lookup` | um código mais um segundo fator: a linha do tempo pública de um caso, sem conta |
@@ -918,7 +934,7 @@ mexer num projeto que já tem código.
 | `webhooks` | o que este app avisa para fora: entrega assinada com retry, e a tela dela |
 | `users` | a tela de gente: convidar, papel, desativar, resetar — escrita sobre a tabela da receita `login` |
 
-Seis delas — `approvals`, `channel-whatsapp`, `permissions`, `profile`, `tenant`, `users` — declaram um `Needs`:
+Nove delas — `admin`, `approvals`, `billing`, `channel-whatsapp`, `notify`, `permissions`, `profile`, `tenant`, `users` — declaram um `Needs`:
 um arquivo que outra receita escreve e que precisa estar lá antes. O `trilha add` confere isso
 antes de escrever qualquer coisa, e recusa pelo nome — "rode `trilha add login` primeiro" — em
 vez de deixar um projeto com arquivos que não compilam porque o pacote deles nunca foi escrito.

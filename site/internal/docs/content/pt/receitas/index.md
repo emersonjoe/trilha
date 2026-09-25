@@ -25,6 +25,9 @@ mailer — o que ele tem é um lugar para os seus, e é aqui que esse lugar est�
 | [E-mail](/pt/receitas/email) | SMTP em produção, o log em dev, um corpo vindo de template | `mail` |
 | [Tarefas](/pt/receitas/tarefas) | fila, dedupe, retentativa com nome, a tela de andamento | `tasks` |
 | [Webhooks](/pt/receitas/webhooks) | entrega assinada, retentativa com espera crescente, o registro de cada tentativa | `webhooks` |
+| [Cobrança](/pt/receitas/cobranca) | planos, assinaturas numa máquina de estados fechada, o webhook assinado do provedor, dunning | `billing` |
+| [Notificações](/pt/receitas/notificacoes) | o canal da pessoa, horário silencioso, digesto diário, limite por canal, a fila | `notify` |
+| [Backoffice](/pt/receitas/backoffice) | `app/admin/` negado por padrão: usuários, auditoria, aprovações, busca | `admin` |
 | [Tarefas agendadas](/pt/receitas/tarefas-agendadas) | um ticker que sobe com o app e para com ele | — |
 | [App instalável (PWA)](/pt/receitas/pwa) | manifesto, ícones e um convite de instalação que se adapta ao navegador | `pwa` |
 | [Docker](/pt/receitas/docker) | uma imagem pequena, as variáveis, a sonda de saúde | — |

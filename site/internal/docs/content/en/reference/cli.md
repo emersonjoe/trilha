@@ -881,6 +881,19 @@ Several names go in one call and are applied in the order given, each with its o
 of output; `--lang` and `--dry-run` count wherever they stand. Every name is checked before
 the first file is written, so `trilha add login typo` writes nothing and names the typo.
 
+### The price of each recipe
+
+Every line of `trilha add` (and every entry of `--list --json`, as `ctx_pack_tokens`) carries a
+price: what `trilha ctx --pack <recipe>` costs, in estimated tokens, once the recipe is in a
+minimal project — the reading an agent does to know what arrived. It is measured, not guessed:
+a test installs every recipe and holds the number to the pack, so a recipe that grows a screen
+grows its price in the same commit. `add` ends with the same line, labeled `est.` like every
+number from the shared estimator.
+
+```text
+  billing           ~338 tok (est.)   charging without a coupled provider: …
+```
+
 ### Running it twice adds; it does not start over
 
 A file that is already there is skipped with a note, not overwritten and not refused. By the
@@ -907,7 +920,9 @@ touch a project that already has code.
 
 | Recipe | What it writes |
 |---|---|
+| `admin` | the backoffice: `app/admin/` denied by default, made of `users`, `audit`, `approvals` and `search` ([page](/cookbook/backoffice)) |
 | `audit` | the sink `Config.Audit` receives, and the screen that reads it with `ui.AuditTable` |
+| `billing` | charging without a coupled provider: plans, subscriptions on a closed state machine, signed idempotent webhook, dunning, CSV ([page](/cookbook/billing)) |
 | `blob` | keeping files somebody sent: upload, list, serve — with the key as the digest |
 | `api-keys` | the issuer, the screen that creates and revokes, and the key shown once with `ui.SecretOnce` |
 | `approvals` | the queue that waits for a person: open, decide, and the deadline that expires |
@@ -915,6 +930,7 @@ touch a project that already has code.
 | `connections` | the external services this app talks to: name, URL, sealed secret, and the Test button |
 | `login` | a session of your own: the users table, the sign-in screen and the way out |
 | `mail` | the file this app sends e-mail from: one function per message, and a test with no network |
+| `notify` | notifications by e-mail, webhook or WhatsApp: preferences, quiet hours, daily digest, per-channel limit, outbox ([page](/cookbook/notifications)) |
 | `permissions` | the permission matrix as data, the screen that edits it, roles created and removed, who has what |
 | `profile` | the account screen: own name, password, e-mail confirmed at the new address, sessions — the id comes from the session |
 | `public-lookup` | a code plus a second factor: the public timeline of one case, without an account |
@@ -925,7 +941,7 @@ touch a project that already has code.
 | `webhooks` | what this app announces to the outside: signed delivery with retry, and the screen for it |
 | `users` | the people screen: invite, role, deactivate, reset — written on the `login` recipe's table |
 
-Six of these — `approvals`, `channel-whatsapp`, `permissions`, `profile`, `tenant`, `users` — declare a `Needs`:
+Nine of these — `admin`, `approvals`, `billing`, `channel-whatsapp`, `notify`, `permissions`, `profile`, `tenant`, `users` — declare a `Needs`:
 a file another recipe writes that has to be there first. `trilha add` checks it before writing
 anything, and refuses by name — "run `trilha add login` first" — rather than leaving a project
 with files that do not compile because the package they belong to was never written. `Needs`
