@@ -37,8 +37,8 @@ description: The kit's components, variants, assets and the theme contract.
 | `FormError(...)` | accessible error summary for asynchronous forms; the runtime also creates it when omitted |
 | `CheckRow(control, label, id)` | checkbox/switch next to its label |
 | `Invalid()` | `aria-invalid="true"` (red ring) |
-| `Errors(errs, field)` | `Field` option: shows the message from `errs[field]` (a `trilha.FieldErrors`) if any |
-| `InvalidIf(errs, field)` | `Invalid()` only when there is an error for the field |
+| `Errors(errs, field)` | `Field` option: shows the message from `errs[field]` (a `trilha.FieldErrors`) if any — or of its lowest `field[N]`, the name `c.Files` gives a refused file |
+| `InvalidIf(errs, field)` | `Invalid()` only when there is an error for the field, or for one of its `field[N]` |
 | `SelectOptions([]Option{{Value, Label}}, selected)` | `<option>`s marking the selected one; `Value: ""` is a placeholder (disabled) and is selected when nothing matches |
 | `Checked(bool)` | conditional `checked` (round trip of checkbox/switch/radio) |
 | `ShowWhen(field, values...)` | `data-ui-show-when`: shows the element only with the value (or any non-empty value); hidden controls are disabled |

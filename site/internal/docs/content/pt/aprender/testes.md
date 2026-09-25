@@ -156,6 +156,55 @@ if res.Cookie("sessao") == nil {
 }
 ```
 
+## O que o navegador vê
+
+Uma resposta prova o que o servidor mandou. Entre isso e a tela há duas coisas, e cada uma tem a
+sua ferramenta.
+
+**O HTML servido, sem navegador.** O `Snapshot()` de uma resposta — ou o `trilha.CapturePage` —
+tira o que muda a cada pedido (nonce, token CSRF, request id, cookies, carimbos de data) e confere
+o que a página promete: `HasCSRFToken`, `HasCSPNonce`, `HasSafeCookies`, `HasNoSecret`,
+`HasAria`, `FocusedOnError`, e `MatchGolden` para segurar a marcação num arquivo. Cada um devolve
+um `error` que diz o que mudar. Roda em todo `go test`; veja
+[a referência](/pt/referencia/app#o-html-servido-pagesnapshot).
+
+```go
+snap := c.Get("/billing/planos").WantStatus(200).Snapshot()
+for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSafeCookies()} {
+	if err != nil {
+		t.Error(err)
+	}
+}
+```
+
+**A página rodando, no Chrome.** O foco indo para o campo que falhou, um fragmento trocado no
+lugar, a barra do envio, uma ilha montando, uma dica aberta pelo teclado — só um navegador mostra.
+O módulo `github.com/emersonjoe/trilha/uitest` tem `go.mod` próprio, então a dependência dele
+(chromedp) nunca chega ao framework nem ao seu app:
+
+```go
+func TestFormularioDePerfil(t *testing.T) {
+	uitest.RunWith(t, "..", uitest.Config{Env: []string{"TRILHA_SECRET=…"}}, func(s *uitest.Session) {
+		s.Navigate("/perfil")
+		s.Fill("#email", "ana@example.com")
+		s.Click("#profile button[type=submit]")
+		s.WantAttr("#name", "aria-invalid", "true")
+		s.WantFocus("#name")
+	})
+}
+```
+
+O `Run` compila o app uma vez, sobe o binário numa porta livre e dá a cada cenário um Chrome
+headless novo. Não há screenshot nem sleep: todo passo espera a sua condição, até 30 segundos. Um
+cenário que falha roda mais uma vez do zero; falhando duas, grava `report/<cenário>.txt` — passo,
+seletor, esperado, obtido, o conserto, o console do navegador e o log do servidor —, que é o que
+um agente lê para corrigir a página. Sem Chrome os cenários pulam; `UITEST_REQUIRED=1` transforma
+isso em falha. O `CSPViolations()` lista o que a política recusou, que a própria página nunca
+mostra.
+
+Neste repositório, `make test-ui` roda os cenários do navegador sobre um projeto feito por
+`trilha new` e `trilha add`, e `make test-ui-a` só as conferências do HTML servido.
+
 ## Corrida e fuzzing
 
 Dois defeitos nunca aparecem numa suíte determinística. Um é a corrida de dados: dois

@@ -37,8 +37,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `FormError(...)` | resumo de erro acessível para formulários assíncronos; o runtime também o cria quando foi omitido |
 | `CheckRow(controle, rótulo, id)` | checkbox/switch ao lado do rótulo |
 | `Invalid()` | `aria-invalid="true"` (anel vermelho) |
-| `Errors(errs, campo)` | opção de `Field`: mostra a mensagem de `errs[campo]` (um `trilha.FieldErrors`) se houver |
-| `InvalidIf(errs, campo)` | `Invalid()` só quando há erro para o campo |
+| `Errors(errs, campo)` | opção de `Field`: mostra a mensagem de `errs[campo]` (um `trilha.FieldErrors`) se houver — ou a do menor `campo[N]`, o nome que `c.Files` dá ao arquivo recusado |
+| `InvalidIf(errs, campo)` | `Invalid()` só quando há erro para o campo, ou para um dos seus `campo[N]` |
 | `SelectOptions([]Option{{Value, Label}}, selecionado)` | `<option>`s marcando o selecionado; `Value: ""` é placeholder (desabilitado) e fica selecionado quando nada casa |
 | `Checked(bool)` | `checked` condicional (ida e volta de checkbox/switch/radio) |
 | `ShowWhen(campo, valores...)` | `data-ui-show-when`: mostra o elemento só com o valor (ou qualquer valor não vazio); controles escondidos são desabilitados |

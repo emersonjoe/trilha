@@ -3,6 +3,59 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.145.0 — 2026-09-24
+
+UI tests from end to end (spec 164, the second half of M3 of Tokens 70): the agent proves the
+screen works without a person opening a browser. Two layers — the served HTML, checked in
+every `go test`, and the running page, driven in Chrome by a module of its own.
+
+### Added
+
+- **`trilha.PageSnapshot`**, from `trilha.CapturePage` or `(*TestResponse).Snapshot()` — the
+  response with what changes on every request taken out: the CSP nonce, the CSRF token, the
+  request id, cookie values, timestamps and the `Server-Timing` durations become placeholders,
+  replaced literally from what the response itself reveals. `MatchGolden(path, update)` holds
+  a page to a file; `HasCSRFToken`, `HasCSPNonce`, `HasSafeCookies`, `HasNoSecret`, `HasAria`
+  and `FocusedOnError` check what a page promises and return an `error` that says what to
+  change. Standard library only; the blog holds its home and login to goldens.
+- **The module `github.com/emersonjoe/trilha/uitest`** (its own `go.mod`, chromedp v0.13.6,
+  Go 1.23 — the root module gains no dependency). `Run`/`RunWith` build the app once, start
+  the binary on a free port and give each scenario a fresh headless Chrome; `Session` has
+  `Navigate`, `Click`, `Fill`, `Focus`, `Press`, `Select`, `Upload`, `Text`, `Attr`, `URL`,
+  `Eval`, `ClearCookies`, the waits `WaitVisible`, `WantText`, `WantAttr`, `WantFocus`,
+  `WantURL`, `WaitJS`, and `CSPViolations`. No screenshots and no sleeps: every step waits for
+  its condition up to 30 s; a failure runs once more from scratch and, failing twice, writes
+  `report/<scenario>.txt` with the step, selector, expected, got, the fix, the browser console
+  and the server log. Without Chrome the scenarios skip; `UITEST_REQUIRED=1` fails them.
+- **Sixteen tests** over a project made by `trilha new` and `trilha add login connections
+  webhooks billing notify admin`, plus the patterns of spec 163: login, the async form's 422
+  focus, fragment swap, upload progress, island hydration, client navigation focus, tooltip
+  and pagination by keyboard, the billing screens, notification preferences, the admin door
+  walked by an invited reader, CSP and CSRF on every screen, a secret never in the HTML, and
+  the report itself.
+- **`E_CSP_NONCE`** in the error catalog, and a `trilha audit` rule that points, by file and
+  line, at an `h.Script` or `h.Style` written inline without the nonce.
+- **`make test-ui`** (the browser scenarios) and **`make test-ui-a`** (the served-HTML checks
+  alone, which also run in `make test`); a `ui` CI job, optional until M3 closes.
+- The generated tests of `billing`, `notify` and `admin` check every screen with the snapshot:
+  token in every form, nonce on every inline script, safe cookies, no provider secret.
+
+### Changed
+
+- **`ui.InvalidIf` and `ui.Errors`** also answer for the indexed names of a field — the
+  `files[1]` that `c.Files` gives a refused file marks and explains the one input called
+  `files`, with the message of the lowest index.
+
+### Fixed
+
+- **A swap kept no focus** when the control inside it had no id or name: Enter on the pager's
+  Next left the focus on `<body>`. The same control is found again by `rel`, or the region
+  itself takes the focus.
+- **An accepted upload erased its form**: the 204 with `Trilha-Location` was swapped in as an
+  empty body. `ui.upload.js` now follows the address, as `ui.js` does for any form.
+- **The upload pattern, the billing plan form and the notification preferences** did not mark
+  the field that failed, so a 422 had nothing to focus.
+
 ## 0.144.0 — 2026-09-24
 
 UI patterns for agents (spec 163, the first half of M3 of Tokens 70): the screens the site

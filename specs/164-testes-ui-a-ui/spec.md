@@ -1,6 +1,6 @@
 # Feature Specification: Testes UI a UI
 
-**Feature Branch**: `164-testes-ui-a-ui` | **Created**: 2026-09-24 | **Status**: Draft
+**Feature Branch**: `164-testes-ui-a-ui` | **Created**: 2026-09-24 | **Status**: Entregue (0.145.0)
 **Input**: Plano Tokens 70, spec 164 (`PLANO-TOKENS-70.md` §2) — duas camadas de teste de ponta a
 ponta de UI: DOM servido (stdlib, no módulo, golden) e navegador (módulo próprio `uitest/`),
 cobrindo as receitas e os padrões, para o agente provar que a tela funciona sem abrir um
@@ -98,3 +98,49 @@ fixture; uma falha deixa o relatório.
 
 - **SC-001**: `make test` verde com a camada A nos testes das receitas e dos padrões.
 - **SC-002**: `make test-ui` verde localmente (Chrome instalado) com os onze cenários.
+
+## Registro da implementação
+
+### Desvios e decisões tomadas no caminho
+
+- **Ações pelo `querySelector` do momento**, não pelo nó do chromedp: depois de um swap, o
+  chromedp clicava num nó que já tinha saído da página (o clique caía no `<body>`). `Click`
+  confere com `elementFromPoint` que nada cobre o ponto e clica com o mouse; `Fill`, `Focus` e
+  `Upload` acham o elemento de novo a cada ação.
+- **Foco emulado e movimento reduzido** no navegador de teste: sem foco emulado, uma aba
+  headless não dispara `focusin` (a dica nunca abria); com animação, o overlay da view
+  transition não terminava e cobria a página. Os cenários conferem onde a página termina.
+- **O navegador anônimo em `/admin` vai para o login** (`/entrar?next=%2Fadmin`), não recebe
+  401 — o `TestClient` recebe 401 porque não pede HTML. O cenário segue o navegador.
+- **O 403 do backoffice sai sem layout** (sem `<main>`): registrado, fora do escopo desta spec.
+- **Um 422 de formulário sem `ui.Swap`** (plano da cobrança) recarrega a página inteira, e o kit
+  não põe o foco no campo numa carga completa — o `ui.js` está a 3 bytes do orçamento de 29 KB.
+  O cenário confere a marca `aria-invalid`, não o foco. Fica como sugestão de issue.
+- **O relatório** vai para `report/` relativo ao diretório do teste (`Config.ReportDir`), que no
+  repositório é `uitest/report/` (ignorado pelo git).
+
+### Defeitos que os cenários acharam (corrigidos na 0.145.0)
+
+1. `applySwap` perdia o foco quando o controle focado não tinha id nem name (Enter no "Next"
+   da paginação deixava o foco no `<body>`) — `TestUIPaginationKeyboard`.
+2. `ui.upload.js` trocava o 204 com `Trilha-Location` de um envio aceito como corpo vazio,
+   apagando o formulário — `TestUIUploadProgress`.
+3. `ui.InvalidIf`/`ui.Errors` não viam `files[i]`, o nome que `c.Files` dá ao arquivo recusado:
+   o padrão de envio da 163 não marcava o campo — `TestUIUploadProgress`.
+4. O formulário de planos da cobrança e o de preferências do notify não marcavam o campo que
+   falhou (`ui.InvalidIf`), então um 422 não tinha onde pôr o foco — `FocusedOnError` nos
+   testes gerados.
+
+A prova de que os cenários pegam os defeitos: com o `ui.js`, o `ui.upload.js` e o `ui/ui.go`
+anteriores, `TestUIUploadProgress` e `TestUIPaginationKeyboard` falham com o relatório
+(`aria-invalid` ausente; foco no `<body>`).
+
+### Evidências
+
+- `make test` verde (camada A dentro: `snapshot_test.go`, `TestPaginasContraOGolden` do blog,
+  goldens dos padrões, testes gerados das receitas, `TestAuditoriaApontaScriptSemNonce`).
+- `UITEST_REQUIRED=1 make test-ui` verde localmente, 16 testes em ~22 s (Chrome 154, macOS).
+- `TestNoExternalDeps` verde: `chromedp` só em `uitest/go.mod`; `TestPacotesPublicosNaLista`
+  trata `uitest/` como módulo próprio, como `otel/`.
+- Job `ui` na CI: `continue-on-error: true` até o M3 fechar; a spec que fechar o M3 remove a
+  linha e o job passa a bloquear.

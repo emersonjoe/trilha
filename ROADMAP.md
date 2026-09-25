@@ -333,6 +333,13 @@ mantenedor.
 `examples/patterns/` que o repositório compila, `trilha ui patterns [--json]`, `get_pattern`
 no MCP do projeto e do site, a seção "usar este padrão" nas demos nas duas línguas, o catálogo
 do `uidoc` apontando os padrões e um golden de render por padrão.
+133. **M3b — Testes UI a UI** (spec 164, **entregue na 0.145.0**): camada A no pacote raiz
+(`PageSnapshot`, `CapturePage`, asserções que dizem o conserto, golden estável) e camada B no
+módulo `uitest/` (chromedp, `go.mod` próprio): dezesseis testes sobre um projeto gerado com as
+receitas de plataforma e os padrões, relatório de falha para agente, `E_CSP_NONCE` no catálogo e
+no `trilha audit`, `make test-ui`/`test-ui-a` e o job `ui` da CI — opcional até o M3 fechar,
+quando o `continue-on-error` sai. Os cenários acharam três defeitos do kit, corrigidos na mesma
+versão.
 
 ## O que não vamos fazer, e por quê
 

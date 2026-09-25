@@ -156,6 +156,55 @@ if res.Cookie("sessao") == nil {
 }
 ```
 
+## What the browser sees
+
+A response proves what the server sent. Two things sit between that and the screen, and each has
+its own tool.
+
+**The served HTML, without a browser.** `Snapshot()` on a response — or `trilha.CapturePage` —
+takes out what changes on every request (nonce, CSRF token, request id, cookies, timestamps) and
+checks what a page promises: `HasCSRFToken`, `HasCSPNonce`, `HasSafeCookies`, `HasNoSecret`,
+`HasAria`, `FocusedOnError`, and `MatchGolden` to hold the markup to a file. Each returns an
+`error` that says what to change. It runs in every `go test`; see
+[the reference](/reference/app#the-served-html-pagesnapshot).
+
+```go
+snap := c.Get("/billing/planos").WantStatus(200).Snapshot()
+for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSafeCookies()} {
+	if err != nil {
+		t.Error(err)
+	}
+}
+```
+
+**The page running, in Chrome.** The focus moving to the field that failed, a fragment swapped
+in place, an upload bar, an island mounting, a tooltip from the keyboard — only a browser shows
+those. The module `github.com/emersonjoe/trilha/uitest` has its own `go.mod`, so its dependency
+(chromedp) never reaches the framework or your app:
+
+```go
+func TestProfileForm(t *testing.T) {
+	uitest.RunWith(t, "..", uitest.Config{Env: []string{"TRILHA_SECRET=…"}}, func(s *uitest.Session) {
+		s.Navigate("/profile")
+		s.Fill("#email", "ana@example.com")
+		s.Click("#profile button[type=submit]")
+		s.WantAttr("#name", "aria-invalid", "true")
+		s.WantFocus("#name")
+	})
+}
+```
+
+`Run` builds the app once, starts the binary on a free port and gives each scenario a fresh
+headless Chrome. There are no screenshots and no sleeps: every step waits for its condition, up
+to 30 seconds. A failing scenario runs once more from scratch; failing twice, it writes
+`report/<scenario>.txt` — step, selector, expected, got, the fix, the browser console and the
+server log — which is what an agent reads to correct the page. Without Chrome the scenarios
+skip; `UITEST_REQUIRED=1` makes that a failure. `CSPViolations()` lists what the policy refused,
+which the page itself never shows.
+
+In this repository `make test-ui` runs the browser scenarios over a project made by
+`trilha new` and `trilha add`, and `make test-ui-a` the served-HTML checks alone.
+
 ## Race and fuzzing
 
 Two bugs never show up in a deterministic suite. One is the data race: two requests

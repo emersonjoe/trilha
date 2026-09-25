@@ -18,5 +18,5 @@
   o M3 trocando `continue-on-error`, registrado aqui). *Aceite:* workflow válido + suíte verde.
 - [x] **T08** — Relatório de falha legível por agente (seletor + esperado + obtido + conserto).
   *Aceite:* fixture de falha produz o artefato em `uitest/report/`.
-- [ ] **T09** — Docs bilíngues (referência de testes, camada A e B) + CHANGELOG + ROADMAP.
+- [x] **T09** — Docs bilíngues (referência de testes, camada A e B) + CHANGELOG + ROADMAP.
   *Aceite:* testes de conteúdo do site + `make test` verde.
