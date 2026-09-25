@@ -106,6 +106,7 @@ the documentation out of the CLI binary and reads the exact Markdown embedded by
 | `get_context` | the slice of documentation one recipe touches — the recipe's page and the pages it links to — each priced in estimated tokens (`est.`, 4 chars/token) |
 | `search_code` | the Cookbook's Go sources as `path:line` windows, the matching line plus one after it, a handful of matches at most — never a whole file |
 | `get_error` | one catalog entry by code — cause, fix, example — the same table [`trilha check`](/reference/cli) prints beside every failure; a family code such as `E_VULN_GO-2026-0001` answers the family's entry |
+| `get_pattern` | one of the kit's screen patterns by name — components, data contract, accessibility notes and a complete `page.go` of at most 60 lines that compiles; the same data as [`trilha ui patterns`](/reference/cli) |
 
 `get_recipe` returns the canonical recipe Markdown. The site test already checks that its Go
 blocks occur character for character in `examples/cookbook`, so the MCP and the published page
@@ -176,10 +177,12 @@ type ContextOpts struct {
 }
 ```
 
-`ContextTools` returns `get_context` and `search_code`, the two tools an agent uses before it
+`ContextTools` returns `get_context`, `search_code` and `get_pattern`, the tools an agent uses before it
 writes a line: the project map sliced for one pack and priced in estimated tokens (the same
 slices [`trilha ctx --pack`](/learn/context-under-budget) answers), and code as `path:line`
-windows instead of whole files. Append them to the server's tools next to the domain ones.
+windows instead of whole files, and a screen pattern of the kit whole — components, data,
+accessibility and a `page.go` that compiles ([Patterns](/reference/ui#patterns)). Append them to
+the server's tools next to the domain ones.
 
 An API written under `app/api/` is already what an agent needs: a name, a description, an
 argument schema, a handler. `FromRoutes` publishes it as MCP tools without a second

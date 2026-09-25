@@ -80,12 +80,8 @@ func callTool(t *testing.T, tool *ai.Tool, args string) string {
 func TestGetContext(t *testing.T) {
 	root := contextProject(t)
 	tools := ContextTools(ContextOpts{Root: root, Version: "0.0.0"})
-	_ = tools
-	if len(tools) != 2 {
-		t.Fatalf("tools = %d, want get_context and search_code", len(tools))
-	}
-	if len(tools) != 2 {
-		t.Fatalf("tools = %d, want get_context and search_code", len(tools))
+	if len(tools) != 3 {
+		t.Fatalf("tools = %d, want get_context, search_code and get_pattern", len(tools))
 	}
 	get := tools[0]
 
@@ -135,5 +131,29 @@ func TestSearchCode(t *testing.T) {
 	// The whole file never comes back: the window is a line and its neighbor.
 	if strings.Count(out, "\n") > 10 {
 		t.Fatalf("the window is too wide:\n%s", out)
+	}
+}
+
+// TestGetPattern: one pattern whole — components, data, accessibility and the
+// page.go — and an unknown name that says which ones exist.
+func TestGetPattern(t *testing.T) {
+	tools := ContextTools(ContextOpts{Root: t.TempDir()})
+	get := tools[2]
+	if get.Name != "get_pattern" {
+		t.Fatalf("third tool = %s", get.Name)
+	}
+	out := callTool(t, get, `{"name":"approval-inbox"}`)
+	for _, want := range []string{"# approval-inbox", "- ui.Inbox", "## Data", "## Accessibility",
+		"```go\n// Package approvalinbox", "func Page(c *trilha.Ctx) (h.Node, error)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("get_pattern lacks %q:\n%s", want, out)
+		}
+	}
+	if callTool(t, get, `{"name":" List-With-Filter "}`) == "" {
+		t.Error("the name is not matched ignoring case and space")
+	}
+	_, err := get.Func(context.Background(), json.RawMessage(`{"name":"carousel"}`))
+	if err == nil || !strings.Contains(err.Error(), "master-detail") {
+		t.Fatalf("an unknown pattern must list the ones that exist: %v", err)
 	}
 }

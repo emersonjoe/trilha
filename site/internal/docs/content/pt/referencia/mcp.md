@@ -107,6 +107,7 @@ mantém a documentação fora do binário da CLI e lê exatamente o Markdown emb
 | `get_context` | a fatia de documentação que uma receita toca — a página da receita e as páginas que ela liga — cada uma com o custo estimado (`est.`, 4 caracteres por token) |
 | `search_code` | as fontes Go das Receitas em janelas `caminho:linha`, a linha achada mais uma depois, poucas ocorrências de uma vez — nunca o arquivo inteiro |
 | `get_error` | uma entrada do catálogo pelo código — causa, conserto, exemplo — a mesma tabela que o [`trilha check`](/pt/referencia/cli) imprime ao lado de cada falha; um código de família como `E_VULN_GO-2026-0001` responde a entrada da família |
+| `get_pattern` | um dos padrões de tela do kit pelo nome — componentes, contrato de dados, notas de acessibilidade e um `page.go` completo de no máximo 60 linhas que compila; o mesmo dado do [`trilha ui patterns`](/pt/referencia/cli) |
 
 `get_recipe` devolve o Markdown canônico da receita. O teste do site já confirma que os blocos
 Go aparecem caractere por caractere em `examples/cookbook`, então o MCP e a página publicada não
@@ -177,10 +178,12 @@ type ContextOpts struct {
 }
 ```
 
-`ContextTools` devolve `get_context` e `search_code`, as duas ferramentas que um agente usa
+`ContextTools` devolve `get_context`, `search_code` e `get_pattern`, as ferramentas que um agente usa
 antes de escrever uma linha: o mapa do projeto fatiado por pack e com preço em tokens
 estimados (as mesmas fatias que o [`trilha ctx --pack`](/pt/aprender/contexto-sob-orcamento)
-responde), e código em janelas `caminho:linha` em vez de arquivos inteiros. Junte-as às
+responde), código em janelas `caminho:linha` em vez de arquivos inteiros, e um padrão de tela
+do kit inteiro — componentes, dados, acessibilidade e um `page.go` que compila
+([Padrões](/pt/referencia/ui#padroes)). Junte-as às
 ferramentas de domínio no mesmo servidor.
 
 Uma API escrita em `app/api/` já é o que um agente precisa: nome, descrição, esquema de

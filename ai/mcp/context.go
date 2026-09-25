@@ -29,7 +29,8 @@ type ContextOpts struct {
 }
 
 // ContextTools returns get_context and search_code over the project at
-// opts.Root. Attach them with the server's variadic tools:
+// opts.Root, and get_pattern — the kit's screen patterns, which need no
+// project. Attach them with the server's variadic tools:
 //
 //	mcp.NewServer(name, version, append(mcp.FromRoutes(a, o).Tools(),
 //		mcp.ContextTools(opts)...)...)
@@ -83,6 +84,7 @@ func ContextTools(opts ContextOpts) []*ai.Tool {
 				return searchCode(opts.Root, query, limit)
 			}),
 		),
+		patternTool(),
 	}
 }
 

@@ -132,3 +132,27 @@ func TestSearchCodeWindows(t *testing.T) {
 		t.Fatalf("the windows are too wide:\n%s", out)
 	}
 }
+
+// TestGetPatternAnswersThePattern: the site answers a screen pattern the way
+// a project's server does, and an unknown name lists the ones that exist.
+func TestGetPatternAnswersThePattern(t *testing.T) {
+	client := mcpHost(t)
+	ctx := context.Background()
+	raw, err := client.CallTool(ctx, "get_pattern", json.RawMessage(`{"name":"upload-progress"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := raw.Text()
+	for _, want := range []string{"# upload-progress", "- ui.UploadBar", "```go", "trilha.CSRFInput(c)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("get_pattern lacks %q:\n%s", want, out)
+		}
+	}
+	bad, err := client.CallTool(ctx, "get_pattern", json.RawMessage(`{"name":"carousel"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bad.IsError || !strings.Contains(bad.Text(), "list-with-filter") {
+		t.Fatalf("an unknown pattern must be an error answer listing the names:\n%s", bad.Text())
+	}
+}

@@ -8,6 +8,7 @@ package docsmcp
 import (
 	"context"
 	"fmt"
+	"github.com/emersonjoe/trilha/internal/uidoc"
 	"regexp"
 	"sort"
 	"strings"
@@ -21,7 +22,7 @@ import (
 
 var linkRe = regexp.MustCompile(`\]\((/[a-z0-9/-]+)\)`)
 
-// contextTools returns get_context, search_code and get_error for the docs
+// contextTools returns get_context, search_code, get_error and get_pattern for the docs
 // server: the slices an agent reads before writing, and the catalog entry
 // for a code it just saw in a gate's output.
 func contextTools() []*ai.Tool {
@@ -37,7 +38,24 @@ func contextTools() []*ai.Tool {
 			ai.Typed(searchSources),
 		),
 	}
-	return append(tools, getErrorTool())
+	return append(tools, getErrorTool(), getPatternTool())
+}
+
+// getPatternTool answers one of the kit's screen patterns, whole — the same
+// answer the project's MCP server gives, from the same table.
+func getPatternTool() *ai.Tool {
+	return ai.NewTool(uidoc.PatternToolName, uidoc.PatternToolDescription,
+		ai.Schema(uidoc.PatternToolSchema),
+		ai.Typed(func(_ context.Context, in struct {
+			Name string `json:"name"`
+		}) (string, error) {
+			p, names, ok := uidoc.FindPattern(in.Name)
+			if !ok {
+				return "", fmt.Errorf("no pattern named %q; there are: %s", in.Name, strings.Join(names, ", "))
+			}
+			return uidoc.PatternMarkdown(p), nil
+		}),
+	)
 }
 
 // getErrorTool answers one catalog entry - the cause, the fix, the example -
