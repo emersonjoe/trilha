@@ -1,0 +1,19 @@
+package aprovacoes
+
+import (
+	"testing"
+
+	"github.com/emersonjoe/trilha/approval"
+)
+
+// O tipo é uma constante porque a tela e o gancho precisam concordar: um erro
+// de digitação aqui seria um pedido que ninguém decide.
+func TestTipoTemNome(t *testing.T) {
+	if Tipo == "" {
+		t.Fatal("o tipo do pedido não tem nome")
+	}
+	// E o estado inicial de um pedido é pendente, que é o que a tela filtra.
+	if approval.Pending != "pending" {
+		t.Fatalf("estado inicial = %q", approval.Pending)
+	}
+}

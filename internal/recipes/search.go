@@ -149,15 +149,21 @@ import (
 
 	"github.com/emersonjoe/trilha"
 
-	"{{.Module}}/internal/busca"
+	"{{.Module}}/internal/busca"{{if eq .At "app/admin/"}}
+	"{{.Module}}/internal/sessao/sessaotest"{{end}}
 )
 
 // A página responde com a caixa mesmo sem busca, e acha o que foi indexado.
 func TestPaginaDeBusca(t *testing.T) {
 	t.Setenv("TRILHA_ENV", "dev")
-	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil))){{if eq .At "app/admin/"}}
+	// A busca mora em /admin, atrás do papel de quem administra.
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	t.Setenv("ADMIN_EMAIL", "admin@example.com")
+	t.Setenv("ADMIN_PASSWORD", "a-password-nobody-guesses"){{end}}
 	a := newApp()
-	c := trilha.NewTestClient(t, a)
+	c := trilha.NewTestClient(t, a){{if eq .At "app/admin/"}}
+	sessaotest.Entrar(t, c){{end}}
 
 	vazia := c.Get("{{.URL}}busca").WantStatus(http.StatusOK).Body.String()
 	if !strings.Contains(vazia, "role=" + "\"search\"") {

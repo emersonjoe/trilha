@@ -1,0 +1,73 @@
+package usuarios
+
+import (
+	"strings"
+	"testing"
+	"time"
+)
+
+func loja() *Store { return &Store{rows: map[string]Usuario{}} }
+
+// Convidar cria a pessoa sem senha, e é o link que a define. Um administrador
+// que escolhe a senha de alguém é um administrador que sabe a senha de alguém.
+func TestConviteDefineASenhaEAtiva(t *testing.T) {
+	s := loja()
+	conv, err := s.Convidar("u-2", "bia@exemplo.com", "Bia", "leitor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Verify("bia@exemplo.com", ""); err != ErrCredencial {
+		t.Fatal("uma pessoa convidada entrou antes de ter senha")
+	}
+	if err := s.Definir(conv.Token, "uma-senha-longa-o-bastante"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Verify("bia@exemplo.com", "uma-senha-longa-o-bastante"); err != nil {
+		t.Fatalf("a senha que a pessoa escolheu não entra: %v", err)
+	}
+	// Uma vez só: um link que continua valendo depois de usado é um link que
+	// alguém acha depois.
+	if err := s.Definir(conv.Token, "outra-senha-bem-longa"); err == nil {
+		t.Fatal("o convite valeu duas vezes")
+	}
+	// E o que fica guardado é o hash do token, não ele.
+	for k := range convites {
+		if strings.Contains(k, conv.Token) {
+			t.Fatal("o token ficou guardado como veio")
+		}
+	}
+}
+
+func TestConviteVence(t *testing.T) {
+	s := loja()
+	conv, err := s.Convidar("u-3", "caio@exemplo.com", "Caio", "leitor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Envelhece o convite sem esperar dois dias.
+	for k, c := range convites {
+		c.expira = time.Now().Add(-time.Minute)
+		convites[k] = c
+	}
+	if _, err := s.Convidado(conv.Token); err != ErrConvite {
+		t.Fatalf("um convite vencido ainda vale: %v", err)
+	}
+}
+
+// Desativar não apaga: a trilha de auditoria aponta para quem fez o quê, e uma
+// linha apagada deixa a trilha falando de um id que não existe mais.
+func TestDesativarImpedeEntrarEMantemALinha(t *testing.T) {
+	s := loja()
+	if err := s.Add("u-1", "ana@exemplo.com", "Ana", "admin", "uma-senha-boa"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Ativar("u-1", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Verify("ana@exemplo.com", "uma-senha-boa"); err != ErrCredencial {
+		t.Fatal("quem foi desativado continuou entrando")
+	}
+	if len(s.All()) != 1 {
+		t.Fatal("a linha sumiu")
+	}
+}

@@ -78,6 +78,18 @@ func platformWordsEN() map[string]string {
 		"notify_state_digest":           "In the digest",
 		"notify_state_limited":          "Limited",
 		"notify_state_failed":           "Failed",
+		"admin_title":                   "Administration",
+		"admin_desc":                    "Only the admin role gets here. Every screen under /admin — the one you write tomorrow included — is closed to everybody else.",
+		"admin_open":                    "Open",
+		"admin_users":                   "Users and roles",
+		"admin_users_desc":              "Invite, change a role, deactivate. Every decision goes to the trail.",
+		"admin_audit":                   "Audit trail",
+		"admin_audit_desc":              "Who did what, to what, from where.",
+		"admin_approvals":               "Approvals",
+		"admin_approvals_desc":          "What is waiting for a decision.",
+		"admin_pending":                 "Pending",
+		"admin_search":                  "Search",
+		"admin_search_desc":             "Everything the application indexed.",
 	}
 }
 
@@ -157,5 +169,17 @@ func platformWordsPT() map[string]string {
 		"notify_state_digest":           "No digesto",
 		"notify_state_limited":          "Limitada",
 		"notify_state_failed":           "Falhou",
+		"admin_title":                   "Administração",
+		"admin_desc":                    "Só o papel admin chega aqui. Toda tela sob /admin — inclusive a que você escrever amanhã — fica fechada para os outros.",
+		"admin_open":                    "Abrir",
+		"admin_users":                   "Usuários e papéis",
+		"admin_users_desc":              "Convidar, trocar papel, desativar. Toda decisão vai para a trilha.",
+		"admin_audit":                   "Trilha de auditoria",
+		"admin_audit_desc":              "Quem fez o quê, em quê, de onde.",
+		"admin_approvals":               "Aprovações",
+		"admin_approvals_desc":          "O que espera uma decisão.",
+		"admin_pending":                 "Pendentes",
+		"admin_search":                  "Busca",
+		"admin_search_desc":             "Tudo o que o app indexou.",
 	}
 }

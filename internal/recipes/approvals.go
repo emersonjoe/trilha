@@ -219,6 +219,7 @@ import (
 	"github.com/emersonjoe/trilha/approval"
 
 	"{{.Module}}/internal/aprovacoes"
+	"{{.Module}}/internal/sessao/sessaotest"
 )
 
 // A caixa mostra o que espera por quem olha, e decidir grava quem decidiu.
@@ -231,10 +232,9 @@ func TestCaixaDeAprovacoes(t *testing.T) {
 	a := newApp()
 	c := trilha.NewTestClient(t, a)
 
-	c.PostForm("{{.URL}}entrar", url.Values{
-		"email":    {"admin@example.com"},
-		"password": {"a-password-nobody-guesses"},
-	}).WantStatus(http.StatusSeeOther)
+	// sessaotest knows where the login is: the inbox may have landed under
+	// /admin/, and the login did not move with it.
+	sessaotest.Entrar(t, c)
 
 	// Um pedido é aberto de dentro de uma requisição, que é onde o ator está.
 	var id string

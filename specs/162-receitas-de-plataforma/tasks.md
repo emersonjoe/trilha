@@ -20,7 +20,7 @@
   horário silencioso + digesto + limite por canal + fila com reenvio. *Aceite:*
   `TestNotifyInstall`, `TestNotifyPreferences`, `TestNotifyQuietHours`, `TestNotifyDigest`,
   `TestNotifyRateLimit`, `TestNotifyOutboxReplay`.
-- [ ] **T07** — Admin: `app/admin/` com `middleware.go` padrão-nega + tela inicial + as
+- [x] **T07** — Admin: `app/admin/` com `middleware.go` padrão-nega + tela inicial + as
   quatro telas compostas (`Includes`) + auditoria das decisões de usuário. *Aceite:*
   `TestAdminInstall`, `TestAdminDefaultDeny`, `TestAdminAuditTrail`, `TestAdminApprovalFlow`.
 - [ ] **T08** — Páginas de cookbook bilíngues das três receitas (comando, o que instala,

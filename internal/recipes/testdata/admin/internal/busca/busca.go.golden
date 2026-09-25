@@ -1,0 +1,38 @@
+// Package busca is the index behind the box in the top bar.
+//
+// One index, several kinds of thing, results grouped by kind. What this file
+// owns is the list of kinds and where each record's title, body and address
+// come from — the only part of a search only this application knows.
+package busca
+
+import (
+	"github.com/emersonjoe/trilha"
+)
+
+// Indice is the index. It is a package variable because there is one search in
+// an application, and the handler that saves a record has to reach the same one
+// the page queries.
+var Indice = trilha.NewSearch(trilha.SearchOpts{})
+
+// Setup declares the kinds and hands the index to the application.
+//
+// Add one Kind per type you want found. A kind nobody declared is refused by
+// Put with a message that says so, which is better than a record that silently
+// never turns up.
+//
+// Module is the area of the application the kind belongs to; with an Allow in
+// SearchOpts, a kind whose module the user may not see disappears from the
+// results — count included. Wire Allow to your policy when you have one.
+func Setup(a *trilha.App) {
+	Indice.Kind("exemplo", trilha.KindOpts{Label: "Examples"})
+	trilha.Provide(a, Indice)
+}
+
+// Indexar is where a record becomes a search document. Call it after saving,
+// and call Indice.Delete after deleting: an index nobody maintains is a search
+// that finds what is not there any more.
+//
+//	if err := busca.Indexar(c, "exemplo", p.ID, p.Nome, p.Email, "/exemplos/"+p.ID); err != nil { … }
+func Indexar(c *trilha.Ctx, tipo, id, titulo, corpo, url string) error {
+	return Indice.Put(c, trilha.Doc{Kind: tipo, ID: id, Title: titulo, Body: corpo, URL: url})
+}

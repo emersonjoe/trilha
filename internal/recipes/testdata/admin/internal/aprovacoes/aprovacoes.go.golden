@@ -1,0 +1,54 @@
+// Package aprovacoes is the queue of things somebody has to decide.
+//
+// The package answers the four things such a queue always needs — an owner, a
+// deadline, the reason, and who decided — and leaves one thing to this file:
+// what a decision means for this application.
+package aprovacoes
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/approval"
+
+	"example.com/golden/internal/sessao"
+)
+
+// Tipo is what this application asks people to decide. It is a constant for
+// the same reason a task name is: the screen that opens the request and the
+// handler that answers it have to agree.
+const Tipo = "exemplo"
+
+// Setup builds the queue, says what a decision means and starts the deadline
+// clock.
+//
+// The queue is a value the app provides, and not a package variable: a suite
+// that stands up one server per test gives each one its own, and registering
+// the same handler twice on a shared queue is a panic on the second test.
+//
+// Roles is how a request assigned to a role finds its people: the package does
+// not know how this application authenticates, and a check it guessed would
+// look like a guarantee without being one.
+func Setup(a *trilha.App) error {
+	fila := approval.New(approval.Options{
+		Logger: a.Logger(),
+		Roles: func(c *trilha.Ctx) []string {
+			if u := sessao.Atual(c); u != nil {
+				return u.Roles
+			}
+			return nil
+		},
+	})
+	fila.On(Tipo, decidido)
+	trilha.Provide(a, fila)
+	return fila.Setup(a)
+}
+
+// decidido runs after the decision is written. Write here what the decision
+// actually does — delete the thing, send the e-mail, emit the webhook.
+//
+// An error here does not undo the decision: a person chose, and it is
+// recorded. Making the work survive a failure is this function's job, and the
+// task recipe is where that lives.
+func decidido(c *trilha.Ctx, r approval.Record) error {
+	c.Log().Info("aprovacoes: decidido", "id", r.ID, "estado", r.State, "por", r.By)
+	return nil
+}

@@ -1,0 +1,54 @@
+// Package convite is where an invited person sets their own password.
+//
+// It is deliberately outside the folder the users screen lives in: whoever
+// opens this link has no session yet, and a page that requires one would send
+// them to a login they cannot pass.
+package convite
+
+import (
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"example.com/golden/internal/sessao"
+	gente "example.com/golden/internal/usuarios"
+)
+
+// Page renders GET /convite/{token}.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Set your password")
+	u, err := trilha.Use[*gente.Store](c).Convidado(c.Param("token"))
+	if err != nil {
+		return nil, trilha.Errorf(http.StatusNotFound, "%s", "This invitation is no longer valid.")
+	}
+	return formulario(c, u.Email, ""), nil
+}
+
+// POST sets the password and activates the person, then sends them to the
+// login: the session is opened by signing in, once, like everybody else's.
+func POST(c *trilha.Ctx) error {
+	store := trilha.Use[*gente.Store](c)
+	u, err := store.Convidado(c.Param("token"))
+	if err != nil {
+		return trilha.Errorf(http.StatusNotFound, "%s", "This invitation is no longer valid.")
+	}
+	if err := store.Definir(c.Param("token"), c.Form("password")); err != nil {
+		return c.Render(http.StatusUnprocessableEntity, formulario(c, u.Email, "The password needs at least 12 characters."))
+	}
+	return c.Redirect(sessao.Flow.LoginPath())
+}
+
+func formulario(c *trilha.Ctx, email, erro string) h.Node {
+	return ui.Stack(ui.Card(
+		ui.CardHeader(ui.CardTitle("Set your password"), ui.CardDescription(email)),
+		ui.CardContent(h.Form(h.Method("post"), h.Action(c.Request().URL.Path), h.Class("ui-stack"),
+			trilha.CSRFInput(c),
+			h.If(erro != "", ui.Alert(erro, ui.Destructive(), ui.Icon("triangle-alert"))),
+			ui.Field("password", "Password", ui.Input(h.ID("password"),
+				h.Name("password"), h.Type("password"), h.Autocomplete("new-password"), h.Required())),
+			h.Div(ui.Submit(h.Text("Save and sign in"))),
+		)),
+	))
+}

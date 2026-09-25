@@ -1,0 +1,31 @@
+// Package busca is the results screen: what was found, grouped by kind.
+package busca
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+)
+
+// Page renders GET /admin/busca?q=…
+//
+// The index arrives through the application and not through an import, for the
+// reason this folder is called busca too: the screen and the package that owns
+// the index have the same name, and a screen that reached into it would be a
+// package importing itself.
+//
+// The query is in the address on purpose: a search can then be sent to
+// somebody, kept in a bookmark and found again in the history.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Search")
+	q := c.Query("q")
+	res, err := trilha.Use[*trilha.Search](c).Query(c, q, trilha.SearchQuery{Limit: 10})
+	if err != nil {
+		return nil, err
+	}
+	return ui.Stack(
+		ui.PageHeader("Search"),
+		ui.SearchBox(c, "/admin/busca", ui.SearchBoxOpts{Value: q}),
+		ui.SearchResults(c, res, ui.SearchResultsOpts{}),
+	), nil
+}

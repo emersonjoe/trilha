@@ -1,0 +1,74 @@
+// Package aprovacoes is the inbox: what is waiting for whoever is reading, and
+// the two buttons.
+//
+// Who may decide is the package's answer and not this screen's — a hidden
+// button is a screen, and the address behind it is still an address.
+package aprovacoes
+
+import (
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/approval"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+)
+
+// Page renders GET /admin/aprovacoes.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Approvals")
+	fila := trilha.Use[*approval.Approvals](c)
+	pendentes, err := fila.Inbox(c, approval.ListParams{})
+	if err != nil {
+		return nil, err
+	}
+	decididas, err := fila.List(c.Context(), approval.ListParams{Limit: 20})
+	if err != nil {
+		return nil, err
+	}
+	return ui.Stack(
+		ui.PageHeader("Approvals"),
+		ui.Muted(h.Text("What is waiting for a decision of yours. The deadline expires on its own; the decision is recorded with your name on it.")),
+		ui.Inbox(c, linhas(c, pendentes), ui.InboxOpts{
+			Decide: "/admin/aprovacoes",
+			CSRF:   trilha.CSRFInput(c),
+		}),
+		ui.H2(h.Text("Latest decisions")),
+		ui.Inbox(c, linhas(c, decididas), ui.InboxOpts{}),
+	), nil
+}
+
+// POST decides. The decision and the reason travel in the same form, because a
+// reason typed into a field a second click discards is a reason nobody wrote.
+func POST(c *trilha.Ctx) error {
+	if err := trilha.Use[*approval.Approvals](c).Decide(c, c.Form("id"), c.Form("decision"), c.Form("reason")); err != nil {
+		if err == approval.ErrNotYours {
+			return trilha.Errorf(http.StatusForbidden, "%s", "This request is not yours to decide.")
+		}
+		return err
+	}
+	c.Flash(ui.FlashSuccess, "Decision recorded.")
+	return c.Redirect("/admin/aprovacoes")
+}
+
+// linhas maps what the package keeps to what the screen shows. Late is decided
+// here because only the request knows what now means, and Progress ("1/3")
+// only appears for a request that asked for more than one decident.
+func linhas(c *trilha.Ctx, lista []approval.Record) []ui.InboxRow {
+	agora := time.Now()
+	out := make([]ui.InboxRow, 0, len(lista))
+	for _, r := range lista {
+		progresso := ""
+		if r.Quorum > 1 {
+			progresso = fmt.Sprintf("%d/%d", len(r.Votes), r.Quorum)
+		}
+		out = append(out, ui.InboxRow{
+			ID: r.ID, Kind: r.Kind, Subject: r.Subject, Target: r.Target,
+			State: r.State, Due: r.Due, Late: r.Late(agora), By: r.By, Reason: r.Reason,
+			Progress: progresso,
+		})
+	}
+	return out
+}

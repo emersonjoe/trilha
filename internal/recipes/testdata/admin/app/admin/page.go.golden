@@ -1,0 +1,37 @@
+package admin
+
+import (
+	"strconv"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/approval"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+)
+
+// Page is the landing screen of /admin: the four doors, and how many
+// decisions are waiting for whoever is reading.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Administration")
+	pendentes, err := trilha.Use[*approval.Approvals](c).Inbox(c, approval.ListParams{})
+	if err != nil {
+		return nil, err
+	}
+	cartao := func(href, titulo, texto string, extra ...h.Node) h.Node {
+		return ui.Card(
+			ui.CardHeader(ui.CardTitle(titulo), ui.CardDescription(texto)),
+			ui.CardContent(append(extra, ui.ButtonLink(href, ui.Outline(), h.Text("Open")))...),
+		)
+	}
+	return ui.Stack(
+		ui.PageHeader("Administration"),
+		ui.Muted(h.Text("Only the admin role gets here. Every screen under /admin — the one you write tomorrow included — is closed to everybody else.")),
+		ui.Grid(ui.Cols(1, 2),
+			cartao("/admin/usuarios", "Users and roles", "Invite, change a role, deactivate. Every decision goes to the trail."),
+			cartao("/admin/auditoria", "Audit trail", "Who did what, to what, from where."),
+			cartao("/admin/aprovacoes", "Approvals", "What is waiting for a decision.",
+				ui.Stat("Pending", strconv.Itoa(len(pendentes)))),
+			cartao("/admin/busca", "Search", "Everything the application indexed."),
+		),
+	), nil
+}

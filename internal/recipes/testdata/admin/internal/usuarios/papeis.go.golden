@@ -1,0 +1,29 @@
+package usuarios
+
+// Papeis is what this application has. It is a list and not a free field
+// because a role nobody wrote down is a role nobody guards — and it is a
+// function in a variable so that the package which really owns the list can
+// take it over: with the permissions recipe, app/setup.go says
+// usuarios.Papeis = acesso.Papeis, and the invite form offers the matrix's
+// roles.
+var Papeis = func() []string { return []string{"admin", "editor", "leitor"} }
+
+// PapelValido keeps what comes from a form inside the list: a role that
+// arrives from outside is a role nobody declared. What is not on the list
+// becomes "leitor" when there is one — the least — and the last one otherwise.
+func PapelValido(p string) string {
+	papeis := Papeis()
+	menor := ""
+	for _, v := range papeis {
+		if v == p {
+			return p
+		}
+		if v == "leitor" {
+			menor = v
+		}
+	}
+	if menor == "" && len(papeis) > 0 {
+		menor = papeis[len(papeis)-1]
+	}
+	return menor
+}

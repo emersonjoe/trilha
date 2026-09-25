@@ -1,0 +1,138 @@
+package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/approval"
+
+	"example.com/golden/internal/auditoria"
+	"example.com/golden/internal/usuarios"
+)
+
+// telasDoAdmin is every screen under /admin. A screen written there tomorrow
+// is one more row, and the table says who may open it.
+var telasDoAdmin = []string{"/admin", "/admin/usuarios", "/admin/auditoria", "/admin/aprovacoes", "/admin/busca"}
+
+func appDoAdmin(t *testing.T) *trilha.App {
+	t.Helper()
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	t.Setenv("ADMIN_EMAIL", "admin@example.com")
+	t.Setenv("ADMIN_PASSWORD", "a-password-nobody-guesses")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := newApp()
+	if err := trilha.Use[*usuarios.Store](a).Add("u-leitor", "leitor@example.com", "Leitor", "leitor",
+		"a-password-for-the-reader"); err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+func entrarNoAdmin(t *testing.T, a *trilha.App, email, senha string) *trilha.TestClient {
+	t.Helper()
+	c := trilha.NewTestClient(t, a)
+	c.PostForm("/entrar", url.Values{"email": {email}, "password": {senha}}).WantStatus(http.StatusSeeOther)
+	return c
+}
+
+// A porta nega por padrão: anônimo não entra, quem entrou sem o papel recebe
+// 403 — e não um login de novo —, e só o admin vê as telas.
+func TestAdminDefaultDeny(t *testing.T) {
+	a := appDoAdmin(t)
+	quem := []struct {
+		nome   string
+		client *trilha.TestClient
+		status int
+	}{
+		{"anônimo", trilha.NewTestClient(t, a), http.StatusUnauthorized},
+		{"leitor", entrarNoAdmin(t, a, "leitor@example.com", "a-password-for-the-reader"), http.StatusForbidden},
+		{"admin", entrarNoAdmin(t, a, "admin@example.com", "a-password-nobody-guesses"), http.StatusOK},
+	}
+	for _, q := range quem {
+		for _, tela := range telasDoAdmin {
+			if got := q.client.Get(tela).Code; got != q.status {
+				t.Errorf("%s em %s: %d, esperava %d", q.nome, tela, got, q.status)
+			}
+		}
+	}
+	// E escrever também: um POST do leitor não passa da porta.
+	quem[1].client.PostForm("/admin/usuarios", url.Values{"acao": {"papel"}, "id": {"u-leitor"}, "papel": {"admin"}}).
+		WantStatus(http.StatusForbidden)
+	for _, u := range trilha.Use[*usuarios.Store](a).All() {
+		if u.ID == "u-leitor" && u.Papel != "leitor" {
+			t.Fatalf("o leitor se deu o papel %q", u.Papel)
+		}
+	}
+}
+
+// Trocar papel e desativar vão para a trilha com quem decidiu e sobre quem —
+// e a tela da trilha mostra.
+func TestAdminAuditTrail(t *testing.T) {
+	a := appDoAdmin(t)
+	admin := entrarNoAdmin(t, a, "admin@example.com", "a-password-nobody-guesses")
+
+	admin.PostForm("/admin/usuarios", url.Values{"acao": {"papel"}, "id": {"u-leitor"}, "papel": {"editor"}}).
+		WantStatus(http.StatusSeeOther)
+	admin.PostForm("/admin/usuarios", url.Values{"acao": {"ativo"}, "id": {"u-leitor"}, "ativo": {"false"}}).
+		WantStatus(http.StatusSeeOther)
+
+	achou := map[string]bool{}
+	for _, r := range auditoria.Store.All() {
+		if r.Target == "u-leitor" && r.Actor.Email == "admin@example.com" {
+			achou[r.Action] = true
+		}
+	}
+	for _, quero := range []string{"usuario.papel", "usuario.ativo"} {
+		if !achou[quero] {
+			t.Errorf("a trilha não tem %s do admin sobre u-leitor: %v", quero, achou)
+		}
+	}
+	tela := admin.Get("/admin/auditoria").WantStatus(http.StatusOK).Body.String()
+	if !strings.Contains(tela, "usuario.papel") || !strings.Contains(tela, "u-leitor") {
+		t.Fatalf("a tela da trilha não mostra a troca de papel:\n%s", tela)
+	}
+}
+
+// Um pedido aberto aparece na caixa do admin, a decisão é gravada e vai para
+// a trilha com quem decidiu.
+func TestAdminApprovalFlow(t *testing.T) {
+	a := appDoAdmin(t)
+	admin := entrarNoAdmin(t, a, "admin@example.com", "a-password-nobody-guesses")
+
+	var id string
+	a.Register(trilha.Route{Pattern: "/_teste/pedir", Kind: trilha.KindAPI,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": func(c *trilha.Ctx) error {
+				var err error
+				id, err = trilha.Use[*approval.Approvals](c).Open(c, approval.Request{
+					Kind: "exemplo", Subject: "Estorno de 49,00", Assign: approval.Role("admin"),
+				})
+				if err != nil {
+					return err
+				}
+				return c.Text(http.StatusOK, id)
+			},
+		}})
+	admin.PostForm("/_teste/pedir", url.Values{}).WantStatus(http.StatusOK)
+
+	admin.Get("/admin").WantStatus(http.StatusOK).WantContains("1")
+	admin.Get("/admin/aprovacoes").WantStatus(http.StatusOK).WantContains("Estorno de 49,00")
+	admin.PostForm("/admin/aprovacoes", url.Values{"id": {id}, "decision": {approval.Approved},
+		"reason": {"conferido"}}).WantStatus(http.StatusSeeOther)
+
+	decidiu := false
+	for _, r := range auditoria.Store.All() {
+		if r.Action == "approval.decide" && r.Target == id && r.Actor.Email == "admin@example.com" {
+			decidiu = true
+		}
+	}
+	if !decidiu {
+		t.Fatalf("a decisão não foi para a trilha com o ator: %+v", auditoria.Store.All())
+	}
+}

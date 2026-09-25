@@ -1,0 +1,77 @@
+package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/approval"
+
+	"example.com/golden/internal/aprovacoes"
+	"example.com/golden/internal/sessao/sessaotest"
+)
+
+// A caixa mostra o que espera por quem olha, e decidir grava quem decidiu.
+func TestCaixaDeAprovacoes(t *testing.T) {
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	t.Setenv("ADMIN_EMAIL", "admin@example.com")
+	t.Setenv("ADMIN_PASSWORD", "a-password-nobody-guesses")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := newApp()
+	c := trilha.NewTestClient(t, a)
+
+	// sessaotest knows where the login is: the inbox may have landed under
+	// /admin/, and the login did not move with it.
+	sessaotest.Entrar(t, c)
+
+	// Um pedido é aberto de dentro de uma requisição, que é onde o ator está.
+	var id string
+	a.Register(trilha.Route{Pattern: "/_teste/abrir", Kind: trilha.KindAPI,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": func(c *trilha.Ctx) error {
+				var err error
+				id, err = trilha.Use[*approval.Approvals](c).Open(c, approval.Request{
+					Kind: aprovacoes.Tipo, Subject: "Pedido de exemplo",
+					Assign: approval.Role("admin"),
+				})
+				if err != nil {
+					return err
+				}
+				return c.Text(http.StatusOK, id)
+			},
+		}})
+	c.PostForm("/_teste/abrir", url.Values{}).WantStatus(http.StatusOK)
+
+	corpo := c.Get("/admin/aprovacoes").WantStatus(http.StatusOK).Body.String()
+	if !strings.Contains(corpo, "Pedido de exemplo") {
+		t.Fatalf("o pedido não apareceu na caixa:\n%s", corpo)
+	}
+
+	c.PostForm("/admin/aprovacoes", url.Values{
+		"id":       {id},
+		"decision": {approval.Approved},
+		"reason":   {"combinado"},
+	}).WantStatus(http.StatusSeeOther)
+
+	// E o registro guarda a decisão: quem, quando e por quê.
+	var rec approval.Record
+	a.Register(trilha.Route{Pattern: "/_teste/ler", Kind: trilha.KindAPI,
+		Methods: map[string]trilha.HandlerFunc{
+			"GET": func(c *trilha.Ctx) error {
+				var err error
+				if rec, err = trilha.Use[*approval.Approvals](c).Get(c.Context(), id); err != nil {
+					return err
+				}
+				return c.Text(http.StatusOK, rec.State)
+			},
+		}})
+	c.Get("/_teste/ler").WantStatus(http.StatusOK)
+	if rec.State != approval.Approved || rec.Reason != "combinado" || rec.By == "" {
+		t.Fatalf("decisão = %+v", rec)
+	}
+}

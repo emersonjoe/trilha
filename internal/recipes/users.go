@@ -377,21 +377,28 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 // itself when something is wrong.
 func POST(c *trilha.Ctx) error {
 	store := trilha.Use[*gente.Store](c)
+	// Every one of these is a decision about a person, and each goes to the
+	// audit trail with who decided and about whom: a role that changed with
+	// no name next to it is the question an audit exists to answer.
 	switch c.Form("acao") {
 	case "papel":
-		if err := store.Papel(c.Form("id"), gente.PapelValido(c.Form("papel"))); err != nil {
+		papel := gente.PapelValido(c.Form("papel"))
+		if err := store.Papel(c.Form("id"), papel); err != nil {
 			return err
 		}
+		c.Audit("usuario.papel", c.Form("id"), trilha.Fields{"papel": papel})
 	case "ativo":
 		ativo, _ := strconv.ParseBool(c.Form("ativo"))
 		if err := store.Ativar(c.Form("id"), ativo); err != nil {
 			return err
 		}
+		c.Audit("usuario.ativo", c.Form("id"), trilha.Fields{"ativo": ativo})
 	case "resetar":
 		conv, err := store.Resetar(c.Form("id"))
 		if err != nil {
 			return err
 		}
+		c.Audit("usuario.resetou", c.Form("id"))
 		c.Flash("convite", "/convite/"+conv.Token)
 		c.Flash(ui.FlashSuccess, "{{.T.users_reset_done}}")
 	default:
@@ -399,11 +406,12 @@ func POST(c *trilha.Ctx) error {
 		if email == "" {
 			return trilha.Errorf(http.StatusUnprocessableEntity, "%s", "{{.T.users_need_email}}")
 		}
-		conv, err := store.Convidar("u-"+strconv.FormatInt(time.Now().UnixNano(), 36),
-			email, c.Form("nome"), gente.PapelValido(c.Form("papel")))
+		id, papel := "u-"+strconv.FormatInt(time.Now().UnixNano(), 36), gente.PapelValido(c.Form("papel"))
+		conv, err := store.Convidar(id, email, c.Form("nome"), papel)
 		if err != nil {
 			return trilha.Errorf(http.StatusUnprocessableEntity, "%s", err.Error())
 		}
+		c.Audit("usuario.convidou", id, trilha.Fields{"papel": papel})
 		c.Flash("convite", "/convite/"+conv.Token)
 		c.Flash(ui.FlashSuccess, "{{.T.users_invited}}")
 	}

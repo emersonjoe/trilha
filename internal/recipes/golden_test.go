@@ -2,6 +2,7 @@ package recipes
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"io/fs"
 	"os"
@@ -164,5 +165,23 @@ func TestNotifyLinksInAnyOrder(t *testing.T) {
 		if strings.Index(setup, "avisos.Eventos = append") > strings.Index(setup, "avisos.Setup(a)") {
 			t.Errorf("%v: the event joins the list after avisos.Setup read it:\n%s", ordem, setup)
 		}
+	}
+}
+
+func TestAdminInstall(t *testing.T) {
+	conferirGolden(t, "admin")
+	// Made of recipes: the four parts land under app/admin/, behind the door
+	// the recipe writes, and the part that needs the login is refused whole
+	// when the login is missing.
+	_, escritos := instalarGolden(t, mustGet(t, "admin"))
+	lista := strings.Join(escritos, " ")
+	for _, quero := range []string{"app/admin/middleware.go", "app/admin/page.go", "app/admin/usuarios/page.go",
+		"app/admin/auditoria/page.go", "app/admin/aprovacoes/page.go", "app/admin/busca/page.go", "admin_test.go"} {
+		if !strings.Contains(lista, quero) {
+			t.Errorf("did not write %s: %s", quero, lista)
+		}
+	}
+	if _, err := Add(projeto(t), mustGet(t, "admin"), Options{Module: "example.com/x", Lang: "en"}); !errors.Is(err, ErrMissing) {
+		t.Fatalf("admin without login: %v", err)
 	}
 }

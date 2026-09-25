@@ -61,6 +61,27 @@ func TestInstalledRecipesWithoutMarker(t *testing.T) {
 			t.Errorf("installed = %q, missing %s", got, want)
 		}
 	}
+
+	// And a backoffice made of recipes: itself, and each of its parts, with
+	// the screens found where they landed — under app/admin/.
+	root = minimalProject(t)
+	admin, err := recipes.Get("admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	installWithNeeds(t, root, admin)
+	byName := map[string]RecipeInfo{}
+	for _, info := range InstalledRecipes(root) {
+		byName[info.Name] = info
+	}
+	for _, want := range []string{"admin", "approvals", "audit", "login", "search", "users"} {
+		if _, ok := byName[want]; !ok {
+			t.Errorf("installed = %v, missing %s", byName, want)
+		}
+	}
+	if files := strings.Join(byName["audit"].Files, " "); !strings.Contains(files, "app/admin/auditoria/page.go") {
+		t.Errorf("audit's screen was not found under app/admin/: %s", files)
+	}
 }
 
 func minimalProject(t *testing.T) string {

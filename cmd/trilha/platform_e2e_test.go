@@ -24,7 +24,8 @@ var platformTests = map[string][]string{
 }
 
 func init() {
-	platformTests["."] = append(platformTests["."], "TestNotifyPreferences", "TestNotifyOutboxReplay", "TestNotifyChannelsLinked")
+	platformTests["."] = append(platformTests["."], "TestNotifyPreferences", "TestNotifyOutboxReplay", "TestNotifyChannelsLinked",
+		"TestAdminDefaultDeny", "TestAdminAuditTrail", "TestAdminApprovalFlow")
 }
 
 // notifyLinksTest is written by the e2e itself, the way chavesRevogarTest is:
@@ -98,7 +99,7 @@ func TestAddPlatformE2E(t *testing.T) {
 		t.Fatalf("the refusal does not say what to run first:\n%s", out)
 	}
 
-	out := run(t, proj, cli, "add", "login", "connections", "notify", "webhooks", "channel-whatsapp", "billing")
+	out := run(t, proj, cli, "add", "login", "connections", "notify", "webhooks", "channel-whatsapp", "billing", "admin")
 	// The add ends with the price of reading what arrived.
 	b, _ := recipes.Get("billing")
 	if want := fmt.Sprintf("`trilha ctx --pack billing` costs ~%d tokens (est.)", b.CtxPackCost); !strings.Contains(out, want) {

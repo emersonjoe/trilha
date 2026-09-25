@@ -1,0 +1,28 @@
+// Package auditoria is the screen that reads the trail: who did what, to
+// what, from where.
+//
+// It is the answer to a question somebody asks months later, and the reason it
+// is a screen and not a grep is that the person asking is usually not the
+// person who can grep.
+package auditoria
+
+import (
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"example.com/golden/internal/auditoria"
+)
+
+// Page draws the trail at GET /admin/auditoria.
+//
+// Guard this folder: add a middleware.go with the rule your app uses. The
+// trail names people and what they did, which is not something to leave open.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Audit trail")
+	return h.Div(
+		ui.PageHeader("Audit trail"),
+		ui.Muted(h.Text("Who did what, to what, and from where.")),
+		ui.AuditTable(c, auditoria.Store.All()),
+	), nil
+}

@@ -1,0 +1,177 @@
+package usuarios
+
+// This file is the users screen's half of the table: who gets in, with what
+// role, and how a password is born.
+//
+// A password is never chosen by an administrator. Inviting creates the row
+// without one and hands out a link; the person sets it. An administrator who
+// picks somebody's password is an administrator who knows it.
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"time"
+
+	"github.com/emersonjoe/trilha/auth"
+)
+
+// Validade is how long an invitation is worth. Long enough for somebody to
+// read their e-mail tomorrow, short enough that a link found in a mailbox next
+// year is not a way in.
+const Validade = 48 * time.Hour
+
+// ErrConvite is a token that is wrong, used or too old. It is one error for
+// the three on purpose: which of them it was is not the visitor's business.
+var ErrConvite = errors.New("this invitation is no longer valid")
+
+// Convite is what somebody is given: the link's token, and when it stops
+// working. The token is returned once, here, and never again — what is kept is
+// its hash.
+type Convite struct {
+	Token   string
+	Expira  time.Time
+	Usuario Usuario
+}
+
+// convite is the stored half.
+type convite struct {
+	hash   string
+	id     string
+	expira time.Time
+}
+
+var convites = map[string]convite{}
+
+// Convidar creates the person, inactive and with no password, and the
+// invitation that lets them set one.
+func (s *Store) Convidar(id, email, nome, papel string) (Convite, error) {
+	chave := normaliza(email)
+	if chave == "" {
+		return Convite{}, errors.New("usuarios: an e-mail is required")
+	}
+	s.mu.Lock()
+	if _, ok := s.rows[chave]; ok {
+		s.mu.Unlock()
+		return Convite{}, errors.New("usuarios: that e-mail is already in the table")
+	}
+	u := Usuario{ID: id, Email: email, Nome: nome, Papel: papel, Ativo: false, Criado: time.Now()}
+	s.rows[chave] = u
+	s.mu.Unlock()
+	return s.emitir(u)
+}
+
+// Resetar issues another invitation for somebody who is already here. It is
+// the same path as the first password because there is only one way for a
+// password to be born.
+func (s *Store) Resetar(id string) (Convite, error) {
+	u, ok := s.porID(id)
+	if !ok {
+		return Convite{}, errors.New("usuarios: nobody with that id")
+	}
+	return s.emitir(u)
+}
+
+// emitir mints the token and keeps its hash. A dump of what is stored — memory
+// today, a table tomorrow — is not a set of keys.
+func (s *Store) emitir(u Usuario) (Convite, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return Convite{}, err
+	}
+	token := hex.EncodeToString(b)
+	expira := time.Now().Add(Validade)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// One live invitation per person: the previous link stops working the
+	// moment a new one is handed out.
+	for k, c := range convites {
+		if c.id == u.ID {
+			delete(convites, k)
+		}
+	}
+	convites[hashToken(token)] = convite{hash: hashToken(token), id: u.ID, expira: expira}
+	return Convite{Token: token, Expira: expira, Usuario: u}, nil
+}
+
+// Convidado is who a token belongs to, while it is still worth something.
+func (s *Store) Convidado(token string) (Usuario, error) {
+	s.mu.RLock()
+	c, ok := convites[hashToken(token)]
+	s.mu.RUnlock()
+	if !ok || time.Now().After(c.expira) {
+		return Usuario{}, ErrConvite
+	}
+	u, achou := s.porID(c.id)
+	if !achou {
+		return Usuario{}, ErrConvite
+	}
+	return u, nil
+}
+
+// Definir sets the password the person chose, activates them, and spends the
+// token. Used once: a link that still works after it worked is a link somebody
+// can find later.
+func (s *Store) Definir(token, senha string) error {
+	u, err := s.Convidado(token)
+	if err != nil {
+		return err
+	}
+	if len(senha) < 12 {
+		return errors.New("usuarios: a password of at least 12 characters")
+	}
+	hash, err := auth.HashPBKDF2(senha)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	chave := normaliza(u.Email)
+	linha := s.rows[chave]
+	linha.Hash, linha.Ativo = hash, true
+	s.rows[chave] = linha
+	delete(convites, hashToken(token))
+	return nil
+}
+
+// Papel changes what somebody may do.
+func (s *Store) Papel(id, papel string) error {
+	return s.altera(id, func(u *Usuario) { u.Papel = papel })
+}
+
+// Ativar turns somebody on or off. Off and not deleted: the audit trail points
+// at who did what, and a deleted row leaves the trail talking about an id that
+// is not there any more.
+func (s *Store) Ativar(id string, ativo bool) error {
+	return s.altera(id, func(u *Usuario) { u.Ativo = ativo })
+}
+
+func (s *Store) altera(id string, fn func(*Usuario)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, u := range s.rows {
+		if u.ID == id {
+			fn(&u)
+			s.rows[k] = u
+			return nil
+		}
+	}
+	return errors.New("usuarios: nobody with that id")
+}
+
+func (s *Store) porID(id string) (Usuario, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, u := range s.rows {
+		if u.ID == id {
+			return u, true
+		}
+	}
+	return Usuario{}, false
+}
+
+func hashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}

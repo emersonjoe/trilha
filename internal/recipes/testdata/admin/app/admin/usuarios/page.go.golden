@@ -1,0 +1,171 @@
+// Package usuarios is the screen that names people: who is in, with what
+// role, and how somebody new gets a password.
+//
+// The folder requires a role — see middleware.go — because everything here is
+// about somebody else's access.
+package usuarios
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	gente "example.com/golden/internal/usuarios"
+)
+
+// Page lists the people at GET /admin/usuarios.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Users")
+	store := trilha.Use[*gente.Store](c)
+	corpo := []h.Node{
+		ui.PageHeader("Users"),
+		ui.Muted(h.Text("Who gets in, with what role. Inviting creates the person with no password: they set it, from the link.")),
+	}
+	// The link crosses the redirect once, in a flash: it is shown to whoever
+	// just created it, and it is gone from the next render.
+	for _, f := range c.Flashes() {
+		if f.Kind == "convite" {
+			corpo = append(corpo, ui.Alert("Invitation link",
+				ui.AlertDescription(ui.Code(f.Text))))
+		}
+	}
+	return h.Div(append(corpo, convidar(c), tabela(c, store.All()))...), nil
+}
+
+// POST does the four things this screen does, dispatched by the form's action
+// field: they are one screen, and a form that posts to itself comes back to
+// itself when something is wrong.
+func POST(c *trilha.Ctx) error {
+	store := trilha.Use[*gente.Store](c)
+	// Every one of these is a decision about a person, and each goes to the
+	// audit trail with who decided and about whom: a role that changed with
+	// no name next to it is the question an audit exists to answer.
+	switch c.Form("acao") {
+	case "papel":
+		papel := gente.PapelValido(c.Form("papel"))
+		if err := store.Papel(c.Form("id"), papel); err != nil {
+			return err
+		}
+		c.Audit("usuario.papel", c.Form("id"), trilha.Fields{"papel": papel})
+	case "ativo":
+		ativo, _ := strconv.ParseBool(c.Form("ativo"))
+		if err := store.Ativar(c.Form("id"), ativo); err != nil {
+			return err
+		}
+		c.Audit("usuario.ativo", c.Form("id"), trilha.Fields{"ativo": ativo})
+	case "resetar":
+		conv, err := store.Resetar(c.Form("id"))
+		if err != nil {
+			return err
+		}
+		c.Audit("usuario.resetou", c.Form("id"))
+		c.Flash("convite", "/convite/"+conv.Token)
+		c.Flash(ui.FlashSuccess, "New link issued. The previous one stopped working.")
+	default:
+		email := c.Form("email")
+		if email == "" {
+			return trilha.Errorf(http.StatusUnprocessableEntity, "%s", "say the e-mail of whoever you are inviting")
+		}
+		id, papel := "u-"+strconv.FormatInt(time.Now().UnixNano(), 36), gente.PapelValido(c.Form("papel"))
+		conv, err := store.Convidar(id, email, c.Form("nome"), papel)
+		if err != nil {
+			return trilha.Errorf(http.StatusUnprocessableEntity, "%s", err.Error())
+		}
+		c.Audit("usuario.convidou", id, trilha.Fields{"papel": papel})
+		c.Flash("convite", "/convite/"+conv.Token)
+		c.Flash(ui.FlashSuccess, "Invitation created. The link is worth 48 hours.")
+	}
+	return c.Redirect("/admin/usuarios")
+}
+
+func convidar(c *trilha.Ctx) h.Node {
+	return h.Form(h.Method("post"), h.Action("/admin/usuarios"), h.Class("ui-stack"),
+		trilha.CSRFInput(c),
+		h.Input(h.Type("hidden"), h.Name("acao"), h.Value("convidar")),
+		ui.Field("email", "E-mail", ui.Input(h.ID("email"), h.Name("email"),
+			h.Type("email"), h.Required())),
+		ui.Field("nome", "Name", ui.Input(h.ID("nome"), h.Name("nome"))),
+		ui.Field("papel", "Role", ui.Select(h.ID("papel"), h.Name("papel"),
+			ui.SelectOptions(opcoes(), gente.PapelValido("")))),
+		ui.Button(h.Type("submit"), h.Text("Invite")),
+	)
+}
+
+func opcoes() []ui.Option {
+	papeis := gente.Papeis()
+	out := make([]ui.Option, 0, len(papeis))
+	for _, p := range papeis {
+		out = append(out, ui.Option{Value: p, Label: p})
+	}
+	return out
+}
+
+func tabela(c *trilha.Ctx, pessoas []gente.Usuario) h.Node {
+	linhas := make([]h.Node, 0, len(pessoas))
+	for _, u := range pessoas {
+		linhas = append(linhas, h.Tr(
+			h.Td(h.Text(u.Email)),
+			h.Td(h.Text(u.Nome)),
+			h.Td(papelForm(c, u)),
+			h.Td(estado(u)),
+			h.Td(ui.Date(c, u.Criado)),
+			h.Td(h.Div(h.Class("ui-inline-form"), ativarForm(c, u), resetarForm(c, u))),
+		))
+	}
+	if len(linhas) == 0 {
+		return ui.Empty(ui.EmptyOpts{Icon: "user", Title: "Nobody here yet."})
+	}
+	return ui.Table(
+		h.Thead(h.Tr(
+			h.Th(h.Text("E-mail")), h.Th(h.Text("Name")),
+			h.Th(h.Text("Role")), h.Th(h.Text("State")),
+			h.Th(h.Text("Created")), h.Th(h.Text("")),
+		)),
+		h.Tbody(linhas...),
+	)
+}
+
+func estado(u gente.Usuario) h.Node {
+	if u.Ativo {
+		return ui.Badge(h.Text("active"))
+	}
+	return ui.Badge(ui.Outline(), h.Text("inactive"))
+}
+
+func papelForm(c *trilha.Ctx, u gente.Usuario) h.Node {
+	return h.Form(h.Method("post"), h.Action("/admin/usuarios"), h.Class("ui-inline-form"),
+		trilha.CSRFInput(c),
+		h.Input(h.Type("hidden"), h.Name("acao"), h.Value("papel")),
+		h.Input(h.Type("hidden"), h.Name("id"), h.Value(u.ID)),
+		ui.Select(h.Name("papel"), h.Aria("label", "Role"), ui.SelectOptions(opcoes(), u.Papel)),
+		ui.Button(ui.Outline(), ui.Sm(), h.Type("submit"), h.Text("Save")),
+	)
+}
+
+func ativarForm(c *trilha.Ctx, u gente.Usuario) h.Node {
+	rotulo, valor := "Deactivate", "false"
+	if !u.Ativo {
+		rotulo, valor = "Activate", "true"
+	}
+	return h.Form(h.Method("post"), h.Action("/admin/usuarios"), h.Class("ui-inline-form"),
+		trilha.CSRFInput(c),
+		h.Input(h.Type("hidden"), h.Name("acao"), h.Value("ativo")),
+		h.Input(h.Type("hidden"), h.Name("id"), h.Value(u.ID)),
+		h.Input(h.Type("hidden"), h.Name("ativo"), h.Value(valor)),
+		ui.Button(ui.Outline(), ui.Sm(), h.Type("submit"), h.Text(rotulo)),
+	)
+}
+
+func resetarForm(c *trilha.Ctx, u gente.Usuario) h.Node {
+	return h.Form(h.Method("post"), h.Action("/admin/usuarios"), h.Class("ui-inline-form"),
+		trilha.CSRFInput(c),
+		h.Input(h.Type("hidden"), h.Name("acao"), h.Value("resetar")),
+		h.Input(h.Type("hidden"), h.Name("id"), h.Value(u.ID)),
+		ui.Button(ui.Outline(), ui.Sm(), h.Type("submit"), h.Text("Reset password"),
+			ui.Confirm("Reset this person's password?", "The current password stops working and a new link is issued.")),
+	)
+}

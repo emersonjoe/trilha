@@ -1,0 +1,86 @@
+package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+
+	"example.com/golden/internal/sessao"
+)
+
+func TestConvidarEEntrar(t *testing.T) {
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	t.Setenv("ADMIN_EMAIL", "admin@example.com")
+	t.Setenv("ADMIN_PASSWORD", "a-password-nobody-guesses")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := newApp()
+	c := trilha.NewTestClient(t, a)
+
+	// Closed to whoever is not signed in. A browser is sent to the login; an
+	// API call would get 401, because redirecting a fetch to an HTML form only
+	// produces a confusing parse error.
+	c.Get("/admin/usuarios", trilha.WithHeader("Accept", "text/html")).WantStatus(http.StatusFound)
+	c.Get("/admin/usuarios").WantStatus(http.StatusUnauthorized)
+
+	c.PostForm(sessao.Flow.LoginPath(), url.Values{
+		"email":    {"admin@example.com"},
+		"password": {"a-password-nobody-guesses"},
+	}).WantStatus(http.StatusSeeOther)
+	c.Get("/admin/usuarios").WantStatus(http.StatusOK).WantContains("admin@example.com")
+
+	// Inviting hands out a link and creates nobody who can already sign in.
+	c.PostForm("/admin/usuarios", url.Values{
+		"acao":  {"convidar"},
+		"email": {"bia@example.com"},
+		"nome":  {"Bia"},
+		"papel": {"leitor"},
+	}).WantStatus(http.StatusSeeOther)
+	// O link atravessa o redirect num flash: aparece uma vez, para quem acabou
+	// de criá-lo.
+	corpo := c.Get("/admin/usuarios").WantStatus(http.StatusOK).Body.String()
+	link := depoisDeConvite(corpo)
+	if link == "" {
+		t.Fatalf("a tela não mostrou o link do convite:\n%s", corpo)
+	}
+
+	// The link answers with no session at all: it is for somebody who has none.
+	// The same application, a second visitor — a new app would be a new table,
+	// and the invitation lives in the one that issued it.
+	sem := trilha.NewTestClient(t, a)
+	sem.Get(link).WantStatus(http.StatusOK)
+	sem.PostForm(link, url.Values{"password": {"short"}}).WantStatus(http.StatusUnprocessableEntity)
+
+	// The password the person chose is the one that gets them in — nobody else
+	// ever knew it.
+	sem.PostForm(link, url.Values{"password": {"uma-senha-longa-o-bastante"}}).WantStatus(http.StatusSeeOther)
+	nova := trilha.NewTestClient(t, a)
+	nova.PostForm(sessao.Flow.LoginPath(), url.Values{
+		"email":    {"bia@example.com"},
+		"password": {"uma-senha-longa-o-bastante"},
+	}).WantStatus(http.StatusSeeOther)
+
+	// And the link is spent: one use, so a link found later is not a way in.
+	sem.PostForm(link, url.Values{"password": {"outra-senha-bem-longa"}}).WantStatus(http.StatusNotFound)
+}
+
+// depoisDeConvite reads the invitation link out of the page: it is the only
+// /convite/ in it.
+func depoisDeConvite(corpo string) string {
+	i := strings.Index(corpo, "/convite/")
+	if i < 0 {
+		return ""
+	}
+	resto := corpo[i:]
+	for j, r := range resto {
+		if r == '<' || r == '"' || r == ' ' {
+			return resto[:j]
+		}
+	}
+	return resto
+}

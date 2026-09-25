@@ -1,0 +1,14 @@
+package aprovacoes
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"example.com/golden/internal/sessao"
+)
+
+// exige is the rule, and Middleware is what the scanner reads.
+var exige = sessao.Flow.Require()
+
+// Middleware asks for a session: an inbox is personal, and what it shows
+// depends on who is asking.
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
