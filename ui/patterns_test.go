@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/emersonjoe/trilha/internal/uidoc"
 )
 
 // patternDir is where a pattern's page.go lives: the name without hyphens,
@@ -85,10 +84,10 @@ func TestPatternSnippetBudget(t *testing.T) {
 	}
 }
 
-// TestPatternsNameRealComponents holds each pattern to the catalog: every
-// component it names exists in `trilha ui components --json`, and the snippet
-// actually calls it — a list that drifts from the code is a list that lies.
-func TestPatternsNameRealComponents(t *testing.T) {
+// TestPatternsNameTheirComponents: every component a pattern names is one
+// the snippet actually calls — a list that drifts from the code is a list
+// that lies. That each exists in the catalog is internal/uidoc's test.
+func TestPatternsNameTheirComponents(t *testing.T) {
 	seen := map[string]bool{}
 	for _, p := range Patterns() {
 		if seen[p.Name] || !regexp.MustCompile(`^[a-z]+(-[a-z]+)*$`).MatchString(p.Name) {
@@ -99,9 +98,6 @@ func TestPatternsNameRealComponents(t *testing.T) {
 			t.Errorf("%s: a field is empty", p.Name)
 		}
 		for _, name := range p.Components {
-			if _, ok := uidoc.Lookup(name); !ok {
-				t.Errorf("%s: %s is not in the catalog", p.Name, name)
-			}
 			if !regexp.MustCompile(`\bui\.` + name + `\b`).MatchString(p.Snippet) {
 				t.Errorf("%s: names %s but the snippet never uses ui.%s", p.Name, name, name)
 			}
