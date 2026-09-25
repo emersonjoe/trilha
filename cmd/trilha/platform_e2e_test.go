@@ -19,8 +19,60 @@ var platformTests = map[string][]string{
 		"TestBillingWebhookValid", "TestBillingWebhookUnsigned", "TestBillingWebhookExpired",
 		"TestBillingIdempotentEvent", "TestBillingDunningCycle", "TestBillingCSVAdminOnly",
 	},
-	"./internal/cobranca/": {"TestBillingStates"},
+	"./internal/cobranca/":  {"TestBillingStates"},
+	"./internal/notificar/": {"TestNotifyQuietHours", "TestNotifyDigest", "TestNotifyRateLimit"},
 }
+
+func init() {
+	platformTests["."] = append(platformTests["."], "TestNotifyPreferences", "TestNotifyOutboxReplay", "TestNotifyChannelsLinked")
+}
+
+// notifyLinksTest is written by the e2e itself, the way chavesRevogarTest is:
+// with webhooks and channel-whatsapp in the project, notify offers all three
+// channels, the webhook event is in the closed list the deliverer reads, and
+// a notification by webhook leaves.
+const notifyLinksTest = `package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"slices"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/webhook"
+
+	"example.com/plataforma/internal/notificar"
+)
+
+func TestNotifyChannelsLinked(t *testing.T) {
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	a := newApp()
+	if got := notificar.Disponiveis(); !slices.Equal(got, []string{"mail", "webhook", "whatsapp"}) {
+		t.Fatalf("channels = %v", got)
+	}
+	if !slices.Contains(trilha.Use[*webhook.Hooks](a).Events(), notificar.Evento) {
+		t.Fatalf("%s is not in the deliverer's list: %v", notificar.Evento, trilha.Use[*webhook.Hooks](a).Events())
+	}
+	trilha.Use[*notificar.Notificador](a).SalvarPreferencias("u-9", notificar.Preferencias{Canal: notificar.CanalWebhook})
+	a.Register(trilha.Route{Pattern: "/_teste/webhook", Kind: trilha.KindAPI,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": func(c *trilha.Ctx) error {
+				no, err := trilha.Use[*notificar.Notificador](c).Notificar(c,
+					notificar.Pessoa{Sujeito: "u-9", Email: "nove@example.com"}, "t", "c")
+				if err != nil {
+					return err
+				}
+				return c.Text(http.StatusOK, string(no.Estado)+" "+no.Canal)
+			},
+		}})
+	trilha.NewTestClient(t, a).PostForm("/_teste/webhook", url.Values{}).
+		WantStatus(http.StatusOK).WantContains("enviada webhook")
+}
+`
 
 // TestAddPlatformE2E is spec 162 end to end: the platform recipes applied to a
 // project nobody touched, next to the recipes they tie themselves to, with the
@@ -46,12 +98,14 @@ func TestAddPlatformE2E(t *testing.T) {
 		t.Fatalf("the refusal does not say what to run first:\n%s", out)
 	}
 
-	out := run(t, proj, cli, "add", "login", "connections", "billing")
+	out := run(t, proj, cli, "add", "login", "connections", "notify", "webhooks", "channel-whatsapp", "billing")
 	// The add ends with the price of reading what arrived.
 	b, _ := recipes.Get("billing")
 	if want := fmt.Sprintf("`trilha ctx --pack billing` costs ~%d tokens (est.)", b.CtxPackCost); !strings.Contains(out, want) {
 		t.Fatalf("add did not end with the price %q:\n%s", want, out)
 	}
+
+	mustWrite(t, filepath.Join(proj, "notify_links_test.go"), notifyLinksTest)
 
 	// The gate, which runs every test the recipes wrote — and the audit, with
 	// the rule billing brought.

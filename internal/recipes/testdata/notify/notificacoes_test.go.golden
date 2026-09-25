@@ -1,0 +1,115 @@
+package main
+
+import (
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/mail"
+
+	"example.com/golden/internal/notificar"
+	"example.com/golden/internal/usuarios"
+)
+
+func appDeNotificacoes(t *testing.T) *trilha.App {
+	t.Helper()
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_SECRET", "a-test-secret-with-more-than-32-bytes!!")
+	t.Setenv("ADMIN_EMAIL", "admin@example.com")
+	t.Setenv("ADMIN_PASSWORD", "a-password-nobody-guesses")
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return newApp()
+}
+
+func entrarComo(t *testing.T, a *trilha.App, email, senha string) *trilha.TestClient {
+	t.Helper()
+	c := trilha.NewTestClient(t, a)
+	c.PostForm("/entrar", url.Values{"email": {email}, "password": {senha}}).WantStatus(http.StatusSeeOther)
+	return c
+}
+
+// A tela de preferências valida pelas tags e pelo que está ligado: um canal
+// que o app não ligou é recusado com a mensagem no campo.
+func TestNotifyPreferences(t *testing.T) {
+	a := appDeNotificacoes(t)
+	trilha.NewTestClient(t, a).Get("/notificacoes").WantStatus(http.StatusUnauthorized)
+
+	c := entrarComo(t, a, "admin@example.com", "a-password-nobody-guesses")
+	c.Get("/notificacoes").WantStatus(http.StatusOK).WantContains(`name="silencio_de"`)
+
+	c.PostForm("/notificacoes", url.Values{"canal": {"mail"}, "silencio_de": {"25"}}).
+		WantStatus(http.StatusUnprocessableEntity)
+	if _, ligado := notificar.Canais[notificar.CanalWhatsApp]; !ligado {
+		c.PostForm("/notificacoes", url.Values{"canal": {"whatsapp"}}).
+			WantStatus(http.StatusUnprocessableEntity)
+	}
+	c.PostForm("/notificacoes", url.Values{"canal": {"mail"}, "digesto": {"true"},
+		"silencio_de": {"22"}, "silencio_ate": {"7"}}).WantStatus(http.StatusSeeOther)
+
+	p := trilha.Use[*notificar.Notificador](a).Preferencias("u-1")
+	if p.Canal != "mail" || !p.Digesto || p.SilencioDe != 22 || p.SilencioAte != 7 {
+		t.Fatalf("preferências = %+v", p)
+	}
+	c.Get("/notificacoes").WantStatus(http.StatusOK).WantContains(`value="22"`)
+}
+
+// A fila mostra o que o limite segurou, com o código, e o reenvio manda —
+// só para quem administra.
+func TestNotifyOutboxReplay(t *testing.T) {
+	a := appDeNotificacoes(t)
+	caixa := &mail.Outbox{}
+	antes := notificar.Mailer
+	notificar.Mailer = mail.New(mail.Options{From: "avisos@example.com", Transport: caixa})
+	t.Cleanup(func() { notificar.Mailer = antes })
+	ajustes := notificar.Config.Get()
+	if err := notificar.Config.Set(notificar.Ajustes{LimitePorHora: 1, HoraDigesto: 8}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { notificar.Config.Set(ajustes) })
+
+	// Uma notificação sai de dentro de uma requisição, que é onde o app a
+	// dispara.
+	var ids []string
+	a.Register(trilha.Route{Pattern: "/_teste/notificar", Kind: trilha.KindAPI,
+		Methods: map[string]trilha.HandlerFunc{
+			"POST": func(c *trilha.Ctx) error {
+				no, _ := trilha.Use[*notificar.Notificador](c).Notificar(c,
+					notificar.Pessoa{Sujeito: "u-cliente", Email: "cliente@example.com"}, "Pedido pago", "O pedido 42 foi pago.")
+				ids = append(ids, no.ID)
+				return c.Text(http.StatusOK, string(no.Estado))
+			},
+		}})
+	c := trilha.NewTestClient(t, a)
+	c.PostForm("/_teste/notificar", url.Values{}).WantStatus(http.StatusOK).WantContains("enviada")
+	c.PostForm("/_teste/notificar", url.Values{}).WantStatus(http.StatusOK).WantContains("limitada")
+	if len(caixa.Messages()) != 1 {
+		t.Fatalf("saíram %d, o limite era 1", len(caixa.Messages()))
+	}
+
+	if err := trilha.Use[*usuarios.Store](a).Add("u-2", "pessoa@example.com", "Pessoa", "leitor",
+		"a-password-for-somebody"); err != nil {
+		t.Fatal(err)
+	}
+	entrarComo(t, a, "pessoa@example.com", "a-password-for-somebody").
+		Get("/notificacoes/fila").WantStatus(http.StatusForbidden)
+
+	admin := entrarComo(t, a, "admin@example.com", "a-password-nobody-guesses")
+	admin.Get("/notificacoes/fila").WantStatus(http.StatusOK).WantContains("limitada", notificar.CodigoLimite)
+	if err := notificar.Config.Set(notificar.Ajustes{LimitePorHora: 10, HoraDigesto: 8}); err != nil {
+		t.Fatal(err)
+	}
+	admin.PostForm("/notificacoes/fila", url.Values{"acao": {"reenviar"}, "id": {ids[1]}}).
+		WantStatus(http.StatusSeeOther)
+	if len(caixa.Messages()) != 2 || !strings.Contains(caixa.Last().Subject, "Pedido pago") {
+		t.Fatalf("o reenvio não saiu: %d mensagens", len(caixa.Messages()))
+	}
+	for _, no := range trilha.Use[*notificar.Notificador](a).Fila("") {
+		if no.Estado != notificar.Enviada {
+			t.Fatalf("depois do reenvio: %+v", no)
+		}
+	}
+}

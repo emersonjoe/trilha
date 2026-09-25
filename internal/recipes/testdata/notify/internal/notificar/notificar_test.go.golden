@@ -1,0 +1,191 @@
+package notificar
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/mail"
+)
+
+// canalDeTeste troca o e-mail por uma lista, e devolve a lista.
+func canalDeTeste(t *testing.T) *[]Notificacao {
+	t.Helper()
+	var enviadas []Notificacao
+	antes := Canais[CanalEmail]
+	Canais[CanalEmail] = func(_ *trilha.Ctx, n Notificacao) error {
+		enviadas = append(enviadas, n)
+		return nil
+	}
+	t.Cleanup(func() { Canais[CanalEmail] = antes })
+	return &enviadas
+}
+
+// caixaDeTeste troca o Mailer por uma mail.Outbox.
+func caixaDeTeste(t *testing.T) *mail.Outbox {
+	t.Helper()
+	caixa := &mail.Outbox{}
+	antes := Mailer
+	Mailer = mail.New(mail.Options{From: "avisos@example.com", Transport: caixa})
+	t.Cleanup(func() { Mailer = antes })
+	return caixa
+}
+
+func as(h int) func() time.Time {
+	return func() time.Time { return time.Date(2026, 9, 24, h, 30, 0, 0, time.UTC) }
+}
+
+var ana = Pessoa{Sujeito: "u-ana", Email: "ana@example.com"}
+
+// Das 22 às 7 nada sai: a notificação fica retida, e sai no digesto quando
+// a janela acaba — o digesto também é uma mensagem.
+func TestNotifyQuietHours(t *testing.T) {
+	enviadas := canalDeTeste(t)
+	caixa := caixaDeTeste(t)
+	n := Novo()
+	n.SalvarPreferencias(ana.Sujeito, Preferencias{Canal: CanalEmail, SilencioDe: 22, SilencioAte: 7})
+
+	for _, c := range []struct {
+		hora     int
+		silencio bool
+	}{{21, false}, {22, true}, {23, true}, {0, true}, {6, true}, {7, false}, {12, false}} {
+		if got := n.Preferencias(ana.Sujeito).Silencio(c.hora); got != c.silencio {
+			t.Errorf("%dh: silêncio = %v", c.hora, got)
+		}
+	}
+	if (Preferencias{SilencioDe: 5, SilencioAte: 5}).Silencio(5) {
+		t.Error("de e até iguais é sem silêncio")
+	}
+
+	n.Agora = as(23)
+	no, err := n.Notificar(nil, ana, "Pedido pago", "O pedido 42 foi pago.")
+	if err != nil || no.Estado != Retida || len(*enviadas) != 0 {
+		t.Fatalf("às 23h: %+v %v, enviadas %d", no, err, len(*enviadas))
+	}
+	// O reenvio manual às 23h continua sendo 23h para a pessoa.
+	if no, _ = n.Reenviar(nil, no.ID); no.Estado != Retida {
+		t.Fatalf("o reenvio furou o silêncio: %+v", no)
+	}
+	// O digesto das 23h30 também não sai.
+	if k, err := n.Digesto(context.Background()); err != nil || k != 0 || len(caixa.Messages()) != 0 {
+		t.Fatalf("digesto no silêncio: %d %v", k, err)
+	}
+	// No dia seguinte, às 8h, sai.
+	n.Agora = func() time.Time { return time.Date(2026, 9, 25, 8, 0, 0, 0, time.UTC) }
+	if k, err := n.Digesto(context.Background()); err != nil || k != 1 {
+		t.Fatalf("digesto das 8h: %d %v", k, err)
+	}
+	if !strings.Contains(caixa.Last().HTML, "Pedido pago") {
+		t.Fatalf("o digesto não levou a retida:\n%s", caixa.Last().HTML)
+	}
+	// E ao meio-dia a notificação sai na hora.
+	n.Agora = as(12)
+	if no, err = n.Notificar(nil, ana, "Outro", "corpo"); err != nil || no.Estado != Enviada || len(*enviadas) != 1 {
+		t.Fatalf("ao meio-dia: %+v %v", no, err)
+	}
+}
+
+// Quem pediu digesto recebe um e-mail por dia com tudo, e o segundo digesto
+// do mesmo dia não manda nada.
+func TestNotifyDigest(t *testing.T) {
+	enviadas := canalDeTeste(t)
+	caixa := caixaDeTeste(t)
+	n := Novo()
+	n.Agora = as(9)
+	n.SalvarPreferencias(ana.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
+	bia := Pessoa{Sujeito: "u-bia", Email: "bia@example.com"}
+	n.SalvarPreferencias(bia.Sujeito, Preferencias{Canal: CanalEmail, Digesto: true})
+
+	for _, titulo := range []string{"Um", "Dois", "Três"} {
+		if no, err := n.Notificar(nil, ana, titulo, "corpo de "+titulo); err != nil || no.Estado != NoDigesto {
+			t.Fatalf("%s: %+v %v", titulo, no, err)
+		}
+	}
+	n.Notificar(nil, bia, "Da Bia", "corpo")
+	if len(*enviadas) != 0 {
+		t.Fatalf("saiu antes do digesto: %d", len(*enviadas))
+	}
+	k, err := n.Digesto(context.Background())
+	if err != nil || k != 2 {
+		t.Fatalf("digesto: %d %v", k, err)
+	}
+	var daAna mail.Sent
+	for _, m := range caixa.Messages() {
+		if m.To[0] == ana.Email {
+			daAna = m
+		}
+	}
+	for _, titulo := range []string{"Um", "Dois", "Três"} {
+		if !strings.Contains(daAna.HTML, titulo) {
+			t.Errorf("o digesto da Ana não tem %q", titulo)
+		}
+	}
+	if strings.Contains(daAna.HTML, "Da Bia") {
+		t.Fatal("o digesto da Ana levou a notificação da Bia")
+	}
+	if k, _ := n.Digesto(context.Background()); k != 0 || len(caixa.Messages()) != 2 {
+		t.Fatalf("o segundo digesto do dia mandou %d", k)
+	}
+	for _, no := range n.Fila(ana.Sujeito) {
+		if no.Estado != Enviada {
+			t.Fatalf("depois do digesto: %+v", no)
+		}
+	}
+}
+
+// O limite é por canal e por pessoa: a terceira da Ana na mesma hora fica
+// limitada com o código, e a da Bia sai.
+func TestNotifyRateLimit(t *testing.T) {
+	enviadas := canalDeTeste(t)
+	antes := Config.Get()
+	if err := Config.Set(Ajustes{LimitePorHora: 2, HoraDigesto: 8}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { Config.Set(antes) })
+	n := Novo()
+	n.Agora = as(12)
+
+	for i := 0; i < 2; i++ {
+		if _, err := n.Notificar(nil, ana, "ok", "corpo"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	no, err := n.Notificar(nil, ana, "demais", "corpo")
+	if !errors.Is(err, ErrLimite) || no.Estado != Limitada || no.Erro != CodigoLimite {
+		t.Fatalf("a terceira: %+v %v", no, err)
+	}
+	if !strings.Contains(err.Error(), "E_NOTIFY_RATE") {
+		t.Fatalf("o erro não carrega o código: %v", err)
+	}
+	if _, err := n.Notificar(nil, Pessoa{Sujeito: "u-bia", Email: "bia@example.com"}, "ok", "corpo"); err != nil {
+		t.Fatalf("o limite da Ana segurou a Bia: %v", err)
+	}
+	if len(*enviadas) != 3 {
+		t.Fatalf("enviadas = %d", len(*enviadas))
+	}
+	// Subir o limite vale dali em diante, e o reenvio manda a que ficou.
+	if err := Config.Set(Ajustes{LimitePorHora: 10, HoraDigesto: 8}); err != nil {
+		t.Fatal(err)
+	}
+	if no, err = n.Reenviar(nil, no.ID); err != nil || no.Estado != Enviada || no.Tentativas != 1 {
+		t.Fatalf("reenvio: %+v %v", no, err)
+	}
+}
+
+// Um canal de texto sem telefone é um erro, e não uma mensagem para ninguém.
+func TestPorTextoPedeTelefone(t *testing.T) {
+	var para, texto string
+	canal := PorTexto(func(_ *trilha.Ctx, p, tx string) error { para, texto = p, tx; return nil })
+	if err := canal(nil, Notificacao{Titulo: "t", Corpo: "c"}); !errors.Is(err, ErrSemTelefone) {
+		t.Fatalf("sem telefone: %v", err)
+	}
+	if err := canal(nil, Notificacao{Telefone: "5511999999999", Titulo: "Título", Corpo: "Corpo"}); err != nil {
+		t.Fatal(err)
+	}
+	if para != "5511999999999" || texto != "Título\n\nCorpo" {
+		t.Fatalf("para %q texto %q", para, texto)
+	}
+}

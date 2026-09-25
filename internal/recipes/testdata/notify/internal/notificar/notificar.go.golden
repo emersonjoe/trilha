@@ -1,0 +1,414 @@
+// Package notificar is how this application tells people things.
+//
+// One call — Notificar — and the rest is the person's choice and the
+// application's limits: the channel they picked, the hours they do not want
+// to hear from anybody, the digest they asked for instead of one message per
+// event, and a ceiling per channel so a loop somewhere does not become a
+// thousand messages. Everything that was decided lands in an outbox an
+// administrator can read and resend from.
+//
+// The rows live in memory, like every recipe's first version: the outbox and
+// the preferences are two tables behind the same methods the day they need to
+// survive a restart.
+package notificar
+
+import (
+	"context"
+	"errors"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/mail"
+	"github.com/emersonjoe/trilha/task"
+)
+
+// The channels. E-mail is always wired; the other two are wired by setup.go
+// when the webhooks and channel-whatsapp recipes are there.
+const (
+	CanalEmail    = "mail"
+	CanalWebhook  = "webhook"
+	CanalWhatsApp = "whatsapp"
+)
+
+// CodigoLimite is the stable code of a notification the channel's limit
+// held back. It has a page at /docs/errors/E_NOTIFY_RATE.
+const CodigoLimite = "E_NOTIFY_RATE"
+
+// ErrLimite is Notificar answering that the channel reached its limit for
+// this person in this hour. The notification is in the outbox as limited.
+var ErrLimite = errors.New("notificar: " + CodigoLimite + ": the channel reached its limit for this recipient")
+
+// ErrNaoExiste is an id the outbox does not have.
+var ErrNaoExiste = errors.New("notificar: no such notification")
+
+// ErrSemTelefone is a text channel for somebody who gave no phone number.
+var ErrSemTelefone = errors.New("notificar: the person has no phone number for a text channel")
+
+// Estado is what happened to a notification.
+type Estado string
+
+// The states of the outbox.
+const (
+	Enviada   Estado = "enviada"  // it left
+	Retida    Estado = "retida"   // it arrived during the person's quiet hours
+	NoDigesto Estado = "digesto"  // it waits for the daily digest
+	Limitada  Estado = "limitada" // the channel's limit held it back
+	Falhou    Estado = "falhou"   // the channel answered an error
+)
+
+// Pessoa is who a notification is for: the session's subject is the key of
+// the preferences, and the e-mail is where the e-mail channel and the digest
+// go.
+type Pessoa struct {
+	Sujeito string
+	Email   string
+}
+
+// Notificacao is one row of the outbox.
+type Notificacao struct {
+	ID       string
+	Para     Pessoa
+	Telefone string
+	Canal    string
+	Titulo   string
+	Corpo    string
+	Estado   Estado
+	// Erro is why it did not leave: the code of the limit, or the channel's
+	// answer. Never the body — the outbox is read by administrators, and the
+	// log by whoever reads logs.
+	Erro       string
+	Tentativas int
+	Criada     time.Time
+	Enviada    time.Time
+}
+
+// Preferencias is what a person chose. The tags are the form's rules: the
+// same struct is the screen, the validation and the row.
+type Preferencias struct {
+	Canal       string `form:"canal" validate:"required,oneof=mail webhook whatsapp" label:"Channel"`
+	Digesto     bool   `form:"digesto" label:"Daily digest"`
+	SilencioDe  int    `form:"silencio_de" validate:"min=0,max=23" label:"Quiet from (hour)"`
+	SilencioAte int    `form:"silencio_ate" validate:"min=0,max=23" label:"Quiet until (hour)"`
+	Telefone    string `form:"telefone" validate:"max=20" label:"Phone (for WhatsApp)"`
+}
+
+// Padrao is what somebody who never opened the screen gets: e-mail, one
+// message per notification, no quiet hours.
+var Padrao = Preferencias{Canal: CanalEmail}
+
+// Silencio says whether hour falls in the quiet hours. From 22 to 7 wraps
+// midnight; from and to equal is no quiet hours at all.
+func (p Preferencias) Silencio(hora int) bool {
+	switch {
+	case p.SilencioDe == p.SilencioAte:
+		return false
+	case p.SilencioDe < p.SilencioAte:
+		return hora >= p.SilencioDe && hora < p.SilencioAte
+	default:
+		return hora >= p.SilencioDe || hora < p.SilencioAte
+	}
+}
+
+// Ajustes is what an administrator changes without a deploy.
+type Ajustes struct {
+	LimitePorHora int `json:"limite_por_hora" form:"limite_por_hora" validate:"min=1,max=1000" label:"Messages per channel, per person, per hour"`
+	HoraDigesto   int `json:"hora_digesto" form:"hora_digesto" validate:"min=0,max=23" label:"Hour of the daily digest"`
+}
+
+// Config is the settings section of this module: how many messages one
+// channel may send one person per hour, and the hour the digest goes out.
+var Config = trilha.NewSettings("notificar", Ajustes{LimitePorHora: 10, HoraDigesto: 8})
+
+// Canal sends one notification. It receives the request, because the
+// webhook and WhatsApp channels need it to reach what the application
+// provided.
+type Canal func(c *trilha.Ctx, n Notificacao) error
+
+// Canais is every wired channel. setup.go adds to it; the preferences screen
+// only offers what is here.
+var Canais = map[string]Canal{CanalEmail: PorEmail}
+
+// Disponiveis lists the wired channels, in a stable order.
+func Disponiveis() []string {
+	var out []string
+	for _, c := range []string{CanalEmail, CanalWebhook, CanalWhatsApp} {
+		if _, ok := Canais[c]; ok {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// Mailer sends the e-mail channel and the digest. A package variable on
+// purpose: a test puts a mail.Outbox in its place.
+var Mailer = mail.New(mail.FromEnv())
+
+// Marca is the name in the messages.
+const Marca = "My application"
+
+// TarefaDigesto is the task the outbox screen starts to send today's digest.
+const TarefaDigesto = "notificar.digesto"
+
+// Notificador is the module: preferences, the outbox, the limits.
+type Notificador struct {
+	mu      sync.Mutex
+	seq     int
+	prefs   map[string]Preferencias
+	fila    []*Notificacao
+	ultimo  string // the day of the last digest, YYYY-MM-DD
+	limite  int
+	limites *trilha.Limiter
+	tarefas *task.Tasks
+	// Agora is the clock. A test sets it to put the quiet hours where it
+	// wants them.
+	Agora func() time.Time
+}
+
+// Novo is an empty notifier.
+func Novo() *Notificador {
+	return &Notificador{prefs: map[string]Preferencias{}, Agora: time.Now}
+}
+
+// Setup binds the settings, builds the notifier, hands it to the application,
+// starts the digest engine and the clock that sends the digest once a day.
+func Setup(a *trilha.App) error {
+	if err := Config.Bind(a, nil); err != nil {
+		return err
+	}
+	n := Novo()
+	n.tarefas = task.New(task.Options{Logger: a.Logger()})
+	n.tarefas.Handle(TarefaDigesto, func(ctx context.Context, p *task.Progress) error {
+		_, err := n.Digesto(ctx)
+		return err
+	})
+	trilha.Provide(a, n)
+	pare := make(chan struct{})
+	go n.relogio(pare)
+	a.OnShutdown(func(*trilha.App) error { close(pare); return nil })
+	return n.tarefas.Setup(a)
+}
+
+// relogio looks at the hour once an hour and sends the digest at the hour of
+// the settings. Digesto itself refuses a second run on the same day, so a
+// restart at the digest hour does not send it twice.
+func (n *Notificador) relogio(pare <-chan struct{}) {
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		select {
+		case <-pare:
+			return
+		case <-t.C:
+			if n.Agora().Hour() == Config.Get().HoraDigesto {
+				n.Digesto(context.Background())
+			}
+		}
+	}
+}
+
+// Preferencias is what the person chose, or Padrao.
+func (n *Notificador) Preferencias(sujeito string) Preferencias {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if p, ok := n.prefs[sujeito]; ok {
+		return p
+	}
+	return Padrao
+}
+
+// SalvarPreferencias writes what the person chose.
+func (n *Notificador) SalvarPreferencias(sujeito string, p Preferencias) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.prefs[sujeito] = p
+}
+
+// Notificar is the one call. It decides by the person's preferences and the
+// channel's limit, and always leaves the notification in the outbox —
+// ErrLimite when the limit held it back, the channel's error when it failed.
+func (n *Notificador) Notificar(c *trilha.Ctx, para Pessoa, titulo, corpo string) (Notificacao, error) {
+	p := n.Preferencias(para.Sujeito)
+	canal := p.Canal
+	if _, ok := Canais[canal]; !ok {
+		// A preference for a channel that was unwired since falls back to
+		// e-mail rather than to silence.
+		canal = CanalEmail
+	}
+	n.mu.Lock()
+	n.seq++
+	no := &Notificacao{ID: "n-" + strconv.Itoa(n.seq), Para: para, Telefone: p.Telefone, Canal: canal,
+		Titulo: titulo, Corpo: corpo, Criada: n.Agora()}
+	n.fila = append(n.fila, no)
+	n.mu.Unlock()
+
+	switch {
+	case p.Digesto:
+		n.marcar(no, NoDigesto, "")
+		return *no, nil
+	case p.Silencio(n.Agora().Hour()):
+		n.marcar(no, Retida, "")
+		return *no, nil
+	}
+	return n.entregar(c, no)
+}
+
+// Reenviar sends again what the limit held back, what failed or what the
+// quiet hours retained — the button of the outbox. The quiet hours still
+// hold: resending at 3 a.m. is still 3 a.m. for the person.
+func (n *Notificador) Reenviar(c *trilha.Ctx, id string) (Notificacao, error) {
+	n.mu.Lock()
+	var no *Notificacao
+	for _, x := range n.fila {
+		if x.ID == id {
+			no = x
+		}
+	}
+	n.mu.Unlock()
+	if no == nil {
+		return Notificacao{}, ErrNaoExiste
+	}
+	if n.copia(no).Estado == Enviada {
+		return n.copia(no), nil
+	}
+	if n.Preferencias(no.Para.Sujeito).Silencio(n.Agora().Hour()) {
+		n.marcar(no, Retida, "")
+		return n.copia(no), nil
+	}
+	return n.entregar(c, no)
+}
+
+// entregar is the limit and the channel.
+func (n *Notificador) entregar(c *trilha.Ctx, no *Notificacao) (Notificacao, error) {
+	if !n.permite(no.Canal + "\x00" + no.Para.Sujeito) {
+		n.marcar(no, Limitada, CodigoLimite)
+		return n.copia(no), ErrLimite
+	}
+	n.mu.Lock()
+	no.Tentativas++
+	copia := *no
+	n.mu.Unlock()
+	if err := Canais[copia.Canal](c, copia); err != nil {
+		n.marcar(no, Falhou, err.Error())
+		return n.copia(no), err
+	}
+	n.marcar(no, Enviada, "")
+	return n.copia(no), nil
+}
+
+// permite is the per-channel, per-person limit. The limiter is rebuilt when
+// an administrator changes the number, so the new limit counts from then.
+func (n *Notificador) permite(chave string) bool {
+	limite := Config.Get().LimitePorHora
+	n.mu.Lock()
+	if n.limites == nil || n.limite != limite {
+		n.limite = limite
+		n.limites = trilha.NewLimiter(trilha.RateLimit{RPS: float64(limite) / 3600, Burst: limite})
+	}
+	l := n.limites
+	n.mu.Unlock()
+	ok, _ := l.Allow(chave)
+	return ok
+}
+
+func (n *Notificador) marcar(no *Notificacao, e Estado, erro string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	no.Estado, no.Erro = e, erro
+	if e == Enviada {
+		no.Enviada = n.Agora()
+	}
+}
+
+func (n *Notificador) copia(no *Notificacao) Notificacao {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return *no
+}
+
+// Fila is the outbox, the newest first; para filters by subject when not
+// empty.
+func (n *Notificador) Fila(para string) []Notificacao {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	out := make([]Notificacao, 0, len(n.fila))
+	for i := len(n.fila) - 1; i >= 0; i-- {
+		if para == "" || n.fila[i].Para.Sujeito == para {
+			out = append(out, *n.fila[i])
+		}
+	}
+	return out
+}
+
+// Digesto sends, once a day, one e-mail per person with what waited for it:
+// what they asked to receive as a digest, and what their quiet hours held.
+// Somebody who is inside their quiet hours right now is left for the next
+// digest — the digest is a message too. It answers how many e-mails left.
+func (n *Notificador) Digesto(ctx context.Context) (int, error) {
+	agora := n.Agora()
+	dia := agora.Format("2006-01-02")
+	n.mu.Lock()
+	if n.ultimo == dia {
+		n.mu.Unlock()
+		return 0, nil
+	}
+	n.ultimo = dia
+	porPessoa := map[string][]*Notificacao{}
+	var ordem []string
+	for _, no := range n.fila {
+		if no.Estado != NoDigesto && no.Estado != Retida {
+			continue
+		}
+		if _, ok := porPessoa[no.Para.Sujeito]; !ok {
+			ordem = append(ordem, no.Para.Sujeito)
+		}
+		porPessoa[no.Para.Sujeito] = append(porPessoa[no.Para.Sujeito], no)
+	}
+	n.mu.Unlock()
+	sort.Strings(ordem)
+
+	enviados := 0
+	var erros []string
+	for _, sujeito := range ordem {
+		if n.Preferencias(sujeito).Silencio(agora.Hour()) {
+			continue
+		}
+		lista := porPessoa[sujeito]
+		itens := make([]h.Node, 0, len(lista))
+		for _, no := range lista {
+			itens = append(itens, h.Li(h.Strong(h.Text(no.Titulo)), h.Text(" — "+no.Corpo)))
+		}
+		err := Mailer.Send(ctx, mail.Message{
+			To:      []string{lista[0].Para.Email},
+			Subject: "Your notifications — " + Marca,
+			Body:    mail.Layout(Marca, h.P(h.Text("What arrived since the last digest:")), h.Ul(itens...)),
+		})
+		for _, no := range lista {
+			if err != nil {
+				n.marcar(no, Falhou, err.Error())
+			} else {
+				n.marcar(no, Enviada, "")
+			}
+		}
+		if err != nil {
+			erros = append(erros, err.Error())
+			continue
+		}
+		enviados++
+	}
+	if len(erros) > 0 {
+		return enviados, errors.New("notificar: digest: " + strings.Join(erros, "; "))
+	}
+	return enviados, nil
+}
+
+// DispararDigesto is the outbox's button: the digest as a task, with the day
+// as the key, so two clicks are one digest.
+func (n *Notificador) DispararDigesto(c *trilha.Ctx) error {
+	_, err := n.tarefas.Run(c, TarefaDigesto, n.Agora().Format("2006-01-02"))
+	return err
+}

@@ -36,6 +36,9 @@ func whatsappRecipe() Recipe {
 			{Rel: "app/webhooks/whatsapp/kind.go", Go: true, Body: waKind},
 			{Rel: "whatsapp_test.go", Go: true, Body: waTest},
 		},
+		// With the notify recipe there, WhatsApp becomes one of its channels:
+		// the same line notify carries, each conditioned on the other's file.
+		Setup: []Insert{notifyWhatsAppLink("internal/notificar/notificar.go")},
 		Next: map[string]string{
 			"en": "Open {{.URL}}conexoes and create two connections of kind API: one named `whatsapp` " +
 				"(auth bearer, secret the access token, URL https://graph.facebook.com/v21.0/<phone_number_id>) " +

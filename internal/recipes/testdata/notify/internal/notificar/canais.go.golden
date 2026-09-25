@@ -1,0 +1,59 @@
+package notificar
+
+import (
+	"context"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/mail"
+	"github.com/emersonjoe/trilha/webhook"
+)
+
+// Evento is what the webhook channel emits. setup.go adds it to the closed
+// list of internal/avisos when the webhooks recipe is there.
+const Evento = "notificacao.enviada"
+
+// PorEmail is the e-mail channel.
+func PorEmail(c *trilha.Ctx, n Notificacao) error {
+	ctx := context.Background()
+	if c != nil {
+		ctx = c.Context()
+	}
+	return Mailer.Send(ctx, mail.Message{
+		To:      []string{n.Para.Email},
+		Subject: n.Titulo + " — " + Marca,
+		Body:    mail.Layout(Marca, h.P(h.Text(n.Corpo))),
+	})
+}
+
+// carga is what the webhook channel sends: the notification, without the
+// e-mail address — whoever integrates gets the subject, which is this
+// application's id for the person, and not a way to write to them.
+type carga struct {
+	ID     string `json:"id"`
+	Para   string `json:"subject"`
+	Titulo string `json:"title"`
+	Corpo  string `json:"body"`
+}
+
+// PorWebhook is the webhook channel: the deliverer the application provided
+// signs it, retries it and refuses private addresses.
+func PorWebhook(c *trilha.Ctx, n Notificacao) error {
+	return trilha.Use[*webhook.Hooks](c).Emit(c, Evento, carga{ID: n.ID, Para: n.Para.Sujeito, Titulo: n.Titulo, Corpo: n.Corpo})
+}
+
+// EnviaTexto sends text to a phone number. It is what a text channel needs
+// from its provider — the WhatsApp client answers it in setup.go.
+type EnviaTexto func(c *trilha.Ctx, para, texto string) error
+
+// PorTexto turns a text sender into a channel: the phone comes from the
+// person's preferences, and a person without one is an error and not a
+// message sent to nobody.
+func PorTexto(envia EnviaTexto) Canal {
+	return func(c *trilha.Ctx, n Notificacao) error {
+		if n.Telefone == "" {
+			return ErrSemTelefone
+		}
+		return envia(c, n.Telefone, n.Titulo+"\n\n"+n.Corpo)
+	}
+}

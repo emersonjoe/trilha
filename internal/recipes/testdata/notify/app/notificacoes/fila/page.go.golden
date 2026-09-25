@@ -1,0 +1,88 @@
+// Package fila is the outbox: everything the application decided to tell
+// somebody, what happened to it, the resend button, today's digest, and the
+// limits.
+package fila
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"example.com/golden/internal/notificar"
+)
+
+// Page renders GET /notificacoes/fila.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Outbox")
+	fila := trilha.Use[*notificar.Notificador](c).Fila("")
+	var lista h.Node = ui.Muted(h.Text("Nothing in the outbox yet."))
+	if len(fila) > 0 {
+		linhas := make([]h.Node, 0, len(fila))
+		for _, n := range fila {
+			var acao h.Node = h.Group()
+			if n.Estado != notificar.Enviada {
+				acao = h.Form(h.Method("post"), h.Action("/notificacoes/fila"),
+					trilha.CSRFInput(c),
+					h.Input(h.Type("hidden"), h.Name("acao"), h.Value("reenviar")),
+					h.Input(h.Type("hidden"), h.Name("id"), h.Value(n.ID)),
+					ui.Submit(ui.Outline(), h.Text("Resend")))
+			}
+			linhas = append(linhas, h.Tr(
+				h.Td(h.Text(n.Para.Email)), h.Td(h.Text(n.Titulo)), h.Td(h.Text(n.Canal)),
+				h.Td(ui.Badge(ui.Outline(), h.Text(string(n.Estado)))),
+				h.Td(h.Code(h.Text(n.Erro))), h.Td(ui.Date(c, n.Criada)), h.Td(acao),
+			))
+		}
+		lista = ui.Table(h.Thead(h.Tr(h.Th(h.Text("To")), h.Th(h.Text("Subject")),
+			h.Th(h.Text("Channel")), h.Th(h.Text("State")), h.Th(h.Text("Error")),
+			h.Th(), h.Th())), h.Tbody(linhas...))
+	}
+	return ui.Stack(
+		ui.PageHeader("Outbox",
+			h.Form(h.Method("post"), h.Action("/notificacoes/fila"),
+				trilha.CSRFInput(c),
+				h.Input(h.Type("hidden"), h.Name("acao"), h.Value("digesto")),
+				ui.Submit(ui.Outline(), h.Text("Send today's digest")))),
+		ui.Muted(h.Text("Everything this application decided to tell somebody, and what happened to it. What was held back can be resent.")),
+		lista,
+		ui.H2(h.Text("Limits")),
+		ui.SettingsForm(c, notificar.Config, nil),
+	), nil
+}
+
+// POST is resend, today's digest, or the settings. Each one is written to
+// the audit trail — sending a message on somebody's behalf is a decision.
+func POST(c *trilha.Ctx) error {
+	n := trilha.Use[*notificar.Notificador](c)
+	switch c.Form("acao") {
+	case "reenviar":
+		id := c.Form("id")
+		no, err := n.Reenviar(c, id)
+		switch {
+		case errors.Is(err, notificar.ErrNaoExiste):
+			return trilha.ErrNotFound
+		case errors.Is(err, notificar.ErrLimite):
+			c.Flash(ui.FlashError, "The channel is still at its limit for this person.")
+		case err != nil:
+			c.Flash(ui.FlashError, err.Error())
+		}
+		c.Audit("notificacao.reenviada", id, trilha.Fields{"estado": string(no.Estado), "canal": no.Canal})
+	case "digesto":
+		if err := n.DispararDigesto(c); err != nil {
+			return err
+		}
+		c.Audit("notificacao.digesto", "hoje")
+	default:
+		if err := notificar.Config.Update(c); err != nil {
+			var fe trilha.FieldErrors
+			if errors.As(err, &fe) {
+				return trilha.Errorf(http.StatusUnprocessableEntity, "%s", "The limits were not saved: check the values.")
+			}
+			return err
+		}
+	}
+	return c.Redirect("/notificacoes/fila")
+}

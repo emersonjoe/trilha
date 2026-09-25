@@ -16,7 +16,7 @@
   `billing:admin`/`billing:reader` + CSV + auditoria; regra do `trilha audit` para a conexão
   do webhook. *Aceite:* `TestBillingCSVAdminOnly`, `TestBillingInstall` (golden dos
   arquivos), `trilha audit` verde com a regra nova no e2e. Goldens de DOM: spec 164 T02.
-- [ ] **T06** — Notify: canais (mail; webhook e whatsapp por `Insert.If`) + preferências +
+- [x] **T06** — Notify: canais (mail; webhook e whatsapp por `Insert.If`) + preferências +
   horário silencioso + digesto + limite por canal + fila com reenvio. *Aceite:*
   `TestNotifyInstall`, `TestNotifyPreferences`, `TestNotifyQuietHours`, `TestNotifyDigest`,
   `TestNotifyRateLimit`, `TestNotifyOutboxReplay`.

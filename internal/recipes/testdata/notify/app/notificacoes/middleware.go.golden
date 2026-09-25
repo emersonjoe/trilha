@@ -1,0 +1,13 @@
+package notificacoes
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"example.com/golden/internal/sessao"
+)
+
+// exige asks for a session: preferences are personal.
+var exige = sessao.Flow.Require()
+
+// Middleware guards this folder and the outbox below it, which asks for more.
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }

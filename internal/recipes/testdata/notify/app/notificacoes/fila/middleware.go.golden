@@ -1,0 +1,14 @@
+package fila
+
+import (
+	"github.com/emersonjoe/trilha"
+
+	"example.com/golden/internal/sessao"
+)
+
+// exige is the outbox's rule: it shows what the application told everybody,
+// and its buttons send messages — administrators only.
+var exige = sessao.Flow.RequireRole("admin")
+
+// Middleware guards this folder on top of the session asked above it.
+func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }

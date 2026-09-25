@@ -22,7 +22,10 @@ func webhooksRecipe() Recipe {
 			{Rel: "{{.At}}webhooks/page.go", Go: true, Body: hooksPage},
 			{Rel: "webhooks_test.go", Go: true, Body: hooksTest},
 		},
-		Setup: []Insert{{
+		// With the notify recipe there, the webhook channel is wired: the same
+		// line notify carries, first in the list so it lands above
+		// avisos.Setup, which reads the closed list of events.
+		Setup: []Insert{notifyWebhookLink("internal/notificar/notificar.go"), {
 			Marker: "// trilha:add webhooks",
 			Line:   "\tif err := avisos.Setup(a); err != nil {\n\t\treturn err\n\t}\n",
 		}},

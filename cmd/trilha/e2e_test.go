@@ -691,7 +691,7 @@ func TestAddE2E(t *testing.T) {
 
 	// The listing is how anybody finds out a recipe exists.
 	lista := run(t, proj, cli, "add")
-	for _, nome := range []string{"approvals", "audit", "api-keys", "blob", "channel-whatsapp", "connections", "login", "mail", "permissions", "profile", "public-lookup", "pwa", "pwa-offline", "search", "settings", "share-link", "tasks", "tenant", "users", "webhooks"} {
+	for _, nome := range []string{"approvals", "audit", "api-keys", "billing", "blob", "channel-whatsapp", "connections", "login", "mail", "notify", "permissions", "profile", "public-lookup", "pwa", "pwa-offline", "search", "settings", "share-link", "tasks", "tenant", "users", "webhooks"} {
 		if !strings.Contains(lista, nome) {
 			t.Fatalf("`trilha add` does not list %s:\n%s", nome, lista)
 		}
@@ -708,7 +708,7 @@ func TestAddE2E(t *testing.T) {
 
 	// Every recipe into the same project: they have to coexist, because a
 	// project that wants one usually wants two.
-	for _, nome := range []string{"audit", "settings", "api-keys", "login", "users", "permissions", "profile", "public-lookup", "webhooks", "tasks", "mail", "blob", "share-link", "tenant", "approvals", "search", "connections", "channel-whatsapp", "pwa", "pwa-offline"} {
+	for _, nome := range []string{"audit", "settings", "api-keys", "login", "users", "permissions", "profile", "public-lookup", "webhooks", "tasks", "mail", "blob", "share-link", "tenant", "approvals", "search", "connections", "channel-whatsapp", "pwa", "pwa-offline", "billing", "notify"} {
 		out := run(t, proj, cli, "add", nome)
 		if !strings.Contains(out, "  + ") {
 			t.Fatalf("add %s wrote nothing:\n%s", nome, out)

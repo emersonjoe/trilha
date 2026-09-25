@@ -125,3 +125,44 @@ func TestBillingInstall(t *testing.T) {
 		}
 	}
 }
+
+func TestNotifyInstall(t *testing.T) {
+	conferirGolden(t, "notify")
+	// Alone, it wires e-mail and nothing else: the links to the webhook and
+	// WhatsApp channels only land where those recipes are.
+	raiz, _ := instalarGolden(t, mustGet(t, "notify"))
+	setup := ler(t, raiz, "app/setup.go")
+	if !strings.Contains(setup, "notificar.Setup(a)") {
+		t.Fatalf("notify did not wire itself:\n%s", setup)
+	}
+	for _, link := range []string{"trilha:link notify-webhooks", "trilha:link notify-whatsapp"} {
+		if strings.Contains(setup, link) {
+			t.Errorf("%s landed without the other recipe:\n%s", link, setup)
+		}
+	}
+}
+
+// The two channels that depend on other recipes are tied in either order,
+// once, and above the Setup that reads the closed list of events.
+func TestNotifyLinksInAnyOrder(t *testing.T) {
+	for _, ordem := range [][]string{
+		{"login", "connections", "notify", "webhooks", "channel-whatsapp"},
+		{"login", "connections", "webhooks", "channel-whatsapp", "notify"},
+	} {
+		raiz := projeto(t)
+		for _, nome := range ordem {
+			if _, err := Add(raiz, mustGet(t, nome), Options{Module: "example.com/x", Lang: "en"}); err != nil {
+				t.Fatal(nome, err)
+			}
+		}
+		setup := ler(t, raiz, "app/setup.go")
+		for _, link := range []string{"trilha:link notify-webhooks", "trilha:link notify-whatsapp"} {
+			if n := strings.Count(setup, link); n != 1 {
+				t.Errorf("%v: %s appears %d times", ordem, link, n)
+			}
+		}
+		if strings.Index(setup, "avisos.Eventos = append") > strings.Index(setup, "avisos.Setup(a)") {
+			t.Errorf("%v: the event joins the list after avisos.Setup read it:\n%s", ordem, setup)
+		}
+	}
+}

@@ -1,0 +1,122 @@
+// Package notificacoes is where a person says how they want to be told
+// things: the channel, the digest, the quiet hours.
+package notificacoes
+
+import (
+	"errors"
+	"net/http"
+	"slices"
+	"strconv"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/ui"
+
+	"example.com/golden/internal/notificar"
+	"example.com/golden/internal/sessao"
+)
+
+// Page renders GET /notificacoes.
+func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Notifications")
+	u := sessao.Atual(c)
+	return tela(c, trilha.Use[*notificar.Notificador](c).Preferencias(u.Subject), nil), nil
+}
+
+// POST saves the preferences. The tags validate the shape; the channel has
+// to be one this application wired, which only the running application knows.
+func POST(c *trilha.Ctx) error {
+	u := sessao.Atual(c)
+	var p notificar.Preferencias
+	err := c.Bind(&p)
+	var fe trilha.FieldErrors
+	if err != nil && !errors.As(err, &fe) {
+		return err
+	}
+	if !slices.Contains(notificar.Disponiveis(), p.Canal) {
+		if fe == nil {
+			fe = trilha.FieldErrors{}
+		}
+		fe.Add("canal", "This channel is not available in this application.")
+	}
+	if len(fe) > 0 {
+		return c.Render(http.StatusUnprocessableEntity, tela(c, p, fe))
+	}
+	trilha.Use[*notificar.Notificador](c).SalvarPreferencias(u.Subject, p)
+	c.Flash(ui.FlashSuccess, "Preferences saved.")
+	return c.Redirect("/notificacoes")
+}
+
+func tela(c *trilha.Ctx, p notificar.Preferencias, errs trilha.FieldErrors) h.Node {
+	var canais []ui.Option
+	for _, canal := range notificar.Disponiveis() {
+		canais = append(canais, ui.Option{Value: canal, Label: RotuloCanal(canal)})
+	}
+	var digesto h.Node = h.Group()
+	if p.Digesto {
+		digesto = h.Checked()
+	}
+	recentes := trilha.Use[*notificar.Notificador](c).Fila(sessao.Atual(c).Subject)
+	var lista h.Node = ui.Muted(h.Text("Nothing sent to you yet."))
+	if len(recentes) > 0 {
+		linhas := make([]h.Node, 0, len(recentes))
+		for _, n := range recentes {
+			linhas = append(linhas, h.Tr(h.Td(h.Text(n.Titulo)), h.Td(h.Text(RotuloCanal(n.Canal))),
+				h.Td(ui.Badge(ui.Outline(), h.Text(RotuloEstado(n.Estado)))), h.Td(ui.Date(c, n.Criada))))
+		}
+		lista = ui.Table(h.Thead(h.Tr(h.Th(h.Text("Subject")), h.Th(h.Text("Channel")),
+			h.Th(h.Text("State")), h.Th())), h.Tbody(linhas...))
+	}
+	return ui.Stack(
+		ui.PageHeader("Notifications"),
+		ui.Muted(h.Text("How you want to be told things. Quiet hours hold messages until they end; the digest sends one e-mail a day instead of one per notification.")),
+		h.Form(h.Method("post"), h.Action("/notificacoes"), h.Class("ui-stack"),
+			trilha.CSRFInput(c),
+			ui.Field("canal", "Channel",
+				ui.Select(h.ID("canal"), h.Name("canal"), ui.SelectOptions(canais, p.Canal)), ui.Errors(errs, "canal")),
+			ui.Field("digesto", "Daily digest",
+				ui.Checkbox(h.ID("digesto"), h.Name("digesto"), h.Value("true"), digesto)),
+			ui.Field("silencio_de", "Quiet from (hour)",
+				ui.Input(h.ID("silencio_de"), h.Name("silencio_de"), h.Type("number"), h.Attr("min", "0"), h.Attr("max", "23"),
+					h.Value(strconv.Itoa(p.SilencioDe))), ui.Errors(errs, "silencio_de")),
+			ui.Field("silencio_ate", "Quiet until (hour)",
+				ui.Input(h.ID("silencio_ate"), h.Name("silencio_ate"), h.Type("number"), h.Attr("min", "0"), h.Attr("max", "23"),
+					h.Value(strconv.Itoa(p.SilencioAte))), ui.Errors(errs, "silencio_ate")),
+			ui.Field("telefone", "Phone (for WhatsApp)",
+				ui.Input(h.ID("telefone"), h.Name("telefone"), h.Type("tel"), h.Value(p.Telefone)), ui.Errors(errs, "telefone")),
+			h.Div(ui.Submit(h.Text("Save"))),
+		),
+		ui.H2(h.Text("Sent to you")),
+		lista,
+	)
+}
+
+// RotuloCanal is what a channel is called on the screen.
+func RotuloCanal(canal string) string {
+	switch canal {
+	case notificar.CanalEmail:
+		return "E-mail"
+	case notificar.CanalWebhook:
+		return "Webhook"
+	case notificar.CanalWhatsApp:
+		return "WhatsApp"
+	}
+	return canal
+}
+
+// RotuloEstado is what a state is called on the screen.
+func RotuloEstado(e notificar.Estado) string {
+	switch e {
+	case notificar.Enviada:
+		return "Sent"
+	case notificar.Retida:
+		return "Held (quiet hours)"
+	case notificar.NoDigesto:
+		return "In the digest"
+	case notificar.Limitada:
+		return "Limited"
+	case notificar.Falhou:
+		return "Failed"
+	}
+	return string(e)
+}
