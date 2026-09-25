@@ -1,0 +1,139 @@
+[
+  {
+    "name": "list-with-filter",
+    "summary": "A listing somebody searches, filters, orders and pages, with all of it in the address.",
+    "components": [
+      "DataTable",
+      "Columns",
+      "ListState",
+      "Select",
+      "SelectOptions",
+      "Option",
+      "Badge",
+      "Empty",
+      "EmptyOpts",
+      "PageHeader",
+      "Stack"
+    ],
+    "snippet": "// Package listwithfilter is the list-with-filter pattern: a sortable table, a\n// search box and one filter, paged — all of it in the address.\npackage listwithfilter\n\nimport (\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n\t\"github.com/emersonjoe/trilha/ui\"\n)\n\n// Order is one row. Replace it with your type.\ntype Order struct {\n\tID, Customer, Status string\n\tTotal                float64\n}\n\n// Query is what the address says: the listing plus this screen's filter.\ntype Query struct {\n\ttrilha.ListParams\n\tStatus string `form:\"status\"`\n}\n\n// Orders is where the rows come from — your store, filtered, ordered and\n// paged. It answers one page and the total.\nvar Orders = func(c *trilha.Ctx, q Query) ([]Order, int, error) { return nil, 0, nil }\n\nvar columns = ui.Columns[Order]{\n\t{Key: \"customer\", Label: \"Customer\", Sort: true, Cell: func(o Order) h.Node { return h.Text(o.Customer) }},\n\t{Key: \"status\", Label: \"Status\", Cell: func(o Order) h.Node { return ui.Badge(ui.Outline(), h.Text(o.Status)) }},\n\t{Key: \"total\", Label: \"Total\", Sort: true, Num: true, Cell: func(o Order) h.Node { return h.Textf(\"%.2f\", o.Total) }},\n}\n\n// Page answers the whole screen, or only the table when the kit asks for it.\nfunc Page(c *trilha.Ctx) (h.Node, error) {\n\tvar q Query\n\tif err := c.Bind(\u0026q); err != nil {\n\t\treturn nil, err\n\t}\n\tif q.Status != \"open\" \u0026\u0026 q.Status != \"paid\" {\n\t\tq.Status = \"\" // only a value this screen offers reaches the store\n\t}\n\trows, total, err := Orders(c, q)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tstatus := ui.Select(h.Name(\"status\"), h.Aria(\"label\", \"Status\"), ui.SelectOptions([]ui.Option{\n\t\t{Value: \"\", Label: \"All\"}, {Value: \"open\", Label: \"Open\"}, {Value: \"paid\", Label: \"Paid\"}}, q.Status))\n\ttable := ui.DataTable(c, columns, rows, ui.ListState{Params: q.ListParams, Total: total, ID: \"orders\",\n\t\tSearch: \"Search customers\", Filters: status, Caption: \"Orders\", Cards: true,\n\t\tEmpty: ui.Empty(ui.EmptyOpts{Title: \"No orders match\"})})\n\tif c.Fragment() == \"orders\" {\n\t\treturn table, nil\n\t}\n\treturn ui.Stack(ui.PageHeader(\"Orders\"), table), nil\n}\n",
+    "data": "type Query struct{ trilha.ListParams; Status string `form:\"status\"` } bound by c.Bind; Orders(c, q) ([]Order, int, error) answers one page and the total from your store, ordering only by the columns marked Sort.",
+    "a11y": [
+      "The table has a caption (ListState.Caption) that a screen reader announces.",
+      "The filter select carries an aria-label, since it has no visible label.",
+      "Sorting and paging are real links: they work with the keyboard and without JavaScript."
+    ]
+  },
+  {
+    "name": "async-form",
+    "summary": "A form that posts without leaving the page and answers a 422 beside the field that is wrong.",
+    "components": [
+      "Swap",
+      "FormError",
+      "Field",
+      "Input",
+      "InvalidIf",
+      "Errors",
+      "Submit"
+    ],
+    "snippet": "// Package asyncform is the async-form pattern: a form that posts without\n// leaving the page, and a 422 that comes back with the message beside the\n// field and the focus on it.\npackage asyncform\n\nimport (\n\t\"errors\"\n\t\"net/http\"\n\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n\t\"github.com/emersonjoe/trilha/ui\"\n)\n\n// Profile is what the form edits; the tags are its rules.\ntype Profile struct {\n\tName  string `form:\"name\" validate:\"required,max=80\" label:\"Name\"`\n\tEmail string `form:\"email\" validate:\"required,email\" label:\"E-mail\"`\n}\n\n// Save is where a valid profile goes — your store.\nvar Save = func(c *trilha.Ctx, p Profile) error { return nil }\n\n// Page draws the form.\nfunc Page(c *trilha.Ctx) (h.Node, error) { return form(c, Profile{}, nil), nil }\n\n// POST validates by the tags. The 422 answers the fragment: the kit swaps it\n// in place and focuses the first field marked invalid.\nfunc POST(c *trilha.Ctx) error {\n\tvar p Profile\n\tif err := c.Bind(\u0026p); err != nil {\n\t\tvar fe trilha.FieldErrors\n\t\tif errors.As(err, \u0026fe) {\n\t\t\treturn c.Render(http.StatusUnprocessableEntity, form(c, p, fe))\n\t\t}\n\t\treturn err\n\t}\n\tif err := Save(c, p); err != nil {\n\t\treturn err\n\t}\n\tc.Flash(ui.FlashSuccess, \"Saved.\")\n\treturn c.Redirect(c.Request().URL.Path)\n}\n\nfunc form(c *trilha.Ctx, p Profile, errs trilha.FieldErrors) h.Node {\n\treturn h.Form(h.ID(\"profile\"), h.Method(\"post\"), ui.Swap(\"profile\"), h.Class(\"ui-stack\"),\n\t\ttrilha.CSRFInput(c), ui.FormError(),\n\t\tui.Field(\"name\", \"Name\", ui.Input(h.ID(\"name\"), h.Name(\"name\"), h.Value(p.Name),\n\t\t\tui.InvalidIf(errs, \"name\")), ui.Errors(errs, \"name\")),\n\t\tui.Field(\"email\", \"E-mail\", ui.Input(h.ID(\"email\"), h.Name(\"email\"), h.Type(\"email\"),\n\t\t\th.Value(p.Email), ui.InvalidIf(errs, \"email\")), ui.Errors(errs, \"email\")),\n\t\tui.Submit(h.Text(\"Save\")))\n}\n",
+    "data": "type Profile struct with form and validate tags, bound by c.Bind; Save(c, p) error stores a valid one. A trilha.FieldErrors from Bind is the 422.",
+    "a11y": [
+      "On a 422 the kit swaps the form and moves focus to the first field with aria-invalid.",
+      "ui.Field ties the message to the input with aria-describedby.",
+      "ui.FormError is the summary a screen reader hears when the answer arrives."
+    ]
+  },
+  {
+    "name": "approval-inbox",
+    "summary": "What waits for a person's decision, with approve and reject and the reason in the same form.",
+    "components": [
+      "Inbox",
+      "InboxRow",
+      "InboxOpts",
+      "PageHeader",
+      "Stack"
+    ],
+    "snippet": "// Package approvalinbox is the approval-inbox pattern: what waits for whoever\n// is reading, and the two buttons. Who may decide is approval's answer, not\n// this screen's.\npackage approvalinbox\n\nimport (\n\t\"errors\"\n\t\"net/http\"\n\t\"time\"\n\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/approval\"\n\t\"github.com/emersonjoe/trilha/h\"\n\t\"github.com/emersonjoe/trilha/ui\"\n)\n\n// Waiting is what the inbox shows: the queue Setup provided (trilha add\n// approvals), filtered to what this person may decide.\nvar Waiting = func(c *trilha.Ctx) ([]approval.Record, error) {\n\treturn trilha.Use[*approval.Approvals](c).Inbox(c, approval.ListParams{})\n}\n\n// Page renders the inbox.\nfunc Page(c *trilha.Ctx) (h.Node, error) {\n\trecords, err := Waiting(c)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tnow := time.Now()\n\trows := make([]ui.InboxRow, 0, len(records))\n\tfor _, r := range records {\n\t\trows = append(rows, ui.InboxRow{ID: r.ID, Kind: r.Kind, Subject: r.Subject, Target: r.Target,\n\t\t\tState: r.State, Due: r.Due, Late: r.Late(now), By: r.By, Reason: r.Reason})\n\t}\n\treturn ui.Stack(ui.PageHeader(\"Approvals\"), ui.Inbox(c, rows, ui.InboxOpts{\n\t\tDecide: c.Request().URL.Path, CSRF: trilha.CSRFInput(c), Empty: \"Nothing is waiting for you.\",\n\t})), nil\n}\n\n// POST decides. The decision and the reason travel in the same form, and the\n// package writes who decided to the audit trail.\nfunc POST(c *trilha.Ctx) error {\n\terr := trilha.Use[*approval.Approvals](c).Decide(c, c.Form(\"id\"), c.Form(\"decision\"), c.Form(\"reason\"))\n\tif errors.Is(err, approval.ErrNotYours) {\n\t\treturn trilha.Errorf(http.StatusForbidden, \"this decision is not yours\")\n\t}\n\tif err != nil {\n\t\treturn err\n\t}\n\tc.Flash(ui.FlashSuccess, \"Decided.\")\n\treturn c.Redirect(c.Request().URL.Path)\n}\n",
+    "data": "Waiting(c) ([]approval.Record, error), by default the *approval.Approvals Setup provided (trilha add approvals), filtered to what the person may decide; Decide checks it again.",
+    "a11y": [
+      "Each row's buttons name the request they decide, not only \"Approve\".",
+      "A late row says so in text as well as in color.",
+      "The reason field has a label and is part of the same form as the buttons."
+    ]
+  },
+  {
+    "name": "dashboard-chart",
+    "summary": "The numbers on top and the drawings beside them, server-rendered SVG with no chart library.",
+    "components": [
+      "Stat",
+      "SparklineTitle",
+      "SparkOpts",
+      "ChartTitle",
+      "Bars",
+      "Donut",
+      "Datum",
+      "Card",
+      "CardHeader",
+      "CardTitle",
+      "CardContent",
+      "Grid",
+      "Cols"
+    ],
+    "snippet": "// Package dashboardchart is the dashboard-chart pattern: the numbers on top,\n// the drawings beside them — SVG from the server, no chart library, readable\n// without JavaScript.\npackage dashboardchart\n\nimport (\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n\t\"github.com/emersonjoe/trilha/ui\"\n)\n\n// Numbers is what the dashboard shows. The strings are already formatted:\n// the store counts, the page does not.\ntype Numbers struct {\n\tOpen, Paid string\n\tByType     []ui.Datum\n\tWeekly     []float64\n}\n\n// Load computes the numbers — your store, one query per card at most.\nvar Load = func(c *trilha.Ctx) (Numbers, error) { return Numbers{}, nil }\n\n// Page renders the dashboard.\nfunc Page(c *trilha.Ctx) (h.Node, error) {\n\tn, err := Load(c)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\treturn ui.Stack(\n\t\tui.PageHeader(\"Dashboard\"),\n\t\tui.Grid(ui.Cols(1, 2),\n\t\t\tui.Card(ui.CardContent(ui.Stat(\"Open orders\", n.Open,\n\t\t\t\tui.SparklineTitle(n.Weekly, ui.SparkOpts{Width: 160}, ui.ChartTitle(\"Open orders, last 7 days\"))))),\n\t\t\tui.Card(ui.CardContent(ui.Stat(\"Paid this month\", n.Paid))),\n\t\t),\n\t\tui.Grid(ui.Cols(1, 2),\n\t\t\tui.Card(ui.CardHeader(ui.CardTitle(\"Orders by type\")),\n\t\t\t\tui.CardContent(ui.Bars(n.ByType, ui.ChartTitle(\"Orders by type\")))),\n\t\t\tui.Card(ui.CardHeader(ui.CardTitle(\"Share by type\")),\n\t\t\t\tui.CardContent(ui.Donut(n.ByType, ui.ChartTitle(\"Share by type\")))),\n\t\t),\n\t), nil\n}\n",
+    "data": "Load(c) (Numbers, error): the formatted totals, []ui.Datum per category and the weekly []float64 — counted by your store, not by the page.",
+    "a11y": [
+      "Every chart carries a ui.ChartTitle, which becomes the SVG's accessible name.",
+      "The values are in the chart's text as well, so the numbers are read and not only drawn.",
+      "The cards stack to one column on a narrow screen (ui.Cols(1, 2))."
+    ]
+  },
+  {
+    "name": "master-detail",
+    "summary": "A list on one side and the chosen row on the other, the choice in the address.",
+    "components": [
+      "DataTable",
+      "Columns",
+      "ListState",
+      "Empty",
+      "EmptyOpts",
+      "Card",
+      "CardHeader",
+      "CardTitle",
+      "CardDescription",
+      "CardContent",
+      "Badge",
+      "Grid",
+      "Cols"
+    ],
+    "snippet": "// Package masterdetail is the master-detail pattern: the list on one side and\n// the chosen row on the other, the choice in the address so it can be shared\n// and survives a reload.\npackage masterdetail\n\nimport (\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n\t\"github.com/emersonjoe/trilha/ui\"\n)\n\n// Customer is one row. Replace it with your type.\ntype Customer struct{ ID, Name, Email, Plan string }\n\n// Query is the listing plus the chosen row.\ntype Query struct {\n\ttrilha.ListParams\n\tID string `form:\"id\"`\n}\n\n// Customers answers one page and the total; Find answers one row or\n// trilha.ErrNotFound — both from your store.\nvar (\n\tCustomers = func(c *trilha.Ctx, q trilha.ListParams) ([]Customer, int, error) { return nil, 0, nil }\n\tFind      = func(c *trilha.Ctx, id string) (Customer, error) { return Customer{}, trilha.ErrNotFound }\n)\n\nvar columns = ui.Columns[Customer]{\n\t{Key: \"name\", Label: \"Name\", Sort: true, Cell: func(x Customer) h.Node { return h.Text(x.Name) }},\n\t{Key: \"plan\", Label: \"Plan\", Cell: func(x Customer) h.Node { return ui.Badge(ui.Outline(), h.Text(x.Plan)) }},\n}\n\n// Page renders the list and, when the address names one, its detail.\nfunc Page(c *trilha.Ctx) (h.Node, error) {\n\tvar q Query\n\tif err := c.Bind(\u0026q); err != nil {\n\t\treturn nil, err\n\t}\n\trows, total, err := Customers(c, q.ListParams)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tlist := ui.DataTable(c, columns, rows, ui.ListState{Params: q.ListParams, Total: total, Caption: \"Customers\",\n\t\tRowHref: func(i int) string { return q.Href(\"id\", rows[i].ID) }})\n\tvar detail h.Node = ui.Empty(ui.EmptyOpts{Title: \"Pick a customer to see the details\"})\n\tif q.ID != \"\" {\n\t\tx, err := Find(c, q.ID)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\tdetail = ui.Card(ui.CardHeader(ui.CardTitle(x.Name), ui.CardDescription(x.Email)),\n\t\t\tui.CardContent(ui.Badge(h.Text(x.Plan))))\n\t}\n\treturn ui.Stack(ui.PageHeader(\"Customers\"),\n\t\tui.Grid(ui.Cols(1, 2), list, h.Section(h.Aria(\"label\", \"Details\"), detail))), nil\n}\n",
+    "data": "type Query struct{ trilha.ListParams; ID string `form:\"id\"` }; Customers(c, q) answers one page and the total, Find(c, id) one row or trilha.ErrNotFound.",
+    "a11y": [
+      "Each row is a link (ListState.RowHref), so the keyboard reaches the detail.",
+      "The detail is a section with an aria-label, a landmark to jump to.",
+      "The choice lives in the address: back and reload keep it."
+    ]
+  },
+  {
+    "name": "upload-progress",
+    "summary": "Files sent with a progress bar and checked by content on the server, working without JavaScript too.",
+    "components": [
+      "UploadTo",
+      "UploadBar",
+      "UploadScript",
+      "Field",
+      "Input",
+      "InvalidIf",
+      "Errors",
+      "Submit",
+      "PageHeader",
+      "Stack"
+    ],
+    "snippet": "// Package uploadprogress is the upload-progress pattern: files sent with a\n// progress bar, checked by content on the server, and the same form working\n// with JavaScript off.\npackage uploadprogress\n\nimport (\n\t\"errors\"\n\t\"net/http\"\n\n\t\"github.com/emersonjoe/trilha\"\n\t\"github.com/emersonjoe/trilha/h\"\n\t\"github.com/emersonjoe/trilha/ui\"\n)\n\n// rules are checked against the bytes, not against what the browser claims.\nvar rules = trilha.FileRules{MaxSize: 10 \u003c\u003c 20, MaxFiles: 5, Accept: []string{\"image/*\", \"application/pdf\"}}\n\n// Save keeps one file — your blob store. The upload is closed after it.\nvar Save = func(c *trilha.Ctx, up *trilha.Upload) error { return nil }\n\n// Page draws the form.\nfunc Page(c *trilha.Ctx) (h.Node, error) { return screen(c, nil), nil }\n\n// POST receives the files. A refusal answers the fragment the kit swaps in.\nfunc POST(c *trilha.Ctx) error {\n\tups, err := c.Files(\"files\", rules)\n\tif err != nil {\n\t\tvar fe trilha.FieldErrors\n\t\tif !errors.As(err, \u0026fe) {\n\t\t\treturn err\n\t\t}\n\t\tif c.Fragment() == \"upload\" {\n\t\t\treturn c.Render(http.StatusUnprocessableEntity, panel(c, fe))\n\t\t}\n\t\treturn c.Render(http.StatusUnprocessableEntity, screen(c, fe))\n\t}\n\tfor _, up := range ups {\n\t\terr := Save(c, up)\n\t\tup.Close()\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\tc.Flash(ui.FlashSuccess, \"Sent.\")\n\treturn c.Redirect(c.Request().URL.Path)\n}\n\nfunc screen(c *trilha.Ctx, errs trilha.FieldErrors) h.Node {\n\treturn ui.Stack(ui.PageHeader(\"Files\"), panel(c, errs), ui.UploadScript(c))\n}\n\nfunc panel(c *trilha.Ctx, errs trilha.FieldErrors) h.Node {\n\treturn h.Form(h.ID(\"upload\"), h.Method(\"post\"), h.Enctype(\"multipart/form-data\"), ui.UploadTo(\"upload\"),\n\t\th.Class(\"ui-stack\"), trilha.CSRFInput(c),\n\t\tui.Field(\"files\", \"Files (images or PDF, 10 MB each)\", ui.Input(h.ID(\"files\"), h.Name(\"files\"),\n\t\t\th.Type(\"file\"), h.Attr(\"multiple\", \"\"), ui.InvalidIf(errs, \"files\")), ui.Errors(errs, \"files\")),\n\t\tui.UploadBar(h.Aria(\"label\", \"Upload progress\")), ui.Submit(h.Text(\"Send\")))\n}\n",
+    "data": "trilha.FileRules (size, count, accepted types, checked against the bytes); Save(c, up) keeps one *trilha.Upload in your blob store.",
+    "a11y": [
+      "The progress bar has an aria-label and is a real \u003cprogress\u003e, read as a percentage.",
+      "The file input has a visible label that says the limits before anybody tries.",
+      "A refused file comes back as a 422 with the message on the field and the focus on it."
+    ]
+  }
+]

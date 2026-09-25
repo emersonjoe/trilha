@@ -19,6 +19,7 @@ trilha ctx [--json] [--routes|--types|--all]
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
 trilha ui describe [Nome] [--json]
+trilha ui patterns [nome] [--json]
 trilha agents [--force] [--lang en|pt]
 trilha mcp [--write]
 trilha mcp --from-routes [--include /api/v1/*]
@@ -243,6 +244,23 @@ então responde com ou sem projeto por perto e não tem como divergir do código
 Nome desconhecido sai com status diferente de zero e a lista dos nomes mais próximos. O
 `--json` é para o agente que escreve a tela: uma chamada e ele sabe o que existe e como cada
 coisa se chama, em vez de chutar um nome e descobrir na hora de compilar.
+
+### trilha ui patterns
+
+Imprime os padrões de tela do kit — as composições, onde o `describe` imprime as partes: uma
+listagem com filtro, um formulário assíncrono, uma caixa de aprovações, um painel, mestre-detalhe,
+um envio com progresso. Com um nome, o padrão inteiro: os componentes, os dados de que a página
+precisa, as notas de acessibilidade e um `page.go` completo de no máximo 60 linhas que compila.
+
+```bash
+trilha ui patterns                   # uma linha cada
+trilha ui patterns list-with-filter  # um deles, inteiro
+trilha ui patterns --json            # todos os padrões, no formato que um agente lê
+```
+
+Os snippets são os arquivos de `examples/patterns`, compilados junto com o repositório; o mesmo
+dado é o `ui.Patterns()` em Go e a ferramenta `get_pattern` no MCP. Veja
+[Padrões](/pt/referencia/ui#padroes).
 
 ## trilha client
 

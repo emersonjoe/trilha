@@ -275,6 +275,12 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"migrate done":         {"%d written, %d kept, %d lines in the report with no equivalent here.", "%d gravados, %d mantidos, %d linhas do relatório sem equivalente aqui."},
 
 	// ui describe
+	"flag patterns json": {"print the patterns (or the pattern) as JSON", "imprime os padrões (ou o padrão) em JSON"},
+	"pattern unknown":    {"no pattern named %q (there are: %s)", "nenhum padrão chamado %q (existem: %s)"},
+	"pattern more":       {"trilha ui patterns <name> prints one in full: the components, the data it needs, the accessibility notes and a page.go that compiles.", "trilha ui patterns <nome> imprime um inteiro: os componentes, os dados de que precisa, as notas de acessibilidade e um page.go que compila."},
+	"pattern components": {"Components", "Componentes"},
+	"pattern data":       {"Data", "Dados"},
+	"pattern a11y":       {"Accessibility", "Acessibilidade"},
 	"flag describe json": {"print the catalogue (or the component) as JSON", "imprime o catálogo (ou o componente) em JSON"},
 	"no such component":  {"no ui component named %q", "não há componente ui chamado %q"},
 	"did you mean":       {"did you mean: %s", "você quis dizer: %s"},

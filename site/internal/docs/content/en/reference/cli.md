@@ -19,6 +19,7 @@ trilha ctx [--json] [--routes|--types|--all]
 trilha audit [--no-vuln]
 trilha ui [--force] [--css-only|--js-only]
 trilha ui describe [Name] [--json]
+trilha ui patterns [name] [--json]
 trilha agents [--force] [--lang en|pt]
 trilha mcp [--write]
 trilha mcp --from-routes [--include /api/v1/*]
@@ -244,6 +245,22 @@ answers with or without a project around it and cannot drift from the code it de
 unknown name exits non-zero with the closest names. `--json` is there for the agent writing
 the screen: one call and it knows what exists and how each thing is spelled, instead of
 guessing at a name and finding out at compile time.
+
+### trilha ui patterns
+
+Prints the kit's screen patterns — the compositions, where `describe` prints the parts: a
+listing with filter, an async form, an approval inbox, a dashboard, master-detail, an upload
+with progress. With a name, the whole pattern: the components, the data the page needs, the
+accessibility notes and a complete `page.go` of at most 60 lines that compiles.
+
+```bash
+trilha ui patterns                   # one line each
+trilha ui patterns list-with-filter  # one of them, in full
+trilha ui patterns --json            # every pattern, the shape an agent reads
+```
+
+The snippets are the files in `examples/patterns`, compiled with the repository; the same data
+is `ui.Patterns()` in Go and the tool `get_pattern` over MCP. See [Patterns](/reference/ui#patterns).
 
 ## trilha client
 

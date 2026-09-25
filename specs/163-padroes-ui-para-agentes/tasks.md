@@ -4,7 +4,7 @@
   `examples/patterns/` (arquivo gerado `ui/patterns_snippets.go`). *Aceite:*
   `TestPatternsCompile` + `TestPatternSnippetBudget` (+ `TestPatternSnippetsCurrent`,
   `TestPatternsNameRealComponents`, `TestPatternsKeepProtections`).
-- [ ] **T02** — `trilha ui patterns --json` + golden estável; `trilha ui patterns <nome>`.
+- [x] **T02** — `trilha ui patterns --json` + golden estável; `trilha ui patterns <nome>`.
   *Aceite:* `TestPatternsJSONStable`.
 - [ ] **T03** — MCP `get_pattern` (`mcp.ContextTools` e o MCP do site) + registro na doc
   bilíngue das ferramentas. *Aceite:* teste no `ai/mcp` + teste do `docsmcp`.

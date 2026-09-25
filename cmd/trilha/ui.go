@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -21,6 +22,9 @@ func cmdUI(args []string) error {
 	}
 	if len(args) > 0 && args[0] == "components" {
 		return cmdUIComponents(args[1:])
+	}
+	if len(args) > 0 && args[0] == "patterns" {
+		return cmdUIPatterns(args[1:])
 	}
 	if len(args) > 0 && args[0] == "icons" {
 		return cmdUIIcons(args[1:])
@@ -59,6 +63,65 @@ func cmdUIComponents(args []string) error {
 		return nil
 	}
 	listComponents()
+	return nil
+}
+
+// cmdUIPatterns answers the kit's screen patterns: the list, one of them in
+// full, or the whole table as JSON — the form an agent reads before it builds
+// a screen, in the same stable shape as `ui components --json`.
+func cmdUIPatterns(args []string) error {
+	fs := flag.NewFlagSet("ui patterns", flag.ContinueOnError)
+	asJSON := fs.Bool("json", false, t("flag patterns json"))
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	return writePatterns(os.Stdout, *asJSON, fs.Arg(0))
+}
+
+func writePatterns(w io.Writer, asJSON bool, name string) error {
+	all := frameworkui.Patterns()
+	if name != "" {
+		var found []frameworkui.Pattern
+		for _, p := range all {
+			if p.Name == name {
+				found = append(found, p)
+			}
+		}
+		if len(found) == 0 {
+			names := make([]string, 0, len(all))
+			for _, p := range all {
+				names = append(names, p.Name)
+			}
+			return fmt.Errorf(t("pattern unknown"), name, strings.Join(names, ", "))
+		}
+		all = found
+	}
+	if asJSON {
+		var out any = all
+		if name != "" {
+			out = all[0]
+		}
+		b, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(w, "%s\n", b)
+		return err
+	}
+	if name == "" {
+		for _, p := range all {
+			fmt.Fprintf(w, "  %-18s %s\n", p.Name, p.Summary)
+		}
+		fmt.Fprintln(w, "\n"+t("pattern more"))
+		return nil
+	}
+	p := all[0]
+	fmt.Fprintf(w, "%s — %s\n\n%s: %s\n%s: %s\n%s:\n", p.Name, p.Summary,
+		t("pattern components"), strings.Join(p.Components, ", "), t("pattern data"), p.Data, t("pattern a11y"))
+	for _, n := range p.A11y {
+		fmt.Fprintf(w, "  - %s\n", n)
+	}
+	fmt.Fprintf(w, "\n%s\n", p.Snippet)
 	return nil
 }
 
