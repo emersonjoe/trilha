@@ -44,6 +44,9 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 			// do 11/09/2026 do kit: duas formas de data na mesma página é o
 			// que a opção existe para evitar (#288).
 			DateFormat: diaCurto,
+			// A entrega é um instante do log: "quando falhou?" pede a hora,
+			// que o dia da assinatura não precisa (#289).
+			LogFormat: diaEHora,
 		}),
 	), nil
 }
@@ -86,4 +89,10 @@ func diaCurto(c *trilha.Ctx, t time.Time) h.Node {
 	t = t.In(c.Location())
 	texto := strconv.Itoa(t.Day()) + " de " + meses[t.Month()-1] + " de " + strconv.Itoa(t.Year())
 	return h.Time(h.Attr("datetime", t.Format(time.RFC3339)), h.Text(texto))
+}
+
+// diaEHora escreve "11/09/2026, 14:32", com o instante inteiro no datetime.
+func diaEHora(c *trilha.Ctx, t time.Time) h.Node {
+	t = t.In(c.Location())
+	return h.Time(h.Attr("datetime", t.Format(time.RFC3339)), h.Text(t.Format("02/01/2006, 15:04")))
 }

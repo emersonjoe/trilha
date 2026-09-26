@@ -89,6 +89,11 @@
         "name": "DateFormat",
         "type": "func(*trilha.Ctx, time.Time) h.Node",
         "doc": "DateFormat draws the created and last-used cells instead of ui.Date, for a screen that writes dates in the product's own format and should not show two formats side by side."
+      },
+      {
+        "name": "LogFormat",
+        "type": "func(*trilha.Ctx, time.Time) h.Node",
+        "doc": "LogFormat draws the last-used cell — when something happened, which usually wants the hour — instead of DateFormat, which keeps the created cell, a day."
       }
     ]
   },
@@ -4036,6 +4041,11 @@
         "name": "DateFormat",
         "type": "func(*trilha.Ctx, time.Time) h.Node",
         "doc": "DateFormat draws the date cells of both tables instead of ui.Date, for a screen that writes dates in the product's own format."
+      },
+      {
+        "name": "LogFormat",
+        "type": "func(*trilha.Ctx, time.Time) h.Node",
+        "doc": "LogFormat draws the \"when\" of the deliveries — a moment in a log, which \"when did it fail?\" needs to the minute — instead of DateFormat, which keeps the subscriptions' created date."
       }
     ]
   },

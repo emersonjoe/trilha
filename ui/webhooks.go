@@ -63,6 +63,10 @@ type WebhooksOpts struct {
 	// screen that writes dates in the product's own format. Nil keeps ui.Date;
 	// a zero time is the kit's dash either way.
 	DateFormat func(*trilha.Ctx, time.Time) h.Node
+	// LogFormat draws the "when" of the deliveries — a moment in a log, which
+	// "when did it fail?" needs to the minute — instead of DateFormat, which
+	// keeps the subscriptions' created date. Nil falls back to DateFormat.
+	LogFormat func(*trilha.Ctx, time.Time) h.Node
 }
 
 // WebhooksPanel is the screen an application gives whoever integrates with it:
@@ -204,7 +208,7 @@ func deliveryTable(c *trilha.Ctx, rows []DeliveryRow, o WebhooksOpts, w map[stri
 			h.Td(deliveryState(r, w)),
 			h.Td(h.Text(strconv.Itoa(r.Attempt))),
 			h.Td(deliveryAnswer(r, w)),
-			h.Td(dateCell(c, o.DateFormat, r.When, Relative())),
+			h.Td(dateCell(c, orFormat(o.LogFormat, o.DateFormat), r.When, Relative())),
 			h.Td(deliveryRetry(r, o, w)),
 		))
 	}

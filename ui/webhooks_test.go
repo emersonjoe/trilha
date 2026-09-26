@@ -222,3 +222,20 @@ func TestPainelDateFormatSobrescreveAsDatas(t *testing.T) {
 		t.Fatalf("sobrou a data do kit:\n%s", got)
 	}
 }
+
+// #289: a data da assinatura é um dia; a da entrega é um instante do log.
+func TestPainelLogFormatDesenhaAsEntregas(t *testing.T) {
+	subs, dels := assinaturas(), entregas()
+	got, _ := desenha(t, func(c *trilha.Ctx) h.Node {
+		o := opcoes(c)
+		o.DateFormat = func(_ *trilha.Ctx, t time.Time) h.Node { return h.Text("dia-") }
+		o.LogFormat = func(_ *trilha.Ctx, t time.Time) h.Node { return h.Text("log-") }
+		return WebhooksPanel(c, subs, dels, o)
+	})
+	if n := strings.Count(got, "dia-"); n != len(subs) {
+		t.Fatalf("DateFormat desenhou %d datas, quero %d:\n%s", n, len(subs), got)
+	}
+	if n := strings.Count(got, "log-"); n != len(dels) {
+		t.Fatalf("LogFormat desenhou %d datas, quero %d:\n%s", n, len(dels), got)
+	}
+}

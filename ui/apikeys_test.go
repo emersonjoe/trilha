@@ -85,3 +85,17 @@ func TestAPIKeysTableDateFormatSobrescreveAsDatas(t *testing.T) {
 		t.Fatalf("sobrou a data do kit ou sumiu o nunca:\n%s", got)
 	}
 }
+
+// #289: criação e último uso respondem perguntas diferentes — o dia basta para
+// uma, a outra pede a hora. LogFormat desenha a coluna de evento.
+func TestAPIKeysTableLogFormatDesenhaOUltimoUso(t *testing.T) {
+	dia := time.Date(2026, 9, 11, 14, 32, 0, 0, time.UTC)
+	rows := []APIKeyRow{{ID: "k1", Handle: "abc", Name: "Usada", Created: dia, LastUsed: dia}}
+	got := render(t, APIKeysTable(nil, rows, APIKeysOpts{
+		DateFormat: func(_ *trilha.Ctx, t time.Time) h.Node { return h.Text("dia " + t.Format("2")) },
+		LogFormat:  func(_ *trilha.Ctx, t time.Time) h.Node { return h.Text("às " + t.Format("15:04")) },
+	}))
+	if strings.Count(got, "dia 11") != 1 || strings.Count(got, "às 14:32") != 1 {
+		t.Fatalf("criação com o dia e uso com a hora, uma vez cada:\n%s", got)
+	}
+}

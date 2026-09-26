@@ -106,6 +106,9 @@ func esperaAte(t *testing.T, porque string, cond func() bool) {
 // diaCurtoRe é "11 de set. de 2026" dentro de um <time>.
 var diaCurtoRe = regexp.MustCompile(`<time datetime="[^"]+">\d{1,2} de [a-z]{3}\. de \d{4}</time>`)
 
+// diaEHoraRe é "11/09/2026, 14:32" dentro de um <time>.
+var diaEHoraRe = regexp.MustCompile(`<time datetime="[^"]+">\d{2}/\d{2}/\d{4}, \d{2}:\d{2}</time>`)
+
 // #112 — o ciclo inteiro: alguém cadastra o endereço pela tela, o
 // processamento termina, e o parceiro recebe o evento assinado.
 func TestCadastrarPelaTelaEReceberOEvento(t *testing.T) {
@@ -156,6 +159,10 @@ func TestCadastrarPelaTelaEReceberOEvento(t *testing.T) {
 	esperaAte(t, "a entrega aparecer na tela", func() bool {
 		return strings.Contains(c.Get("/webhooks").Body.String(), "Entregue")
 	})
+	// #289: a entrega é um instante do log, com a hora; a assinatura, um dia.
+	if tela := c.Get("/webhooks").Body.String(); !diaEHoraRe.MatchString(tela) || !diaCurtoRe.MatchString(tela) {
+		t.Fatalf("a entrega não saiu com a hora ou a assinatura não saiu com o dia:\n%s", primeiros(tela, 600))
+	}
 }
 
 // Segredo errado do lado de lá: o parceiro recusa, e a tela mostra o 401 —

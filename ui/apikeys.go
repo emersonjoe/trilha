@@ -85,6 +85,10 @@ type APIKeysOpts struct {
 	// not show two formats side by side. Nil keeps ui.Date. It is not called
 	// for a zero time: "never" and the dash stay the kit's.
 	DateFormat func(*trilha.Ctx, time.Time) h.Node
+	// LogFormat draws the last-used cell — when something happened, which
+	// usually wants the hour — instead of DateFormat, which keeps the created
+	// cell, a day. Nil falls back to DateFormat.
+	LogFormat func(*trilha.Ctx, time.Time) h.Node
 }
 
 // APIKeysTable lists the keys of an application: what each one is called, what
@@ -136,7 +140,7 @@ func APIKeysTable(c *trilha.Ctx, rows []APIKeyRow, opts ...APIKeysOpts) h.Node {
 			// says the first one better than a date from the epoch would.
 			h.Td(h.IfElse(r.LastUsed.IsZero(),
 				h.Span(h.Class("ui-muted"), h.Text(word(pt, "never", "nunca"))),
-				dateCell(c, o.DateFormat, r.LastUsed, Relative()))),
+				dateCell(c, orFormat(o.LogFormat, o.DateFormat), r.LastUsed, Relative()))),
 			h.If(o.Usage, h.Td(Num(), h.Text(strconv.Itoa(r.Calls)))),
 			h.Td(revogar(o, r, pt)),
 		))
@@ -150,6 +154,14 @@ func dateCell(c *trilha.Ctx, format func(*trilha.Ctx, time.Time) h.Node, t time.
 		return format(c, t)
 	}
 	return Date(c, t, def...)
+}
+
+// orFormat is the event column's format: its own, or the table's.
+func orFormat(log, date func(*trilha.Ctx, time.Time) h.Node) func(*trilha.Ctx, time.Time) h.Node {
+	if log != nil {
+		return log
+	}
+	return date
 }
 
 // callsHeader names the window the number covers. A count with no window is a
