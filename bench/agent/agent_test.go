@@ -678,3 +678,42 @@ func TestClienteGeradoExigeOComando(t *testing.T) {
 		t.Fatalf("o cliente gerado não foi reconhecido: %v", err)
 	}
 }
+
+// The measurement of the series builds both sides from the read-only
+// workspace, so the workspace carries the fixtures under bench/ — the s5–s8
+// apps and the baselines — and nothing else of bench/. Without them the first
+// baseline run stopped on "baseline/comments: no such file or directory".
+func TestWorkspaceCarriesTheFixtures(t *testing.T) {
+	repo := t.TempDir()
+	for _, f := range []string{"go.mod", "bench/README.md", "bench/agent/main.go",
+		"bench/agent/prompts/p.md", "bench/agent/results/results.json",
+		"bench/agent/apps/s5-login/app/page.go", "bench/agent/baseline/comments/main.go", ".git/HEAD"} {
+		p := filepath.Join(repo, filepath.FromSlash(f))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	work := t.TempDir()
+	dst, err := Workspace(repo, work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Unlock(work)
+	for f, want := range map[string]bool{
+		"go.mod": true, "bench/agent/apps/s5-login/app/page.go": true, "bench/agent/baseline/comments/main.go": true,
+		"bench/README.md": false, "bench/agent/main.go": false, "bench/agent/prompts/p.md": false,
+		"bench/agent/results/results.json": false, ".git/HEAD": false,
+	} {
+		_, err := os.Stat(filepath.Join(dst, filepath.FromSlash(f)))
+		if got := err == nil; got != want {
+			t.Errorf("%s in the workspace: %v, want %v", f, got, want)
+		}
+	}
+	sc := Scenario{Name: "comments", BaseDir: "bench/agent/baseline/comments"}
+	if err := BuildBaseline(dst, sc, filepath.Join(work, "b")); err != nil {
+		t.Fatalf("the baseline builds from the workspace: %v", err)
+	}
+}

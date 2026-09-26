@@ -195,7 +195,16 @@ func Workspace(repo, work string) (string, error) {
 			return err
 		}
 		rel, _ := filepath.Rel(repo, path)
-		if d.IsDir() && rel != "." && skip[d.Name()] {
+		if r := filepath.ToSlash(rel); inBench(r) {
+			keep, walk := benchFixture(r)
+			switch {
+			case keep, walk && d.IsDir():
+			case d.IsDir():
+				return filepath.SkipDir
+			default:
+				return nil
+			}
+		} else if d.IsDir() && rel != "." && skip[d.Name()] {
 			return filepath.SkipDir
 		}
 		target := filepath.Join(dst, rel)
@@ -212,6 +221,29 @@ func Workspace(repo, work string) (string, error) {
 		return "", err
 	}
 	return dst, lock(dst, true)
+}
+
+// benchFixtures are the parts of bench/ the builders read: the committed apps the
+// s5–s8 scenarios start from (Build with an AppDir) and the pure-Go starting
+// points of the baseline side (BuildBaseline). Both read from the workspace,
+// so the workspace has to carry them; the rest of bench/ — prompts, results,
+// the harness itself — stays out of what the agent can read.
+var benchFixtures = []string{"bench/agent/apps", "bench/agent/baseline"}
+
+func inBench(rel string) bool { return rel == "bench" || strings.HasPrefix(rel, "bench/") }
+
+// benchFixture says whether rel is inside a fixture (keep), or a directory on the
+// way to one (walk into it, copy none of its own files).
+func benchFixture(rel string) (keep, walk bool) {
+	for _, f := range benchFixtures {
+		if rel == f || strings.HasPrefix(rel, f+"/") {
+			return true, false
+		}
+		if strings.HasPrefix(f, rel+"/") {
+			return false, true
+		}
+	}
+	return false, false
 }
 
 // lock makes every directory under dir read-only (or writable again, for
