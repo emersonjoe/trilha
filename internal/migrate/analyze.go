@@ -362,24 +362,71 @@ type hit struct {
 // scan looks for each signal in the page and then in what it imports, keeping
 // the first place it found each one: a signal the page carries is the page's,
 // and one it does not is named after the file that does.
+//
+// Comments come out first (#287): a JSDoc saying "the SpeechRecognition
+// transcript" is prose, and read as code it made every screen importing that
+// module a C. Strings stay — type="file" and role="dialog" are signals.
 func scan(signals []signal, from []sourceFile) []hit {
+	code := make([]string, len(from))
+	for i, f := range from {
+		code[i] = stripComments(f.src)
+	}
 	var out []hit
 	for _, s := range signals {
-		for _, f := range from {
-			loc := s.re.FindStringIndex(f.src)
-			if loc == nil || (s.and != nil && !s.and.MatchString(f.src)) {
+		for i, f := range from {
+			src := code[i]
+			loc := s.re.FindStringIndex(src)
+			if loc == nil || (s.and != nil && !s.and.MatchString(src)) {
 				continue
 			}
 			out = append(out, hit{
 				name:  s.name,
 				path:  f.path,
-				line:  1 + strings.Count(f.src[:loc[0]], "\n"),
+				line:  1 + strings.Count(src[:loc[0]], "\n"),
 				whole: f.path != "" && f.whole,
 			})
 			break
 		}
 	}
 	return out
+}
+
+// stripComments blanks the // and /* */ comments of a JS or TS source, keeping
+// every newline so a line number read from the result is the line in the file.
+// It is lexical, not a parser: it knows strings and template literals, so the
+// // of a URL is not a comment, and nothing else. A quote in JSX text opens a
+// string that the end of the line closes, which is as far as the damage goes.
+func stripComments(src string) string {
+	b := []byte(src)
+	for i := 0; i < len(b); i++ {
+		switch c := b[i]; {
+		case c == '"' || c == '\'' || c == '`':
+			for i++; i < len(b) && b[i] != c; i++ {
+				if b[i] == '\\' {
+					i++
+				} else if b[i] == '\n' && c != '`' {
+					break
+				}
+			}
+		case c == '/' && i+1 < len(b) && b[i+1] == '/':
+			for ; i < len(b) && b[i] != '\n'; i++ {
+				b[i] = ' '
+			}
+		case c == '/' && i+1 < len(b) && b[i+1] == '*':
+			b[i], b[i+1] = ' ', ' '
+			for i += 2; i < len(b); i++ {
+				if b[i] == '*' && i+1 < len(b) && b[i+1] == '/' {
+					b[i], b[i+1] = ' ', ' '
+					i++
+					break
+				}
+				if b[i] != '\n' {
+					b[i] = ' '
+				}
+			}
+		}
+	}
+	return string(b)
 }
 
 // useServerRe is the directive that makes a function a Server Action: at the

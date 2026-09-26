@@ -665,6 +665,10 @@ func TestCapturaDeMidiaEhIlha(t *testing.T) {
 		// Capturar é C porque depende de permissão e de um objeto vivo;
 		// reproduzir é B, porque é um elemento que o servidor desenha.
 		"ouvir": {ClassIsland, "media playback"},
+		// #287: um comentário que cita SpeechRecognition não é captura. As duas
+		// telas importam o módulo — inteiro e só um tipo — e nenhuma grava nada.
+		"resumo": {ClassForm, ""},
+		"curva":  {ClassForm, ""},
 	}
 	for _, pg := range p.Pages {
 		w, ok := want[pg.Dir]
@@ -695,5 +699,24 @@ func TestModalSignalRecognizesNamedComponentsAndAccessibleDialogs(t *testing.T) 
 		if a.Class != ClassIsland || !strings.Contains(a.Why, "modal") {
 			t.Errorf("%s = %s — %s", name, a.Class, a.Why)
 		}
+	}
+}
+
+// #287: o comentário sai, a string fica e as linhas não mudam de número.
+func TestStripCommentsKeepsStringsAndLines(t *testing.T) {
+	src := "const a = \"https://x\" // SpeechRecognition\n/* getUserMedia(\n */ const b = '/* não */'\nconst c = `// ${d}`"
+	got := stripComments(src)
+	for _, want := range []string{`"https://x"`, `'/* não */'`, "`// ${d}`"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a string %s sumiu: %q", want, got)
+		}
+	}
+	for _, gone := range []string{"SpeechRecognition", "getUserMedia"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("o comentário %s ficou: %q", gone, got)
+		}
+	}
+	if strings.Count(got, "\n") != strings.Count(src, "\n") || len(got) != len(src) {
+		t.Errorf("as linhas mudaram: %q", got)
 	}
 }
