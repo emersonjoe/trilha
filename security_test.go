@@ -3,6 +3,8 @@ package trilha
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -228,6 +230,33 @@ func TestSecretFromEnv(t *testing.T) {
 	if cfg := ConfigFromEnv(); len(cfg.TrustedProxies) != 2 {
 		t.Fatal(cfg.TrustedProxies)
 	}
+}
+
+// #283: the secret can come from a file, as compose and Swarm deliver it.
+func TestSecretFromFile(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(f, []byte(strings.Repeat("y", 40)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TRILHA_SECRET", "")
+	t.Setenv("TRILHA_SECRET_FILE", f)
+	if cfg := ConfigFromEnv(); string(cfg.Secret) != strings.Repeat("y", 40) {
+		t.Fatalf("secret from file = %q", cfg.Secret)
+	}
+	mustPanic := func(why string) {
+		t.Helper()
+		defer func() {
+			if recover() == nil {
+				t.Fatal(why)
+			}
+		}()
+		ConfigFromEnv()
+	}
+	t.Setenv("TRILHA_SECRET", strings.Repeat("x", 40))
+	mustPanic("both TRILHA_SECRET and TRILHA_SECRET_FILE must not boot")
+	t.Setenv("TRILHA_SECRET", "")
+	t.Setenv("TRILHA_SECRET_FILE", filepath.Join(t.TempDir(), "missing"))
+	mustPanic("an unreadable TRILHA_SECRET_FILE must not boot without a secret")
 }
 
 func TestSecurityEventsForCSRFAndAuth(t *testing.T) {

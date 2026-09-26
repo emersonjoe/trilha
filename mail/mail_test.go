@@ -206,6 +206,52 @@ func TestFromEnvLeAURL(t *testing.T) {
 	}
 }
 
+// #283: a senha não precisa morar no ambiente.
+func TestFromEnvLeSegredosDeArquivo(t *testing.T) {
+	dir := t.TempDir()
+	escreve := func(nome, conteudo string) string {
+		f := filepath.Join(dir, nome)
+		if err := os.WriteFile(f, []byte(conteudo), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+	t.Setenv("TRILHA_MAIL_FROM", "a@b.com")
+	t.Setenv("TRILHA_MAIL_URL", "")
+	t.Setenv("TRILHA_MAIL_URL_FILE", escreve("url", "smtps://ana:s3nha@smtp.org.br\n"))
+	t.Setenv("TRILHA_MAIL_PASSWORD_FILE", "")
+	if s := FromEnv().Transport.(*SMTP); s.User != "ana" || s.Pass != "s3nha" || s.Addr != "smtp.org.br:465" {
+		t.Fatalf("URL do arquivo: %+v", s)
+	}
+	t.Setenv("TRILHA_MAIL_URL_FILE", "")
+	t.Setenv("TRILHA_MAIL_URL", "smtps://ana@smtp.org.br")
+	t.Setenv("TRILHA_MAIL_PASSWORD_FILE", escreve("senha", "s3nha\n"))
+	if s := FromEnv().Transport.(*SMTP); s.User != "ana" || s.Pass != "s3nha" {
+		t.Fatalf("senha do arquivo: %+v", s)
+	}
+
+	entraEmPanico := func(porque string) {
+		t.Helper()
+		defer func() {
+			if recover() == nil {
+				t.Fatal(porque)
+			}
+		}()
+		FromEnv()
+	}
+	t.Setenv("TRILHA_MAIL_URL", "smtps://ana:outra@smtp.org.br")
+	entraEmPanico("senha na URL e no arquivo")
+	t.Setenv("TRILHA_MAIL_URL_FILE", escreve("url2", "smtps://ana@smtp.org.br"))
+	t.Setenv("TRILHA_MAIL_PASSWORD_FILE", "")
+	entraEmPanico("URL no ambiente e no arquivo")
+	t.Setenv("TRILHA_MAIL_URL", "")
+	t.Setenv("TRILHA_MAIL_URL_FILE", filepath.Join(dir, "nao-existe"))
+	entraEmPanico("arquivo que não abre")
+	t.Setenv("TRILHA_MAIL_URL_FILE", "")
+	t.Setenv("TRILHA_MAIL_PASSWORD_FILE", escreve("senha2", "x"))
+	entraEmPanico("senha sem URL")
+}
+
 func primeirasLinhas(s string, n int) string {
 	linhas := strings.Split(s, "\r\n")
 	if len(linhas) > n {

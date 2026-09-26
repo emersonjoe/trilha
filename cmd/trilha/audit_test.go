@@ -442,6 +442,16 @@ func TestAuditoriaDeEmail(t *testing.T) {
 	if got, ok := acha(runAudit(&project{Root: manda}, false)); !ok || got.level != "ok" {
 		t.Errorf("com servidor: %+v", got)
 	}
+	// #283: senha na URL, fora de dev, aparece no docker inspect.
+	t.Setenv("TRILHA_ENV", "prod")
+	t.Setenv("TRILHA_MAIL_URL", "smtps://ana:senha@smtp.org.br")
+	if got, ok := acha(runAudit(&project{Root: manda}, false)); !ok || got.level != "warn" || !strings.Contains(got.hint, "TRILHA_MAIL_PASSWORD_FILE") {
+		t.Errorf("senha no ambiente: %+v", got)
+	}
+	t.Setenv("TRILHA_MAIL_URL", "smtps://ana@smtp.org.br")
+	if got, ok := acha(runAudit(&project{Root: manda}, false)); !ok || got.level != "ok" {
+		t.Errorf("senha em arquivo: %+v", got)
+	}
 }
 
 // #118 — proxy sem Timeout. O padrão é trinta segundos, e trinta segundos por

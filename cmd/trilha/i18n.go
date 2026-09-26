@@ -402,6 +402,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"upstream no timeout hint":    {"Upstream.Timeout is 30 s by default; a slow API then holds 30 s of requests, and the failure arrives as \"our app is down\" — set it to what you are willing to wait", "o Upstream.Timeout é 30 s por padrão; uma API lenta segura 30 s de requisições, e a falha chega como \"nosso app caiu\" — defina o que você está disposto a esperar"},
 	"mail unset":                  {"the app sends e-mail and no server is configured", "o app manda e-mail e não há servidor configurado"},
 	"mail unset hint":             {"without TRILHA_MAIL_URL, Send answers mail.ErrNotConfigured in production (and writes .eml files into ./mail in dev)", "sem TRILHA_MAIL_URL o Send devolve mail.ErrNotConfigured em produção (e em dev escreve .eml em ./mail)"},
+	"mail password env":           {"the mail password is in TRILHA_MAIL_URL", "a senha do e-mail está em TRILHA_MAIL_URL"},
+	"mail password env hint":      {"the environment shows in docker inspect and /proc/<pid>/environ; leave the URL without it and set TRILHA_MAIL_PASSWORD_FILE (or TRILHA_MAIL_URL_FILE)", "o ambiente aparece no docker inspect e em /proc/<pid>/environ; deixe a URL sem ela e use TRILHA_MAIL_PASSWORD_FILE (ou TRILHA_MAIL_URL_FILE)"},
 	"mail ok":                     {"mail server configured", "servidor de e-mail configurado"},
 	"stream open":                 {"%d event stream(s) with nothing above them", "%d fluxo(s) de eventos sem nada acima"},
 	"stream open hint":            {"everyone who connects receives everything the route sends; put a middleware.go on the folder (%s)", "todo mundo que conecta recebe tudo o que a rota manda; ponha um middleware.go na pasta (%s)"},

@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -63,7 +64,7 @@ func runAudit(p *project, vuln bool) []check {
 	// Secret. A missing secret only breaks what the secret signs: an app that
 	// never calls SetSigned would be told to invent a key that protects
 	// nothing, and a key nobody uses is a key nobody notices being rotated.
-	if s := os.Getenv("TRILHA_SECRET"); s == "" {
+	if s := auditSecret(); s == "" {
 		if signsCookies(src) {
 			add("critical", t("secret unset"), t("secret unset hint"))
 		} else {
@@ -111,9 +112,14 @@ func runAudit(p *project, vuln bool) []check {
 	// finds out the invitations were never sent until somebody asks why they
 	// never arrived.
 	if strings.Contains(src, "mail.New(") || strings.Contains(src, "mail.FromEnv(") {
-		if os.Getenv("TRILHA_MAIL_URL") == "" {
+		switch {
+		case os.Getenv("TRILHA_MAIL_URL") == "" && os.Getenv("TRILHA_MAIL_URL_FILE") == "":
 			add("warn", t("mail unset"), t("mail unset hint"))
-		} else {
+		case mailPasswordInEnv():
+			// #283: a password in the environment shows in docker inspect,
+			// /proc/<pid>/environ and a crash dump.
+			add("warn", t("mail password env"), t("mail password env hint"))
+		default:
 			add("ok", t("mail ok"), "")
 		}
 	}
@@ -1017,4 +1023,31 @@ func connectionsInMemory(src string) bool {
 		}
 	}
 	return false
+}
+
+// auditSecret is TRILHA_SECRET, or the content of TRILHA_SECRET_FILE the way
+// the server reads it at boot.
+func auditSecret() string {
+	if s := os.Getenv("TRILHA_SECRET"); s != "" {
+		return s
+	}
+	if f := os.Getenv("TRILHA_SECRET_FILE"); f != "" {
+		if b, err := os.ReadFile(f); err == nil {
+			return strings.TrimSpace(string(b))
+		}
+	}
+	return ""
+}
+
+// mailPasswordInEnv reports a password inside TRILHA_MAIL_URL outside dev.
+func mailPasswordInEnv() bool {
+	if strings.EqualFold(os.Getenv("TRILHA_ENV"), "dev") {
+		return false
+	}
+	u, err := url.Parse(os.Getenv("TRILHA_MAIL_URL"))
+	if err != nil || u.User == nil {
+		return false
+	}
+	_, has := u.User.Password()
+	return has
 }

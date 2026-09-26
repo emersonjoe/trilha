@@ -70,3 +70,19 @@ func TestProvideIsPerApp(t *testing.T) {
 		t.Fatal("the app itself should answer Use")
 	}
 }
+
+// #284: an optional dependency is asked about, not assumed. The provision is
+// the only answer to "is it on?".
+func TestLookupOptional(t *testing.T) {
+	a := New(Config{Logger: quiet()})
+	if d, ok := Lookup[*deps](a); ok || d != nil {
+		t.Fatalf("nothing provided, got %v %v", d, ok)
+	}
+	if _, ok := Lookup[store](&Ctx{app: a}); ok {
+		t.Fatal("an interface nobody provided")
+	}
+	Provide(a, &deps{dsn: "on"})
+	if d, ok := Lookup[*deps](&Ctx{app: a}); !ok || d.dsn != "on" {
+		t.Fatalf("provided, got %v %v", d, ok)
+	}
+}

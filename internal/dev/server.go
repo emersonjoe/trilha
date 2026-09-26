@@ -164,7 +164,7 @@ func (s *Server) startChild() (int, error) {
 	cmd := exec.Command(s.binPath)
 	cmd.Dir = s.Root
 	cmd.Env = append(os.Environ(), "TRILHA_ENV=dev", "ADDR=127.0.0.1:"+strconv.Itoa(port))
-	if os.Getenv("TRILHA_SECRET") == "" {
+	if os.Getenv("TRILHA_SECRET") == "" && os.Getenv("TRILHA_SECRET_FILE") == "" {
 		// One ephemeral secret per dev session, so signed cookies survive rebuilds.
 		cmd.Env = append(cmd.Env, "TRILHA_SECRET="+s.devSecret())
 	}

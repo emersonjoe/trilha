@@ -56,11 +56,34 @@ func decodeSecret(s string) []byte {
 }
 
 func secretsFromEnv() (cur, prev []byte, short bool) {
-	raw := os.Getenv("TRILHA_SECRET")
+	raw := envOrFile("TRILHA_SECRET")
 	cur = decodeSecret(raw)
 	short = raw != "" && cur == nil
-	prev = decodeSecret(os.Getenv("TRILHA_SECRET_PREVIOUS"))
+	prev = decodeSecret(envOrFile("TRILHA_SECRET_PREVIOUS"))
 	return
+}
+
+// envOrFile reads a secret from name, or from the file that name_FILE points
+// to — the convention of the official container images, and what the
+// secrets: of compose and Swarm deliver in /run/secrets. A value in the
+// environment shows in docker inspect and /proc/<pid>/environ; a file does
+// not. The file is read once, at boot, trimmed (echo leaves a newline). Both
+// set, or a file that cannot be read, is a panic: a server that boots with no
+// secret, or with a different one than the operator meant, is worse than one
+// that does not boot.
+func envOrFile(name string) string {
+	v, file := os.Getenv(name), os.Getenv(name+"_FILE")
+	if file == "" {
+		return v
+	}
+	if v != "" {
+		panic("trilha: " + name + " and " + name + "_FILE are both set; keep one")
+	}
+	b, err := os.ReadFile(file)
+	if err != nil {
+		panic("trilha: " + name + "_FILE: " + err.Error())
+	}
+	return strings.TrimSpace(string(b))
 }
 
 func randomSecret() []byte {

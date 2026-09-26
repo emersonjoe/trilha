@@ -126,7 +126,8 @@ type Config struct {
 	AllowedHosts []string
 	// RateLimit enables a global per-client limit (zero = off).
 	RateLimit RateLimit
-	// Secret signs cookies (TRILHA_SECRET); PreviousSecret still verifies.
+	// Secret signs cookies (TRILHA_SECRET or TRILHA_SECRET_FILE);
+	// PreviousSecret still verifies.
 	Secret, PreviousSecret []byte
 	// Timeouts protect the server from slow clients.
 	Timeouts Timeouts
@@ -173,7 +174,9 @@ type Timeouts struct {
 // NoTimeout disables a Timeouts field (becomes 0 in http.Server).
 const NoTimeout time.Duration = -1
 
-// ConfigFromEnv builds a Config from ADDR/PORT and TRILHA_ENV.
+// ConfigFromEnv builds a Config from ADDR/PORT and TRILHA_ENV. The secrets
+// can come from a file instead: TRILHA_SECRET_FILE=/run/secrets/trilha is
+// read once, trimmed, when TRILHA_SECRET is empty; both set is a panic.
 func ConfigFromEnv() Config {
 	cfg := Config{Addr: ":3000", Env: Prod}
 	if p := os.Getenv("PORT"); p != "" {
@@ -459,7 +462,8 @@ func typeKey[T any]() string { return reflect.TypeOf((*T)(nil)).Elem().String() 
 //
 // The values live in the App, not in a package variable, so a test suite that
 // boots one server per test gives each one its own pool. Providing the same
-// type twice replaces it.
+// type twice replaces it. A dependency that may not be there — provided only
+// when its configuration is — is read with Lookup instead of Use.
 func Provide[T any](a *App, v T) { a.values[typeKey[T]()] = v }
 
 // Bag is where Use reads from: a *Ctx in a handler, an *App in Setup or in a
@@ -475,18 +479,37 @@ func (c *Ctx) bag() map[string]any { return c.app.values }
 //
 // It panics, naming the type, when nothing was provided — the alternative is
 // the zero value travelling until it is dereferenced somewhere else, which is
-// a crash that says nothing about its cause.
+// a crash that says nothing about its cause. Optional? Lookup.
 func Use[T any](b Bag) T {
+	t, ok := Lookup[T](b)
+	if !ok {
+		panic("trilha: nothing provided for " + typeKey[T]() + "; call trilha.Provide(a, ...) in Setup")
+	}
+	return t
+}
+
+// Lookup is Use for an optional dependency: it says whether Setup provided
+// one, so the provision is the only source of truth for "is it on?":
+//
+//	if t, ok := trilha.Lookup[*trial.Service](c); ok {
+//		return t.Start(c)
+//	}
+//	return c.Redirect("/contact")
+//
+// A value provided under T's key with another type still panics: that is a
+// bug in Setup, not an absent dependency.
+func Lookup[T any](b Bag) (T, bool) {
 	k := typeKey[T]()
 	v, ok := b.bag()[k]
 	if !ok {
-		panic("trilha: nothing provided for " + k + "; call trilha.Provide(a, ...) in Setup")
+		var zero T
+		return zero, false
 	}
 	t, ok := v.(T)
 	if !ok {
 		panic("trilha: value provided for " + k + " is a " + reflect.TypeOf(v).String())
 	}
-	return t
+	return t, true
 }
 
 // Logger returns the app logger.
