@@ -183,6 +183,7 @@ type Options struct {
 // Approvals is the queue.
 type Approvals struct {
 	store Store
+	links LinkStore
 	tick  time.Duration
 	roles func(*trilha.Ctx) []string
 	log   *slog.Logger
@@ -200,6 +201,14 @@ func New(o Options) *Approvals {
 		on: map[string]func(*trilha.Ctx, Record) error{}, stop: make(chan struct{})}
 	if a.store == nil {
 		a.store = Memory()
+	}
+	// A store that keeps the requests somewhere durable keeps the links there
+	// too when it can; one that cannot gets them in memory, which only costs
+	// the links still out when the process restarts.
+	if l, ok := a.store.(LinkStore); ok {
+		a.links = l
+	} else {
+		a.links = Memory().(LinkStore)
 	}
 	if a.tick <= 0 {
 		a.tick = 30 * time.Second
@@ -291,7 +300,13 @@ func (a *Approvals) Decide(c *trilha.Ctx, id, state, reason string) error {
 	if rec.State != Pending || !a.MayDecide(c, rec) {
 		return ErrNotYours
 	}
-	actor := actorOf(c)
+	return a.decide(c, rec, actorOf(c), state, reason)
+}
+
+// decide is the decision once who decides is settled: the session's subject
+// for Decide, "link:<recipient>" for DecideByLink.
+func (a *Approvals) decide(c *trilha.Ctx, rec Record, actor, state, reason string) error {
+	id := rec.ID
 	if rec.Quorum > 1 {
 		for _, v := range rec.Votes {
 			if v.By == actor {
@@ -305,7 +320,7 @@ func (a *Approvals) Decide(c *trilha.Ctx, id, state, reason string) error {
 			return err
 		}
 		if c != nil {
-			c.Audit("approval.vote", id, trilha.Fields{"kind": rec.Kind, "state": state, "reason": reason})
+			c.Audit("approval.vote", id, trilha.Fields{"kind": rec.Kind, "state": state, "reason": reason, "by": actor})
 		}
 		return nil
 	}
@@ -314,7 +329,7 @@ func (a *Approvals) Decide(c *trilha.Ctx, id, state, reason string) error {
 		return err
 	}
 	if c != nil {
-		c.Audit("approval.decide", id, trilha.Fields{"kind": rec.Kind, "state": state, "reason": reason})
+		c.Audit("approval.decide", id, trilha.Fields{"kind": rec.Kind, "state": state, "reason": reason, "by": actor})
 	}
 	a.mu.RLock()
 	fn := a.on[rec.Kind]
@@ -387,6 +402,9 @@ func (a *Approvals) clock() {
 			return
 		case <-t.C:
 			a.Expire(context.Background())
+			if _, err := a.links.PurgeLinks(context.Background(), a.now()); err != nil {
+				a.log.Warn("approval: forgetting expired links", "err", err)
+			}
 		}
 	}
 }

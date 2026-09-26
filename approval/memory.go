@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"time"
 )
 
 // Memory keeps the queue in this process. It is the right store for one
@@ -12,8 +13,9 @@ import (
 func Memory() Store { return &memory{rows: map[string]Record{}} }
 
 type memory struct {
-	mu   sync.RWMutex
-	rows map[string]Record
+	mu    sync.RWMutex
+	rows  map[string]Record
+	links map[string]Link
 }
 
 func (m *memory) Save(_ context.Context, r Record) error {
@@ -79,4 +81,50 @@ func matches(r Record, p ListParams) bool {
 		}
 	}
 	return false
+}
+
+// The links, in the same process as the requests.
+
+func (m *memory) SaveLink(_ context.Context, l Link) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.links == nil {
+		m.links = map[string]Link{}
+	}
+	m.links[l.Hash] = l
+	return nil
+}
+
+func (m *memory) GetLink(_ context.Context, hash string) (Link, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	l, ok := m.links[hash]
+	if !ok {
+		return Link{}, ErrLinkInvalid
+	}
+	return l, nil
+}
+
+func (m *memory) TakeLink(_ context.Context, hash string) (Link, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	l, ok := m.links[hash]
+	if !ok {
+		return Link{}, ErrLinkInvalid
+	}
+	delete(m.links, hash)
+	return l, nil
+}
+
+func (m *memory) PurgeLinks(_ context.Context, now time.Time) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n := 0
+	for h, l := range m.links {
+		if !now.Before(l.Expires) {
+			delete(m.links, h)
+			n++
+		}
+	}
+	return n, nil
 }
