@@ -3,6 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.149.0 — 2026-09-26
+
+Two fixes from the Prosa migration (spec 168, #287, #288).
+
+### Added
+
+- **`ui.APIKeysOpts.DateFormat` and `ui.WebhooksOpts.DateFormat`** (#288) — a
+  `func(*trilha.Ctx, time.Time) h.Node` that draws the date cells of `ui.APIKeysTable` and of
+  both tables of `ui.WebhooksPanel` instead of `ui.Date`, so a screen that writes dates in the
+  product's own format does not show two formats side by side. Nil keeps `ui.Date`; a zero time
+  is still "never" or the dash. The `blog` example's webhooks screen uses it.
+
+### Fixed
+
+- **`trilha migrate next` read signals inside comments** (#287) — a JSDoc mentioning
+  `SpeechRecognition` in a pure module made every screen importing it, even a single type,
+  **C — media capture**. Signals are now looked for with `//` and `/* */` comments blanked out
+  (lexically, keeping strings and line numbers), which covers every text signal, not only media.
+
 ## 0.148.0 — 2026-09-25
 
 Secrets from files, optional dependencies, mail off the request path and approval by link

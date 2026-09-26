@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.148.0)
+## Onde o Trilha está (setembro de 2026, v0.149.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -352,6 +352,10 @@ num cluster PostgreSQL temporário; `make test-sql` e o job `sql` da CI.
 os `_FILE` dos segredos (#283), `trilha.Lookup` (#284), `mail.Options.Tasks` com novas
 tentativas só para erro temporário (#286) e o link de decisão de uso único do `approval` (#285).
 A medição da série do bench volta a rodar: o workspace leva as fixtures.
+137. **Comentários e datas** (spec 168, **entregue na 0.149.0**): o `migrate next` procura os
+sinais com os comentários tirados, e um JSDoc que cita `SpeechRecognition` deixa de fazer C toda
+tela que importa o módulo (#287); `DateFormat` em `ui.APIKeysOpts` e `ui.WebhooksOpts` para a
+tela escrever as datas no próprio formato (#288).
 
 ## O que não vamos fazer, e por quê
 

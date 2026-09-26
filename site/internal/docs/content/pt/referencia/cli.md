@@ -568,6 +568,10 @@ capturar: `new Audio(`, um `<audio>` ou um `<video>` é um elemento que o servid
 então é **B**. Um falso positivo custa uma conferência; um falso negativo faz alguém portar
 meia tela como formulário antes de achar o microfone.
 
+Todo sinal é procurado com os comentários tirados. Um JSDoc dizendo "a transcrição do
+SpeechRecognition" num módulo puro fazia **C** toda tela que o importasse — nem que fosse um
+tipo; as strings ficam, porque `type="file"` e `role="dialog"` são sinais.
+
 As telas em si não são traduzidas. O corpo de uma página é regra de negócio, e máquina
 chutando isso custa mais para revisar do que para escrever — o guia
 [Do Next.js para a Trilha](/pt/receitas/do-next) tem o padrão de React ao lado da linha que

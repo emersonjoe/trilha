@@ -571,6 +571,10 @@ not capturing: `new Audio(`, an `<audio>` or a `<video>` is an element the serve
 it is **B**. A false positive costs one check; a false negative makes somebody port half a
 screen as a form before finding the microphone.
 
+Every signal is looked for with the comments taken out. A JSDoc saying "the SpeechRecognition
+transcript" in a pure module used to make each screen importing it — even a single type — a
+**C**; strings stay, because `type="file"` and `role="dialog"` are signals.
+
 The screens themselves are not translated. A page's body is business logic, and a machine
 guessing at it would cost more to review than to write — the guide
 [From Next.js to Trilha](/cookbook/from-next) has the React pattern beside the line that
