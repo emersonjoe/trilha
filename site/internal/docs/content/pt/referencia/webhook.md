@@ -217,7 +217,9 @@ func ui.WebhooksPanel(c *trilha.Ctx, subs []ui.WebhookRow, deliveries []ui.Deliv
 O `WebhooksOpts` recebe `Action` (para onde os formulários postam; vazio desenha um painel só de
 leitura), `CSRF`, `Events`, `Secret` e `DateFormat` — uma `func(*trilha.Ctx, time.Time) h.Node`
 que desenha as datas das duas tabelas no formato da própria tela em vez do `ui.Date` (nil mantém
-o do kit; data zero continua sendo o traço). Ele desenha linhas simples, então a aplicação mapeia o que
+o do kit; data zero continua sendo o traço) — e `LogFormat`, com a mesma assinatura, para o
+"quando" das entregas: um instante de log pede a hora, onde a data de uma assinatura é um dia.
+Nil cai no `DateFormat`. Ele desenha linhas simples, então a aplicação mapeia o que
 o módulo guarda para o que a tela mostra — e o `ui.WebhookRow` não tem campo para o segredo, que
 é o motivo de ele não conseguir vazar numa listagem.
 

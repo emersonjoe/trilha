@@ -628,7 +628,7 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
 | `User(c)` | quem chamou, como `auth.User` com os escopos de papéis |
 | `KeyStore` / `MemoryKeyStore()` | cinco métodos sobre o que a app roda; memória para teste |
 | `ui.SecretOnce(c, segredo)` | o cartão que mostra uma vez, com a frase que precisa estar lá |
-| `ui.APIKeysTable(c, []ui.APIKeyRow, ui.APIKeysOpts{...})` | a lista, com o identificador e nunca a chave; `DateFormat` desenha as colunas de criação e último uso no formato da própria tela |
+| `ui.APIKeysTable(c, []ui.APIKeyRow, ui.APIKeysOpts{...})` | a lista, com o identificador e nunca a chave; `DateFormat` desenha as colunas de criação e último uso no formato da própria tela, `LogFormat` a de último uso quando ela pede a hora |
 
 O [`trilha add api-keys`](/pt/referencia/cli#trilha-add) escreve o pacote, esta tela e o teste.
 

@@ -3,6 +3,18 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.150.0 — 2026-09-26
+
+A second date format for the event columns (spec 169, #289).
+
+### Added
+
+- **`ui.APIKeysOpts.LogFormat` and `ui.WebhooksOpts.LogFormat`** (#289) — the same
+  `func(*trilha.Ctx, time.Time) h.Node` as `DateFormat`, for the columns that record when
+  something happened: a key's last use and a delivery's "when". "When did it fail?" needs the
+  hour where "when was it created?" needs a day. Nil falls back to `DateFormat`, so 0.149.0
+  screens draw the same. The `blog` example's webhooks screen uses both.
+
 ## 0.149.0 — 2026-09-26
 
 Two fixes from the Prosa migration (spec 168, #287, #288).

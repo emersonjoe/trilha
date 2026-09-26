@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.149.0)
+## Onde o Trilha está (setembro de 2026, v0.150.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -356,6 +356,9 @@ A medição da série do bench volta a rodar: o workspace leva as fixtures.
 sinais com os comentários tirados, e um JSDoc que cita `SpeechRecognition` deixa de fazer C toda
 tela que importa o módulo (#287); `DateFormat` em `ui.APIKeysOpts` e `ui.WebhooksOpts` para a
 tela escrever as datas no próprio formato (#288).
+138. **Datas de evento** (spec 169, **entregue na 0.150.0**): `LogFormat` em `ui.APIKeysOpts` e
+`ui.WebhooksOpts` para as colunas de evento (último uso, entrega) terem a hora enquanto as de
+criação ficam no dia (#289).
 
 ## O que não vamos fazer, e por quê
 

@@ -219,7 +219,9 @@ func ui.WebhooksPanel(c *trilha.Ctx, subs []ui.WebhookRow, deliveries []ui.Deliv
 `WebhooksOpts` takes `Action` (where the forms post; empty draws a read-only panel), `CSRF`,
 `Events`, `Secret` and `DateFormat` — a `func(*trilha.Ctx, time.Time) h.Node` that draws the
 date cells of both tables in the screen's own format instead of `ui.Date` (nil keeps it; a zero
-time is still the dash). It draws plain rows, so the application maps what the module stores to
+time is still the dash) — and `LogFormat`, the same signature, for the deliveries' "when": a
+moment in a log wants the hour where a subscription's date is a day. Nil falls back to
+`DateFormat`. It draws plain rows, so the application maps what the module stores to
 what the screen shows — and `ui.WebhookRow` has no field for the secret, which is why it cannot
 leak into a listing.
 

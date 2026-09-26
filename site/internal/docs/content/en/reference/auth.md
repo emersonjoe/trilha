@@ -630,7 +630,7 @@ func Middleware(c *trilha.Ctx, next trilha.Next) error { return exige(c, next) }
 | `User(c)` | the caller, as an `auth.User` with the scopes as roles |
 | `KeyStore` / `MemoryKeyStore()` | five methods over whatever the app runs; memory for tests |
 | `ui.SecretOnce(c, secret)` | the card that shows it once, with the sentence that has to be there |
-| `ui.APIKeysTable(c, []ui.APIKeyRow, ui.APIKeysOpts{...})` | the list, with the handle and never the key; `DateFormat` draws the created and last-used cells in the screen's own format |
+| `ui.APIKeysTable(c, []ui.APIKeyRow, ui.APIKeysOpts{...})` | the list, with the handle and never the key; `DateFormat` draws the created and last-used cells in the screen's own format, `LogFormat` the last-used one when it wants the hour |
 
 [`trilha add api-keys`](/reference/cli#trilha-add) writes the package, this screen and the test.
 
