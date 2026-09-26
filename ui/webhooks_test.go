@@ -204,3 +204,21 @@ func TestEntregaSemRespostaMostraOErro(t *testing.T) {
 		t.Fatal("mostrou status 0, que não quer dizer nada para quem lê")
 	}
 }
+
+// #288: as datas das assinaturas e das entregas saem pelo formatador da tela;
+// uma data zero continua sendo o traço do kit.
+func TestPainelDateFormatSobrescreveAsDatas(t *testing.T) {
+	subs, dels := assinaturas(), entregas()
+	subs[1].Created = time.Time{}
+	got, _ := desenha(t, func(c *trilha.Ctx) h.Node {
+		o := opcoes(c)
+		o.DateFormat = func(_ *trilha.Ctx, t time.Time) h.Node { return h.Text("quando-" + t.Format("2006")) }
+		return WebhooksPanel(c, subs, dels, o)
+	})
+	if n := strings.Count(got, "quando-"); n != 1+len(dels) {
+		t.Fatalf("o formatador desenhou %d datas, quero %d:\n%s", n, 1+len(dels), got)
+	}
+	if strings.Contains(got, "<time") {
+		t.Fatalf("sobrou a data do kit:\n%s", got)
+	}
+}

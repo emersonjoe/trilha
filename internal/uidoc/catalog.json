@@ -84,6 +84,11 @@
         "name": "UsageDays",
         "type": "int",
         "doc": "UsageDays names the window in that column's header — \"calls (30 d)\"."
+      },
+      {
+        "name": "DateFormat",
+        "type": "func(*trilha.Ctx, time.Time) h.Node",
+        "doc": "DateFormat draws the created and last-used cells instead of ui.Date, for a screen that writes dates in the product's own format and should not show two formats side by side."
       }
     ]
   },
@@ -4026,6 +4031,11 @@
         "name": "Secret",
         "type": "string",
         "doc": "Secret is the plain secret of a subscription just created, shown once."
+      },
+      {
+        "name": "DateFormat",
+        "type": "func(*trilha.Ctx, time.Time) h.Node",
+        "doc": "DateFormat draws the date cells of both tables instead of ui.Date, for a screen that writes dates in the product's own format."
       }
     ]
   },

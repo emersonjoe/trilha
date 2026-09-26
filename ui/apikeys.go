@@ -80,6 +80,11 @@ type APIKeysOpts struct {
 	Usage bool
 	// UsageDays names the window in that column's header — "calls (30 d)".
 	UsageDays int
+	// DateFormat draws the created and last-used cells instead of ui.Date,
+	// for a screen that writes dates in the product's own format and should
+	// not show two formats side by side. Nil keeps ui.Date. It is not called
+	// for a zero time: "never" and the dash stay the kit's.
+	DateFormat func(*trilha.Ctx, time.Time) h.Node
 }
 
 // APIKeysTable lists the keys of an application: what each one is called, what
@@ -126,17 +131,25 @@ func APIKeysTable(c *trilha.Ctx, rows []APIKeyRow, opts ...APIKeysOpts) h.Node {
 			h.Td(h.Text(r.Name), h.If(r.Revoked, Badge(Outline(), h.Text(word(pt, "revoked", "revogada"))))),
 			h.Td(Code(r.Handle)),
 			h.Td(escopos(r.Scopes)),
-			h.Td(Date(c, r.Created, DateOnly())),
+			h.Td(dateCell(c, o.DateFormat, r.Created, DateOnly())),
 			// Never used is not the same as used long ago, and an empty cell
 			// says the first one better than a date from the epoch would.
 			h.Td(h.IfElse(r.LastUsed.IsZero(),
 				h.Span(h.Class("ui-muted"), h.Text(word(pt, "never", "nunca"))),
-				Date(c, r.LastUsed, Relative()))),
+				dateCell(c, o.DateFormat, r.LastUsed, Relative()))),
 			h.If(o.Usage, h.Td(Num(), h.Text(strconv.Itoa(r.Calls)))),
 			h.Td(revogar(o, r, pt)),
 		))
 	}
 	return Table(head, h.Tbody(body...))
+}
+
+// dateCell is ui.Date unless the screen brought its own format.
+func dateCell(c *trilha.Ctx, format func(*trilha.Ctx, time.Time) h.Node, t time.Time, def ...FormatOpt) h.Node {
+	if format != nil && !t.IsZero() {
+		return format(c, t)
+	}
+	return Date(c, t, def...)
 }
 
 // callsHeader names the window the number covers. A count with no window is a

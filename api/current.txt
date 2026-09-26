@@ -1920,6 +1920,7 @@ pkg ui, type APIKeyRow struct, Revoked bool
 pkg ui, type APIKeyRow struct, Scopes []string
 pkg ui, type APIKeysOpts struct
 pkg ui, type APIKeysOpts struct, CSRF h.Node
+pkg ui, type APIKeysOpts struct, DateFormat func(*trilha.Ctx, time.Time) h.Node
 pkg ui, type APIKeysOpts struct, Empty h.Node
 pkg ui, type APIKeysOpts struct, Revoke string
 pkg ui, type APIKeysOpts struct, Usage bool
@@ -2265,6 +2266,7 @@ pkg ui, type WebhookRow struct, URL string
 pkg ui, type WebhooksOpts struct
 pkg ui, type WebhooksOpts struct, Action string
 pkg ui, type WebhooksOpts struct, CSRF h.Node
+pkg ui, type WebhooksOpts struct, DateFormat func(*trilha.Ctx, time.Time) h.Node
 pkg ui, type WebhooksOpts struct, Events []string
 pkg ui, type WebhooksOpts struct, Secret string
 pkg ui, var Files

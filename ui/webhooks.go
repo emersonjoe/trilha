@@ -59,6 +59,10 @@ type WebhooksOpts struct {
 	// Secret is the plain secret of a subscription just created, shown once.
 	// webhook.TakeSecret(c) answers it, and answers "" every other time.
 	Secret string
+	// DateFormat draws the date cells of both tables instead of ui.Date, for a
+	// screen that writes dates in the product's own format. Nil keeps ui.Date;
+	// a zero time is the kit's dash either way.
+	DateFormat func(*trilha.Ctx, time.Time) h.Node
 }
 
 // WebhooksPanel is the screen an application gives whoever integrates with it:
@@ -144,7 +148,7 @@ func hookTable(c *trilha.Ctx, rows []WebhookRow, o WebhooksOpts, w map[string]st
 		linhas = append(linhas, h.Tr(
 			h.Td(h.Text(nome), h.Br(), Muted(Code(r.URL))),
 			h.Td(h.Text(eventos)),
-			h.Td(Date(c, r.Created, Relative())),
+			h.Td(dateCell(c, o.DateFormat, r.Created, Relative())),
 			h.Td(hookState(r, w)),
 			h.Td(hookButtons(r, o, w)),
 		))
@@ -200,7 +204,7 @@ func deliveryTable(c *trilha.Ctx, rows []DeliveryRow, o WebhooksOpts, w map[stri
 			h.Td(deliveryState(r, w)),
 			h.Td(h.Text(strconv.Itoa(r.Attempt))),
 			h.Td(deliveryAnswer(r, w)),
-			h.Td(Date(c, r.When, Relative())),
+			h.Td(dateCell(c, o.DateFormat, r.When, Relative())),
 			h.Td(deliveryRetry(r, o, w)),
 		))
 	}

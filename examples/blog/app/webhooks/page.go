@@ -7,6 +7,9 @@
 package webhooks
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
 	"github.com/emersonjoe/trilha/ui"
@@ -37,6 +40,10 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 			// O segredo de uma assinatura recém-criada, uma vez só. Fora
 			// desse instante isto é "".
 			Secret: webhook.TakeSecret(c),
+			// A data no formato do produto, o mesmo das outras telas, em vez
+			// do 11/09/2026 do kit: duas formas de data na mesma página é o
+			// que a opção existe para evitar (#288).
+			DateFormat: diaCurto,
 		}),
 	), nil
 }
@@ -69,4 +76,14 @@ func entregasDe(lista []webhook.Delivery) []ui.DeliveryRow {
 			When: d.Created, Next: d.NextTry, RetryOf: d.RetryOf})
 	}
 	return out
+}
+
+var meses = [...]string{"jan.", "fev.", "mar.", "abr.", "mai.", "jun.",
+	"jul.", "ago.", "set.", "out.", "nov.", "dez."}
+
+// diaCurto escreve "11 de set. de 2026", com o instante inteiro no datetime.
+func diaCurto(c *trilha.Ctx, t time.Time) h.Node {
+	t = t.In(c.Location())
+	texto := strconv.Itoa(t.Day()) + " de " + meses[t.Month()-1] + " de " + strconv.Itoa(t.Year())
+	return h.Time(h.Attr("datetime", t.Format(time.RFC3339)), h.Text(texto))
 }

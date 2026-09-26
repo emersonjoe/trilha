@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/emersonjoe/trilha"
+	"github.com/emersonjoe/trilha/h"
 )
 
 // O cartão do segredo tem de dizer a coisa que ninguém quer ler depois: é a
@@ -61,5 +64,24 @@ func TestAPIKeysTableRevogarLevaAAction(t *testing.T) {
 func TestAPIKeysTableSemChavesExplica(t *testing.T) {
 	if got := render(t, APIKeysTable(nil, nil)); !strings.Contains(got, "No keys yet") {
 		t.Fatalf("vazio:\n%s", got)
+	}
+}
+
+// #288: a tela que escreve data no formato do produto passa o formatador uma
+// vez e as duas colunas de data seguem; "nunca" continua sendo "nunca".
+func TestAPIKeysTableDateFormatSobrescreveAsDatas(t *testing.T) {
+	dia := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
+	rows := []APIKeyRow{
+		{ID: "k1", Handle: "abc", Name: "Usada", Created: dia, LastUsed: dia},
+		{ID: "k2", Handle: "def", Name: "Nova", Created: dia},
+	}
+	got := render(t, APIKeysTable(nil, rows, APIKeysOpts{
+		DateFormat: func(_ *trilha.Ctx, t time.Time) h.Node { return h.Text("dia " + t.Format("2")) },
+	}))
+	if n := strings.Count(got, "dia 11"); n != 3 {
+		t.Fatalf("o formatador desenhou %d datas, quero 3:\n%s", n, got)
+	}
+	if strings.Contains(got, "<time") || !strings.Contains(got, "never") {
+		t.Fatalf("sobrou a data do kit ou sumiu o nunca:\n%s", got)
 	}
 }

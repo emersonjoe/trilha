@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -102,6 +103,9 @@ func esperaAte(t *testing.T, porque string, cond func() bool) {
 	t.Fatalf("esperei demais por: %s", porque)
 }
 
+// diaCurtoRe é "11 de set. de 2026" dentro de um <time>.
+var diaCurtoRe = regexp.MustCompile(`<time datetime="[^"]+">\d{1,2} de [a-z]{3}\. de \d{4}</time>`)
+
 // #112 — o ciclo inteiro: alguém cadastra o endereço pela tela, o
 // processamento termina, e o parceiro recebe o evento assinado.
 func TestCadastrarPelaTelaEReceberOEvento(t *testing.T) {
@@ -120,6 +124,10 @@ func TestCadastrarPelaTelaEReceberOEvento(t *testing.T) {
 	segredo := entreAspas(t, corpo, "whsec_")
 	if !strings.Contains(corpo, "ui-secret-once") {
 		t.Fatalf("o segredo não foi mostrado:\n%s", primeiros(corpo, 600))
+	}
+	// #288: a data da assinatura sai no formato do produto, não no do kit.
+	if !diaCurtoRe.MatchString(corpo) || regexp.MustCompile(`<time[^>]*title=`).MatchString(corpo) {
+		t.Fatalf("a data não passou pelo DateFormat da tela:\n%s", primeiros(corpo, 600))
 	}
 	if depois := c.Get("/webhooks").Body.String(); strings.Contains(depois, "whsec_") {
 		t.Fatal("o segredo apareceu de novo; ele existe para um render só")
