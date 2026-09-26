@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/emersonjoe/trilha/h"
+	"github.com/emersonjoe/trilha/task"
 )
 
 // ErrNotConfigured is what Send answers in production when no server was
@@ -52,9 +53,25 @@ type Options struct {
 	// Transport is where messages go. nil means the dev directory when
 	// TRILHA_ENV is dev, and nothing at all otherwise — see ErrNotConfigured.
 	Transport Transport
-	// Timeout bounds the whole delivery (default 10 s). It is a deadline on
-	// the context, so a handler that gives up hangs up.
+	// Timeout bounds one delivery attempt (default 10 s). It is a deadline on
+	// the context, so a handler that gives up hangs up. A server that checks
+	// for spam while it receives — an authenticated submission on 465 is often
+	// one — can take longer than that: with Tasks set nobody waits for it, so
+	// raise it freely.
 	Timeout time.Duration
+	// Tasks makes Send asynchronous: the message is built at once — a bad
+	// address is still an error at Send — then queued on this runner, and
+	// Send returns. A temporary failure (a 4xx answer, a timeout, a server that
+	// did not answer) is tried again after each wait in Backoff; a permanent
+	// one (5xx) is not. The task shows on the runner's screens as "mail.send".
+	//
+	// The message waits in this process's memory, because a task carries no
+	// payload: a restart before delivery loses it, and the runner records the
+	// task as interrupted. That is the task package's shape, said out loud.
+	Tasks *task.Tasks
+	// Backoff is the wait before each new attempt when Tasks is set (default
+	// 5 s, 30 s, 2 min: four attempts in all).
+	Backoff []time.Duration
 	// Logger receives one line per message (default slog.Default()).
 	Logger *slog.Logger
 }
@@ -66,6 +83,8 @@ type Mailer struct {
 	transport Transport
 	timeout   time.Duration
 	log       *slog.Logger
+	tasks     *task.Tasks
+	backoff   []time.Duration
 }
 
 // New builds a Mailer. It touches no network and reads no file, so it belongs
@@ -78,6 +97,13 @@ func New(o Options) *Mailer {
 	}
 	if m.log == nil {
 		m.log = slog.Default()
+	}
+	if o.Tasks != nil {
+		m.tasks, m.backoff = o.Tasks, o.Backoff
+		if m.backoff == nil {
+			m.backoff = []time.Duration{5 * time.Second, 30 * time.Second, 2 * time.Minute}
+		}
+		handle(o.Tasks)
 	}
 	return m
 }
@@ -107,10 +133,12 @@ type Message struct {
 	Headers map[string]string
 }
 
-// Send builds the message and hands it to the transport. It blocks until the
-// server accepted it or the deadline passed: delivery is not asynchronous yet,
-// and a handler that sends mail on the request path should be doing something
-// a person is waiting for.
+// Send builds the message and hands it to the transport. Without
+// Options.Tasks it blocks until the server accepted it or the deadline passed.
+// With Tasks it returns once the message is queued, and delivery — with its
+// new attempts — happens on the runner; what Send still answers is everything
+// that can be known without the server: no transport, no sender, no
+// recipients, a header that does not parse, a full queue.
 func (m *Mailer) Send(ctx context.Context, msg Message) error {
 	if m.transport == nil {
 		return ErrNotConfigured
@@ -129,22 +157,31 @@ func (m *Mailer) Send(ctx context.Context, msg Message) error {
 	if len(envelope) == 0 {
 		return errors.New("mail: no recipients")
 	}
+	j := &job{m: m, subject: msg.Subject, from: address(from), to: envelope, raw: raw}
+	if m.tasks != nil {
+		return m.enqueue(j)
+	}
 	// A nil context is a mistake, and panicking inside package context for it
 	// hands back a stack trace that points at context.go. It happens from a
 	// background job, where there was never a request to take one from.
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	return m.deliver(ctx, j)
+}
+
+// deliver is one attempt, bounded by the timeout, with its line in the log.
+func (m *Mailer) deliver(ctx context.Context, j *job) error {
 	ctx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
 
 	start := time.Now()
-	if err := m.transport.Deliver(ctx, address(from), envelope, raw); err != nil {
-		m.log.Error("mail", "subject", msg.Subject, "to", strings.Join(envelope, ","),
+	if err := m.transport.Deliver(ctx, j.from, j.to, j.raw); err != nil {
+		m.log.Error("mail", "subject", j.subject, "to", strings.Join(j.to, ","),
 			"took", time.Since(start).Round(time.Millisecond), "err", err)
-		return fmt.Errorf("mail: sending %q: %w", msg.Subject, err)
+		return fmt.Errorf("mail: sending %q: %w", j.subject, err)
 	}
-	m.log.Info("mail", "subject", msg.Subject, "to", strings.Join(envelope, ","),
+	m.log.Info("mail", "subject", j.subject, "to", strings.Join(j.to, ","),
 		"took", time.Since(start).Round(time.Millisecond))
 	return nil
 }
