@@ -101,6 +101,37 @@ the test.
 
 @demo ui-aprovacoes
 
+## Decision links
+
+Approval without an account — "confirm your subscription", "approve the payment", the owner of a
+site with no login approving a trial from an e-mail. Whoever holds the link decides, once.
+
+```go
+token, err := q.Link(ctx, id, approval.LinkOptions{To: "owner@org.br", TTL: 7 * 24 * time.Hour})
+// mail "https://site/aprovar/" + token
+
+func (q *Approvals) ByLink(c *trilha.Ctx, token string) (Record, error)            // GET: shows
+func (q *Approvals) DecideByLink(c *trilha.Ctx, token, state, reason string) error // POST: decides
+```
+
+The page is yours, in `app/aprovar/{token}/page.go`, where every other page lives: `Page` calls
+`ByLink`, the `POST` calls `DecideByLink`. **GET only shows** — the link preview of a mail client
+fetches the address, and fetching must not approve anything; the decision is a POST, which a page
+route checks for CSRF.
+
+- The token is 32 random bytes; the store keeps its SHA-256 (`Link.Hash`), never the token.
+- **Single use**: `DecideByLink` takes the link before deciding, so two clicks are one decision;
+  afterwards the address answers 404. So does an unknown, expired or no-longer-pending one — the
+  same `ErrLinkInvalid`, because saying which tells a guesser how close they got.
+- The decision is recorded as `By: "link:owner@org.br"`, in the record and in the audit trail.
+- Both calls set `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and
+  `X-Robots-Tag: noindex`: the address is the credential.
+- `TTL` defaults to 7 days, and the deadline clock forgets expired links. A request that nobody
+  decides still expires by its own `Due`.
+
+Links live in the `Store` when it also implements `LinkStore` (`Memory()` does), and in memory
+otherwise.
+
 ## Store
 
 `Memory()` is the default and the right one for a single process. A table behind the same three

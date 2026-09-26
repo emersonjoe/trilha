@@ -46,6 +46,7 @@ pkg trilha, func Idempotent(*Ctx, time.Duration) (bool, error)
 pkg trilha, func Limit(float64, int) MiddlewareFunc
 pkg trilha, func LoadCatalog(fs.FS, string) (*Catalog, error)
 pkg trilha, func LookupEnum(string) (Enum, bool)
+pkg trilha, func Lookup[T any](Bag) (T, bool)
 pkg trilha, func New(Config) *App
 pkg trilha, func NewConnections(ConnectionsOpts) *Connections
 pkg trilha, func NewHint(string, error) *Hint
@@ -947,10 +948,13 @@ pkg approval, func Memory() Store
 pkg approval, func New(Options) *Approvals
 pkg approval, func Role(string) Assignee
 pkg approval, func User(string) Assignee
+pkg approval, method (*Approvals) ByLink(*trilha.Ctx, string) (Record, error)
 pkg approval, method (*Approvals) Decide(*trilha.Ctx, string, string, string) error
+pkg approval, method (*Approvals) DecideByLink(*trilha.Ctx, string, string, string) error
 pkg approval, method (*Approvals) Expire(context.Context) int
 pkg approval, method (*Approvals) Get(context.Context, string) (Record, error)
 pkg approval, method (*Approvals) Inbox(*trilha.Ctx, ListParams) ([]Record, error)
+pkg approval, method (*Approvals) Link(context.Context, string, LinkOptions) (string, error)
 pkg approval, method (*Approvals) List(context.Context, ListParams) ([]Record, error)
 pkg approval, method (*Approvals) MayDecide(*trilha.Ctx, Record) bool
 pkg approval, method (*Approvals) On(string, func(*trilha.Ctx, Record) error)
@@ -962,6 +966,19 @@ pkg approval, type Approvals struct
 pkg approval, type Assignee struct
 pkg approval, type Assignee struct, Role string
 pkg approval, type Assignee struct, User string
+pkg approval, type Link struct
+pkg approval, type Link struct, Expires time.Time
+pkg approval, type Link struct, Hash string
+pkg approval, type Link struct, ID string
+pkg approval, type Link struct, To string
+pkg approval, type LinkOptions struct
+pkg approval, type LinkOptions struct, TTL time.Duration
+pkg approval, type LinkOptions struct, To string
+pkg approval, type LinkStore interface
+pkg approval, type LinkStore interface, GetLink(context.Context, string) (Link, error)
+pkg approval, type LinkStore interface, PurgeLinks(context.Context, time.Time) (int, error)
+pkg approval, type LinkStore interface, SaveLink(context.Context, Link) error
+pkg approval, type LinkStore interface, TakeLink(context.Context, string) (Link, error)
 pkg approval, type ListParams struct
 pkg approval, type ListParams struct, Kind string
 pkg approval, type ListParams struct, Limit int
@@ -1007,6 +1024,7 @@ pkg approval, type Vote struct, By string
 pkg approval, type Vote struct, Reason string
 pkg approval, type Vote struct, State string
 pkg approval, var ErrAlreadyVoted
+pkg approval, var ErrLinkInvalid
 pkg approval, var ErrNotYours
 pkg approval, var ErrUnknown
 pkg approval, var States
@@ -1500,6 +1518,7 @@ pkg h, func Width(string) Node
 pkg h, type Node interface
 pkg h, type Node interface, Render(io.Writer) error
 pkg h, var Nil Node
+pkg mail, const TaskName
 pkg mail, func Button(string, string) h.Node
 pkg mail, func FromEnv() Options
 pkg mail, func Layout(string, ...h.Node) h.Node
@@ -1526,8 +1545,10 @@ pkg mail, type Message struct, Subject string
 pkg mail, type Message struct, Text string
 pkg mail, type Message struct, To []string
 pkg mail, type Options struct
+pkg mail, type Options struct, Backoff []time.Duration
 pkg mail, type Options struct, From string
 pkg mail, type Options struct, Logger *slog.Logger
+pkg mail, type Options struct, Tasks *task.Tasks
 pkg mail, type Options struct, Timeout time.Duration
 pkg mail, type Options struct, Transport Transport
 pkg mail, type Outbox struct

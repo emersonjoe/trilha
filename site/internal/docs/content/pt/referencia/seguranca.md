@@ -151,7 +151,7 @@ assim.
 | `c.Signed(nome) (string, bool)` | lê e verifica assinatura e prazo |
 | `c.ClearCookie(nome)` | expira um cookie |
 | `trilha.NewSigner(chaves...)`, `Sign`, `Verify` | o assinador (HMAC-SHA256) para uso direto |
-| `Config.Secret`, `Config.PreviousSecret` | `TRILHA_SECRET`, `TRILHA_SECRET_PREVIOUS` (base64 ou texto, pelo menos `trilha.MinSecretLen` bytes — 32; menor que isso em `prod` é o hint `trilha.ErrSecretShort`) |
+| `Config.Secret`, `Config.PreviousSecret` | `TRILHA_SECRET`, `TRILHA_SECRET_PREVIOUS`, ou o arquivo que cada `_FILE` aponta (base64 ou texto, pelo menos `trilha.MinSecretLen` bytes — 32; menor que isso em `prod` é o hint `trilha.ErrSecretShort`) |
 
 Sem segredo: em `dev` uma chave efêmera é gerada (o `trilha dev` mantém uma por sessão); em
 `prod` o app avisa no log e `SetSigned` devolve `ErrNoSecret`.

@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.147.0)
+## Onde o Trilha está (setembro de 2026, v0.148.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -348,6 +348,10 @@ stores SQL de billing e notify são a spec 166.
 store como interface (memória e `database/sql`), ligadas ao `trilha add store` em qualquer ordem,
 contratos que seguram as duas no mesmo comportamento e o módulo `sqltest/` provando em SQLite e
 num cluster PostgreSQL temporário; `make test-sql` e o job `sql` da CI.
+136. **Segredos, e-mail assíncrono e aprovação por link** (spec 167, **entregue na 0.148.0**):
+os `_FILE` dos segredos (#283), `trilha.Lookup` (#284), `mail.Options.Tasks` com novas
+tentativas só para erro temporário (#286) e o link de decisão de uso único do `approval` (#285).
+A medição da série do bench volta a rodar: o workspace leva as fixtures.
 
 ## O que não vamos fazer, e por quê
 

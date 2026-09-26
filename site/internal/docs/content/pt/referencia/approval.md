@@ -101,6 +101,38 @@ teste.
 
 @demo ui-aprovacoes
 
+## Links de decisão
+
+Aprovação sem conta — "confirme sua inscrição", "aprove o pagamento", o dono de um site sem login
+aprovando um teste grátis pelo e-mail. Quem tem o link decide, uma vez.
+
+```go
+token, err := q.Link(ctx, id, approval.LinkOptions{To: "dono@org.br", TTL: 7 * 24 * time.Hour})
+// mande "https://site/aprovar/" + token
+
+func (q *Approvals) ByLink(c *trilha.Ctx, token string) (Record, error)            // GET: mostra
+func (q *Approvals) DecideByLink(c *trilha.Ctx, token, state, reason string) error // POST: decide
+```
+
+A página é sua, em `app/aprovar/{token}/page.go`, onde moram as outras: o `Page` chama `ByLink`,
+o `POST` chama `DecideByLink`. **GET só mostra** — a pré-visualização de link do cliente de e-mail
+busca o endereço, e buscar não pode aprovar nada; a decisão é um POST, que a rota de página
+confere com CSRF.
+
+- O token tem 32 bytes aleatórios; o store guarda o SHA-256 dele (`Link.Hash`), nunca o token.
+- **Uso único**: `DecideByLink` consome o link antes de decidir, então dois cliques são uma
+  decisão; depois, o endereço responde 404. Também o desconhecido, o vencido e o de pedido que não
+  está mais pendente — o mesmo `ErrLinkInvalid`, porque dizer qual conta a quem chuta o quanto
+  chegou perto.
+- A decisão fica registrada como `By: "link:dono@org.br"`, no registro e na trilha de auditoria.
+- As duas chamadas põem `Cache-Control: no-store`, `Referrer-Policy: no-referrer` e
+  `X-Robots-Tag: noindex`: o endereço é a credencial.
+- O `TTL` padrão é 7 dias, e o relógio de prazos esquece os links vencidos. Um pedido que ninguém
+  decide continua expirando pelo próprio `Due`.
+
+Os links moram no `Store` quando ele também implementa `LinkStore` (o `Memory()` implementa), e
+em memória nos outros casos.
+
 ## Store
 
 `Memory()` é o padrão e o certo para um processo só. Uma tabela atrás dos mesmos três métodos —

@@ -149,7 +149,7 @@ code that does not exist gets. `trilha add public-lookup` is the whole screen bu
 | `c.Signed(name) (string, bool)` | reads and verifies signature and expiry |
 | `c.ClearCookie(name)` | expires a cookie |
 | `trilha.NewSigner(keys...)`, `Sign`, `Verify` | the signer (HMAC-SHA256) for direct use |
-| `Config.Secret`, `Config.PreviousSecret` | `TRILHA_SECRET`, `TRILHA_SECRET_PREVIOUS` (base64 or text, at least `trilha.MinSecretLen` bytes — 32; a shorter one in `prod` is the hint `trilha.ErrSecretShort`) |
+| `Config.Secret`, `Config.PreviousSecret` | `TRILHA_SECRET`, `TRILHA_SECRET_PREVIOUS`, or the file each `_FILE` names (base64 or text, at least `trilha.MinSecretLen` bytes — 32; a shorter one in `prod` is the hint `trilha.ErrSecretShort`) |
 
 Without a secret: in `dev` an ephemeral key is generated (`trilha dev` keeps one per
 session); in `prod` the app warns in the log and `SetSigned` returns `ErrNoSecret`.

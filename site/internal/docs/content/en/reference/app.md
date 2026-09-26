@@ -21,7 +21,7 @@ type Config struct {
 	Security     Security     // headers (see Security)
 	TrustedProxies []string   // CIDRs; TRILHA_TRUSTED_PROXIES
 	RateLimit    RateLimit    // global per-client limit
-	Secret, PreviousSecret []byte // TRILHA_SECRET, TRILHA_SECRET_PREVIOUS
+	Secret, PreviousSecret []byte // TRILHA_SECRET, TRILHA_SECRET_PREVIOUS (or their _FILE)
 	Timeouts     Timeouts     // http.Server limits (trilha.NoTimeout disables one)
 	StaticCacheControl string // Cache-Control of static files in prod ("public, max-age=3600")
 	StaticHeaders func(name string, hdr http.Header) // headers per static file
@@ -278,6 +278,7 @@ typo in the layout does not take the page down. `ui.Head` and the examples alrea
 | `SetRootLayout(fn)`, `SetNotFound(fn)`, `SetErrorPage(fn)` | wire the root files; the handlers are a `PageFunc` and an `ErrorPageFunc`, which is what the generated file passes |
 | `trilha.Provide[T](a, v)` | files a dependency under its type (see "Dependencies") |
 | `trilha.Use[T](b) T` | reads it back from a `trilha.Bag` — the interface a `*Ctx` and an `*App` implement, and only those two, so a handler and a `Setup` read the same dependency the same way |
+| `trilha.Lookup[T](b) (T, bool)` | `Use` for an optional dependency: `false` when nothing was provided, instead of a panic |
 | `Values() map[string]any` | global values set in `Setup`, by name and untyped |
 | `Logger() *slog.Logger` | the logger |
 | `Env() Env` | environment |
@@ -354,6 +355,16 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 of a handler or the `*App` itself — which is what `Setup` and a test have in hand. A type
 nobody provided panics at the call, naming the type, instead of turning up later as a nil
 somewhere else.
+
+Optional? `Lookup`. A service provided only when its configuration is present is asked
+about, not assumed — the provision stays the one answer to "is it on?":
+
+```go
+if t, ok := trilha.Lookup[*trial.Service](c); ok {
+	return t.Start(c)
+}
+return c.Redirect("/contact")
+```
 
 The type is the key, so a seam is declared by writing it out: `trilha.Provide[Mailer](a,
 SMTPMailer{...})` files an interface, and the handler asking `Use[Mailer](c)` never learns

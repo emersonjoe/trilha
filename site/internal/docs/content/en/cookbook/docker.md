@@ -61,6 +61,13 @@ A secret baked into the image is a secret in the registry, and in every layer ca
 pulled it. Rotating one is `TRILHA_SECRET_PREVIOUS` with the old value for a deploy or two, so
 sessions signed with the old key keep working while they expire.
 
+A variable is visible in `docker inspect`, in `/proc/<pid>/environ` and in a crash dump. The
+`secrets:` of compose and Swarm are files in `/run/secrets`, and every secret the framework reads
+takes a `_FILE` twin — `TRILHA_SECRET_FILE`, `TRILHA_SECRET_PREVIOUS_FILE`,
+`TRILHA_MAIL_URL_FILE`, `TRILHA_MAIL_PASSWORD_FILE` (the URL then goes without its password). The
+file is read once at boot and trimmed; both forms set is a panic, because which one wins is not
+something to find out in production.
+
 ## Compose
 
 ```yaml

@@ -21,7 +21,7 @@ type Config struct {
 	Security     Security     // cabeçalhos (veja Segurança)
 	TrustedProxies []string   // CIDRs; TRILHA_TRUSTED_PROXIES
 	RateLimit    RateLimit    // limite global por cliente
-	Secret, PreviousSecret []byte // TRILHA_SECRET, TRILHA_SECRET_PREVIOUS
+	Secret, PreviousSecret []byte // TRILHA_SECRET, TRILHA_SECRET_PREVIOUS (ou os _FILE)
 	Timeouts     Timeouts     // limites do http.Server (trilha.NoTimeout desliga um)
 	StaticCacheControl string // Cache-Control dos estáticos em prod ("public, max-age=3600")
 	StaticHeaders func(name string, hdr http.Header) // cabeçalhos por arquivo estático
@@ -273,6 +273,7 @@ digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `
 | `SetRootLayout(fn)`, `SetNotFound(fn)`, `SetErrorPage(fn)` | ligam os arquivos da raiz; os handlers são um `PageFunc` e um `ErrorPageFunc`, que é o que o arquivo gerado passa |
 | `trilha.Provide[T](a, v)` | guarda uma dependência sob o tipo dela (veja "Dependências") |
 | `trilha.Use[T](b) T` | lê de volta de um `trilha.Bag` — a interface que um `*Ctx` e um `*App` implementam, e só esses dois, para um handler e um `Setup` lerem a mesma dependência do mesmo jeito |
+| `trilha.Lookup[T](b) (T, bool)` | o `Use` de uma dependência opcional: `false` quando nada foi provido, em vez de pânico |
 | `Values() map[string]any` | valores globais definidos em `Setup`, por nome e sem tipo |
 | `Logger() *slog.Logger` | o logger |
 | `Env() Env` | ambiente |
@@ -351,6 +352,16 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 handler quanto o próprio `*App` — que é o que `Setup` e um teste têm na mão. Um tipo que
 ninguém proveu estoura na chamada, dizendo qual tipo é, em vez de aparecer depois como um nil
 em outro lugar.
+
+Opcional? `Lookup`. Um serviço provido só quando a configuração dele existe é perguntado, não
+presumido — o `Provide` continua sendo a única resposta para "está ligado?":
+
+```go
+if t, ok := trilha.Lookup[*teste.Servico](c); ok {
+	return t.Iniciar(c)
+}
+return c.Redirect("/contato")
+```
 
 O tipo é a chave, então uma costura se declara escrevendo o tipo: `trilha.Provide[Mailer](a,
 SMTPMailer{...})` guarda uma interface, e o handler que pede `Use[Mailer](c)` nunca fica

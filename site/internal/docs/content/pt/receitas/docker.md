@@ -61,6 +61,13 @@ Um segredo assado na imagem é um segredo no registry, e em todo cache de camada
 ela. Rodar a chave é `TRILHA_SECRET_PREVIOUS` com o valor antigo por um deploy ou dois, para
 que sessões assinadas com a chave velha continuem valendo enquanto expiram.
 
+Uma variável aparece no `docker inspect`, em `/proc/<pid>/environ` e no dump de um crash. Os
+`secrets:` do compose e do Swarm são arquivos em `/run/secrets`, e todo segredo que o framework lê
+aceita um gêmeo `_FILE` — `TRILHA_SECRET_FILE`, `TRILHA_SECRET_PREVIOUS_FILE`,
+`TRILHA_MAIL_URL_FILE`, `TRILHA_MAIL_PASSWORD_FILE` (aí a URL vai sem a senha). O arquivo é lido
+uma vez, no boot, sem espaços nas pontas; as duas formas ao mesmo tempo são pânico, porque qual
+delas vale não é coisa para descobrir em produção.
+
 ## Compose
 
 ```yaml

@@ -16,15 +16,36 @@ func FromEnv() Options                                       // a partir do TRIL
 func (m *Mailer) Send(ctx context.Context, msg Message) error
 ```
 
-O `New` mora numa var de pacote, junto do resto do setup do app. O `Send` bloqueia até o
-servidor aceitar ou o prazo vencer, e pode ser chamado de várias goroutines.
+O `New` mora numa var de pacote, junto do resto do setup do app. Sem `Tasks`, o `Send` bloqueia
+até o servidor aceitar ou o prazo vencer, e pode ser chamado de várias goroutines.
 
 | `Options` | Padrão | O que faz |
 |---|---|---|
 | `From string` | — | o remetente, `"no-reply@org.br"` ou `"Acervo <no-reply@org.br>"` |
 | `Transport Transport` | do ambiente | para onde vão as mensagens; `nil` em produção é `ErrNotConfigured` |
-| `Timeout time.Duration` | 10 s | limita a entrega inteira, como prazo no context |
-| `Logger *slog.Logger` | `slog.Default()` | uma linha por mensagem, com assunto, destinatários e quanto demorou |
+| `Timeout time.Duration` | 10 s | limita uma tentativa de entrega, como prazo no context — servidor com antispam no envio passa disso; com `Tasks` ninguém espera, então suba à vontade |
+| `Logger *slog.Logger` | `slog.Default()` | uma linha por tentativa, com assunto, destinatários e quanto demorou |
+| `Tasks *task.Tasks` | — | deixa o `Send` assíncrono: monta, enfileira no runner como `mail.TaskName` (`"mail.send"`) e volta |
+| `Backoff []time.Duration` | 5 s, 30 s, 2 min | a espera antes de cada nova tentativa quando há `Tasks` |
+
+## Envio assíncrono
+
+```go
+var Tarefas = task.New(task.Options{})
+var Mail = mail.New(mail.Options{From: "no-reply@org.br", Transport: t, Tasks: Tarefas})
+```
+
+Um formulário não deveria esperar 8 segundos por um SMTP com antispam no envio. Com `Tasks`, o
+`Send` continua devolvendo o que dá para saber sem o servidor — sem transporte, sem remetente, sem
+destinatário, cabeçalho que não se lê, fila cheia — e volta. O runner entrega: falha
+**temporária** (resposta 4xx, timeout, servidor que não respondeu) é tentada de novo depois de
+cada espera do `Backoff`; falha **permanente** (5xx) não, porque insistir é como um remetente vai
+parar numa lista de bloqueio. Um `Transport` seu marca os erros dele com um método
+`Temporary() bool`.
+
+A mensagem espera na memória deste processo, porque tarefa não carrega payload: um reinício antes
+da entrega a perde, e o runner registra a tarefa como interrompida. É o formato do pacote
+[task](/pt/referencia/task), dito em voz alta — caixa de saída durável é trabalho do provedor.
 
 ## O ambiente
 
@@ -33,6 +54,11 @@ TRILHA_MAIL_URL='smtp://usuario:senha@smtp.org.br:587?from=Acervo <no-reply@org.
 TRILHA_MAIL_URL='smtps://usuario:senha@smtp.org.br'  # TLS implícito, porta 465
 TRILHA_MAIL_FROM='Acervo <no-reply@org.br>'          # ou o from= acima
 TRILHA_MAIL_DIR=mail                                 # só em dev, padrão ./mail
+
+# a senha fora do ambiente, dos secrets do compose/Swarm:
+TRILHA_MAIL_URL_FILE=/run/secrets/mail_url           # a URL inteira num arquivo, ou
+TRILHA_MAIL_URL='smtps://usuario@smtp.org.br'        # a URL sem a senha e
+TRILHA_MAIL_PASSWORD_FILE=/run/secrets/mail_password # a senha num arquivo
 ```
 
 Vazio, o comportamento depende do `TRILHA_ENV`: em **dev** escreve `.eml` em `./mail` e diz
@@ -42,7 +68,9 @@ usuários nunca são convidados.
 
 URL que ele não consegue ler é panic no boot, e não um remetente fazendo outra coisa. Para
 autenticar em canal aberto, `?insecure_auth=1` — escrito por extenso, porque uma flag que
-desliga uma checagem de cifra tem de ser legível no arquivo que a define.
+desliga uma checagem de cifra tem de ser legível no arquivo que a define. Os arquivos são lidos
+uma vez, sem espaços nas pontas; a mesma coisa definida duas vezes (a URL e o arquivo dela, senha
+na URL e num arquivo) também é panic.
 
 ## Message
 
@@ -164,10 +192,10 @@ O `ErrNotConfigured` é produção sem servidor. É erro, e não um arquivo escr
 porque aplicação que reporta sucesso para uma mensagem que nunca saiu é aplicação que ninguém
 depura até um cliente perguntar.
 
-O `trilha audit` avisa quando o código manda e-mail e o `TRILHA_MAIL_URL` está vazio.
+O `trilha audit` avisa quando o código manda e-mail e o `TRILHA_MAIL_URL` está vazio, e quando o
+`TRILHA_MAIL_URL` carrega senha fora de dev.
 
 ## O que não está aqui
 
-Envio assíncrono, fila persistente, retentativa, DKIM, anexo e IMAP. O primeiro chega com o
-módulo de tarefas; o resto é trabalho do servidor de e-mail e do provedor, não de um módulo de
+Fila persistente, DKIM, anexo e IMAP. É trabalho do servidor de e-mail e do provedor, não de um módulo de
 setecentas linhas.

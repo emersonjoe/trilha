@@ -16,15 +16,36 @@ func FromEnv() Options                                       // from TRILHA_MAIL
 func (m *Mailer) Send(ctx context.Context, msg Message) error
 ```
 
-`New` belongs in a package-level var next to the rest of the app's setup. `Send` blocks until
-the server accepted the message or the deadline passed; it is safe for concurrent use.
+`New` belongs in a package-level var next to the rest of the app's setup. Without `Tasks`,
+`Send` blocks until the server accepted the message or the deadline passed; it is safe for
+concurrent use.
 
 | `Options` | Default | What it does |
 |---|---|---|
 | `From string` | — | the sender, `"no-reply@org.br"` or `"Acervo <no-reply@org.br>"` |
 | `Transport Transport` | from the environment | where messages go; `nil` in production means `ErrNotConfigured` |
-| `Timeout time.Duration` | 10 s | bounds the whole delivery, as a deadline on the context |
-| `Logger *slog.Logger` | `slog.Default()` | one line per message, with the subject, the recipients and how long it took |
+| `Timeout time.Duration` | 10 s | bounds one delivery attempt, as a deadline on the context — a server that checks for spam while it receives can pass it; with `Tasks` nobody waits, so raise it freely |
+| `Logger *slog.Logger` | `slog.Default()` | one line per attempt, with the subject, the recipients and how long it took |
+| `Tasks *task.Tasks` | — | makes `Send` asynchronous: it builds, queues on the runner as `mail.TaskName` (`"mail.send"`) and returns |
+| `Backoff []time.Duration` | 5 s, 30 s, 2 min | the wait before each new attempt when `Tasks` is set |
+
+## Asynchronous delivery
+
+```go
+var Tarefas = task.New(task.Options{})
+var Mail = mail.New(mail.Options{From: "no-reply@org.br", Transport: t, Tasks: Tarefas})
+```
+
+A form should not wait 8 seconds for an SMTP server with send-side antispam. With `Tasks`, `Send`
+still answers what it can know without the server — no transport, no sender, no recipients, a
+header that does not parse, a full queue — and returns. The runner delivers: a **temporary**
+failure (a 4xx answer, a timeout, a server that did not answer) is tried again after each wait in
+`Backoff`; a **permanent** one (5xx) is not, because asking again is how a sender ends up on a
+block list. A `Transport` of your own marks its errors with a `Temporary() bool` method.
+
+The message waits in this process's memory, because a task carries no payload: a restart before
+delivery loses it, and the runner records the task as interrupted. That is the
+[task](/reference/task) package's shape, said out loud — a durable outbox is a provider's job.
 
 ## The environment
 
@@ -33,6 +54,11 @@ TRILHA_MAIL_URL='smtp://user:pass@smtp.org.br:587?from=Acervo <no-reply@org.br>'
 TRILHA_MAIL_URL='smtps://user:pass@smtp.org.br'      # implicit TLS, port 465
 TRILHA_MAIL_FROM='Acervo <no-reply@org.br>'          # or the from= above
 TRILHA_MAIL_DIR=mail                                 # dev only, default ./mail
+
+# the password out of the environment, from compose/Swarm secrets:
+TRILHA_MAIL_URL_FILE=/run/secrets/mail_url           # the whole URL in a file, or
+TRILHA_MAIL_URL='smtps://user@smtp.org.br'           # the URL without the password and
+TRILHA_MAIL_PASSWORD_FILE=/run/secrets/mail_password # the password in a file
 ```
 
 Unset, the behaviour depends on `TRILHA_ENV`: **dev** writes `.eml` files into `./mail` and
@@ -42,7 +68,9 @@ whose users are never invited.
 
 A URL it cannot read is a panic at boot rather than a mailer that does something else. Add
 `?insecure_auth=1` — spelled out, because a flag that turns off an encryption check should be
-readable in the file that sets it — to authenticate over a clear channel.
+readable in the file that sets it — to authenticate over a clear channel. The files are read once,
+trimmed; the same thing set twice (the URL and its file, a password in the URL and in a file) is a
+panic too.
 
 ## Message
 
@@ -164,10 +192,10 @@ that imports it registers the test flags in every binary of the project.
 somewhere, because an application that reports success for a message it never sent is one
 nobody debugs until a customer asks.
 
-`trilha audit` warns when the code sends mail and `TRILHA_MAIL_URL` is empty.
+`trilha audit` warns when the code sends mail and `TRILHA_MAIL_URL` is empty, and when
+`TRILHA_MAIL_URL` carries a password outside dev.
 
 ## Not here
 
-Asynchronous delivery, a persistent queue, retries, DKIM, attachments and IMAP. The first
-arrives with the task module; the rest belong to the mail server and the provider, not to a
+A persistent queue, DKIM, attachments and IMAP. They belong to the mail server and the provider, not to a
 module of seven hundred lines.

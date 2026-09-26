@@ -3,6 +3,45 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.148.0 — 2026-09-25
+
+Secrets from files, optional dependencies, mail off the request path and approval by link
+(spec 167, #283–#286), and the agent bench's series measurement runs again.
+
+### Added
+
+- **`TRILHA_SECRET_FILE`, `TRILHA_SECRET_PREVIOUS_FILE`, `TRILHA_MAIL_URL_FILE` and
+  `TRILHA_MAIL_PASSWORD_FILE`** (#283) — the secrets the framework reads can come from the files
+  compose and Swarm `secrets:` deliver, read once at boot and trimmed. Both forms set, or a file
+  that cannot be read, is a panic at boot. `trilha audit` reads the secret through its file and
+  warns when `TRILHA_MAIL_URL` carries a password outside dev.
+- **`trilha.Lookup[T](b) (T, bool)`** (#284) — `Use` for an optional dependency: `false` when
+  nothing was provided, so the provision is the one answer to "is it on?". `Use` is built on it.
+- **`mail.Options.Tasks` and `Backoff`** (#286) — with a `task` runner, `Send` builds the message,
+  queues it as `mail.TaskName` and returns; temporary failures (4xx, timeouts, a server that did
+  not answer) are tried again after 5 s, 30 s and 2 min, permanent ones (5xx) are not. The
+  pending message lives in memory: a restart before delivery loses it, and the task shows as
+  interrupted.
+- **Decision links in `approval`** (#285) — `Link(ctx, id, LinkOptions{To, TTL})` issues a
+  256-bit token stored as its SHA-256; `ByLink` shows (GET decides nothing), `DecideByLink`
+  decides once, recorded as `By: "link:<To>"`. Both mark the response `no-store`,
+  `no-referrer`, `noindex`; every failure is the same 404 `ErrLinkInvalid`; the deadline clock
+  forgets expired links. `LinkStore` is an optional interface of the `Store` (`Memory()`
+  implements it). The page is the app's, `app/aprovar/{token}/page.go`, so the POST gets the
+  page route's CSRF check.
+
+### Changed
+
+- **`mail.Options.Timeout` bounds one attempt** and says that a server with send-side antispam
+  can take longer than its 10 s default.
+
+### Fixed
+
+- **`bench/agent -measure` stopped at the first baseline run** with
+  `lstat …/bench/agent/baseline/comments: no such file or directory`: the read-only workspace left
+  out all of `bench/`, including the fixtures the builders read. It now carries
+  `bench/agent/apps` and `bench/agent/baseline`, and nothing else of `bench/`.
+
 ## 0.147.0 — 2026-09-25
 
 SQL stores for the platform recipes (spec 166): billing and notify keep their rows in the
