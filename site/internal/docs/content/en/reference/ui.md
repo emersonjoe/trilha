@@ -240,6 +240,7 @@ Client navigation is off until you ask for it, in two places:
 |---|---|
 | `ui.Navigate(id) h.Node` | marks a region: a click on a same-origin link inside it replaces element `#id` with the same element from the next page. An empty `id` means the marked element itself |
 | `ui.NoNavigate() h.Node` | keeps one link out of it (a download, another app, a route that must reload) |
+| `ui.NavigateFocus(mode) h.Node` | where the focus goes after a client navigation: `"h1"` (default, the region's first heading), `"region"` or `"none"`; the new title is announced either way |
 | `ui.NavigateScript(c) h.Node` | `<script defer src=ui.nav.js>`; put it once, in the layout of the area that uses it |
 
 What the browser keeps doing: the address in the bar is the one a normal navigation would

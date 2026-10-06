@@ -117,8 +117,11 @@ todo indicador daquele alvo. O alvo também ganha `aria-busy`, então um leitor 
 avisado sem nenhuma estilização sua. `trilha:pending` e `trilha:settled` disparam no
 `document` para o que o CSS não resolve.
 
-Um segundo clique num gatilho cujo alvo já está no ar é ignorado, então o `POST` não sai duas
-vezes — não há nada para ligar por causa disso.
+Uma segunda escrita — `POST`, `PUT`, `PATCH`, `DELETE` — num alvo que já tem uma no ar é
+ignorada, então o salvar não sai duas vezes. Uma segunda *leitura* é a intenção mais nova e
+vence: o `GET` no ar é abortado, então clicar em "2" e depois em "3" num paginador lento mostra
+a página 3, com a 3 na barra de endereço e uma entrada nova no histórico. As marcas de espera
+ficam até o último pedido assentar. Não há nada para ligar em nenhum dos casos.
 
 Onde o navegador tem `startViewTransition`, a substituição faz *crossfade* em vez de pular;
 onde não tem, ou onde o sistema pede menos movimento, nada muda. O `ui.NoTransition()`
@@ -142,8 +145,19 @@ document.addEventListener("trilha:swap", (e) => {
 });
 ```
 
-`window.ui.swap(id, html, status)` e `window.ui.hydrate(el)` estão expostos para quem
-precisar fazer a troca à mão.
+Logo antes de o elemento antigo sair, dispara `trilha:before-swap` com `e.detail.target`
+(ainda na página), `e.detail.id` e, numa navegação, `e.detail.url` — o lugar de parar um timer
+ou um observer que o seu script começou. Monte no `trilha:swap`, filtrando por
+`detail.target`; desmonte no `trilha:before-swap`; o que tem estado próprio é ilha.
+
+Os scripts que vêm dentro do elemento novo rodam, como rodariam na página inteira: cada
+`<script src>` da mesma origem uma vez por URL por documento — o runtime de uma ilha, o
+`ui.LiveScript`, um arquivo do seu app. Um `<script>` inline que veio numa resposta nunca
+roda: executar HTML de resposta é o caminho do XSS, e a CSP recusaria de qualquer jeito.
+Ponha o código num arquivo em `public/`.
+
+`window.ui.swap(id, html, status)`, `window.ui.hydrate(el)` e `window.ui.activate(el)` (os
+scripts acima) estão expostos para quem precisar fazer a troca à mão.
 
 ## A ilha: o que o fragmento não faz
 
@@ -186,9 +200,9 @@ Quatro coisas saem desse formato:
   CSP, e o runtime é cacheado como qualquer outro asset. Projeto que usa ilha sem esse
   arquivo leva um crítico do `trilha check`, porque a falha é silenciosa de outro jeito: o
   conteúdo de origem aparece e nada acontece.
-- **Uma ilha que chega dentro de um fragmento também monta.** O runtime ouve o
-  `trilha:swap`; quando ele ainda não está na página, o kit recria a tag que veio no
-  fragmento, porque um `<script>` escrito por `outerHTML` nunca roda.
+- **Uma ilha que chega dentro de um fragmento ou de uma navegação no cliente também monta.**
+  O runtime ouve o `trilha:swap`; quando ele ainda não está na página, o kit roda a tag que
+  veio com o conteúdo novo, porque um `<script>` escrito por `outerHTML` nunca roda.
 
 ### A porta de saída
 
@@ -238,10 +252,17 @@ ui.ButtonLink("/relatorio.pdf", ui.NoNavigate(), h.Text("Baixar"))
 
 O navegador mantém os costumes — Voltar e Avançar funcionam e restauram a rolagem da entrada
 para onde voltam, `Cmd`-clique abre aba, `target` e `download` passam intactos. O kit
-acrescenta `aria-busy` durante a espera, leva o foco para o que entrou e dispara
-`trilha:swap`, então uma ilha dentro da página nova monta. Um segundo clique cancela a
-primeira requisição; 5xx, redirecionamento ou página sem aquele id desiste e navega de
-verdade.
+acrescenta `aria-busy` durante a espera, roda os scripts que a região nova traz e dispara
+`trilha:swap`, então uma ilha, um `ui.Defer` ou um `ui.Poll` dentro da página nova funcionam.
+Um segundo clique cancela a primeira requisição; 5xx, redirecionamento ou página sem aquele id
+desiste e navega de verdade.
+
+A carga de uma página inteira é anunciada pelo leitor de tela; uma troca não é, então o kit
+anuncia: o foco vai para o primeiro `h1` da região nova, e uma região viva visualmente oculta,
+`#trilha-route-announcer`, lê o `<title>` novo (ou o título da seção, quando o `<title>` não
+mudou) — e fica quieta quando o `h1` que recebeu o foco já disse o mesmo. Voltar e Avançar
+anunciam do mesmo jeito. `ui.NavigateFocus("region")` ao lado do `ui.Navigate` mantém o foco
+na região, e `"none"` deixa onde estava.
 
 A regra de bolso: **fragmento** quando um handler responde um pedaço, **navegação** quando a
 resposta é uma página e a moldura em volta deve ficar.

@@ -1,4 +1,3 @@
-/* trilha ui e33d4316a4d27832 */
 // Kit ui do Trilha — comportamentos (sem dependências). Atualizado por `trilha ui`.
 (() => {
   const $ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -288,7 +287,10 @@
   // not a courtesy: nothing is marked until the threshold passes, so a request
   // that settles first leaves no trace on the page.
   const DEFAULT_PENDING_MS = 120;
-  const inFlight = new Set(); // by target id: two triggers are one request in dispute
+  // By target id, the request in the air: {ctl, write}. A newer read aborts an
+  // older one (#294); a write is never aborted and never sent twice.
+  const inFlight = new Map();
+  const marks = new Map(); // by target id, the request whose marks are on it
   const pendingBits = (id) => [
     document.getElementById(id),
     ...$(`[data-trilha-indicator="${CSS.escape(id)}"]`),
@@ -298,9 +300,13 @@
     return Number.isFinite(n) && n > 0 ? n : DEFAULT_PENDING_MS;
   };
   // pending arms the marks and returns the function that takes them off again,
-  // whatever the answer was.
+  // whatever the answer was — but only the newest request of a target does:
+  // an aborted one leaves the marks to the one still in the air.
   const pending = (id, trigger) => {
+    const me = {};
+    marks.set(id, me);
     const timer = setTimeout(() => {
+      if (marks.get(id) !== me) return;
       const els = pendingBits(id);
       els.forEach((el) => el.setAttribute("data-trilha-pending", ""));
       document.getElementById(id)?.setAttribute("aria-busy", "true");
@@ -309,9 +315,11 @@
     }, threshold(trigger));
     return () => {
       clearTimeout(timer);
+      trigger?.removeAttribute("data-trilha-pending");
+      if (marks.get(id) !== me) return;
+      marks.delete(id);
       pendingBits(id).forEach((el) => el.removeAttribute("data-trilha-pending"));
       document.getElementById(id)?.removeAttribute("aria-busy");
-      trigger?.removeAttribute("data-trilha-pending");
       document.dispatchEvent(new CustomEvent("trilha:settled", { detail: { target: document.getElementById(id), id } }));
     };
   };
@@ -328,22 +336,35 @@
     return vt.updateCallbackDone.then(() => out, () => out);
   };
 
-  // The island runtime is a file, and Ctx.Island links it with a <script src>.
-  // A script written by outerHTML never runs, so on a page that had no island
-  // the first one to arrive inside a fragment would sit there dead (#82). This
-  // re-creates that one tag, by its mark, and only while the runtime is absent:
-  // once it has loaded it listens to trilha:swap and mounts what arrives.
-  const runIslandRuntime = (root) => {
-    if (window.__trilhaIslands) return;
-    const tag = root.querySelector?.("script[data-trilha-islands]");
-    if (!tag || document.querySelector("script[data-trilha-islands][data-ran]")) return;
-    const s = document.createElement("script");
-    s.src = tag.getAttribute("src");
-    s.defer = true;
-    s.setAttribute("data-trilha-islands", "");
-    s.setAttribute("data-ran", "");
-    document.head.appendChild(s);
+  // A <script> written by outerHTML or taken from a DOMParser never runs, so a
+  // swap that brings an island, ui.LiveScript or a file of the app would leave
+  // it dead (#82, #290). activate re-creates each same-origin <script src> of
+  // root once per URL per document — the files listen to trilha:swap for what
+  // arrives later. An inline script is never re-run: HTML from a response
+  // that executes is the road to XSS, and the CSP would refuse it anyway.
+  const ran = new Set();
+  const activate = (root) => {
+    for (const old of root.querySelectorAll?.("script") || []) {
+      const url = old.src && new URL(old.getAttribute("src"), location.href);
+      if (old.hasAttribute("data-trilha-ran") || !/^(|module|(text|application)\/javascript)$/i.test(old.type)) continue;
+      if (!url || url.origin !== location.origin) {
+        console.warn("trilha: a script inside a swapped region runs only from a file of this site", old.src || "(inline)");
+        continue;
+      }
+      if (ran.has(url.href)) continue;
+      ran.add(url.href);
+      const s = document.createElement("script");
+      for (const a of ["type", "integrity", "crossorigin", "referrerpolicy"]) if (old.hasAttribute(a)) s.setAttribute(a, old.getAttribute(a));
+      s.nonce = old.nonce;
+      s.async = old.async; // a defer file keeps its order among the others
+      s.src = url.href;
+      s.setAttribute("data-trilha-ran", "");
+      old.replaceWith(s);
+    }
   };
+  // beforeSwap is the moment a page script takes down what it set up: the old
+  // element is still on the page.
+  const beforeSwap = (old, id, url) => document.dispatchEvent(new CustomEvent("trilha:before-swap", { detail: { target: old, id, url } }));
 
   const applySwap = (id, html, status) => {
     const old = document.getElementById(id);
@@ -353,6 +374,7 @@
     const key = inside ? (act.id || act.name || "") : "";
     const rel = inside && act.getAttribute("rel");
     const sel = key && act.selectionStart != null ? [act.selectionStart, act.selectionEnd] : null;
+    beforeSwap(old, id);
     old.outerHTML = html;
     const el = document.getElementById(id);
     if (!el) return false; // the fragment came back without the id: navigate instead
@@ -369,7 +391,7 @@
       }
     }
     hydrate(el);
-    runIslandRuntime(el);
+    activate(el);
     document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: el, status } }));
     return true;
   };
@@ -378,27 +400,35 @@
   // to be awaited: the transition calls back on the next frame.
   const swap = (id, html, status, trigger) => update(() => applySwap(id, html, status), trigger);
 
-  // ask returns false when the right thing to do is a real navigation.
+  // ask resolves "swapped", "skipped" (dropped, aborted, or the page already
+  // left) or "navigate", when the right thing to do is a real navigation. Only
+  // "swapped" may touch the history (#294).
   const ask = async (url, opts, id, trigger) => {
-    // A second trigger for a target already in the air is the same request in
-    // dispute: the POST must not go out twice.
-    if (inFlight.has(id)) return true;
-    inFlight.add(id);
+    const write = opts.method !== "GET", cur = inFlight.get(id);
+    // A second write is the same request in dispute: it must not go out
+    // twice. A read that meets a write waits for nothing; a newer intent
+    // aborts an older read.
+    if (cur?.write) return "skipped";
+    cur?.ctl.abort();
+    const me = { ctl: new AbortController(), write };
+    inFlight.set(id, me);
     const settle = pending(id, trigger);
     try {
-      const res = await fetch(url, { ...opts, headers: { "Trilha-Fragment": id }, credentials: "same-origin" });
+      const res = await fetch(url, { ...opts, headers: { "Trilha-Fragment": id }, credentials: "same-origin", signal: me.ctl.signal });
       const flash = res.headers.get("Trilha-Flash");
       if (flash) showFlashes(flash);
       const loc = res.headers.get("Trilha-Location");
-      if (loc) { location.assign(loc); return true; }
-      if (res.redirected) { location.assign(res.url); return true; }
-      if (res.status >= 500) return false;
-      return await swap(id, await res.text(), res.status, trigger);
-    } catch {
-      return false; // network is down: a normal navigation may still work
+      if (loc) { location.assign(loc); return "skipped"; }
+      if (res.redirected) { location.assign(res.url); return "skipped"; }
+      if (res.status >= 500) return "navigate";
+      const html = await res.text();
+      return await update(() => me.ctl.signal.aborted ? "skipped" : applySwap(id, html, res.status) ? "swapped" : "navigate", trigger);
+    } catch (e) {
+      // network is down: a normal navigation may still work
+      return e.name === "AbortError" ? "skipped" : "navigate";
     } finally {
       settle();
-      inFlight.delete(id);
+      if (inFlight.get(id) === me) inFlight.delete(id);
     }
   };
 
@@ -412,9 +442,9 @@
     if (url.origin !== location.origin) return;
     const id = a.getAttribute("data-trilha-target");
     e.preventDefault();
-    ask(url.href, { method: "GET" }, id, a).then((ok) => {
-      if (!ok) { location.assign(url.href); return; }
-      if (pushable(a)) history.pushState({ trilhaFragment: id }, "", url.href);
+    ask(url.href, { method: "GET" }, id, a).then((r) => {
+      if (r === "navigate") location.assign(url.href);
+      else if (r === "swapped" && pushable(a)) history.pushState({ trilhaFragment: id }, "", url.href);
     });
   });
 
@@ -437,9 +467,9 @@
     } else {
       opts.body = new URLSearchParams(data);
     }
-    ask(url, opts, id, btn || f).then((ok) => {
-      if (!ok) { f.submit(); return; }
-      if (method === "GET" && pushable(f)) history.replaceState({ trilhaFragment: id }, "", url);
+    ask(url, opts, id, btn || f).then((r) => {
+      if (r === "navigate") f.submit();
+      else if (r === "swapped" && method === "GET" && pushable(f)) history.replaceState({ trilhaFragment: id }, "", url);
     });
   });
 
@@ -447,7 +477,7 @@
   window.addEventListener("popstate", (e) => {
     const id = e.state?.trilhaFragment;
     if (!id) return;
-    ask(location.href, { method: "GET" }, id).then((ok) => { if (!ok) location.reload(); });
+    ask(location.href, { method: "GET" }, id).then((r) => { if (r === "navigate") location.reload(); });
   });
 
   // Tooltips: [data-ui-tooltip] also carries a title, so the hint exists with
@@ -592,9 +622,9 @@
   // A form refused with a whole page (422 without a swap) comes back marked:
   // the focus goes to its first invalid field, as after a swap.
   const focusInvalid = () => document.querySelector("[autofocus]") || document.querySelector("form [aria-invalid='true']")?.focus();
-  const init = () => { armFades(document); evalShowWhen(document); initTooltips(document); focusInvalid(); };
+  const init = () => { document.querySelectorAll("script[src]").forEach((t) => ran.add(t.src)); armFades(document); evalShowWhen(document); initTooltips(document); focusInvalid(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update, activate, beforeSwap });
 
   // [data-ui-copy=texto]: copia e diz que copiou. Sem ele o valor continua
   // sendo texto selecionável num campo — o botão é conveniência, não o caminho.

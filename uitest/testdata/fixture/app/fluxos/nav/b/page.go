@@ -1,4 +1,6 @@
-// Package b is one side of the client navigation of the fixture.
+// Package b is one side of the client navigation of the fixture. Its title
+// is not its heading, so the route announcer has something to say that the
+// focus on the heading does not.
 package b
 
 import (
@@ -8,6 +10,7 @@ import (
 )
 
 func Page(c *trilha.Ctx) (h.Node, error) {
+	c.SetTitle("Second page")
 	return h.Div(ui.NavigateScript(c),
 		h.Section(h.ID("regiao"), ui.Navigate(""),
 			h.H1(h.Text("Page B")),

@@ -357,6 +357,15 @@ func Navigate(id string) h.Node { return h.Data("trilha-nav", id) }
 // must reload for real), inside a region marked with Navigate.
 func NoNavigate() h.Node { return h.Data("trilha-nav", "false") }
 
+// NavigateFocus says where the focus goes after a client navigation, next to
+// Navigate on the region: "h1" (the default) puts it on the region's first
+// heading, which is what a screen reader reads first on a full page load;
+// "region" on the region itself; "none" leaves it where it was. Either way
+// the new title is announced (#297).
+//
+//	h.Main(h.ID("conteudo"), ui.Navigate(""), ui.NavigateFocus("region"), children)
+func NavigateFocus(mode string) h.Node { return h.Data("trilha-nav-focus", mode) }
+
 // NavigateScript loads ui.nav.js, the behavior behind Navigate. Put it once,
 // in the layout of the area that uses it — the kit's Head does not load it, so
 // an app without client navigation does not download it.

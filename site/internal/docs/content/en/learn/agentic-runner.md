@@ -56,8 +56,10 @@ trilha spec evidence TASK-004    # three checks and one `run` record
 
 The `run` record carries the driver, the branch, the commit, the diff stat and the tail of
 the agent's output, with a pointer to `.trilha/runs/TASK-004/agent.log`. A run that fails to
-even start — no command, agent exited non-zero — leaves the same kind of record, with the
-stage that failed, and the task goes to `failed`. There is no execution without a trace.
+even start — not a git repository, an unknown driver, no command, agent exited non-zero —
+leaves the same kind of record, with the stage that failed, and the task goes to `failed`.
+There is no execution without a trace. Only a task that is not `ready`, or is still waiting on
+a dependency, is left as it was.
 
 ```bash
 trilha spec task move TASK-004 done      # or: ready, to run it again on the same branch

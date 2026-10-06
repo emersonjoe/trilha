@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.151.0)
+## Onde o Trilha está (outubro de 2026, v0.152.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -363,6 +363,9 @@ criação ficam no dia (#289).
 em Chromium, Firefox e WebKit com um job bloqueante por motor; catálogo de jornadas
 (`uitest/JORNADAS.md`) conferido por teste; constituição 1.6.0 com a pirâmide e a regressão
 primeiro; a `main` de volta ao verde.
+140. **Navegação no cliente confiável** (spec 171, **entregue na 0.152.0**): a região trocada roda
+os scripts que traz e avisa antes de sair (`trilha:before-swap`); o clique mais novo vence;
+anunciador de rota e foco no `h1` (#290, #294, #297).
 
 ## O que não vamos fazer, e por quê
 

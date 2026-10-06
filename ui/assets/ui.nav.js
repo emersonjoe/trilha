@@ -7,37 +7,72 @@
   // The address is the same one a normal navigation would use, so reloading it
   // gives the same page — this is a shortcut, not a second truth.
   //
-  // The waiting marks and the crossfade come from ui.js, which the kit always
-  // loads before this file: one threshold, one transition, one behaviour — a
-  // second copy here would be a second thing to keep in step.
-  const pending = (id, trigger) => window.ui?.pending?.(id, trigger) || (() => {});
-  const update = (fn, trigger) => window.ui?.update?.(fn, trigger) || Promise.resolve(fn());
+  // The waiting marks, the crossfade and the scripts a region brings come from
+  // ui.js, which the kit always loads before this file: one threshold, one
+  // transition, one behaviour — a second copy here would drift.
+  const ui = () => window.ui || {};
+  const pending = (id, trigger) => ui().pending?.(id, trigger) || (() => {});
+  const update = (fn, trigger) => ui().update?.(fn, trigger) || Promise.resolve(fn());
 
+  // A full page load is announced by the screen reader; a swap is not, so the
+  // new title goes to a live region born here (#297). The focus goes to the
+  // heading — or where data-trilha-nav-focus says — and the announcer stays
+  // quiet when the heading the focus reached already says the same.
+  const announce = (text) => {
+    let el = document.getElementById("trilha-route-announcer");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "trilha-route-announcer";
+      el.className = "ui-sr";
+      el.setAttribute("aria-live", "assertive");
+      el.setAttribute("aria-atomic", "true");
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+  };
+  const arrive = (next, title, changed) => {
+    const mode = next.closest("[data-trilha-nav-focus]")?.getAttribute("data-trilha-nav-focus") || "h1";
+    const h1 = next.querySelector("h1");
+    const say = (changed ? title : h1?.textContent || title).trim();
+    const to = mode === "none" ? null : mode === "h1" && h1 ? h1 : next;
+    if (to) {
+      if (!to.hasAttribute("tabindex")) to.setAttribute("tabindex", "-1");
+      to.focus({ preventScroll: true });
+    }
+    announce(to === h1 && h1.textContent.trim() === say ? "" : say);
+  };
+
+  // fetchInto resolves "swapped", "skipped" (a newer click owns the page) or
+  // "navigate", like ui.js's ask: only "swapped" may touch the history.
   const fetchInto = async (url, id, y, trigger) => {
     const old = document.getElementById(id);
-    if (!old) return false;
+    if (!old) return "navigate";
     ctl?.abort();
-    ctl = new AbortController();
+    const me = (ctl = new AbortController());
     const settle = pending(id, trigger);
     try {
-      const res = await fetch(url, { credentials: "same-origin", signal: ctl.signal, headers: { Accept: "text/html" } });
-      if (res.redirected) { location.assign(res.url); return true; }
-      if (res.status >= 500) return false;
+      const res = await fetch(url, { credentials: "same-origin", signal: me.signal, headers: { Accept: "text/html" } });
+      if (res.redirected) { location.assign(res.url); return "skipped"; }
+      if (res.status >= 500) return "navigate";
       const doc = new DOMParser().parseFromString(await res.text(), "text/html");
       const next = doc.getElementById(id);
-      if (!next) return false; // the page is shaped differently: navigate for real
+      if (!next) return "navigate"; // the page is shaped differently: navigate for real
       return await update(() => {
-        old.replaceWith(next);
+        const cur = document.getElementById(id);
+        if (me.signal.aborted || !cur) return "skipped";
+        const changed = doc.title && doc.title !== document.title;
+        ui().beforeSwap?.(cur, id, url);
+        cur.replaceWith(next);
         if (doc.title) document.title = doc.title;
-        next.setAttribute("tabindex", "-1");
-        next.focus({ preventScroll: true });
-        window.ui?.hydrate?.(next);
+        ui().hydrate?.(next);
+        ui().activate?.(next);
+        arrive(next, document.title, changed);
         document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: next, status: res.status, url } }));
         scrollTo(0, y || 0);
-        return true;
+        return "swapped";
       }, trigger);
     } catch (e) {
-      return e.name === "AbortError"; // a newer click owns the page now
+      return e.name === "AbortError" ? "skipped" : "navigate";
     } finally {
       settle();
     }
@@ -59,9 +94,9 @@
     e.preventDefault();
     // Mark the entry we are leaving, so Back knows how to rebuild it.
     history.replaceState({ trilhaNav: id, y: scrollY }, "");
-    fetchInto(url.href, id, 0, a).then((ok) => {
-      if (!ok) { location.assign(url.href); return; }
-      history.pushState({ trilhaNav: id, y: 0 }, "", url.href);
+    fetchInto(url.href, id, 0, a).then((r) => {
+      if (r === "navigate") location.assign(url.href);
+      else if (r === "swapped") history.pushState({ trilhaNav: id, y: 0 }, "", url.href);
     });
   });
 
@@ -70,6 +105,6 @@
   addEventListener("popstate", (e) => {
     const id = e.state?.trilhaNav;
     if (!id) return;
-    fetchInto(location.href, id, e.state.y).then((ok) => { if (!ok) location.reload(); });
+    fetchInto(location.href, id, e.state.y).then((r) => { if (r === "navigate") location.reload(); });
   });
 })();

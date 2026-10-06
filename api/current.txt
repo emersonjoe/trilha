@@ -1832,6 +1832,7 @@ pkg ui, func Muted(...h.Node) h.Node
 pkg ui, func Nav(...h.Node) h.Node
 pkg ui, func NavLink(string, string, bool) h.Node
 pkg ui, func Navigate(string) h.Node
+pkg ui, func NavigateFocus(string) h.Node
 pkg ui, func NavigateScript(*trilha.Ctx) h.Node
 pkg ui, func NoNavigate() h.Node
 pkg ui, func NoPush() h.Node

@@ -3213,6 +3213,20 @@
     "summary": "NoNavigate keeps one link out of it (a download, another app, a route that must reload for real), inside a region marked with Navigate."
   },
   {
+    "name": "NavigateFocus",
+    "kind": "func",
+    "group": "forms",
+    "signature": "NavigateFocus(mode string) h.Node",
+    "doc": "NavigateFocus says where the focus goes after a client navigation, next to\nNavigate on the region: \"h1\" (the default) puts it on the region's first\nheading, which is what a screen reader reads first on a full page load;\n\"region\" on the region itself; \"none\" leaves it where it was. Either way\nthe new title is announced (#297).",
+    "summary": "NavigateFocus says where the focus goes after a client navigation, next to Navigate on the region: \"h1\" (the default) puts it on the region's first heading, which is what a screen reader reads first on a full page load; \"region\" on the region itself; \"none\" leaves it where it was.",
+    "example": "h.Main(h.ID(\"conteudo\"), ui.Navigate(\"\"), ui.NavigateFocus(\"region\"), children)",
+    "see": [
+      "h.ID",
+      "h.Main",
+      "ui.Navigate"
+    ]
+  },
+  {
     "name": "NavigateScript",
     "kind": "func",
     "group": "forms",

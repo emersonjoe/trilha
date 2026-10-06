@@ -3,6 +3,38 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.152.0 — 2026-10-06
+
+Client navigation that keeps the page alive, agrees with the address bar and talks to screen
+readers (spec 171, #290, #294, #297).
+
+### Added
+
+- **Scripts that a swap brings run** (#290), on both paths (`ui.Swap` and `ui.Navigate`): each
+  same-origin `<script src>` once per URL per document, so an island, `ui.LiveScript` with
+  `ui.Defer`/`ui.Poll`, or a file of the app placed inside the region works after a client
+  navigation. Inline scripts from a response never run. `window.ui.activate(root)` exposes it.
+- **`trilha:before-swap`** (#290) fires on `document` with `detail.target` (still connected),
+  `detail.id` and, for a navigation, `detail.url` — where a page script takes down its timers
+  and listeners.
+- **Route announcer** (#297): after a client navigation, and on Back/Forward, a visually hidden
+  `#trilha-route-announcer` (`aria-live="assertive"`) reads the new title.
+  **`ui.NavigateFocus(mode)`** picks where the focus goes: `"h1"` (default), `"region"`,
+  `"none"`.
+
+### Changed
+
+- **The focus after `ui.Navigate` goes to the region's first `h1`**, not the region (#297).
+  `ui.NavigateFocus("region")` keeps the old behavior.
+- **A newer read wins** (#294): a second `GET` on a target aborts the first instead of being
+  dropped while its URL was pushed; a write still never goes out twice. Only a request that
+  swapped touches the history, and the waiting marks stay on until the last request lands.
+
+### Fixed
+
+- Clicking "2" then "3" on a slow `ui.Swap` pager showed page 2 with `?p=3` in the bar (#294).
+- A click on a `ui.Navigate` link aborted by a newer one still pushed a history entry.
+
 ## 0.151.0 — 2026-10-05
 
 The browser tests run in Chromium, Firefox and WebKit, and every scenario is a documented test

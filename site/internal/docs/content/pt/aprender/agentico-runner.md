@@ -57,8 +57,9 @@ trilha spec evidence TASK-004    # três checks e um registro `run`
 
 O registro `run` carrega o driver, o branch, o commit, o diff stat e o fim da saída do agente,
 com um ponteiro para `.trilha/runs/TASK-004/agent.log`. Uma execução que nem chega a partir —
-sem comando, agente saiu com erro — deixa o mesmo tipo de registro, com o estágio que falhou, e
-a task vai para `failed`. Não existe execução sem rastro.
+não é repositório git, driver desconhecido, sem comando, agente saiu com erro — deixa o mesmo
+tipo de registro, com o estágio que falhou, e a task vai para `failed`. Não existe execução sem
+rastro. Só a task que não está `ready`, ou ainda espera uma dependência, fica como estava.
 
 ```bash
 trilha spec task move TASK-004 done      # ou: ready, para rodar de novo no mesmo branch

@@ -116,8 +116,11 @@ every indicator of that target. The target also gets `aria-busy`, so a screen re
 without any styling of yours. `trilha:pending` and `trilha:settled` fire on `document` for
 anything the CSS cannot do.
 
-A second click on a trigger whose target is already in flight is ignored, so the `POST` does
-not go out twice — there is nothing to wire for that.
+A second write — `POST`, `PUT`, `PATCH`, `DELETE` — on a target that already has one in flight
+is ignored, so the save does not go out twice. A second *read* is the newer intent and wins:
+the `GET` in the air is aborted, so clicking "2" and then "3" on a slow pager shows page 3,
+with page 3 in the address bar and one new history entry. The waiting marks stay on until the
+last request lands. Nothing to wire for either.
 
 Where the browser has `startViewTransition`, the replacement crossfades instead of jumping;
 where it does not, or where the system asks for less motion, nothing changes.
@@ -141,8 +144,19 @@ document.addEventListener("trilha:swap", (e) => {
 });
 ```
 
-`window.ui.swap(id, html, status)` and `window.ui.hydrate(el)` are exposed for whoever needs
-to do the swap by hand.
+Just before the old element goes, `trilha:before-swap` fires with `e.detail.target` (still on
+the page), `e.detail.id` and, for a navigation, `e.detail.url` — the place to stop a timer or
+an observer your script started. Mount in `trilha:swap`, filtering by `detail.target`; take
+down in `trilha:before-swap`; anything with state of its own is an island.
+
+The scripts that come inside the new element run, the way they would on a full page: each
+same-origin `<script src>` once per URL per document — an island's runtime, `ui.LiveScript`,
+a file of your app. An inline `<script>` that came in a response never runs: executing HTML
+from a response is how XSS happens, and the CSP would refuse it anyway. Put the code in a
+file under `public/`.
+
+`window.ui.swap(id, html, status)`, `window.ui.hydrate(el)` and `window.ui.activate(el)` (the
+scripts above) are exposed for whoever needs to do the swap by hand.
 
 ## The island: what a fragment cannot do
 
@@ -185,9 +199,9 @@ Four things fall out of that shape:
   all the CSP needs, and the runtime is cached like any other asset. A project that uses an
   island without that file gets a critical from `trilha check`, because the failure is
   otherwise silent: the fallback shows and nothing else happens.
-- **An island that arrives inside a fragment mounts too.** The runtime listens for
-  `trilha:swap`; when it is not on the page yet, the kit re-creates the tag that came with
-  the fragment, because a `<script>` written by `outerHTML` never runs.
+- **An island that arrives inside a fragment or a client navigation mounts too.** The
+  runtime listens for `trilha:swap`; when it is not on the page yet, the kit runs the tag
+  that came with the new content, because a `<script>` written by `outerHTML` never runs.
 
 ### The escape hatch
 
@@ -238,9 +252,17 @@ ui.ButtonLink("/relatorio.pdf", ui.NoNavigate(), h.Text("Download"))
 
 The browser keeps its habits — Back and Forward work and restore the scroll position of the
 entry they return to, `Cmd`-click opens a tab, `target` and `download` are untouched. The
-kit adds `aria-busy` while it waits, moves focus to what came in, and fires `trilha:swap`,
-so an island inside the new page mounts. A second click cancels the first request; a 5xx, a
-redirect or a page without that id gives up and navigates for real.
+kit adds `aria-busy` while it waits, runs the scripts the new region brings and fires
+`trilha:swap`, so an island, a `ui.Defer` or a `ui.Poll` inside the new page works. A second
+click cancels the first request; a 5xx, a redirect or a page without that id gives up and
+navigates for real.
+
+A full page load is announced by the screen reader; a swap is not, so the kit says it: the
+focus goes to the first `h1` of the new region, and a visually hidden live region,
+`#trilha-route-announcer`, reads the new `<title>` (or the heading, when the title did not
+change) — and stays quiet when the heading the focus reached already said it. Back and
+Forward announce the same way. `ui.NavigateFocus("region")` beside `ui.Navigate` keeps the
+focus on the region instead, and `"none"` leaves it where it was.
 
 The rule of thumb: **fragment** when a handler answers a piece, **navigation** when the
 answer is a page and the frame around it should stay.

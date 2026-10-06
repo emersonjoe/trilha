@@ -241,7 +241,12 @@ func TestHeadAndAssets(t *testing.T) {
 	// 0.146.0 raised ui.js to 30 KB: spec 164 left it 3 bytes short, and spec
 	// 165 puts the focus on the first invalid field of a form refused with a
 	// whole page — the 422 of a form without ui.Swap, which had nowhere to go.
-	if len(Asset("ui.css")) > 40<<10 || len(Asset("ui.js")) > 30<<10 {
+	//
+	// 0.152.0 raised ui.js to 32 KB: a swap runs the script files it brings
+	// (#290) and a newer read aborts an older one with the marks kept on
+	// (#294). Both sit on the path every swap takes — ui.Swap and
+	// ui.Navigate — so neither can move to a file of its own.
+	if len(Asset("ui.css")) > 40<<10 || len(Asset("ui.js")) > 32<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {
@@ -334,6 +339,9 @@ func TestNavigateIsOptIn(t *testing.T) {
 	if got := render(t, h.Div(Navigate("conteudo"))); !strings.Contains(got, `data-trilha-nav="conteudo"`) {
 		t.Fatalf("Navigate = %s", got)
 	}
+	if got := render(t, h.Main(NavigateFocus("region"))); !strings.Contains(got, `data-trilha-nav-focus="region"`) {
+		t.Fatalf("NavigateFocus: %s", got)
+	}
 	if got := render(t, h.A(h.Href("/relatorio.pdf"), NoNavigate())); !strings.Contains(got, `data-trilha-nav="false"`) {
 		t.Fatalf("NoNavigate = %s", got)
 	}
@@ -344,7 +352,10 @@ func TestNavigateIsOptIn(t *testing.T) {
 	}
 	t.Fatal("ui.nav.js is not in Files: trilha ui would not write it")
 found:
-	if n := len(Asset("ui.nav.js")); n == 0 || n > 4<<10 {
+	// 6 KB since 0.152.0: the route announcer and the focus on the heading
+	// (#297) are the client navigation's own, and belong to the file only
+	// apps that navigate download.
+	if n := len(Asset("ui.nav.js")); n == 0 || n > 6<<10 {
 		t.Fatalf("ui.nav.js is %d bytes", n)
 	}
 	// The behavior does not ride in ui.js: an app without client navigation
@@ -605,9 +616,20 @@ func TestKitRunsTheIslandRuntimeItDoesNotMount(t *testing.T) {
 			t.Errorf("ui.island.js does not mount islands: %q is missing", want)
 		}
 	}
+	// #290 made the one tag every same-origin file a swap brings, on both
+	// paths of a swap: ui.nav.js calls the routine of ui.js instead of a copy.
 	js := string(Asset("ui.js"))
-	if !strings.Contains(js, `script[data-trilha-islands]`) || !strings.Contains(js, "createElement") {
-		t.Error("ui.js no longer re-creates the runtime tag that arrives in a fragment")
+	if !strings.Contains(js, `createElement("script")`) || !strings.Contains(js, "activate") {
+		t.Error("ui.js no longer re-creates the scripts that arrive in a fragment")
+	}
+	nav := string(Asset("ui.nav.js"))
+	if !strings.Contains(nav, "activate") || strings.Contains(nav, `createElement("script")`) {
+		t.Error("ui.nav.js must run the region's scripts through ui.activate, not a copy of it")
+	}
+	for _, f := range []string{js, nav} {
+		if !strings.Contains(f, "trilha:before-swap") && !strings.Contains(f, "beforeSwap") {
+			t.Error("a swap path does not announce trilha:before-swap")
+		}
 	}
 	if strings.Contains(js, "data-trilha-mounted") {
 		t.Error("ui.js mounts islands again: that belongs to ui.island.js alone")

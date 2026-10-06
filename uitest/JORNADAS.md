@@ -28,8 +28,8 @@ tira de alguém o que ele veio fazer.
 | Jornada | Pior impacto se quebrar | Casos |
 |---|---|---|
 | Entrar e sair | ninguém entra, ou entra quem não devia | `TestUILoginFlow`, `TestUIAdminDefaultDeny` |
-| Preencher e salvar um formulário | dado perdido ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences` |
-| Navegar e listar | a tela mostra outra coisa que a barra de endereço | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus` |
+| Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce` |
+| Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins` |
 | Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress` |
 | Interação rica | componente morto na tela | `TestUIIslandHydrates`, `TestUITooltipKeyboard` |
 | Segurança percebida | script injetado roda; segredo vaza | `TestUISecurityEveryScreen`, `TestUISecretNeverInHTML` |
@@ -98,7 +98,55 @@ tira de alguém o que ele veio fazer.
 - **Pré-condições**: `/fluxos/nav` com `ui.Navigate` na região `#regiao`.
 - **Dados**: nenhum.
 - **Passos**: abrir `/fluxos/nav`; clicar no link `#ir`.
-- **Resultado esperado**: a URL é `/fluxos/nav/b`, a região mostra "Page B", o foco está em `#regiao` e o documento não recarrega.
+- **Resultado esperado**: a URL é `/fluxos/nav/b`, a região mostra "Page B", o foco está no `h1` da região e o documento não recarrega.
+
+### TestUIClientNavRunsRegionScripts — A página navegada no cliente chega viva (#290)
+
+- **Jornada**: navegar e listar. **Risco**: ilha, `ui.Defer` e scripts da página mortos até um F5; ou script inline vindo da resposta executando (XSS).
+- **Pré-condições**: `/fluxos/nav` sem ilha; `/fluxos/nav/vivo` com ilha, `ui.LiveScript` + `ui.Defer`, o arquivo `/conta-execucoes.js` e um script inline, tudo dentro da região; `/fluxos/nav/vivo2` com o mesmo arquivo.
+- **Dados**: contagem 41 da ilha; o fragmento adiado "Deferred part arrived".
+- **Passos**: abrir `/fluxos/nav`; clicar `#ir-vivo`; clicar `#ir-vivo2`.
+- **Resultado esperado**: a ilha monta com "count 41", o adiado chega, o arquivo roda uma vez (e não de novo na segunda página), o inline não roda, e o documento não recarrega.
+
+### TestUIBeforeSwapEvent — O script da página sabe que vai ser trocado (#290)
+
+- **Jornada**: navegar e listar. **Risco**: timer e listener de página ficam rodando sobre o que saiu.
+- **Pré-condições**: `/fluxos/nav` (`ui.Navigate`) e `/padroes/lista` (`ui.Swap`).
+- **Dados**: nenhum.
+- **Passos**: ouvir `trilha:before-swap`; navegar no cliente para B; na lista, clicar na ordenação.
+- **Resultado esperado**: um evento por troca, com o id do alvo e o elemento antigo ainda na página, nos dois caminhos.
+
+### TestUIClientNavAnnounces — A troca de página é anunciada ao leitor de tela (#297)
+
+- **Jornada**: navegar e listar. **Risco**: quem usa leitor de tela não sabe que a página mudou (eMAG, LBI).
+- **Pré-condições**: `/fluxos/nav` (título "First page") e `/fluxos/nav/b` (título "Second page", `h1` "Page B").
+- **Dados**: nenhum.
+- **Passos**: clicar `#ir`; voltar com o histórico.
+- **Resultado esperado**: o foco vai ao `h1` "Page B" e `#trilha-route-announcer` (`aria-live="assertive"`, visualmente oculto) diz "Second page"; no Voltar diz "First page", sem recarregar.
+
+### TestUIClientNavFocusRegion — A região pode pedir o foco nela mesma (#297)
+
+- **Jornada**: navegar e listar. **Risco**: app que dependia do foco na região muda de comportamento sem escolha.
+- **Pré-condições**: `/fluxos/nav/foco` com `ui.NavigateFocus("region")`.
+- **Dados**: nenhum.
+- **Passos**: abrir `/fluxos/nav`; clicar `#ir-foco`.
+- **Resultado esperado**: o foco fica em `#regiao`.
+
+### TestUISwapNewestClickWins — O clique mais recente vence (#294)
+
+- **Jornada**: navegar e listar. **Risco**: "cliquei na 3 e está mostrando a 2" — barra e conteúdo divergem.
+- **Pré-condições**: `/fluxos/lenta` com links `ui.Swap("lista")`; a página 2 demora 900 ms e a 3, 400 ms.
+- **Dados**: nenhum.
+- **Passos**: clicar "2"; com a marca de espera já posta, clicar "3".
+- **Resultado esperado**: conteúdo "page 3", URL `?p=3`, uma entrada nova no histórico, e a marca `data-trilha-pending` só sai uma vez, no fim.
+
+### TestUISwapPostOnce — Dois cliques em salvar gravam uma vez (#294)
+
+- **Jornada**: preencher e salvar. **Risco**: registro duplicado.
+- **Pré-condições**: `/fluxos/lenta` com um formulário POST `ui.Swap("lista")` que demora 500 ms e conta as gravações no servidor.
+- **Dados**: nenhum.
+- **Passos**: clicar duas vezes seguidas em "Save"; recarregar a página.
+- **Resultado esperado**: "saves: 1" na troca e depois da recarga, e a URL continua `/fluxos/lenta`.
 
 ### TestUIUploadProgress — Enviar arquivo com barra de progresso
 

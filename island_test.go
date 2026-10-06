@@ -259,9 +259,10 @@ func TestIslandChannelExistsOnce(t *testing.T) {
 			t.Errorf("ui.js carries %q again: the channel belongs to ui.island.js alone", gone)
 		}
 	}
-	// What the kit does keep is the one line that makes the runtime run when it
-	// arrives inside a fragment, which a <script> written by outerHTML does not.
-	if !bytes.Contains(kit, []byte("data-trilha-islands")) {
-		t.Error("ui.js no longer re-runs the runtime that arrives in a fragment (#82)")
+	// What the kit does keep is what makes the runtime run when it arrives
+	// inside a fragment, which a <script> written by outerHTML does not: since
+	// #290, the routine that runs every same-origin file a swap brings.
+	if !bytes.Contains(kit, []byte(`createElement("script")`)) || !bytes.Contains(kit, []byte("activate")) {
+		t.Error("ui.js no longer re-runs the runtime that arrives in a fragment (#82, #290)")
 	}
 }

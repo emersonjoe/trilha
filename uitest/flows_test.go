@@ -123,7 +123,7 @@ func TestUIIslandHydrates(t *testing.T) {
 }
 
 // Client navigation replaces the region, keeps the document, and moves the
-// focus to the new content — a screen reader starts reading there.
+// focus to the new content's heading — a screen reader starts reading there.
 func TestUIClientNavFocus(t *testing.T) {
 	run(t, func(s *uitest.Session) {
 		s.Navigate("/fluxos/nav")
@@ -131,7 +131,7 @@ func TestUIClientNavFocus(t *testing.T) {
 		s.Click("#ir")
 		s.WantURL("/fluxos/nav/b")
 		s.WantText("#regiao h1", "Page B")
-		s.WantFocus("#regiao")
+		s.WantFocus("#regiao h1")
 		s.WaitJS("the navigation kept the document", stillMarked)
 	})
 }
