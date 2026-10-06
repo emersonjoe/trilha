@@ -717,3 +717,36 @@ func TestWorkspaceCarriesTheFixtures(t *testing.T) {
 		t.Fatalf("the baseline builds from the workspace: %v", err)
 	}
 }
+
+// A file the agent writes counts whatever its mtime says: on Linux the
+// kernel stamps it with a coarse clock that can lag time.Now() by a few
+// milliseconds, and a fast run (the stub of TestMeasureSeries) then looked
+// like it wrote nothing. Files that were already there and did not change
+// do not count.
+func TestCountWrittenIgnoresClockGranularity(t *testing.T) {
+	dir := t.TempDir()
+	old := filepath.Join(dir, "kept.go")
+	touched := filepath.Join(dir, "touched.go")
+	for _, p := range []string{old, touched} {
+		if err := os.WriteFile(p, []byte("package main\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := snapshotTree(dir)
+	past := time.Now().Add(-time.Hour)
+	fresh := filepath.Join(dir, "written_by_agent.go")
+	if err := os.WriteFile(fresh, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(touched, []byte("package main // edited\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{fresh, touched} {
+		if err := os.Chtimes(p, past, past); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := countWritten(dir, before); n != 2 {
+		t.Fatalf("countWritten = %d, want 2 (one new file, one edited, both stamped in the past)", n)
+	}
+}

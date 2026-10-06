@@ -278,7 +278,7 @@ func measureSeries(repo, bin string, run measureRunner, verify measureVerifier, 
 					return err
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), timeout)
-				start := time.Now()
+				before := snapshotTree(dir)
 				u, _, err := run(ctx, dir, side.prompt, AgentOptions{Model: model, MaxTurns: turns, Path: filepath.Dir(bin), Dirs: []string{repo}})
 				if err != nil {
 					cancel()
@@ -298,7 +298,7 @@ func measureSeries(repo, bin string, run measureRunner, verify measureVerifier, 
 					TokensIn:    int64(u.Input + u.CacheRead),
 					TokensOut:   int64(u.Output),
 					Rounds:      u.Turns,
-					FilesOpened: countWritten(dir, start),
+					FilesOpened: countWritten(dir, before),
 					Runs:        1,
 				})
 				fmt.Printf("%-12s %-8s run %d/%d: PASS in=%d out=%d turns=%d\n", sc.Name, side.name, n, runs, u.Input+u.CacheRead, u.Output, u.Turns)
@@ -368,21 +368,40 @@ func BuildBaseline(repo string, sc Scenario, dir string) error {
 	return copyTree(filepath.Join(repo, filepath.FromSlash(sc.BaseDir)), dir, "", "")
 }
 
-// countWritten counts the files written in dir since start: what the agent
-// changed with its own hands.
-func countWritten(dir string, since time.Time) int {
-	n := 0
+// snapshotTree is the size and mtime of every file in dir, for countWritten.
+func snapshotTree(dir string) map[string]fileStamp {
+	out := map[string]fileStamp{}
 	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		if strings.HasSuffix(path, ".agent.json") {
-			return nil
-		}
-		if info, err := d.Info(); err == nil && info.ModTime().After(since) {
-			n++
+		if info, err := d.Info(); err == nil {
+			out[path] = fileStamp{info.Size(), info.ModTime()}
 		}
 		return nil
 	})
+	return out
+}
+
+type fileStamp struct {
+	size int64
+	mod  time.Time
+}
+
+// countWritten counts the files in dir that are new or changed since the
+// snapshot: what the agent changed with its own hands. It compares stamps
+// instead of asking "after the start?", because the kernel stamps a file with
+// a coarse clock that can lag time.Now() — a fast write looked older than
+// the run that made it.
+func countWritten(dir string, before map[string]fileStamp) int {
+	n := 0
+	for path, now := range snapshotTree(dir) {
+		if strings.HasSuffix(path, ".agent.json") {
+			continue
+		}
+		if was, ok := before[path]; !ok || was.size != now.size || !was.mod.Equal(now.mod) {
+			n++
+		}
+	}
 	return n
 }
