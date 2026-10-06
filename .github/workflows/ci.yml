@@ -51,13 +51,16 @@ jobs:
           go-version: "1.25"
       - run: go vet ./...
       - run: go test ./...
-  # Spec 164: the app in a real Chrome (module uitest/, with chromedp). The
-  # hosted runner has Chrome; UITEST_REQUIRED=1 turns a missing one into a
-  # failure. Optional (continue-on-error) until milestone M3 closes — then the
-  # line goes and the job blocks like the others.
+  # Specs 164 and 170: the app in a real browser (module uitest/, with
+  # Playwright), one job per engine people browse with. UITEST_REQUIRED=1
+  # turns a browser that did not install into a failure. Blocking since M3
+  # closed: a journey that breaks in one engine breaks the build.
   ui:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,18 +69,22 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.25"
+      - run: make test-ui-install
+        env:
+          UITEST_BROWSERS: ${{ matrix.browser }}
+          WITH_DEPS: "1"
       - run: make test-ui
         env:
+          UITEST_BROWSERS: ${{ matrix.browser }}
           UITEST_REQUIRED: "1"
       - name: Failure reports
         if: failure()
         run: cat uitest/report/*.txt || true
   # Spec 166: the SQL stores of billing and notify on SQLite and on a
-  # PostgreSQL cluster the test starts (the runner has the programs). Optional
-  # like the ui job until milestone M3 closes.
+  # PostgreSQL cluster the test starts (the runner has the programs).
+  # Blocking since M3 closed, like the ui job.
   sql:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

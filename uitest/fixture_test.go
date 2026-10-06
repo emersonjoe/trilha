@@ -40,6 +40,7 @@ var env = []string{
 
 func TestMain(m *testing.M) {
 	code := m.Run()
+	uitest.Close()
 	if fixture.tmp != "" {
 		os.RemoveAll(fixture.tmp)
 	}
@@ -47,10 +48,10 @@ func TestMain(m *testing.M) {
 }
 
 // app returns the fixture's directory, building it on first use — after the
-// browser check, so a machine without Chrome skips in a second.
+// browser check, so a machine without the browsers skips in a second.
 func app(t *testing.T) string {
 	t.Helper()
-	uitest.RequireBrowser(t)
+	uitest.RequireBrowsers(t)
 	fixture.once.Do(func() { fixture.dir, fixture.err = buildFixture() })
 	if fixture.err != nil {
 		t.Fatalf("building the fixture: %v", fixture.err)

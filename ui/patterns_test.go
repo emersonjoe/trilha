@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-
 )
 
 // patternDir is where a pattern's page.go lives: the name without hyphens,

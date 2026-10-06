@@ -14,6 +14,11 @@
 Um a três parágrafos: qual problema de quem escreve o app isto resolve, e o que a pessoa faz
 hoje sem isto. Sem solução ainda.
 
+## Jornada e risco
+
+Qual jornada isto toca (de quem escreve o app ou de quem o usa) e o pior impacto se ela
+quebrar. Jornada crítica pede cenário em `uitest/` e caso em `uitest/JORNADAS.md`.
+
 ## O que muda
 
 O contrato, do jeito que a documentação vai contar: símbolos novos ou alterados com
@@ -51,16 +56,28 @@ mudança não é pequena e pede a forma completa).
 Teste antes do código, em ordem de execução. Uma rodada de `make test` por bloco, não por
 arquivo.
 
-- [ ] T001 Teste que falha: <o que ele prova>
+- [ ] T001 Teste que falha: <o que ele prova> — no nível mais baixo que o prova (unidade,
+  integração, HTML servido, navegador; bug ganha regressão que reprova antes da correção)
 - [ ] T002 Implementação
 - [ ] T003 Uso em `examples/<app>`
 - [ ] T004 Documentação nas duas locales (`en/` e `pt/`) + referência
 - [ ] T005 `CHANGELOG.md`, `version` em `cmd/trilha/main.go`, item do `ROADMAP.md`
-- [ ] T006 `make test` verde e `scripts/release.sh X.Y.Z --issues "NN"`
+- [ ] T006 Suíte inteira verde (`make test`; `make test-ui` se tocou o navegador, com
+  `UITEST_BROWSERS=all` quando der) e os números em *Evidências*; `scripts/release.sh X.Y.Z --issues "NN"`
 
 ## Aceitação
 
-O que precisa ser verdade para fechar, verificável por teste ou por comando:
+O que precisa ser verdade para fechar, verificável por teste ou por comando, em linguagem que
+quem usa o app entende:
 
 - **SC-001**
 - **SC-002**
+
+## Evidências
+
+| Nível | Comando | Passaram | Falharam | Pularam |
+|---|---|---|---|---|
+| Unidade + integração | `make test` | | | |
+| Navegador | `make test-ui` (motores: ) | | | |
+
+O que ficou sem teste e por quê.

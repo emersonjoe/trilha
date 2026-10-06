@@ -17,14 +17,14 @@ import (
 // change, and then the browser console and the server log.
 func TestFailureReport(t *testing.T) {
 	f := &uitest.Failure{
-		Scenario: "TestX/sub case", Attempt: 2, Step: "WantFocus", Selector: "#email",
+		Scenario: "TestX/sub case", Browser: "webkit", Attempt: 2, Step: "WantFocus", Selector: "#email",
 		Want: "the focus on an element matching the selector", Got: "<body>",
 		Fix: "mark the field with ui.InvalidIf", URL: "http://127.0.0.1:1/p",
 		Console: []string{"error: boom"}, ServerLog: "line 1\nline 2",
 	}
 	got := f.Report()
 	for _, want := range []string{
-		"scenario: TestX/sub case (attempt 2 of 2)\n", "step:     WantFocus\n", "selector: #email\n",
+		"scenario: TestX/sub case (attempt 2 of 2)\n", "browser:  webkit\n", "step:     WantFocus\n", "selector: #email\n",
 		"expected: the focus on", "got:      <body>\n", "page:     http://127.0.0.1:1/p\n",
 		"fix:      mark the field", "browser console:\n  error: boom\n", "server log (last lines):\n  line 1\n  line 2\n",
 	} {
@@ -36,7 +36,7 @@ func TestFailureReport(t *testing.T) {
 		t.Error("an empty field is printed")
 	}
 	path, err := f.Write(t.TempDir())
-	if err != nil || filepath.Base(path) != "TestX_sub_case.txt" {
+	if err != nil || filepath.Base(path) != "TestX_sub_case-webkit.txt" {
 		t.Fatalf("path %q, err %v", path, err)
 	}
 	if b, _ := os.ReadFile(path); string(b) != got {
@@ -64,8 +64,8 @@ func (f *fakeT) Fatalf(format string, a ...any) {
 	runtime.Goexit()
 }
 
-// A scenario that fails twice leaves report/<scenario>.txt with the step,
-// the selector, both values and the fix — and says where in the failure.
+// A scenario that fails twice leaves report/<scenario>-<browser>.txt with the
+// step, the selector, both values and the fix — and says where in the failure.
 func TestFailureLeavesAReport(t *testing.T) {
 	dir := app(t)
 	reports := t.TempDir()
@@ -79,7 +79,8 @@ func TestFailureLeavesAReport(t *testing.T) {
 		})
 	}()
 	<-done
-	path := filepath.Join(reports, "TestOnPurpose.txt")
+	browsers, _ := uitest.Browsers()
+	path := filepath.Join(reports, "TestOnPurpose-"+browsers[0]+".txt")
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("no report (%v); the run said: %s", err, ft.fatal)
@@ -95,30 +96,53 @@ func TestFailureLeavesAReport(t *testing.T) {
 	if !strings.Contains(ft.fatal, "report: "+path) {
 		t.Errorf("the failure does not say where the report is: %s", ft.fatal)
 	}
-	if len(ft.logs) == 0 || !strings.Contains(ft.logs[0], "attempt 1 failed") {
+	if len(ft.logs) == 0 || !strings.Contains(ft.logs[0], "attempt 1 in "+browsers[0]+" failed") {
 		t.Errorf("the first attempt was not logged before the retry: %v", ft.logs)
 	}
 }
 
 // No browser is a skip, and a failure only when the run says a browser is
-// required — which is how CI keeps a missing Chrome from passing in silence.
+// required — which is how CI keeps a missing browser from passing in silence.
+// An empty driver directory stands for a machine that never installed them.
 func TestNoBrowserSkipsUnlessRequired(t *testing.T) {
-	t.Setenv("UITEST_CHROME", filepath.Join(t.TempDir(), "no-chrome"))
+	t.Setenv("PLAYWRIGHT_DRIVER_PATH", t.TempDir())
 	try := func(required string) string {
 		t.Setenv("UITEST_REQUIRED", required)
 		ft := &fakeT{name: "TestNoBrowser"}
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			uitest.RequireBrowser(ft)
+			uitest.RequireBrowsers(ft)
 		}()
 		<-done
 		return ft.fatal
 	}
-	if got := try(""); !strings.HasPrefix(got, "skip: ") || !strings.Contains(got, "UITEST_CHROME") {
-		t.Errorf("without a browser: %q, want a skip that names UITEST_CHROME", got)
+	if got := try(""); !strings.HasPrefix(got, "skip: ") || !strings.Contains(got, "playwright install") {
+		t.Errorf("without a browser: %q, want a skip that says how to install", got)
 	}
 	if got := try("1"); strings.HasPrefix(got, "skip: ") || !strings.Contains(got, "UITEST_REQUIRED=1") {
 		t.Errorf("required and missing: %q, want a failure", got)
+	}
+}
+
+// UITEST_BROWSERS picks the engines: chromium by default, "all" for the
+// three, a list in its own order — and a typo is an error, never a skip that
+// would pass a run that tested nothing.
+func TestBrowsersFromEnv(t *testing.T) {
+	for _, c := range []struct{ env, want string }{
+		{"", "chromium"},
+		{"all", "chromium,firefox,webkit"},
+		{"webkit, Firefox", "webkit,firefox"},
+		{" , ", "chromium"},
+	} {
+		t.Setenv("UITEST_BROWSERS", c.env)
+		got, err := uitest.Browsers()
+		if err != nil || strings.Join(got, ",") != c.want {
+			t.Errorf("UITEST_BROWSERS=%q: %v, %v; want %s", c.env, got, err, c.want)
+		}
+	}
+	t.Setenv("UITEST_BROWSERS", "safari")
+	if _, err := uitest.Browsers(); err == nil || !strings.Contains(err.Error(), "chromium, firefox, webkit") {
+		t.Errorf("an unknown browser: %v, want an error that lists the known ones", err)
 	}
 }

@@ -1,4 +1,4 @@
-.PHONY: test test-otel test-ui test-ui-a test-sql vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release
+.PHONY: test test-otel test-ui test-ui-install test-ui-a test-sql vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release
 
 GOVULNCHECK_VERSION ?= v1.1.4
 SECURITY_GO_VERSION ?= go1.25.13
@@ -7,7 +7,7 @@ test: vet
 	go test ./...
 
 vet:
-	test -z "$$(gofmt -l *.go h internal cmd examples tmpl)"
+	test -z "$$(gofmt -l *.go h internal cmd examples tmpl ui)"
 	go vet ./...
 
 # O módulo opcional do exportador OpenTelemetry: módulo próprio, com o SDK
@@ -22,12 +22,23 @@ test-otel:
 test-ui-a:
 	go test . ./examples/blog/ ./internal/recipes/ ./internal/uidoc/ -run 'Snapshot|MatchGolden|Has|Focused|ParseElements|PaginasContraOGolden|PatternGoldens|Install'
 
-# Camada B: o app de verdade no Chrome, pelo módulo uitest/ (go.mod próprio,
-# com o chromedp). Sem Chrome os cenários pulam; UITEST_REQUIRED=1 reprova.
-# Uma falha deixa uitest/report/<cenário>.txt.
+# Camada B: o app de verdade no navegador, pelo módulo uitest/ (go.mod
+# próprio, com o Playwright). UITEST_BROWSERS escolhe: chromium (padrão),
+# firefox, webkit, uma lista ou all — a CI roda os três. Sem os navegadores
+# os cenários pulam; UITEST_REQUIRED=1 reprova. Uma falha deixa
+# uitest/report/<cenário>-<navegador>.txt. Cada cenário é um caso de
+# uitest/JORNADAS.md.
 test-ui:
 	test -z "$$(gofmt -l uitest)"
 	cd uitest && go vet ./... && go test -count=1 ./...
+
+# Baixa o driver do Playwright e os navegadores de UITEST_BROWSERS (os três
+# sem ela), uma vez por máquina. WITH_DEPS=1 instala também as bibliotecas do
+# sistema (Linux, CI).
+UI_BROWSERS = $(if $(filter-out all,$(UITEST_BROWSERS)),$(subst $(comma), ,$(UITEST_BROWSERS)),chromium firefox webkit)
+comma := ,
+test-ui-install:
+	cd uitest && go run github.com/mxschmitt/playwright-go/cmd/playwright install $(if $(WITH_DEPS),--with-deps) $(UI_BROWSERS)
 
 # As stores SQL de billing e notify num banco de verdade (spec 166), pelo
 # módulo sqltest/ (go.mod próprio, com o driver SQLite): projetos gerados com o
@@ -39,11 +50,11 @@ test-sql:
 	cd sqltest && go vet ./... && go test -count=1 ./...
 
 fmt:
-	gofmt -w *.go h internal cmd examples tmpl otel uitest sqltest
+	gofmt -w *.go h internal cmd examples tmpl ui otel uitest sqltest
 
 # NIST SSDF/OWASP evidence. Go 1.22+ downloads the patched toolchain automatically.
 security:
-	test -z "$$(gofmt -l *.go h internal cmd examples tmpl)"
+	test -z "$$(gofmt -l *.go h internal cmd examples tmpl ui)"
 	GOTOOLCHAIN=$(SECURITY_GO_VERSION) go vet ./...
 	GOTOOLCHAIN=$(SECURITY_GO_VERSION) go test -race ./...
 	GOTOOLCHAIN=$(SECURITY_GO_VERSION) go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...

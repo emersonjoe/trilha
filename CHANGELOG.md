@@ -3,6 +3,28 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.151.0 — 2026-10-05
+
+The browser tests run in Chromium, Firefox and WebKit, and every scenario is a documented test
+case (spec 170).
+
+### Changed
+
+- **`uitest` drives Playwright instead of chromedp.** `Session` is unchanged; `UITEST_BROWSERS`
+  picks `chromium` (default), a list such as `firefox,webkit`, or `all`, and `RunWith` runs the
+  scenario in each one, reporting every engine that failed. Reports are
+  `report/<scenario>-<browser>.txt` with a `browser:` line. New: `Session.Browser`,
+  `Browsers()`, `AllBrowsers`, `InstallCommand`, `Close`. `RequireBrowser` becomes
+  `RequireBrowsers` and `UITEST_CHROME`/`BrowserPath` are gone: the browsers are the ones
+  Playwright installs (`make test-ui-install`).
+- **CI**: the `ui` job is a matrix of the three engines and blocks, like the `sql` job — both
+  were optional until milestone M3, which closed in 0.146.0.
+
+### Fixed
+
+- **CI on Go 1.22 was red since 0.148.0**: a blank line in `ui/patterns_test.go` that Go
+  1.22's `gofmt` rejects. `make vet`, `make security` and `make fmt` now check `ui/` as CI does.
+
 ## 0.150.0 — 2026-09-26
 
 A second date format for the event columns (spec 169, #289).

@@ -6,8 +6,8 @@
 // What the served HTML already proves — the CSRF token in a form, the nonce on
 // a script, a golden of the markup — belongs to trilha.PageSnapshot, which
 // needs no browser and runs in every go test. This module is the other half,
-// and it is a module of its own so that chromedp never becomes a dependency of
-// the framework or of an app.
+// and it is a module of its own so that Playwright never becomes a dependency
+// of the framework or of an app.
 //
 //	func TestLogin(t *testing.T) {
 //		uitest.Run(t, "..", func(s *uitest.Session) {
@@ -21,21 +21,23 @@
 //
 // Run builds the app once per directory, starts the binary on a free port —
 // the program that goes to production, not the dev server with its reload —
-// and gives the scenario a fresh headless Chrome. Nothing here takes a
-// screenshot or sleeps: every step waits for its condition, up to 30 seconds.
-// A scenario that fails runs once more from scratch, with the first failure in
-// the log; failing twice, it writes report/<scenario>.txt with the step, the
-// selector, what was expected, what was there and what to change, and fails
-// the test.
+// and runs the scenario once in each browser of UITEST_BROWSERS: "chromium"
+// (the default), a list such as "firefox,webkit", or "all" for the three
+// engines people browse with. Each run gets a fresh server and a fresh browser
+// context, headless. Nothing here takes a screenshot or sleeps: every step
+// waits for its condition, up to 30 seconds. A scenario that fails runs once
+// more from scratch, with the first failure in the log; failing twice, it
+// writes report/<scenario>-<browser>.txt with the step, the selector, what was
+// expected, what was there and what to change, and fails the test.
 //
-// Without Chrome the scenarios skip, unless UITEST_REQUIRED=1 is set — which
-// is how CI turns a missing browser into a failure. UITEST_CHROME points at a
-// browser that is not in the usual places.
+// The browsers come from Playwright and are installed once per machine with
+// `make test-ui-install` (InstallCommand). Without them the scenarios skip,
+// unless UITEST_REQUIRED=1 is set — which is how CI turns a missing browser
+// into a failure.
 package uitest
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,18 +46,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/chromedp/cdproto/dom"
-	"github.com/chromedp/cdproto/emulation"
-	"github.com/chromedp/cdproto/network"
-	"github.com/chromedp/cdproto/page"
-	cdpruntime "github.com/chromedp/cdproto/runtime"
-	"github.com/chromedp/chromedp"
-	"github.com/chromedp/chromedp/kb"
+	"github.com/mxschmitt/playwright-go"
 )
 
 // T is the part of *testing.T that Run uses.
@@ -84,7 +79,7 @@ func Run(t T, appDir string, fn func(s *Session)) { RunWith(t, appDir, Config{},
 // RunWith is Run with a Config.
 func RunWith(t T, appDir string, cfg Config, fn func(s *Session)) {
 	t.Helper()
-	chrome := RequireBrowser(t)
+	names := RequireBrowsers(t)
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 30 * time.Second
 	}
@@ -95,68 +90,191 @@ func RunWith(t T, appDir string, cfg Config, fn func(s *Session)) {
 	if err != nil {
 		t.Fatalf("uitest: building %s: %v", appDir, err)
 	}
+	// Every browser runs even after one fails: "fails only in WebKit" is the
+	// first thing the report has to say.
+	var failed []string
+	for _, name := range names {
+		if msg := runIn(t, name, bin, appDir, cfg, fn); msg != "" {
+			failed = append(failed, msg)
+		}
+	}
+	if len(failed) > 0 {
+		t.Fatalf("%s", strings.Join(failed, "\n"))
+	}
+}
+
+// runIn is the scenario in one browser, with its retry; "" when it passed.
+func runIn(t T, name, bin, appDir string, cfg Config, fn func(s *Session)) string {
 	var first *Failure
 	for attempt := 1; attempt <= 2; attempt++ {
-		f := runOnce(t, chrome, bin, appDir, cfg, fn)
+		f := runOnce(name, bin, appDir, cfg, fn)
 		if f == nil {
 			if first != nil {
-				t.Logf("uitest: passed on the second attempt; the first failed with:\n%s", first.Report())
+				t.Logf("uitest: passed in %s on the second attempt; the first failed with:\n%s", name, first.Report())
 			}
-			return
+			return ""
 		}
-		f.Scenario, f.Attempt = t.Name(), attempt
+		f.Scenario, f.Browser, f.Attempt = t.Name(), name, attempt
 		if attempt == 1 {
 			first = f
-			t.Logf("uitest: attempt 1 failed, running again with a fresh server and browser:\n%s", f.Report())
+			t.Logf("uitest: attempt 1 in %s failed, running again with a fresh server and browser:\n%s", name, f.Report())
 			continue
 		}
 		path, werr := f.Write(cfg.ReportDir)
 		if werr != nil {
 			path = "(not written: " + werr.Error() + ")"
 		}
-		t.Fatalf("%s\nreport: %s", f.Report(), path)
+		return f.Report() + "report: " + path
 	}
+	return ""
 }
 
-// RequireBrowser returns the Chrome the scenarios will drive, or skips the
-// test when there is none — or fails it, with UITEST_REQUIRED=1.
-func RequireBrowser(t T) string {
+// AllBrowsers are the engines "all" stands for: Chromium (Chrome, Edge),
+// Firefox (Gecko) and WebKit (Safari).
+var AllBrowsers = []string{"chromium", "firefox", "webkit"}
+
+// Browsers is what UITEST_BROWSERS asks for, in order, "chromium" when it is
+// empty. A name outside AllBrowsers is an error, not a skip: it is a typo.
+func Browsers() ([]string, error) {
+	v := strings.TrimSpace(os.Getenv("UITEST_BROWSERS"))
+	switch v {
+	case "":
+		return []string{"chromium"}, nil
+	case "all":
+		return append([]string(nil), AllBrowsers...), nil
+	}
+	var out []string
+	for _, n := range strings.Split(v, ",") {
+		n = strings.ToLower(strings.TrimSpace(n))
+		if n == "" {
+			continue
+		}
+		known := false
+		for _, a := range AllBrowsers {
+			known = known || a == n
+		}
+		if !known {
+			return nil, fmt.Errorf("UITEST_BROWSERS names %q; the browsers are %s, or all", n, strings.Join(AllBrowsers, ", "))
+		}
+		out = append(out, n)
+	}
+	if len(out) == 0 {
+		return []string{"chromium"}, nil
+	}
+	return out, nil
+}
+
+// InstallCommand is what installs the driver and the browsers of
+// UITEST_BROWSERS, run from the uitest directory. CI adds --with-deps, for
+// the system libraries WebKit and Firefox need on Linux.
+func InstallCommand(names ...string) string {
+	return "go run github.com/mxschmitt/playwright-go/cmd/playwright install " + strings.Join(names, " ")
+}
+
+// RequireBrowsers returns the browsers the scenarios will drive, or skips the
+// test when one of them is not installed — or fails it, with
+// UITEST_REQUIRED=1.
+func RequireBrowsers(t T) []string {
 	t.Helper()
-	if p := BrowserPath(); p != "" {
-		return p
+	names, err := Browsers()
+	if err != nil {
+		t.Fatalf("uitest: %v", err)
+		return nil
 	}
-	msg := "uitest: no Chrome or Chromium found (set UITEST_CHROME to its path)"
-	if os.Getenv("UITEST_REQUIRED") == "1" {
-		t.Fatalf("%s, and UITEST_REQUIRED=1", msg)
+	if err := installed(names); err != nil {
+		msg := fmt.Sprintf("uitest: %v (from uitest/: %s, or make test-ui-install)", err, InstallCommand(names...))
+		if os.Getenv("UITEST_REQUIRED") == "1" {
+			t.Fatalf("%s, and UITEST_REQUIRED=1", msg)
+		}
+		t.Skipf("%s", msg)
+		return nil
 	}
-	t.Skipf("%s", msg)
-	return ""
+	return names
 }
 
-// BrowserPath is the browser Run would use, or "".
-func BrowserPath() string {
-	if p := os.Getenv("UITEST_CHROME"); p != "" {
-		if _, err := os.Stat(p); err != nil {
-			return "" // named and missing: the same as no browser, not another one
-		}
-		return p
+// driver is the Playwright process and the browsers it launched, one per
+// driver directory (PLAYWRIGHT_DRIVER_PATH): started on first use, shared by
+// every scenario of the process, stopped by Close.
+type driver struct {
+	once     sync.Once
+	pw       *playwright.Playwright
+	err      error
+	mu       sync.Mutex
+	browsers map[string]playwright.Browser
+}
+
+var drivers sync.Map // PLAYWRIGHT_DRIVER_PATH → *driver
+
+func current() *driver {
+	v, _ := drivers.LoadOrStore(os.Getenv("PLAYWRIGHT_DRIVER_PATH"), &driver{browsers: map[string]playwright.Browser{}})
+	d := v.(*driver)
+	d.once.Do(func() {
+		d.pw, d.err = playwright.Run(&playwright.RunOptions{SkipInstallBrowsers: true, Verbose: false})
+	})
+	return d
+}
+
+func (d *driver) browserType(name string) playwright.BrowserType {
+	switch name {
+	case "firefox":
+		return d.pw.Firefox
+	case "webkit":
+		return d.pw.WebKit
 	}
-	for _, name := range []string{"google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome", "headless-shell"} {
-		if p, err := exec.LookPath(name); err == nil {
-			return p
+	return d.pw.Chromium
+}
+
+// installed says which of names cannot run here: no driver, or a browser
+// whose executable is not on disk.
+func installed(names []string) error {
+	d := current()
+	if d.err != nil {
+		return fmt.Errorf("no Playwright driver: %v", d.err)
+	}
+	var missing []string
+	for _, n := range names {
+		if _, err := os.Stat(d.browserType(n).ExecutablePath()); err != nil {
+			missing = append(missing, n)
 		}
 	}
-	if runtime.GOOS == "darwin" {
-		for _, p := range []string{
-			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-			"/Applications/Chromium.app/Contents/MacOS/Chromium",
-		} {
-			if _, err := os.Stat(p); err == nil {
-				return p
-			}
-		}
+	if len(missing) > 0 {
+		return fmt.Errorf("browser not installed: %s", strings.Join(missing, ", "))
 	}
-	return ""
+	return nil
+}
+
+// launch returns the running browser name, starting it on first use.
+func (d *driver) launch(name string) (playwright.Browser, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if b, ok := d.browsers[name]; ok && b.IsConnected() {
+		return b, nil
+	}
+	b, err := d.browserType(name).Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if err != nil {
+		return nil, err
+	}
+	d.browsers[name] = b
+	return b, nil
+}
+
+// Close stops the browsers and the Playwright driver. Call it from TestMain,
+// after m.Run.
+func Close() {
+	drivers.Range(func(_, v any) bool {
+		d := v.(*driver)
+		d.mu.Lock()
+		for _, b := range d.browsers {
+			_ = b.Close()
+		}
+		d.browsers = map[string]playwright.Browser{}
+		d.mu.Unlock()
+		if d.pw != nil {
+			_ = d.pw.Stop()
+		}
+		return true
+	})
+	drivers.Clear()
 }
 
 type built struct {
@@ -192,9 +310,9 @@ func build(appDir string) (string, error) {
 	return b.bin, b.err
 }
 
-// runOnce starts the server and the browser, runs the scenario and turns what
-// stopped it into a Failure.
-func runOnce(t T, chrome, bin, appDir string, cfg Config, fn func(s *Session)) (fail *Failure) {
+// runOnce starts the server and a fresh browser context, runs the scenario
+// and turns what stopped it into a Failure.
+func runOnce(name, bin, appDir string, cfg Config, fn func(s *Session)) (fail *Failure) {
 	port, err := freePort()
 	if err != nil {
 		return &Failure{Step: "start", Got: err.Error(), Fix: "free a local port for the app"}
@@ -220,47 +338,41 @@ func runOnce(t T, chrome, bin, appDir string, cfg Config, fn func(s *Session)) (
 			Fix: "read the server log below: the app did not start (a missing TRILHA_SECRET in prod, a port in use)"}
 	}
 
-	opts := append(chromedp.DefaultExecAllocatorOptions[:], chromedp.ExecPath(chrome), chromedp.WindowSize(1280, 900))
-	if os.Geteuid() == 0 {
-		opts = append(opts, chromedp.NoSandbox)
+	browser, err := current().launch(name)
+	if err != nil {
+		return &Failure{Step: "browser", Got: err.Error(), Fix: "check " + name + " starts headless on this machine: " + InstallCommand(name) + " --with-deps"}
 	}
-	actx, cancelAlloc := chromedp.NewExecAllocator(context.Background(), opts...)
-	defer cancelAlloc()
-	// A Chrome newer than the protocol this chromedp knows sends events it
-	// cannot decode — harmless, and noise in every test log.
-	bctx, cancelBrowser := chromedp.NewContext(actx, chromedp.WithErrorf(func(string, ...any) {}))
-	defer cancelBrowser()
+	// A context per run is a profile of its own: no cookie, storage or cache
+	// from the run before. Reduced motion: the kit then swaps without a view
+	// transition, whose overlay a headless tab may never finish drawing; a
+	// scenario checks where the page ends, not the animation on the way. And
+	// every document, before its own scripts, records what its
+	// Content-Security-Policy refused: CSPViolations reads it.
+	bctx, err := browser.NewContext(playwright.BrowserNewContextOptions{
+		Viewport:      &playwright.Size{Width: 1280, Height: 900},
+		ReducedMotion: playwright.ReducedMotionReduce,
+	})
+	if err != nil {
+		return &Failure{Step: "browser", Got: err.Error(), Fix: "check " + name + " starts headless on this machine"}
+	}
+	defer bctx.Close()
+	if err := bctx.AddInitScript(playwright.Script{Content: playwright.String(cspWatch)}); err != nil {
+		return &Failure{Step: "browser", Got: err.Error()}
+	}
+	page, err := bctx.NewPage()
+	if err != nil {
+		return &Failure{Step: "browser", Got: err.Error(), Fix: "check " + name + " opens a page headless on this machine"}
+	}
+	page.SetDefaultTimeout(float64(cfg.Timeout.Milliseconds()))
+	page.SetDefaultNavigationTimeout(float64(cfg.Timeout.Milliseconds()))
 
-	s := &Session{BaseURL: base, ctx: bctx, timeout: cfg.Timeout}
-	chromedp.ListenTarget(bctx, func(ev any) {
-		switch ev := ev.(type) {
-		case *cdpruntime.EventConsoleAPICalled:
-			if ev.Type == cdpruntime.APITypeError || ev.Type == cdpruntime.APITypeWarning {
-				var parts []string
-				for _, a := range ev.Args {
-					parts = append(parts, strings.Trim(string(a.Value), `"`)+a.Description)
-				}
-				s.console(string(ev.Type) + ": " + strings.Join(parts, " "))
-			}
-		case *cdpruntime.EventExceptionThrown:
-			s.console("exception: " + ev.ExceptionDetails.Error())
+	s := &Session{BaseURL: base, Browser: name, page: page, bctx: bctx, timeout: cfg.Timeout}
+	page.OnConsole(func(m playwright.ConsoleMessage) {
+		if t := m.Type(); t == "error" || t == "warning" {
+			s.console(t + ": " + m.Text())
 		}
 	})
-	// Focus emulation: a headless tab is never the focused window, and without
-	// it focus and focusin do not fire — the keyboard scenarios would test a
-	// browser nobody uses. Reduced motion: the kit then swaps without a view
-	// transition, whose overlay a headless tab may never finish drawing; a
-	// scenario checks where the page ends, not the animation on the way.
-	// And every document, before its own scripts, records what its
-	// Content-Security-Policy refused: CSPViolations reads it.
-	if err := chromedp.Run(bctx, emulation.SetFocusEmulationEnabled(true),
-		emulation.SetEmulatedMedia().WithFeatures([]*emulation.MediaFeature{{Name: "prefers-reduced-motion", Value: "reduce"}}),
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			_, err := page.AddScriptToEvaluateOnNewDocument(cspWatch).Do(ctx)
-			return err
-		})); err != nil {
-		return &Failure{Step: "browser", Got: err.Error(), Fix: "check Chrome starts headless on this machine (UITEST_CHROME)"}
-	}
+	page.OnPageError(func(err error) { s.console("exception: " + err.Error()) })
 
 	defer func() {
 		r := recover()
@@ -338,8 +450,11 @@ func tail(s string, n int) string {
 type Session struct {
 	// BaseURL is the app's address, http://127.0.0.1:<port>.
 	BaseURL string
+	// Browser is the engine this run drives: chromium, firefox or webkit.
+	Browser string
 
-	ctx     context.Context
+	page    playwright.Page
+	bctx    playwright.BrowserContext
 	timeout time.Duration
 	step    string
 
@@ -370,26 +485,30 @@ func (s *Session) Fail(f Failure) {
 	panic(&f)
 }
 
-func (s *Session) run(step, sel, fix string, actions ...chromedp.Action) {
+// run does one browser action, and fails the step with fix when it errs.
+func (s *Session) run(step, sel, fix string, action func() error) {
 	s.step = step
-	ctx, cancel := context.WithTimeout(s.ctx, s.timeout)
-	defer cancel()
-	if err := chromedp.Run(ctx, actions...); err != nil {
+	if err := action(); err != nil {
 		got := err.Error()
-		if errors.Is(err, context.DeadlineExceeded) {
+		if errors.Is(err, playwright.ErrTimeout) {
 			got = "nothing happened in " + s.timeout.String()
 		}
 		s.Fail(Failure{Step: step, Selector: sel, Want: "the action to complete", Got: got, Fix: fix})
 	}
 }
 
-// eval runs a JavaScript expression and decodes its value into out.
+// eval runs a JavaScript expression — a Promise is awaited — and decodes its
+// value into out.
 func (s *Session) eval(js string, out any) error {
-	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
-	defer cancel()
-	return chromedp.Run(ctx, chromedp.Evaluate(js, out, func(p *cdpruntime.EvaluateParams) *cdpruntime.EvaluateParams {
-		return p.WithAwaitPromise(true)
-	}))
+	v, err := s.page.Evaluate(js)
+	if err != nil {
+		return err
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, out)
 }
 
 // until polls probe until it says ok, or fails the step with what it saw last.
@@ -433,7 +552,7 @@ const describeJS = `const d = (n) => { if (!n || n === document.body) return "<b
 // finish loading.
 func (s *Session) Navigate(path string) {
 	s.run("Navigate "+path, "", "check the route exists — the server log is below",
-		chromedp.Navigate(s.BaseURL+path))
+		func() error { _, err := s.page.Goto(s.BaseURL + path); return err })
 	s.until("Navigate "+path, "", "document.readyState complete", "the page never finished loading", func() (string, bool) {
 		var st string
 		if err := s.eval(`document.readyState`, &st); err != nil {
@@ -483,7 +602,7 @@ func (s *Session) Click(sel string) {
 		s.Fail(Failure{Step: "Click", Selector: sel, Want: "the element on top at its own middle", Got: "covered by " + pt.Top,
 			Fix: "something is drawn over it (a dialog, a toast, a sticky header): close it first, or check the z-index"})
 	}
-	s.run("Click", sel, "the click did not go through", chromedp.MouseClickXY(pt.X, pt.Y))
+	s.run("Click", sel, "the click did not go through", func() error { return s.page.Mouse().Click(pt.X, pt.Y) })
 }
 
 // Fill replaces the value of a field by typing, so the page sees the same
@@ -500,7 +619,7 @@ func (s *Session) Fill(sel, value string) {
 		s.Fail(Failure{Step: "Fill", Selector: sel, Want: "an editable field with the focus", Got: got,
 			Fix: "the field is disabled, readonly or not an input"})
 	}
-	s.run("Fill", sel, "the field did not take the keys: a script moved the focus", chromedp.KeyEvent(value))
+	s.run("Fill", sel, "the field did not take the keys: a script moved the focus", func() error { return s.page.Keyboard().Type(value) })
 }
 
 // Focus moves the focus to sel, as Tab would when it got there.
@@ -538,23 +657,25 @@ func (s *Session) Select(sel, value string) {
 // ClearCookies signs the tab out of everything: the next page is what a
 // stranger gets.
 func (s *Session) ClearCookies() {
-	s.run("ClearCookies", "", "the browser refused to clear its cookies", network.ClearBrowserCookies())
+	s.run("ClearCookies", "", "the browser refused to clear its cookies", func() error { return s.bctx.ClearCookies() })
 }
 
-var keys = map[string]string{
-	"Enter": kb.Enter, "Escape": kb.Escape, "Tab": kb.Tab, "Space": " ", "Backspace": kb.Backspace,
-	"ArrowUp": kb.ArrowUp, "ArrowDown": kb.ArrowDown, "ArrowLeft": kb.ArrowLeft, "ArrowRight": kb.ArrowRight,
-	"Home": kb.Home, "End": kb.End,
+// keys are the names Press knows; anything else is typed as text.
+var keys = map[string]bool{
+	"Enter": true, "Escape": true, "Tab": true, "Space": true, "Backspace": true,
+	"ArrowUp": true, "ArrowDown": true, "ArrowLeft": true, "ArrowRight": true, "Home": true, "End": true,
 }
 
 // Press sends a key to whatever has the focus: "Enter", "Escape", "Tab",
 // "Space", the arrows, or a literal text.
 func (s *Session) Press(key string) {
-	k, ok := keys[key]
-	if !ok {
-		k = key
-	}
-	s.run("Press "+key, "", "the key reached no element: check the focus first with WantFocus", chromedp.KeyEvent(k))
+	kbd := s.page.Keyboard()
+	s.run("Press "+key, "", "the key reached no element: check the focus first with WantFocus", func() error {
+		if keys[key] {
+			return kbd.Press(key)
+		}
+		return kbd.Type(key)
+	})
 }
 
 // Upload sets the files of a file input, as choosing them in the dialog does.
@@ -567,19 +688,9 @@ func (s *Session) Upload(sel string, paths ...string) {
 		}
 		abs = append(abs, a)
 	}
-	s.run("Upload", sel, "the selector has to be an <input type=file>",
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			obj, exc, err := cdpruntime.Evaluate("document.querySelector(" + quote(sel) + ")").Do(ctx)
-			switch {
-			case err != nil:
-				return err
-			case exc != nil:
-				return exc
-			case obj.ObjectID == "":
-				return errors.New("no element matches")
-			}
-			return dom.SetFileInputFiles(abs).WithObjectID(obj.ObjectID).Do(ctx)
-		}))
+	s.run("Upload", sel, "the selector has to be an <input type=file>", func() error {
+		return s.page.Locator(sel).First().SetInputFiles(abs)
+	})
 }
 
 // Text is the visible text of the first element matching sel.

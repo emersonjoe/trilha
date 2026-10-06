@@ -177,10 +177,10 @@ for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSaf
 }
 ```
 
-**A página rodando, no Chrome.** O foco indo para o campo que falhou, um fragmento trocado no
+**A página rodando, num navegador de verdade.** O foco indo para o campo que falhou, um fragmento trocado no
 lugar, a barra do envio, uma ilha montando, uma dica aberta pelo teclado — só um navegador mostra.
 O módulo `github.com/emersonjoe/trilha/uitest` tem `go.mod` próprio, então a dependência dele
-(chromedp) nunca chega ao framework nem ao seu app:
+(Playwright) nunca chega ao framework nem ao seu app:
 
 ```go
 func TestFormularioDePerfil(t *testing.T) {
@@ -194,16 +194,26 @@ func TestFormularioDePerfil(t *testing.T) {
 }
 ```
 
-O `Run` compila o app uma vez, sobe o binário numa porta livre e dá a cada cenário um Chrome
-headless novo. Não há screenshot nem sleep: todo passo espera a sua condição, até 30 segundos. Um
-cenário que falha roda mais uma vez do zero; falhando duas, grava `report/<cenário>.txt` — passo,
-seletor, esperado, obtido, o conserto, o console do navegador e o log do servidor —, que é o que
-um agente lê para corrigir a página. Sem Chrome os cenários pulam; `UITEST_REQUIRED=1` transforma
+O `Run` compila o app uma vez, sobe o binário numa porta livre e roda o cenário em cada navegador
+de `UITEST_BROWSERS` — `chromium` por padrão, uma lista como `firefox,webkit`, ou `all` para os
+três motores com que as pessoas navegam —, cada vez num contexto de navegador headless novo; o
+`s.Browser` diz qual. Não há screenshot nem sleep: todo passo espera a sua condição, até 30
+segundos. Um cenário que falha roda mais uma vez do zero; falhando duas, grava
+`report/<cenário>-<navegador>.txt` — passo, seletor, esperado, obtido, o conserto, o console do
+navegador e o log do servidor —, que é o que um agente lê para corrigir a página. Os navegadores
+são instalados uma vez por máquina (`go run github.com/mxschmitt/playwright-go/cmd/playwright
+install chromium firefox webkit`); sem eles os cenários pulam, e `UITEST_REQUIRED=1` transforma
 isso em falha. O `CSPViolations()` lista o que a política recusou, que a própria página nunca
 mostra.
 
+Tenha poucos destes, um por jornada que dói se quebrar — entrar, salvar um formulário, navegar
+numa lista, enviar um arquivo —, e escreva cada um como caso: pré-condições, dados, passos,
+resultado esperado. Caso extremo fica na unidade e na integração, que rodam em milissegundos.
+
 Neste repositório, `make test-ui` roda os cenários do navegador sobre um projeto feito por
-`trilha new` e `trilha add`, e `make test-ui-a` só as conferências do HTML servido.
+`trilha new` e `trilha add` (`make test-ui-install` baixa os navegadores, e a CI roda um job por
+motor), o `uitest/JORNADAS.md` documenta cada cenário como caso de teste, e `make test-ui-a` só as
+conferências do HTML servido.
 
 ## Corrida e fuzzing
 

@@ -306,7 +306,7 @@ Contribuições são bem-vindas: veja [CONTRIBUTING](docs/pt-BR/CONTRIBUTING.md)
 
 ```bash
 make test        # gofmt + vet + go test ./... (inclui e2e da CLI e o exemplo)
-make test-ui     # o app num Chrome headless (módulo uitest/; pula sem Chrome)
+make test-ui     # o app num navegador de verdade (módulo uitest/; UITEST_BROWSERS=all para Chromium, Firefox, WebKit)
 make test-sql    # as stores SQL em SQLite e num PostgreSQL temporário (módulo sqltest/)
 make dev-example # trilha dev em examples/blog
 make reload      # mede o ciclo editar→ver
@@ -315,8 +315,9 @@ make reload      # mede o ciclo editar→ver
 As telas são testadas em duas camadas. O `trilha.PageSnapshot` segura o HTML servido num
 arquivo golden, sem o nonce, o token e os ids, e confere o que a página promete — token CSRF,
 nonce da CSP, cookies seguros, o foco depois de um 422 — em todo `go test`. O módulo
-`github.com/emersonjoe/trilha/uitest` dirige o app rodando no Chrome, e um cenário que falha
-grava um relatório com que um agente consegue agir. Veja
+`github.com/emersonjoe/trilha/uitest` dirige o app rodando no Chromium, no Firefox e no WebKit
+(Playwright), e um cenário que falha grava um relatório com que um agente consegue agir; cada
+cenário é um caso de teste em `uitest/JORNADAS.md`. Veja
 [Testes](https://emersonjoe.github.io/trilha/pt/aprender/testes).
 
 Projeto guiado por spec-kit: veja `specs/` (uma pasta por spec) e

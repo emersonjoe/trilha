@@ -12,6 +12,7 @@ import (
 // step, the selector, what was expected, what was there, and what to change.
 type Failure struct {
 	Scenario  string
+	Browser   string
 	Attempt   int
 	Step      string
 	Selector  string
@@ -39,6 +40,7 @@ func (f *Failure) Report() string {
 		scenario += fmt.Sprintf(" (attempt %d of 2)", f.Attempt)
 	}
 	line("scenario", scenario)
+	line("browser", f.Browser)
 	line("step", f.Step)
 	line("selector", f.Selector)
 	line("expected", f.Want)
@@ -62,7 +64,8 @@ func (f *Failure) Report() string {
 
 var unsafeName = regexp.MustCompile(`[^A-Za-z0-9_.-]+`)
 
-// Write puts the report in dir/<scenario>.txt and returns the path.
+// Write puts the report in dir/<scenario>-<browser>.txt (dir/<scenario>.txt
+// without a browser) and returns the path.
 func (f *Failure) Write(dir string) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
@@ -70,6 +73,9 @@ func (f *Failure) Write(dir string) (string, error) {
 	name := unsafeName.ReplaceAllString(f.Scenario, "_")
 	if name == "" {
 		name = "scenario"
+	}
+	if f.Browser != "" {
+		name += "-" + unsafeName.ReplaceAllString(f.Browser, "_")
 	}
 	path := filepath.Join(dir, name+".txt")
 	return path, os.WriteFile(path, []byte(f.Report()), 0o644)

@@ -177,10 +177,10 @@ for _, err := range []error{snap.HasCSRFToken(), snap.HasCSPNonce(), snap.HasSaf
 }
 ```
 
-**The page running, in Chrome.** The focus moving to the field that failed, a fragment swapped
+**The page running, in a real browser.** The focus moving to the field that failed, a fragment swapped
 in place, an upload bar, an island mounting, a tooltip from the keyboard — only a browser shows
 those. The module `github.com/emersonjoe/trilha/uitest` has its own `go.mod`, so its dependency
-(chromedp) never reaches the framework or your app:
+(Playwright) never reaches the framework or your app:
 
 ```go
 func TestProfileForm(t *testing.T) {
@@ -194,16 +194,25 @@ func TestProfileForm(t *testing.T) {
 }
 ```
 
-`Run` builds the app once, starts the binary on a free port and gives each scenario a fresh
-headless Chrome. There are no screenshots and no sleeps: every step waits for its condition, up
-to 30 seconds. A failing scenario runs once more from scratch; failing twice, it writes
-`report/<scenario>.txt` — step, selector, expected, got, the fix, the browser console and the
-server log — which is what an agent reads to correct the page. Without Chrome the scenarios
-skip; `UITEST_REQUIRED=1` makes that a failure. `CSPViolations()` lists what the policy refused,
-which the page itself never shows.
+`Run` builds the app once, starts the binary on a free port and runs the scenario in each
+browser of `UITEST_BROWSERS` — `chromium` by default, a list such as `firefox,webkit`, or `all`
+for the three engines people browse with —, each time in a fresh headless browser context;
+`s.Browser` says which one. There are no screenshots and no sleeps: every step waits for its
+condition, up to 30 seconds. A failing scenario runs once more from scratch; failing twice, it
+writes `report/<scenario>-<browser>.txt` — step, selector, expected, got, the fix, the browser
+console and the server log — which is what an agent reads to correct the page. The browsers are
+installed once per machine (`go run github.com/mxschmitt/playwright-go/cmd/playwright install
+chromium firefox webkit`); without them the scenarios skip, and `UITEST_REQUIRED=1` makes that
+a failure. `CSPViolations()` lists what the policy refused, which the page itself never shows.
+
+Keep few of these, one per journey that would hurt if it broke — signing in, saving a form,
+navigating a list, sending a file —, and write each down as a case: preconditions, data, steps,
+expected result. Edge cases belong in unit and integration tests, which run in milliseconds.
 
 In this repository `make test-ui` runs the browser scenarios over a project made by
-`trilha new` and `trilha add`, and `make test-ui-a` the served-HTML checks alone.
+`trilha new` and `trilha add` (`make test-ui-install` gets the browsers, and CI runs one job per
+engine), `uitest/JORNADAS.md` documents each scenario as a test case, and `make test-ui-a` runs
+the served-HTML checks alone.
 
 ## Race and fuzzing
 

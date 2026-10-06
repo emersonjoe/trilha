@@ -61,6 +61,28 @@ escape de HTML, precedência de rotas e determinismo do gerador (golden files). 
 `examples/blog` é executado por testes de integração com `httptest` cobrindo cada convenção.
 Nenhuma feature é "pronta" sem `go vet ./...` e `go test ./...` verdes na raiz.
 
+O padrão de qualidade que vale para toda mudança de comportamento (emenda 1.6.0):
+
+1. **Usuário e risco primeiro.** A spec nomeia a jornada afetada — de quem escreve o app ou de
+   quem o usa — e o pior impacto se ela quebrar; jornada crítica é testada antes.
+2. **Pirâmide.** Muita unidade (regra, borda, exceção), integração nas fronteiras (`httptest`
+   no exemplo, `sqltest/` num banco de verdade, a CLI gerando e compilando projeto), retrato
+   do HTML servido (camada A), e poucos cenários de navegador (`uitest/`) só para o que o
+   navegador vê. Caso extremo vai para unidade ou integração, não para o navegador.
+3. **Casos documentados.** Todo cenário de navegador é um caso de `uitest/JORNADAS.md` (título,
+   jornada, risco, pré-condições, dados, passos, resultado esperado); `TestCatalogoDeJornadas`
+   reprova a divergência.
+4. **Ambiente de produção.** O cenário roda o binário de produção (`TRILHA_ENV=prod`), o banco
+   real do store e dados sintéticos — nunca dado pessoal real em fixture, golden ou log — e não
+   deixa nada para trás.
+5. **Regressão primeiro.** Bug corrigido ganha teste que reprova antes da correção.
+6. **Três motores.** Os cenários de navegador rodam em Chromium, Firefox e WebKit na CI, cada um
+   num job bloqueante; localmente, ao menos Chromium (`make test-ui`).
+7. **Sem silêncio.** A suíte inteira roda antes de fechar a spec e o fechamento registra os
+   números (passaram, falharam, pularam) por nível. Teste instável não é pulado nem desligado:
+   corrige-se a causa, ou ele vira issue com dono e prazo citada no próprio teste. Job da CI
+   vermelho na `main` é a primeira tarefa da próxima spec.
+
 ### VII. Segurança por padrão
 Todo texto passa por escape contextual; cabeçalhos `X-Content-Type-Options: nosniff`,
 `Referrer-Policy` e `X-Frame-Options` saem por padrão; arquivos estáticos nunca servem fora
@@ -135,4 +157,4 @@ registro da mudança neste arquivo com nova versão semântica, atualização do
 `.specify/templates/` que dependam do princípio alterado, e migração dos exemplos afetados.
 Revisões de código verificam aderência aos princípios I–VII antes de aprovar.
 
-**Version**: 1.5.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-09-13 (NIST SSDF 1.1 e OWASP ASVS 5.0 viram gates verificáveis)
+**Version**: 1.6.0 | **Ratified**: 2026-09-04 | **Last Amended**: 2026-10-05 (padrão de qualidade: pirâmide, catálogo de jornadas, três motores de navegador, regressão primeiro)

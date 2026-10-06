@@ -8,6 +8,10 @@ shell commands, and other important information, read the current plan
 ## Comandos
 
 - `make test` — gofmt (fora de testdata) + `go vet ./...` + `go test ./...` (inclui e2e da CLI).
+- `make test-ui` — cenários de navegador (`uitest/`, Playwright); `UITEST_BROWSERS=all` roda
+  Chromium, Firefox e WebKit. `make test-ui-install` baixa os navegadores uma vez por máquina.
+  Cada cenário é um caso de `uitest/JORNADAS.md`.
+- `make test-sql` — stores SQL em SQLite (e PostgreSQL, se instalado).
 - `make golden` — regrava os golden files do gerador após mudar `internal/gen`.
 - `make security` — gofmt/vet, detector de corrida e `govulncheck` fixado e compatível com Go 1.22.
 - `make dev-example` / `make reload` — dev server no exemplo e medição do ciclo de recarga.
@@ -31,6 +35,9 @@ shell commands, and other important information, read the current plan
 - Gerador determinístico; arquivo gerado é commitado.
 - Código, identificadores e mensagens de erro em inglês. Público (site, README, comunidade, CLI, scaffold) em inglês por padrão com tradução pt-BR no mesmo commit (site em `/` e `/pt`, `README.pt-BR.md`, `docs/pt-BR/`, `TRILHA_LANG`). Specs e constituição em pt-BR.
 - Commits sem trailer de coautoria.
+- Padrão de qualidade (constituição VI): jornada e risco nomeados na spec, teste no nível mais
+  baixo que prova, regressão antes da correção, cenário de navegador com caso no catálogo, e
+  os números da suíte (passaram/falharam/pularam) registrados ao fechar.
 - Toda mudança segue NIST SSDF 1.1 e os controles aplicáveis do OWASP ASVS 5.0 nível 2;
   a spec e o PR registram fronteiras de confiança, impacto, exceções e evidências.
 

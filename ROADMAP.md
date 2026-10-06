@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (setembro de 2026, v0.150.0)
+## Onde o Trilha está (outubro de 2026, v0.151.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -359,6 +359,10 @@ tela escrever as datas no próprio formato (#288).
 138. **Datas de evento** (spec 169, **entregue na 0.150.0**): `LogFormat` em `ui.APIKeysOpts` e
 `ui.WebhooksOpts` para as colunas de evento (último uso, entrega) terem a hora enquanto as de
 criação ficam no dia (#289).
+139. **Padrão de qualidade** (spec 170, **entregue na 0.151.0**): `uitest` em Playwright, cenários
+em Chromium, Firefox e WebKit com um job bloqueante por motor; catálogo de jornadas
+(`uitest/JORNADAS.md`) conferido por teste; constituição 1.6.0 com a pirâmide e a regressão
+primeiro; a `main` de volta ao verde.
 
 ## O que não vamos fazer, e por quê
 
