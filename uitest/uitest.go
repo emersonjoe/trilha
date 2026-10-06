@@ -107,7 +107,7 @@ func RunWith(t T, appDir string, cfg Config, fn func(s *Session)) {
 func runIn(t T, name, bin, appDir string, cfg Config, fn func(s *Session)) string {
 	var first *Failure
 	for attempt := 1; attempt <= 2; attempt++ {
-		f := runOnce(name, bin, appDir, cfg, fn)
+		f := runOnce(name, bin, appDir, cfg, fn, attempt > 1)
 		if f == nil {
 			if first != nil {
 				t.Logf("uitest: passed in %s on the second attempt; the first failed with:\n%s", name, first.Report())
@@ -243,12 +243,16 @@ func installed(names []string) error {
 	return nil
 }
 
-// launch returns the running browser name, starting it on first use.
-func (d *driver) launch(name string) (playwright.Browser, error) {
+// launch returns the running browser name, starting it on first use — or
+// anew, closing the old one, when fresh.
+func (d *driver) launch(name string, fresh bool) (playwright.Browser, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if b, ok := d.browsers[name]; ok && b.IsConnected() {
-		return b, nil
+		if !fresh {
+			return b, nil
+		}
+		_ = b.Close()
 	}
 	b, err := d.browserType(name).Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
 	if err != nil {
@@ -312,7 +316,7 @@ func build(appDir string) (string, error) {
 
 // runOnce starts the server and a fresh browser context, runs the scenario
 // and turns what stopped it into a Failure.
-func runOnce(name, bin, appDir string, cfg Config, fn func(s *Session)) (fail *Failure) {
+func runOnce(name, bin, appDir string, cfg Config, fn func(s *Session), fresh bool) (fail *Failure) {
 	port, err := freePort()
 	if err != nil {
 		return &Failure{Step: "start", Got: err.Error(), Fix: "free a local port for the app"}
@@ -338,7 +342,9 @@ func runOnce(name, bin, appDir string, cfg Config, fn func(s *Session)) (fail *F
 			Fix: "read the server log below: the app did not start (a missing TRILHA_SECRET in prod, a port in use)"}
 	}
 
-	browser, err := current().launch(name)
+	// The second attempt gets a browser process of its own, not only a fresh
+	// context: a browser left stuck by the first would fail it again.
+	browser, err := current().launch(name, fresh)
 	if err != nil {
 		return &Failure{Step: "browser", Got: err.Error(), Fix: "check " + name + " starts headless on this machine: " + InstallCommand(name) + " --with-deps"}
 	}
@@ -550,12 +556,21 @@ const describeJS = `const d = (n) => { if (!n || n === document.body) return "<b
 
 // Navigate loads path (relative to the app) and waits for the document to
 // finish loading.
+//
+// It waits for the document itself, not for the browser's load event, and then
+// for readyState complete: a page that never gets there says what is still
+// loading, which is what a failure on one engine needs to be understood.
 func (s *Session) Navigate(path string) {
 	s.run("Navigate "+path, "", "check the route exists — the server log is below",
-		func() error { _, err := s.page.Goto(s.BaseURL + path); return err })
-	s.until("Navigate "+path, "", "document.readyState complete", "the page never finished loading", func() (string, bool) {
+		func() error {
+			_, err := s.page.Goto(s.BaseURL+path, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateCommit})
+			return err
+		})
+	s.until("Navigate "+path, "", "document.readyState complete", "the page never finished loading: the resources above are what it waits for", func() (string, bool) {
 		var st string
-		if err := s.eval(`document.readyState`, &st); err != nil {
+		if err := s.eval(`document.readyState === "complete" ? "complete" : document.readyState + "; waiting for: " + `+
+			`[...document.querySelectorAll("script[src],link[rel=stylesheet],img,iframe")].map((e) => e.src || e.href)`+
+			`.filter((u) => u && !performance.getEntriesByName(u).length).join(", ")`, &st); err != nil {
 			return err.Error(), false
 		}
 		return st, st == "complete"
