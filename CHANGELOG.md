@@ -3,6 +3,16 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.155.1 — 2026-10-06
+
+### Fixed
+
+- **`uitest`**: the second attempt of a scenario relaunches the browser, as spec 164 promised,
+  instead of only opening a fresh context — a browser process left stuck by the first attempt
+  failed the second too (the `ui (firefox)` job of 0.154.0). `Navigate` waits for the document
+  and then `readyState === "complete"`, and a page that never gets there reports the resources
+  still loading instead of "nothing happened in 30s" (spec 175).
+
 ## 0.155.0 — 2026-10-06
 
 A side panel that loads on demand and stays open while the page navigates, and dialogs that

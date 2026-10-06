@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.155.0)
+## Onde o Trilha está (outubro de 2026, v0.155.1)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -376,6 +376,8 @@ página com o ponteiro parado, o foco do teclado ou o toque; o clique usa a resp
 143. **Painel lateral e diálogo sob demanda** (spec 174, **entregue na 0.155.0**): `ui.Sheet`
 carrega o corpo por fragmento e fica aberto enquanto a região navega; `DialogTrigger` com
 endereço e `Swap` carrega o corpo do diálogo (#296).
+144. **Firefox estável na CI** (spec 175, **entregue na 0.155.1**): a segunda tentativa de um
+cenário relança o navegador, e o `Navigate` diz o que ficou carregando quando a página não termina.
 
 ## O que não vamos fazer, e por quê
 
