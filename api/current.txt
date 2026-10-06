@@ -1880,6 +1880,11 @@ pkg ui, func Select(...h.Node) h.Node
 pkg ui, func SelectOptions([]Option, string) h.Node
 pkg ui, func Separator() h.Node
 pkg ui, func SettingsForm(*trilha.Ctx, Section, map[string]string, ...h.Node) h.Node
+pkg ui, func Sheet(*trilha.Ctx, string, SheetOpts, ...h.Node) h.Node
+pkg ui, func SheetBody(string, ...h.Node) h.Node
+pkg ui, func SheetClose(...h.Node) h.Node
+pkg ui, func SheetOpen(string) h.Node
+pkg ui, func SheetScript(*trilha.Ctx) h.Node
 pkg ui, func Shell(*trilha.Ctx, ShellOpts, ...h.Node) h.Node
 pkg ui, func ShowWhen(string, ...string) h.Node
 pkg ui, func Sidebar(...h.Node) h.Node
@@ -2201,6 +2206,13 @@ pkg ui, type Section interface
 pkg ui, type Section interface, Key() string
 pkg ui, type Section interface, Schema() trilha.Schema
 pkg ui, type Section interface, Values() map[string]string
+pkg ui, type SheetOpts struct
+pkg ui, type SheetOpts struct, Modal bool
+pkg ui, type SheetOpts struct, Open bool
+pkg ui, type SheetOpts struct, Push bool
+pkg ui, type SheetOpts struct, Side string
+pkg ui, type SheetOpts struct, Title string
+pkg ui, type SheetOpts struct, Width string
 pkg ui, type ShellOpts struct
 pkg ui, type ShellOpts struct, Brand h.Node
 pkg ui, type ShellOpts struct, Current string

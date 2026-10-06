@@ -31,7 +31,7 @@ tira de alguém o que ele veio fazer.
 | Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce`, `TestUISwapFollowsRedirect`, `TestUISwapRedirectReload`, `TestUISwapFollowFallsBack`, `TestUIRegionFormsNavigate`, `TestUIRegionForm422` |
 | Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins`, `TestUIRegionLinkRedirect`, `TestUIServerDeclaresURL`, `TestUIPrefetchOnIntent`, `TestUIPrefetchNeedsIntent`, `TestUIPrefetchExpires`, `TestUIPrefetchSaveData`, `TestUIPrefetchRedirectNotKept` |
 | Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress`, `TestUIUploadFollowsRedirect` |
-| Interação rica | componente morto na tela | `TestUIIslandHydrates`, `TestUITooltipKeyboard` |
+| Interação rica | componente morto na tela; painel que perde o lugar na lista | `TestUIIslandHydrates`, `TestUITooltipKeyboard`, `TestUISheetOpensOnDemand`, `TestUISheetSurvivesNavigation`, `TestUISheetEscapeRestoresFocus`, `TestUISheetOnPhone`, `TestUIDialogLoadsOnDemand` |
 | Segurança percebida | script injetado roda; segredo vaza | `TestUISecurityEveryScreen`, `TestUISecretNeverInHTML` |
 
 ## Casos
@@ -291,3 +291,43 @@ tira de alguém o que ele veio fazer.
 - **Dados**: nenhum.
 - **Passos**: parar em `#sai`; clicar.
 - **Resultado esperado**: um prefetch e um GET; a navegação segue o caminho normal até `/fluxos/semregiao`.
+
+### TestUISheetOpensOnDemand — O painel abre e carrega só o corpo (#296)
+
+- **Jornada**: interação rica. **Risco**: abrir o documento recarrega a lista e perde o lugar; ou o painel pede a página inteira.
+- **Pré-condições**: `/fluxos/docs` com links `ui.SheetOpen("leitor")` na região e o `ui.Sheet` fora dela; `/fluxos/docs/{id}` responde o fragmento `leitor-body` com um `ui.Preview`.
+- **Dados**: documentos 7 e 8 (texto sintético).
+- **Passos**: clicar "Document 7"; clicar "Document 8"; pedir `/fluxos/docs/7` sem script.
+- **Resultado esperado**: o painel abre com o foco no título, `aria-expanded="true"` no link, o corpo com o documento 7 e o quadro; o servidor vê um GET do fragmento e nenhum da página; a URL não muda; o 8 troca só o corpo; sem script o endereço responde a página inteira (200).
+
+### TestUISheetSurvivesNavigation — O painel fica aberto enquanto a região navega (#296)
+
+- **Jornada**: interação rica. **Risco**: o leitor de PDF recarrega a cada clique na lista.
+- **Pré-condições**: painel aberto com o documento 7.
+- **Dados**: nenhum.
+- **Passos**: marcar o quadro; navegar no cliente para "Other list".
+- **Resultado esperado**: o painel continua aberto, com o mesmo quadro, e o servidor não vê outro GET do arquivo.
+
+### TestUISheetEscapeRestoresFocus — Esc fecha e devolve o foco (#296)
+
+- **Jornada**: interação rica. **Risco**: quem usa teclado fica perdido depois de fechar.
+- **Pré-condições**: painel aberto.
+- **Dados**: nenhum.
+- **Passos**: apertar Escape.
+- **Resultado esperado**: o painel fecha e esvazia o corpo (o quadro sai), o foco volta ao link e o `aria-expanded` vira `false`.
+
+### TestUISheetOnPhone — No telefone o painel ocupa a tela e fecha a gaveta (#296)
+
+- **Jornada**: interação rica. **Risco**: painel e gaveta do `ui.Shell` disputando a mesma borda.
+- **Pré-condições**: viewport 375 × 812; gaveta aberta.
+- **Dados**: nenhum.
+- **Passos**: abrir o documento 7.
+- **Resultado esperado**: o painel tem a largura da tela e a gaveta fecha.
+
+### TestUIDialogLoadsOnDemand — O diálogo carrega o corpo quando abre (#296)
+
+- **Jornada**: interação rica. **Risco**: diálogo que abre vazio.
+- **Pré-condições**: `ui.DialogTrigger("ver", ui.Swap("ver-body"), h.Href(...))` e `ui.Dialog("ver", …)`.
+- **Dados**: documento 7.
+- **Passos**: clicar "See 7".
+- **Resultado esperado**: o diálogo abre com "Document 7 in a dialog", a URL não muda e o documento não recarrega.

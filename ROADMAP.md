@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.154.0)
+## Onde o Trilha está (outubro de 2026, v0.155.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -373,6 +373,9 @@ quando a moldura muda); formulário comum dentro de `ui.Navigate` navega no luga
 142. **Prefetch por intenção** (spec 173, **entregue na 0.154.0**): `ui.Prefetch()` antecipa a
 página com o ponteiro parado, o foco do teclado ou o toque; o clique usa a resposta;
 `c.IsPrefetch()` no servidor (#295).
+143. **Painel lateral e diálogo sob demanda** (spec 174, **entregue na 0.155.0**): `ui.Sheet`
+carrega o corpo por fragmento e fica aberto enquanto a região navega; `DialogTrigger` com
+endereço e `Swap` carrega o corpo do diálogo (#296).
 
 ## O que não vamos fazer, e por quê
 

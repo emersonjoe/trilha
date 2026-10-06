@@ -323,6 +323,40 @@ checks it. The click uses the prefetched answer without asking again, so a readi
 be recorded every time — an access log the law asks for — keeps its links out with
 `ui.NoPrefetch()`.
 
+### A panel beside the page
+
+"The document open beside the list, the next one a click away" is a `ui.Sheet`: a panel whose
+body loads on demand and that stays open while the region navigates.
+
+```go
+// app/layout.go — outside the ui.Navigate region
+ui.Sheet(c, "leitor", ui.SheetOpts{Title: "Document"}), ui.SheetScript(c),
+
+// the list, inside it
+h.A(h.Href("/documentos/"+d.ID), ui.SheetOpen("leitor"), h.Text(d.Nome))
+
+// app/documentos/id_/page.go — one route, the piece and the page
+if c.Fragment() == "leitor-body" {
+	return ui.SheetBody("leitor", leitor(c, doc)), nil
+}
+return h.Div(ui.H1(h.Text(doc.Nome)), leitor(c, doc)), nil
+```
+
+The link opens the panel, marks its body pending and asks its own address for the fragment
+`leitor-body`; another link swaps only the body, and the address does not change — a panel is a
+moment (`SheetOpts.Push` makes it an entry, and Back closes it). The panel is outside the
+region, so a `ui.Preview` inside it does not reload while the list beside it navigates.
+Closing it empties the body, which is what frees a heavy frame. The focus goes to the panel's
+title; Escape and the close button give it back to the link, whose `aria-expanded` follows.
+Not modal, it does not trap the focus — it is complementary content, an `<aside>`;
+`SheetOpts.Modal` makes it a `<dialog>`. Below 768px it covers the screen and closes the
+shell's drawer. Without JavaScript the link goes to the document's page; `SheetOpts.Open`
+renders the panel open, for a list that reads `?painel=…`.
+
+A dialog loads its body the same way: `ui.DialogTrigger("ver", ui.Swap("ver-body"),
+h.Href("/documentos/7"))` is a link that opens `ui.Dialog("ver", …)` and swaps `#ver-body`
+in, without touching the address.
+
 The rule of thumb: **fragment** when a handler answers a piece, **navigation** when the
 answer is a page and the frame around it should stay.
 

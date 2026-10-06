@@ -3,6 +3,32 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.155.0 — 2026-10-06
+
+A side panel that loads on demand and stays open while the page navigates, and dialogs that
+load their body (spec 174, #296).
+
+### Added
+
+- **`ui.Sheet(c, id, ui.SheetOpts{...}, children...)`** — a panel at the end, start or bottom
+  edge: an `<aside role="complementary">` beside the page, or a `<dialog>` with `Modal`. A link
+  marked **`ui.SheetOpen(id)`** opens it and asks its own address for the fragment
+  `<id>-body` (**`ui.SheetBody`**), with the kit's pending marks and redirect handling; another
+  link swaps only the body. Put it in the layout, outside the `ui.Navigate` region, and it stays
+  open — with its `ui.Preview` frame — while the region navigates. Focus goes to its title;
+  Escape, **`ui.SheetClose`** or Back (with `Push`) close it, empty it and return the focus to
+  the link, whose `aria-expanded` follows. On a phone it covers the screen and closes the
+  shell's drawer. `Open` renders it open for a direct link. Load **`ui.SheetScript(c)`**; the
+  behavior is the new kit file `ui.sheet.js`, which `trilha ui --js` writes.
+- **`ui.DialogTrigger` with `h.Href` is a link**, and with `ui.Swap` on the dialog's body it
+  opens the dialog and loads the body without touching the address.
+- `examples/blog`: the app area opens a post beside the list.
+- `uitest`: `Session.Viewport(w, h)`.
+
+### Changed
+
+- `ui.css` budget 42 KB. Client navigation and prefetch leave panel and dialog links alone.
+
 ## 0.154.0 — 2026-10-06
 
 Prefetch on intent for client navigation (spec 173, #295).

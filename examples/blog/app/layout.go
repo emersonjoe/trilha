@@ -6,6 +6,16 @@ import (
 	"github.com/emersonjoe/trilha/ui"
 )
 
+// leitor é o painel em que a área do app abre um post ao lado da lista (#296).
+// Ele fica aqui, fora do <main id="conteudo"> que a navegação no cliente
+// troca: é isso que o mantém aberto enquanto a área navega.
+func leitor(c *trilha.Ctx) h.Node {
+	if c.Get("area") != "painel" {
+		return nil
+	}
+	return h.Fragment(ui.Sheet(c, "leitor", ui.SheetOpts{Title: "Post"}), ui.SheetScript(c))
+}
+
 // Layout is the root layout: the <html> document around every page.
 func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 	title := c.Title()
@@ -37,6 +47,7 @@ func Layout(c *trilha.Ctx, children h.Node) (h.Node, error) {
 				ui.ThemeToggle(),
 			),
 			h.Main(h.ID("conteudo"), ui.Container(children)),
+			leitor(c),
 			h.Footer(ui.Container(ui.Muted(h.Textf("request %s", c.RequestID())))),
 			ui.Flashes(c),
 		),

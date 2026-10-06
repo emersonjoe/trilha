@@ -93,6 +93,8 @@
       settle();
     }
   };
+  // Links that belong to another behavior: a download, a fragment, a panel, a dialog.
+  const theirs = (a) => a.matches("[download],[data-trilha-target],[data-ui-sheet-open],[data-ui-dialog-open]");
   const sameOrigin = (v) => { try { return new URL(v, location.href).origin === location.origin; } catch { return false; } };
   const isHTML = (res) => /text\/html/.test(res.headers.get("Content-Type")) && !/attachment/i.test(res.headers.get("Content-Disposition"));
 
@@ -106,7 +108,7 @@
   const prefetch = (a) => {
     const c = navigator.connection;
     if (a.closest("[data-trilha-prefetch]")?.getAttribute("data-trilha-prefetch") !== "intent" || c?.saveData || /2g/.test(c?.effectiveType)) return;
-    if (!regionOf(a) || a.hasAttribute("download") || a.hasAttribute("data-trilha-target") || (a.target && a.target !== "_self") || !sameOrigin(a.href)) return;
+    if (!regionOf(a) || theirs(a) || (a.target && a.target !== "_self") || !sameOrigin(a.href)) return;
     const key = bare(a.href);
     if (key === bare(location.href) || cache.get(key)?.until > Date.now()) return;
     const ttl = +a.closest("[data-trilha-prefetch-ttl]")?.getAttribute("data-trilha-prefetch-ttl") || 10000;
@@ -155,7 +157,7 @@
   document.addEventListener("click", (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target.closest("a[href]");
-    if (!a || a.hasAttribute("download") || a.hasAttribute("data-trilha-target")) return;
+    if (!a || theirs(a)) return;
     if (a.target && a.target !== "_self") return;
     const id = regionOf(a);
     const url = new URL(a.href, location.href);

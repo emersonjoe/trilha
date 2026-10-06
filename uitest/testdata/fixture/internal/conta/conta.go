@@ -18,13 +18,17 @@ var (
 func Hit(c *trilha.Ctx) {
 	mu.Lock()
 	defer mu.Unlock()
-	n := got[c.Request().URL.RequestURI()]
+	key := c.Request().URL.RequestURI()
+	if f := c.Fragment(); f != "" {
+		key += "#" + f // a fragment of the address is counted apart
+	}
+	n := got[key]
 	if c.IsPrefetch() {
 		n[1]++
 	} else {
 		n[0]++
 	}
-	got[c.Request().URL.RequestURI()] = n
+	got[key] = n
 }
 
 // Of is "gets N prefetches M" for an address.

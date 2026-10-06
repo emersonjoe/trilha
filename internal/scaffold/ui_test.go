@@ -14,8 +14,9 @@ func TestWriteUIStamp(t *testing.T) {
 		t.Fatal(err, res)
 	}
 	// Navigation, upload, the recorder, the outbox, live, chat, the island
-	// runtime and the tree are .js files of their own: --js writes them all.
-	if res, err := WriteUI(dir, false, false, true); err != nil || len(res) != 9 || res[8].File != "ui.tree.js" {
+	// runtime, the tree and the panel are .js files of their own: --js writes
+	// them all.
+	if res, err := WriteUI(dir, false, false, true); err != nil || len(res) != 10 || res[9].File != "ui.sheet.js" {
 		t.Fatal(err, res)
 	}
 	css := filepath.Join(dir, "public", "ui.css")

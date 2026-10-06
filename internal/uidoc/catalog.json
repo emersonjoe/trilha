@@ -2039,6 +2039,105 @@
     ]
   },
   {
+    "name": "SheetOpts",
+    "kind": "type",
+    "group": "sheet",
+    "signature": "type SheetOpts struct",
+    "doc": "SheetOpts is how a Sheet sits on the page. The zero value is a panel at the\nend side, 32rem wide, closed, beside a page that stays usable.",
+    "summary": "SheetOpts is how a Sheet sits on the page.",
+    "fields": [
+      {
+        "name": "Side",
+        "type": "string",
+        "doc": "Side is \"end\" (the default), \"start\" or \"bottom\"."
+      },
+      {
+        "name": "Width",
+        "type": "string",
+        "doc": "Width is a CSS length — \"40rem\", \"480px\", \"50vw\"."
+      },
+      {
+        "name": "Title",
+        "type": "string",
+        "doc": "Title is the visible title, and the panel's accessible name."
+      },
+      {
+        "name": "Modal",
+        "type": "bool",
+        "doc": "Modal makes it a \u003cdialog\u003e opened with showModal: the rest of the page goes inert."
+      },
+      {
+        "name": "Open",
+        "type": "bool",
+        "doc": "Open renders it open, with children as its body: what a direct link or a reload show (the route reads ?painel=… and renders the same body its fragment answers)."
+      },
+      {
+        "name": "Push",
+        "type": "bool",
+        "doc": "Push makes opening add a history entry, so Back closes the panel."
+      }
+    ]
+  },
+  {
+    "name": "Sheet",
+    "kind": "func",
+    "group": "sheet",
+    "signature": "Sheet(c *trilha.Ctx, id string, o SheetOpts, children ...h.Node) h.Node",
+    "doc": "Sheet is a side panel whose body is loaded on demand and that stays open\nwhile the region beside it navigates — a document viewer open next to the\nlist, the next item one click away (#296).\n\nA SheetOpen link opens the panel, marks its body pending and asks the link's\naddress for the fragment \"\u003cid\u003e-body\" — the same route, answering the piece\nwith Ctx.Fragment. Another link swaps only the body. The panel lives in the\nlayout, outside the region, so ui.Navigate never touches it and a\nui.Preview inside it does not reload while the page navigates; closing it\nempties the body, which is what frees a heavy frame.\nOpening moves the focus to the title; Escape and the close button close it\nand give the focus back to the link, whose aria-expanded follows. A panel\nthat is not modal does not trap the focus — it is complementary content.\nBelow 768px it covers the screen from the bottom, since there is no page\nleft beside it, and it closes the phone drawer of ui.Shell.\nWithout JavaScript the link goes to its address — the document's page, or\nthe list with ?painel=… rendered with Open — so nothing is out of reach.",
+    "summary": "Sheet is a side panel whose body is loaded on demand and that stays open while the region beside it navigates — a document viewer open next to the list, the next item one click away (#296).",
+    "example": "// layout, outside the ui.Navigate region:\nui.Sheet(c, \"leitor\", ui.SheetOpts{Title: \"Document\"}), ui.SheetScript(c),\n// the list, inside it:\nh.A(h.Href(\"/docs/\"+id), ui.SheetOpen(\"leitor\"), h.Text(doc.Name))\n// the route of /docs/{id}:\nif c.Fragment() == \"leitor-body\" { return ui.SheetBody(\"leitor\", leitor(c, doc)), nil }\n\n\n\n\nsee: ui.SheetOpen, ui.SheetClose, ui.SheetScript, ui.Dialog",
+    "see": [
+      "h.A",
+      "h.Href",
+      "h.Text",
+      "ui.Dialog",
+      "ui.Navigate",
+      "ui.Preview",
+      "ui.SheetBody",
+      "ui.SheetClose",
+      "ui.SheetOpen",
+      "ui.SheetOpts",
+      "ui.SheetScript",
+      "ui.Shell"
+    ]
+  },
+  {
+    "name": "SheetBody",
+    "kind": "func",
+    "group": "sheet",
+    "signature": "SheetBody(id string, children ...h.Node) h.Node",
+    "doc": "SheetBody is the body of the Sheet with this id: the element the fragment\n\"\u003cid\u003e-body\" replaces. The route answers it, so the swap keeps its class.",
+    "summary": "SheetBody is the body of the Sheet with this id: the element the fragment \"\u003cid\u003e-body\" replaces.",
+    "example": "if c.Fragment() == \"leitor-body\" {\n\treturn ui.SheetBody(\"leitor\", leitor(c, doc)), nil\n}"
+  },
+  {
+    "name": "SheetOpen",
+    "kind": "func",
+    "group": "sheet",
+    "signature": "SheetOpen(id string) h.Node",
+    "doc": "SheetOpen goes on the \u003ca href\u003e that opens the Sheet with this id and loads\nits address into the body. It starts as aria-expanded=\"false\".",
+    "summary": "SheetOpen goes on the \u003ca href\u003e that opens the Sheet with this id and loads its address into the body."
+  },
+  {
+    "name": "SheetClose",
+    "kind": "func",
+    "group": "sheet",
+    "signature": "SheetClose(children ...h.Node) h.Node",
+    "doc": "SheetClose is a Button that closes the enclosing Sheet.",
+    "summary": "SheetClose is a Button that closes the enclosing Sheet."
+  },
+  {
+    "name": "SheetScript",
+    "kind": "func",
+    "group": "sheet",
+    "signature": "SheetScript(c *trilha.Ctx) h.Node",
+    "doc": "SheetScript loads ui.sheet.js, the behavior behind Sheet. Put it once, in\nthe layout that has the panel; ui.Head does not load it.",
+    "summary": "SheetScript loads ui.sheet.js, the behavior behind Sheet.",
+    "see": [
+      "ui.Head"
+    ]
+  },
+  {
     "name": "NavItem",
     "kind": "type",
     "group": "shell",
@@ -3623,8 +3722,17 @@
     "kind": "func",
     "group": "dialog",
     "signature": "DialogTrigger(id string, children ...h.Node) h.Node",
-    "doc": "DialogTrigger is a Button that opens the dialog with the given id.",
-    "summary": "DialogTrigger is a Button that opens the dialog with the given id."
+    "doc": "DialogTrigger is a Button that opens the dialog with the given id. Given an\naddress (h.Href) it is a link instead, and with Swap on the dialog's body it\nloads the body on demand — without JavaScript the link goes to the page\nthat answers the content whole (#296):",
+    "summary": "DialogTrigger is a Button that opens the dialog with the given id.",
+    "example": "ui.DialogTrigger(\"ver\", ui.Swap(\"ver-body\"), h.Href(\"/docs/7\"), h.Text(\"See\"))\nui.Dialog(\"ver\", \"Document\", h.Div(h.ID(\"ver-body\")))",
+    "see": [
+      "h.Div",
+      "h.Href",
+      "h.ID",
+      "h.Text",
+      "ui.Dialog",
+      "ui.Swap"
+    ]
   },
   {
     "name": "DialogClose",

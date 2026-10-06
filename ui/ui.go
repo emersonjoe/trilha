@@ -13,7 +13,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 )
 
-//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js assets/ui.recorder.js assets/ui.offline.js assets/ui.live.js assets/ui.chat.js assets/ui.island.js assets/ui.tree.js
+//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js assets/ui.recorder.js assets/ui.offline.js assets/ui.live.js assets/ui.chat.js assets/ui.island.js assets/ui.tree.js assets/ui.sheet.js
 var assets embed.FS
 
 // Asset returns the embedded file (ui.css, ui.theme.css or ui.js).
@@ -26,7 +26,7 @@ func Asset(name string) []byte {
 }
 
 // Files lists the kit files written to a project's public/ folder.
-var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js", "ui.recorder.js", "ui.offline.js", "ui.live.js", "ui.chat.js", "ui.island.js", "ui.tree.js"}
+var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js", "ui.recorder.js", "ui.offline.js", "ui.live.js", "ui.chat.js", "ui.island.js", "ui.tree.js", "ui.sheet.js"}
 
 // Head links the kit's stylesheets and script and applies the saved theme
 // before first paint (inline script with the request nonce, so the default
@@ -696,8 +696,17 @@ func DialogFooter(children ...h.Node) h.Node {
 	return h.Div(append([]h.Node{h.Class("ui-dialog-footer")}, children...)...)
 }
 
-// DialogTrigger is a Button that opens the dialog with the given id.
+// DialogTrigger is a Button that opens the dialog with the given id. Given an
+// address (h.Href) it is a link instead, and with Swap on the dialog's body it
+// loads the body on demand — without JavaScript the link goes to the page
+// that answers the content whole (#296):
+//
+//	ui.DialogTrigger("ver", ui.Swap("ver-body"), h.Href("/docs/7"), h.Text("See"))
+//	ui.Dialog("ver", "Document", h.Div(h.ID("ver-body")))
 func DialogTrigger(id string, children ...h.Node) h.Node {
+	if hasAttr(children, "href") {
+		return h.A(append(variant("ui-btn", children), h.Data("ui-dialog-open", id))...)
+	}
 	return Button(append(children, h.Data("ui-dialog-open", id))...)
 }
 

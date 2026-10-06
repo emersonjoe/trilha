@@ -33,7 +33,7 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 			)),
 		),
 		ui.Tabs("painel-tabs",
-			ui.Tab{Label: "Recentes", Content: h.Ul(h.Map(st.All(), func(p posts.Post) h.Node { return h.Li(h.A(h.Href("/blog/"+p.Slug), h.Text(p.Title))) }))},
+			ui.Tab{Label: "Recentes", Content: h.Ul(h.Map(st.All(), func(p posts.Post) h.Node { return h.Li(h.A(h.Href("/blog/"+p.Slug), ui.SheetOpen("leitor"), h.Text(p.Title))) }))},
 			ui.Tab{Label: "Ajuda", Content: h.P(h.Text("Abas, cards e barra de progresso vêm do kit ui."))},
 		),
 	), nil

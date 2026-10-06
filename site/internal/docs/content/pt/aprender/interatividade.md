@@ -324,6 +324,39 @@ visualizações) confere. O clique usa a resposta antecipada sem pedir de novo, 
 que precisa ser registrada toda vez — uma trilha de acesso que a lei exige — deixa os links dela
 de fora com `ui.NoPrefetch()`.
 
+### Um painel ao lado da página
+
+"O documento aberto ao lado da lista, o próximo a um clique" é um `ui.Sheet`: um painel cujo
+corpo carrega sob demanda e que fica aberto enquanto a região navega.
+
+```go
+// app/layout.go — fora da região ui.Navigate
+ui.Sheet(c, "leitor", ui.SheetOpts{Title: "Documento"}), ui.SheetScript(c),
+
+// a lista, dentro dela
+h.A(h.Href("/documentos/"+d.ID), ui.SheetOpen("leitor"), h.Text(d.Nome))
+
+// app/documentos/id_/page.go — uma rota, o pedaço e a página
+if c.Fragment() == "leitor-body" {
+	return ui.SheetBody("leitor", leitor(c, doc)), nil
+}
+return h.Div(ui.H1(h.Text(doc.Nome)), leitor(c, doc)), nil
+```
+
+O link abre o painel, marca o corpo como pendente e pede ao próprio endereço o fragmento
+`leitor-body`; outro link troca só o corpo, e o endereço não muda — um painel é um momento
+(`SheetOpts.Push` o torna uma entrada, e Voltar fecha). O painel fica fora da região, então um
+`ui.Preview` dentro dele não recarrega enquanto a lista ao lado navega. Fechar esvazia o corpo,
+que é o que libera um quadro pesado. O foco vai para o título do painel; Esc e o botão de fechar
+devolvem o foco ao link, cujo `aria-expanded` acompanha. Sem `Modal`, ele não prende o foco — é
+conteúdo complementar, um `<aside>`; `SheetOpts.Modal` o torna um `<dialog>`. Abaixo de 768px ele
+cobre a tela e fecha a gaveta do shell. Sem JavaScript o link leva à página do documento; o
+`SheetOpts.Open` desenha o painel aberto, para uma lista que lê `?painel=…`.
+
+Um diálogo carrega o corpo do mesmo jeito: `ui.DialogTrigger("ver", ui.Swap("ver-body"),
+h.Href("/documentos/7"))` é um link que abre o `ui.Dialog("ver", …)` e troca o `#ver-body`, sem
+mexer no endereço.
+
 A regra de bolso: **fragmento** quando um handler responde um pedaço, **navegação** quando a
 resposta é uma página e a moldura em volta deve ficar.
 

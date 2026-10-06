@@ -85,8 +85,10 @@
       if (d && typeof d.showModal === "function") {
         // The opener may be a link to the page that answers without script —
         // ui.Assistant's launcher is one. Opening here is what replaces the
-        // navigation, so the default only goes when the dialog cannot open.
-        e.preventDefault();
+        // navigation, so the default only goes when the dialog cannot open —
+        // unless the link also swaps the body in: the fragment listener takes
+        // the click then (#296).
+        if (!open.hasAttribute("data-trilha-target")) e.preventDefault();
         d.showModal();
         if (open.hasAttribute("aria-expanded")) {
           open.setAttribute("aria-expanded", "true");
@@ -509,7 +511,8 @@
     if (url.origin !== location.origin) return;
     const id = a.getAttribute("data-trilha-target");
     e.preventDefault();
-    ask(url.href, { method: "GET" }, id, a, pushable(a) && { mode: "push", url: url.href }).then((r) => {
+    const keep = pushable(a) && !a.hasAttribute("data-ui-dialog-open"); // a dialog's body has no address
+    ask(url.href, { method: "GET" }, id, a, keep && { mode: "push", url: url.href }).then((r) => {
       if (r === "navigate") location.assign(url.href);
     });
   });
@@ -690,7 +693,8 @@
   const focusInvalid = () => document.querySelector("[autofocus]") || document.querySelector("form [aria-invalid='true']")?.focus();
   const init = () => { document.querySelectorAll("script[src]").forEach((t) => ran.add(t.src)); takeFlashes(); armFades(document); evalShowWhen(document); initTooltips(document); focusInvalid(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update, activate, beforeSwap, follow, follows, record, keepFlashes, showFlashes });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update, activate, beforeSwap, follow, follows, record, keepFlashes, showFlashes,
+    fragment: (url, id, trigger) => ask(url, { method: "GET" }, id, trigger) });
 
   // [data-ui-copy=texto]: copia e diz que copiou. Sem ele o valor continua
   // sendo texto selecionável num campo — o botão é conveniência, não o caminho.

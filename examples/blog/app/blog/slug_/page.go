@@ -18,6 +18,11 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 	if p.Slug == "boom" {
 		return nil, trilha.Errorf(500, "post explodiu")
 	}
+	// O painel da área do app pede só o corpo do post, para abri-lo ao lado
+	// da lista (ui.SheetOpen); sem JavaScript o mesmo link é esta página.
+	if c.Fragment() == "leitor-body" {
+		return ui.SheetBody("leitor", h.H3(h.Text(p.Title)), h.P(h.Text(p.Body))), nil
+	}
 	// O post é a única coisa nesta página que muda, então a data dele é a
 	// versão dela. Num app com edição seria o `updated_at`; o que não serve é
 	// o corpo renderizado, que traz um nonce novo a cada resposta.

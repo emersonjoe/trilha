@@ -342,6 +342,14 @@ func TestNavegacaoNoClienteDegradaSemScript(t *testing.T) {
 	// ou abrir em outra aba dá a mesma página.
 	direct := c.Get("/relatorio")
 	direct.WantStatus(200).WantContains("<!doctype html>", `id="conteudo"`, "<title>Relatório · Trilha Blog</title>")
+	// O post abre ao lado da lista num painel fora do <main> (#296): o link é
+	// o do post, e a mesma rota responde só o corpo quando o painel pede.
+	rec.WantContains(`<aside id="leitor"`, `role="complementary"`, `data-ui-sheet-open="leitor"`, `<script src="/ui.sheet.js`)
+	frag := c.Get("/blog/ola-trilha", trilha.WithHeader("Trilha-Fragment", "leitor-body"))
+	frag.WantStatus(200).WantContains(`<div class="ui-sheet-body" id="leitor-body"><h3>`)
+	if strings.Contains(frag.Body.String(), "<!doctype") {
+		t.Fatal("the panel's fragment came with the whole document")
+	}
 	// O arquivo do comportamento é servido como qualquer estático do projeto.
 	if js := c.Get("/ui.nav.js"); js.Code != 200 || !strings.Contains(js.Body.String(), "data-trilha-nav") {
 		t.Fatalf("ui.nav.js: %d", js.Code)

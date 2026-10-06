@@ -639,6 +639,14 @@ func (s *Session) Sweep(sels ...string) {
 	})
 }
 
+// Viewport resizes the page to w by h CSS pixels — 375 wide is a phone, where
+// the kit's layout changes.
+func (s *Session) Viewport(w, h int) {
+	s.run("Viewport", "", "the browser refused the size", func() error {
+		return s.page.SetViewportSize(w, h)
+	})
+}
+
 // Fill replaces the value of a field by typing, so the page sees the same
 // input events a person would cause.
 func (s *Session) Fill(sel, value string) {
