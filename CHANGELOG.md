@@ -3,6 +3,46 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.153.0 — 2026-10-06
+
+The rest of the screen stops reloading: redirects are followed in place, forms inside a
+client-navigation region navigate in place, and the server can say which address a fragment
+drew (spec 172, #291, #292, #293).
+
+### Added
+
+- **Redirects followed in place** (#291). On a page with a `ui.Navigate` region, a `ui.Swap` or
+  `ui.UploadTo` form whose route answers `c.Flash` + `c.Redirect` swaps the destination into the
+  region, puts its address in the bar and shows the message in a toast, once; Back never posts
+  again. Elsewhere `ui.Follow()` turns it on and `ui.NoFollow()` off. The kit sends
+  `Trilha-Follow: 1`, and the server then puts the flash in `Trilha-Flash` instead of a cookie.
+- **`trilha.RedirectReload` / `c.RedirectReload`** (#291): `Redirect` for a destination with
+  another frame (login, logout, organization) — a 303 without JavaScript, a real load with it
+  (`Trilha-Reload: 1`).
+- **Forms inside a `ui.Navigate` region navigate in place** (#292): a `GET` is a new address
+  with Back to the previous filter; a `POST` is sent as the browser would, its 303 followed and
+  swapped in with the destination's flashes as toasts, its 422 page swapped in with the focus on
+  the invalid field. Not HTML, a download or another frame loads for real. `ui.NoNavigate()` on
+  a form keeps it out. A link to an address that redirects is one `GET`, with its message.
+- **`c.PushURL(path)` and `c.ReplaceURL(path)`** (#293) on a fragment answer declare the address
+  that rebuilds what it drew (`Trilha-Push-Url`, `Trilha-Replace-Url`); `ReplaceURL("")` leaves
+  the bar alone. A path of this site, like `Redirect`; nothing on a full page.
+- **`ui.PushHistory()`** (#293): a `GET` form with `ui.Swap` adds an entry per search.
+
+### Changed
+
+- A message that has to cross a real navigation started by the client waits in
+  `sessionStorage` and is shown once by the page that loads.
+
+### Fixed
+
+- Back to the first entry of a page whose `ui.Swap` link pushed an address did not rebuild it:
+  the entry being left had no state.
+- `ui.UploadTo` ignored the `Trilha-Flash` of a swapped answer.
+- CI on Go 1.25 failed in `bench/` (`TestMeasureSeries`): files written within a few
+  milliseconds of the start were not counted, because the kernel stamps them with a coarse
+  clock. They are now compared by stamps taken before and after.
+
 ## 0.152.0 — 2026-10-06
 
 Client navigation that keeps the page alive, agrees with the address bar and talks to screen

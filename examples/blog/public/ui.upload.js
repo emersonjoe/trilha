@@ -1,4 +1,3 @@
-/* trilha ui 3124f1e92072e545 */
 // Kit ui do Trilha — envio de arquivo com progresso. Carregado por `ui.UploadScript`.
 (() => {
   // The browser is the only one that knows how many bytes have left the
@@ -36,17 +35,27 @@
       // A redirect of a fragment request comes back as 204 with the address
       // in Trilha-Location — the same answer ui.js follows for a form. Swapped
       // in, that empty body would erase the form.
-      const loc = xhr.getResponseHeader("Trilha-Location");
-      if (loc) { location.assign(loc); return; }
+      // It is followed in place like ui.js follows a form's (#291).
+      const get = (h) => xhr.getResponseHeader(h), loc = get("Trilha-Location");
+      if (loc) {
+        if (window.ui?.follow) window.ui.follow(loc, id, f, get("Trilha-Flash"), get("Trilha-Reload"));
+        else location.assign(loc);
+        return;
+      }
       if (xhr.status >= 500 || !window.ui?.swap) { give(); return; }
       // swap resolves false when the fragment came back without its id.
-      Promise.resolve(window.ui.swap(id, xhr.responseText, xhr.status)).then((ok) => { if (!ok) give(); });
+      Promise.resolve(window.ui.swap(id, xhr.responseText, xhr.status)).then((ok) => {
+        if (!ok) return give();
+        if (get("Trilha-Flash")) window.ui.showFlashes?.(get("Trilha-Flash"));
+        window.ui.record?.(get, id);
+      });
     });
     xhr.addEventListener("error", give);
     xhr.addEventListener("abort", give);
 
     xhr.open((f.getAttribute("method") || "post").toUpperCase(), action.href);
     xhr.setRequestHeader("Trilha-Fragment", id);
+    if (window.ui?.follows?.(f)) xhr.setRequestHeader("Trilha-Follow", "1");
     f.setAttribute("data-trilha-sending", "");
     target.setAttribute("aria-busy", "true");
     if (bar) { bar.hidden = false; bar.value = 0; }
@@ -113,6 +122,7 @@
     xhr.addEventListener("error", () => { fail(li, "network"); done(); });
     xhr.open((form.getAttribute("method") || "post").toUpperCase(), new URL(form.getAttribute("action") || location.href, location.href).href);
     xhr.setRequestHeader("Trilha-Fragment", id);
+    if (window.ui?.follows?.(f)) xhr.setRequestHeader("Trilha-Follow", "1");
     xhr.send(data);
   });
 

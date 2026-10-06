@@ -28,9 +28,9 @@ tira de alguém o que ele veio fazer.
 | Jornada | Pior impacto se quebrar | Casos |
 |---|---|---|
 | Entrar e sair | ninguém entra, ou entra quem não devia | `TestUILoginFlow`, `TestUIAdminDefaultDeny` |
-| Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce` |
-| Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins` |
-| Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress` |
+| Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce`, `TestUISwapFollowsRedirect`, `TestUISwapRedirectReload`, `TestUISwapFollowFallsBack`, `TestUIRegionFormsNavigate`, `TestUIRegionForm422` |
+| Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins`, `TestUIRegionLinkRedirect`, `TestUIServerDeclaresURL` |
+| Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress`, `TestUIUploadFollowsRedirect` |
 | Interação rica | componente morto na tela | `TestUIIslandHydrates`, `TestUITooltipKeyboard` |
 | Segurança percebida | script injetado roda; segredo vaza | `TestUISecurityEveryScreen`, `TestUISecretNeverInHTML` |
 
@@ -187,3 +187,67 @@ tira de alguém o que ele veio fazer.
 - **Dados**: conexão "provedor", `https://api.example.com`, bearer `sk_uitest_…_never_shown` (sintético).
 - **Passos**: cadastrar a conexão; abrir a lista e o formulário de edição.
 - **Resultado esperado**: a conexão aparece na lista, e o segredo não está no HTML de nenhuma das duas páginas.
+
+### TestUISwapFollowsRedirect — Salvar com `ui.Swap` segue o redirect sem recarregar (#291)
+
+- **Jornada**: preencher e salvar. **Risco**: o PRG recarrega a página inteira, ou o aviso aparece duas vezes, ou Voltar reenvia o POST.
+- **Pré-condições**: `/fluxos/itens/novo` com região `ui.Navigate` e o formulário `#form-segue` (`ui.Swap`), cuja rota faz `c.Flash` + `c.Redirect("/fluxos/itens")`.
+- **Dados**: item "gamma".
+- **Passos**: preencher e salvar; voltar; recarregar `/fluxos/itens`.
+- **Resultado esperado**: a barra vai para `/fluxos/itens`, a lista tem "gamma", o toast aparece uma vez, o documento não recarrega; Voltar mostra o formulário vazio sem reenviar; a recarga não repete o aviso.
+
+### TestUISwapRedirectReload — `RedirectReload` carrega a página inteira (#291)
+
+- **Jornada**: preencher e salvar. **Risco**: a moldura (menu, usuário) fica velha depois de mudar de contexto.
+- **Pré-condições**: `#form-recarrega`, cuja rota responde `c.RedirectReload("/fluxos/itens")`.
+- **Dados**: item "delta".
+- **Passos**: preencher e salvar.
+- **Resultado esperado**: navegação completa para `/fluxos/itens`, com "Item added: delta" no toaster.
+
+### TestUISwapFollowFallsBack — Destino sem a região carrega inteiro, com o aviso uma vez (#291)
+
+- **Jornada**: preencher e salvar. **Risco**: o aviso se perde no recuo, ou aparece de novo depois.
+- **Pré-condições**: `#form-fora`, cuja rota redireciona para `/fluxos/semregiao`, página sem `#regiao`.
+- **Dados**: item "epsilon".
+- **Passos**: preencher e salvar; recarregar o destino.
+- **Resultado esperado**: navegação completa para `/fluxos/semregiao` com o aviso uma vez; a recarga não o mostra.
+
+### TestUIUploadFollowsRedirect — Envio de arquivo segue o redirect (#291)
+
+- **Jornada**: enviar arquivo. **Risco**: o envio recarrega a página inteira e perde o contexto.
+- **Pré-condições**: `/fluxos/itens/anexo` com região `ui.Navigate` e formulário `ui.UploadTo`, cuja rota faz `c.Flash` + `c.Redirect`.
+- **Dados**: `zeta.txt` gerado no teste.
+- **Passos**: escolher o arquivo e enviar.
+- **Resultado esperado**: a barra vai para `/fluxos/itens`, a lista tem "zeta.txt", o toast "Attached: zeta.txt" aparece e o documento não recarrega.
+
+### TestUIRegionFormsNavigate — Formulário comum dentro da região navega no lugar (#292)
+
+- **Jornada**: preencher e salvar; navegar e listar. **Risco**: o botão "Filtrar" e o "Salvar" recarregam enquanto os links não.
+- **Pré-condições**: `/fluxos/itens` com filtro GET comum e `/fluxos/itens/novo` com `#form-simples` (POST sem `ui.Swap`), ambos dentro da região.
+- **Dados**: filtro "alp"; item "eta".
+- **Passos**: filtrar; voltar; ir a "New item"; salvar; voltar; avançar.
+- **Resultado esperado**: o filtro vira `?q=alp` e Voltar desfaz; salvar leva a `/fluxos/itens` com "eta" e o toast uma vez, sem recarregar; Voltar não reenvia; Avançar refaz o GET do destino.
+
+### TestUIRegionForm422 — Recusa de formulário comum na região volta com o foco no campo (#292)
+
+- **Jornada**: preencher e salvar. **Risco**: a pessoa não vê o que errou.
+- **Pré-condições**: `#form-simples`, cuja rota responde 422 com a página inteira e o campo marcado.
+- **Dados**: nome vazio.
+- **Passos**: salvar sem nome.
+- **Resultado esperado**: o campo fica `aria-invalid="true"` e com o foco, a URL continua `/fluxos/itens/novo`, sem recarregar.
+
+### TestUIRegionLinkRedirect — Link para endereço que mudou é um GET só, com o aviso (#292)
+
+- **Jornada**: navegar e listar. **Risco**: pedido em dobro e aviso perdido.
+- **Pré-condições**: `/fluxos/itens/antigo` faz `c.Flash` + `c.Redirect("/fluxos/itens")`; `/fluxos/itens` conta as visitas.
+- **Dados**: nenhum.
+- **Passos**: clicar `#ir-antigo`.
+- **Resultado esperado**: a barra vai para `/fluxos/itens`, "This address moved" aparece, o contador sobe um e o documento não recarrega.
+
+### TestUIServerDeclaresURL — O servidor diz qual endereço reconstrói a tela (#293)
+
+- **Jornada**: navegar e listar. **Risco**: F5 e link compartilhado mostram outra coisa que a tela.
+- **Pré-condições**: `/fluxos/itens/painel` com link `ui.Swap` cuja rota chama `c.ReplaceURL`, buscas GET com e sem `ui.PushHistory()`, e um POST que chama `c.PushURL("/fluxos/itens/painel?doc=7")`.
+- **Dados**: documentos 1–5 e 7 (só números na query).
+- **Passos**: clicar o link; buscar duas vezes em cada formulário; criar; voltar.
+- **Resultado esperado**: o link deixa uma entrada nova com a URL canônica; a busca comum não cria entrada e a com `PushHistory` cria duas; o POST põe `?doc=7` na barra e Voltar reconstrói "no document".

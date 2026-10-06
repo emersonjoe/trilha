@@ -246,7 +246,13 @@ func TestHeadAndAssets(t *testing.T) {
 	// (#290) and a newer read aborts an older one with the marks kept on
 	// (#294). Both sit on the path every swap takes — ui.Swap and
 	// ui.Navigate — so neither can move to a file of its own.
-	if len(Asset("ui.css")) > 40<<10 || len(Asset("ui.js")) > 32<<10 {
+	//
+	// 0.153.0 raised ui.js to 36 KB: a fragment answered with a redirect is
+	// followed in place (#291), the server may declare the address of what it
+	// drew (#293), and a message that has to cross a real navigation waits in
+	// sessionStorage. ui.upload.js and ui.nav.js call the same routines, so
+	// they live here once.
+	if len(Asset("ui.css")) > 40<<10 || len(Asset("ui.js")) > 36<<10 {
 		t.Fatal("assets too large (FR-007)")
 	}
 	if len(Icons()) < 30 || Icons()[0] != "arrow-left" {
@@ -339,6 +345,13 @@ func TestNavigateIsOptIn(t *testing.T) {
 	if got := render(t, h.Div(Navigate("conteudo"))); !strings.Contains(got, `data-trilha-nav="conteudo"`) {
 		t.Fatalf("Navigate = %s", got)
 	}
+	for node, want := range map[h.Node]string{
+		PushHistory(): `data-trilha-push="push"`, Follow(): `data-trilha-follow=""`, NoFollow(): `data-trilha-follow="false"`,
+	} {
+		if got := render(t, h.Form(node)); !strings.Contains(got, want) {
+			t.Errorf("render = %s, want %s", got, want)
+		}
+	}
 	if got := render(t, h.Main(NavigateFocus("region"))); !strings.Contains(got, `data-trilha-nav-focus="region"`) {
 		t.Fatalf("NavigateFocus: %s", got)
 	}
@@ -354,8 +367,10 @@ func TestNavigateIsOptIn(t *testing.T) {
 found:
 	// 6 KB since 0.152.0: the route announcer and the focus on the heading
 	// (#297) are the client navigation's own, and belong to the file only
-	// apps that navigate download.
-	if n := len(Asset("ui.nav.js")); n == 0 || n > 6<<10 {
+	// apps that navigate download. 10 KB since 0.153.0: forms inside the
+	// region navigate in place (#292) — the submit listener, the POST that
+	// follows its own redirect, the flashes of the destination.
+	if n := len(Asset("ui.nav.js")); n == 0 || n > 10<<10 {
 		t.Fatalf("ui.nav.js is %d bytes", n)
 	}
 	// The behavior does not ride in ui.js: an app without client navigation

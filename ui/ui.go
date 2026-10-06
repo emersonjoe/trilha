@@ -452,6 +452,25 @@ func Spinner(attrs ...h.Node) h.Node {
 // NoPush turns off the history entry a fragment link would create.
 func NoPush() h.Node { return h.Data("trilha-push", "false") }
 
+// PushHistory makes a GET form marked with Swap add a history entry per
+// search, so Back undoes the filter, instead of replacing the current one
+// (the default: a search typed letter by letter is not ten pages to go back
+// through).
+func PushHistory() h.Node { return h.Data("trilha-push", "push") }
+
+// Follow lets a trigger marked with Swap or UploadTo follow, in place, the
+// redirect its route answers: the destination is swapped into the region (or
+// into the same target) and the bar goes to it, with the flash in a toast —
+// instead of a full reload (#291). It is the default on a page that has a
+// Navigate region; Follow turns it on elsewhere, and NoFollow off on one
+// trigger. A route whose destination has another frame (login, logout)
+// answers with Ctx.RedirectReload, which always reloads.
+func Follow() h.Node { return h.Data("trilha-follow", "") }
+
+// NoFollow keeps one trigger reloading on a redirect, inside a page that
+// follows them. See Follow.
+func NoFollow() h.Node { return h.Data("trilha-follow", "false") }
+
 // ShowWhen shows the element only while the named form field has one of the
 // given values ("a|b"); with no values, while the field is non-empty. Hidden
 // groups have their controls disabled, so they are not submitted.

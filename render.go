@@ -21,6 +21,16 @@ const (
 	// flashHeader carries the messages of a fragment response, which has no
 	// redirect for a cookie to survive.
 	flashHeader = "Trilha-Flash"
+	// followHeader is sent by the kit when it can follow a Trilha-Location in
+	// place — swap the destination in instead of reloading (#291).
+	followHeader = "Trilha-Follow"
+	// reloadHeader goes with Trilha-Location when the destination must load
+	// for real: the frame around the region changed (RedirectReload).
+	reloadHeader = "Trilha-Reload"
+	// pushURLHeader and replaceURLHeader say which address rebuilds the state
+	// a fragment answer drew (#293).
+	pushURLHeader    = "Trilha-Push-Url"
+	replaceURLHeader = "Trilha-Replace-Url"
 )
 
 // renderPage runs Page, wraps the result with the route's layouts (innermost
@@ -130,6 +140,9 @@ func (a *App) handleError(c *Ctx, err error) {
 			// The browser must navigate: following the redirect inside the
 			// fetch would render the destination page as a fragment.
 			c.w.Header().Set(locationHeader, re.URL)
+			if re.Reload {
+				c.w.Header().Set(reloadHeader, "1")
+			}
 			c.w.WriteHeader(http.StatusNoContent)
 		default:
 			http.Redirect(c.w, c.r, re.URL, re.Code)

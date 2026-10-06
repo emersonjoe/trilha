@@ -68,6 +68,7 @@ pkg trilha, func QueuedAt(*Ctx) (time.Time, bool)
 pkg trilha, func Redirect(string) error
 pkg trilha, func RedirectCode(string, int) error
 pkg trilha, func RedirectExternal(string) error
+pkg trilha, func RedirectReload(string) error
 pkg trilha, func RegisterEnum(string, Enum)
 pkg trilha, func RegisteredEnums() map[string]Enum
 pkg trilha, func RequireCSRF(*Ctx, Next) error
@@ -186,10 +187,13 @@ pkg trilha, method (*Ctx) Pipe(*http.Response) error
 pkg trilha, method (*Ctx) PollEvery(time.Duration)
 pkg trilha, method (*Ctx) PollStop()
 pkg trilha, method (*Ctx) Probing() bool
+pkg trilha, method (*Ctx) PushURL(string)
 pkg trilha, method (*Ctx) Query(string) string
 pkg trilha, method (*Ctx) Redirect(string) error
 pkg trilha, method (*Ctx) RedirectExternal(string) error
+pkg trilha, method (*Ctx) RedirectReload(string) error
 pkg trilha, method (*Ctx) Render(int, h.Node) error
+pkg trilha, method (*Ctx) ReplaceURL(string)
 pkg trilha, method (*Ctx) Request() *http.Request
 pkg trilha, method (*Ctx) RequestID() string
 pkg trilha, method (*Ctx) Send(string, io.Reader, string, SendOpts) error
@@ -585,6 +589,7 @@ pkg trilha, type RateLimit struct, Burst int
 pkg trilha, type RateLimit struct, RPS float64
 pkg trilha, type RedirectError struct
 pkg trilha, type RedirectError struct, Code int
+pkg trilha, type RedirectError struct, Reload bool
 pkg trilha, type RedirectError struct, URL string
 pkg trilha, type RequestHook func(*Ctx, func() int)
 pkg trilha, type Route struct
@@ -1797,6 +1802,7 @@ pkg ui, func Error(string) FieldOpt
 pkg ui, func Errors(map[string]string, string) FieldOpt
 pkg ui, func Field(string, string, h.Node, ...FieldOpt) h.Node
 pkg ui, func Flashes(*trilha.Ctx) h.Node
+pkg ui, func Follow() h.Node
 pkg ui, func FormError(...h.Node) h.Node
 pkg ui, func Ghost() h.Node
 pkg ui, func Grid(...h.Node) h.Node
@@ -1834,6 +1840,7 @@ pkg ui, func NavLink(string, string, bool) h.Node
 pkg ui, func Navigate(string) h.Node
 pkg ui, func NavigateFocus(string) h.Node
 pkg ui, func NavigateScript(*trilha.Ctx) h.Node
+pkg ui, func NoFollow() h.Node
 pkg ui, func NoNavigate() h.Node
 pkg ui, func NoPush() h.Node
 pkg ui, func NoTransition() h.Node
@@ -1852,6 +1859,7 @@ pkg ui, func PolicyGrid(Policy, PolicyGridOpts) h.Node
 pkg ui, func Poll(string, string) h.Node
 pkg ui, func Preview(*trilha.Ctx, string, ...PreviewOpts) h.Node
 pkg ui, func Progress(int, int) h.Node
+pkg ui, func PushHistory() h.Node
 pkg ui, func Radio(...h.Node) h.Node
 pkg ui, func Recorder(*trilha.Ctx, RecorderOpts) h.Node
 pkg ui, func RecorderScript(*trilha.Ctx) h.Node

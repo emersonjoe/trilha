@@ -84,8 +84,12 @@ func (c *Ctx) writeFlashes() {
 	c.flashOut = nil
 	// A fragment answer has no redirect for a cookie to survive — unless it
 	// is telling the browser to navigate after all, and then the page that
-	// arrives is the one that has to show the message.
-	if c.Fragment() != "" && c.w.Header().Get(locationHeader) == "" {
+	// arrives is the one that has to show the message. A client that follows
+	// the redirect in place (Trilha-Follow, #291) shows it in a toast, unless
+	// the answer says to reload.
+	h := c.w.Header()
+	inPlace := h.Get(locationHeader) == "" || (c.r.Header.Get(followHeader) == "1" && h.Get(reloadHeader) == "")
+	if c.Fragment() != "" && inPlace {
 		c.w.Header().Set(flashHeader, v)
 		return
 	}

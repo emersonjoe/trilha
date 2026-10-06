@@ -191,11 +191,22 @@
 
   // Flashes (spec 053): a fragment answer carries the messages of c.Flash in a
   // header, because there is no redirect for a cookie to survive.
-  const showFlashes = (v) => {
+  const flashList = (v) => {
     try {
       const bin = atob(v.replace(/-/g, "+").replace(/_/g, "/"));
-      const txt = new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)));
-      for (const f of JSON.parse(txt) || []) toast(f.t, { kind: f.k || "", ms: 5000 });
+      return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)))) || [];
+    } catch { return []; }
+  };
+  const showList = (list) => list.forEach((f) => toast(f.t, { kind: f.k || "", ms: 5000 }));
+  const showFlashes = (v) => showList(flashList(v));
+  // A message that has to cross a real navigation the client started waits
+  // in sessionStorage for the next page's init (#291, #292).
+  const keepFlashes = (list) => { try { if (list.length) sessionStorage.setItem("trilha:flash", JSON.stringify(list)); } catch {} };
+  const takeFlashes = () => {
+    try {
+      const v = sessionStorage.getItem("trilha:flash");
+      sessionStorage.removeItem("trilha:flash");
+      if (v) showList(JSON.parse(v));
     } catch {}
   };
 
@@ -400,10 +411,63 @@
   // to be awaited: the transition calls back on the next frame.
   const swap = (id, html, status, trigger) => update(() => applySwap(id, html, status), trigger);
 
+  const sameOrigin = (v) => { try { const u = v && new URL(v, location.href); return u?.origin === location.origin && u.href; } catch { return false; } };
+  const navRegion = () => window.ui.navRegion?.(); // ui.nav.js, when the page navigates in place
+  // follows: a trigger follows a redirect in place where the page navigates
+  // in place already (a ui.Navigate region), or where it says ui.Follow.
+  const follows = (t) => {
+    const v = t?.closest?.("[data-trilha-follow]")?.getAttribute("data-trilha-follow");
+    return v != null ? v !== "false" : !!navRegion();
+  };
+
+  // record writes the history after a swap (#293): what the server declared
+  // wins over what the trigger asked — Trilha-Push-Url pushes it,
+  // Trilha-Replace-Url puts it on the entry the trigger made, "false" leaves
+  // the bar alone. hist is {mode: "push" | "replace", url} or nothing.
+  const record = (get, id, hist) => {
+    const p = sameOrigin(get("Trilha-Push-Url")), r = get("Trilha-Replace-Url");
+    if (r === "false") return;
+    const push = (u) => {
+      // The entry being left gets a state too, so Back rebuilds it.
+      if (!history.state) history.replaceState({ trilhaFragment: id }, "");
+      history.pushState({ trilhaFragment: id }, "", u);
+    };
+    if (p) return push(p);
+    if (hist?.mode === "push") push(hist.url);
+    else if (hist) history.replaceState({ trilhaFragment: id }, "", hist.url);
+    if (sameOrigin(r)) history.replaceState({ trilhaFragment: id }, "", sameOrigin(r));
+  };
+
+  // follow takes a Trilha-Location (#291). A trigger that follows swaps the
+  // destination in — the whole region through ui.nav.js, or the same target
+  // asked again — and pushes its address, with the flash in a toast after.
+  // Anything else, or any failure on the way, is a real navigation, with the
+  // flash kept for the page that loads.
+  const follow = async (loc, id, trigger, flash, reload) => {
+    const list = flash ? flashList(flash) : [], url = sameOrigin(loc);
+    let r = "navigate";
+    if (url && !reload && follows(trigger)) {
+      if (navRegion()) r = await window.ui.navigate(url, trigger);
+      else {
+        try {
+          const res = await fetch(url, { headers: { "Trilha-Fragment": id, "Trilha-Follow": "1" }, credentials: "same-origin" });
+          if (res.ok && !res.redirected && !res.headers.get("Trilha-Location")) {
+            const html = await res.text();
+            r = await update(() => applySwap(id, html, res.status) ? "swapped" : "navigate", trigger);
+          }
+        } catch {}
+        if (r === "swapped") record(() => null, id, { mode: "push", url });
+      }
+    }
+    if (r === "swapped") showList(list);
+    else if (r === "navigate") { keepFlashes(list); location.assign(loc); }
+  };
+
   // ask resolves "swapped", "skipped" (dropped, aborted, or the page already
-  // left) or "navigate", when the right thing to do is a real navigation. Only
-  // "swapped" may touch the history (#294).
-  const ask = async (url, opts, id, trigger) => {
+  // left) or "navigate", when the right thing to do is a real navigation. The
+  // history is written here, after a swap only (#294), from hist and from what
+  // the server declared (#293).
+  const ask = async (url, opts, id, trigger, hist) => {
     const write = opts.method !== "GET", cur = inFlight.get(id);
     // A second write is the same request in dispute: it must not go out
     // twice. A read that meets a write waits for nothing; a newer intent
@@ -414,15 +478,18 @@
     inFlight.set(id, me);
     const settle = pending(id, trigger);
     try {
-      const res = await fetch(url, { ...opts, headers: { "Trilha-Fragment": id }, credentials: "same-origin", signal: me.ctl.signal });
-      const flash = res.headers.get("Trilha-Flash");
+      const headers = { "Trilha-Fragment": id };
+      if (follows(trigger)) headers["Trilha-Follow"] = "1";
+      const res = await fetch(url, { ...opts, headers, credentials: "same-origin", signal: me.ctl.signal });
+      const get = (h) => res.headers.get(h), flash = get("Trilha-Flash"), loc = get("Trilha-Location");
+      if (loc) { await follow(loc, id, trigger, flash, get("Trilha-Reload")); return "skipped"; }
       if (flash) showFlashes(flash);
-      const loc = res.headers.get("Trilha-Location");
-      if (loc) { location.assign(loc); return "skipped"; }
       if (res.redirected) { location.assign(res.url); return "skipped"; }
       if (res.status >= 500) return "navigate";
       const html = await res.text();
-      return await update(() => me.ctl.signal.aborted ? "skipped" : applySwap(id, html, res.status) ? "swapped" : "navigate", trigger);
+      const r = await update(() => me.ctl.signal.aborted ? "skipped" : applySwap(id, html, res.status) ? "swapped" : "navigate", trigger);
+      if (r === "swapped") record(get, id, hist);
+      return r;
     } catch (e) {
       // network is down: a normal navigation may still work
       return e.name === "AbortError" ? "skipped" : "navigate";
@@ -442,9 +509,8 @@
     if (url.origin !== location.origin) return;
     const id = a.getAttribute("data-trilha-target");
     e.preventDefault();
-    ask(url.href, { method: "GET" }, id, a).then((r) => {
+    ask(url.href, { method: "GET" }, id, a, pushable(a) && { mode: "push", url: url.href }).then((r) => {
       if (r === "navigate") location.assign(url.href);
-      else if (r === "swapped" && pushable(a)) history.pushState({ trilhaFragment: id }, "", url.href);
     });
   });
 
@@ -467,9 +533,9 @@
     } else {
       opts.body = new URLSearchParams(data);
     }
-    ask(url, opts, id, btn || f).then((r) => {
+    const mode = f.getAttribute("data-trilha-push") === "push" ? "push" : "replace";
+    ask(url, opts, id, btn || f, method === "GET" && pushable(f) && { mode, url }).then((r) => {
       if (r === "navigate") f.submit();
-      else if (r === "swapped" && method === "GET" && pushable(f)) history.replaceState({ trilhaFragment: id }, "", url);
     });
   });
 
@@ -622,9 +688,9 @@
   // A form refused with a whole page (422 without a swap) comes back marked:
   // the focus goes to its first invalid field, as after a swap.
   const focusInvalid = () => document.querySelector("[autofocus]") || document.querySelector("form [aria-invalid='true']")?.focus();
-  const init = () => { document.querySelectorAll("script[src]").forEach((t) => ran.add(t.src)); armFades(document); evalShowWhen(document); initTooltips(document); focusInvalid(); };
+  const init = () => { document.querySelectorAll("script[src]").forEach((t) => ran.add(t.src)); takeFlashes(); armFades(document); evalShowWhen(document); initTooltips(document); focusInvalid(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update, activate, beforeSwap });
+  window.ui = Object.assign(window.ui || {}, { toast, fade, confirm, formError, clearFormErrors, formPending, evalShowWhen, applyTheme, swap, hydrate, initTooltips, pending, update, activate, beforeSwap, follow, follows, record, keepFlashes, showFlashes });
 
   // [data-ui-copy=texto]: copia e diz que copiou. Sem ele o valor continua
   // sendo texto selecionável num campo — o botão é conveniência, não o caminho.

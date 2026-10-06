@@ -42,40 +42,77 @@
     announce(to === h1 && h1.textContent.trim() === say ? "" : say);
   };
 
-  // fetchInto resolves "swapped", "skipped" (a newer click owns the page) or
-  // "navigate", like ui.js's ask: only "swapped" may touch the history.
-  const fetchInto = async (url, id, y, trigger) => {
-    const old = document.getElementById(id);
-    if (!old) return "navigate";
+  // The destination's layout drew its flashes (ui.Flashes) outside the
+  // region; they are what the person has to see, so they come along as toasts
+  // — or wait for the page that loads, when the swap gives up.
+  const flashesOf = (doc, next) => [...doc.querySelectorAll(".ui-toast")].filter((t) => !next?.contains(t))
+    .map((t) => ({ t: t.textContent.trim(), k: [...t.classList].find((c) => c.startsWith("ui-toast-"))?.slice(9) || "" }));
+
+  // fetchInto resolves {r, res, doc}: r is "swapped", "skipped" (a newer click
+  // owns the page) or "navigate", like ui.js's ask, and only "swapped" may
+  // touch the history. init is the fetch of a form (#292); a write is never
+  // aborted by a newer click, it only loses the region to it.
+  let gen = 0;
+  const fetchInto = async (url, id, y, trigger, init = {}) => {
+    if (!document.getElementById(id)) return { r: "navigate" };
     ctl?.abort();
-    const me = (ctl = new AbortController());
+    const me = new AbortController(), mine = ++gen;
+    ctl = (init.method || "GET") === "GET" ? me : null;
     const settle = pending(id, trigger);
+    let res, doc;
     try {
-      const res = await fetch(url, { credentials: "same-origin", signal: me.signal, headers: { Accept: "text/html" } });
-      if (res.redirected) { location.assign(res.url); return "skipped"; }
-      if (res.status >= 500) return "navigate";
-      const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+      res = await fetch(url, { credentials: "same-origin", signal: me.signal, ...init, headers: { Accept: "text/html" } });
+      const html = /text\/html/.test(res.headers.get("Content-Type")) && !/attachment/i.test(res.headers.get("Content-Disposition"));
+      if (res.status >= 500 || !html || !sameOrigin(res.url)) return { r: "navigate", res };
+      doc = new DOMParser().parseFromString(await res.text(), "text/html");
       const next = doc.getElementById(id);
-      if (!next) return "navigate"; // the page is shaped differently: navigate for real
-      return await update(() => {
+      if (!next) return { r: "navigate", res, doc }; // the page is shaped differently: navigate for real
+      const r = await update(() => {
         const cur = document.getElementById(id);
-        if (me.signal.aborted || !cur) return "skipped";
+        if (me.signal.aborted || mine !== gen || !cur) return "skipped";
         const changed = doc.title && doc.title !== document.title;
-        ui().beforeSwap?.(cur, id, url);
+        ui().beforeSwap?.(cur, id, res.url);
         cur.replaceWith(next);
         if (doc.title) document.title = doc.title;
         ui().hydrate?.(next);
         ui().activate?.(next);
-        arrive(next, document.title, changed);
-        document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: next, status: res.status, url } }));
+        const bad = res.status >= 400 && next.querySelector("[aria-invalid='true']");
+        if (bad) bad.focus();
+        else arrive(next, document.title, changed);
+        document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: next, status: res.status, url: res.url } }));
         scrollTo(0, y || 0);
         return "swapped";
       }, trigger);
+      if (r === "swapped") flashesOf(doc, next).forEach((f) => ui().toast?.(f.t, { kind: f.k, ms: 5000 }));
+      return { r, res, doc };
     } catch (e) {
-      return e.name === "AbortError" ? "skipped" : "navigate";
+      return { r: e.name === "AbortError" ? "skipped" : "navigate", res, doc };
     } finally {
       settle();
     }
+  };
+  const sameOrigin = (v) => { try { return new URL(v, location.href).origin === location.origin; } catch { return false; } };
+
+  // go is a GET into the region: the address the server ended on (a redirect
+  // is followed in the same request) becomes the new entry. Giving up after a
+  // redirect loads that address, with its flashes kept — never the one asked —
+  // unless the caller (ui.js following a redirect) gives up on its own.
+  const go = async (url, id, trigger, stay) => {
+    history.replaceState({ trilhaNav: id, y: scrollY }, "");
+    const { r, res, doc } = await fetchInto(url, id, 0, trigger);
+    if (r === "swapped") history.pushState({ trilhaNav: id, y: 0 }, "", res.url);
+    else if (r === "navigate" && !stay) leave(res, doc, url);
+    return r;
+  };
+  const leave = (res, doc, url) => {
+    if (res?.redirected && doc) ui().keepFlashes?.(flashesOf(doc));
+    location.assign(res?.redirected ? res.url : url);
+  };
+  const regionOf = (el) => {
+    const holder = el.closest("[data-trilha-nav]");
+    const mark = holder?.getAttribute("data-trilha-nav");
+    if (!holder || mark === "false") return null;
+    return mark || holder.id;
   };
 
   document.addEventListener("click", (e) => {
@@ -83,21 +120,47 @@
     const a = e.target.closest("a[href]");
     if (!a || a.hasAttribute("download") || a.hasAttribute("data-trilha-target")) return;
     if (a.target && a.target !== "_self") return;
-    const holder = a.closest("[data-trilha-nav]");
-    const mark = holder?.getAttribute("data-trilha-nav");
-    if (!holder || mark === "false") return;
-    const id = mark || holder.id;
+    const id = regionOf(a);
     const url = new URL(a.href, location.href);
-    if (url.origin !== location.origin || !document.getElementById(id)) return;
+    if (!id || url.origin !== location.origin || !document.getElementById(id)) return;
     // Same page with a hash: that is the browser's job.
     if (url.hash && url.pathname === location.pathname && url.search === location.search) return;
     e.preventDefault();
-    // Mark the entry we are leaving, so Back knows how to rebuild it.
+    go(url.href, id, a);
+  });
+
+  // A form inside the region navigates in place too (#292): a GET is a link
+  // with a query; a POST goes as the browser would send it, without the
+  // fragment header, so the route answers its 303 or its 422 page unchanged.
+  // Forms of ui.Swap and ui.UploadTo belong to their own scripts.
+  const posting = new WeakSet();
+  document.addEventListener("submit", (e) => {
+    const f = e.target, sub = e.submitter;
+    if (e.defaultPrevented || f.hasAttribute("data-trilha-target") || f.hasAttribute("data-trilha-upload")) return;
+    const id = regionOf(f);
+    const target = sub?.getAttribute("formtarget") || f.getAttribute("target");
+    const action = new URL(sub?.getAttribute("formaction") || f.getAttribute("action") || location.href, location.href);
+    const method = (sub?.getAttribute("formmethod") || f.getAttribute("method") || "get").toUpperCase();
+    if (!id || (target && target !== "_self") || action.origin !== location.origin || !document.getElementById(id) || method === "DIALOG") return;
+    e.preventDefault();
+    const data = new FormData(f, sub);
+    if (method === "GET") {
+      action.search = new URLSearchParams(data);
+      go(action.href, id, sub || f);
+      return;
+    }
+    if (posting.has(f)) return; // the save is in the air: it does not go twice
+    posting.add(f);
+    const done = ui().formPending?.(f) || (() => {});
     history.replaceState({ trilhaNav: id, y: scrollY }, "");
-    fetchInto(url.href, id, 0, a).then((r) => {
-      if (r === "navigate") location.assign(url.href);
-      else if (r === "swapped") history.pushState({ trilhaNav: id, y: 0 }, "", url.href);
-    });
+    const body = f.enctype === "multipart/form-data" ? data : new URLSearchParams(data);
+    fetchInto(action.href, id, 0, sub || f, { method, body }).then(({ r, res, doc }) => {
+      // A redirect swapped in is a new address, and Back reaches the form by
+      // GET, never by posting again. A 4xx swapped in has no address of its own.
+      if (r === "swapped" && res.redirected) history.pushState({ trilhaNav: id, y: 0 }, "", res.url);
+      else if (r === "navigate" && res?.redirected) leave(res, doc, res.url); // already accepted: load where it went
+      else if (r === "navigate") f.submit();
+    }).finally(() => { posting.delete(f); done(); });
   });
 
   // Back and forward rebuild the page from the server, at the scroll position
@@ -105,6 +168,13 @@
   addEventListener("popstate", (e) => {
     const id = e.state?.trilhaNav;
     if (!id) return;
-    fetchInto(location.href, id, e.state.y).then((r) => { if (r === "navigate") location.reload(); });
+    fetchInto(location.href, id, e.state.y).then(({ r }) => { if (r === "navigate") location.reload(); });
+  });
+
+  // ui.js follows a redirect through here when the page has a region (#291).
+  const navRegion = () => document.querySelector('[data-trilha-nav]:not([data-trilha-nav="false"])');
+  window.ui = Object.assign(window.ui || {}, {
+    navRegion,
+    navigate: (url, trigger) => { const el = navRegion(); return el ? go(url, el.getAttribute("data-trilha-nav") || el.id, trigger, true) : Promise.resolve("navigate"); },
   });
 })();

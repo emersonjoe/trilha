@@ -68,8 +68,20 @@ progress cursor). `ui.NoPush()` on a link keeps history untouched.
 
 A `POST` that redirects keeps redirecting — inside a fragment too. Since `fetch` would
 follow the 303 on its own and bring the new page back as a piece, Trilha answers
-**204 with the `Trilha-Location` header**, and `ui.js` navigates for real. Post/Redirect/Get
-survives.
+**204 with the `Trilha-Location` header**. Post/Redirect/Get survives.
+
+What the kit does with it depends on the page. On a page with a `ui.Navigate` region — an app
+that already navigates in place — it **follows the redirect in place**: it fetches the
+destination, swaps the region, puts its address in the bar as a new entry, and shows the
+`c.Flash` in a toast, once. Back returns to the form by `GET`; it never posts again. Elsewhere
+it loads the destination for real, as before. `ui.Follow()` on a trigger (or on a form around
+several) turns following on without a region — the same target is asked again at the new
+address — and `ui.NoFollow()` turns it off. `ui.UploadTo` follows the same way.
+
+When the destination has another frame — login, logout, switching organization or language,
+anything that changes the header and the menu outside the region — answer
+`c.RedirectReload("/…")`: the same 303 without JavaScript, and a real load with it. A
+destination that does not have the region loads whole too, and the message comes along.
 
 When staying on the same screen makes more sense, answer with the updated piece:
 
@@ -90,6 +102,23 @@ func POST(c *trilha.Ctx) error {
 On **422** `ui.js` focuses the first field with `aria-invalid="true"` — what the browser
 would do by itself on a reload. Otherwise it gives focus (and the caret position) back to
 the field in use, looking it up by `id` or by `name`.
+
+A fragment answered in the `POST` saves the second round trip, and leaves the bar where it
+was. Say the address of what you drew, and the kit puts it there:
+
+```go
+doc := documentos.Criar(in)
+c.PushURL("/documentos/" + doc.ID)        // a new history entry
+return c.Render(200, painel(c, doc))
+```
+
+`c.ReplaceURL(path)` puts it on the entry the trigger made instead of a new one — a link to
+`?aba=marcos&x=1` whose canonical address is `?aba=marcos` — and `c.ReplaceURL("")` leaves the
+bar alone. The contract is the PRG's: the address is a `GET` that draws this screen, so
+reload, Back and a shared link show it again. Both take a path of this site, like `Redirect`,
+and write nothing on a full page. A `GET` form with `ui.Swap` replaces its entry by default
+(ten letters typed are not ten pages to go back through); `ui.PushHistory()` gives it one
+entry per search, so Back undoes the filter.
 
 ## While the server answers
 
@@ -250,12 +279,24 @@ Off by default, and off per link:
 ui.ButtonLink("/relatorio.pdf", ui.NoNavigate(), h.Text("Download"))
 ```
 
+A form inside the region navigates in place too, with no change to its route. A `GET` (a
+filter, a search) is a link with a query: a new address, and Back returns to the previous
+filter. A `POST` goes as the browser would send it — no fragment header — so the route answers
+what it answers without JavaScript: its 303 is followed in the same request, the destination
+is swapped in, its address goes to the bar and its `c.Flash` becomes a toast; its 422 page is
+swapped in with the focus on the first invalid field and the address left alone. Back never
+posts again. A response that is not HTML, or is a download, or a destination without the
+region, is the browser's: the form submits for real. `ui.NoNavigate()` on a form keeps it
+out; forms with `ui.Swap` or `ui.UploadTo` are their own scripts' business. A link to an
+address that redirects is one `GET` as well, and the message of the destination is shown.
+
 The browser keeps its habits — Back and Forward work and restore the scroll position of the
 entry they return to, `Cmd`-click opens a tab, `target` and `download` are untouched. The
 kit adds `aria-busy` while it waits, runs the scripts the new region brings and fires
 `trilha:swap`, so an island, a `ui.Defer` or a `ui.Poll` inside the new page works. A second
-click cancels the first request; a 5xx, a redirect or a page without that id gives up and
-navigates for real.
+click cancels the first request. A redirect is followed in the same request and its
+destination's address goes to the bar; a 5xx, a response that is not HTML or a page without
+that id gives up and navigates for real.
 
 A full page load is announced by the screen reader; a swap is not, so the kit says it: the
 focus goes to the first `h1` of the new region, and a visually hidden live region,

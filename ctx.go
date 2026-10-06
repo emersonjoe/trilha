@@ -250,6 +250,48 @@ func (c *Ctx) HTML(code int, n h.Node) error {
 // Redirect returns a redirect error (303). Use as `return c.Redirect("/x")`.
 func (c *Ctx) Redirect(url string) error { return Redirect(url) }
 
+// RedirectReload is Redirect for a destination whose frame differs (login,
+// logout, organization): a client navigating in place loads it whole.
+func (c *Ctx) RedirectReload(url string) error { return RedirectReload(url) }
+
+// PushURL tells the kit, on a fragment answer, which address rebuilds the
+// state this answer drew — a POST that created document 7 and answered its
+// panel says c.PushURL("/docs/7"), and the bar goes there as a new history
+// entry. ReplaceURL does the same without a new entry, and ReplaceURL("")
+// keeps the address as it is, over what the link would have pushed.
+//
+// The contract is the PRG's: the address is a GET that draws this screen, so
+// reload, Back and a shared link show it again. Like Redirect, only a path of
+// this site is taken (prefix it with c.Base() under a BasePath); anything
+// else is dropped, with a warning in dev. On a full page it writes nothing —
+// the address is already the one in the bar.
+func (c *Ctx) PushURL(path string) { c.declareURL(pushURLHeader, path) }
+
+// ReplaceURL is PushURL without a new history entry. See PushURL.
+func (c *Ctx) ReplaceURL(path string) {
+	if path == "" {
+		if c.Fragment() != "" {
+			c.w.Header().Set(replaceURLHeader, "false")
+		}
+		return
+	}
+	c.declareURL(replaceURLHeader, path)
+}
+
+func (c *Ctx) declareURL(header, path string) {
+	if c.Fragment() == "" {
+		return
+	}
+	if !localPath(path) {
+		if c.Env() == Dev {
+			c.Log().Warn("trilha: the address declared for the history leaves this site; ignored",
+				"header", header, "url", path, "fix", "pass a path of this site, like Redirect")
+		}
+		return
+	}
+	c.w.Header().Set(header, path)
+}
+
 // RedirectExternal sends the visitor to another site, and says so. See
 // Redirect for why leaving needs a name of its own.
 func (c *Ctx) RedirectExternal(url string) error { return RedirectExternal(url) }

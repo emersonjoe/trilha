@@ -14,6 +14,9 @@ var ErrNotFound = errors.New("trilha: not found")
 type RedirectError struct {
 	URL  string
 	Code int
+	// Reload asks a client that follows redirects in place to load the
+	// destination for real (RedirectReload).
+	Reload bool
 }
 
 func (e *RedirectError) Error() string {
@@ -47,6 +50,19 @@ func RedirectCode(url string, code int) error {
 			fmt.Errorf("trilha: refusing to redirect to %q, which leaves this site", url))
 	}
 	return &RedirectError{URL: url, Code: code}
+}
+
+// RedirectReload is Redirect for when the frame around the content changes —
+// login, logout, switching organization or language. Without JavaScript it is
+// the same 303. On a fragment the kit would otherwise swap the destination
+// into the region and keep the old header and menu (#291); this tells it to
+// load the page whole.
+func RedirectReload(url string) error {
+	err := Redirect(url)
+	if re, ok := err.(*RedirectError); ok {
+		re.Reload = true
+	}
+	return err
 }
 
 // RedirectExternal redirects to another site. It is a separate function so

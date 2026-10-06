@@ -75,6 +75,8 @@ description: The kit's components, variants, assets and the theme contract.
 | `Defer(c, id, src, DeferOpts{...})` | serves the page now and fills this part a moment later — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#the-slow-part-a-moment-later) |
 | `Poll(every, src)`, `Live(src)`, `On(event, src)`, `LiveScript(c)` | a fragment that refreshes on a clock or on an event from the server — see [Live fragments](/reference/live) and [demo](/learn/ui-kit#a-cell-that-refreshes-itself) |
 | `NoPush()` | `data-trilha-push="false"`: the swap leaves history alone |
+| `PushHistory()` | `data-trilha-push="push"`: a `GET` form with `Swap` adds an entry per search instead of replacing its own |
+| `Follow()`, `NoFollow()` | a trigger follows its route's redirect in place (the default on a page with a `Navigate` region), or does not — see [After the POST](/learn/interactivity#after-the-post) |
 | `Markdown(text, MarkdownOpts{...})` | model or visitor text as HTML, escaped by construction — see [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(text)` | a conversation with an agent — see [Chat](#chat) |
 | `Icon(name, attrs...)`, `Icons()` | inline Lucide SVG; unknown name → panic (programming error). `NavItem.IconNode`/`EmptyOpts.IconNode` draw the app's own node for an icon outside the set — see [Shell](/reference/shell) |

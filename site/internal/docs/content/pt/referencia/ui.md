@@ -75,6 +75,8 @@ com classes `ui-*` de `public/ui.css`; comportamentos em `public/ui.js`.
 | `Defer(c, id, src, DeferOpts{...})` | serve a página agora e preenche esta parte um instante depois — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#a-parte-lenta-um-instante-depois) |
 | `Poll(intervalo, src)`, `Live(src)`, `On(evento, src)`, `LiveScript(c)` | fragmento que se atualiza pelo relógio ou por um evento do servidor — veja [Fragmentos vivos](/pt/referencia/vivo) e [demo](/pt/aprender/interface-com-ui#uma-celula-que-se-atualiza-sozinha) |
 | `NoPush()` | `data-trilha-push="false"`: a troca não mexe no histórico |
+| `PushHistory()` | `data-trilha-push="push"`: um formulário `GET` com `Swap` cria uma entrada por busca em vez de substituir a sua |
+| `Follow()`, `NoFollow()` | um gatilho segue no lugar o redirect da rota (o padrão numa página com região `Navigate`), ou não — veja [Depois do POST](/pt/aprender/interatividade#depois-do-post) |
 | `Markdown(texto, MarkdownOpts{...})` | texto de modelo ou de visitante como HTML, escapado por construção — veja [Markdown](#markdown) |
 | `Chat(c, ChatOpts{...})`, `ChatScript(c)`, `ChatHTML(texto)` | uma conversa com um agente — veja [Chat](#chat) |
 | `Icon(nome, attrs...)`, `Icons()` | SVG inline do Lucide; nome desconhecido → pânico (erro de programação). `NavItem.IconNode`/`EmptyOpts.IconNode` desenham o próprio nó do app para um ícone fora do conjunto — veja [Shell](/pt/referencia/shell) |

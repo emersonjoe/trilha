@@ -69,8 +69,21 @@ o alvo ganha `aria-busy="true"` (o CSS do kit deixa o bloco opaco e o cursor de 
 
 Um `POST` que redireciona continua redirecionando — inclusive no fragmento. Como o `fetch`
 seguiria o 303 sozinho e devolveria a página nova em pedaço, o Trilha responde
-**204 com o cabeçalho `Trilha-Location`**, e o `ui.js` navega de verdade. O padrão
-redirecionar-depois-de-gravar sobrevive.
+**204 com o cabeçalho `Trilha-Location`**. O padrão redirecionar-depois-de-gravar
+sobrevive.
+
+O que o kit faz com ele depende da página. Numa página com região `ui.Navigate` — um app que
+já navega no lugar — ele **segue o redirect no lugar**: busca o destino, troca a região, põe o
+endereço dele na barra como entrada nova e mostra o `c.Flash` num toast, uma vez. Voltar leva
+ao formulário por `GET`; nunca reenvia. Fora disso, carrega o destino de verdade, como antes.
+`ui.Follow()` num gatilho (ou num formulário em volta de vários) liga o seguir sem região — o
+mesmo alvo é pedido de novo no endereço novo — e `ui.NoFollow()` desliga. O `ui.UploadTo`
+segue do mesmo jeito.
+
+Quando o destino tem outra moldura — entrar, sair, trocar de organização ou de idioma, tudo
+que muda o cabeçalho e o menu fora da região —, responda `c.RedirectReload("/…")`: o mesmo 303
+sem JavaScript, e uma carga de verdade com ele. Um destino que não tem a região também carrega
+inteiro, e o aviso vai junto.
 
 Quando faz mais sentido ficar na mesma tela, responda com o pedaço atualizado:
 
@@ -91,6 +104,23 @@ func POST(c *trilha.Ctx) error {
 Em **422** o `ui.js` põe o foco no primeiro campo com `aria-invalid="true"` — é o que o
 navegador faria sozinho numa recarga. Fora disso, ele devolve o foco (e a posição do cursor)
 ao campo que estava em uso, procurando pelo `id` ou pelo `name`.
+
+Responder o fragmento no próprio `POST` economiza a segunda ida, e deixa a barra onde estava.
+Diga o endereço do que você desenhou, e o kit o põe lá:
+
+```go
+doc := documentos.Criar(in)
+c.PushURL("/documentos/" + doc.ID)        // uma entrada nova no histórico
+return c.Render(200, painel(c, doc))
+```
+
+`c.ReplaceURL(caminho)` põe o endereço na entrada que o gatilho criou em vez de uma nova — um
+link para `?aba=marcos&x=1` cujo endereço canônico é `?aba=marcos` —, e `c.ReplaceURL("")`
+deixa a barra como está. O contrato é o do PRG: o endereço é um `GET` que desenha esta tela,
+então recarregar, Voltar e um link compartilhado a mostram de novo. Os dois aceitam um caminho
+deste site, como o `Redirect`, e não escrevem nada numa página inteira. Um formulário `GET`
+com `ui.Swap` substitui a própria entrada por padrão (dez letras digitadas não são dez páginas
+para voltar); `ui.PushHistory()` dá uma entrada por busca, e Voltar desfaz o filtro.
 
 ## Enquanto o servidor responde
 
@@ -250,11 +280,23 @@ Desligada por padrão, e desligada por link:
 ui.ButtonLink("/relatorio.pdf", ui.NoNavigate(), h.Text("Baixar"))
 ```
 
+Um formulário dentro da região também navega no lugar, sem mudança na rota dele. Um `GET` (um
+filtro, uma busca) é um link com query: um endereço novo, e Voltar devolve o filtro anterior.
+Um `POST` vai como o navegador mandaria — sem o cabeçalho de fragmento —, então a rota responde
+o que responde sem JavaScript: o 303 é seguido no mesmo pedido, o destino entra na região, o
+endereço dele vai para a barra e o `c.Flash` vira toast; a página do 422 entra com o foco no
+primeiro campo inválido e o endereço intacto. Voltar nunca reenvia. Resposta que não é HTML,
+que é download, ou destino sem a região, é do navegador: o formulário é enviado de verdade.
+`ui.NoNavigate()` num formulário o deixa de fora; formulários com `ui.Swap` ou `ui.UploadTo`
+são dos próprios scripts. Um link para um endereço que redireciona também é um `GET` só, e o
+aviso do destino aparece.
+
 O navegador mantém os costumes — Voltar e Avançar funcionam e restauram a rolagem da entrada
 para onde voltam, `Cmd`-clique abre aba, `target` e `download` passam intactos. O kit
 acrescenta `aria-busy` durante a espera, roda os scripts que a região nova traz e dispara
 `trilha:swap`, então uma ilha, um `ui.Defer` ou um `ui.Poll` dentro da página nova funcionam.
-Um segundo clique cancela a primeira requisição; 5xx, redirecionamento ou página sem aquele id
+Um segundo clique cancela a primeira requisição. Um redirecionamento é seguido no mesmo pedido
+e o endereço do destino vai para a barra; 5xx, resposta que não é HTML ou página sem aquele id
 desiste e navega de verdade.
 
 A carga de uma página inteira é anunciada pelo leitor de tela; uma troca não é, então o kit
