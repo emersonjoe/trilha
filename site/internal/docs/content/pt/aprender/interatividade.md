@@ -306,6 +306,24 @@ mudou) — e fica quieta quando o `h1` que recebeu o foco já disse o mesmo. Vol
 anunciam do mesmo jeito. `ui.NavigateFocus("region")` ao lado do `ui.Navigate` mantém o foco
 na região, e `"none"` deixa onde estava.
 
+### Pedir antes do clique
+
+Uma ida e volta de 200 ms ainda aparece quando é o clique que a começa. `ui.Prefetch()` ao lado
+do `ui.Navigate` (ou num link) pede a próxima página assim que a pessoa mostra a intenção de
+abri-la — o ponteiro parado no link por 80 ms, o foco do teclado chegando nele, um dedo tocando —,
+e o clique encontra a resposta lá, ou ainda a caminho e compartilhada. Nunca por viewport, que é
+onde mora o tráfego inútil; nunca num link `ui.NoPrefetch()`, num download, em outra origem ou
+numa conexão em economia de dados ou 2G. Uma resposta espera 10 segundos pelo clique
+(`ui.PrefetchTTL(ms)` muda), oito no máximo; redirecionamento ou qualquer coisa que não seja uma
+página `200` não é guardada, e o clique pede por conta própria. O `trilha:swap` diz
+`detail.prefetched`, para o app medir o ganho.
+
+O pedido diz `Purpose: prefetch`, e o `c.IsPrefetch()` lê esse cabeçalho — e o `Sec-Purpose` do
+próprio navegador. Uma rota cuja leitura tem efeito colateral que pode ser pulado (um contador de
+visualizações) confere. O clique usa a resposta antecipada sem pedir de novo, então uma leitura
+que precisa ser registrada toda vez — uma trilha de acesso que a lei exige — deixa os links dela
+de fora com `ui.NoPrefetch()`.
+
 A regra de bolso: **fragmento** quando um handler responde um pedaço, **navegação** quando a
 resposta é uma página e a moldura em volta deve ficar.
 

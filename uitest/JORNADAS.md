@@ -29,7 +29,7 @@ tira de alguém o que ele veio fazer.
 |---|---|---|
 | Entrar e sair | ninguém entra, ou entra quem não devia | `TestUILoginFlow`, `TestUIAdminDefaultDeny` |
 | Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce`, `TestUISwapFollowsRedirect`, `TestUISwapRedirectReload`, `TestUISwapFollowFallsBack`, `TestUIRegionFormsNavigate`, `TestUIRegionForm422` |
-| Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins`, `TestUIRegionLinkRedirect`, `TestUIServerDeclaresURL` |
+| Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins`, `TestUIRegionLinkRedirect`, `TestUIServerDeclaresURL`, `TestUIPrefetchOnIntent`, `TestUIPrefetchNeedsIntent`, `TestUIPrefetchExpires`, `TestUIPrefetchSaveData`, `TestUIPrefetchRedirectNotKept` |
 | Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress`, `TestUIUploadFollowsRedirect` |
 | Interação rica | componente morto na tela | `TestUIIslandHydrates`, `TestUITooltipKeyboard` |
 | Segurança percebida | script injetado roda; segredo vaza | `TestUISecurityEveryScreen`, `TestUISecretNeverInHTML` |
@@ -251,3 +251,43 @@ tira de alguém o que ele veio fazer.
 - **Dados**: documentos 1–5 e 7 (só números na query).
 - **Passos**: clicar o link; buscar duas vezes em cada formulário; criar; voltar.
 - **Resultado esperado**: o link deixa uma entrada nova com a URL canônica; a busca comum não cria entrada e a com `PushHistory` cria duas; o POST põe `?doc=7` na barra e Voltar reconstrói "no document".
+
+### TestUIPrefetchOnIntent — Apontar para o link antecipa a página (#295)
+
+- **Jornada**: navegar e listar. **Risco**: a espera de cada clique continua à vista; ou o clique pede a página duas vezes.
+- **Pré-condições**: `/fluxos/pre` com `ui.Prefetch()` na região; `/fluxos/pre/alvo` conta GETs e prefetches.
+- **Dados**: nenhum.
+- **Passos**: parar o ponteiro em `#alvo`; clicar.
+- **Resultado esperado**: um prefetch e nenhum GET no servidor; o clique troca a região sem pedido novo, o `trilha:swap` diz `prefetched: true` e o documento não recarrega.
+
+### TestUIPrefetchNeedsIntent — Passar por cima não é intenção (#295)
+
+- **Jornada**: navegar e listar. **Risco**: tráfego e carga no servidor por movimento de mouse.
+- **Pré-condições**: `/fluxos/pre`; `#fora` com `ui.NoPrefetch()`.
+- **Dados**: nenhum.
+- **Passos**: passar o ponteiro por `#alvo` sem parar; parar em `#fora`; esperar 400 ms.
+- **Resultado esperado**: nenhum pedido para `/fluxos/pre/alvo` nem para `/fluxos/pre/fora`.
+
+### TestUIPrefetchExpires — Resposta velha é pedida de novo (#295)
+
+- **Jornada**: navegar e listar. **Risco**: mostrar conteúdo desatualizado.
+- **Pré-condições**: `#curto` com `ui.PrefetchTTL(300)`.
+- **Dados**: nenhum.
+- **Passos**: parar em `#curto`; sair; esperar 600 ms; clicar.
+- **Resultado esperado**: um prefetch e um GET (o clique pediu de novo).
+
+### TestUIPrefetchSaveData — Economia de dados desliga o prefetch (#295)
+
+- **Jornada**: navegar e listar. **Risco**: gastar o plano de dados de quem pediu economia.
+- **Pré-condições**: `navigator.connection.saveData` ligado.
+- **Dados**: nenhum.
+- **Passos**: parar em `#alvo`; esperar 400 ms.
+- **Resultado esperado**: nenhum pedido.
+
+### TestUIPrefetchRedirectNotKept — Prefetch redirecionado não é guardado (#295)
+
+- **Jornada**: navegar e listar. **Risco**: a sessão expirada antecipada mostra a página errada no clique.
+- **Pré-condições**: `#sai`, cuja rota redireciona para `/fluxos/semregiao`.
+- **Dados**: nenhum.
+- **Passos**: parar em `#sai`; clicar.
+- **Resultado esperado**: um prefetch e um GET; a navegação segue o caminho normal até `/fluxos/semregiao`.

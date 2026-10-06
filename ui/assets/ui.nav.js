@@ -59,12 +59,14 @@
     const me = new AbortController(), mine = ++gen;
     ctl = (init.method || "GET") === "GET" ? me : null;
     const settle = pending(id, trigger);
-    let res, doc;
+    let res, doc, html;
     try {
-      res = await fetch(url, { credentials: "same-origin", signal: me.signal, ...init, headers: { Accept: "text/html" } });
-      const html = /text\/html/.test(res.headers.get("Content-Type")) && !/attachment/i.test(res.headers.get("Content-Disposition"));
-      if (res.status >= 500 || !html || !sameOrigin(res.url)) return { r: "navigate", res };
-      doc = new DOMParser().parseFromString(await res.text(), "text/html");
+      // A click finds the page its prefetch asked for, in the air or landed.
+      const hit = !init.method && await take(url);
+      if (hit) ({ res, html } = hit);
+      else res = await fetch(url, { credentials: "same-origin", signal: me.signal, ...init, headers: { Accept: "text/html" } });
+      if (res.status >= 500 || !isHTML(res) || !sameOrigin(res.url)) return { r: "navigate", res };
+      doc = new DOMParser().parseFromString(html ?? await res.text(), "text/html");
       const next = doc.getElementById(id);
       if (!next) return { r: "navigate", res, doc }; // the page is shaped differently: navigate for real
       const r = await update(() => {
@@ -79,7 +81,7 @@
         const bad = res.status >= 400 && next.querySelector("[aria-invalid='true']");
         if (bad) bad.focus();
         else arrive(next, document.title, changed);
-        document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: next, status: res.status, url: res.url } }));
+        document.dispatchEvent(new CustomEvent("trilha:swap", { detail: { target: next, status: res.status, url: res.url, prefetched: !!hit } }));
         scrollTo(0, y || 0);
         return "swapped";
       }, trigger);
@@ -92,6 +94,41 @@
     }
   };
   const sameOrigin = (v) => { try { return new URL(v, location.href).origin === location.origin; } catch { return false; } };
+  const isHTML = (res) => /text\/html/.test(res.headers.get("Content-Type")) && !/attachment/i.test(res.headers.get("Content-Disposition"));
+
+  // Prefetch on intent (#295): the pointer resting 80 ms, the focus, a touch —
+  // never the viewport. One answer per address for its TTL, eight at most; a
+  // redirect or a non-200 is not kept. Purpose: prefetch (Sec- headers are
+  // the browser's own) lets a route check Ctx.IsPrefetch.
+  const cache = new Map();
+  const bare = (url) => { const u = new URL(url, location.href); u.hash = ""; return u.href; };
+  const take = (url) => { const e = cache.get(bare(url)); cache.delete(bare(url)); return e && e.until > Date.now() ? e.p : null; };
+  const prefetch = (a) => {
+    const c = navigator.connection;
+    if (a.closest("[data-trilha-prefetch]")?.getAttribute("data-trilha-prefetch") !== "intent" || c?.saveData || /2g/.test(c?.effectiveType)) return;
+    if (!regionOf(a) || a.hasAttribute("download") || a.hasAttribute("data-trilha-target") || (a.target && a.target !== "_self") || !sameOrigin(a.href)) return;
+    const key = bare(a.href);
+    if (key === bare(location.href) || cache.get(key)?.until > Date.now()) return;
+    const ttl = +a.closest("[data-trilha-prefetch-ttl]")?.getAttribute("data-trilha-prefetch-ttl") || 10000;
+    const p = fetch(key, { credentials: "same-origin", headers: { Accept: "text/html", Purpose: "prefetch" } })
+      .then(async (res) => res.status === 200 && !res.redirected && isHTML(res) ? { res, html: await res.text() } : null, () => null);
+    p.then((v) => { if (!v && cache.get(key)?.p === p) cache.delete(key); });
+    cache.set(key, { p, until: Date.now() + ttl });
+    while (cache.size > 8) cache.delete(cache.keys().next().value);
+  };
+  const linkOf = (e) => e.target.closest?.("a[href]");
+  let rest;
+  document.addEventListener("pointerover", (e) => {
+    const a = linkOf(e);
+    if (!a || a.contains(e.relatedTarget)) return;
+    clearTimeout(rest);
+    rest = setTimeout(() => prefetch(a), 80);
+  });
+  document.addEventListener("pointerout", (e) => { const a = linkOf(e); if (a && !a.contains(e.relatedTarget)) clearTimeout(rest); });
+  document.addEventListener("pointerdown", () => clearTimeout(rest)); // the intent became a click
+  // The keyboard's focus is intent; the focus a mouse click gives is the click.
+  document.addEventListener("focusin", (e) => { const a = linkOf(e); if (a?.matches(":focus-visible")) prefetch(a); });
+  document.addEventListener("touchstart", (e) => { const a = linkOf(e); if (a) prefetch(a); }, { passive: true });
 
   // go is a GET into the region: the address the server ended on (a redirect
   // is followed in the same request) becomes the new entry. Giving up after a

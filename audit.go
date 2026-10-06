@@ -110,6 +110,12 @@ func (c *Ctx) Actor() Actor {
 // every application does and what every application forgets in half its
 // handlers.
 //
+// A GET that records a reading — "who opened document 7", an access log the
+// law asks for — must not record a prefetch (Ctx.IsPrefetch): nobody opened
+// anything yet. And since the click that follows uses the prefetched answer
+// without asking again, a reading that must be recorded every time keeps its
+// links out of the prefetch with ui.NoPrefetch.
+//
 // Without Config.Audit the record goes to the app's logger with kind=audit,
 // which is enough to grep and enough to ship a first version with. An
 // application that needs to show the trail on a screen gives Config.Audit a

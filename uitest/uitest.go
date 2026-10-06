@@ -605,6 +605,40 @@ func (s *Session) Click(sel string) {
 	s.run("Click", sel, "the click did not go through", func() error { return s.page.Mouse().Click(pt.X, pt.Y) })
 }
 
+// Hover rests the mouse on the middle of sel, as a pointer that stops over a
+// link does — what a prefetch on intent waits for.
+func (s *Session) Hover(sel string) {
+	s.WaitVisible(sel)
+	s.step = "Hover"
+	var pt struct{ X, Y float64 }
+	if err := s.eval(`(() => { const el = document.querySelector(`+quote(sel)+`); el.scrollIntoView({block: "center"}); `+
+		`const r = el.getBoundingClientRect(); return {X: r.left + r.width / 2, Y: r.top + r.height / 2}; })()`, &pt); err != nil {
+		s.Fail(Failure{Step: "Hover", Selector: sel, Want: "an element to hover", Got: err.Error()})
+	}
+	s.run("Hover", sel, "the pointer did not reach the element", func() error { return s.page.Mouse().Move(pt.X, pt.Y) })
+}
+
+// Sweep moves the pointer across the elements in order without stopping on
+// any — a pointer passing by, which an intent on hover must not take for one.
+// The points are worked out first, so no round trip sits between the moves.
+func (s *Session) Sweep(sels ...string) {
+	s.step = "Sweep"
+	var pts []struct{ X, Y float64 }
+	list, _ := json.Marshal(sels)
+	if err := s.eval(``+string(list)+`.map((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); `+
+		`return {X: r.left + r.width / 2, Y: r.top + r.height / 2}; })`, &pts); err != nil {
+		s.Fail(Failure{Step: "Sweep", Selector: strings.Join(sels, ", "), Want: "every element on the page", Got: err.Error()})
+	}
+	s.run("Sweep", strings.Join(sels, ", "), "the pointer did not move", func() error {
+		for _, p := range pts {
+			if err := s.page.Mouse().Move(p.X, p.Y); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // Fill replaces the value of a field by typing, so the page sees the same
 // input events a person would cause.
 func (s *Session) Fill(sel, value string) {
@@ -839,12 +873,13 @@ func clip(s string) string {
 
 // WaitJS waits until the JavaScript expression is true — for a condition the
 // other methods do not name: "no reload happened", "the bar reached the end".
-// want says it in words, for the report.
+// A Promise is awaited, so the condition may ask the server. want says it in
+// words, for the report.
 func (s *Session) WaitJS(want, expr string) {
 	s.until("WaitJS", "", want+" ("+expr+")", "the page never got there: the report's console and server log say what happened instead",
 		func() (string, bool) {
 			var out any
-			if err := s.eval(`(() => { try { const v = (`+expr+`); return v ? true : String(v); } catch (e) { return "throws: " + e.message; } })()`, &out); err != nil {
+			if err := s.eval(`(async () => { try { const v = await (`+expr+`); return v ? true : String(v); } catch (e) { return "throws: " + e.message; } })()`, &out); err != nil {
 				return err.Error(), false
 			}
 			if out == true {

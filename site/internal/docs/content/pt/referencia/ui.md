@@ -243,6 +243,7 @@ A navegação no cliente fica desligada até você pedir, em dois lugares:
 |---|---|
 | `ui.Navigate(id) h.Node` | marca uma região: um clique em link da mesma origem dentro dela troca o elemento `#id` pelo mesmo elemento da próxima página. `id` vazio significa o próprio elemento marcado |
 | `ui.NoNavigate() h.Node` | deixa um link de fora (um download, outro app, uma rota que precisa recarregar) |
+| `ui.Prefetch()`, `ui.NoPrefetch()`, `ui.PrefetchTTL(ms)` | prefetch por intenção (ponteiro parado 80 ms, foco do teclado, toque) dentro de uma região `Navigate`, um link de fora, e quanto tempo uma resposta espera o clique (padrão 10 s) — veja [Pedir antes do clique](/pt/aprender/interatividade#pedir-antes-do-clique) |
 | `ui.NavigateFocus(modo) h.Node` | para onde vai o foco depois de uma navegação no cliente: `"h1"` (padrão, o primeiro título da região), `"region"` ou `"none"`; o título novo é anunciado de qualquer jeito |
 | `ui.NavigateScript(c) h.Node` | `<script defer src=ui.nav.js>`; ponha uma vez, no layout da área que usa |
 

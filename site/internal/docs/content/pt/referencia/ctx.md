@@ -36,6 +36,7 @@ usado por outra goroutine depois que o handler devolve.
 | `Text(code, s) error` | escreve texto simples |
 | `HTML(code, node) error` | escreve um nó como documento inteiro, sem layouts |
 | `Redirect(url) error` | devolve o erro de redirecionamento 303 (use com `return`) |
+| `IsPrefetch() bool` | este GET é um prefetch (`Purpose: prefetch` do `ui.Prefetch`, ou o `Sec-Purpose` do navegador): pule efeitos colaterais da leitura; uma leitura que precisa ser sempre registrada deixa os links de fora com `ui.NoPrefetch` |
 | `RedirectReload(url) error` | `Redirect` para um destino com outra moldura (entrar, sair, organização): o cliente que segue redirects no lugar o carrega inteiro |
 | `PushURL(caminho)`, `ReplaceURL(caminho)` | numa resposta de fragmento, o endereço que reconstrói o que ela desenhou: entrada nova no histórico, ou a entrada que o gatilho criou; `ReplaceURL("")` deixa a barra como está. Um caminho deste site, como o `Redirect`; nada numa página inteira |
 | `Status(code)` | status que a próxima renderização de página vai usar |

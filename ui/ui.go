@@ -366,6 +366,26 @@ func NoNavigate() h.Node { return h.Data("trilha-nav", "false") }
 //	h.Main(h.ID("conteudo"), ui.Navigate(""), ui.NavigateFocus("region"), children)
 func NavigateFocus(mode string) h.Node { return h.Data("trilha-nav-focus", mode) }
 
+// Prefetch, on a Navigate region or on one link inside it, asks for the next
+// page as soon as the person shows the intent of opening it — the pointer
+// resting on the link for 80 ms, the focus reaching it, a finger touching it
+// — so the click finds the answer already there (#295). Never by viewport,
+// never on a NoNavigate link, a download, another origin or a connection in
+// data-saver or 2G. The answer is kept for 10 seconds (PrefetchTTL), and the
+// request says Purpose: prefetch, so a route whose reading has a side effect
+// checks Ctx.IsPrefetch.
+//
+//	h.Main(h.ID("conteudo"), ui.Navigate(""), ui.Prefetch(), children)
+func Prefetch() h.Node { return h.Data("trilha-prefetch", "intent") }
+
+// NoPrefetch keeps one link out of Prefetch: a page that must be fresh to the
+// second, or whose GET costs too much to ask for on a hover.
+func NoPrefetch() h.Node { return h.Data("trilha-prefetch", "false") }
+
+// PrefetchTTL is how long, in milliseconds, a prefetched page may wait for
+// its click, beside Prefetch. The default is 10000.
+func PrefetchTTL(ms int) h.Node { return h.Data("trilha-prefetch-ttl", strconv.Itoa(ms)) }
+
 // NavigateScript loads ui.nav.js, the behavior behind Navigate. Put it once,
 // in the layout of the area that uses it — the kit's Head does not load it, so
 // an app without client navigation does not download it.

@@ -3,6 +3,25 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.154.0 — 2026-10-06
+
+Prefetch on intent for client navigation (spec 173, #295).
+
+### Added
+
+- **`ui.Prefetch()`**, on a `ui.Navigate` region or one link, asks for the next page when the
+  pointer rests on a link for 80 ms, the keyboard's focus reaches it, or a finger touches it;
+  the click uses that answer (in flight or landed) instead of asking again. Never by viewport,
+  on another origin, a download, a `ui.NoNavigate` link, or with data saver or 2G. Kept 10 s
+  (**`ui.PrefetchTTL(ms)`**), eight at most; a redirect or a non-200 is not kept.
+  **`ui.NoPrefetch()`** keeps a link out. `trilha:swap` carries `detail.prefetched`.
+- **`c.IsPrefetch()`**: the GET is a prefetch (`Purpose: prefetch` from the kit — `fetch`
+  cannot send a `Sec-` header — or the browser's `Sec-Purpose`). Skip read side effects that may
+  be skipped; a reading that must always be recorded (an access log) keeps its links out with
+  `ui.NoPrefetch`, because the click does not ask again.
+- **`uitest`**: `Session.Hover`, `Session.Sweep` (a pointer passing by), and `WaitJS` awaits a
+  Promise, so a condition may ask the server.
+
 ## 0.153.0 — 2026-10-06
 
 The rest of the screen stops reloading: redirects are followed in place, forms inside a

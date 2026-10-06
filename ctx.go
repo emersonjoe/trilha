@@ -250,6 +250,17 @@ func (c *Ctx) HTML(code int, n h.Node) error {
 // Redirect returns a redirect error (303). Use as `return c.Redirect("/x")`.
 func (c *Ctx) Redirect(url string) error { return Redirect(url) }
 
+// IsPrefetch reports whether this GET is a prefetch: the kit asked for the
+// page because the pointer rested on a link (ui.Prefetch), or the browser
+// speculated, and nobody has clicked yet. A route whose reading has a side
+// effect that may be skipped — a view counter, a "recently seen" list — does
+// it only when IsPrefetch is false. The click that follows uses the prefetched
+// answer and does not ask again, so a reading that must be recorded every time
+// (an access log) keeps its links out with ui.NoPrefetch; see Audit.
+func (c *Ctx) IsPrefetch() bool {
+	return strings.Contains(c.r.Header.Get("Sec-Purpose"), "prefetch") || c.r.Header.Get("Purpose") == "prefetch"
+}
+
 // RedirectReload is Redirect for a destination whose frame differs (login,
 // logout, organization): a client navigating in place loads it whole.
 func (c *Ctx) RedirectReload(url string) error { return RedirectReload(url) }

@@ -347,6 +347,7 @@ func TestNavigateIsOptIn(t *testing.T) {
 	}
 	for node, want := range map[h.Node]string{
 		PushHistory(): `data-trilha-push="push"`, Follow(): `data-trilha-follow=""`, NoFollow(): `data-trilha-follow="false"`,
+		Prefetch(): `data-trilha-prefetch="intent"`, NoPrefetch(): `data-trilha-prefetch="false"`, PrefetchTTL(500): `data-trilha-prefetch-ttl="500"`,
 	} {
 		if got := render(t, h.Form(node)); !strings.Contains(got, want) {
 			t.Errorf("render = %s, want %s", got, want)
@@ -370,7 +371,9 @@ found:
 	// apps that navigate download. 10 KB since 0.153.0: forms inside the
 	// region navigate in place (#292) — the submit listener, the POST that
 	// follows its own redirect, the flashes of the destination.
-	if n := len(Asset("ui.nav.js")); n == 0 || n > 10<<10 {
+	// 12 KB since 0.154.0: prefetch on intent (#295) is the client
+	// navigation's own and is paid only by apps that navigate.
+	if n := len(Asset("ui.nav.js")); n == 0 || n > 12<<10 {
 		t.Fatalf("ui.nav.js is %d bytes", n)
 	}
 	// The behavior does not ride in ui.js: an app without client navigation

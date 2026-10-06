@@ -171,6 +171,7 @@ pkg trilha, method (*Ctx) Header(string, string)
 pkg trilha, method (*Ctx) Hijack() (net.Conn, *bufio.ReadWriter, error)
 pkg trilha, method (*Ctx) Inline(string, io.Reader, string) error
 pkg trilha, method (*Ctx) InlineFile(string, string) error
+pkg trilha, method (*Ctx) IsPrefetch() bool
 pkg trilha, method (*Ctx) Island(string, any, ...h.Node) h.Node
 pkg trilha, method (*Ctx) JSON(int, any) error
 pkg trilha, method (*Ctx) LastModified(time.Time) bool
@@ -1842,6 +1843,7 @@ pkg ui, func NavigateFocus(string) h.Node
 pkg ui, func NavigateScript(*trilha.Ctx) h.Node
 pkg ui, func NoFollow() h.Node
 pkg ui, func NoNavigate() h.Node
+pkg ui, func NoPrefetch() h.Node
 pkg ui, func NoPush() h.Node
 pkg ui, func NoTransition() h.Node
 pkg ui, func Num() h.Node
@@ -1857,6 +1859,8 @@ pkg ui, func Patterns() []Pattern
 pkg ui, func PendingAfter(int) h.Node
 pkg ui, func PolicyGrid(Policy, PolicyGridOpts) h.Node
 pkg ui, func Poll(string, string) h.Node
+pkg ui, func Prefetch() h.Node
+pkg ui, func PrefetchTTL(int) h.Node
 pkg ui, func Preview(*trilha.Ctx, string, ...PreviewOpts) h.Node
 pkg ui, func Progress(int, int) h.Node
 pkg ui, func PushHistory() h.Node

@@ -3227,6 +3227,36 @@
     ]
   },
   {
+    "name": "Prefetch",
+    "kind": "func",
+    "group": "forms",
+    "signature": "Prefetch() h.Node",
+    "doc": "Prefetch, on a Navigate region or on one link inside it, asks for the next\npage as soon as the person shows the intent of opening it — the pointer\nresting on the link for 80 ms, the focus reaching it, a finger touching it\n— so the click finds the answer already there (#295). Never by viewport,\nnever on a NoNavigate link, a download, another origin or a connection in\ndata-saver or 2G. The answer is kept for 10 seconds (PrefetchTTL), and the\nrequest says Purpose: prefetch, so a route whose reading has a side effect\nchecks Ctx.IsPrefetch.",
+    "summary": "Prefetch, on a Navigate region or on one link inside it, asks for the next page as soon as the person shows the intent of opening it — the pointer resting on the link for 80 ms, the focus reaching it, a finger touching it — so the click finds the answer already there (#295).",
+    "example": "h.Main(h.ID(\"conteudo\"), ui.Navigate(\"\"), ui.Prefetch(), children)",
+    "see": [
+      "h.ID",
+      "h.Main",
+      "ui.Navigate"
+    ]
+  },
+  {
+    "name": "NoPrefetch",
+    "kind": "func",
+    "group": "forms",
+    "signature": "NoPrefetch() h.Node",
+    "doc": "NoPrefetch keeps one link out of Prefetch: a page that must be fresh to the\nsecond, or whose GET costs too much to ask for on a hover.",
+    "summary": "NoPrefetch keeps one link out of Prefetch: a page that must be fresh to the second, or whose GET costs too much to ask for on a hover."
+  },
+  {
+    "name": "PrefetchTTL",
+    "kind": "func",
+    "group": "forms",
+    "signature": "PrefetchTTL(ms int) h.Node",
+    "doc": "PrefetchTTL is how long, in milliseconds, a prefetched page may wait for\nits click, beside Prefetch. The default is 10000.",
+    "summary": "PrefetchTTL is how long, in milliseconds, a prefetched page may wait for its click, beside Prefetch."
+  },
+  {
     "name": "NavigateScript",
     "kind": "func",
     "group": "forms",

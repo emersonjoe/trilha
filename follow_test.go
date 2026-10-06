@@ -94,3 +94,28 @@ func TestPushURLEReplaceURL(t *testing.T) {
 		t.Errorf("an address that leaves the site is refused in silence; dev log:\n%s", logs.String())
 	}
 }
+
+// #295: a prefetch is a GET nobody clicked yet. IsPrefetch lets a route with
+// a read side effect (an access log, "mark as read") skip it. The browser's
+// own speculation sends Sec-Purpose; fetch cannot set a Sec- header, so the
+// kit sends the older Purpose.
+func TestIsPrefetch(t *testing.T) {
+	a := New(Config{Logger: quiet()})
+	var got []bool
+	a.Register(Route{Pattern: "/doc", Page: func(c *Ctx) (h.Node, error) {
+		got = append(got, c.IsPrefetch())
+		return h.Div(), nil
+	}})
+	for _, hdr := range []map[string]string{
+		nil,
+		{"Sec-Purpose": "prefetch"},
+		{"Sec-Purpose": "prefetch;prerender"},
+		{"Purpose": "prefetch"},
+		{"Purpose": "other"},
+	} {
+		get(t, a, "GET", "/doc", "", hdr)
+	}
+	if want := []bool{false, true, true, true, false}; len(got) != len(want) || got[0] || !got[1] || !got[2] || !got[3] || got[4] {
+		t.Fatalf("IsPrefetch = %v, want %v", got, want)
+	}
+}

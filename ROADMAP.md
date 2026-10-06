@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.153.0)
+## Onde o Trilha está (outubro de 2026, v0.154.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -370,6 +370,9 @@ anunciador de rota e foco no `h1` (#290, #294, #297).
 0.153.0**): o PRG com `ui.Swap` e `ui.UploadTo` segue o redirect no lugar (`RedirectReload` para
 quando a moldura muda); formulário comum dentro de `ui.Navigate` navega no lugar; `c.PushURL` e
 `c.ReplaceURL` dizem o endereço do fragmento (#291, #292, #293).
+142. **Prefetch por intenção** (spec 173, **entregue na 0.154.0**): `ui.Prefetch()` antecipa a
+página com o ponteiro parado, o foco do teclado ou o toque; o clique usa a resposta;
+`c.IsPrefetch()` no servidor (#295).
 
 ## O que não vamos fazer, e por quê
 

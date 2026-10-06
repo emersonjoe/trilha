@@ -36,6 +36,7 @@ used by another goroutine after the handler returns.
 | `Text(code, s) error` | writes plain text |
 | `HTML(code, node) error` | writes a node as a whole document, without layouts |
 | `Redirect(url) error` | returns the 303 redirect error (use with `return`) |
+| `IsPrefetch() bool` | this GET is a prefetch (`Purpose: prefetch` from `ui.Prefetch`, or the browser's `Sec-Purpose`): skip side effects of reading; a reading that must always be recorded keeps its links out with `ui.NoPrefetch` |
 | `RedirectReload(url) error` | `Redirect` for a destination with another frame (login, logout, organization): a client that follows redirects in place loads it whole |
 | `PushURL(path)`, `ReplaceURL(path)` | on a fragment answer, the address that rebuilds what it drew: a new history entry, or the entry the trigger made; `ReplaceURL("")` leaves the bar alone. A path of this site, like `Redirect`; nothing on a full page |
 | `Status(code)` | status the next page render will use |

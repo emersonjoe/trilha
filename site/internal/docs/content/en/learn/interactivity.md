@@ -305,6 +305,24 @@ change) — and stays quiet when the heading the focus reached already said it. 
 Forward announce the same way. `ui.NavigateFocus("region")` beside `ui.Navigate` keeps the
 focus on the region instead, and `"none"` leaves it where it was.
 
+### Asking before the click
+
+A round trip of 200 ms still shows when the click starts it. `ui.Prefetch()` beside
+`ui.Navigate` (or on one link) asks for the next page as soon as the person shows the intent
+of opening it — the pointer resting on the link for 80 ms, the keyboard's focus reaching it, a
+finger touching it — and the click finds the answer there, or still on its way and shared.
+Never by viewport, which is where useless traffic lives; never on a `ui.NoPrefetch()` link, a
+download, another origin, or a connection in data-saver or 2G. An answer waits 10 seconds for
+its click (`ui.PrefetchTTL(ms)` changes it), eight at most; a redirect or anything but a `200`
+page is not kept, and the click asks for itself. `trilha:swap` says `detail.prefetched`, so
+the app can measure what it gains.
+
+The request says `Purpose: prefetch`, and `c.IsPrefetch()` reads it — and the browser's own
+`Sec-Purpose`. A route whose reading has a side effect that may be skipped (a view counter)
+checks it. The click uses the prefetched answer without asking again, so a reading that must
+be recorded every time — an access log the law asks for — keeps its links out with
+`ui.NoPrefetch()`.
+
 The rule of thumb: **fragment** when a handler answers a piece, **navigation** when the
 answer is a page and the frame around it should stay.
 
