@@ -102,23 +102,37 @@ redescobrir o token, os cabeçalhos e o formato de erro que o resto do framework
 Uma rota que responde `422` volta como `IslandInvalid`, e o `.fields` dela é o mesmo objeto
 que o formulário mostraria; qualquer outra falha é um `IslandError` com `.status` e
 `.detail`. Um `Trilha-Location` na resposta é seguido como navegação, então
-POST → redirect → GET também funciona de dentro de uma ilha.
+POST → redirect → GET também funciona de dentro de uma ilha: o runtime manda
+`Trilha-Island: 1`, e o handler que responde `c.Redirect` a esse pedido responde `204` +
+`Trilha-Location`, como faz para um fragmento, em vez de um `303` que o `fetch` seguiria
+calado (0.156.0). O flash que o handler deixou espera no cookie pela página para onde o
+navegador vai.
 
 O cookie de dupla submissão é `HttpOnly`, então o token chega à ilha escrito no elemento,
 como `data-trilha-csrf`. É ele que o `island.post` manda no `X-CSRF-Token`.
 
-Um `route.go` é API, e API não confere o token — o cliente dela leva um bearer, não um
-cookie. A ilha é a exceção, porque o cliente dela é a página:
-
-```go
-// app/blog/novo/rascunho/middleware.go
-func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
-	return trilha.RequireCSRF(c, next)
-}
-```
+Um `route.go` é API, e o cliente de API leva um bearer, não um cookie — então o pedido com
+cabeçalho `Authorization`, ou sem cookie nenhum (um webhook), não precisa do token. O pedido
+que chega com os cookies do navegador e sem `Authorization` é a página — uma ilha, ou o
+formulário de outro site pegando carona na sessão — e, desde a 0.156.0, é conferido como o
+POST de uma página, sem middleware para lembrar. O `trilha.RequireCSRF` continua existindo
+para a rota que quer a conferência seja qual for o pedido.
 
 A rota continua sendo API, então os erros dela continuam em problem+json — que é o que a
 ilha consegue ler.
+
+### Módulo que importa módulo
+
+O `c.Island` entrega ao navegador a URL versionada do módulo (`/jogo/ilha.js?v=…`), para um
+deploy nunca rodar a página nova com o módulo velho do cache. O módulo que importa outro por
+caminho relativo — `import { passo } from "./motor.js"` — perderia isso: o navegador resolve
+`./motor.js` a partir da URL do módulo e pede o arquivo sem a versão. Por isso a página com
+ilhas leva um import map, escrito antes de qualquer script, que leva cada módulo de `public/`
+alcançado pelas ilhas por import relativo ou da raiz (`./`, `../`, `/`) à URL versionada dele.
+Nada muda no módulo; o import nu (`import x from "preact"`) fica como está, e o arquivo do
+`trilha vendor` é importado pelo caminho como qualquer outro. A ilha que chega num fragmento,
+numa página que não tinha nenhuma, fica sem mapa — o módulo dela continua versionado, os
+imports dele não.
 
 ### Os tipos que o módulo enxerga
 
@@ -134,6 +148,11 @@ montagem. Aponte o módulo para lá e o editor confere os dois lados da fronteir
 /** @type {import("/islands.d.ts").IslandMount<"/editor.js">} */
 export default function (el, props, island) { … }
 ```
+
+O campo cujo tipo mora em outro pacote do mesmo módulo — `[]api.Carta`, `*contrato.Jogada` —
+é seguido até esse pacote, e o editor enxerga `Carta` e os campos dela também; o tipo de fora
+do módulo (`uuid.UUID`) fica `unknown`, e o `trilha gen` diz o campo e o módulo de onde ele
+veio.
 
 Props escritas como literal de mapa ou como variável não têm nome onde pendurar um tipo: a
 ilha continua declarada, com tipo `unknown`, e o `trilha gen` avisa. O `gen --check` compara

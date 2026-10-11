@@ -48,6 +48,7 @@ type Ctx struct {
 	fragment     string
 	fragParsed   bool
 	islandLoader bool
+	islandSrcs   []string // the modules c.Island mounted, for the import map
 	rawBody      io.ReadCloser
 	flashOut     []Flash
 	flashIn      []Flash

@@ -36,7 +36,9 @@
     const isRaw = (data) => data instanceof Blob || data instanceof File ||
       data instanceof FormData || data instanceof ArrayBuffer || ArrayBuffer.isView(data);
     const send = async (method, url, data) => {
-      const h = { Accept: "application/json" };
+      // Trilha-Island tells the server a redirect cannot be followed here: it
+      // answers 204 + Trilha-Location, as for a fragment (#302).
+      const h = { Accept: "application/json", "Trilha-Island": "1" };
       const raw = data !== undefined && isRaw(data);
       if (data !== undefined && !raw) h["Content-Type"] = "application/json";
       const t = token(el);

@@ -24,6 +24,9 @@ const (
 	// followHeader is sent by the kit when it can follow a Trilha-Location in
 	// place — swap the destination in instead of reloading (#291).
 	followHeader = "Trilha-Follow"
+	// islandHeader marks a request island.post or island.get sent: like a
+	// fragment, it cannot follow a redirect inside the fetch (#302).
+	islandHeader = "Trilha-Island"
 	// reloadHeader goes with Trilha-Location when the destination must load
 	// for real: the frame around the region changed (RedirectReload).
 	reloadHeader = "Trilha-Reload"
@@ -110,6 +113,9 @@ func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
 			out = append([]byte("<!doctype html>"), out...)
 		}
 	}
+	if len(c.islandSrcs) > 0 {
+		out = injectImportMap(out, a.importMap(c.islandSrcs), c.Nonce())
+	}
 	if a.cfg.Env == Dev && a.cfg.DevReload != Off {
 		out = injectDevScript(out, c.Nonce())
 	}
@@ -136,9 +142,10 @@ func (a *App) handleError(c *Ctx, err error) {
 	if errors.As(err, &re) {
 		switch {
 		case c.w.wrote:
-		case c.Fragment() != "":
+		case c.Fragment() != "" || c.r.Header.Get(islandHeader) == "1":
 			// The browser must navigate: following the redirect inside the
-			// fetch would render the destination page as a fragment.
+			// fetch would render the destination page as a fragment — or
+			// hand an island the destination's HTML as its answer.
 			c.w.Header().Set(locationHeader, re.URL)
 			if re.Reload {
 				c.w.Header().Set(reloadHeader, "1")

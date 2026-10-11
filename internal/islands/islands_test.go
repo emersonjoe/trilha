@@ -152,3 +152,39 @@ func TestMissingAppDir(t *testing.T) {
 		t.Error("an empty map should still let a module be typed")
 	}
 }
+
+// #299: a props field whose type comes from another package of the same
+// module — the client trilha client wrote in internal/api — is typed, and so
+// is what that package reaches in turn. A type from outside the module is
+// still unknown, but the generator says which and why instead of keeping
+// quiet.
+func TestPropsFromOtherPackagesOfTheModule(t *testing.T) {
+	r, err := Scan("../../testdata/islandsmod/app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := r.TypeScript()
+	for _, want := range []string{
+		`"/jogo.js": Props;`,
+		"fila: Card[];",
+		"atual?: Card;",
+		"nivel: number;",
+		"sessao: unknown;",
+		"export interface Card {",
+		"frente: string;",
+		"tags: Tag[];",
+		"export interface Tag {",
+		"nome: string;",
+	} {
+		if !strings.Contains(ts, want) {
+			t.Errorf("islands.d.ts lacks %q:\n%s", want, ts)
+		}
+	}
+	notes := strings.Join(r.Notes, "\n")
+	if !strings.Contains(notes, "uuid.UUID") || !strings.Contains(notes, "github.com/google/uuid") {
+		t.Errorf("a type from outside the module turned unknown in silence; notes:\n%s", notes)
+	}
+	if strings.Count(notes, "uuid.UUID") != 1 {
+		t.Errorf("the same note twice:\n%s", notes)
+	}
+}

@@ -115,6 +115,14 @@ que `props.ordem` existe, e com um segundo lugar onde um bug pode morar. É o pr
 atravessar o teto, e é por isso que vale nomear o teto — para você pagar esse preço nas telas
 que precisam, e não nas outras noventa.
 
+Duas coisas diminuem o preço. O `public/islands.d.ts`, gravado pelo `trilha gen`, dá ao
+módulo os tipos das props, inclusive os que vêm de outros pacotes do módulo. E a ilha que
+passou de um arquivo — um jogo, um editor, um motor — pode ser escrita em TypeScript: ponha
+as fontes e o `tsconfig.json` delas em `islands/`, e o `trilha islands build` compila com o
+`tsc` do próprio projeto para `public/`, onde a saída é commitada. O `trilha check` reprova
+quando `public/` não é o que `islands/` compila. Continua sem bundler: cada `.ts` vira um
+`.js`, importado pelo caminho.
+
 ## Desafio
 
 A ilha da ordem escreve a ordem inteira num campo escondido, então nada é salvo até a pessoa

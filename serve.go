@@ -193,7 +193,7 @@ func (a *App) wrap(r *Route, kind routeKind, mws []MiddlewareFunc, final Handler
 					// The chain let the caller through; that is the whole answer.
 					return nil
 				}
-				if bodyMethods[req.Method] && (kind == kindPage || a.cfg.CSRFForAPI) {
+				if bodyMethods[req.Method] && (kind == kindPage || a.cfg.CSRFForAPI || browserCredentials(req)) {
 					if err := a.checkCSRF(c); err != nil {
 						return err
 					}

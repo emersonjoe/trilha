@@ -166,10 +166,12 @@ published as if it were right.
 
 ## CSRF in APIs
 
-By default `route.go` does **not** require a CSRF token: APIs are usually called with a
-session token or a bearer token, and the `SameSite=Lax` cookie already blocks automatic
-submission by the browser. If your API is called by the site itself with cookies, turn on
-`Config.CSRFForAPI` and send `X-CSRF-Token`.
+A `route.go` does **not** ask an API client for a CSRF token: a request with an
+`Authorization` header, or with no cookie at all, carries nothing another site could ride on.
+A request with the browser's cookies and no `Authorization` is the site itself — or another
+site submitting on the user's session — so since 0.156.0 it needs `X-CSRF-Token`, as a page's
+POST does; `island.post` already sends it. `Config.CSRFForAPI` turns the check on for every
+API request, bearer or not.
 
 ## Challenge
 

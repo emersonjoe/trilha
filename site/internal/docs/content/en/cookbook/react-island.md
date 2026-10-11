@@ -86,14 +86,11 @@ The `IslandMount` type comes from `public/islands.d.ts`, written by `trilha gen`
 ## The route it talks to
 
 The other side is a `route.go` like any other. It is an API — its errors are problem+json,
-which is what the island reads — but its client is the page, with the page's cookies, so it
-asks for the token:
-
-```go
-func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
-	return trilha.RequireCSRF(c, next)
-}
-```
+which is what the island reads — but its client is the page, with the page's cookies, so
+Trilha asks it for the token on its own (since 0.156.0; before it, the route needed a
+`MiddlewarePOST` calling `trilha.RequireCSRF`). `island.post` sends it, and a handler that
+ends in `c.Redirect` sends the browser to the next page instead of handing the island its
+HTML.
 
 `c.BindJSON` validates the body with the same `validate` tags the form uses, and the
 `FieldErrors` it returns become the `422` the island already knows how to show.

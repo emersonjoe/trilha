@@ -88,13 +88,10 @@ chamadas `c.Island` em `app/`. O editor então confere que `props.rascunho` exis
 
 Do outro lado tem um `route.go` como qualquer outro. Ele é API — os erros dele são
 problem+json, que é o que a ilha lê — mas o cliente dele é a página, com os cookies da página,
-então ele pede o token:
-
-```go
-func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
-	return trilha.RequireCSRF(c, next)
-}
-```
+então o Trilha pede o token sozinho (desde a 0.156.0; antes, a rota precisava de um
+`MiddlewarePOST` chamando `trilha.RequireCSRF`). O `island.post` manda o token, e o handler
+que termina em `c.Redirect` leva o navegador à próxima página em vez de entregar o HTML dela
+à ilha.
 
 O `c.BindJSON` valida o corpo com as mesmas tags `validate` do formulário, e o `FieldErrors`
 que ele devolve vira o `422` que a ilha já sabe mostrar.

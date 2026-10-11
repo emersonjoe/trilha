@@ -115,6 +115,14 @@ An island is JavaScript you own: no types shared with the server, no compiler ch
 the ceiling, and it is why the ceiling is worth naming — so you pay it on the screens that
 need it and not on the other ninety.
 
+Two things make the price smaller. `public/islands.d.ts`, written by `trilha gen`, gives the
+module the types of its props, including the ones that come from other packages of the
+module. And an island that outgrows a file — a game, an editor, an engine — can be written in
+TypeScript: put the sources and their `tsconfig.json` in `islands/`, and
+`trilha islands build` compiles them with the project's own `tsc` into `public/`, where the
+output is committed. `trilha check` fails when `public/` is not what `islands/` compiles to.
+There is still no bundler: each `.ts` becomes one `.js`, imported by its path.
+
 ## Challenge
 
 The reorder island writes the whole order into a hidden field, so nothing is saved until the

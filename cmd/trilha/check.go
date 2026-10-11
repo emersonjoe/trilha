@@ -133,6 +133,7 @@ func runCheck(p *project, fix bool) report {
 		run  func(*project, bool) (string, []problem)
 	}{
 		{"gen", checkStepGen},
+		{"islands", checkStepIslands},
 		{"gofmt", checkStepGofmt},
 		{"vet", checkStepVet},
 		{"test", checkStepTest},

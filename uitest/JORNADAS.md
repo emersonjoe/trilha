@@ -31,7 +31,7 @@ tira de alguém o que ele veio fazer.
 | Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce`, `TestUISwapFollowsRedirect`, `TestUISwapRedirectReload`, `TestUISwapFollowFallsBack`, `TestUIRegionFormsNavigate`, `TestUIRegionForm422` |
 | Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins`, `TestUIRegionLinkRedirect`, `TestUIServerDeclaresURL`, `TestUIPrefetchOnIntent`, `TestUIPrefetchNeedsIntent`, `TestUIPrefetchExpires`, `TestUIPrefetchSaveData`, `TestUIPrefetchRedirectNotKept` |
 | Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress`, `TestUIUploadFollowsRedirect` |
-| Interação rica | componente morto na tela; painel que perde o lugar na lista | `TestUIIslandHydrates`, `TestUITooltipKeyboard`, `TestUISheetOpensOnDemand`, `TestUISheetSurvivesNavigation`, `TestUISheetEscapeRestoresFocus`, `TestUISheetOnPhone`, `TestUIDialogLoadsOnDemand` |
+| Interação rica | componente morto na tela; painel que perde o lugar na lista | `TestUIIslandHydrates`, `TestUIIslandImportIsVersioned`, `TestUIIslandPostRedirects`, `TestUITooltipKeyboard`, `TestUISheetOpensOnDemand`, `TestUISheetSurvivesNavigation`, `TestUISheetEscapeRestoresFocus`, `TestUISheetOnPhone`, `TestUIDialogLoadsOnDemand` |
 | Segurança percebida | script injetado roda; segredo vaza | `TestUISecurityEveryScreen`, `TestUISecretNeverInHTML` |
 
 ## Casos
@@ -163,6 +163,22 @@ tira de alguém o que ele veio fazer.
 - **Dados**: contagem inicial 41 nas props.
 - **Passos**: abrir a página; clicar no contador.
 - **Resultado esperado**: a ilha fica `data-trilha-mounted`, mostra "count 41", depois "count 42", e o console não tem erro.
+
+### TestUIIslandImportIsVersioned — O import relativo da ilha vai para a URL versionada
+
+- **Jornada**: interação rica. **Risco**: depois de um deploy, a ilha nova roda com o módulo antigo que ficou no cache, e quebra (#298).
+- **Pré-condições**: `/fluxos/ilha/salto` com `c.Island("/salto/ilha.js", …)`; `ilha.js` faz `import { label } from "./motor.js"`.
+- **Dados**: `public/salto/motor.js` exporta `label = "finish"`.
+- **Passos**: abrir a página.
+- **Resultado esperado**: o botão mostra "finish"; o navegador buscou `/salto/motor.js?v=…` (o import map da página); o console não tem erro (o mapa tem nonce).
+
+### TestUIIslandPostRedirects — O post da ilha que redireciona vira navegação
+
+- **Jornada**: interação rica + segurança. **Risco**: `island.post` recebe o HTML do destino em silêncio e a tela não muda (#302); ou o post da ilha é recusado pela regra nova de CSRF (#300).
+- **Pré-condições**: a ilha de `/fluxos/ilha/salto`; `app/fluxos/ilha/concluir/route.go` com POST que faz `c.Flash` e `c.Redirect("/fluxos/ilha/feito")`; o projeto tem cookies de sessão.
+- **Dados**: nenhum.
+- **Passos**: abrir a página; clicar em "finish".
+- **Resultado esperado**: a URL vira `/fluxos/ilha/feito`, o título "Finished" aparece e a mensagem "Finished." do flash está na página.
 
 ### TestUITooltipKeyboard — Dica abre pelo teclado e fecha com Escape
 

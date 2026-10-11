@@ -103,22 +103,35 @@ agreed on:
 A route that answers `422` comes back as an `IslandInvalid` whose `.fields` is the same
 object a form would have shown; any other failure is an `IslandError` with `.status` and
 `.detail`. A `Trilha-Location` on the response is followed as a navigation, so
-POST → redirect → GET works from an island too.
+POST → redirect → GET works from an island too: the runtime sends `Trilha-Island: 1`, and a
+handler that answers `c.Redirect` to that request answers `204` + `Trilha-Location`, as it
+does for a fragment, instead of a `303` the `fetch` would follow in silence (0.156.0). The
+flash the handler left waits in the cookie for the page the browser goes to.
 
 The double-submit cookie is `HttpOnly`, so the token reaches the island written into the
 element, as `data-trilha-csrf`. That is what `island.post` sends as `X-CSRF-Token`.
 
-A `route.go` is an API, and an API does not check the token — its client carries a bearer
-token, not a cookie. An island is the exception, because its client is the page:
-
-```go
-// app/blog/novo/rascunho/middleware.go
-func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
-	return trilha.RequireCSRF(c, next)
-}
-```
+A `route.go` is an API, and an API client carries a bearer token, not a cookie — so a
+request with an `Authorization` header, or with no cookie at all (a webhook), is not asked for
+the token. A request that arrives with the browser's cookies and no `Authorization` is the
+page — an island, or another site's form riding on the session — and since 0.156.0 it is
+checked like a page's POST, with no middleware to remember. `trilha.RequireCSRF` still
+exists for a route that wants the check whatever the request carries.
 
 The route stays an API, so its errors stay problem+json — which is what the island can read.
+
+### Modules that import modules
+
+`c.Island` hands the browser the versioned URL of the module (`/game/island.js?v=…`), so a
+deploy never runs a new page against an old module from the cache. A module that imports
+another by a relative path — `import { step } from "./engine.js"` — would lose that: the
+browser resolves `./engine.js` against the module's URL and asks for it without the version.
+A page with islands therefore carries an import map, written before any script, that maps
+every module the islands reach through relative or root imports (`./`, `../`, `/`) in
+`public/` to its versioned URL. Nothing changes in the module; a bare import
+(`import x from "preact"`) is left alone, and a `trilha vendor` file is imported by its path
+like any other. An island that arrives in a fragment on a page that had none gets no map —
+its own module is still versioned, its imports are not.
 
 ### The types the module sees
 
@@ -134,6 +147,11 @@ module at it and an editor checks both sides of the boundary:
 /** @type {import("/islands.d.ts").IslandMount<"/editor.js">} */
 export default function (el, props, island) { … }
 ```
+
+A field whose type lives in another package of the same module — `[]api.Card`,
+`*contract.Move` — is followed into that package, so the editor sees `Card` and its fields
+too; a type from outside the module (`uuid.UUID`) is `unknown`, and `trilha gen` names the
+field and the module it came from.
 
 Props given as a map literal or a variable have no name to hang a type on: the island is
 still declared, typed `unknown`, and `trilha gen` says so. `gen --check` compares the file

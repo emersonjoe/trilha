@@ -81,7 +81,7 @@ recopiada aqui.
 
 | Ameaça | Controle |
 |---|---|
-| Requisição de outra origem | Token CSRF de duplo envio em todo formulário; `Config.CSRFForAPI` estende ao `route.go`. |
+| Requisição de outra origem | Token CSRF de duplo envio em todo formulário; o pedido a um `route.go` com os cookies do navegador e sem `Authorization` também é conferido (0.156.0), e o `Config.CSRFForAPI` estende a todo pedido de API. |
 | Cookie editado pelo cliente | A assinatura cobre valor e validade; qualquer mudança falha na verificação. |
 | HTML/JS injetado | O `h` escapa texto e atributo; o `tmpl` escapa por contexto; o `h.Raw` é a única saída explícita. |
 | Script inline injetado na página | CSP com nonce por requisição; `base-uri`, `form-action` e `frame-ancestors` fechados. |

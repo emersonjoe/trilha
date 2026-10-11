@@ -120,11 +120,21 @@ func (a *App) checkCSRF(c *Ctx) error {
 	return nil
 }
 
+// browserCredentials says the request rides on the browser's ambient
+// credentials: it carries cookies and no Authorization. That is the page —
+// an island's fetch, or another site's form posting on the session — and
+// not the bearer client a route.go is exempt for (#300). A webhook carries
+// no cookie and a bearer client its header, so both stay exempt.
+func browserCredentials(r *http.Request) bool {
+	return r.Header.Get("Authorization") == "" && len(r.Cookies()) > 0
+}
+
 // RequireCSRF checks the double-submit token on a route that would not check it
 // on its own. A route.go is an API, and an API is exempt because its client
-// carries a bearer token, not a cookie; an island is the exception, because its
-// client is the page, with the page's cookies. Put it on the route that answers
-// the island:
+// carries a bearer token, not a cookie. Since 0.156.0 a request with the
+// browser's cookies and no Authorization is checked anyway (#300), so an
+// island's route is covered without this; RequireCSRF is for a route that must
+// refuse even a cookie-less or bearer-carrying POST without the token:
 //
 //	// app/blog/novo/rascunho/middleware.go
 //	func MiddlewarePOST(c *trilha.Ctx, next trilha.Next) error {
@@ -136,7 +146,7 @@ func (a *App) checkCSRF(c *Ctx) error {
 // island can read; Config.CSRFForAPI is the same check for every API route at
 // once, when the whole API is browser-driven.
 func RequireCSRF(c *Ctx, next Next) error {
-	if !bodyMethods[c.r.Method] || c.app.cfg.CSRFForAPI || c.kind == kindPage {
+	if !bodyMethods[c.r.Method] || c.app.cfg.CSRFForAPI || c.kind == kindPage || browserCredentials(c.r) {
 		return next() // already checked upstream, or nothing to check
 	}
 	if err := c.app.checkCSRF(c); err != nil {

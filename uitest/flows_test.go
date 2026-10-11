@@ -122,6 +122,36 @@ func TestUIIslandHydrates(t *testing.T) {
 	})
 }
 
+// An island's module that imports another by a relative path gets the
+// versioned URL from the page's import map, so a deploy that changes only the
+// imported file is not served from the cache (#298).
+func TestUIIslandImportIsVersioned(t *testing.T) {
+	run(t, func(s *uitest.Session) {
+		s.Navigate("/fluxos/ilha/salto")
+		s.WantText("#concluir", "finish")
+		s.WaitJS("the relative import went to the versioned URL", `performance.getEntriesByType("resource")`+
+			`.some((r) => /\/salto\/motor\.js\?v=/.test(r.name))`)
+		if c := s.Console(); len(c) > 0 {
+			s.Fail(uitest.Failure{Step: "console", Want: "no errors", Got: strings.Join(c, "; "),
+				Fix: "the import map was refused (nonce) or points at a file that is not in public/"})
+		}
+	})
+}
+
+// An island posts to a route.go that redirects: the browser goes to the
+// destination, with the message, instead of island.post receiving its HTML
+// (#302) — and the post carries the CSRF token the route now asks of a request
+// with the session's cookies (#300).
+func TestUIIslandPostRedirects(t *testing.T) {
+	run(t, func(s *uitest.Session) {
+		s.Navigate("/fluxos/ilha/salto")
+		s.Click("#concluir")
+		s.WantURL("/fluxos/ilha/feito")
+		s.WantText("#feito", "Finished")
+		s.WaitJS("the flash of the route showed on the destination", `document.body.textContent.includes("Finished.")`)
+	})
+}
+
 // Client navigation replaces the region, keeps the document, and moves the
 // focus to the new content's heading — a screen reader starts reading there.
 func TestUIClientNavFocus(t *testing.T) {

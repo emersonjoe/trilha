@@ -14,6 +14,7 @@ import (
 	"go/token"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -66,6 +67,9 @@ func Scan(root string) (*Result, error) {
 		byName:  map[string][]*structDecl{},
 		named:   map[string]ast.Expr{},
 		seen:    map[string]bool{},
+		imports: map[string]map[string]string{},
+		pkgName: map[string]string{},
+		noted:   map[string]bool{},
 		res:     &Result{},
 	}
 	files, err := goFiles(root)
@@ -78,11 +82,16 @@ func Scan(root string) (*Result, error) {
 			return nil, err
 		}
 		s.files = append(s.files, fileInfo{path: path, dir: filepath.Dir(path), file: f})
+		s.pkgName[filepath.Dir(path)] = f.Name.Name
+	}
+	app := len(s.files)
+	if err := s.modulePackages(root); err != nil {
+		return nil, err
 	}
 	for _, fi := range s.files {
 		s.index(fi)
 	}
-	for _, fi := range s.files {
+	for _, fi := range s.files[:app] { // islands are mounted by the app, not by what it imports
 		s.calls(fi)
 	}
 	sort.Slice(s.res.Islands, func(i, j int) bool { return s.res.Islands[i].Src < s.res.Islands[j].Src })
@@ -106,12 +115,106 @@ type structDecl struct {
 type scanner struct {
 	fset    *token.FileSet
 	files   []fileInfo
-	structs map[string]*structDecl   // dir + "." + name
-	byName  map[string][]*structDecl // name, for a type reached through another package
-	named   map[string]ast.Expr      // dir + "." + name, for a defined non-struct type
-	seen    map[string]bool          // island sources already recorded
-	stack   []string                 // structs being written, to break a cycle
+	structs map[string]*structDecl       // dir + "." + name
+	byName  map[string][]*structDecl     // name, for a type reached through another package
+	named   map[string]ast.Expr          // dir + "." + name, for a defined non-struct type
+	seen    map[string]bool              // island sources already recorded
+	stack   []string                     // structs being written, to break a cycle
+	imports map[string]map[string]string // dir → package name in its files → dir of the package, or "ext:" + import path
+	noted   map[string]bool              // notes already written
+	pkgName map[string]string            // dir → the package clause of its files
 	res     *Result
+}
+
+// modulePackages reads, besides the app, every package of the same module
+// the app reaches through its imports — the client trilha client wrote in
+// internal/api, a domain package — so a props field typed with them gets its
+// interface instead of unknown (#299). Packages outside the module are only
+// recorded, for the note that says why their types stay unknown.
+func (s *scanner) modulePackages(root string) error {
+	modRoot, modPath := findModule(root)
+	read := map[string]bool{}
+	for _, fi := range s.files {
+		read[fi.dir] = true
+	}
+	for i := 0; i < len(s.files); i++ {
+		fi := s.files[i]
+		for _, im := range fi.file.Imports {
+			ip, err := strconv.Unquote(im.Path.Value)
+			if err != nil {
+				continue
+			}
+			target := "ext:" + ip
+			if modPath != "" && strings.HasPrefix(ip, modPath+"/") {
+				target = filepath.Join(modRoot, filepath.FromSlash(strings.TrimPrefix(ip, modPath+"/")))
+			}
+			if !strings.HasPrefix(target, "ext:") && !read[target] {
+				read[target] = true
+				if err := s.readPackage(target); err != nil {
+					return err
+				}
+			}
+			// The name the file uses: its alias, or the package clause of the
+			// package — a folder slug_ holds package slug.
+			name := path.Base(ip)
+			if im.Name != nil {
+				name = im.Name.Name
+			} else if n, ok := s.pkgName[target]; ok {
+				name = n
+			}
+			if s.imports[fi.dir] == nil {
+				s.imports[fi.dir] = map[string]string{}
+			}
+			s.imports[fi.dir][name] = target
+		}
+	}
+	return nil
+}
+
+// readPackage parses the non-test files of one package directory.
+func (s *scanner) readPackage(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil // an import that does not resolve is the compiler's to report
+	}
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || !strings.HasSuffix(n, ".go") || strings.HasSuffix(n, "_test.go") {
+			continue
+		}
+		p := filepath.Join(dir, n)
+		f, err := parser.ParseFile(s.fset, p, nil, parser.ParseComments|parser.SkipObjectResolution)
+		if err != nil {
+			return err
+		}
+		s.pkgName[dir] = f.Name.Name
+		s.files = append(s.files, fileInfo{path: p, dir: dir, file: f})
+	}
+	return nil
+}
+
+// findModule walks up from dir to the go.mod and returns its directory and
+// module path, or two empty strings.
+func findModule(dir string) (string, string) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", ""
+	}
+	for {
+		if b, err := os.ReadFile(filepath.Join(abs, "go.mod")); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				if f := strings.Fields(line); len(f) == 2 && f[0] == "module" {
+					return abs, strings.Trim(f[1], `"`)
+				}
+			}
+			return "", ""
+		}
+		up := filepath.Dir(abs)
+		if up == abs {
+			return "", ""
+		}
+		abs = up
+	}
 }
 
 // index records every struct and every defined type, so a props type declared
@@ -320,6 +423,23 @@ func (s *scanner) qualified(dir string, t *ast.SelectorExpr) string {
 			return "number"
 		}
 	}
+	if pkg != nil {
+		target := s.imports[dir][pkg.Name]
+		if strings.HasPrefix(target, "ext:") {
+			s.noteOnce("%s.%s comes from %s, outside this module, so its islands.d.ts type is unknown; "+
+				"declare the field with a type of this module to get one", pkg.Name, t.Sel.Name, strings.TrimPrefix(target, "ext:"))
+			return "unknown"
+		}
+		if target != "" {
+			if sd, ok := s.structs[target+"."+t.Sel.Name]; ok {
+				return s.object(sd)
+			}
+			if under, ok := s.named[target+"."+t.Sel.Name]; ok {
+				ts, _ := s.tsType(target, under)
+				return ts
+			}
+		}
+	}
 	if sd := s.lookup("", t.Sel.Name); sd != nil {
 		return s.object(sd)
 	}
@@ -381,6 +501,15 @@ func (s *scanner) inline(dir string, t *ast.StructType) string {
 
 func (s *scanner) note(format string, a ...any) {
 	s.res.Notes = append(s.res.Notes, fmt.Sprintf(format, a...))
+}
+
+// noteOnce is note for what every use of a type would repeat.
+func (s *scanner) noteOnce(format string, a ...any) {
+	n := fmt.Sprintf(format, a...)
+	if !s.noted[n] {
+		s.noted[n] = true
+		s.res.Notes = append(s.res.Notes, n)
+	}
 }
 
 func (s *scanner) where(fi fileInfo, n ast.Node) string {

@@ -35,6 +35,7 @@ func (c *Ctx) Island(src string, props any, children ...h.Node) h.Node {
 	// island the way it reaches a form: written into the page. It is the same
 	// token CSRFInput puts in every form of this response.
 	attrs := []h.Node{h.Data("trilha-island", c.Asset(src)), h.Data("trilha-csrf", c.CSRFToken())}
+	c.islandSrcs = append(c.islandSrcs, src)
 	if props != nil {
 		data, err := json.Marshal(props)
 		if err != nil {
