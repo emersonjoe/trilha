@@ -3,6 +3,47 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.156.0 — 2026-10-10
+
+Islands that grow: a post that redirects navigates, routes called with the browser's cookies
+check CSRF, relative imports are versioned, `islands.d.ts` follows types into other packages,
+and islands can be written in TypeScript (spec 176, #298–#302).
+
+### Added
+
+- **`trilha islands build [--check]`** — compiles `islands/*.ts` into `public/` with the
+  project's own `tsc` (`TRILHA_TSC`, `node_modules/.bin/tsc` or the `PATH`), configured by
+  `islands/tsconfig.json`, with `--noEmitOnError`. Every `.js` and `.d.ts` it writes carries a
+  `Code generated` banner; source maps are shifted by it and point at the source from
+  `public/`. The output is committed; `--check` compiles elsewhere and fails on a file that
+  differs, is missing, or carries the banner after its source is gone. `trilha check` gains the
+  `islands` gate, skipped without `islands/tsconfig.json` (#301).
+- **Import map for island modules** — a page with islands carries a
+  `<script type="importmap">` (with the CSP nonce) that maps every module of `public/` the
+  islands reach through `./`, `../` or `/` imports to its `?v=` URL, so a deploy that changes
+  only an imported file is not served from the cache (#298).
+- **`islands.d.ts` follows types into other packages of the module** — `[]api.Card` gets
+  `Card` and its fields; a type from outside the module is `unknown`, and `trilha gen` names
+  the field and the module (#299).
+- `uitest`: scenarios `TestUIIslandImportIsVersioned` and `TestUIIslandPostRedirects`.
+
+### Changed
+
+- **A `route.go` request with the browser's cookies and no `Authorization` needs the CSRF
+  token**, like a page's POST (#300). Bearer clients and requests with no cookie (webhooks)
+  are still exempt, and `trilha.RequireCSRF` in a `MiddlewarePOST` is no longer needed for an
+  island. A client that calls an API with cookies on purpose sends `X-CSRF-Token` (the value of
+  the CSRF cookie) or an `Authorization` header.
+- **`c.Redirect` answering an island answers `204` + `Trilha-Location`**: the runtime sends
+  `Trilha-Island: 1`, and `island.post` navigates instead of receiving the destination's HTML
+  from a followed `303`. The flash waits in the cookie for that page (#302).
+
+### Security
+
+- `make security` scans with `go1.26.9`: the standard library advisories published after
+  0.155.1 (among them GO-2026-6599 in `html/template`) have no fix on the 1.25 line. Build
+  and deploy your app with Go 1.26.9 or later; `go.mod` still says `go 1.22`.
+
 ## 0.155.1 — 2026-10-06
 
 ### Fixed
