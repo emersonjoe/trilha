@@ -26,6 +26,7 @@ assina.
 |---|---|
 | `internal/cobranca/` | planos, assinaturas, faturas, a máquina de estados, o webhook, os lembretes |
 | `migrations/0100_billing.sql` | as tabelas `billing_plans`, `billing_subscriptions`, `billing_invoices`, `billing_events`, na convenção do [`trilha add store`](/pt/receitas/banco-de-dados) |
+| `migrations/0101_billing_indexes.sql` | os índices pelos quais as telas ordenam e filtram; arquivo próprio, porque migração aplicada é conferida pela soma |
 | `app/webhooks/billing/` | `POST /webhooks/billing`, o endereço que o provedor chama — fixo, porque é digitado no painel do provedor |
 | `app/billing/` | assinaturas filtradas por estado, `planos/` (criar e apagar), `faturas/` e `faturas/csv/` |
 | `billing_test.go` | os testes abaixo, no seu projeto, rodados pelo `trilha check` |
@@ -50,7 +51,7 @@ var Politica = auth.Policy{
 
 ## Preço
 
-`trilha ctx --pack billing` custa **~356 tokens (est.)** — o que um agente lê para saber o que a
+`trilha ctx --pack billing` custa **~366 tokens (est.)** — o que um agente lê para saber o que a
 receita trouxe, medido num projeto mínimo pelo `TestRecipeCtxPackCost`. O `trilha add --list`
 mostra o mesmo número, e o selo desta página dá o preço da documentação para a qual ela aponta.
 

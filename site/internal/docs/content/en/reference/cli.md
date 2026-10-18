@@ -937,7 +937,7 @@ than the minimal one — so it is the number `trilha ctx --pack` will cost there
 like every number from the shared estimator.
 
 ```text
-  billing           ~356 tok (est.)   charging without a coupled provider: …
+  billing           ~366 tok (est.)   charging without a coupled provider: …
 ```
 
 ### Running it twice adds; it does not start over

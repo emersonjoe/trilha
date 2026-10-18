@@ -1,0 +1,9 @@
+-- Os índices das telas da cobrança (spec 177). A lista de assinaturas filtra
+-- por estado e ordena pela mais nova; a de faturas ordena pela mais nova; a
+-- chave estrangeira das faturas é o caminho de uma assinatura até elas.
+-- Sem eles, cada página lia e ordenava a tabela inteira.
+
+CREATE INDEX IF NOT EXISTS billing_subscriptions_state ON billing_subscriptions (state, created_at DESC, id);
+CREATE INDEX IF NOT EXISTS billing_subscriptions_created ON billing_subscriptions (created_at DESC, id);
+CREATE INDEX IF NOT EXISTS billing_invoices_issued ON billing_invoices (issued_at DESC, id);
+CREATE INDEX IF NOT EXISTS billing_invoices_subscription ON billing_invoices (subscription_id);

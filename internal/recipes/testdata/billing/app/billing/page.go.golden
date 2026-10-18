@@ -4,7 +4,6 @@ package billing
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
@@ -38,27 +37,12 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		return nil, err
 	}
 	estado := valido(q.Estado)
-	todas, err := trilha.Use[*cobranca.Billing](c).Store.Assinaturas(c.Context(), estado)
+	// The store filters and cuts: the screen reads one page, not the table.
+	pagina, total, err := trilha.Use[*cobranca.Billing](c).Store.PaginaAssinaturas(c.Context(), cobranca.Filtro{
+		Estado: estado, Q: q.Q, Limite: q.Limit(), Deslocamento: q.Offset(),
+	})
 	if err != nil {
 		return nil, err
-	}
-	if q.Q != "" {
-		filtradas := todas[:0:0]
-		for _, a := range todas {
-			if strings.Contains(strings.ToLower(a.Email), strings.ToLower(q.Q)) {
-				filtradas = append(filtradas, a)
-			}
-		}
-		todas = filtradas
-	}
-	total := len(todas)
-	fim := q.Offset() + q.Limit()
-	if fim > total {
-		fim = total
-	}
-	pagina := []cobranca.Assinatura{}
-	if q.Offset() < total {
-		pagina = todas[q.Offset():fim]
 	}
 	tabela := ui.DataTable(c, colunas, pagina, ui.ListState{
 		Params: q.ListParams, Total: total, ID: "assinaturas",

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Search is one box over several kinds of thing.
@@ -503,29 +504,42 @@ func foldString(s string) string {
 // It is the default so an application has search before it has a table, and it
 // is honest about what it is: every document is scanned, which is right for the
 // thousands an internal application has and wrong for the millions it does not.
-func SearchMemory() SearchStore { return &searchMemory{docs: map[string][]Doc{}} }
+func SearchMemory() SearchStore {
+	return &searchMemory{docs: map[string][]memDoc{}, pos: map[string]map[string]int{}}
+}
 
 type searchMemory struct {
 	mu   sync.RWMutex
-	docs map[string][]Doc
+	docs map[string][]memDoc
+	// pos is where each id sits in docs, per kind: replacing a document by
+	// looking for it in the list made a Reindex quadratic.
+	pos map[string]map[string]int
+}
+
+// memDoc is a document with its title and body already folded: folding is
+// most of what matching costs, and a document is put once and searched many
+// times.
+type memDoc struct {
+	Doc
+	title, body string
 }
 
 func (m *searchMemory) Put(_ context.Context, docs []Doc) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, d := range docs {
-		list := m.docs[d.Kind]
-		replaced := false
-		for i, old := range list {
-			if old.ID == d.ID {
-				list[i], replaced = d, true
-				break
-			}
+		md := memDoc{Doc: d, title: foldString(d.Title), body: foldString(d.Body)}
+		pos := m.pos[d.Kind]
+		if pos == nil {
+			pos = map[string]int{}
+			m.pos[d.Kind] = pos
 		}
-		if !replaced {
-			list = append(list, d)
+		if i, ok := pos[d.ID]; ok {
+			m.docs[d.Kind][i] = md
+			continue
 		}
-		m.docs[d.Kind] = list
+		pos[d.ID] = len(m.docs[d.Kind])
+		m.docs[d.Kind] = append(m.docs[d.Kind], md)
 	}
 	return nil
 }
@@ -533,12 +547,15 @@ func (m *searchMemory) Put(_ context.Context, docs []Doc) error {
 func (m *searchMemory) Delete(_ context.Context, kind, id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	i, ok := m.pos[kind][id]
+	if !ok {
+		return nil
+	}
 	list := m.docs[kind]
-	for i, d := range list {
-		if d.ID == id {
-			m.docs[kind] = append(list[:i:i], list[i+1:]...)
-			return nil
-		}
+	m.docs[kind] = append(list[:i:i], list[i+1:]...)
+	delete(m.pos[kind], id)
+	for j := i; j < len(m.docs[kind]); j++ {
+		m.pos[kind][m.docs[kind][j].ID] = j
 	}
 	return nil
 }
@@ -547,6 +564,7 @@ func (m *searchMemory) DeleteKind(_ context.Context, kind string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.docs, kind)
+	delete(m.pos, kind)
 	return nil
 }
 
@@ -558,11 +576,11 @@ func (m *searchMemory) Search(_ context.Context, q SearchStoreQuery) ([]Hit, err
 		if q.Tenant != "" && d.Tenant != q.Tenant {
 			continue
 		}
-		score, ok := scoreOf(d, q.Terms)
+		score, ok := scoreFolded(d.title, d.body, q.Terms)
 		if !ok {
 			continue
 		}
-		hits = append(hits, Hit{Doc: d, Score: score})
+		hits = append(hits, Hit{Doc: d.Doc, Score: score})
 	}
 	// Ties break on the title so two runs of the same search agree.
 	sort.SliceStable(hits, func(i, j int) bool {
@@ -574,22 +592,41 @@ func (m *searchMemory) Search(_ context.Context, q SearchStoreQuery) ([]Hit, err
 	return hits, nil
 }
 
-// scoreOf is the ranking: every term has to appear somewhere, and the title is
-// worth more than the body. Two words in a box mean both — a search that
+// scoreFolded is the ranking, on a title and a body already folded: every
+// term has to appear somewhere, and the title is worth more than the body. Two words in a box mean both — a search that
 // answers more the more you type is a search people stop typing into.
-func scoreOf(d Doc, terms []string) (float64, bool) {
-	title := []rune(foldString(d.Title))
-	body := []rune(foldString(d.Body))
+func scoreFolded(title, body string, terms []string) (float64, bool) {
 	var score float64
 	for _, t := range terms {
 		switch {
-		case firstMatch(title, []string{t}) >= 0:
+		case hasWordPrefix(title, t):
 			score += 3
-		case firstMatch(body, []string{t}) >= 0:
+		case hasWordPrefix(body, t):
 			score++
 		default:
 			return 0, false
 		}
 	}
 	return score, true
+}
+
+// hasWordPrefix reports whether t starts a word somewhere in folded — what
+// firstMatch(folded, {t}) >= 0 answers, without turning the text into runes.
+// A match found by bytes starts on a rune, since t starts with one.
+func hasWordPrefix(folded, t string) bool {
+	if t == "" {
+		return false
+	}
+	for off := 0; off <= len(folded); {
+		j := strings.Index(folded[off:], t)
+		if j < 0 {
+			return false
+		}
+		j += off
+		if prev, _ := utf8.DecodeLastRuneInString(folded[:j]); j == 0 || !isWordRune(prev) {
+			return true
+		}
+		off = j + 1
+	}
+	return false
 }

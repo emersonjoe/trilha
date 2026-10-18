@@ -137,6 +137,45 @@ func (s *SQL) Assinaturas(ctx context.Context, estado Estado) ([]Assinatura, err
 	return out, rows.Err()
 }
 
+func (s *SQL) PaginaAssinaturas(ctx context.Context, f Filtro) ([]Assinatura, int, error) {
+	db, arg := s.banco()
+	where, args := " WHERE 1 = 1", []any{}
+	if f.Estado != "" {
+		args = append(args, string(f.Estado))
+		where += " AND state = " + arg(len(args))
+	}
+	if f.Q != "" {
+		args = append(args, "%"+escaparLike(strings.ToLower(f.Q))+"%")
+		where += " AND lower(email) LIKE " + arg(len(args)) + " ESCAPE '\\'"
+	}
+	var total int
+	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM billing_subscriptions"+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	q := "SELECT " + colAssinatura + " FROM billing_subscriptions" + where +
+		" ORDER BY created_at DESC, id LIMIT " + arg(len(args)+1) + " OFFSET " + arg(len(args)+2)
+	rows, err := db.QueryContext(ctx, q, append(args, max(f.Limite, 0), max(f.Deslocamento, 0))...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []Assinatura{}
+	for rows.Next() {
+		a, err := lerAssinatura(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		out = append(out, a)
+	}
+	return out, total, rows.Err()
+}
+
+// escaparLike makes % and _ mean themselves in a LIKE pattern, with \ as the
+// escape both SQLite and PostgreSQL are told about.
+func escaparLike(s string) string {
+	return strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(s)
+}
+
 func (s *SQL) Assinatura(ctx context.Context, id string) (Assinatura, error) {
 	db, arg := s.banco()
 	return umaAssinatura(ctx, db, arg, id)
