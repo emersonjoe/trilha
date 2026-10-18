@@ -31,7 +31,7 @@ tira de alguém o que ele veio fazer.
 | Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce`, `TestUISwapFollowsRedirect`, `TestUISwapRedirectReload`, `TestUISwapFollowFallsBack`, `TestUIRegionFormsNavigate`, `TestUIRegionForm422` |
 | Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins`, `TestUIRegionLinkRedirect`, `TestUIServerDeclaresURL`, `TestUIPrefetchOnIntent`, `TestUIPrefetchNeedsIntent`, `TestUIPrefetchExpires`, `TestUIPrefetchSaveData`, `TestUIPrefetchRedirectNotKept` |
 | Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress`, `TestUIUploadFollowsRedirect` |
-| Interação rica | componente morto na tela; painel que perde o lugar na lista | `TestUIIslandHydrates`, `TestUIPollKeepsUnchangedFragment`, `TestUIIslandImportIsVersioned`, `TestUIIslandPostRedirects`, `TestUITooltipKeyboard`, `TestUISheetOpensOnDemand`, `TestUISheetSurvivesNavigation`, `TestUISheetEscapeRestoresFocus`, `TestUISheetOnPhone`, `TestUIDialogLoadsOnDemand` |
+| Interação rica | componente morto na tela; painel que perde o lugar na lista | `TestUIIslandHydrates`, `TestUIPollKeepsUnchangedFragment`, `TestUIIslandImportIsVersioned`, `TestUIIslandPostRedirects`, `TestUITooltipKeyboard`, `TestUISheetOpensOnDemand`, `TestUISheetSurvivesNavigation`, `TestUISheetEscapeRestoresFocus`, `TestUISheetOnPhone`, `TestUIDialogLoadsOnDemand`, `TestUIChatStreamsWithoutLayoutPerToken`, `TestUIIslandsShareOneObserver` |
 | Segurança percebida | script injetado roda; segredo vaza | `TestUISecurityEveryScreen`, `TestUISecretNeverInHTML` |
 
 ## Casos
@@ -355,3 +355,19 @@ tira de alguém o que ele veio fazer.
 - **Dados**: documento 7.
 - **Passos**: clicar "See 7".
 - **Resultado esperado**: o diálogo abre com "Document 7 in a dialog", a URL não muda e o documento não recarrega.
+
+### TestUIChatStreamsWithoutLayoutPerToken — Resposta longa do chat não força um layout por palavra (spec 178)
+
+- **Jornada**: interação rica. **Risco**: numa resposta longa a página trava e o celular esquenta, porque cada palavra reconstrói o texto inteiro da bolha e força o navegador a recalcular o layout.
+- **Pré-condições**: `/fluxos/conversa` com `ui.Chat` apontando para `/fluxos/conversa/fala`, que transmite 1500 eventos `text` e um `done`.
+- **Dados**: a pergunta "tell me a long story"; a resposta é "w " repetido 1500 vezes.
+- **Passos**: abrir a página; contar as leituras de `scrollHeight` do registro; enviar a pergunta; esperar a resposta inteira.
+- **Resultado esperado**: a bolha tem as 1500 palavras; o registro leu `scrollHeight` menos de 150 vezes (uma por quadro, não uma por palavra).
+
+### TestUIIslandsShareOneObserver — Muitas ilhas, um observador (spec 178)
+
+- **Jornada**: interação rica. **Risco**: numa tela com muitas ilhas, cada mudança no documento roda um callback por ilha e a página fica lenta ao digitar ou rolar.
+- **Pré-condições**: `/fluxos/ilhas` com vinte `c.Island("/ilha-contador.js", …)` e um script com nonce que conta os `observe()` no documento inteiro.
+- **Dados**: contagens iniciais de 0 a 19 nas props.
+- **Passos**: abrir a página; esperar as vinte ilhas montarem.
+- **Resultado esperado**: as vinte ilhas mostram o botão; há exatamente um `MutationObserver` observando o documento inteiro.

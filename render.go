@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/emersonjoe/trilha/h"
 )
@@ -80,6 +82,20 @@ func (c *Ctx) Render(code int, node h.Node) error {
 	return c.app.writeHTML(c, code, node)
 }
 
+// htmlBufs keeps the render buffers between requests: a page grew a fresh
+// one by doubling every time, and that was most of what a request allocated.
+var htmlBufs = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
+// maxPooledBuf is the biggest buffer that goes back to the pool; one huge
+// page must not keep its memory for the life of the process.
+const maxPooledBuf = 1 << 20
+
+const (
+	docOpen    = "<!doctype html>"
+	shellOpen  = `<!doctype html><html><head><meta charset="utf-8"></head><body>`
+	shellClose = "</body></html>"
+)
+
 // writeHTML renders a node to a buffer (so a render error still yields a
 // clean 500), prepends the doctype when missing and injects the dev script.
 func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
@@ -88,9 +104,15 @@ func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
 		// append a second document on top of it.
 		return nil
 	}
-	var buf bytes.Buffer
+	buf := htmlBufs.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer func() {
+		if buf.Cap() <= maxPooledBuf {
+			htmlBufs.Put(buf)
+		}
+	}()
 	if node != nil {
-		if err := node.Render(&buf); err != nil {
+		if err := node.Render(buf); err != nil {
 			return fmt.Errorf("render: %w", err)
 		}
 	}
@@ -104,25 +126,51 @@ func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
 		_, err := c.w.Write(out)
 		return err
 	}
+	// The envelope goes around the document as separate writes: prepending
+	// it would copy the whole page once more.
+	head, tail := "", ""
 	trimmed := bytes.TrimLeft(out, " \t\r\n")
-	if !bytes.HasPrefix(bytes.ToLower(trimmed[:min(len(trimmed), 9)]), []byte("<!doctype")) {
-		if !bytes.HasPrefix(bytes.ToLower(trimmed[:min(len(trimmed), 5)]), []byte("<html")) {
-			out = append([]byte("<!doctype html><html><head><meta charset=\"utf-8\"></head><body>"), out...)
-			out = append(out, []byte("</body></html>")...)
+	if !hasPrefixFold(trimmed, "<!doctype") {
+		if hasPrefixFold(trimmed, "<html") {
+			head = docOpen
 		} else {
-			out = append([]byte("<!doctype html>"), out...)
+			head, tail = shellOpen, shellClose
 		}
 	}
-	if len(c.islandSrcs) > 0 {
-		out = injectImportMap(out, a.importMap(c.islandSrcs), c.Nonce())
-	}
-	if a.cfg.Env == Dev && a.cfg.DevReload != Off {
-		out = injectDevScript(out, c.Nonce())
+	islands := len(c.islandSrcs) > 0
+	dev := a.cfg.Env == Dev && a.cfg.DevReload != Off
+	if islands || dev {
+		// Injection looks for </head> and </body> in the whole document, so
+		// it needs it in one piece; only these responses pay the copy.
+		doc := make([]byte, 0, len(head)+len(out)+len(tail))
+		doc = append(append(append(doc, head...), out...), tail...)
+		if islands {
+			doc = injectImportMap(doc, a.importMap(c.islandSrcs), c.Nonce())
+		}
+		if dev {
+			doc = injectDevScript(doc, c.Nonce())
+		}
+		head, out, tail = "", doc, ""
 	}
 	c.w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	c.w.WriteHeader(code)
-	_, err := c.w.Write(out)
-	return err
+	if head != "" {
+		if _, err := io.WriteString(c.w, head); err != nil {
+			return err
+		}
+	}
+	if _, err := c.w.Write(out); err != nil {
+		return err
+	}
+	if tail != "" {
+		_, err := io.WriteString(c.w, tail)
+		return err
+	}
+	return nil
+}
+
+func hasPrefixFold(b []byte, prefix string) bool {
+	return len(b) >= len(prefix) && strings.EqualFold(string(b[:len(prefix)]), prefix)
 }
 
 // wrapRoot applies the root layout, if any, to a framework-provided page.

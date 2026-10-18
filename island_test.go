@@ -177,7 +177,8 @@ func TestIslandRuntimeCarriesTheChannel(t *testing.T) {
 		`"Trilha-Fragment": target`,           // swap speaks the fragment protocol
 		`new CustomEvent("trilha:swap"`,       // and tells the page
 		"new AbortController()",               // signal
-		"if (!el.isConnected)",                // aborted when the element is gone
+		"if (!e.isConnected)",                 // aborted when the element is gone
+		"watcher.observe(document",            // by one observer for every island
 		"window.ui.swap(target, html",         // with the kit, swap is the kit's swap
 		"data instanceof Blob",                // binary bodies are sent as bytes
 		"data instanceof FormData",            // the browser writes the multipart boundary

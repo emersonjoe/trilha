@@ -1,4 +1,4 @@
-/* trilha ui ef3dff2f7ad751dc */
+/* trilha ui a1a006b092f98a6e */
 // ui.chat.js — the behavior behind ui.Chat: send the message, read the events
 // from ai.Serve and render the answer as it arrives. Without this file the
 // form still submits and the page comes back with the answer; this only makes
@@ -27,9 +27,21 @@
     let history = [];
     let busy = false;
 
+    // scroll keeps the newest message in view once per frame: reading
+    // scrollHeight forces a layout, and a long answer arrives in thousands
+    // of tokens.
+    let scrolling = false;
+    const scroll = () => {
+      if (scrolling) return;
+      scrolling = true;
+      requestAnimationFrame(() => {
+        scrolling = false;
+        log.scrollTop = log.scrollHeight;
+      });
+    };
     const add = (node) => {
       log.appendChild(node);
-      log.scrollTop = log.scrollHeight;
+      scroll();
       return node;
     };
     const say = (s) => {
@@ -97,7 +109,7 @@
     const handle = (bubble, name, data) => {
       const { wrap, body } = bubble;
       if (name === "text") {
-        body.textContent += data;
+        body.append(data); // += would rebuild the whole text on every token
       } else if (name === "tool_call" || name === "tool_result" || name === "handoff") {
         if (!steps) return;
         const d = JSON.parse(data);
@@ -124,7 +136,7 @@
         add(el("ui-msg ui-msg-note", msg));
         say("");
       }
-      log.scrollTop = log.scrollHeight;
+      scroll();
     };
 
     form.addEventListener("submit", async (e) => {
