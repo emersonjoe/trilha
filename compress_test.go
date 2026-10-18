@@ -101,19 +101,6 @@ func TestStaticGzipLeavesAlone(t *testing.T) {
 	}
 }
 
-// Pages are not compressed: they carry the CSRF token next to text the
-// visitor controls, the shape BREACH needs.
-func TestPageIsNotCompressed(t *testing.T) {
-	a := New(Config{Env: Prod, Logger: quiet()})
-	a.Register(Route{Pattern: "/", Page: func(c *Ctx) (h.Node, error) {
-		return h.P(h.Text(strings.Repeat("texto ", 500))), nil
-	}})
-	rec := getWith(a, "/", map[string]string{"Accept-Encoding": "gzip"})
-	if rec.Code != 200 || rec.Header().Get("Content-Encoding") != "" {
-		t.Fatalf("%d, Content-Encoding %q", rec.Code, rec.Header().Get("Content-Encoding"))
-	}
-}
-
 // Spec 177: Vary accumulates. Setting it wiped the "Origin" CORS added, and a
 // shared cache could then hand one origin's Access-Control-Allow-Origin to
 // another.

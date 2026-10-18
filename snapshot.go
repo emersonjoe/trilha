@@ -65,6 +65,14 @@ func (r *TestResponse) Snapshot() PageSnapshot {
 		with := "{{COOKIE}}"
 		if ck.Name == cookie {
 			with = "{{CSRF}}"
+			// The page carries the secret masked, different in every
+			// response (#308): every token that proves the cookie is the
+			// same {{CSRF}}.
+			for _, tok := range base64Words().FindAllString(r.Body.String(), -1) {
+				if tok != ck.Value && csrfMatches(tok, ck.Value) {
+					swaps = append(swaps, swap{tok, with})
+				}
+			}
 		}
 		swaps = append(swaps, swap{ck.Value, with})
 	}
@@ -85,6 +93,9 @@ func (r *TestResponse) Snapshot() PageSnapshot {
 }
 
 type swap struct{ value, with string }
+
+// base64Words are the runs of base64url long enough to be a masked token.
+var base64Words = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`[A-Za-z0-9_-]{64,}`) })
 
 var nonceInCSP = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`'nonce-([^']+)'`) })
 

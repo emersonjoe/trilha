@@ -237,7 +237,8 @@ func (c *TestClient) Request(method, target string, opts ...TestOption) *TestRes
 			c.jar[names.Cookie] = tok
 			cookies[names.Cookie] = tok
 		}
-		req.Header.Set(names.Header, tok)
+		// Masked, as the page would carry it (#308).
+		req.Header.Set(names.Header, maskCSRF(tok))
 	} else if !o.csrf {
 		delete(cookies, c.app.cfg.CSRF.names().Cookie)
 	}

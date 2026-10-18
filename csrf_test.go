@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -29,12 +30,13 @@ func TestCSRFTokenCreatedOnRender(t *testing.T) {
 	if len(cookies) != 1 || cookies[0].Name != CSRFCookie || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
 		t.Fatalf("%+v", cookies)
 	}
-	if !strings.Contains(rec.Body.String(), `name="_csrf" value="`+cookies[0].Value+`"`) {
+	// The field carries the cookie's secret masked (#308), never as it is.
+	if !strings.Contains(rec.Body.String(), `name="_csrf" value="`) || strings.Contains(rec.Body.String(), cookies[0].Value) {
 		t.Fatal(rec.Body.String())
 	}
 	// Second render with the cookie reuses it.
 	rec2 := get(t, a, "GET", "/form", "", map[string]string{"Cookie": CSRFCookie + "=" + cookies[0].Value})
-	if len(rec2.Result().Cookies()) != 0 || !strings.Contains(rec2.Body.String(), cookies[0].Value) {
+	if len(rec2.Result().Cookies()) != 0 || !strings.Contains(rec2.Body.String(), `name="_csrf" value="`) {
 		t.Fatal("cookie should be reused")
 	}
 }
@@ -100,25 +102,26 @@ func TestCSRFNamesFromConfig(t *testing.T) {
 	if len(cookies) != 1 || cookies[0].Name != "farol_trilha_csrf" {
 		t.Fatalf("cookie: %+v", cookies)
 	}
-	tok := cookies[0].Value
-	if !strings.Contains(rec.Body.String(), `name="_farol_trilha_csrf" value="`+tok+`"`) {
+	m := regexp.MustCompile(`name="_farol_trilha_csrf" value="([^"]+)"`).FindStringSubmatch(rec.Body.String())
+	if m == nil || !csrfMatches(m[1], cookies[0].Value) {
 		t.Fatalf("field: %s", rec.Body.String())
 	}
+	tok := m[1]
 	if strings.Contains(rec.Body.String(), `name="_csrf"`) {
 		t.Fatal("the default field name is still in the page")
 	}
 
-	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Cookie": "farol_trilha_csrf=" + tok}
+	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Cookie": "farol_trilha_csrf=" + cookies[0].Value}
 	if rec := get(t, a, "POST", "/form", "_farol_trilha_csrf="+tok, form); rec.Code != 200 {
 		t.Fatalf("renamed field: %d", rec.Code)
 	}
 	if rec := get(t, a, "POST", "/form", "_csrf="+tok, form); rec.Code != 403 {
 		t.Fatalf("the old field name must not pass: %d", rec.Code)
 	}
-	if rec := get(t, a, "POST", "/form", "", map[string]string{"Cookie": "farol_trilha_csrf=" + tok, "X-Farol-Trilha-Token": tok}); rec.Code != 200 {
+	if rec := get(t, a, "POST", "/form", "", map[string]string{"Cookie": "farol_trilha_csrf=" + cookies[0].Value, "X-Farol-Trilha-Token": tok}); rec.Code != 200 {
 		t.Fatalf("renamed header: %d", rec.Code)
 	}
-	if rec := get(t, a, "POST", "/form", "", map[string]string{"Cookie": "farol_trilha_csrf=" + tok, CSRFHeader: tok}); rec.Code != 403 {
+	if rec := get(t, a, "POST", "/form", "", map[string]string{"Cookie": "farol_trilha_csrf=" + cookies[0].Value, CSRFHeader: tok}); rec.Code != 403 {
 		t.Fatalf("the old header must not pass: %d", rec.Code)
 	}
 	// The token is still reachable by the app's own name, for the test client
@@ -161,7 +164,7 @@ func TestNonceECSRFPeloRequest(t *testing.T) {
 		t.Fatalf("nonce %q não é o da CSP %q", nonce, rec.Header().Get("Content-Security-Policy"))
 	}
 	ck := rec.Result().Cookies()
-	if len(ck) != 1 || ck[0].Value != token {
+	if len(ck) != 1 || !csrfMatches(token, ck[0].Value) {
 		t.Fatalf("token %q, cookie %+v", token, ck)
 	}
 	// O formulário montado só com o que veio do request passa na verificação.

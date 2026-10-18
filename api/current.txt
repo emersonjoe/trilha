@@ -383,6 +383,7 @@ pkg trilha, type Config struct, CORS CORS
 pkg trilha, type Config struct, CSRF CSRF
 pkg trilha, type Config struct, CSRFForAPI bool
 pkg trilha, type Config struct, Catalog *Catalog
+pkg trilha, type Config struct, Compress string
 pkg trilha, type Config struct, DevReload string
 pkg trilha, type Config struct, Drafts DraftStore
 pkg trilha, type Config struct, Env Env

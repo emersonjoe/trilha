@@ -51,7 +51,22 @@ func (c CSRF) names() CSRF {
 
 // CSRFToken returns the request's CSRF token, creating the cookie on first
 // use. Put it in forms with CSRFInput or send it in the X-CSRF-Token header.
+//
+// The token is the cookie's secret masked with a pad drawn for this response
+// (#308): it changes from one response to the next, and is the same within
+// one. A compressed page never carries a fixed secret next to text the
+// visitor controls, which is what the BREACH attack reads.
 func (c *Ctx) CSRFToken() string {
+	if v := c.Get("_trilha_csrf_masked"); v != nil {
+		return v.(string)
+	}
+	tok := maskCSRF(c.csrfSecret())
+	c.Set("_trilha_csrf_masked", tok)
+	return tok
+}
+
+// csrfSecret is the value of the double-submit cookie, created on first use.
+func (c *Ctx) csrfSecret() string {
 	if v := c.Get("_trilha_csrf"); v != nil {
 		return v.(string)
 	}
@@ -73,6 +88,39 @@ func (c *Ctx) CSRFToken() string {
 	})
 	c.Set("_trilha_csrf", tok)
 	return tok
+}
+
+// maskCSRF hides secret behind a one-time pad of its own length: the token is
+// base64url(pad || secret XOR pad), as Django and Rails do since BREACH.
+func maskCSRF(secret string) string {
+	n := len(secret)
+	b := make([]byte, 2*n)
+	_, _ = rand.Read(b[:n])
+	for i := 0; i < n; i++ {
+		b[n+i] = secret[i] ^ b[i]
+	}
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// csrfMatches reports whether a token sent with a request proves the cookie's
+// secret: masked, or the secret itself — what a page rendered before 0.159.0
+// posts. Accepting it gives nothing away: the HTML no longer carries it.
+func csrfMatches(sent, secret string) bool {
+	if sent == "" || secret == "" {
+		return false
+	}
+	if subtle.ConstantTimeCompare([]byte(sent), []byte(secret)) == 1 {
+		return true
+	}
+	b, err := base64.RawURLEncoding.DecodeString(sent)
+	if err != nil || len(b) != 2*len(secret) {
+		return false
+	}
+	n := len(secret)
+	for i := 0; i < n; i++ {
+		b[n+i] ^= b[i]
+	}
+	return subtle.ConstantTimeCompare(b[n:], []byte(secret)) == 1
 }
 
 // CSRFInput renders the hidden input for forms: h.Form(..., trilha.CSRFInput(c), ...).
@@ -113,7 +161,7 @@ func (a *App) checkCSRF(c *Ctx) error {
 			sent = c.r.PostFormValue(names.Field)
 		}
 	}
-	if sent == "" || subtle.ConstantTimeCompare([]byte(sent), []byte(ck.Value)) != 1 {
+	if !csrfMatches(sent, ck.Value) {
 		a.securityEvent(c, "csrf", http.StatusForbidden)
 		return &HTTPError{Code: http.StatusForbidden, Message: "invalid CSRF token"}
 	}

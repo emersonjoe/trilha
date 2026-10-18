@@ -551,38 +551,18 @@ func TestRespostaIdenticaParaInexistenteEFatorErrado(t *testing.T) {
 	c := clienteConsulta(t)
 	inexistente := consultar(t, c, "198.51.100.20", codigo(1), "4321").WantStatus(http.StatusUnprocessableEntity)
 	errado := consultar(t, c, "198.51.100.21", "2026000104", "0000").WantStatus(http.StatusUnprocessableEntity)
-	if semNonce(inexistente.Body.String()) != semNonce(errado.Body.String()) {
+	// O retrato troca o nonce da CSP e o token de CSRF, que mudam a cada
+	// resposta por definição (e têm sempre o mesmo tamanho), pelos seus
+	// marcadores: são a única diferença que duas negativas podem ter. O resto
+	// tem de bater byte a byte, senão o tempo de transmissão vira o oráculo
+	// que o texto igual não é.
+	if inexistente.Snapshot().Body != errado.Snapshot().Body {
 		t.Fatal("as duas negativas têm corpos diferentes: quem tenta números descobre quais existem")
 	}
 	// E um código que nem chega a ser um código responde igual aos dois.
 	malformado := consultar(t, c, "198.51.100.22", "2026000199", "4321").WantStatus(http.StatusUnprocessableEntity)
-	if semNonce(malformado.Body.String()) != semNonce(inexistente.Body.String()) {
+	if malformado.Snapshot().Body != inexistente.Snapshot().Body {
 		t.Fatal("um código com dígito verificador errado tem resposta própria")
-	}
-}
-
-// semNonce tira os nonces da CSP, que mudam a cada resposta por definição e
-// são a única diferença que duas negativas podem ter. O resto tem de bater
-// byte a byte — inclusive o tamanho, senão o tempo de transmissão vira o
-// oráculo que o texto igual não é.
-func semNonce(s string) string {
-	const marca = "nonce=\""
-	var b strings.Builder
-	for {
-		i := strings.Index(s, marca)
-		if i < 0 {
-			b.WriteString(s)
-			return b.String()
-		}
-		j := strings.Index(s[i+len(marca):], "\"")
-		if j < 0 {
-			b.WriteString(s)
-			return b.String()
-		}
-		// O que já foi olhado sai de s, senão o nonce vazio que acabou de
-		// ficar para trás é encontrado outra vez e o laço não termina.
-		b.WriteString(s[:i+len(marca)])
-		s = s[i+len(marca)+j:]
 	}
 }
 

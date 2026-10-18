@@ -149,6 +149,11 @@ type Config struct {
 	// DevReload controls the live-reload script injected in Dev pages; Off
 	// disables it (snapshot tests, HTML diffs). TRILHA_DEV_RELOAD=off does the same.
 	DevReload string
+	// Compress gzips text responses — pages, fragments, JSON — for the client
+	// that accepts it; Off leaves that to a proxy in front (TRILHA_COMPRESS=off
+	// does the same). Streams of events, images and bodies under 1 KiB go as
+	// they are; static files have their own compressed copy either way.
+	Compress string
 	// Observability configures the health probes, the metrics endpoint and
 	// what each of them reveals.
 	Observability Observability
@@ -196,6 +201,9 @@ func ConfigFromEnv() Config {
 	cfg.Secret, cfg.PreviousSecret, _ = secretsFromEnv()
 	if strings.EqualFold(os.Getenv("TRILHA_DEV_RELOAD"), Off) {
 		cfg.DevReload = Off
+	}
+	if strings.EqualFold(os.Getenv("TRILHA_COMPRESS"), Off) {
+		cfg.Compress = Off
 	}
 	if p := os.Getenv("TRILHA_TRUSTED_PROXIES"); p != "" {
 		cfg.TrustedProxies = strings.Split(p, ",")
@@ -580,6 +588,11 @@ func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if a.instrument {
 		a.mInFlight.Inc()
 		defer a.mInFlight.Dec()
+	}
+	if a.cfg.Compress != Off && wantsCompression(r) {
+		cw := newCompressWriter(w)
+		defer cw.close()
+		w = cw
 	}
 	a.dispatch(w, r)
 }
