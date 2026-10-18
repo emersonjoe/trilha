@@ -1,8 +1,8 @@
 # Spec 177 — Desempenho: renders, bundle, requisições e cache, consultas, imagens
 
-**Feature Branch**: `177-desempenho` | **Created**: 2026-10-18 | **Status**: Pronta para release (0.157.0)
+**Feature Branch**: `177-desempenho` | **Created**: 2026-10-18 | **Status**: Entregue (0.157.0)
 
-- **Issue**: #309 — a fonte do escopo, da fronteira de aceitação e dos itens que ficaram para depois.
+- **Issues**: #309 — a fonte do escopo, da fronteira de aceitação e dos itens que ficaram para depois; #306 (o fragmento vivo idêntico, inclusive com nonce).
 - **Versão**: 0.157.0
 
 Forma curta em vários pacotes: cada achado é pequeno e tem teste próprio, nenhum inventa
@@ -159,7 +159,7 @@ depois da troca (correção, não desempenho).
   `TestBlockImageSize`, `TestWebPSize`.
 - [x] T005 Documentação en/pt (dev e produção, referência de app, referência do ui, receita de
   cobrança, CLI), CHANGELOG, ROADMAP, versão.
-- [ ] T006 `scripts/release.sh 0.157.0 --issues "309"`.
+- [x] T006 Release 0.157.0 (#309, #306).
 
 ## Aceitação
 
@@ -194,11 +194,17 @@ Medições (Go 1.24.7, linux/amd64, 4 núcleos):
 
 | Nível | Comando | Passaram | Falharam | Pularam |
 |---|---|---|---|---|
-| Unidade + integração | `make test` (`go test -json ./...`) | | | |
-| Navegador (Chromium), cenários + módulo | `UITEST_REQUIRED=1 make test-ui` | | | |
-| SQL (SQLite e PostgreSQL) | `SQLTEST_POSTGRES=1 make test-sql` | | | |
+| Unidade + integração | `make test` (`go test -json ./...`) | 1625 | 0 | 2 |
+| Navegador (Chromium local), 44 cenários + módulo | `UITEST_REQUIRED=1 make test-ui` | 48 | 0 | 0 |
+| SQL (SQLite e PostgreSQL) | `SQLTEST_POSTGRES=1 make test-sql` | 3 | 0 | 0 |
+| CI completa no branch (`workflow_dispatch`, run 279) | test (Go 1.22 e 1.25), windows, sql, fuzz, security (vet, `-race`, `govulncheck`), ui chromium/firefox/webkit | 9 jobs | 0 | 0 |
 
-Ambiente desta execução: o Chromium do container (revisão 1194) servido no lugar da 1234 que o
-driver pede, porque `cdn.playwright.dev` está fora da política de rede; Firefox e WebKit não
-estão instalados, então os três motores ficam para a CI. O PostgreSQL rodou com `initdb` e
-`pg_ctl` como o usuário `postgres` (o container roda como root, que o `initdb` recusa).
+Pulos: `TestS3AoVivo`, `TestOIDCAoVivo` (serviço real). Sob `-race`,
+`TestPageRenderAllocatesAboutItsSize` pula (o `sync.Pool` descarta buffers de propósito); a
+medida vale no `make test`.
+
+Ambiente local: o Chromium do container (revisão 1194) servido no lugar da 1234 que o driver
+pede, porque `cdn.playwright.dev` está fora da política de rede; o `govulncheck` local foi
+barrado (`vuln.go.dev` 403), e por isso o portão de segurança e os três motores foram provados
+na CI do branch. O PostgreSQL local rodou com `initdb` e `pg_ctl` como o usuário `postgres` (o
+container roda como root, que o `initdb` recusa).
