@@ -131,15 +131,16 @@ O `Asset` põe o hash do conteúdo na URL:
 h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))) // /style.css?v=8f3a1c92
 ```
 
-Com isso, um cache longo passa a ser seguro:
+Com isso, a URL com a versão atual sai `public, max-age=31536000, immutable` sem opção
+nenhuma. Quem pede `/style.css` sem versão, ou com um `v` que não é o atual, recebe o
+`StaticCacheControl` (uma hora por padrão). Deixe esse curto: pôr `immutable` nele congelaria
+por um ano todo arquivo ligado sem `Asset` e todo `?v=` adivinhado. Em `dev` nada é imutável e
+o hash acompanha o arquivo, então salvar o CSS e atualizar a página basta.
 
-```go
-cfg.StaticCacheControl = "public, max-age=31536000, immutable"
-```
-
-Quem pede a URL versionada certa recebe o cache de um ano; quem pede `/style.css` sem
-versão cai na regra normal. Em `dev` nada é imutável e o hash acompanha o arquivo, então
-salvar o CSS e atualizar a página basta. O `trilha export` não precisa de nenhuma opção: o
+Os arquivos de texto de `public/` (CSS, JS, SVG, JSON, HTML) vão comprimidos em gzip para o
+navegador que aceita, com `Vary: Accept-Encoding` e ETag própria; a cópia é feita uma vez por
+versão, pela primeira requisição depois do deploy. Página não é comprimida: ela leva o token
+CSRF ao lado de texto que o visitante controla, que é do que o ataque BREACH precisa. O `trilha export` não precisa de nenhuma opção: o
 HTML exportado sai com as mesmas URLs, porque é o mesmo layout que o gera.
 
 `trilha audit` avisa quando encontra `immutable` num projeto que não usa `Asset` — é a

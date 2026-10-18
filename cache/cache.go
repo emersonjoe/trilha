@@ -63,6 +63,9 @@ type Cache struct {
 	tags  map[string]map[string]struct{}
 
 	flight map[string]*call // in-flight Do calls, one per name
+	// gen counts the removals (Delete, Invalidate, Clear). A Do that saw a
+	// different gen when it started does not cache what it read.
+	gen uint64
 
 	hits, misses, evictions atomic.Int64
 
@@ -97,6 +100,13 @@ func New(o Options) *Cache {
 
 // Set writes a value. Writing over a name replaces its tags too.
 func (c *Cache) Set(k Key, v any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.setLocked(k, v)
+}
+
+// setLocked is Set for a caller holding the lock.
+func (c *Cache) setLocked(k Key, v any) {
 	if k.Name == "" {
 		return
 	}
@@ -104,8 +114,6 @@ func (c *Cache) Set(k Key, v any) {
 	if k.TTL > 0 {
 		e.expires = time.Now().Add(k.TTL)
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.drop(k.Name)
 	el := c.lru.PushFront(e)
 	c.items[k.Name] = el
@@ -160,6 +168,7 @@ func (c *Cache) Get(name string) (any, bool) {
 func (c *Cache) Delete(names ...string) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.gen++
 	n := 0
 	for _, name := range names {
 		if _, ok := c.items[name]; ok {
@@ -176,6 +185,7 @@ func (c *Cache) Delete(names ...string) int {
 func (c *Cache) Invalidate(tags ...string) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.gen++
 	n := 0
 	for _, t := range tags {
 		for name := range c.tags[t] {
@@ -194,6 +204,7 @@ func (c *Cache) Invalidate(tags ...string) int {
 func (c *Cache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.gen++
 	c.items = map[string]*list.Element{}
 	c.lru = list.New()
 	c.tags = map[string]map[string]struct{}{}

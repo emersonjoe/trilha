@@ -85,7 +85,7 @@ func (c *Ctx) revalidating() bool {
 // entries, and a cache that forgets that serves one in place of the other.
 func (c *Ctx) notModified() {
 	hd := c.w.Header()
-	hd.Set("Vary", fragmentHeader)
+	addVary(hd, fragmentHeader)
 	hd.Del("Content-Type")
 	hd.Del("Content-Length")
 	c.w.WriteHeader(http.StatusNotModified)

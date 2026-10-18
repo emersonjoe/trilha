@@ -85,11 +85,15 @@ func (a *App) serveStatic(w http.ResponseWriter, req *http.Request) bool {
 	// A mesma impressão digital que vai no "?v=" serve de ETag: dois deploys
 	// do mesmo conteúdo respondem a mesma etiqueta, e http.ServeFileFS cuida
 	// da comparação e do 304 a partir daqui.
-	if v := a.assetVersion(name); v != "" {
+	v := a.assetVersion(name)
+	if v != "" {
 		w.Header().Set("ETag", `"`+v+`"`)
 	}
 	if a.cfg.StaticHeaders != nil {
 		a.cfg.StaticHeaders(name, w.Header())
+	}
+	if a.serveGzip(w, req, fsys, file, name, v) {
+		return true
 	}
 	http.ServeFileFS(w, req, fsys, file)
 	return true

@@ -25,9 +25,10 @@ import (
 // lida, que é a operação que mais falha na subida.
 func Config(cfg *trilha.Config) error {
 	// The layout links assets through c.Asset, which puts the content hash in
-	// the URL: an address that changes with the file can be cached forever,
-	// and a deploy never leaves anyone with new HTML and old CSS.
-	cfg.StaticCacheControl = "public, max-age=31536000, immutable"
+	// the URL, and that URL is already cached for a year. This line is for
+	// what arrives without the right ?v= — a favicon, a guessed version — and
+	// so it stays short: immutable here would freeze the wrong file.
+	cfg.StaticCacheControl = "public, max-age=86400"
 	// O app inteiro é escrito para quem lê em português, e é isso que decide o
 	// separador de uma planilha, o formato de uma data e a palavra para
 	// verdadeiro. Sem esta linha, o Excel daqui abre o CSV como uma coluna só.

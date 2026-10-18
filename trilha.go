@@ -356,6 +356,7 @@ type App struct {
 	assetMu     sync.RWMutex
 	moduleDeps  sync.Map // module path + "?" + version → the paths it imports (importmap.go)
 	assets      map[string]assetVersion
+	gzipped     map[string]gzipAsset
 	assetWarned map[string]bool
 }
 

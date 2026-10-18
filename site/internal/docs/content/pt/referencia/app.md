@@ -188,11 +188,13 @@ func Config(cfg *trilha.Config) {
 
 ### Estáticos
 
-`StaticCacheControl` troca o `Cache-Control` de produção (dev sempre manda `no-cache`).
+`StaticCacheControl` troca o `Cache-Control` de produção do arquivo pedido sem a versão atual
+(dev sempre manda `no-cache`); a URL que o `c.Asset` entrega já é `immutable`, então mantenha
+este curto. Arquivos de texto vão comprimidos em gzip para quem aceita.
 `StaticHeaders(nome, cabeçalhos)` roda depois, por arquivo, e pode mudar qualquer cabeçalho:
 
 ```go
-cfg.StaticCacheControl = "public, max-age=31536000, immutable" // seguro com c.Asset
+cfg.StaticCacheControl = "public, max-age=86400" // arquivos sem ?v=; o ?v= certo já é immutable
 cfg.StaticHeaders = func(name string, h http.Header) {
 	if name == "robots.txt" { h.Set("Cache-Control", "no-store") }
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")

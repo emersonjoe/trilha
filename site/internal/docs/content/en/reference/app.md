@@ -190,11 +190,13 @@ func Config(cfg *trilha.Config) {
 
 ### Static files
 
-`StaticCacheControl` replaces the production `Cache-Control` (dev always sends `no-cache`).
+`StaticCacheControl` replaces the production `Cache-Control` of a file asked for without its
+current version (dev always sends `no-cache`); the URL `c.Asset` gives out is already
+`immutable`, so keep this one short. Text files go gzip-compressed to clients that accept it.
 `StaticHeaders(name, headers)` runs afterwards, per file, and may change any header:
 
 ```go
-cfg.StaticCacheControl = "public, max-age=31536000, immutable" // safe with c.Asset
+cfg.StaticCacheControl = "public, max-age=86400" // files without ?v=; the right ?v= is immutable already
 cfg.StaticHeaders = func(name string, h http.Header) {
 	if name == "robots.txt" { h.Set("Cache-Control", "no-store") }
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")

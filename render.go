@@ -95,7 +95,7 @@ func (a *App) writeHTML(c *Ctx, code int, node h.Node) error {
 		}
 	}
 	out := buf.Bytes()
-	c.w.Header().Set("Vary", fragmentHeader)
+	addVary(c.w.Header(), fragmentHeader)
 	if c.Fragment() != "" {
 		// A piece of a page: no envelope, no dev script (it would be added
 		// again on every swap).
