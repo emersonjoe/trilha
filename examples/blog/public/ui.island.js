@@ -1,4 +1,4 @@
-/* trilha ui 3a126d50d4ddeb42 */
+/* trilha ui 63eb52c660e11736 */
 // Trilha ui kit — the island runtime. Loaded by Ctx.Island, once per page.
 //
 // This is the only implementation of mounting an island and of the island
