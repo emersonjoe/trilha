@@ -295,8 +295,8 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 
 	// agents
 	"flag agents":       {"also write AGENTS.md and CLAUDE.md for coding agents", "também gravar AGENTS.md e CLAUDE.md para agentes de código"},
-	"flag force agents": {"overwrite a locally modified AGENTS.md", "sobrescrever um AGENTS.md modificado localmente"},
-	"agents modified":   {"AGENTS.md was modified locally; use --force to overwrite", "AGENTS.md foi modificado localmente; use --force para sobrescrever"},
+	"flag force agents": {"overwrite a locally modified AGENTS.md or quality skill", "sobrescrever um AGENTS.md ou uma skill de qualidade modificados localmente"},
+	"agents modified":   {"AGENTS.md or the quality skill was modified locally; use --force to overwrite", "o AGENTS.md ou a skill de qualidade foi modificado localmente; use --force para sobrescrever"},
 
 	// openapi
 	"flag openapi out":     {`output file ("-" writes to stdout)`, `arquivo de saída ("-" escreve na saída padrão)`},

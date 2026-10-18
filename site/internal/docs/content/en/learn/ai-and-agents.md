@@ -240,10 +240,16 @@ trilha new loja --agents  # at creation time
 agents`, and the upgrade from an older version is five lines in
 [Migration](/cookbook/migration#turning-on-the-agent-files-in-a-project-that-already-exists).
 
-It writes two files at the root. `AGENTS.md` is the framework's: the three conventions, the
-commands and what each one checks, and what not to do (edit `trilha_gen.go`, add a dependency,
-put a secret in the code). `CLAUDE.md` is yours: three lines pointing at `AGENTS.md`, and room
-for whatever this repository needs.
+It writes three files. `AGENTS.md` is the framework's: the three conventions, the commands and
+what each one checks, the ten rules of how code is written in the project, and what not to do
+(edit `trilha_gen.go`, add a dependency, put a secret in the code). The rules are the ones a
+review would otherwise have to repeat: no render for nothing, load only what the page uses,
+cache and version every request, no query inside a loop and an index for every filter, images
+with their size, patterns only where they remove code, clean code, reuse first, the smallest
+readable diff, and OWASP ASVS and NIST SSDF by default. Their checklist — what to do and what
+to grep for — is `.claude/skills/trilha-quality/SKILL.md`, which Claude Code loads as a skill
+and any other agent reads by the link. `CLAUDE.md` is yours: three lines pointing at
+`AGENTS.md`, and room for whatever this repository needs.
 
 Neither exists unless you ask. Support for agents is a choice of the team, not a convention of
 the framework, so `trilha new` on its own leaves your project exactly as it did before.

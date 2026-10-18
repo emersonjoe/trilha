@@ -40,6 +40,9 @@ type stampFmt struct{ open, close string }
 var (
 	cssStamp = stampFmt{"/* trilha ui ", " */"}
 	mdStamp  = stampFmt{"<!-- trilha agents ", " -->"}
+	// skillStamp is a YAML comment inside the front matter: a skill has to
+	// open with "---", so the stamp opens it too.
+	skillStamp = stampFmt{"---\n# trilha agents ", ""}
 )
 
 func (f stampFmt) apply(body []byte) []byte {
@@ -50,10 +53,11 @@ func (f stampFmt) untouched(content []byte) bool {
 	if !bytes.HasPrefix(content, []byte(f.open)) {
 		return false
 	}
-	nl := bytes.IndexByte(content, '\n')
+	nl := bytes.IndexByte(content[len(f.open):], '\n')
 	if nl < 0 {
 		return false
 	}
+	nl += len(f.open)
 	head := string(content[len(f.open):nl])
 	if len(head) < 16+len(f.close) {
 		return false

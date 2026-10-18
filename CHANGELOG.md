@@ -3,6 +3,22 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.158.0 — 2026-10-18
+
+The rules of how code is written, in the project an agent edits (spec 178, #310).
+
+### Added
+
+- **`trilha agents` writes the quality skill** —
+  `.claude/skills/trilha-quality/SKILL.md`, in English or Portuguese: the checklist of ten
+  rules with the Trilha API behind each one and what to grep for — renders, lazy loading,
+  requests and caching, queries and N+1, images, fonts and scripts, design patterns where they
+  remove code, clean code, reuse, review for size and readability, and security by OWASP ASVS
+  5.0 level 2, Top 10:2025 and NIST SSDF 1.1. Claude Code loads it as the `trilha-quality`
+  skill; `AGENTS.md` links it for any other agent. Like `AGENTS.md` it is stamped (inside its
+  front matter), refreshed when untouched and refused without `--force` when edited.
+- `AGENTS.md` gains the section **How code is written here**: the ten rules, one line each.
+
 ## 0.157.0 — 2026-10-18
 
 A performance pass over the five usual fronts — renders, bundle, requests and caching,
