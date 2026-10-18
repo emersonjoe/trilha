@@ -44,6 +44,36 @@ navegador.
   templates, e nada chega à página sem escape a menos que você chame `h.Raw`, o que quase
   nunca deve.
 
+## Como o código é escrito aqui
+
+Toda mudança segue estas dez regras; o checklist que prova cada uma é
+`.claude/skills/trilha-quality/SKILL.md` (o Claude Code o carrega como a skill
+`trilha-quality`; outro agente o lê antes de dizer que terminou).
+
+1. **Nada de render à toa.** Calcule uma vez por requisição (`cache.Once`), responda o
+   fragmento (`c.Fragment`, `ui.Swap`) em vez da página, e deixe o `c.ETag` responder 304.
+2. **Carregue só o que a página usa.** O `ui.Head` é a base; o script de um componente
+   (`ui.TreeScript(c)`, `ui.ChatScript(c)`…) vai na página que o tem; o que é lento vai num
+   `ui.Defer`.
+3. **Requisições e cache.** Todo arquivo de `public/` pelo `c.Asset` (versionado, cache de um
+   ano); leitura compartilhada pelo `cache.Do` com tags, invalidada na escrita; nunca o
+   `http.DefaultClient` — um cliente com timeout.
+4. **Consultas.** Nenhuma consulta dentro de laço (um `IN`, um `JOIN`); toda lista tem `LIMIT`;
+   todo `WHERE`/`ORDER BY` tem índice, numa migração própria.
+5. **Imagens, fontes, scripts.** `<img>` com largura, altura e `loading="lazy"`; WebP ou SVG;
+   fonte do sistema ou woff2 servido daqui; script com `defer`, inline só com o nonce.
+6. **Padrões de projeto onde tiram código** — Strategy para um store com dois backends,
+   Decorator como middleware, Adapter em volta de uma API de fora —, nunca para parecer
+   projetado.
+7. **Código limpo.** Funções pequenas, nomes que dizem a intenção, erro embrulhado com
+   contexto, nada de código morto; o comentário diz por quê, não o quê.
+8. **Reúso primeiro.** Procure antes de escrever: `trilha ui components`, `trilha add`,
+   `grep -rn` em `internal/`. A segunda cópia de qualquer coisa vira uma função.
+9. **Revise pelo tamanho.** Releia o diff e corte: ganha a menor mudança legível.
+10. **Seguro por padrão (OWASP ASVS 5.0 N2, Top 10:2025, NIST SSDF).** Entrada pelo `c.Bind`
+    e tags `validate`, autorização no `middleware.go`, SQL por parâmetro, segredo do
+    ambiente; o `trilha check` roda o `trilha audit`.
+
 ## Não faça
 
 - **Não edite `trilha_gen.go`** — gerado e commitado; o próximo `trilha gen` sobrescreve.

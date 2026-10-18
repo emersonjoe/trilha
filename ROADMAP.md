@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.158.0)
+## Onde o Trilha está (outubro de 2026, v0.159.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -389,6 +389,10 @@ página custa o próprio tamanho; o chat rola uma vez por quadro; as ilhas divid
 a tela de assinaturas pagina no banco com índices em migração própria; a busca em memória dobra
 o documento uma vez; o combobox vira `ui.combo.js` sob demanda; as capturas da documentação
 viram WebP com tamanho declarado (#309).
+147. **As regras de qualidade no projeto que um agente edita** (spec 179, **entregue na
+0.159.0**): o `trilha agents` grava, além do `AGENTS.md`, a skill `trilha-quality` com o
+checklist de desempenho, padrões de projeto, código limpo, reúso, revisão pelo tamanho e
+segurança por OWASP e NIST, e o `AGENTS.md` resume as dez regras (#310).
 
 ## O que não vamos fazer, e por quê
 

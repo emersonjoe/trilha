@@ -44,6 +44,35 @@ before the browser does.
   templates, and nothing reaches the page unescaped unless you call `h.Raw`, which you almost
   never should.
 
+## How code is written here
+
+Every change follows these ten rules; the checklist that proves each one is
+`.claude/skills/trilha-quality/SKILL.md` (Claude Code loads it as the `trilha-quality` skill;
+any other agent reads it before saying it is done).
+
+1. **No render for nothing.** Compute once per request (`cache.Once`), answer a fragment
+   (`c.Fragment`, `ui.Swap`) instead of the page, and let `c.ETag` answer 304.
+2. **Load only what the page uses.** `ui.Head` is the base; a component's script
+   (`ui.TreeScript(c)`, `ui.ChatScript(c)`…) goes on the page that has it; slow parts go in
+   `ui.Defer`.
+3. **Requests and cache.** Every file of `public/` through `c.Asset` (versioned, cached for a
+   year); shared reads through `cache.Do` with tags, invalidated on write; never
+   `http.DefaultClient` — a client with a timeout.
+4. **Queries.** No query inside a loop (one `IN`, one `JOIN`); every list has a `LIMIT`; every
+   `WHERE`/`ORDER BY` has an index, in a migration of its own.
+5. **Images, fonts, scripts.** `<img>` with width, height, `loading="lazy"`; WebP or SVG;
+   system fonts or a self-hosted woff2; scripts `defer`, inline only with the nonce.
+6. **Design patterns where they remove code** — Strategy for a store with two backends,
+   Decorator as middleware, Adapter around an outside API — never to look designed.
+7. **Clean code.** Small functions, names that say intent, errors wrapped with context, no dead
+   code; a comment says why, not what.
+8. **Reuse first.** Search before writing: `trilha ui components`, `trilha add`, `grep -rn` in
+   `internal/`. The second copy of anything becomes one function.
+9. **Review for size.** Reread the diff and cut: the smallest readable change wins.
+10. **Secure by default (OWASP ASVS 5.0 L2, Top 10:2025, NIST SSDF).** Input through `c.Bind`
+    and `validate` tags, authorization in `middleware.go`, SQL by parameter, secrets from the
+    environment; `trilha check` runs `trilha audit`.
+
 ## Do not
 
 - **Do not edit `trilha_gen.go`** — generated and committed; the next `trilha gen` overwrites it.

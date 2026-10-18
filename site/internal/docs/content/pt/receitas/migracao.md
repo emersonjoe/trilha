@@ -326,9 +326,9 @@ precisa ser recriado:
 go get -u github.com/emersonjoe/trilha@latest
 go install github.com/emersonjoe/trilha/cmd/trilha@latest
 trilha gen                 # o arquivo gerado tem que bater com a versão da CLI
-trilha agents --lang pt    # grava AGENTS.md e CLAUDE.md
+trilha agents --lang pt    # grava AGENTS.md, CLAUDE.md e a skill de qualidade
 trilha check               # o portão único: gen, gofmt, vet, test, audit, openapi
-git add AGENTS.md CLAUDE.md trilha_gen.go
+git add AGENTS.md CLAUDE.md .claude/skills/trilha-quality trilha_gen.go
 ```
 
 Os dois arquivos são para commitar: o agente os lê do repositório, não da sua máquina. O

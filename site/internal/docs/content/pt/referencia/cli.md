@@ -600,16 +600,18 @@ toma o lugar dele.
 
 ## trilha agents
 
-Grava dois arquivos na raiz do projeto, e só quando é pedido: suporte a agentes de código é
+Grava três arquivos, e só quando é pedido: suporte a agentes de código é
 opt-in, então `trilha new` sozinho não deixa nenhum dos dois. `trilha new --agents` já os cria
 junto com o projeto.
 
 | Arquivo | De quem é |
 |---|---|
-| `AGENTS.md` | do framework: as convenções, os comandos e o que não fazer |
+| `AGENTS.md` | do framework: as convenções, os comandos, as dez regras de como o código é escrito aqui e o que não fazer |
+| `.claude/skills/trilha-quality/SKILL.md` | do framework: o checklist por trás das dez regras — renders, carregamento sob demanda, requisições e cache, consultas e N+1, imagens, fontes e scripts, padrões de projeto, código limpo, reúso, revisão pelo tamanho, OWASP e NIST — com o que procurar. O Claude Code o carrega como a skill `trilha-quality`; outro agente o lê pelo link no `AGENTS.md` |
 | `CLAUDE.md` | seu: três linhas apontando para o `AGENTS.md`, mais o que este repositório pedir |
 
-O `AGENTS.md` leva um carimbo com o hash do próprio corpo, a mesma regra do kit ui. Uma cópia
+O `AGENTS.md` e a skill levam um carimbo com o hash do próprio corpo (o da skill fica no
+frontmatter), a mesma regra do kit ui. Uma cópia
 intocada de uma versão anterior é atualizada em silêncio na próxima rodada; uma que você editou
 só é sobrescrita com `--force`, e sem ele o comando para e avisa. O `CLAUDE.md` nunca é
 sobrescrito.

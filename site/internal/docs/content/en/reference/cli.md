@@ -604,16 +604,18 @@ replaces it.
 
 ## trilha agents
 
-Writes two files at the root of the project, and only when asked: support for coding agents is
+Writes three files, and only when asked: support for coding agents is
 opt-in, so `trilha new` on its own leaves neither behind. `trilha new --agents` adds them at
 creation time.
 
 | File | Who owns it |
 |---|---|
-| `AGENTS.md` | the framework: the conventions, the commands, and what not to do |
+| `AGENTS.md` | the framework: the conventions, the commands, the ten rules of how code is written here, and what not to do |
+| `.claude/skills/trilha-quality/SKILL.md` | the framework: the checklist behind the ten rules — renders, lazy loading, requests and cache, queries and N+1, images, fonts and scripts, design patterns, clean code, reuse, review for size, OWASP and NIST — with what to grep for. Claude Code loads it as the `trilha-quality` skill; any other agent reads it by the link in `AGENTS.md` |
 | `CLAUDE.md` | you: three lines pointing at `AGENTS.md`, plus whatever this repository needs |
 
-`AGENTS.md` carries a stamp with the hash of its own body, the same rule the ui kit uses. An
+`AGENTS.md` and the skill carry a stamp with the hash of their own body (the skill's sits in
+its front matter), the same rule the ui kit uses. An
 untouched copy from an older version is refreshed in silence on the next run; one you edited is
 only overwritten with `--force`, and without it the command stops and says so. `CLAUDE.md` is
 never overwritten.

@@ -212,7 +212,9 @@ Veja `examples/assistente` (chat em streaming com `c.Stream()`, handoff para um 
 servidor MCP em `/mcp`) e o capítulo [IA e agentes](https://emersonjoe.github.io/trilha/pt/aprender/ia-e-agentes).
 
 Para o agente que *edita* sua aplicação, e não o que ela executa, o `trilha agents` grava um
-`AGENTS.md` com as convenções, os comandos e o que não fazer. É opt-in: `trilha new` sozinho
+`AGENTS.md` com as convenções, os comandos, dez regras de como o código é escrito (desempenho,
+padrões de projeto, código limpo, reúso, revisão pelo tamanho, OWASP e NIST) e o que não fazer,
+além do checklist das regras como a skill `trilha-quality`. É opt-in: `trilha new` sozinho
 não grava nada. Esta documentação também é publicada em texto puro, em
 [/pt/llms.txt](https://emersonjoe.github.io/trilha/pt/llms.txt) e
 [/pt/llms-full.txt](https://emersonjoe.github.io/trilha/pt/llms-full.txt).
