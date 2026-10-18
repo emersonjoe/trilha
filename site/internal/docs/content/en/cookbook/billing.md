@@ -26,6 +26,7 @@ with.
 |---|---|
 | `internal/cobranca/` | plans, subscriptions, invoices, the state machine, the webhook, the reminders |
 | `migrations/0100_billing.sql` | the tables `billing_plans`, `billing_subscriptions`, `billing_invoices`, `billing_events`, in the convention of [`trilha add store`](/cookbook/database) |
+| `migrations/0101_billing_indexes.sql` | the indexes the screens order and filter by; a file of its own, since an applied migration is checked by its sum |
 | `app/webhooks/billing/` | `POST /webhooks/billing`, the address the provider calls — fixed, because it is typed into the provider's dashboard |
 | `app/billing/` | subscriptions filtered by state, `planos/` (create and delete), `faturas/` and `faturas/csv/` |
 | `billing_test.go` | the tests below, in your project, run by `trilha check` |
@@ -50,7 +51,7 @@ var Politica = auth.Policy{
 
 ## Price
 
-`trilha ctx --pack billing` costs **~356 tokens (est.)** — what an agent reads to know what the
+`trilha ctx --pack billing` costs **~366 tokens (est.)** — what an agent reads to know what the
 recipe brought, measured on a minimal project by `TestRecipeCtxPackCost`. `trilha add --list`
 shows the same number, and the badge on this page prices the documentation it links to.
 

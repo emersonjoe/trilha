@@ -17,7 +17,7 @@ package recipes
 func billingRecipe() Recipe {
 	return Recipe{
 		Name:        "billing",
-		CtxPackCost: 356,
+		CtxPackCost: 366,
 		Summary: map[string]string{
 			"en": "charging without a coupled provider: plans, subscriptions trial → active → past_due → canceled, signed idempotent webhook, dunning by e-mail, CSV",
 			"pt": "cobrança sem provedor acoplado: planos, assinaturas trial → active → past_due → canceled, webhook assinado e idempotente, dunning por e-mail, CSV",
@@ -37,6 +37,7 @@ func billingRecipe() Recipe {
 			{Rel: "internal/cobranca/cobranca_test.go", Go: true, Body: billingDomainTest},
 			{Rel: "internal/cobranca/cobrancatest/cobrancatest.go", Go: true, Body: billingContract},
 			{Rel: "migrations/0100_billing.sql", Body: billingMigration},
+			{Rel: "migrations/0101_billing_indexes.sql", Body: billingIndexes},
 			// The address is fixed on purpose: it is typed into the provider's
 			// dashboard, so it does not move with the screens.
 			{Rel: "app/webhooks/billing/route.go", Go: true, Body: billingRoute},
@@ -213,6 +214,15 @@ type Assinatura struct {
 	Atualizada time.Time
 }
 
+// Filtro is what the listing asks for: a state (all when empty), a piece of
+// the e-mail (no difference of case; % and _ are text) and the window.
+type Filtro struct {
+	Estado       Estado
+	Q            string
+	Limite       int
+	Deslocamento int
+}
+
 // Fatura is one charge.
 type Fatura struct {
 	ID         string
@@ -249,6 +259,10 @@ type Store interface {
 	// Assinaturas lists the subscriptions in one state, or all of them when
 	// estado is empty, the newest first.
 	Assinaturas(ctx context.Context, estado Estado) ([]Assinatura, error)
+	// PaginaAssinaturas is one page of the listing and how many passed the
+	// filter: the store filters, counts and cuts, so the screen reads twenty
+	// rows and not the whole table.
+	PaginaAssinaturas(ctx context.Context, f Filtro) ([]Assinatura, int, error)
 	// Assinatura finds one, or ErrNaoExiste.
 	Assinatura(ctx context.Context, id string) (Assinatura, error)
 	// Assinar creates a subscription in trial — what the provider's
@@ -382,6 +396,20 @@ func (s *Memoria) Assinaturas(_ context.Context, estado Estado) ([]Assinatura, e
 		return out[i].ID < out[j].ID
 	})
 	return out, nil
+}
+
+func (s *Memoria) PaginaAssinaturas(ctx context.Context, f Filtro) ([]Assinatura, int, error) {
+	todas, _ := s.Assinaturas(ctx, f.Estado)
+	q := strings.ToLower(f.Q)
+	achadas := todas[:0]
+	for _, a := range todas {
+		if strings.Contains(strings.ToLower(a.Email), q) {
+			achadas = append(achadas, a)
+		}
+	}
+	ini := min(max(f.Deslocamento, 0), len(achadas))
+	fim := min(ini+max(f.Limite, 0), len(achadas))
+	return append([]Assinatura{}, achadas[ini:fim]...), len(achadas), nil
 }
 
 func (s *Memoria) Assinatura(_ context.Context, id string) (Assinatura, error) {
@@ -644,6 +672,45 @@ func (s *SQL) Assinaturas(ctx context.Context, estado Estado) ([]Assinatura, err
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+func (s *SQL) PaginaAssinaturas(ctx context.Context, f Filtro) ([]Assinatura, int, error) {
+	db, arg := s.banco()
+	where, args := " WHERE 1 = 1", []any{}
+	if f.Estado != "" {
+		args = append(args, string(f.Estado))
+		where += " AND state = " + arg(len(args))
+	}
+	if f.Q != "" {
+		args = append(args, "%"+escaparLike(strings.ToLower(f.Q))+"%")
+		where += " AND lower(email) LIKE " + arg(len(args)) + " ESCAPE '\\'"
+	}
+	var total int
+	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM billing_subscriptions"+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	q := "SELECT " + colAssinatura + " FROM billing_subscriptions" + where +
+		" ORDER BY created_at DESC, id LIMIT " + arg(len(args)+1) + " OFFSET " + arg(len(args)+2)
+	rows, err := db.QueryContext(ctx, q, append(args, max(f.Limite, 0), max(f.Deslocamento, 0))...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []Assinatura{}
+	for rows.Next() {
+		a, err := lerAssinatura(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		out = append(out, a)
+	}
+	return out, total, rows.Err()
+}
+
+// escaparLike makes % and _ mean themselves in a LIKE pattern, with \ as the
+// escape both SQLite and PostgreSQL are told about.
+func escaparLike(s string) string {
+	return strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(s)
 }
 
 func (s *SQL) Assinatura(ctx context.Context, id string) (Assinatura, error) {
@@ -1168,6 +1235,43 @@ func Contrato(t *testing.T, s cobranca.Store) {
 		}
 	}
 
+	// Uma página da listagem: quem filtra, conta e corta é o store, não a
+	// tela lendo a tabela inteira. O e-mail é procurado como texto, sem
+	// diferença de caixa, e o "_" é um sublinhado, não um curinga.
+	for i := 0; i < 5; i++ {
+		if _, err := s.Assinar(ctx, px+"p-"+strconv.Itoa(i), px+"p"+strconv.Itoa(i)+"_x@example.com",
+			px+"plano-1", agora.Add(time.Duration(10+i)*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.Assinar(ctx, px+"p-curinga", px+"p0ax@example.com", px+"plano-1", agora.Add(20*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	ids := func(as []cobranca.Assinatura) string {
+		var out []string
+		for _, a := range as {
+			out = append(out, strings.TrimPrefix(a.ID, px))
+		}
+		return strings.Join(out, ",")
+	}
+	pg, total, err := s.PaginaAssinaturas(ctx, cobranca.Filtro{Q: strings.ToUpper(px + "p"), Limite: 2})
+	if err != nil || total != 6 || ids(pg) != "p-curinga,p-4" {
+		t.Fatalf("primeira página = %s de %d (%v)", ids(pg), total, err)
+	}
+	pg, total, err = s.PaginaAssinaturas(ctx, cobranca.Filtro{Q: px + "p", Limite: 2, Deslocamento: 2})
+	if err != nil || total != 6 || ids(pg) != "p-3,p-2" {
+		t.Fatalf("segunda página = %s de %d (%v)", ids(pg), total, err)
+	}
+	if pg, total, err = s.PaginaAssinaturas(ctx, cobranca.Filtro{Q: px + "p0_x", Limite: 10}); err != nil || total != 1 || ids(pg) != "p-0" {
+		t.Fatalf("o _ da busca virou curinga: %s de %d (%v)", ids(pg), total, err)
+	}
+	if _, total, err = s.PaginaAssinaturas(ctx, cobranca.Filtro{Estado: cobranca.Cancelada, Q: px + "p", Limite: 10}); err != nil || total != 0 {
+		t.Fatalf("o filtro por estado deixou passar %d (%v)", total, err)
+	}
+	if _, total, err = s.PaginaAssinaturas(ctx, cobranca.Filtro{Estado: cobranca.Trial, Q: px + "p", Limite: 10}); err != nil || total != 6 {
+		t.Fatalf("em trial: %d (%v)", total, err)
+	}
+
 	// O mesmo evento é visto uma vez; esquecido, é novo outra vez.
 	ev := px + "ev-1"
 	for i, quero := range []bool{false, true} {
@@ -1220,6 +1324,20 @@ func Contrato(t *testing.T, s cobranca.Store) {
 		t.Fatalf("apagou duas vezes: %v", err)
 	}
 }
+`
+
+// billingIndexes is a migration of its own and not a change to 0100: a
+// migration already applied is checked by its sum, and editing it would stop
+// every project that has it from starting.
+const billingIndexes = `-- Os índices das telas da cobrança (spec 177). A lista de assinaturas filtra
+-- por estado e ordena pela mais nova; a de faturas ordena pela mais nova; a
+-- chave estrangeira das faturas é o caminho de uma assinatura até elas.
+-- Sem eles, cada página lia e ordenava a tabela inteira.
+
+CREATE INDEX IF NOT EXISTS billing_subscriptions_state ON billing_subscriptions (state, created_at DESC, id);
+CREATE INDEX IF NOT EXISTS billing_subscriptions_created ON billing_subscriptions (created_at DESC, id);
+CREATE INDEX IF NOT EXISTS billing_invoices_issued ON billing_invoices (issued_at DESC, id);
+CREATE INDEX IF NOT EXISTS billing_invoices_subscription ON billing_invoices (subscription_id);
 `
 
 const billingMigration = `-- As tabelas da cobrança, na convenção do ` + "`" + `trilha add store` + "`" + `: aplicadas uma vez, em
@@ -1346,7 +1464,6 @@ package billing
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/h"
@@ -1380,27 +1497,12 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 		return nil, err
 	}
 	estado := valido(q.Estado)
-	todas, err := trilha.Use[*cobranca.Billing](c).Store.Assinaturas(c.Context(), estado)
+	// The store filters and cuts: the screen reads one page, not the table.
+	pagina, total, err := trilha.Use[*cobranca.Billing](c).Store.PaginaAssinaturas(c.Context(), cobranca.Filtro{
+		Estado: estado, Q: q.Q, Limite: q.Limit(), Deslocamento: q.Offset(),
+	})
 	if err != nil {
 		return nil, err
-	}
-	if q.Q != "" {
-		filtradas := todas[:0:0]
-		for _, a := range todas {
-			if strings.Contains(strings.ToLower(a.Email), strings.ToLower(q.Q)) {
-				filtradas = append(filtradas, a)
-			}
-		}
-		todas = filtradas
-	}
-	total := len(todas)
-	fim := q.Offset() + q.Limit()
-	if fim > total {
-		fim = total
-	}
-	pagina := []cobranca.Assinatura{}
-	if q.Offset() < total {
-		pagina = todas[q.Offset():fim]
 	}
 	tabela := ui.DataTable(c, colunas, pagina, ui.ListState{
 		Params: q.ListParams, Total: total, ID: "assinaturas",

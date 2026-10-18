@@ -98,6 +98,43 @@ func Contrato(t *testing.T, s cobranca.Store) {
 		}
 	}
 
+	// Uma página da listagem: quem filtra, conta e corta é o store, não a
+	// tela lendo a tabela inteira. O e-mail é procurado como texto, sem
+	// diferença de caixa, e o "_" é um sublinhado, não um curinga.
+	for i := 0; i < 5; i++ {
+		if _, err := s.Assinar(ctx, px+"p-"+strconv.Itoa(i), px+"p"+strconv.Itoa(i)+"_x@example.com",
+			px+"plano-1", agora.Add(time.Duration(10+i)*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.Assinar(ctx, px+"p-curinga", px+"p0ax@example.com", px+"plano-1", agora.Add(20*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	ids := func(as []cobranca.Assinatura) string {
+		var out []string
+		for _, a := range as {
+			out = append(out, strings.TrimPrefix(a.ID, px))
+		}
+		return strings.Join(out, ",")
+	}
+	pg, total, err := s.PaginaAssinaturas(ctx, cobranca.Filtro{Q: strings.ToUpper(px + "p"), Limite: 2})
+	if err != nil || total != 6 || ids(pg) != "p-curinga,p-4" {
+		t.Fatalf("primeira página = %s de %d (%v)", ids(pg), total, err)
+	}
+	pg, total, err = s.PaginaAssinaturas(ctx, cobranca.Filtro{Q: px + "p", Limite: 2, Deslocamento: 2})
+	if err != nil || total != 6 || ids(pg) != "p-3,p-2" {
+		t.Fatalf("segunda página = %s de %d (%v)", ids(pg), total, err)
+	}
+	if pg, total, err = s.PaginaAssinaturas(ctx, cobranca.Filtro{Q: px + "p0_x", Limite: 10}); err != nil || total != 1 || ids(pg) != "p-0" {
+		t.Fatalf("o _ da busca virou curinga: %s de %d (%v)", ids(pg), total, err)
+	}
+	if _, total, err = s.PaginaAssinaturas(ctx, cobranca.Filtro{Estado: cobranca.Cancelada, Q: px + "p", Limite: 10}); err != nil || total != 0 {
+		t.Fatalf("o filtro por estado deixou passar %d (%v)", total, err)
+	}
+	if _, total, err = s.PaginaAssinaturas(ctx, cobranca.Filtro{Estado: cobranca.Trial, Q: px + "p", Limite: 10}); err != nil || total != 6 {
+		t.Fatalf("em trial: %d (%v)", total, err)
+	}
+
 	// O mesmo evento é visto uma vez; esquecido, é novo outra vez.
 	ev := px + "ev-1"
 	for i, quero := range []bool{false, true} {
