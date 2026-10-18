@@ -13,7 +13,7 @@ import (
 	"github.com/emersonjoe/trilha/h"
 )
 
-//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js assets/ui.recorder.js assets/ui.offline.js assets/ui.live.js assets/ui.chat.js assets/ui.island.js assets/ui.tree.js assets/ui.sheet.js
+//go:embed assets/ui.css assets/ui.theme.css assets/ui.js assets/ui.nav.js assets/ui.upload.js assets/ui.recorder.js assets/ui.offline.js assets/ui.live.js assets/ui.chat.js assets/ui.island.js assets/ui.tree.js assets/ui.sheet.js assets/ui.combo.js
 var assets embed.FS
 
 // Asset returns the embedded file (ui.css, ui.theme.css or ui.js).
@@ -26,7 +26,7 @@ func Asset(name string) []byte {
 }
 
 // Files lists the kit files written to a project's public/ folder.
-var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js", "ui.recorder.js", "ui.offline.js", "ui.live.js", "ui.chat.js", "ui.island.js", "ui.tree.js", "ui.sheet.js"}
+var Files = []string{"ui.theme.css", "ui.css", "ui.js", "ui.nav.js", "ui.upload.js", "ui.recorder.js", "ui.offline.js", "ui.live.js", "ui.chat.js", "ui.island.js", "ui.tree.js", "ui.sheet.js", "ui.combo.js"}
 
 // Head links the kit's stylesheets and script and applies the saved theme
 // before first paint (inline script with the request nonce, so the default
@@ -36,7 +36,9 @@ func Head(c *trilha.Ctx) h.Node {
 		h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/ui.theme.css"))),
 		h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/ui.css"))),
 		h.Script(trilha.NonceAttr(c), h.Raw(themeInit)),
-		h.Script(h.Src(c.Asset("/ui.js")), h.Defer()),
+		// The combobox's file is loaded by ui.js when a page has one; its
+		// versioned URL travels here so that load is cached like this one.
+		h.Script(h.Src(c.Asset("/ui.js")), h.Defer(), h.Data("ui-combo-js", c.Asset("/ui.combo.js"))),
 	)
 }
 

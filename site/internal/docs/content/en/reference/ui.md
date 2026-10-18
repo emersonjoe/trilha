@@ -346,7 +346,7 @@ options.
 |---|---|
 | `Name` | name of the hidden field; the visible one is `Name + "_q"` |
 | `Value` / `Label` | what was chosen and what is written for it (the round trip) |
-| `Options []Option` | a short list: `ui.js` filters it in the browser, no request |
+| `Options []Option` | a short list: filtered in the browser, no request |
 | `Source string` | the URL that searches; the answer is `ui.ComboboxOptions(...)` |
 | `With []string` | other fields of the same form to carry in the query (`?uf=SP&q=camp`) |
 | `MinChars`, `Debounce` | when to search (default 1 character, 200 ms) |
@@ -368,6 +368,10 @@ func GET(c *trilha.Ctx) error {
 Without JavaScript nothing breaks: the visible field is a normal text input, so the form still
 arrives with `cidade_q` filled in and `cidade` empty. Resolving the typed text against the
 list is the server's job — the same list the search route reads.
+
+The behavior is `ui.combo.js`, written to `public/` with the rest of the kit. `ui.js` loads it
+the first time a page — or a fragment swapped into it — has a combobox, from the versioned URL
+`ui.Head` puts on its own tag, so a page without one does not download it.
 
 ## Markdown
 
