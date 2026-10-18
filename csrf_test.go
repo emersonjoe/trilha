@@ -29,12 +29,14 @@ func TestCSRFTokenCreatedOnRender(t *testing.T) {
 	if len(cookies) != 1 || cookies[0].Name != CSRFCookie || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
 		t.Fatalf("%+v", cookies)
 	}
-	if !strings.Contains(rec.Body.String(), `name="_csrf" value="`+cookies[0].Value+`"`) {
+	// The page carries the cookie's secret masked (BREACH, #305), not the
+	// secret itself.
+	if tok := formToken(rec.Body.String(), "_csrf"); tok == cookies[0].Value || unmaskCSRF(tok) != cookies[0].Value {
 		t.Fatal(rec.Body.String())
 	}
 	// Second render with the cookie reuses it.
 	rec2 := get(t, a, "GET", "/form", "", map[string]string{"Cookie": CSRFCookie + "=" + cookies[0].Value})
-	if len(rec2.Result().Cookies()) != 0 || !strings.Contains(rec2.Body.String(), cookies[0].Value) {
+	if len(rec2.Result().Cookies()) != 0 || unmaskCSRF(formToken(rec2.Body.String(), "_csrf")) != cookies[0].Value {
 		t.Fatal("cookie should be reused")
 	}
 }
@@ -101,7 +103,7 @@ func TestCSRFNamesFromConfig(t *testing.T) {
 		t.Fatalf("cookie: %+v", cookies)
 	}
 	tok := cookies[0].Value
-	if !strings.Contains(rec.Body.String(), `name="_farol_trilha_csrf" value="`+tok+`"`) {
+	if unmaskCSRF(formToken(rec.Body.String(), "_farol_trilha_csrf")) != tok {
 		t.Fatalf("field: %s", rec.Body.String())
 	}
 	if strings.Contains(rec.Body.String(), `name="_csrf"`) {
@@ -161,7 +163,7 @@ func TestNonceECSRFPeloRequest(t *testing.T) {
 		t.Fatalf("nonce %q não é o da CSP %q", nonce, rec.Header().Get("Content-Security-Policy"))
 	}
 	ck := rec.Result().Cookies()
-	if len(ck) != 1 || ck[0].Value != token {
+	if len(ck) != 1 || unmaskCSRF(token) != ck[0].Value {
 		t.Fatalf("token %q, cookie %+v", token, ck)
 	}
 	// O formulário montado só com o que veio do request passa na verificação.
@@ -182,4 +184,14 @@ func TestNonceECSRFForaDaTrilha(t *testing.T) {
 	if NonceFrom(nil) != "" || CSRFTokenFrom(nil) != "" {
 		t.Fatal("nil não pode entrar em pânico")
 	}
+}
+
+// formToken reads the value of the hidden field named name.
+func formToken(body, name string) string {
+	i := strings.Index(body, `name="`+name+`" value="`)
+	if i < 0 {
+		return ""
+	}
+	rest := body[i+len(`name="`+name+`" value="`):]
+	return rest[:strings.Index(rest, `"`)]
 }

@@ -198,3 +198,29 @@ func TestUIPaginationKeyboard(t *testing.T) {
 		s.WaitJS("the page swapped without a reload", stillMarked)
 	})
 }
+
+// tick reads the number the changing fragment shows.
+const tick = `+(/Tick (\d+)/.exec(document.querySelector("#mudando").textContent) || [0, 0])[1]`
+
+// A poll that brings back the same fragment leaves it alone: the island keeps
+// its count and the element is the same object, while the fragment that did
+// change is replaced (#306) — with its island mounted again, which the swap
+// of ui.live.js used to leave on the fallback for good.
+func TestUIPollKeepsUnchangedFragment(t *testing.T) {
+	run(t, func(s *uitest.Session) {
+		s.Navigate("/fluxos/vigia")
+		s.WantText("#contador", "count 7")
+		s.Click("#contador")
+		s.WantText("#contador", "count 8")
+		s.Eval(`document.activeElement.blur(); document.querySelector("#parado").__marca = 1;`+
+			`document.querySelector("#mudando").__marca = 1; window.__t1 = `+tick, nil)
+		// The first answer is compared with the page's own DOM (what the island
+		// drew left out), the next ones with the last answer: none may swap.
+		s.WaitJS("three ticks went by", tick+` >= window.__t1 + 3`)
+		s.WaitJS("the unchanged fragment is the same element", `document.querySelector("#parado").__marca === 1`)
+		s.WantText("#contador", "count 8")
+		s.WaitJS("the changed fragment was replaced", `document.querySelector("#mudando").__marca === undefined`)
+		s.WaitJS("the island of the replaced fragment is mounted again",
+			`document.querySelector("#mudando [data-trilha-island]").textContent === "count 100"`)
+	})
+}

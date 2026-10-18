@@ -112,6 +112,9 @@ type Config struct {
 	Drafts DraftStore
 	// Security tunes the hardening headers (zero value = defaults).
 	Security Security
+	// Compression gzips text responses for clients that accept it (zero
+	// value = on). See Compression for what is never compressed.
+	Compression Compression
 	// PipeHeaders are response headers Ctx.Pipe copies from another
 	// service's answer on top of the ones it always copies. It adds to that
 	// list and never replaces it: Set-Cookie does not travel even when named
@@ -354,7 +357,8 @@ type App struct {
 	warned    map[string]bool
 
 	assetMu     sync.RWMutex
-	moduleDeps  sync.Map // module path + "?" + version → the paths it imports (importmap.go)
+	staticGzip  staticGzip // versioned static files, compressed once (compress.go)
+	moduleDeps  sync.Map   // module path + "?" + version → the paths it imports (importmap.go)
 	assets      map[string]assetVersion
 	assetWarned map[string]bool
 }
@@ -579,6 +583,11 @@ func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	if a.instrument {
 		a.mInFlight.Inc()
 		defer a.mInFlight.Dec()
+	}
+	if !a.cfg.Compression.Disabled && acceptsGzip(r) {
+		gw := newGzipWriter(w, r, a.cfg.Compression.minSize())
+		defer gw.close()
+		w = gw
 	}
 	a.dispatch(w, r)
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -41,9 +42,31 @@ type Upstream struct {
 	// CSRF set to Off stops requiring the token on POST/PUT/PATCH/DELETE, for
 	// an API authenticated by key rather than by the session cookie.
 	CSRF string
-	// Transport replaces http.DefaultTransport (mTLS to the API, a test).
+	// Transport replaces UpstreamTransport (mTLS to the API, a test).
 	Transport http.RoundTripper
 }
+
+// UpstreamTransport is the connection pool an Upstream uses when it brings
+// no Transport of its own, and the one an app's own API client should use:
+//
+//	api := &http.Client{Transport: trilha.UpstreamTransport(), Timeout: 15 * time.Second}
+//
+// http.DefaultTransport keeps 2 idle connections per host. That is right for
+// a program that talks to many hosts a little, and wrong for an app whose
+// every page talks to one API: under load each connection past the second is
+// closed when it comes back to the pool, the next burst pays TCP (and TLS)
+// again, and the closed ones pile up in TIME_WAIT (#307). This is a clone of
+// the default with a pool sized for one busy host. It is shared, so the proxy
+// and the app's client reuse the same connections.
+func UpstreamTransport() http.RoundTripper { return upstreamTransport() }
+
+var upstreamTransport = sync.OnceValue(func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.MaxIdleConns = 256
+	t.MaxIdleConnsPerHost = 64
+	t.IdleConnTimeout = 90 * time.Second
+	return t
+})
 
 // upstream is a parsed Upstream: the prefix it answers and the proxy that
 // carries the request.
@@ -83,8 +106,12 @@ func (a *App) parseUpstreams() {
 // flushing are its job. What belongs to the framework is the policy — where
 // the request may go, what credential it carries, and what an error looks like.
 func (a *App) newProxy(up *upstream) *httputil.ReverseProxy {
+	rt := up.cfg.Transport
+	if rt == nil {
+		rt = UpstreamTransport()
+	}
 	return &httputil.ReverseProxy{
-		Transport: up.cfg.Transport,
+		Transport: rt,
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			out, in := pr.Out, pr.In
 			out.URL.Scheme, out.URL.Host = up.target.Scheme, up.target.Host

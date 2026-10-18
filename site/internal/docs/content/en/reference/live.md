@@ -33,7 +33,11 @@ The client:
 - **respects `Retry-After`** on a 429 or a 5xx;
 - **stops** on a 4xx that is not 429: a fragment that answers 403 or 404 is not going to
   start working on the next tick;
-- **never replaces a fragment the visitor is typing into.**
+- **never replaces a fragment the visitor is typing into;**
+- **leaves alone a fragment that came back the same** — the element, the islands in it,
+  the scroll and the selection stay; the nonce and the masked CSRF token, which change in
+  every response, do not count as a change. When the fragment did change, the islands in
+  the new one are mounted.
 
 The first render is already on the page, so a visitor with no JavaScript sees the state as
 it was when the page loaded — old, never broken.

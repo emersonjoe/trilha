@@ -32,7 +32,19 @@ func Config(cfg *trilha.Config) {
 | `Headers` | roda com os cabeçalhos de saída, antes de a requisição partir |
 | `Timeout` | limita a troca inteira (padrão 30s; `trilha.NoTimeout` desliga) |
 | `CSRF` | `trilha.Off` deixa de exigir o token nas escritas |
-| `Transport` | substitui o `http.DefaultTransport` (mTLS até a API, um teste) |
+| `Transport` | substitui o `trilha.UpstreamTransport()` (mTLS até a API, um teste) |
+
+### Um pool para a API
+
+Sem `Transport`, o proxy usa `trilha.UpstreamTransport()`: um clone do
+`http.DefaultTransport` com 64 conexões ociosas por host em vez de 2. O padrão serve a um
+programa que fala um pouco com muitos hosts; um app em que toda página fala com uma API só,
+sob carga, fecharia toda conexão além da segunda e pagaria TCP (e TLS) de novo na rajada
+seguinte. Dê ao cliente de API do próprio app o mesmo pool:
+
+```go
+api := &http.Client{Transport: trilha.UpstreamTransport(), Timeout: 15 * time.Second}
+```
 
 ## O que o framework decide
 

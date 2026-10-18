@@ -32,7 +32,10 @@ O cliente:
 - **respeita o `Retry-After`** num 429 ou num 5xx;
 - **para** num 4xx que não seja 429: fragmento que responde 403 ou 404 não vai começar a
   funcionar no tique seguinte;
-- **nunca troca um fragmento em que o visitante está digitando.**
+- **nunca troca um fragmento em que o visitante está digitando;**
+- **deixa em paz o fragmento que voltou igual** — o elemento, as ilhas dentro dele, a
+  rolagem e a seleção ficam; o nonce e o token CSRF mascarado, que mudam a cada resposta,
+  não contam como mudança. Quando o fragmento mudou, as ilhas do novo são montadas.
 
 O primeiro render já está na página, então quem está sem JavaScript vê o estado de quando
 a página carregou — velho, nunca quebrado.

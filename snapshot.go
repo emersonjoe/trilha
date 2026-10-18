@@ -61,17 +61,27 @@ func (r *TestResponse) Snapshot() PageSnapshot {
 	if r.Request != nil {
 		cookies = append(cookies, r.Request.Cookies()...)
 	}
+	secrets := map[string]bool{}
 	for _, ck := range cookies {
 		with := "{{COOKIE}}"
 		if ck.Name == cookie {
 			with = "{{CSRF}}"
+			secrets[unmaskCSRF(ck.Value)] = true
 		}
 		swaps = append(swaps, swap{ck.Value, with})
 	}
 	// Longest first, so a value that contains another is replaced whole.
 	sort.SliceStable(swaps, func(i, j int) bool { return len(swaps[i].value) > len(swaps[j].value) })
 
-	s := PageSnapshot{Status: r.Code, Header: http.Header{}, Body: normalize(r.Body.String(), swaps), csrfField: field}
+	// The page carries the token masked, different every response (#305): it
+	// is {{CSRF}} as well when it unmasks to the cookie's secret.
+	body := maskedCSRF().ReplaceAllStringFunc(r.Body.String(), func(tok string) string {
+		if secrets[unmaskCSRF(tok)] {
+			return "{{CSRF}}"
+		}
+		return tok
+	})
+	s := PageSnapshot{Status: r.Code, Header: http.Header{}, Body: normalize(body, swaps), csrfField: field}
 	for name, values := range r.Header() {
 		for _, v := range values {
 			v = normalize(v, swaps)
@@ -85,6 +95,8 @@ func (r *TestResponse) Snapshot() PageSnapshot {
 }
 
 type swap struct{ value, with string }
+
+var maskedCSRF = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`m\.[A-Za-z0-9_-]{16,}`) })
 
 var nonceInCSP = sync.OnceValue(func() *regexp.Regexp { return regexp.MustCompile(`'nonce-([^']+)'`) })
 

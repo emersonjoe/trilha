@@ -2,9 +2,12 @@ package trilha
 
 import (
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -266,5 +269,62 @@ func TestLongestUpstreamPrefixWins(t *testing.T) {
 	}
 	if rec := get(t, a, "GET", "/api/x", "", nil); rec.Body.String() != "v1" {
 		t.Fatalf("%q", rec.Body.String())
+	}
+}
+
+// #307 — the proxy keeps a pool sized for one busy API: three bursts of 20
+// concurrent requests open about 20 connections, not one per request past
+// the second, which is what http.DefaultTransport keeps idle per host.
+func TestUpstreamReusesConnectionsUnderLoad(t *testing.T) {
+	burst := func(rt http.RoundTripper) int64 {
+		var opened atomic.Int64
+		s := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(20 * time.Millisecond) // so the 20 overlap
+			w.Write([]byte("ok"))
+		}))
+		s.Config.ConnState = func(_ net.Conn, st http.ConnState) {
+			if st == http.StateNew {
+				opened.Add(1)
+			}
+		}
+		s.Start()
+		defer s.Close()
+		a := upApp(t, s.URL, func(u *Upstream) { u.Transport = rt })
+		h := a.Handler()
+		for range 3 {
+			var wg sync.WaitGroup
+			for range 20 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					rec := httptest.NewRecorder()
+					h.ServeHTTP(rec, httptest.NewRequest("GET", "/api/x", nil))
+					if rec.Code != 200 {
+						t.Errorf("%d", rec.Code)
+					}
+				}()
+			}
+			wg.Wait()
+		}
+		return opened.Load()
+	}
+	n := burst(nil)
+	if n > 25 {
+		t.Fatalf("the default upstream opened %d connections for 3×20 requests", n)
+	}
+	// The contrast that is the reason for it.
+	t.Logf("UpstreamTransport: %d connections; http.DefaultTransport: %d", n,
+		burst(http.DefaultTransport.(*http.Transport).Clone()))
+}
+
+// The app's own API client gets the same pool, shared with the proxy.
+func TestUpstreamTransportIsShared(t *testing.T) {
+	a, b := UpstreamTransport(), UpstreamTransport()
+	if a != b {
+		t.Fatal("two pools")
+	}
+	tr, ok := a.(*http.Transport)
+	if !ok || tr.MaxIdleConnsPerHost < 32 || tr.IdleConnTimeout == 0 || tr.Proxy == nil {
+		t.Fatalf("%+v", a)
 	}
 }

@@ -196,6 +196,20 @@ o token de CSRF, então uma rota de `POST` num app que também serve páginas qu
 [Convenções de arquivo](/pt/referencia/convencoes#o-kind-segue-a-subarvore). Ligar o
 `Config.CSRFForAPI` responde a mesma pergunta pelo outro lado e também cala o aviso.
 
+## CSRF e compressão
+
+As respostas saem comprimidas, e um segredo que se repete numa página comprimida ao lado de
+um texto que o atacante consegue refletir nela é o que o BREACH lê de volta, byte a byte,
+pelo tamanho da resposta. Por isso o token que `c.CSRFToken()`, `trilha.CSRFInput` e
+`c.Island` escrevem é mascarado: um pad de uso único seguido do segredo do cookie em XOR com
+ele — bytes diferentes em cada resposta da mesma sessão. A checagem desmascara o campo e
+compara com o cookie; o valor cru do cookie continua aceito, então um cliente de teste ou um
+script que lê o cookie segue funcionando.
+
+O que o framework não conhece é o segredo do próprio app numa página: uma chave de API
+mostrada uma vez, um código de recuperação. Mande-o numa resposta só dele, ou com
+`Cache-Control: no-store` e nada refletido ao lado.
+
 ## Segredos em repouso
 
 O framework tinha segredo, assinador e cookies assinados. O que não tinha era *cifre isto para
