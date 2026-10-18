@@ -122,6 +122,15 @@ type Assinatura struct {
 	Atualizada time.Time
 }
 
+// Filtro is what the listing asks for: a state (all when empty), a piece of
+// the e-mail (no difference of case; % and _ are text) and the window.
+type Filtro struct {
+	Estado       Estado
+	Q            string
+	Limite       int
+	Deslocamento int
+}
+
 // Fatura is one charge.
 type Fatura struct {
 	ID         string
@@ -158,6 +167,10 @@ type Store interface {
 	// Assinaturas lists the subscriptions in one state, or all of them when
 	// estado is empty, the newest first.
 	Assinaturas(ctx context.Context, estado Estado) ([]Assinatura, error)
+	// PaginaAssinaturas is one page of the listing and how many passed the
+	// filter: the store filters, counts and cuts, so the screen reads twenty
+	// rows and not the whole table.
+	PaginaAssinaturas(ctx context.Context, f Filtro) ([]Assinatura, int, error)
 	// Assinatura finds one, or ErrNaoExiste.
 	Assinatura(ctx context.Context, id string) (Assinatura, error)
 	// Assinar creates a subscription in trial — what the provider's
@@ -291,6 +304,20 @@ func (s *Memoria) Assinaturas(_ context.Context, estado Estado) ([]Assinatura, e
 		return out[i].ID < out[j].ID
 	})
 	return out, nil
+}
+
+func (s *Memoria) PaginaAssinaturas(ctx context.Context, f Filtro) ([]Assinatura, int, error) {
+	todas, _ := s.Assinaturas(ctx, f.Estado)
+	q := strings.ToLower(f.Q)
+	achadas := todas[:0]
+	for _, a := range todas {
+		if strings.Contains(strings.ToLower(a.Email), q) {
+			achadas = append(achadas, a)
+		}
+	}
+	ini := min(max(f.Deslocamento, 0), len(achadas))
+	fim := min(ini+max(f.Limite, 0), len(achadas))
+	return append([]Assinatura{}, achadas[ini:fim]...), len(achadas), nil
 }
 
 func (s *Memoria) Assinatura(_ context.Context, id string) (Assinatura, error) {
