@@ -273,7 +273,9 @@ func TestUiLiveJSKnowsTheAttributes(t *testing.T) {
 	if !found {
 		t.Errorf("ui.live.js is not written to public/: %v", Files)
 	}
-	if len(js) > 6<<10 {
+	// 7 KiB since spec 177: skipping a poll that answered the same HTML cost
+	// half a kilobyte, and it saves a swap and a hydrate on every tick.
+	if len(js) > 7<<10 {
 		t.Errorf("ui.live.js is %d bytes", len(js))
 	}
 }

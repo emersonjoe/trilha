@@ -198,3 +198,55 @@ func TestUIPaginationKeyboard(t *testing.T) {
 		s.WaitJS("the page swapped without a reload", stillMarked)
 	})
 }
+
+// A polled fragment whose answer did not change stays the element it was:
+// replacing it with the same HTML threw away scroll, selection and running
+// animations on every tick, and woke every hydrate listener. The one whose
+// answer changed is still replaced (spec 177).
+func TestUIPollSkipsUnchanged(t *testing.T) {
+	run(t, func(s *uitest.Session) {
+		s.Navigate("/fluxos/vigia")
+		s.Eval(`(() => {
+			document.getElementById("fixo").__same = true;
+			window.__hydrated = 0;
+			document.addEventListener("trilha:hydrate", (e) => { if (e.detail.target.id === "fixo") window.__hydrated++; });
+			window.__start = parseInt(document.querySelector("#conta p").textContent.split(" ")[1], 10);
+		})()`, nil)
+		s.WaitJS("the counting fragment was replaced at least three times",
+			`parseInt(document.querySelector("#conta p").textContent.split(" ")[1], 10) >= window.__start + 3`)
+		s.WaitJS("the unchanged fragment is still the same element, never hydrated again",
+			`document.getElementById("fixo").__same === true && window.__hydrated === 0`)
+	})
+}
+
+// A long streamed answer costs one layout per frame, not one per token: the
+// bubble grew by rebuilding its whole text and the log read scrollHeight —
+// a forced layout — after every one of the 1500 tokens (spec 177).
+func TestUIChatStreamsWithoutLayoutPerToken(t *testing.T) {
+	run(t, func(s *uitest.Session) {
+		s.Navigate("/fluxos/conversa")
+		s.Eval(`(() => {
+			const log = document.getElementById("chat-log");
+			const get = Object.getOwnPropertyDescriptor(Element.prototype, "scrollHeight").get;
+			window.__reads = 0;
+			Object.defineProperty(log, "scrollHeight", { get() { window.__reads++; return get.call(this); } });
+		})()`, nil)
+		s.Fill("#chat-input", "tell me a long story")
+		s.Click("#chat-form button")
+		s.WaitJS("the whole answer arrived in the bubble",
+			`[...document.querySelectorAll("#chat-log .ui-msg")].some((m) => (m.textContent.match(/w/g) || []).length === 1500)`)
+		s.WaitJS("the log scrolled at most once per frame, not once per token", `window.__reads < 150`)
+	})
+}
+
+// Twenty islands on a page watch the document with one observer, not twenty:
+// every change anywhere on the page ran one callback per island to ask
+// whether it had left (spec 177).
+func TestUIIslandsShareOneObserver(t *testing.T) {
+	run(t, func(s *uitest.Session) {
+		s.Navigate("/fluxos/ilhas")
+		s.WaitJS("the twenty islands mounted",
+			`document.querySelectorAll("[data-trilha-mounted] button").length === 20`)
+		s.WaitJS("one observer watches the document for all of them", `window.__docObservers === 1`)
+	})
+}

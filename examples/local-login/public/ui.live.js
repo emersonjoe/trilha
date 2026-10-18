@@ -1,4 +1,4 @@
-/* trilha ui 0162f64b105c160a */
+/* trilha ui d8d9db93716793e5 */
 // Kit ui do Trilha — fragmentos que se atualizam sozinhos. Carregado só por
 // `ui.LiveScript`.
 (() => {
@@ -40,9 +40,21 @@
   };
   const fail = (el) => show(el, true);
 
+  // The same HTML again would throw away scroll, selection and animations to
+  // show nothing new. The parser serializes both sides, so they compare.
+  const same = (s, old, html) => {
+    if (html === s.last) return true;
+    const t = document.createElement("template");
+    t.innerHTML = html.trim();
+    return t.content.childElementCount === 1 && t.content.firstElementChild.outerHTML === old.outerHTML;
+  };
+
   const swap = (id, html) => {
-    const old = document.getElementById(id);
+    const old = document.getElementById(id), s = state.get(id) || {};
     if (!old || old.contains(document.activeElement)) return; // never type into a fragment that is being replaced
+    const skip = same(s, old, html);
+    s.last = html;
+    if (skip) return;
     old.outerHTML = html;
     const el = document.getElementById(id);
     if (el) document.dispatchEvent(new CustomEvent("trilha:hydrate", { detail: { target: el } }));

@@ -87,6 +87,23 @@
     };
   };
 
+  // One observer watches the document for every mounted island and aborts
+  // the signal of each one that left the page. One per island ran N
+  // callbacks on every change anywhere in the document.
+  const mounted = new Map(); // element → AbortController
+  let watcher = null;
+  const watch = (el, ac) => {
+    mounted.set(el, ac);
+    if (watcher) return;
+    watcher = new MutationObserver(() => {
+      for (const [e, a] of mounted) {
+        if (!e.isConnected) { a.abort(); mounted.delete(e); }
+      }
+      if (!mounted.size) { watcher.disconnect(); watcher = null; }
+    });
+    watcher.observe(document, { childList: true, subtree: true });
+  };
+
   // mount imports each island's module once. The mark is what keeps an element
   // from mounting twice when this runs again after a swap.
   const mount = (root) => {
@@ -102,10 +119,7 @@
       // The signal is aborted when the element leaves the page, so an island
       // inside a fragment that gets swapped stops writing to what is gone.
       const ac = new AbortController();
-      const gone = new MutationObserver(() => {
-        if (!el.isConnected) { ac.abort(); gone.disconnect(); }
-      });
-      gone.observe(document, { childList: true, subtree: true });
+      watch(el, ac);
       import(src)
         .then((mod) => {
           if (typeof mod.default !== "function") {
