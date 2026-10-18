@@ -469,3 +469,12 @@ func extraiConvite(t *testing.T, body string) string {
 	rest := body[i+len(`href="`):]
 	return rest[:strings.Index(rest, `"`)]
 }
+
+// Spec 177: the tree's script goes with the tree. In the layout it was
+// downloaded by every page, against what the layout's own comment promised.
+func TestTreeScriptOnlyWhereTheTreeIs(t *testing.T) {
+	c := newClient(t)
+	if body := c.Get("/ficha").WantStatus(200).Body.String(); strings.Contains(body, "ui.tree.js") {
+		t.Fatal("/ficha has no tree and still loads ui.tree.js")
+	}
+}

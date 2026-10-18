@@ -57,6 +57,9 @@ func tela(c *trilha.Ctx, in clientes.Cliente, errs trilha.FieldErrors, aviso str
 		h.If(aviso != "", ui.Alert(aviso, h.Data("ui-fade", "4000"), ui.Icon("circle-check"))),
 		formulario(c, in, errs),
 		lista(c, c.Query("q")),
+		// O comportamento da árvore mora num arquivo à parte e vem com a
+		// árvore: uma página sem ela não baixa nada disso.
+		ui.TreeScript(c),
 	)
 }
 
