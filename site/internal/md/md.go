@@ -27,6 +27,10 @@ type Options struct {
 	// Locale picks the language of generated labels (callout titles). Empty
 	// means "en".
 	Locale string
+	// Size answers the dimensions of an image, by the path written in the
+	// Markdown; a figure that knows them keeps its room before it loads.
+	// Nil, or false, writes the image without them.
+	Size func(src string) (w, h int, ok bool)
 }
 
 // Callouts are written as :::name. The class names stay in Portuguese (they
@@ -193,10 +197,16 @@ func (r *renderer) codeBlock(lang, code string) {
 func (r *renderer) image(line string) {
 	parts := reImage.FindStringSubmatch(line)
 	src := parts[2]
+	size := ""
+	if r.opt.Size != nil {
+		if w, h, ok := r.opt.Size(src); ok {
+			size = fmt.Sprintf(` width="%d" height="%d"`, w, h)
+		}
+	}
 	if strings.HasPrefix(src, "/") {
 		src = r.opt.Base + src
 	}
-	fmt.Fprintf(&r.sb, `<figure class="doc-figure"><img src="%s" alt="%s" loading="lazy" decoding="async">`, html.EscapeString(src), html.EscapeString(parts[1]))
+	fmt.Fprintf(&r.sb, `<figure class="doc-figure"><img src="%s" alt="%s"%s loading="lazy" decoding="async">`, html.EscapeString(src), html.EscapeString(parts[1]), size)
 	if parts[3] != "" {
 		fmt.Fprintf(&r.sb, "<figcaption>%s</figcaption>", html.EscapeString(parts[3]))
 	}

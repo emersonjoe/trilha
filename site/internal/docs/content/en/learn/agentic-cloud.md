@@ -187,7 +187,7 @@ token. Then select **New product** and enter:
   homologation — use `AI` only when its provider is configured in the runner
   environment.
 
-![Product Studio form for creating the application](/docs/agentic-cloud/cloud-product-studio-create.png "The user describes the product in the UI and types no generation command.")
+![Product Studio form for creating the application](/docs/agentic-cloud/cloud-product-studio-create.webp "The user describes the product in the UI and types no generation command.")
 
 When **Create product** is selected, the Cloud performs fixed, auditable
 operations:
@@ -204,7 +204,7 @@ For review, use **Issue key** with `runs:read` and `runs:write`, select **Use in
 this session**, open **Details**, and inspect every check. **Approve** completes
 `review → done` and records `run.closed` in the audit trail.
 
-![Approved execution evidence in Trilha Cloud](/docs/agentic-cloud/cloud-product-studio-evidence.png "The UI shows the task, worker, branch, commit, checks and log before the human decision.")
+![Approved execution evidence in Trilha Cloud](/docs/agentic-cloud/cloud-product-studio-evidence.webp "The UI shows the task, worker, branch, commit, checks and log before the human decision.")
 
 Managed mode is opt-in. Names are validated, every workspace must be a direct
 child of `TRILHA_CLOUD_WORKSPACE_ROOT`, user input is never evaluated by a
@@ -249,7 +249,7 @@ Open `http://localhost:3000`. Under **Configure access**, first enter the same
 Credentials remain in that browser's `sessionStorage` and are sent as Bearer
 tokens to the Cloud APIs.
 
-![Trilha Cloud Configure access dialog](/docs/agentic-cloud/cloud-configure-access.png "Configure the admin token and, after issuing it, the worker API key.")
+![Trilha Cloud Configure access dialog](/docs/agentic-cloud/cloud-configure-access.webp "Configure the admin token and, after issuing it, the worker API key.")
 
 ### 2. Generate the user registration application
 
@@ -367,7 +367,7 @@ In Trilha Cloud, select **Register project** and enter:
 - **Repository:** the Git URL or a local reference meaningful to the operator,
   for example `local:///workspace/cadastro-usuarios`.
 
-![Register project dialog](/docs/agentic-cloud/cloud-register-project.png "The Cloud identifies the project; the checkout stays on the worker machine.")
+![Register project dialog](/docs/agentic-cloud/cloud-register-project.webp "The Cloud identifies the project; the checkout stays on the worker machine.")
 
 The same step can be automated:
 
@@ -386,7 +386,7 @@ In the **Fleet** section, select **Add worker**, choose `cadastro-usuarios`, nam
 shows, once, the install command built from the project you actually picked and the `tc_…`
 secret, each with its own copy button.
 
-![Add worker dialog](/docs/agentic-cloud/cloud-issue-key.png "Picking the project fills in the install command and issues a worker key scoped to it.")
+![Add worker dialog](/docs/agentic-cloud/cloud-issue-key.webp "Picking the project fills in the install command and issues a worker key scoped to it.")
 
 Paste the command on the machine that will run the worker — it installs `trilha-runner`,
 `trilha-spec` and the Claude Code CLI, creates a dedicated `runner` system user, generates a
@@ -460,9 +460,9 @@ commit and passed evidence for `go test ./...` and `make check`. Open
 **Details**, inspect the commands, exit codes, branch, commit and log; only
 then select **Approve**.
 
-![Run evidence under review](/docs/agentic-cloud/cloud-run-review.png "The review shows the task, worker, branch, commit, every check and the log before approval.")
+![Run evidence under review](/docs/agentic-cloud/cloud-run-review.webp "The review shows the task, worker, branch, commit, every check and the log before approval.")
 
-![Completed run in the portal](/docs/agentic-cloud/cloud-run-done.png "After approval, the run is done and the worker returns to idle.")
+![Completed run in the portal](/docs/agentic-cloud/cloud-run-done.webp "After approval, the run is done and the worker returns to idle.")
 
 ### 9. Test login, invitation registration and password change
 
@@ -479,28 +479,28 @@ PORT=3100 trilha dev
 Open `http://localhost:3100/entrar` and sign in with `admin@example.com` and
 `senha-segura-123`.
 
-![Generated application login](/docs/agentic-cloud/users-login.png "The initial administrator comes from ADMIN_EMAIL and ADMIN_PASSWORD.")
+![Generated application login](/docs/agentic-cloud/users-login.webp "The initial administrator comes from ADMIN_EMAIL and ADMIN_PASSWORD.")
 
 Open `http://localhost:3100/admin/usuarios`, enter the person's e-mail and
 name, then select **Convidar**. The person starts inactive and without a
 password; the administrator receives a temporary link instead of choosing the
 password for them.
 
-![User registration by invitation](/docs/agentic-cloud/users-admin.png "The screen shows the one-time link and the person while still inactive.")
+![User registration by invitation](/docs/agentic-cloud/users-admin.webp "The screen shows the one-time link and the person while still inactive.")
 
 Open the `/convite/{token}` link in a private window. The invited person sets
 a password with at least 12 characters; the token is consumed, the account is
 activated and the browser returns to login.
 
-![First password definition](/docs/agentic-cloud/users-invite.png "The password originates with the user and the link stops working after use.")
+![First password definition](/docs/agentic-cloud/users-invite.webp "The password originates with the user and the link stops working after use.")
 
 After signing in, open `http://localhost:3100/perfil`. In the **Senha** card,
 enter the current password and a new one. The application closes the sessions
 and requires a new login with the new password.
 
-![Password change in the profile](/docs/agentic-cloud/users-password.png "The change asks for the current password and closes the session when complete.")
+![Password change in the profile](/docs/agentic-cloud/users-password.webp "The change asks for the current password and closes the session when complete.")
 
-![Confirmation after changing the password](/docs/agentic-cloud/users-password-changed.png "The logout after the change confirms that the new credential must be used.")
+![Confirmation after changing the password](/docs/agentic-cloud/users-password-changed.webp "The logout after the change confirms that the new credential must be used.")
 
 ### 10. Limits of this example
 
@@ -543,9 +543,9 @@ The delivery profile exists only on the VPS in `/etc/trilha-runner/delivery.json
 Cloud does not send commands, Git keys or Docker socket access. The service runs as a dedicated
 user without sudo, receives a minimal environment and redacts secret values from returned logs.
 
-![Environments and delivery in the portal](/docs/agentic-cloud/cloud-environments.png "The environment shows secret names only, current revision, allowed profile and auditable actions.")
+![Environments and delivery in the portal](/docs/agentic-cloud/cloud-environments.webp "The environment shows secret names only, current revision, allowed profile and auditable actions.")
 
-![Responsive portal at 390 pixels](/docs/agentic-cloud/cloud-mobile.png "Specifications, Kanban, environments, runs and fleet remain operable on a mobile screen.")
+![Responsive portal at 390 pixels](/docs/agentic-cloud/cloud-mobile.webp "Specifications, Kanban, environments, runs and fleet remain operable on a mobile screen.")
 
 ### 12. Pause a project and let the circuit breaker pull the brake
 

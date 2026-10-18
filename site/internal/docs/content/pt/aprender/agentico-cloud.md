@@ -188,7 +188,7 @@ informe o token administrativo. Depois selecione **Novo produto** e preencha:
   determinística — use `AI` somente quando o provedor estiver configurado no
   ambiente do runner.
 
-![Formulário do Product Studio para criar a aplicação](/docs/agentic-cloud/cloud-product-studio-create.png "O usuário descreve o produto na UI; nenhum comando de geração é digitado por ele.")
+![Formulário do Product Studio para criar a aplicação](/docs/agentic-cloud/cloud-product-studio-create.webp "O usuário descreve o produto na UI; nenhum comando de geração é digitado por ele.")
 
 Ao selecionar **Criar produto**, o Cloud executa operações fixas e auditáveis:
 
@@ -204,7 +204,7 @@ Para revisar, use **Emitir chave** com os escopos `runs:read` e `runs:write`,
 selecione **Usar nesta sessão**, abra **Detalhes** e confira cada check. O botão
 **Aprovar** encerra `review → done` e grava `run.closed` na auditoria.
 
-![Evidências da execução aprovada no Trilha Cloud](/docs/agentic-cloud/cloud-product-studio-evidence.png "A UI mostra task, worker, branch, commit, checks e log antes da decisão humana.")
+![Evidências da execução aprovada no Trilha Cloud](/docs/agentic-cloud/cloud-product-studio-evidence.webp "A UI mostra task, worker, branch, commit, checks e log antes da decisão humana.")
 
 O modo gerenciado é opt-in. Nomes são validados, cada workspace precisa ser
 filho direto de `TRILHA_CLOUD_WORKSPACE_ROOT`, entradas do usuário nunca viram
@@ -249,7 +249,7 @@ primeiro o mesmo `TRILHA_CLOUD_ADMIN_TOKEN`. A API key pode ficar vazia até ser
 emitida. As credenciais ficam somente no `sessionStorage` daquele navegador e
 são enviadas como Bearer tokens às APIs do Cloud.
 
-![Diálogo Configurar acesso do Trilha Cloud](/docs/agentic-cloud/cloud-configure-access.png "Configure o token administrativo e, depois de emiti-la, a API key do worker.")
+![Diálogo Configurar acesso do Trilha Cloud](/docs/agentic-cloud/cloud-configure-access.webp "Configure o token administrativo e, depois de emiti-la, a API key do worker.")
 
 ### 2. Gere a aplicação de cadastro de usuários
 
@@ -367,7 +367,7 @@ No Trilha Cloud, selecione **Registrar projeto** e informe:
 - **Repositório:** a URL Git ou uma referência local compreensível para o
   operador, por exemplo `local:///workspace/cadastro-usuarios`.
 
-![Diálogo Registrar projeto](/docs/agentic-cloud/cloud-register-project.png "O Cloud identifica o projeto; o checkout continua na máquina do worker.")
+![Diálogo Registrar projeto](/docs/agentic-cloud/cloud-register-project.webp "O Cloud identifica o projeto; o checkout continua na máquina do worker.")
 
 O mesmo passo pode ser automatizado:
 
@@ -386,7 +386,7 @@ o nome `cadastro-usuarios-worker` e confirme. Isso emite uma chave com os escopo
 qualquer chave passa — e mostra, uma única vez, o comando de instalação já montado a partir do
 projeto escolhido e o segredo `tc_…`, cada um com seu próprio botão de copiar.
 
-![Diálogo Adicionar worker](/docs/agentic-cloud/cloud-issue-key.png "Escolher o projeto preenche o comando de instalação e emite uma chave de worker presa a ele.")
+![Diálogo Adicionar worker](/docs/agentic-cloud/cloud-issue-key.webp "Escolher o projeto preenche o comando de instalação e emite uma chave de worker presa a ele.")
 
 Cole o comando na máquina que vai rodar o worker — ele instala o `trilha-runner`, o
 `trilha-spec` e o CLI do Claude Code, cria um usuário de sistema `runner` dedicado, gera uma
@@ -461,9 +461,9 @@ O resultado esperado é `TASK-001 → review`, uma branch
 `make check`. Abra **Detalhes**, confira os comandos, códigos de saída, branch,
 commit e log; só então selecione **Aprovar**.
 
-![Evidências da execução em revisão](/docs/agentic-cloud/cloud-run-review.png "A revisão mostra a task, o worker, a branch, o commit, cada check e o log antes da aprovação.")
+![Evidências da execução em revisão](/docs/agentic-cloud/cloud-run-review.webp "A revisão mostra a task, o worker, a branch, o commit, cada check e o log antes da aprovação.")
 
-![Execução concluída no portal](/docs/agentic-cloud/cloud-run-done.png "Depois da aprovação, a execução fica concluída e o worker volta a ficar ocioso.")
+![Execução concluída no portal](/docs/agentic-cloud/cloud-run-done.webp "Depois da aprovação, a execução fica concluída e o worker volta a ficar ocioso.")
 
 ### 9. Teste login, cadastro por convite e troca de senha
 
@@ -480,27 +480,27 @@ PORT=3100 trilha dev
 Abra `http://localhost:3100/entrar` e entre com `admin@example.com` e
 `senha-segura-123`.
 
-![Login da aplicação gerada](/docs/agentic-cloud/users-login.png "O administrador inicial vem de ADMIN_EMAIL e ADMIN_PASSWORD.")
+![Login da aplicação gerada](/docs/agentic-cloud/users-login.webp "O administrador inicial vem de ADMIN_EMAIL e ADMIN_PASSWORD.")
 
 Abra `http://localhost:3100/admin/usuarios`, informe o e-mail e o nome da
 pessoa e selecione **Convidar**. A pessoa nasce inativa e sem senha; o
 administrador recebe um link temporário, não escolhe a senha dela.
 
-![Cadastro de usuário por convite](/docs/agentic-cloud/users-admin.png "A tela mostra o link de uso único e a pessoa ainda inativa.")
+![Cadastro de usuário por convite](/docs/agentic-cloud/users-admin.webp "A tela mostra o link de uso único e a pessoa ainda inativa.")
 
 Abra o link `/convite/{token}` em uma janela privada. A pessoa convidada define
 uma senha com pelo menos 12 caracteres; o token é consumido, a conta fica ativa
 e o navegador volta para o login.
 
-![Definição da primeira senha](/docs/agentic-cloud/users-invite.png "A senha nasce com o próprio usuário e o link deixa de valer depois do uso.")
+![Definição da primeira senha](/docs/agentic-cloud/users-invite.webp "A senha nasce com o próprio usuário e o link deixa de valer depois do uso.")
 
 Depois de entrar, abra `http://localhost:3100/perfil`. No card **Senha**,
 informe a atual e uma nova senha. A aplicação encerra as sessões e exige novo
 login com a senha nova.
 
-![Troca de senha no perfil](/docs/agentic-cloud/users-password.png "A troca pede a senha atual e encerra a sessão ao concluir.")
+![Troca de senha no perfil](/docs/agentic-cloud/users-password.webp "A troca pede a senha atual e encerra a sessão ao concluir.")
 
-![Confirmação após trocar a senha](/docs/agentic-cloud/users-password-changed.png "O logout após a troca confirma que a nova credencial precisa ser usada.")
+![Confirmação após trocar a senha](/docs/agentic-cloud/users-password-changed.webp "O logout após a troca confirma que a nova credencial precisa ser usada.")
 
 ### 10. Limites deste exemplo
 
@@ -554,9 +554,9 @@ dedicado, sem sudo e com escrita restrita a `/var/lib/trilha-runner`. O processo
 recebe um ambiente mínimo, e qualquer segredo que apareça na saída é mascarado antes do log ser
 devolvido ao Cloud.
 
-![Ambientes e entregas no portal](/docs/agentic-cloud/cloud-environments.png "O ambiente mostra apenas nomes de segredos, revisão atual, perfil permitido e ações auditáveis.")
+![Ambientes e entregas no portal](/docs/agentic-cloud/cloud-environments.webp "O ambiente mostra apenas nomes de segredos, revisão atual, perfil permitido e ações auditáveis.")
 
-![Portal responsivo em 390 pixels](/docs/agentic-cloud/cloud-mobile.png "Specs, Kanban, ambientes, execuções e frota continuam operáveis em uma tela móvel.")
+![Portal responsivo em 390 pixels](/docs/agentic-cloud/cloud-mobile.webp "Specs, Kanban, ambientes, execuções e frota continuam operáveis em uma tela móvel.")
 
 ### 12. Pause um projeto e deixe o disjuntor puxar o freio
 

@@ -115,3 +115,22 @@ func TestBlockImage(t *testing.T) {
 		t.Fatalf("missing %q in %s", want, out)
 	}
 }
+
+// Spec 177: with Size, the figure says its dimensions — the browser keeps the
+// room before the image arrives. The path asked about is the one written,
+// before the base.
+func TestBlockImageSize(t *testing.T) {
+	var asked string
+	size := func(src string) (int, int, bool) { asked = src; return 1440, 1100, true }
+	out, _ := Render(`![Portal](/docs/cloud.webp)`, Options{Base: "/trilha", Size: size})
+	if want := `<img src="/trilha/docs/cloud.webp" alt="Portal" width="1440" height="1100" loading="lazy" decoding="async">`; !strings.Contains(out, want) {
+		t.Fatalf("missing %q in %s", want, out)
+	}
+	if asked != "/docs/cloud.webp" {
+		t.Fatalf("Size was asked about %q", asked)
+	}
+	unknown := func(string) (int, int, bool) { return 0, 0, false }
+	if out, _ := Render(`![x](/docs/nada.webp)`, Options{Size: unknown}); strings.Contains(out, "width=") {
+		t.Fatalf("an unknown size wrote one: %s", out)
+	}
+}

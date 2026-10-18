@@ -885,7 +885,7 @@ func Tooltip(text string, children ...h.Node) h.Node {
 // Avatar shows an image or the initials as fallback.
 func Avatar(initials, src string) h.Node {
 	if src != "" {
-		return h.Span(h.Class("ui-avatar"), h.Img(h.Src(src), h.Alt(initials)))
+		return h.Span(h.Class("ui-avatar"), h.Img(h.Src(src), h.Alt(initials), h.Attr("loading", "lazy"), h.Attr("decoding", "async")))
 	}
 	return h.Span(h.Class("ui-avatar"), h.Aria("label", initials), h.Text(initials))
 }

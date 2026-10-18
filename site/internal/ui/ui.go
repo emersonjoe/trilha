@@ -121,7 +121,7 @@ func DocPage(c *trilha.Ctx, p docs.Page) (h.Node, error) {
 			SetAlternate(c, l.Code, t.Path())
 		}
 	}
-	r := docs.Render(p, c.Base(), demos.Renderer(p.Locale))
+	r := docs.Render(p, c.Base(), demos.Renderer(p.Locale), imageSizes(c.App().Config().Public))
 	prev, next := docs.Neighbors(p)
 	b := c.Base()
 	return h.Div(h.Class("docs"),

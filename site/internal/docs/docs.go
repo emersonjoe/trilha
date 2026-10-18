@@ -208,8 +208,9 @@ type Rendered struct {
 	Headings []md.Heading
 }
 
-// Render converts the page body with links prefixed by base.
-func Render(p Page, base string, demo func(string) string) Rendered {
-	html, hs := md.Render(p.Body, md.Options{Base: base, Demo: demo, Locale: p.Locale})
+// Render converts the page body with links prefixed by base; size answers the
+// dimensions of an image (nil leaves them out).
+func Render(p Page, base string, demo func(string) string, size func(string) (int, int, bool)) Rendered {
+	html, hs := md.Render(p.Body, md.Options{Base: base, Demo: demo, Locale: p.Locale, Size: size})
 	return Rendered{Page: p, HTML: html, Headings: hs}
 }

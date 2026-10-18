@@ -297,7 +297,7 @@ func TestBasePathPrefixesLinks(t *testing.T) {
 func TestBasePathPrefixesDocumentationImages(t *testing.T) {
 	t.Setenv("TRILHA_BASE_PATH", "/trilha")
 	_, body := get(t, "/pt/aprender/agentico-cloud")
-	if !strings.Contains(body, `src="/trilha/docs/agentic-cloud/cloud-run-review.png"`) {
+	if !strings.Contains(body, `src="/trilha/docs/agentic-cloud/cloud-run-review.webp"`) {
 		t.Fatal("documentation images must carry the base path")
 	}
 	if strings.Contains(body, `src="/docs/agentic-cloud/`) {
@@ -891,6 +891,50 @@ func TestCookbookSourcesAreEmbedded(t *testing.T) {
 		}
 		if string(got) != string(want) {
 			t.Errorf("%s drifted from examples/cookbook; copy the sources again", e.Name())
+		}
+	}
+}
+
+// Spec 177: a documentation image is sized for the page that shows it. The
+// screenshots of one chapter were 2.6 MB of PNG, read again on every visit.
+func TestDocumentationImagesFitTheBudget(t *testing.T) {
+	const budget = 150 << 10
+	err := fs.WalkDir(os.DirFS("public/docs"), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if info.Size() > budget {
+			t.Errorf("public/docs/%s is %d KB, over %d KB: convert it to WebP (convert in.png -quality 82 -define webp:method=6 out.webp)",
+				p, info.Size()>>10, budget>>10)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Spec 177: every figure says its size, so the page does not jump when the
+// image arrives, and a narrow screenshot is not stretched to the column.
+func TestDocumentationFiguresHaveTheirSize(t *testing.T) {
+	t.Setenv("TRILHA_BASE_PATH", "")
+	for _, path := range []string{"/learn/agentic-cloud", "/pt/aprender/agentico-cloud"} {
+		_, body := get(t, path)
+		imgs := regexp.MustCompile(`<figure class="doc-figure"><img [^>]*>`).FindAllString(body, -1)
+		if len(imgs) == 0 {
+			t.Fatalf("%s: no figure", path)
+		}
+		for _, img := range imgs {
+			if !regexp.MustCompile(`width="[1-9][0-9]*" height="[1-9][0-9]*"`).MatchString(img) {
+				t.Errorf("%s: figure without its size: %s", path, img)
+			}
+		}
+		if !strings.Contains(body, `cloud-mobile.webp" alt=`) || !strings.Contains(body, `width="390"`) {
+			t.Errorf("%s: the phone screenshot does not carry its own width", path)
 		}
 	}
 }
