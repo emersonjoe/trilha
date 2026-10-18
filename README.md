@@ -217,7 +217,9 @@ MCP server at `/mcp`) and the chapter
 [AI and agents](https://emersonjoe.github.io/trilha/learn/ai-and-agents).
 
 For the agent that *edits* your app rather than the one it runs, `trilha agents` writes an
-`AGENTS.md` with the conventions, the commands and what not to do. It is opt-in: `trilha new`
+`AGENTS.md` with the conventions, the commands, ten rules of how code is written (performance,
+design patterns, clean code, reuse, review for size, OWASP and NIST) and what not to do, plus
+the checklist behind the rules as the `trilha-quality` skill. It is opt-in: `trilha new`
 on its own writes nothing. This documentation is also published as plain text, at
 [/llms.txt](https://emersonjoe.github.io/trilha/llms.txt) and
 [/llms-full.txt](https://emersonjoe.github.io/trilha/llms-full.txt).

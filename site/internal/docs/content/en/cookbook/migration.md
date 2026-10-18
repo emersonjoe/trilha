@@ -325,9 +325,9 @@ same thing — nothing has to be recreated:
 go get -u github.com/emersonjoe/trilha@latest
 go install github.com/emersonjoe/trilha/cmd/trilha@latest
 trilha gen                 # the generated file must match the CLI's version
-trilha agents              # writes AGENTS.md and CLAUDE.md (--lang pt for Portuguese)
+trilha agents              # writes AGENTS.md, CLAUDE.md and the quality skill (--lang pt for Portuguese)
 trilha check               # the single gate: gen, gofmt, vet, test, audit, openapi
-git add AGENTS.md CLAUDE.md trilha_gen.go
+git add AGENTS.md CLAUDE.md .claude/skills/trilha-quality trilha_gen.go
 ```
 
 Both files are meant to be committed: the agent reads them from the repository, not from

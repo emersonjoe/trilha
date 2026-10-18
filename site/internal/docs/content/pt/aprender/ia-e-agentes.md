@@ -241,10 +241,16 @@ O `--agents` é flag do `new`; num projeto que já existe o comando é o `trilha
 atualização vinda de uma versão anterior tem cinco linhas na
 [receita de migração](/pt/receitas/migracao#ligar-os-arquivos-de-agente-num-projeto-que-ja-existe).
 
-Ele grava dois arquivos na raiz. O `AGENTS.md` é do framework: as três convenções, os comandos
-e o que cada um verifica, e o que não fazer (editar `trilha_gen.go`, acrescentar dependência,
-pôr segredo no código). O `CLAUDE.md` é seu: três linhas apontando para o `AGENTS.md` e espaço
-para o que este repositório precisar.
+Ele grava três arquivos. O `AGENTS.md` é do framework: as três convenções, os comandos e o que
+cada um verifica, as dez regras de como o código é escrito no projeto, e o que não fazer (editar
+`trilha_gen.go`, acrescentar dependência, pôr segredo no código). As regras são as que uma
+revisão teria de repetir: nada de render à toa, carregar só o que a página usa, cache e versão
+em toda requisição, nenhuma consulta dentro de laço e índice para todo filtro, imagem com
+tamanho, padrões só onde tiram código, código limpo, reúso primeiro, o menor diff legível, e
+OWASP ASVS e NIST SSDF por padrão. O checklist delas — o que fazer e o que procurar — é o
+`.claude/skills/trilha-quality/SKILL.md`, que o Claude Code carrega como skill e outro agente
+lê pelo link. O `CLAUDE.md` é seu: três linhas apontando para o `AGENTS.md` e espaço para o que
+este repositório precisar.
 
 Nenhum dos dois existe sem que você peça. Suporte a agentes é escolha do time, não convenção do
 framework, então `trilha new` sozinho deixa seu projeto exatamente como deixava antes.

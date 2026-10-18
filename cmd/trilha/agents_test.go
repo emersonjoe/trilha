@@ -39,13 +39,15 @@ func TestAgentsMatchesUsage(t *testing.T) {
 		if _, err := scaffold.WriteAgents(dir, scaffold.Data{Name: "loja", Lang: l}, false); err != nil {
 			t.Fatal(err)
 		}
-		b, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, c := range commands(string(b)) {
-			if !strings.Contains(msgs["usage"][0], c) && !strings.Contains(msgs["usage"][1], c) {
-				t.Errorf("AGENTS.md (%s) names %q, which the CLI does not have", l, c)
+		for _, f := range []string{"AGENTS.md", scaffold.SkillPath} {
+			b, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(f)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range commands(string(b)) {
+				if !strings.Contains(msgs["usage"][0], c) && !strings.Contains(msgs["usage"][1], c) {
+					t.Errorf("%s (%s) names %q, which the CLI does not have", f, l, c)
+				}
 			}
 		}
 	}
