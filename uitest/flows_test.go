@@ -208,6 +208,7 @@ func TestUIPollSkipsUnchanged(t *testing.T) {
 		s.Navigate("/fluxos/vigia")
 		s.Eval(`(() => {
 			document.getElementById("fixo").__same = true;
+			document.getElementById("comscript").__same = true;
 			window.__hydrated = 0;
 			document.addEventListener("trilha:hydrate", (e) => { if (e.detail.target.id === "fixo") window.__hydrated++; });
 			window.__start = parseInt(document.querySelector("#conta p").textContent.split(" ")[1], 10);
@@ -216,6 +217,8 @@ func TestUIPollSkipsUnchanged(t *testing.T) {
 			`parseInt(document.querySelector("#conta p").textContent.split(" ")[1], 10) >= window.__start + 3`)
 		s.WaitJS("the unchanged fragment is still the same element, never hydrated again",
 			`document.getElementById("fixo").__same === true && window.__hydrated === 0`)
+		s.WaitJS("a fragment whose only change is the CSP nonce is still the same element (#306)",
+			`document.getElementById("comscript").__same === true`)
 	})
 }
 

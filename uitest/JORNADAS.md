@@ -351,10 +351,10 @@ tira de alguém o que ele veio fazer.
 ### TestUIPollSkipsUnchanged — Fragmento vivo que não mudou fica onde está (spec 177)
 
 - **Jornada**: navegar e listar. **Risco**: a cada tique a tela pisca, perde a rolagem e a seleção, e cada componente dentro dela reinicia, sem que nada tenha mudado.
-- **Pré-condições**: `/fluxos/vigia` com dois `ui.Poll("200ms", "")`: `#fixo` responde sempre o mesmo HTML, `#conta` responde quantas vezes foi pedido.
+- **Pré-condições**: `/fluxos/vigia` com três `ui.Poll("200ms", "")`: `#fixo` responde sempre o mesmo HTML, `#comscript` o mesmo HTML com um `<script nonce>` (o nonce muda a cada resposta, #306), `#conta` responde quantas vezes foi pedido.
 - **Dados**: nenhum; o contador vive no processo da fixture.
 - **Passos**: abrir a página; marcar o elemento `#fixo` e contar os `trilha:hydrate` dele; esperar `#conta` avançar três vezes.
-- **Resultado esperado**: `#conta` foi trocado e mostra o número novo; `#fixo` é o mesmo elemento marcado e não recebeu nenhum `trilha:hydrate`.
+- **Resultado esperado**: `#conta` foi trocado e mostra o número novo; `#fixo` e `#comscript` são os mesmos elementos marcados, e `#fixo` não recebeu nenhum `trilha:hydrate`.
 
 ### TestUIChatStreamsWithoutLayoutPerToken — Resposta longa do chat não força um layout por palavra (spec 177)
 

@@ -1,4 +1,4 @@
-/* trilha ui d8d9db93716793e5 */
+/* trilha ui 333a92a699b6c114 */
 // Kit ui do Trilha — fragmentos que se atualizam sozinhos. Carregado só por
 // `ui.LiveScript`.
 (() => {
@@ -41,12 +41,14 @@
   const fail = (el) => show(el, true);
 
   // The same HTML again would throw away scroll, selection and animations to
-  // show nothing new. The parser serializes both sides, so they compare.
+  // show nothing new. The parser serializes both sides, so they compare, and
+  // the CSP nonce, new in every answer, is not a change (#306).
+  const bare = (h) => h.replace(/ nonce="[^"]*"/g, "");
   const same = (s, old, html) => {
-    if (html === s.last) return true;
+    if (s.last !== undefined && bare(html) === bare(s.last)) return true;
     const t = document.createElement("template");
     t.innerHTML = html.trim();
-    return t.content.childElementCount === 1 && t.content.firstElementChild.outerHTML === old.outerHTML;
+    return t.content.childElementCount === 1 && bare(t.content.firstElementChild.outerHTML) === bare(old.outerHTML);
   };
 
   const swap = (id, html) => {
