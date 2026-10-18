@@ -113,6 +113,11 @@ func TestMisc(t *testing.T) {
 	if !strings.Contains(b, `<li><a href="/">Início</a></li>`) || !strings.Contains(b, `<li aria-current="page">Receitas</li>`) || strings.Count(b, "chevron") != 0 && !strings.Contains(b, `aria-hidden="true"`) {
 		t.Fatal(b)
 	}
+	// Spec 177: a list of people is a list of photos; only the ones on screen
+	// are fetched, and decoding them does not hold up the page.
+	if s := render(t, Avatar("EO", "/eo.png")); !strings.Contains(s, `loading="lazy"`) || !strings.Contains(s, `decoding="async"`) {
+		t.Errorf("avatar image is fetched eagerly: %s", s)
+	}
 	if s := render(t, Avatar("EO", "")); !strings.Contains(s, `aria-label="EO"`) {
 		t.Fatal(s)
 	}

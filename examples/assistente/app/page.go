@@ -25,6 +25,9 @@ func Page(c *trilha.Ctx) (h.Node, error) {
 				MaxLength:   2000,
 				Steps:       true,
 			}),
+			// The chat's behavior comes with the chat, not with the layout:
+			// /voz has none and does not download it.
+			ui.ChatScript(c),
 		),
 		ui.Card(h.Class("info"),
 			ui.CardHeader(ui.CardTitle("Ferramentas")),

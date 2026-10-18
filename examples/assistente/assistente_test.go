@@ -348,3 +348,13 @@ func TestVozRecusaGravacaoGrande(t *testing.T) {
 		t.Fatal("a gravação grande chegou ao provedor")
 	}
 }
+
+// Spec 177: the chat's script goes with the chat. In the layout it was
+// downloaded by /voz too, which has no chat.
+func TestChatScriptOnlyWhereTheChatIs(t *testing.T) {
+	c := newClient(t)
+	c.Get("/").WantStatus(200).WantContains(`src="/ui.chat.js`)
+	if body := c.Get("/voz").WantStatus(200).Body.String(); strings.Contains(body, "ui.chat.js") {
+		t.Fatal("/voz has no chat and still loads ui.chat.js")
+	}
+}
