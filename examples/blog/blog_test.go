@@ -288,8 +288,13 @@ func TestPublicAndTraversal(t *testing.T) {
 	if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/css") {
 		t.Fatalf("%d %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
-	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=31536000, immutable" {
+	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=86400" {
 		t.Fatal("Config() in setup.go not applied:", cc)
+	}
+	// Spec 177: a guessed version is not the file's; freezing it for a year
+	// would keep the wrong CSS in the browser that clicked it.
+	if cc := c.Get("/style.css?v=deadbeef").Header().Get("Cache-Control"); strings.Contains(cc, "immutable") {
+		t.Fatal("wrong ?v= cached as immutable:", cc)
 	}
 	// Um caminho sujo não passa por httptest.NewRequest: ele é montado aqui e
 	// entregue direto ao handler.

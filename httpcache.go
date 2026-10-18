@@ -85,7 +85,7 @@ func (c *Ctx) revalidating() bool {
 // entries, and a cache that forgets that serves one in place of the other.
 func (c *Ctx) notModified() {
 	hd := c.w.Header()
-	hd.Set("Vary", fragmentHeader)
+	addVary(hd, fragmentHeader)
 	hd.Del("Content-Type")
 	hd.Del("Content-Length")
 	c.w.WriteHeader(http.StatusNotModified)
@@ -112,4 +112,18 @@ func etagMatches(header, tag string) bool {
 		}
 	}
 	return false
+}
+
+// addVary appends a field to Vary unless it is there already. Setting the
+// header would wipe what CORS or the app put there, and a shared cache would
+// then serve one origin's answer to another.
+func addVary(hd http.Header, field string) {
+	for _, line := range hd.Values("Vary") {
+		for _, f := range strings.Split(line, ",") {
+			if strings.EqualFold(strings.TrimSpace(f), field) {
+				return
+			}
+		}
+	}
+	hd.Add("Vary", field)
 }

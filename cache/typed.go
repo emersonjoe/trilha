@@ -2,6 +2,8 @@ package cache
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/emersonjoe/trilha"
@@ -23,12 +25,38 @@ func Get[T any](c *Cache, name string) (T, bool) {
 	return t, true
 }
 
-// call is one fetch in flight. Whoever arrives while it runs waits on it and
-// reads the same answer.
+// call is one fetch in flight. Whoever arrives while it runs waits on done
+// and reads the same answer.
 type call struct {
-	wg  sync.WaitGroup
-	val any
-	err error
+	done chan struct{}
+	val  any
+	err  error
+}
+
+func newCall() *call { return &call{done: make(chan struct{})} }
+
+// run calls fn and publishes its answer, panic included: a fn that panics is
+// an error for whoever waits, and done closes either way — a name left in
+// flight would make every later caller wait forever. The panic goes on up to
+// the caller of fn, where the recover at the edge of the request handles it.
+func (cl *call) run(fn func() (any, error), after func()) {
+	finished := false
+	defer func() {
+		if finished {
+			return
+		}
+		r := recover() // nil when fn called runtime.Goexit
+		cl.err = fmt.Errorf("cache: fn panicked: %v", r)
+		after()
+		close(cl.done)
+		if r != nil {
+			panic(r)
+		}
+	}()
+	cl.val, cl.err = fn()
+	finished = true
+	after()
+	close(cl.done)
 }
 
 // Do returns the cached value or produces it with fn — the whole point of the
@@ -45,46 +73,59 @@ type call struct {
 // Only one fn runs per name at a time: right after an Invalidate the second
 // request waits for the first instead of piling onto the database. An error is
 // returned to everyone waiting and cached for nobody — the next request tries
-// again.
+// again. A waiter stops when its own ctx ends, and the leader's ctx ending is
+// not the waiters' error: they ask again. An Invalidate, Delete or Clear that
+// lands while fn runs wins — what fn read may be the data the write replaced,
+// so it is returned but not cached.
 func Do[T any](ctx context.Context, c *Cache, k Key, fn func(context.Context) (T, error)) (T, error) {
-	if v, ok := Get[T](c, k.Name); ok {
-		return v, nil
-	}
 	var zero T
+	for {
+		if v, ok := Get[T](c, k.Name); ok {
+			return v, nil
+		}
 
-	c.mu.Lock()
-	if inflight, ok := c.flight[k.Name]; ok {
+		c.mu.Lock()
+		if inflight, ok := c.flight[k.Name]; ok {
+			c.mu.Unlock()
+			select {
+			case <-inflight.done:
+			case <-ctx.Done():
+				return zero, ctx.Err()
+			}
+			if inflight.err != nil {
+				if isContextErr(inflight.err) && ctx.Err() == nil {
+					continue // the leader's request ended, not ours
+				}
+				return zero, inflight.err
+			}
+			v, _ := inflight.val.(T)
+			return v, nil
+		}
+		cl := newCall()
+		c.flight[k.Name] = cl
+		gen := c.gen
 		c.mu.Unlock()
-		inflight.wg.Wait()
-		if inflight.err != nil {
-			return zero, inflight.err
+
+		// fn goes to the database. Holding the cache lock here would stop every
+		// other key in the app, and a nested Do would deadlock on itself.
+		cl.run(func() (any, error) { return fn(ctx) }, func() {
+			c.mu.Lock()
+			delete(c.flight, k.Name)
+			if cl.err == nil && c.gen == gen {
+				c.setLocked(k, cl.val)
+			}
+			c.mu.Unlock()
+		})
+		if cl.err != nil {
+			return zero, cl.err
 		}
-		v, ok := inflight.val.(T)
-		if !ok {
-			return zero, nil
-		}
+		v, _ := cl.val.(T)
 		return v, nil
 	}
-	cl := &call{}
-	cl.wg.Add(1)
-	c.flight[k.Name] = cl
-	c.mu.Unlock()
+}
 
-	// fn goes to the database. Holding the cache lock here would stop every
-	// other key in the app, and a nested Do would deadlock on itself.
-	v, err := fn(ctx)
-	cl.val, cl.err = v, err
-
-	c.mu.Lock()
-	delete(c.flight, k.Name)
-	c.mu.Unlock()
-	cl.wg.Done()
-
-	if err != nil {
-		return zero, err
-	}
-	c.Set(k, v)
-	return v, nil
+func isContextErr(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // onceKey is where the per-request answers live inside the Ctx.
@@ -117,18 +158,16 @@ func Once[T any](c *trilha.Ctx, name string, fn func() (T, error)) (T, error) {
 
 	if v, ok := m.Load(name); ok {
 		cl := v.(*call)
-		cl.wg.Wait()
+		<-cl.done
 		return typed[T](cl)
 	}
-	cl := &call{}
-	cl.wg.Add(1)
+	cl := newCall()
 	if v, loaded := m.LoadOrStore(name, cl); loaded {
 		other := v.(*call)
-		other.wg.Wait()
+		<-other.done
 		return typed[T](other)
 	}
-	cl.val, cl.err = fn()
-	cl.wg.Done()
+	cl.run(func() (any, error) { return fn() }, func() {})
 	return typed[T](cl)
 }
 
