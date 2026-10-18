@@ -28,7 +28,7 @@ tira de alguém o que ele veio fazer.
 | Jornada | Pior impacto se quebrar | Casos |
 |---|---|---|
 | Entrar e sair | ninguém entra, ou entra quem não devia | `TestUILoginFlow`, `TestUIAdminDefaultDeny` |
-| Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce`, `TestUISwapFollowsRedirect`, `TestUISwapRedirectReload`, `TestUISwapFollowFallsBack`, `TestUIRegionFormsNavigate`, `TestUIRegionForm422` |
+| Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce`, `TestUISwapFollowsRedirect`, `TestUISwapRedirectReload`, `TestUISwapFollowFallsBack`, `TestUIRegionFormsNavigate`, `TestUIRegionForm422`, `TestUIComboboxLoadsOnDemand` |
 | Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins`, `TestUIRegionLinkRedirect`, `TestUIServerDeclaresURL`, `TestUIPrefetchOnIntent`, `TestUIPrefetchNeedsIntent`, `TestUIPrefetchExpires`, `TestUIPrefetchSaveData`, `TestUIPrefetchRedirectNotKept`, `TestUIPollSkipsUnchanged` |
 | Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress`, `TestUIUploadFollowsRedirect` |
 | Interação rica | componente morto na tela; painel que perde o lugar na lista | `TestUIIslandHydrates`, `TestUIIslandImportIsVersioned`, `TestUIIslandPostRedirects`, `TestUITooltipKeyboard`, `TestUISheetOpensOnDemand`, `TestUISheetSurvivesNavigation`, `TestUISheetEscapeRestoresFocus`, `TestUISheetOnPhone`, `TestUIDialogLoadsOnDemand`, `TestUIChatStreamsWithoutLayoutPerToken`, `TestUIIslandsShareOneObserver` |
@@ -371,3 +371,11 @@ tira de alguém o que ele veio fazer.
 - **Dados**: contagens iniciais de 0 a 19 nas props.
 - **Passos**: abrir a página; esperar as vinte ilhas montarem.
 - **Resultado esperado**: as vinte ilhas mostram o botão; há exatamente um `MutationObserver` observando o documento inteiro.
+
+### TestUIComboboxLoadsOnDemand — O combobox carrega o próprio script só onde existe (spec 177)
+
+- **Jornada**: preencher e salvar um formulário. **Risco**: o campo de busca com sugestões morre — digita-se e nada aparece, ou a escolha pelo teclado não chega ao valor enviado — ou toda página paga o download de um componente que não tem.
+- **Pré-condições**: `/fluxos/dica` sem combobox; `/fluxos/combo` com `ui.Combobox` de lista curta (Porto Alegre, Palmas, Recife).
+- **Dados**: a letra "p".
+- **Passos**: abrir `/fluxos/dica`; abrir `/fluxos/combo`; digitar "p" no campo; seta para baixo; Enter.
+- **Resultado esperado**: `/fluxos/dica` não baixou `ui.combo.js`; `/fluxos/combo` baixou `ui.combo.js?v=…`; a lista abre, o valor escondido fica `poa` e o campo mostra "Porto Alegre".
