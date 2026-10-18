@@ -142,7 +142,9 @@ projeto monta uma ilha sem ele.
 
 O `trilha gen` grava `public/islands.d.ts` a partir das chamadas `c.Island` que acha em
 `app/`: uma interface por struct de props, mais o objeto `island` e a assinatura da função de
-montagem. Aponte o módulo para lá e o editor confere os dois lados da fronteira:
+montagem. As props são tipadas pelo tipo da expressão — um literal, uma variável ou um
+parâmetro da função, `&props`, uma conversão, ou uma função do app que devolve o struct —, então
+um struct pode alimentar várias ilhas escolhidas por um `switch`. Aponte o módulo para lá e o editor confere os dois lados da fronteira:
 
 ```js
 /** @type {import("/islands.d.ts").IslandMount<"/editor.js">} */

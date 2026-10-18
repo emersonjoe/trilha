@@ -3,6 +3,17 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.160.0 — 2026-10-18
+
+Island props typed by the type of the expression (spec 180, #303).
+
+### Changed
+
+- **`trilha gen` types island props by the expression's type**: a variable, `&x`, a `var`
+  declaration, a parameter, a conversion or a function of the app that returns the struct —
+  not only a literal in the call — so one props struct can feed several islands. The note for
+  what it cannot read says which forms are read.
+
 ## 0.159.0 — 2026-10-18
 
 The rules of how code is written, in the project an agent edits (spec 179, #310).
