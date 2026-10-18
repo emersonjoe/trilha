@@ -348,7 +348,7 @@ mais o `<ul role=listbox>` das opções.
 |---|---|
 | `Name` | nome do campo escondido; o visível é `Name + "_q"` |
 | `Value` / `Label` | o que foi escolhido e o que está escrito por ele (a ida e volta) |
-| `Options []Option` | lista curta: o `ui.js` filtra no navegador, sem requisição |
+| `Options []Option` | lista curta: filtrada no navegador, sem requisição |
 | `Source string` | a URL que busca; a resposta é um `ui.ComboboxOptions(...)` |
 | `With []string` | outros campos do mesmo formulário para levar na query (`?uf=SP&q=camp`) |
 | `MinChars`, `Debounce` | quando buscar (padrão 1 caractere, 200 ms) |
@@ -370,6 +370,10 @@ func GET(c *trilha.Ctx) error {
 Sem JavaScript nada quebra: o campo visível é um texto comum, então o formulário chega com
 `cidade_q` preenchido e `cidade` vazio. Resolver o texto digitado contra a lista é trabalho do
 servidor — a mesma lista que a rota de busca lê.
+
+O comportamento é o `ui.combo.js`, escrito em `public/` com o resto do kit. O `ui.js` o carrega
+na primeira vez que uma página — ou um fragmento trocado nela — tem um combobox, pela URL
+versionada que o `ui.Head` põe na própria tag, então página sem combobox não o baixa.
 
 ## Markdown
 

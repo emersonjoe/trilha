@@ -256,3 +256,23 @@ func TestUIIslandsShareOneObserver(t *testing.T) {
 		s.WaitJS("one observer watches the document for all of them", `window.__docObservers === 1`)
 	})
 }
+
+// The combobox's behavior is a file of its own, loaded by ui.js on the page
+// that has one: a page without a combobox does not download it, and the one
+// with it still filters and picks by keyboard (spec 178).
+func TestUIComboboxLoadsOnDemand(t *testing.T) {
+	run(t, func(s *uitest.Session) {
+		const loaded = `performance.getEntriesByType("resource").some((r) => /\/ui\.combo\.js\?v=/.test(r.name))`
+		s.Navigate("/fluxos/dica")
+		s.WaitJS("ui.js ran on the page without a combobox", `!!window.ui`)
+		s.WaitJS("a page without a combobox did not download ui.combo.js", "!("+loaded+")")
+		s.Navigate("/fluxos/combo")
+		s.WaitJS("the page with a combobox downloaded ui.combo.js, versioned", loaded)
+		s.Fill("#cidade", "p")
+		s.WaitVisible("#cidade-list")
+		s.Press("ArrowDown")
+		s.Press("Enter")
+		s.WaitJS("the keyboard picked the first match", `document.querySelector('input[name="cidade"]').value === "poa"`)
+		s.WaitJS("the text shows the choice", `document.getElementById("cidade").value === "Porto Alegre"`)
+	})
+}
