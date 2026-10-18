@@ -32,7 +32,17 @@ func Config(cfg *trilha.Config) {
 | `Headers` | roda com os cabeçalhos de saída, antes de a requisição partir |
 | `Timeout` | limita a troca inteira (padrão 30s; `trilha.NoTimeout` desliga) |
 | `CSRF` | `trilha.Off` deixa de exigir o token nas escritas |
-| `Transport` | substitui o `http.DefaultTransport` (mTLS até a API, um teste) |
+| `Transport` | substitui o `trilha.UpstreamTransport()` (mTLS até a API, um teste) |
+
+Sem `Transport`, todo upstream divide o `trilha.UpstreamTransport()`: um pool dimensionado para
+um app na frente de uma API, com 64 conexões ociosas guardadas por host. O
+`http.DefaultTransport` guarda duas, então sob carga toda requisição depois da segunda de uma
+rajada abre TCP (e TLS) de novo. O cliente que o próprio app tem da mesma API deve usar o mesmo
+pool, com timeout — o `http.DefaultClient` não tem nenhum dos dois:
+
+```go
+var api = &http.Client{Transport: trilha.UpstreamTransport(), Timeout: 10 * time.Second}
+```
 
 ## O que o framework decide
 

@@ -29,6 +29,7 @@ type Config struct {
 	OnSecurityEvent func(SecurityEvent)
 	OnRequest    RequestHook  // wraps every request that reached a route (tracing)
 	DevReload    string       // trilha.Off disables the reload script in dev; TRILHA_DEV_RELOAD=off
+	Compress     string       // trilha.Off stops gzipping text responses; TRILHA_COMPRESS=off
 	Observability Observability // health probes and the metrics endpoint
 	CORS         CORS         // origins allowed to call the app (zero value = off)
 	Locale       string       // the one language of the process: "en" (zero value) or "pt-BR"

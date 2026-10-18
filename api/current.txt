@@ -83,6 +83,7 @@ pkg trilha, func TestHTTP(string, string) func(context.Context, Connection) erro
 pkg trilha, func TestPage(TestingT, Route, string, ...TestOption) *TestResponse
 pkg trilha, func TestRequest(TestingT, *App, string, string, ...TestOption) *TestResponse
 pkg trilha, func TestRoute(TestingT, Route, string, string, ...TestOption) *TestResponse
+pkg trilha, func UpstreamTransport() http.RoundTripper
 pkg trilha, func UseValidationPTBR()
 pkg trilha, func Use[T any](Bag) T
 pkg trilha, func ValidateExternalURL(string, Env) error

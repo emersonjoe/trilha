@@ -139,8 +139,14 @@ o hash acompanha o arquivo, então salvar o CSS e atualizar a página basta.
 
 Os arquivos de texto de `public/` (CSS, JS, SVG, JSON, HTML) vão comprimidos em gzip para o
 navegador que aceita, com `Vary: Accept-Encoding` e ETag própria; a cópia é feita uma vez por
-versão, pela primeira requisição depois do deploy. Página não é comprimida: ela leva o token
-CSRF ao lado de texto que o visitante controla, que é do que o ataque BREACH precisa. O `trilha export` não precisa de nenhuma opção: o
+versão, pela primeira requisição depois do deploy. Página, fragmento e JSON são comprimidos
+enquanto são escritos, a partir de 1 KiB, e stream de eventos fica de fora; o token CSRF da
+página sai mascarado de um jeito diferente em cada resposta, então a página comprimida não leva
+um segredo fixo ao lado de texto que o visitante controla — que é o que o ataque BREACH lê.
+`Config.Compress = trilha.Off` (ou `TRILHA_COMPRESS=off`) deixa a compressão para um proxy na
+frente.
+
+O `trilha export` não precisa de nenhuma opção: o
 HTML exportado sai com as mesmas URLs, porque é o mesmo layout que o gera.
 
 `trilha audit` avisa quando encontra `immutable` num projeto que não usa `Asset` — é a

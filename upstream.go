@@ -41,8 +41,16 @@ type Upstream struct {
 	// CSRF set to Off stops requiring the token on POST/PUT/PATCH/DELETE, for
 	// an API authenticated by key rather than by the session cookie.
 	CSRF string
-	// Transport replaces http.DefaultTransport (mTLS to the API, a test).
+	// Transport replaces UpstreamTransport (mTLS to the API, a test).
 	Transport http.RoundTripper
+}
+
+// transport is the one the Upstream asked for, or the shared pool.
+func (up *upstream) transport() http.RoundTripper {
+	if up.cfg.Transport != nil {
+		return up.cfg.Transport
+	}
+	return UpstreamTransport()
 }
 
 // upstream is a parsed Upstream: the prefix it answers and the proxy that
@@ -84,7 +92,7 @@ func (a *App) parseUpstreams() {
 // the request may go, what credential it carries, and what an error looks like.
 func (a *App) newProxy(up *upstream) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
-		Transport: up.cfg.Transport,
+		Transport: up.transport(),
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			out, in := pr.Out, pr.In
 			out.URL.Scheme, out.URL.Host = up.target.Scheme, up.target.Host

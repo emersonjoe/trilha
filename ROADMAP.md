@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.158.0)
+## Onde o Trilha está (outubro de 2026, v0.159.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -394,6 +394,10 @@ declarado (#309).
 0.158.0**): o `trilha agents` grava, além do `AGENTS.md`, a skill `trilha-quality` com o
 checklist de desempenho, padrões de projeto, código limpo, reúso, revisão pelo tamanho e
 segurança por OWASP e NIST, e o `AGENTS.md` resume as dez regras (#310).
+148. **Lote das issues abertas 4** (spec 179, **entregue na 0.159.0**): o token CSRF sai
+mascarado por resposta (#308), e com isso página, fragmento e JSON vão em gzip por padrão, com o
+SSE de fora (#305); o upstream ganha um pool de conexões próprio, exportado para o cliente de API
+do app (#307); e o `trilha gen` tipa as props da ilha pelo tipo da expressão (#303).
 
 ## O que não vamos fazer, e por quê
 

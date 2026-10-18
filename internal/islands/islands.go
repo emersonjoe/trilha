@@ -123,6 +123,7 @@ type scanner struct {
 	imports map[string]map[string]string // dir → package name in its files → dir of the package, or "ext:" + import path
 	noted   map[string]bool              // notes already written
 	pkgName map[string]string            // dir → the package clause of its files
+	results map[string]ast.Expr          // dir + "." + func name → its first result type
 	res     *Result
 }
 
@@ -221,6 +222,12 @@ func findModule(dir string) (string, string) {
 // next to the page can be found by name.
 func (s *scanner) index(fi fileInfo) {
 	for _, d := range fi.file.Decls {
+		if fd, ok := d.(*ast.FuncDecl); ok && fd.Recv == nil && fd.Type.Results != nil && len(fd.Type.Results.List) > 0 {
+			if s.results == nil {
+				s.results = map[string]ast.Expr{}
+			}
+			s.results[fi.dir+"."+fd.Name.Name] = fd.Type.Results.List[0].Type
+		}
 		gd, ok := d.(*ast.GenDecl)
 		if !ok || gd.Tok != token.TYPE {
 			continue
@@ -245,9 +252,17 @@ func (s *scanner) index(fi fileInfo) {
 	}
 }
 
-// calls walks a file for c.Island("/x.js", Props{...}).
+// calls walks a file for c.Island("/x.js", Props{...}), knowing the function
+// each call is in: a variable or a parameter is read from there (#303).
 func (s *scanner) calls(fi fileInfo) {
-	ast.Inspect(fi.file, func(n ast.Node) bool {
+	for _, d := range fi.file.Decls {
+		fd, _ := d.(*ast.FuncDecl)
+		s.callsIn(fi, d, fd)
+	}
+}
+
+func (s *scanner) callsIn(fi fileInfo, root ast.Node, fn *ast.FuncDecl) {
+	ast.Inspect(root, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
@@ -268,16 +283,16 @@ func (s *scanner) calls(fi fileInfo) {
 			return true
 		}
 		s.seen[src] = true
-		s.island(fi, src, call.Args[1])
+		s.island(fi, src, call.Args[1], fn)
 		return true
 	})
 }
 
-func (s *scanner) island(fi fileInfo, src string, props ast.Expr) {
-	sd := s.propsType(props)
+func (s *scanner) island(fi fileInfo, src string, props ast.Expr, fn *ast.FuncDecl) {
+	sd := s.propsType(fi, props, fn, 0)
 	if sd == nil {
 		if !isNil(props) {
-			s.note("%s: the props of %s are not a struct literal, so its type is unknown; declare a props struct to get one", s.where(fi, props), src)
+			s.note("%s: the type of the props of %s cannot be read, so it is unknown; pass a props struct (a literal, a variable, a parameter or a function that returns one)", s.where(fi, props), src)
 		}
 		s.res.Islands = append(s.res.Islands, Island{Src: src})
 		return
@@ -286,23 +301,90 @@ func (s *scanner) island(fi fileInfo, src string, props ast.Expr) {
 	s.res.Islands = append(s.res.Islands, Island{Src: src, Type: name, From: sd.name})
 }
 
-// propsType finds the struct behind the second argument: Props{...}, &Props{...}
-// or pkg.Props{...}. Anything else has no name to hang a type on.
-func (s *scanner) propsType(e ast.Expr) *structDecl {
-	if u, ok := e.(*ast.UnaryExpr); ok && u.Op == token.AND {
-		e = u.X
-	}
-	cl, ok := e.(*ast.CompositeLit)
-	if !ok || cl.Type == nil {
+// propsType finds the struct behind the second argument, from the type of the
+// expression (#303): Props{...} and &Props{...}; a variable or a parameter of
+// the function the call is in; a conversion Props(x); a call to a function of
+// the app that returns the struct. Anything else has no name to hang a type on.
+func (s *scanner) propsType(fi fileInfo, e ast.Expr, fn *ast.FuncDecl, depth int) *structDecl {
+	if depth > 8 { // a := b; b := a never ends otherwise
 		return nil
 	}
-	switch t := cl.Type.(type) {
+	switch x := e.(type) {
+	case *ast.UnaryExpr:
+		if x.Op == token.AND {
+			return s.propsType(fi, x.X, fn, depth+1)
+		}
+	case *ast.ParenExpr:
+		return s.propsType(fi, x.X, fn, depth+1)
+	case *ast.CompositeLit:
+		return s.namedStruct(fi, x.Type)
+	case *ast.CallExpr:
+		if sd := s.namedStruct(fi, x.Fun); sd != nil {
+			return sd // a conversion
+		}
+		if id, ok := x.Fun.(*ast.Ident); ok {
+			return s.namedStruct(fi, s.results[fi.dir+"."+id.Name])
+		}
 	case *ast.Ident:
-		return s.lookup("", t.Name)
-	case *ast.SelectorExpr:
-		return s.lookup("", t.Sel.Name)
+		if fn != nil {
+			return s.localType(fi, x, fn, depth)
+		}
 	}
 	return nil
+}
+
+// namedStruct is the struct a type expression names: Props, *Props, pkg.Props.
+func (s *scanner) namedStruct(fi fileInfo, t ast.Expr) *structDecl {
+	switch x := t.(type) {
+	case *ast.StarExpr:
+		return s.namedStruct(fi, x.X)
+	case *ast.Ident:
+		return s.lookup(fi.dir, x.Name)
+	case *ast.SelectorExpr:
+		return s.lookup("", x.Sel.Name)
+	}
+	return nil
+}
+
+// localType reads the type of a name used inside fn: a parameter, or the last
+// declaration of it before the use (x := ..., var x T, var x = ...).
+func (s *scanner) localType(fi fileInfo, id *ast.Ident, fn *ast.FuncDecl, depth int) *structDecl {
+	for _, f := range fn.Type.Params.List {
+		for _, n := range f.Names {
+			if n.Name == id.Name {
+				return s.namedStruct(fi, f.Type)
+			}
+		}
+	}
+	var found *structDecl
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		if n == nil || n.Pos() >= id.Pos() {
+			return n == nil || n.Pos() < id.Pos()
+		}
+		switch d := n.(type) {
+		case *ast.AssignStmt:
+			if d.Tok == token.DEFINE && len(d.Lhs) == len(d.Rhs) {
+				for i, l := range d.Lhs {
+					if l, ok := l.(*ast.Ident); ok && l.Name == id.Name {
+						found = s.propsType(fi, d.Rhs[i], fn, depth+1)
+					}
+				}
+			}
+		case *ast.ValueSpec:
+			for i, n := range d.Names {
+				if n.Name != id.Name {
+					continue
+				}
+				if d.Type != nil {
+					found = s.namedStruct(fi, d.Type)
+				} else if i < len(d.Values) {
+					found = s.propsType(fi, d.Values[i], fn, depth+1)
+				}
+			}
+		}
+		return true
+	})
+	return found
 }
 
 // lookup finds a struct by name: in dir first, then anywhere in the app when

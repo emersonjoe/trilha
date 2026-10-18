@@ -140,8 +140,12 @@ the hash follows the file, so saving the CSS and refreshing the page is enough.
 
 Text files in `public/` (CSS, JS, SVG, JSON, HTML) go gzip-compressed to the browser that
 accepts it, with `Vary: Accept-Encoding` and an ETag of their own; the copy is made once per
-version, by the first request after a deploy. Pages are not compressed: they carry the CSRF
-token next to text the visitor controls, which is what the BREACH attack needs.
+version, by the first request after a deploy. Pages, fragments and JSON are compressed as they
+are written, from 1 KiB, with streams of events left alone; the CSRF token in a page is masked
+differently in every response, so a compressed page does not carry a fixed secret next to text
+the visitor controls — what the BREACH attack reads. `Config.Compress = trilha.Off` (or
+`TRILHA_COMPRESS=off`) leaves compression to a proxy in front.
+
 `trilha export` needs no option: the exported HTML comes out with the same URLs, because the
 same layout generates it.
 

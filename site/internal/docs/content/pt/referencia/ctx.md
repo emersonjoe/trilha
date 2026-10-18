@@ -142,7 +142,9 @@ projeto monta uma ilha sem ele.
 
 O `trilha gen` grava `public/islands.d.ts` a partir das chamadas `c.Island` que acha em
 `app/`: uma interface por struct de props, mais o objeto `island` e a assinatura da função de
-montagem. Aponte o módulo para lá e o editor confere os dois lados da fronteira:
+montagem. As props são tipadas pelo tipo da expressão — um literal, uma variável ou um
+parâmetro da função, `&props`, uma conversão, ou uma função do app que devolve o struct —, então
+um struct pode alimentar várias ilhas escolhidas por um `switch`. Aponte o módulo para lá e o editor confere os dois lados da fronteira:
 
 ```js
 /** @type {import("/islands.d.ts").IslandMount<"/editor.js">} */
@@ -225,7 +227,7 @@ corpo nela, e o log de acesso registra 101.
 
 | Método | Descrição |
 |---|---|
-| `CSRFToken() string` | token da requisição; cria o cookie na primeira chamada |
+| `CSRFToken() string` | token da requisição, mascarado por resposta (o mesmo dentro de uma); cria o cookie na primeira chamada |
 | `trilha.CSRFInput(c) h.Node` | `<input type="hidden" name="_csrf">` para formulários |
 | `trilha.CSRFTokenFrom(r) string` | o mesmo token, para quem só recebe o `*http.Request` (`html/template`, `templ`, um handler seu); `""` fora de uma requisição da Trilha |
 | `trilha.NonceFrom(r) string` | o nonce da CSP daquela requisição, mesmo motivo e mesma regra ([Segurança](/pt/referencia/seguranca)) |

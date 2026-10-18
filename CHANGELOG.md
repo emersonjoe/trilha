@@ -3,6 +3,38 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.159.0 — 2026-10-18
+
+The open issues: the CSRF token masked per response, so pages can be compressed; text
+responses gzipped by default; a connection pool for upstreams; island props typed by the type
+of the expression (spec 179, #308, #305, #307, #303).
+
+### Added
+
+- **Dynamic responses are gzip-compressed** for the client that accepts it: pages, fragments,
+  JSON, problem+json, XML and SVG from 1 KiB, with `Vary: Accept-Encoding` and the ETag made
+  weak (RFC 9110 §8.8.3). Streams of events, images, `HEAD`, `Upgrade`, 204/206/304 and bodies
+  already encoded go as they are, and a `Flush` reaches the client, so `ui.Defer` and streamed
+  HTML stay progressive. **`Config.Compress = trilha.Off`** (or `TRILHA_COMPRESS=off`) leaves it
+  to a proxy in front (#305).
+- **`trilha.UpstreamTransport()`** — the transport every `Config.Upstreams` entry without
+  `Transport` now uses: 64 idle connections kept per host instead of
+  `http.DefaultTransport`'s 2, so a burst does not open TCP and TLS again. Give it to the app's
+  own client of the same API, with a timeout (#307).
+
+### Changed
+
+- **The CSRF token in the HTML is masked per response** (#308): `Ctx.CSRFToken()` returns the
+  cookie's secret behind a one-time pad, different on every response and the same within one,
+  so a compressed page carries no fixed secret next to reflected input (BREACH). The cookie is
+  unchanged and nobody is signed out; the check unmasks in constant time and still accepts the
+  raw value a page rendered before the upgrade posts. `TestClient` sends a masked token, and
+  `PageSnapshot` writes every token that proves the cookie as `{{CSRF}}`. A test that compared
+  the token in a page with the cookie's value should post it instead, or use the snapshot.
+- **`trilha gen` types island props by the expression's type** (#303): a variable, `&x`, a
+  `var` declaration, a parameter, a conversion or a function of the app that returns the struct
+  — not only a literal in the call — so one props struct can feed several islands.
+
 ## 0.158.0 — 2026-10-18
 
 The rules of how code is written, in the project an agent edits (spec 178, #310).

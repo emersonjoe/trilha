@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/emersonjoe/trilha"
 	"github.com/emersonjoe/trilha/examples/local-login/internal/acervo"
@@ -48,6 +49,11 @@ func autorizacao(ctx context.Context) http.Header {
 	return http.Header{"Authorization": {"Bearer " + tok}}
 }
 
+// api is how the calls leave: the same pool of connections Config.Upstreams
+// uses for /api/, and a timeout. http.DefaultClient has neither, and keeps two
+// idle connections to a host that receives all the traffic (#307).
+var api = &http.Client{Transport: trilha.UpstreamTransport(), Timeout: 10 * time.Second}
+
 // cliente builds the client of the API. It reads the environment on each
 // request rather than once at init: a package-level var reading os.Getenv is a
 // screen no test can point somewhere else, and an app that has to be restarted
@@ -57,7 +63,7 @@ func cliente(opts ...acervo.Option) (*acervo.Client, bool) {
 	if base == "" {
 		return nil, false
 	}
-	return acervo.New(base, append([]acervo.Option{acervo.WithHeader(autorizacao)}, opts...)...), true
+	return acervo.New(base, append([]acervo.Option{acervo.WithClient(api), acervo.WithHeader(autorizacao)}, opts...)...), true
 }
 
 // Page answers GET /painel/documentos. The folder above requires a session, so

@@ -1238,6 +1238,28 @@ func TestAssistenteDaAreaDoApp(t *testing.T) {
 	rec.WantStatus(200).WantContains("event: text", "event: done", "/relatorio")
 }
 
+// #305 — o que o blog serve vai comprimido para quem aceita: a página e o CSS
+// do kit (o JSON de dois posts fica abaixo de 1 KiB, onde o gzip não paga). O
+// stream do assistente não: o gzip seguraria os
+// eventos até juntar o bastante, e o ui.chat.js precisa de um por vez.
+func TestRespostasComprimidas(t *testing.T) {
+	c := newClient(t, "prod")
+	gz := trilha.WithHeader("Accept-Encoding", "gzip")
+	for _, path := range []string{"/", "/ui.css"} {
+		if rec := c.Get(path, gz); rec.Code != 200 || rec.Header().Get("Content-Encoding") != "gzip" {
+			t.Errorf("%s: %d, Content-Encoding %q", path, rec.Code, rec.Header().Get("Content-Encoding"))
+		}
+	}
+	if rec := c.postForm("/login", "usuario=admin&senha=trilha"); rec.Code != 303 {
+		t.Fatalf("login: %d", rec.Code)
+	}
+	rec := c.postForm("/assistente", "message=oi", gz, trilha.WithHeader("Accept", "text/event-stream"))
+	rec.WantStatus(200).WantContains("event: text", "event: done")
+	if ce := rec.Header().Get("Content-Encoding"); ce != "" {
+		t.Fatalf("o stream saiu com Content-Encoding %q", ce)
+	}
+}
+
 // #152 — a /api é também um servidor MCP em /mcp: as ferramentas nascem das
 // rotas e do openapi.json embutido, e chamar uma é chamar a rota.
 func TestAPIComoFerramentasMCP(t *testing.T) {

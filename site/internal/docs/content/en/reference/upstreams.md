@@ -32,7 +32,17 @@ func Config(cfg *trilha.Config) {
 | `Headers` | runs with the outbound headers, before the request leaves |
 | `Timeout` | bounds the whole exchange (default 30s; `trilha.NoTimeout` disables it) |
 | `CSRF` | `trilha.Off` stops requiring the token on writes |
-| `Transport` | replaces `http.DefaultTransport` (mTLS to the API, a test) |
+| `Transport` | replaces `trilha.UpstreamTransport()` (mTLS to the API, a test) |
+
+Without `Transport`, every upstream shares `trilha.UpstreamTransport()`: a pool sized for an
+app in front of one API, with 64 idle connections kept per host. `http.DefaultTransport` keeps
+two, so under load every request past the second of a burst opens TCP (and TLS) again. The
+app's own client of the same API should use the same pool, with a timeout —
+`http.DefaultClient` has neither:
+
+```go
+var api = &http.Client{Transport: trilha.UpstreamTransport(), Timeout: 10 * time.Second}
+```
 
 ## What the framework decides
 
