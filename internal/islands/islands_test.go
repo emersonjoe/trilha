@@ -188,3 +188,32 @@ func TestPropsFromOtherPackagesOfTheModule(t *testing.T) {
 		t.Errorf("the same note twice:\n%s", notes)
 	}
 }
+
+// #303: the props are typed by the type of the expression, not only by a
+// literal in the call — a variable, a pointer to it, a var declaration, a
+// parameter, a conversion, a function of the app that returns the struct.
+func TestPropsTypedByTheExpression(t *testing.T) {
+	r := scan(t)
+	want := map[string]string{
+		"/jogo/pares.js":      "PropsDoJogo",
+		"/jogo/lacuna.js":     "PropsDoJogo",
+		"/jogo/blocos.js":     "PropsDoJogo",
+		"/jogo/convertida.js": "PropsDoJogo",
+		"/jogo/parametro.js":  "PropsDoJogo",
+		"/jogo/contagem.js":   "Contagem",
+	}
+	for _, is := range r.Islands {
+		if w, ok := want[is.Src]; ok {
+			if is.From != w {
+				t.Errorf("%s: typed %q, want %q", is.Src, is.From, w)
+			}
+			delete(want, is.Src)
+		}
+	}
+	if len(want) > 0 {
+		t.Errorf("islands not found: %v", want)
+	}
+	if notes := strings.Join(r.Notes, "\n"); strings.Contains(notes, "/jogo/") {
+		t.Errorf("a typed island still has a note:\n%s", notes)
+	}
+}

@@ -140,7 +140,10 @@ into `public/` by `trilha ui` along with the rest of the kit; `trilha check` say
 project mounts an island without it.
 
 `trilha gen` writes `public/islands.d.ts` from the `c.Island` calls it finds in `app/`: one
-interface per props struct, plus the `island` object and the mount signature. Point the
+interface per props struct, plus the `island` object and the mount signature. The props are
+typed by the type of the expression — a literal, a variable or a parameter of the function,
+`&props`, a conversion, or a function of the app that returns the struct — so one struct can
+feed several islands chosen by a `switch`. Point the
 module at it and an editor checks both sides of the boundary:
 
 ```js
