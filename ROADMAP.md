@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.156.0)
+## Onde o Trilha está (outubro de 2026, v0.157.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -35,7 +35,7 @@ problema real de quem escreve o app**, não empatar uma tabela comparativa.
 | IA | `ai` (protocolo OpenAI: OpenAI, Ollama, OpenRouter, vLLM…), `ai/mcp` cliente e servidor, `mcp.FromRoutes`, as receitas do chat de IA e do agente que age sobre os dados do app | specs 005, 119, 136, 137 |
 | Migração | `trilha migrate next`: a árvore de `app/`, o relatório com classe e motivo por linha, a seção *Server Actions*, o que não tem equivalente | specs 091, 122, 131 |
 | Testes | unitários, golden, integração por exemplo, e2e da CLI, fuzz; o HTML servido com retrato estável e asserções que dizem o conserto (`PageSnapshot`), o app no Chrome pelo módulo `uitest/` e as stores SQL provadas em SQLite e PostgreSQL pelo `sqltest/` | princípio VI, specs 164, 166 |
-| Desempenho | módulo `bench/`, resultados publicados, metodologia | spec 011 |
+| Desempenho | módulo `bench/`, resultados publicados, metodologia; estáticos em gzip, render sem alocação no `h`, buffer reaproveitado, fragmento vivo que não troca o que não mudou, combobox sob demanda, índices e paginação no banco | specs 011, 177 |
 | Comunidade | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, GOVERNANCE, templates, CODEOWNERS | spec 004 |
 
 Boa parte do que a avaliação lista como pendente já entrou entre a 0.4.0 e a 0.21.0 — a
@@ -383,6 +383,13 @@ cenário relança o navegador, e o `Navigate` diz o que ficou carregando quando 
 (#300); o import relativo da ilha é versionado por import map (#298); o `islands.d.ts` segue
 tipos de outros pacotes do módulo (#299); e `trilha islands build` compila ilhas em TypeScript
 com o `tsc` do projeto, com `--check` e portão no `trilha check` (#301).
+146. **Desempenho** (spec 177, **entregue na 0.157.0**): estáticos de texto em gzip com ETag
+própria; `cache.Do` sobrevive a pânico, invalidação em voo e cancelamento do líder; o `h`
+renderiza sem alocar e a página custa o próprio tamanho; `ui.Poll` não troca o que não mudou;
+o chat rola uma vez por quadro; as ilhas dividem um observador; a tela de assinaturas pagina
+no banco com índices em migração própria; a busca em memória dobra o documento uma vez; o
+combobox vira `ui.combo.js` sob demanda; as capturas da documentação viram WebP com tamanho
+declarado (#309).
 
 ## O que não vamos fazer, e por quê
 

@@ -3,6 +3,55 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.157.0 — 2026-10-18
+
+A performance pass over the five usual fronts — renders, bundle, requests and caching,
+queries, images — and three correctness fixes in `cache.Do` found on the way (spec 177, #309).
+
+### Added
+
+- **Static text files go gzip-compressed** to clients that accept it: CSS, JS, JSON, SVG,
+  HTML and the other text types of `public/` and `Mounts`, from 1 KiB, compressed once per
+  version and kept. They carry `Vary: Accept-Encoding` and an ETag of their own (`"<v>-gz"`);
+  `Range` requests, clients that refuse gzip and images go as they are. Pages are never
+  compressed (they carry the CSRF token next to visitor-controlled text: BREACH). The kit's
+  first visit drops from 82 KB to 21 KB.
+- **`ui.combo.js`** — the combobox's behavior is a file of its own in `ui.Files`. `ui.js`
+  loads it the first time a page, or a fragment swapped into it, has a `[data-ui-combo]`,
+  from the versioned URL `ui.Head` writes in `data-ui-combo-js`. Run `trilha ui` to get it;
+  a project that keeps its current `ui.js` keeps the combobox inside it.
+- Recipe **billing**: `Store.PaginaAssinaturas(ctx, Filtro)` — the subscriptions screen reads
+  one page filtered, counted and cut by the store, and `migrations/0101_billing_indexes.sql`
+  indexes what the screens filter and order by.
+- `uitest`: scenarios `TestUIPollSkipsUnchanged`, `TestUIChatStreamsWithoutLayoutPerToken`,
+  `TestUIIslandsShareOneObserver` and `TestUIComboboxLoadsOnDemand`.
+
+### Changed
+
+- **Rendering allocates less**: an `h` tree renders into a writer with no allocation, and a
+  page reuses a pooled buffer and writes its envelope separately instead of copying the whole
+  document (`bench/` page: 30 KB / 500 allocations → 17 KB / 303).
+- **`ui.Poll` leaves an unchanged fragment alone**: an answer equal to what is on screen no
+  longer replaces the element nor fires `trilha:hydrate`.
+- **`ui.Chat` streams without a layout per token**, and **islands share one
+  `MutationObserver`**.
+- **`trilha.SearchMemory`** folds a document once, when it is put, and finds it by id: a
+  search over 1,000 documents went from 27 ms to 0.4 ms, and putting 20,000 from 1.2 s to 23 ms.
+- `ui.Avatar`'s image loads lazily and decodes asynchronously.
+- Docs and `examples/blog` no longer recommend an `immutable` `StaticCacheControl`: the URL
+  with the right `?v=` is immutable already, and the field is for files asked without it.
+
+### Fixed
+
+- **`cache.Do` after a panicking `fn`** no longer hangs every later call on that key: waiters
+  get an error and the panic goes on to the caller. `cache.Once` likewise.
+- **`cache.Do` no longer caches what `fn` read before an `Invalidate`, `Delete` or `Clear`**
+  that landed while it ran.
+- **`cache.Do` waiters** stop when their own context ends, and ask again when only the
+  leader's request was cancelled instead of failing with its `context.Canceled`.
+- **`Vary` accumulates**: `Trilha-Fragment` no longer overwrites the `Origin` that CORS added
+  (a shared cache could serve one origin's `Access-Control-Allow-Origin` to another).
+
 ## 0.156.0 — 2026-10-10
 
 Islands that grow: a post that redirects navigates, routes called with the browser's cookies
