@@ -131,15 +131,17 @@ cache layer — the browser, a CDN, GitHub Pages — still holds the old version
 h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/style.css"))) // /style.css?v=8f3a1c92
 ```
 
-With that, a long cache becomes safe:
-
-```go
-cfg.StaticCacheControl = "public, max-age=31536000, immutable"
-```
-
-Whoever asks for the right versioned URL gets the one-year cache; whoever asks for
-`/style.css` without a version falls under the normal rule. In `dev` nothing is immutable and
+With that, the URL carrying the current version is served
+`public, max-age=31536000, immutable` without any option. Whoever asks for `/style.css`
+without a version, or with a `v` that is not the current one, gets `StaticCacheControl` (one
+hour by default). Leave that one short: setting it to `immutable` would freeze, for a year,
+every file linked without `Asset` and every guessed `?v=`. In `dev` nothing is immutable and
 the hash follows the file, so saving the CSS and refreshing the page is enough.
+
+Text responses — the files of `public/`, pages, fragments and JSON — go gzip-compressed to the
+browser that accepts it; what is left out and how to turn it off is in
+[Compression](/reference/app#compression).
+
 `trilha export` needs no option: the exported HTML comes out with the same URLs, because the
 same layout generates it.
 

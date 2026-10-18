@@ -102,7 +102,7 @@ func weakETag(h http.Header) {
 func markGzip(h http.Header) {
 	h.Del("Content-Length")
 	h.Set("Content-Encoding", "gzip")
-	h.Add("Vary", "Accept-Encoding")
+	addVary(h, "Accept-Encoding")
 	weakETag(h)
 }
 
