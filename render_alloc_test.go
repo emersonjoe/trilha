@@ -25,6 +25,9 @@ func (d *discardWriter) Write(b []byte) (int, error) { d.n += len(b); return len
 // The buffer grew by doubling on every request, and prepending the doctype
 // copied the whole document once more.
 func TestPageRenderAllocatesAboutItsSize(t *testing.T) {
+	if raceDetector {
+		t.Skip("under -race sync.Pool drops buffers on purpose; the measure is make test's")
+	}
 	a := New(Config{Env: Prod, Logger: quiet()})
 	para := strings.Repeat("palavra ", 120)
 	a.Register(Route{Pattern: "/", Page: func(c *Ctx) (h.Node, error) {
