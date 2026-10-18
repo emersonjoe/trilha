@@ -32,7 +32,19 @@ func Config(cfg *trilha.Config) {
 | `Headers` | runs with the outbound headers, before the request leaves |
 | `Timeout` | bounds the whole exchange (default 30s; `trilha.NoTimeout` disables it) |
 | `CSRF` | `trilha.Off` stops requiring the token on writes |
-| `Transport` | replaces `http.DefaultTransport` (mTLS to the API, a test) |
+| `Transport` | replaces `trilha.UpstreamTransport()` (mTLS to the API, a test) |
+
+### One pool for the API
+
+Without a `Transport`, the proxy uses `trilha.UpstreamTransport()`: a clone of
+`http.DefaultTransport` with 64 idle connections per host instead of 2. The default is
+right for a program that talks to many hosts a little; an app whose every page talks to
+one API, under load, would close every connection past the second and pay TCP (and TLS)
+again on the next burst. Give the app's own API client the same pool:
+
+```go
+api := &http.Client{Transport: trilha.UpstreamTransport(), Timeout: 15 * time.Second}
+```
 
 ## What the framework decides
 

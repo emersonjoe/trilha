@@ -31,7 +31,7 @@ tira de alguém o que ele veio fazer.
 | Preencher e salvar um formulário | dado perdido, gravado duas vezes, ou erro sem saber onde | `TestUIAsyncForm422Focus`, `TestUIBillingScreens`, `TestUINotifyPreferences`, `TestUISwapPostOnce`, `TestUISwapFollowsRedirect`, `TestUISwapRedirectReload`, `TestUISwapFollowFallsBack`, `TestUIRegionFormsNavigate`, `TestUIRegionForm422` |
 | Navegar e listar | a tela mostra outra coisa que a barra de endereço; a página chega morta ou muda | `TestUIFragmentSwap`, `TestUIPaginationKeyboard`, `TestUIClientNavFocus`, `TestUIClientNavRunsRegionScripts`, `TestUIBeforeSwapEvent`, `TestUIClientNavAnnounces`, `TestUIClientNavFocusRegion`, `TestUISwapNewestClickWins`, `TestUIRegionLinkRedirect`, `TestUIServerDeclaresURL`, `TestUIPrefetchOnIntent`, `TestUIPrefetchNeedsIntent`, `TestUIPrefetchExpires`, `TestUIPrefetchSaveData`, `TestUIPrefetchRedirectNotKept` |
 | Enviar arquivo | arquivo perdido sem aviso | `TestUIUploadProgress`, `TestUIUploadFollowsRedirect` |
-| Interação rica | componente morto na tela; painel que perde o lugar na lista | `TestUIIslandHydrates`, `TestUIIslandImportIsVersioned`, `TestUIIslandPostRedirects`, `TestUITooltipKeyboard`, `TestUISheetOpensOnDemand`, `TestUISheetSurvivesNavigation`, `TestUISheetEscapeRestoresFocus`, `TestUISheetOnPhone`, `TestUIDialogLoadsOnDemand` |
+| Interação rica | componente morto na tela; painel que perde o lugar na lista | `TestUIIslandHydrates`, `TestUIPollKeepsUnchangedFragment`, `TestUIIslandImportIsVersioned`, `TestUIIslandPostRedirects`, `TestUITooltipKeyboard`, `TestUISheetOpensOnDemand`, `TestUISheetSurvivesNavigation`, `TestUISheetEscapeRestoresFocus`, `TestUISheetOnPhone`, `TestUIDialogLoadsOnDemand` |
 | Segurança percebida | script injetado roda; segredo vaza | `TestUISecurityEveryScreen`, `TestUISecretNeverInHTML` |
 
 ## Casos
@@ -99,6 +99,14 @@ tira de alguém o que ele veio fazer.
 - **Dados**: nenhum.
 - **Passos**: abrir `/fluxos/nav`; clicar no link `#ir`.
 - **Resultado esperado**: a URL é `/fluxos/nav/b`, a região mostra "Page B", o foco está no `h1` da região e o documento não recarrega.
+
+### TestUIPollKeepsUnchangedFragment — O poll que traz o mesmo fragmento não o troca (#306)
+
+- **Jornada**: interação rica. **Risco**: a cada tique, ilha remontada (contagem perdida), rolagem e seleção jogadas fora e a página re-diagramada sem que nada tenha mudado.
+- **Pré-condições**: `/fluxos/vigia` com dois fragmentos em `ui.Poll("250ms")`: `#parado`, que volta sempre igual e tem uma ilha e um formulário com token CSRF, e `#mudando`, que mostra um contador que sobe a cada resposta e tem outra ilha.
+- **Dados**: a ilha começa em "count 7"; o contador "Tick N".
+- **Passos**: abrir `/fluxos/vigia`; esperar dois tiques; clicar `#contador`; tirar o foco; marcar os dois elementos; esperar mais três tiques.
+- **Resultado esperado**: a ilha segue em "count 8" e `#parado` é o mesmo elemento (a marca continua); `#mudando` foi trocado (a marca sumiu) e a ilha dele está montada de novo ("count 100").
 
 ### TestUIClientNavRunsRegionScripts — A página navegada no cliente chega viva (#290)
 

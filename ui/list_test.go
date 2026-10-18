@@ -273,7 +273,10 @@ func TestUiLiveJSKnowsTheAttributes(t *testing.T) {
 	if !found {
 		t.Errorf("ui.live.js is not written to public/: %v", Files)
 	}
-	if len(js) > 6<<10 {
+	// 6 KiB until 0.157.0, when the file was at 6085 bytes and #306 needed the
+	// comparison that keeps an unchanged fragment in place; it travels gzipped
+	// since #305 (about 2.8 KB).
+	if len(js) > 8<<10 {
 		t.Errorf("ui.live.js is %d bytes", len(js))
 	}
 }

@@ -39,9 +39,35 @@
   };
   const fail = (el) => show(el, true);
 
-  const swap = (id, html) => {
+  // same: would the answer change nothing? Swapping anyway re-lays the page,
+  // remounts its islands and drops scroll and selection (#306). Compared with
+  // the last answer, minus nonce and masked token (new every response); the
+  // first, with the page's DOM minus what islands drew.
+  const plain = (html) => html.replace(/\snonce="[^"]*"/g, "").replace(/"m\.[\w-]{16,}"/g, '""');
+  const bare = (node) => {
+    const c = node.cloneNode(true);
+    for (const el of [c, ...c.querySelectorAll("*")]) {
+      el.removeAttribute("nonce");
+      if (el.hasAttribute("data-trilha-island")) { el.replaceChildren(); el.removeAttribute("data-trilha-mounted"); }
+      if (el.hasAttribute("data-trilha-csrf")) el.setAttribute("data-trilha-csrf", "");
+      if (/^m\./.test(el.getAttribute("value") || "")) el.setAttribute("value", "");
+    }
+    return c;
+  };
+  const same = (old, html, s) => {
+    const text = plain(html), was = s.last;
+    s.last = text;
+    if (was !== undefined) return was === text;
+    const t = document.createElement("template");
+    t.innerHTML = html.trim();
+    const fresh = t.content.firstElementChild;
+    return !!fresh && t.content.childElementCount === 1 && bare(old).isEqualNode(bare(fresh));
+  };
+
+  const swap = (id, html, s) => {
     const old = document.getElementById(id);
     if (!old || old.contains(document.activeElement)) return; // never type into a fragment that is being replaced
+    if (s && same(old, html, s) && !s.fails) return; // after a failure, swap away the notice
     old.outerHTML = html;
     const el = document.getElementById(id);
     if (el) document.dispatchEvent(new CustomEvent("trilha:hydrate", { detail: { target: el } }));
@@ -71,7 +97,7 @@
       // there is somebody to tell — window.__trilha is written by the dev
       // script, and it is not there in production.
       if (/<html[\s>]/i.test(html) && window.__trilha) window.__trilha.report("fragment-html", { url: res.url, id: id });
-      swap(id, html);
+      swap(id, html, s);
       s.fails = 0;
       if (say === "stop") { s.stop = true; return; }
       const other = ms(say);

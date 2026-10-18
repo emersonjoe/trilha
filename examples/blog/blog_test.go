@@ -837,9 +837,12 @@ func TestUS2_CascaAntigaComMioloNovo(t *testing.T) {
 	if !strings.Contains(rec.Header().Get("Content-Security-Policy"), "'nonce-"+nonce+"'") {
 		t.Fatalf("nonce %q fora da CSP %q", nonce, rec.Header().Get("Content-Security-Policy"))
 	}
+	// O token chega mascarado (BREACH, 0.157.0): é o segredo do cookie com um
+	// pad novo, nunca o segredo à vista. Que a checagem o aceita, a suíte do
+	// framework prova (TestCSRFTokenMaskedPerResponse).
 	token := entre(t, body, `<meta name="csrf-token" content="`, `"`)
-	if ck := rec.Cookie(trilha.CSRFCookie); ck == nil || ck.Value != token {
-		t.Fatalf("o token do template não é o do cookie: %q", token)
+	if ck := rec.Cookie(trilha.CSRFCookie); ck == nil || !strings.HasPrefix(token, "m.") || strings.Contains(token, ck.Value) {
+		t.Fatalf("o token do template não é o do cookie mascarado: %q", token)
 	}
 	// O miolo em h entrou no slot da casca, e a casca não vazou o marcador.
 	if !strings.Contains(body, `<main id="legado-conteudo">`) || !strings.Contains(body, "Tela nova, casca velha") {

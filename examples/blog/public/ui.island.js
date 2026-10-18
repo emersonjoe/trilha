@@ -1,3 +1,4 @@
+/* trilha ui 3a126d50d4ddeb42 */
 // Trilha ui kit — the island runtime. Loaded by Ctx.Island, once per page.
 //
 // This is the only implementation of mounting an island and of the island
@@ -124,4 +125,9 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run);
   else run();
   document.addEventListener("trilha:swap", (e) => mount((e.detail && e.detail.target) || document));
+  // ui.live.js replaces a polled, live or deferred fragment and asks the kit to
+  // hydrate it with this event, not trilha:swap (which would wake navigation,
+  // the recorder and the tree for a fragment that is not a navigation). An
+  // island inside it stayed on its fallback for good after the first swap.
+  document.addEventListener("trilha:hydrate", (e) => { if (e.detail && e.detail.target) mount(e.detail.target); });
 })();

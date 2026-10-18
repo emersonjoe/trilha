@@ -194,6 +194,20 @@ not check the CSRF token, so a `POST` route in an app that also serves pages usu
 [File conventions](/reference/conventions#kind-follows-the-subtree). Setting
 `Config.CSRFForAPI` answers the same question the other way and silences the warning too.
 
+## CSRF and compression
+
+Responses are compressed, and a secret that repeats in a compressed page next to text an
+attacker can make the page reflect is what BREACH reads back, byte by byte, from the size
+of the response. So the token `c.CSRFToken()`, `trilha.CSRFInput` and `c.Island` write is
+masked: a fresh one-time pad followed by the cookie's secret XORed with it — different
+bytes in every response of the same session. The check unmasks the field and compares it
+with the cookie; the bare cookie value is still accepted, so a test client or a script that
+reads the cookie keeps working.
+
+What the framework does not know is the app's own secret in a page: an API key shown once,
+a recovery code. Send it in a response of its own, or with `Cache-Control: no-store` and
+nothing reflected next to it.
+
 ## Secrets at rest
 
 The framework had a secret, a signer and signed cookies. What it did not have was *encrypt this

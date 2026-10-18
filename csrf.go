@@ -51,7 +51,24 @@ func (c CSRF) names() CSRF {
 
 // CSRFToken returns the request's CSRF token, creating the cookie on first
 // use. Put it in forms with CSRFInput or send it in the X-CSRF-Token header.
+//
+// What it returns is masked: a fresh one-time pad followed by the cookie's
+// token XORed with it, so the same session writes different bytes into every
+// page. Responses are compressed (#305), and a secret that repeats in a
+// compressed page next to text an attacker can reflect is what BREACH reads
+// back byte by byte from the response size. The check unmasks before it
+// compares, and still accepts the bare cookie value.
 func (c *Ctx) CSRFToken() string {
+	if v := c.Get("_trilha_csrf_masked"); v != nil {
+		return v.(string)
+	}
+	tok := maskCSRF(c.csrfSecret())
+	c.Set("_trilha_csrf_masked", tok)
+	return tok
+}
+
+// csrfSecret is the token the cookie carries, minted on first use.
+func (c *Ctx) csrfSecret() string {
 	if v := c.Get("_trilha_csrf"); v != nil {
 		return v.(string)
 	}
@@ -73,6 +90,43 @@ func (c *Ctx) CSRFToken() string {
 	})
 	c.Set("_trilha_csrf", tok)
 	return tok
+}
+
+// maskCSRF writes pad ‖ (secret XOR pad), base64url. The secret is the
+// cookie's string, so any cookie value round-trips, not only the 32 bytes
+// Trilha mints.
+func maskCSRF(secret string) string {
+	raw := []byte(secret)
+	out := make([]byte, 2*len(raw))
+	_, _ = rand.Read(out[:len(raw)])
+	for i, b := range raw {
+		out[len(raw)+i] = b ^ out[i]
+	}
+	return csrfMaskedPrefix + base64.RawURLEncoding.EncodeToString(out)
+}
+
+// csrfMaskedPrefix tells a masked token from a bare one without guessing by
+// length: a cookie value an app set by hand can be any length.
+const csrfMaskedPrefix = "m."
+
+// unmaskCSRF returns the secret a token stands for: the bare value as it is,
+// the masked one XORed back. A malformed masked token unmasks to "", which
+// never matches.
+func unmaskCSRF(tok string) string {
+	enc, ok := strings.CutPrefix(tok, csrfMaskedPrefix)
+	if !ok {
+		return tok
+	}
+	b, err := base64.RawURLEncoding.DecodeString(enc)
+	if err != nil || len(b) == 0 || len(b)%2 != 0 {
+		return ""
+	}
+	n := len(b) / 2
+	secret := make([]byte, n)
+	for i := range secret {
+		secret[i] = b[n+i] ^ b[i]
+	}
+	return string(secret)
 }
 
 // CSRFInput renders the hidden input for forms: h.Form(..., trilha.CSRFInput(c), ...).
@@ -113,7 +167,10 @@ func (a *App) checkCSRF(c *Ctx) error {
 			sent = c.r.PostFormValue(names.Field)
 		}
 	}
-	if sent == "" || subtle.ConstantTimeCompare([]byte(sent), []byte(ck.Value)) != 1 {
+	// Both sides unmasked: the field is masked per page (BREACH), and a cookie
+	// written with a masked value by an app or a test still means its secret.
+	sent = unmaskCSRF(sent)
+	if sent == "" || subtle.ConstantTimeCompare([]byte(sent), []byte(unmaskCSRF(ck.Value))) != 1 {
 		a.securityEvent(c, "csrf", http.StatusForbidden)
 		return &HTTPError{Code: http.StatusForbidden, Message: "invalid CSRF token"}
 	}

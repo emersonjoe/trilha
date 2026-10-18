@@ -3,6 +3,42 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.157.0 — 2026-10-18
+
+Faster delivery: text responses are gzipped by the runtime, a poll that brings back the same
+fragment leaves it alone, and upstreams keep a connection pool sized for one busy API
+(spec 177, #305–#307).
+
+### Added
+
+- **`Config.Compression`** — gzip for text responses (HTML, fragments, JSON, CSS, JavaScript,
+  SVG) to clients that accept it, on by default (`Compression{Disabled: true}` turns it off;
+  `MinSize` defaults to 1 KiB). Never compressed: `text/event-stream`, responses that already
+  carry `Content-Encoding`, already-compressed types, `HEAD`, 1xx/204/206/304, `Range`
+  requests. Compressed answers add `Vary: Accept-Encoding` and weaken a strong `ETag`;
+  versioned static files are compressed once per version and served from memory (#305).
+- **`trilha.UpstreamTransport()`** — the shared transport an `Upstream` uses without a
+  `Transport` of its own: `http.DefaultTransport` cloned with 64 idle connections per host
+  instead of 2. Give it to the app's own API client too (#307).
+- `uitest`: scenario `TestUIPollKeepsUnchangedFragment`.
+
+### Changed
+
+- **`c.CSRFToken()` returns a masked token**, different in every response (`m.` + a one-time
+  pad followed by the cookie's secret XORed with it), so a compressed page does not repeat the
+  secret for BREACH to read. The check unmasks before comparing and still accepts the bare
+  cookie value. Code that compared `CSRFToken()` with the cookie should compare the cookie
+  with what the check accepts instead (#305).
+- **`ui.Poll` / `ui.Live` / `ui.Defer` leave a fragment alone when it came back the same**
+  (nonce and masked token aside): no re-layout, islands keep their state, scroll and
+  selection stay (#306).
+
+### Fixed
+
+- **An island inside a polled, live or deferred fragment is mounted again after the
+  fragment is replaced.** `ui.live.js` announces the swap with `trilha:hydrate`, which
+  `ui.island.js` did not listen to: the island stayed on its fallback for good (#306).
+
 ## 0.156.0 — 2026-10-10
 
 Islands that grow: a post that redirects navigates, routes called with the browser's cookies

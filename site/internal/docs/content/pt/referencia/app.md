@@ -24,6 +24,7 @@ type Config struct {
 	Secret, PreviousSecret []byte // TRILHA_SECRET, TRILHA_SECRET_PREVIOUS (ou os _FILE)
 	Timeouts     Timeouts     // limites do http.Server (trilha.NoTimeout desliga um)
 	StaticCacheControl string // Cache-Control dos estáticos em prod ("public, max-age=3600")
+	Compression  Compression  // gzip das respostas de texto (valor zero = ligado)
 	StaticHeaders func(name string, hdr http.Header) // cabeçalhos por arquivo estático
 	LogRequest   func(c *Ctx, status int, dur time.Duration) bool // nil loga todas
 	OnSecurityEvent func(SecurityEvent)
@@ -53,7 +54,7 @@ só *quando* o valor é lido:
 
 | Campos | Lidos em | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
-| `Security`, `Public`, `MaxBodyBytes`, `MaxFormMemory`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders`, `OnRequest` | a cada requisição | ✓ | ✓ |
+| `Security`, `Public`, `MaxBodyBytes`, `MaxFormMemory`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders`, `Compression`, `OnRequest` | a cada requisição | ✓ | ✓ |
 | `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS`, `Upstreams` | derivados em `New` e **reaplicados** ao começar a servir (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
 | `Env` | `New` (chave efêmera em dev) e por requisição | ✓ | parcial |
@@ -198,6 +199,26 @@ cfg.StaticHeaders = func(name string, h http.Header) {
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
 }
 ```
+
+### Compressão
+
+Respostas de texto saem em gzip para o cliente que manda `Accept-Encoding: gzip`: a página
+do SSR, os fragmentos, JSON, CSS, JavaScript e SVG. Um estático versionado (o CSS e o JS do
+kit, tudo o que passa por `c.Asset`) é comprimido uma vez por versão e servido da memória;
+o resto é comprimido no caminho.
+
+Nunca comprimido: `text/event-stream` (o buffer do gzip seguraria os eventos), resposta que
+já traz `Content-Encoding`, imagens que não sejam SVG, PDF, arquivos compactados e mídia,
+`HEAD`, 1xx/204/206/304, requisição com `Range` e corpo abaixo de `Compression.MinSize`
+(1 KiB). A resposta comprimida ganha `Vary: Accept-Encoding` e o `ETag` forte vira fraco,
+para o 304 continuar funcionando.
+
+```go
+cfg.Compression = trilha.Compression{Disabled: true} // atrás de um proxy que já comprime
+```
+
+Por causa dela, o token CSRF da página é mascarado a cada resposta — ver
+[Segurança](/pt/referencia/seguranca#csrf-e-compressao).
 
 ### Árvores estáticas fora de `public/`
 

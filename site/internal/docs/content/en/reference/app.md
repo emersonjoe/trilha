@@ -24,6 +24,7 @@ type Config struct {
 	Secret, PreviousSecret []byte // TRILHA_SECRET, TRILHA_SECRET_PREVIOUS (or their _FILE)
 	Timeouts     Timeouts     // http.Server limits (trilha.NoTimeout disables one)
 	StaticCacheControl string // Cache-Control of static files in prod ("public, max-age=3600")
+	Compression  Compression  // gzip of text responses (zero value = on)
 	StaticHeaders func(name string, hdr http.Header) // headers per static file
 	LogRequest   func(c *Ctx, status int, dur time.Duration) bool // nil logs every request
 	OnSecurityEvent func(SecurityEvent)
@@ -53,7 +54,7 @@ value is read:
 
 | Fields | Read at | `Config` | `Setup` (via `a.Config()`) |
 |---|---|---|---|
-| `Security`, `Public`, `MaxBodyBytes`, `MaxFormMemory`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders`, `OnRequest` | every request | ✓ | ✓ |
+| `Security`, `Public`, `MaxBodyBytes`, `MaxFormMemory`, `CSRFForAPI`, `BasePath`, `OnSecurityEvent`, `StaticCacheControl`, `StaticHeaders`, `Compression`, `OnRequest` | every request | ✓ | ✓ |
 | `Logger`, `Secret`/`PreviousSecret`, `RateLimit`, `TrustedProxies`, `CORS`, `Upstreams` | derived in `New` and **reapplied** when serving starts (`ListenAndServe`, `Handler`, `Export`) | ✓ | ✓ |
 | `Addr`, `Timeouts` | `ListenAndServe` | ✓ | ✓ |
 | `Env` | `New` (ephemeral key in dev) and per request | ✓ | partial |
@@ -200,6 +201,26 @@ cfg.StaticHeaders = func(name string, h http.Header) {
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
 }
 ```
+
+### Compression
+
+Text responses go out gzipped to a client that sends `Accept-Encoding: gzip`: the SSR
+page, fragments, JSON, CSS, JavaScript and SVG. A versioned static file (the kit's CSS and
+JS, anything served through `c.Asset`) is compressed once per version and answered from
+memory; the rest is compressed on the way.
+
+Never compressed: `text/event-stream` (the gzip buffer would hold the events back), a
+response that already carries `Content-Encoding`, images other than SVG, PDF, archives and
+media, `HEAD`, 1xx/204/206/304, a request with `Range`, and a body under
+`Compression.MinSize` (1 KiB). A compressed answer adds `Vary: Accept-Encoding` and turns a
+strong `ETag` weak, so the 304 keeps working.
+
+```go
+cfg.Compression = trilha.Compression{Disabled: true} // behind a proxy that already compresses
+```
+
+The CSRF token in the page is masked per response because of it — see
+[Security](/reference/security#csrf-and-compression).
 
 ### Static trees outside `public/`
 

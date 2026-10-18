@@ -153,7 +153,7 @@ func TestIslandCarriesTheCSRFToken(t *testing.T) {
 	if form == nil || form[1] != m[1] {
 		t.Fatalf("island token %q, form token %v", m[1], form)
 	}
-	if ck := rec.Result().Cookies(); len(ck) == 0 || ck[0].Value != html.UnescapeString(m[1]) {
+	if ck := rec.Result().Cookies(); len(ck) == 0 || ck[0].Value != unmaskCSRF(html.UnescapeString(m[1])) {
 		t.Fatalf("the token in the page is not the one in the cookie: %v", ck)
 	}
 }

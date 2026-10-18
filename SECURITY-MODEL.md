@@ -81,6 +81,7 @@ the [security reference](https://emersonjoe.github.io/trilha/reference/security)
 | Threat | Control |
 |---|---|
 | Cross-site request from another origin | Double-submit CSRF token on every form; a `route.go` request with the browser's cookies and no `Authorization` is checked too (0.156.0), and `Config.CSRFForAPI` extends it to every API request. |
+| Secret read back from the size of a compressed page (BREACH) | Responses are gzipped (0.157.0), so the CSRF token written into the page is masked with a fresh pad in every response; the cookie's secret never appears in the HTML. Event streams and already-encoded responses are never compressed. |
 | Cookie edited by the client | The signature covers value and expiry; any change fails verification. |
 | Injected HTML/JS | `h` escapes text and attributes; `tmpl` escapes per context; `h.Raw` is the one explicit way out. |
 | Inline script injected into a page | CSP with a per-request nonce; `base-uri`, `form-action` and `frame-ancestors` locked down. |

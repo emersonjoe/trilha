@@ -561,12 +561,17 @@ func TestRespostaIdenticaParaInexistenteEFatorErrado(t *testing.T) {
 	}
 }
 
-// semNonce tira os nonces da CSP, que mudam a cada resposta por definição e
-// são a única diferença que duas negativas podem ter. O resto tem de bater
-// byte a byte — inclusive o tamanho, senão o tempo de transmissão vira o
-// oráculo que o texto igual não é.
+// semNonce tira os nonces da CSP e o token CSRF mascarado, que mudam a cada
+// resposta por definição (o token, contra o BREACH) e são a única diferença
+// que duas negativas podem ter — os dois com o mesmo tamanho sempre. O resto
+// tem de bater byte a byte — inclusive o tamanho, senão o tempo de
+// transmissão vira o oráculo que o texto igual não é.
 func semNonce(s string) string {
-	const marca = "nonce=\""
+	return semValor(semValor(s, "nonce=\""), "\"m.")
+}
+
+// semValor esvazia o que vem depois de cada marca até a próxima aspa.
+func semValor(s, marca string) string {
 	var b strings.Builder
 	for {
 		i := strings.Index(s, marca)
