@@ -29,6 +29,7 @@ do que existe: <https://emersonjoe.github.io/trilha/cookbook>.
 | `trilha check --fix` | o mesmo, reescrevendo `trilha_gen.go` e a formatação no caminho |
 | `make test` | a suíte inteira; o CI roda ela |
 | `trilha gen` | reescreve `trilha_gen.go` depois de adicionar ou remover rota |
+| `trilha precommit` | os arquivos staged contra os limites de tamanho — o que o `.githooks/pre-commit` roda (o `trilha hooks` o liga num clone) |
 
 Rota respondendo 404 é quase sempre um `trilha gen` que faltou; o `trilha check` pega antes do
 navegador.
@@ -69,7 +70,11 @@ Toda mudança segue estas dez regras; o checklist que prova cada uma é
    contexto, nada de código morto; o comentário diz por quê, não o quê.
 8. **Reúso primeiro.** Procure antes de escrever: `trilha ui components`, `trilha add`,
    `grep -rn` em `internal/`. A segunda cópia de qualquer coisa vira uma função.
-9. **Revise pelo tamanho.** Releia o diff e corte: ganha a menor mudança legível.
+9. **Revise pelo tamanho.** Releia o diff e corte: ganha a menor mudança legível. Todo
+   arquivo de código fica em até **500 linhas** (testes, docs, CSS e Markdown estão isentos) e
+   todo arquivo que você escreve em até **5.000 tokens** (bytes/4): divida o arquivo antes de
+   terminar se a sua mudança passar do limite. O hook de pre-commit cobra os dois; o
+   `trilha precommit` diz como dividir.
 10. **Seguro por padrão (OWASP ASVS 5.0 N2, Top 10:2025, NIST SSDF).** Entrada pelo `c.Bind`
     e tags `validate`, autorização no `middleware.go`, SQL por parâmetro, segredo do
     ambiente; o `trilha check` roda o `trilha audit`.

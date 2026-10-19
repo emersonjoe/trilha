@@ -42,7 +42,9 @@ trilha version
 | `check` | the single gate: `gen`, `gofmt`, `vet`, `test`, `audit` and `openapi`, in that order, stopping at the first failure |
 | `ctx` | the map of the project — routes, API, types, setup — in one read, as Markdown or JSON |
 | `audit` | security checklist before publishing (see [Security](/reference/security)); among the checks, a route that guards a module held by unit — `auth.Grant("edit", auth.ScopeUnit)` — and never calls `Requirement.In(c, unit)` with the record's unit |
-| `agents` | writes `AGENTS.md` and `CLAUDE.md` so a coding agent finds the conventions |
+| `agents` | writes `AGENTS.md`, `CLAUDE.md`, the quality skill and the pre-commit hook so a coding agent finds the conventions |
+| `hooks` | writes `.githooks/pre-commit` and points `core.hooksPath` at it |
+| `precommit` | the staged files against the size limits: 5,000 tokens per file, 500 lines per source file |
 | `mcp` | MCP server over stdio for an agent without a shell; read-only unless `--write` |
 
 Commands run in the folder containing `app/`. The project's import path comes from the
@@ -627,7 +629,30 @@ wrote it, so a copy from an older release keeps sending the agent to commands th
 replaced. The whole sequence for a project coming from an older version is in
 [Migration](/cookbook/migration#turning-on-the-agent-files-in-a-project-that-already-exists).
 
-## trilha openapi
+## trilha hooks and trilha precommit
+
+`trilha agents` also writes `.githooks/pre-commit` and, in a git repository, points
+`core.hooksPath` at it; `trilha hooks` does only that. The hook lives in the repository, so
+every clone has the same one, but `core.hooksPath` is local: whoever clones runs
+`trilha hooks` once. A repository whose `core.hooksPath` already points elsewhere is left alone
+— call `.githooks/pre-commit` from your own hook. The script is the framework's, stamped like
+`AGENTS.md`.
+
+The hook runs `trilha precommit` (or `go run` of the version in `go.mod`, without the CLI on the
+`PATH`), which reads the **staged** files from the index — what the commit carries, not the
+working tree — and stops the commit when one is over a limit:
+
+| Limit | Applies to |
+|---|---|
+| 5,000 tokens (bytes/4) | every file an agent writes, Markdown and tests included |
+| 500 lines | source: `.go`, `.js`/`.ts`/`.tsx`, `.sql`, `.sh`, `.py` and the like; tests (`_test.go`, `.test.`, `.spec.`, `testdata/`), docs, CSS and Markdown are exempt |
+
+Not checked at all: lockfiles (`go.sum`, `package-lock.json`, `yarn.lock`…), `vendor/` and
+`node_modules/`, binaries, `.golden` files, and generated files — a `Code generated ... DO NOT
+EDIT.` header, the stamps of the framework's own files, or `linguist-generated` /
+`linguist-vendored` in `.gitattributes`. The message lists each file with its count and says
+how to split it: by seam, into files of the same package named after what they hold, never by
+line count. `--all` checks every tracked file, to size a project before turning the hook on.
 
 Reads `app/`, deduces the document from the handlers and writes `openapi.json`. `-o -` writes
 to stdout; `--title`, `--version` and `--server` fill what the code cannot know (they default

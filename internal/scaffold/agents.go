@@ -12,9 +12,9 @@ import (
 //go:embed agents
 var agentsFS embed.FS
 
-// ErrAgentsModified is returned when AGENTS.md or the quality skill was edited
+// ErrAgentsModified is returned when AGENTS.md, the quality skill or the hook was edited
 // locally and force is false.
-var ErrAgentsModified = errors.New("AGENTS.md or the quality skill was modified locally; use --force to overwrite")
+var ErrAgentsModified = errors.New("AGENTS.md, the quality skill or the pre-commit hook was modified locally; use --force to overwrite")
 
 // SkillPath is where the quality checklist goes: the place Claude Code looks
 // for a project's skills, and the path AGENTS.md links for any other agent.

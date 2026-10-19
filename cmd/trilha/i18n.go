@@ -63,7 +63,9 @@ Usage:
   trilha ui components [--json]                     list the component catalogue for tools and agents
   trilha ui icons [--json]                          list every supported icon name
   trilha inspect api ui.Component                   inspect one stable UI symbol
-  trilha agents [--force] [--lang en|pt]            write AGENTS.md and CLAUDE.md for coding agents
+  trilha agents [--force] [--lang en|pt]            write AGENTS.md, CLAUDE.md, the quality skill and the hook
+  trilha hooks [--force]                            write .githooks/pre-commit and point git at it
+  trilha precommit [--all]                          staged files within 5,000 tokens and 500 lines of source
   trilha mcp [--write]                              MCP server over stdio for an agent without a shell
   trilha mcp --from-routes [--include /api/v1/*]    the tools mcp.FromRoutes would expose for this API
   trilha migrate next <next-dir> [--out app]        skeleton of app/ and MIGRATION.md from a Next.js project
@@ -97,7 +99,9 @@ Uso:
   trilha ui components [--json]                       lista o catálogo de componentes para ferramentas e agentes
   trilha ui icons [--json]                            lista todos os nomes de ícones suportados
   trilha inspect api ui.Componente                    inspeciona um símbolo estável de UI
-  trilha agents [--force] [--lang en|pt]              grava AGENTS.md e CLAUDE.md para agentes de código
+  trilha agents [--force] [--lang en|pt]              grava AGENTS.md, CLAUDE.md, a skill de qualidade e o hook
+  trilha hooks [--force]                              grava .githooks/pre-commit e aponta o git para ele
+  trilha precommit [--all]                            arquivos staged dentro de 5.000 tokens e 500 linhas de código
   trilha mcp [--write]                                servidor MCP por stdio, para agente sem shell
   trilha mcp --from-routes [--include /api/v1/*]      as ferramentas que mcp.FromRoutes exporia para esta API
   trilha migrate next <dir-do-next> [--out app]       esqueleto do app/ e MIGRATION.md a partir de um projeto Next.js
@@ -296,7 +300,7 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	// agents
 	"flag agents":       {"also write AGENTS.md and CLAUDE.md for coding agents", "também gravar AGENTS.md e CLAUDE.md para agentes de código"},
 	"flag force agents": {"overwrite a locally modified AGENTS.md or quality skill", "sobrescrever um AGENTS.md ou uma skill de qualidade modificados localmente"},
-	"agents modified":   {"AGENTS.md or the quality skill was modified locally; use --force to overwrite", "o AGENTS.md ou a skill de qualidade foi modificado localmente; use --force para sobrescrever"},
+	"agents modified":   {"AGENTS.md, the quality skill or the pre-commit hook was modified locally; use --force to overwrite", "o AGENTS.md, a skill de qualidade ou o hook de pre-commit foi modificado localmente; use --force para sobrescrever"},
 
 	// openapi
 	"flag openapi out":     {`output file ("-" writes to stdout)`, `arquivo de saída ("-" escreve na saída padrão)`},

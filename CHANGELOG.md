@@ -3,6 +3,27 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.161.0 — 2026-10-19
+
+Size limits a commit has to pass in a project developed with agents (spec 181, #314).
+
+### Added
+
+- **`trilha precommit [--all]`** — checks the staged files, read from the index: no file over
+  5,000 tokens (bytes/4), no source file over 500 lines. Tests, docs, CSS and Markdown have no
+  line limit; lockfiles, `vendor/`, `node_modules/`, binaries, goldens and generated files (a
+  `Code generated ... DO NOT EDIT.` header, the framework's stamped files, `linguist-generated`
+  in `.gitattributes`) are not checked. The message lists each file with its count and says how
+  to split it. `--all` checks every tracked file.
+- **`trilha hooks [--force]`** — writes `.githooks/pre-commit`, which runs `trilha precommit`,
+  and points `core.hooksPath` at it (left alone when it already points elsewhere).
+
+### Changed
+
+- `trilha agents` installs the hook, and `trilha new --agents` writes it; `AGENTS.md` and the
+  `trilha-quality` skill state the limits and ask the agent to split a file before finishing
+  when its change takes it over.
+
 ## 0.160.0 — 2026-10-18
 
 Island props typed by the type of the expression (spec 180, #303).

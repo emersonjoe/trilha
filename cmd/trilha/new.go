@@ -102,6 +102,11 @@ func cmdNew(args []string) error {
 		for _, r := range res {
 			fmt.Println("  +", r.File)
 		}
+		hook, err := scaffold.WriteHooks(dir, false)
+		if err != nil {
+			return err
+		}
+		fmt.Println("  +", hook.File, "("+t("hooks no repo")+")")
 	}
 	if *trilhaDir != "" {
 		abs, err := filepath.Abs(*trilhaDir)

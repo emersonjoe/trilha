@@ -42,7 +42,9 @@ trilha version
 | `check` | o portão único: `gen`, `gofmt`, `vet`, `test`, `audit` e `openapi`, nesta ordem, parando na primeira falha |
 | `ctx` | o mapa do projeto — rotas, API, tipos, setup — numa leitura só, em Markdown ou JSON |
 | `audit` | checklist de segurança antes de publicar (veja [Segurança](/pt/referencia/seguranca)); entre as checagens, a rota que guarda módulo segurado por unidade — `auth.Grant("editar", auth.ScopeUnit)` — e nunca chama o `Requirement.In(c, unidade)` com a unidade do registro |
-| `agents` | grava `AGENTS.md` e `CLAUDE.md` para um agente de código achar as convenções |
+| `agents` | grava `AGENTS.md`, `CLAUDE.md`, a skill de qualidade e o hook de pre-commit para um agente de código achar as convenções |
+| `hooks` | grava `.githooks/pre-commit` e aponta o `core.hooksPath` para ele |
+| `precommit` | os arquivos staged contra os limites de tamanho: 5.000 tokens por arquivo, 500 linhas por arquivo de código |
 | `mcp` | servidor MCP por stdio, para agente sem shell; somente leitura até passar `--write` |
 
 Os comandos rodam na pasta que contém `app/`. O caminho de import do projeto vem do
@@ -623,7 +625,31 @@ gravou, então uma cópia de uma release anterior continua mandando o agente par
 foram substituídos. A sequência inteira para um projeto vindo de versão anterior está na
 [receita de migração](/pt/receitas/migracao#ligar-os-arquivos-de-agente-num-projeto-que-ja-existe).
 
-## trilha openapi
+## trilha hooks e trilha precommit
+
+O `trilha agents` também grava `.githooks/pre-commit` e, num repositório git, aponta o
+`core.hooksPath` para ele; o `trilha hooks` faz só isso. O hook mora no repositório, então todo
+clone tem o mesmo, mas o `core.hooksPath` é local: quem clona roda `trilha hooks` uma vez. Um
+repositório cujo `core.hooksPath` já aponta para outro lugar fica como está — chame o
+`.githooks/pre-commit` do seu próprio hook. O script é do framework, carimbado como o
+`AGENTS.md`.
+
+O hook roda o `trilha precommit` (ou o `go run` da versão do `go.mod`, sem a CLI no `PATH`), que
+lê os arquivos **staged** do índice — o que o commit leva, não a árvore de trabalho — e barra o
+commit quando um passa de um limite:
+
+| Limite | Vale para |
+|---|---|
+| 5.000 tokens (bytes/4) | todo arquivo que um agente escreve, Markdown e testes inclusive |
+| 500 linhas | código: `.go`, `.js`/`.ts`/`.tsx`, `.sql`, `.sh`, `.py` e afins; testes (`_test.go`, `.test.`, `.spec.`, `testdata/`), docs, CSS e Markdown estão isentos |
+
+Não são conferidos: lockfiles (`go.sum`, `package-lock.json`, `yarn.lock`…), `vendor/` e
+`node_modules/`, binários, arquivos `.golden` e arquivos gerados — um cabeçalho `Code generated
+... DO NOT EDIT.`, os carimbos dos arquivos do próprio framework, ou `linguist-generated` /
+`linguist-vendored` no `.gitattributes`. A mensagem lista cada arquivo com a contagem e diz como
+dividir: pelas costuras, em arquivos do mesmo pacote com o nome do que guardam, nunca por
+contagem de linhas. O `--all` confere todo arquivo versionado, para medir um projeto antes de
+ligar o hook.
 
 Lê `app/`, deduz o documento a partir dos handlers e escreve `openapi.json`. `-o -` escreve na
 saída padrão; `--title`, `--version` e `--server` preenchem o que o código não tem como saber

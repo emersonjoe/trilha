@@ -251,6 +251,10 @@ to grep for — is `.claude/skills/trilha-quality/SKILL.md`, which Claude Code l
 and any other agent reads by the link. `CLAUDE.md` is yours: three lines pointing at
 `AGENTS.md`, and room for whatever this repository needs.
 
+The limits the rules state are enforced too: `trilha agents` installs a pre-commit hook that
+stops a commit with a file over 5,000 tokens, or a source file over 500 lines, and says how to
+split it ([trilha hooks and trilha precommit](/reference/cli#trilha-hooks-and-trilha-precommit)).
+
 Neither exists unless you ask. Support for agents is a choice of the team, not a convention of
 the framework, so `trilha new` on its own leaves your project exactly as it did before.
 

@@ -29,6 +29,7 @@ of everything available: <https://emersonjoe.github.io/trilha/cookbook>.
 | `trilha check --fix` | the same, rewriting `trilha_gen.go` and the formatting on the way |
 | `make test` | the full suite; CI runs it |
 | `trilha gen` | rewrites `trilha_gen.go` after a route is added or removed |
+| `trilha precommit` | the staged files against the size limits — what `.githooks/pre-commit` runs (`trilha hooks` turns it on in a clone) |
 
 A route answering 404 is almost always a missing `trilha gen`; `trilha check` catches it
 before the browser does.
@@ -68,7 +69,11 @@ any other agent reads it before saying it is done).
    code; a comment says why, not what.
 8. **Reuse first.** Search before writing: `trilha ui components`, `trilha add`, `grep -rn` in
    `internal/`. The second copy of anything becomes one function.
-9. **Review for size.** Reread the diff and cut: the smallest readable change wins.
+9. **Review for size.** Reread the diff and cut: the smallest readable change wins. Every
+   source file stays at or below **500 lines** (tests, docs, CSS and Markdown are exempt) and
+   every file you write at or below **5,000 tokens** (bytes/4): split a file before you finish
+   if your change takes it over. The pre-commit hook enforces both; `trilha precommit` says
+   how to split.
 10. **Secure by default (OWASP ASVS 5.0 L2, Top 10:2025, NIST SSDF).** Input through `c.Bind`
     and `validate` tags, authorization in `middleware.go`, SQL by parameter, secrets from the
     environment; `trilha check` runs `trilha audit`.

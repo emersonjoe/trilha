@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.160.0)
+## Onde o Trilha está (outubro de 2026, v0.161.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -396,6 +396,9 @@ segurança por OWASP e NIST, e o `AGENTS.md` resume as dez regras (#310).
 148. **Props de ilha pelo tipo da expressão** (spec 180, **entregue na 0.160.0**): o `trilha
 gen` tipa as props de uma variável, de um parâmetro, de uma conversão ou de uma função do app,
 e não só do literal na chamada (#303).
+149. **Limite de tamanho no commit** (spec 181, **entregue na 0.161.0**): `trilha precommit` e
+`trilha hooks` barram o commit com arquivo acima de 5.000 tokens ou código acima de 500 linhas,
+ignorando lockfiles e gerados, e dizem como dividir; o `trilha agents` instala o hook (#314).
 
 ## O que não vamos fazer, e por quê
 

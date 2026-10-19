@@ -104,6 +104,15 @@ to do and what to grep for; "grep" means `grep -rn` over `app/` and `internal/`.
 
 ## 9. Review for size and readability
 
+- **Limits**: a source file at or below 500 lines; any file you write at or below 5,000 tokens
+  (bytes/4). Tests, docs, CSS and Markdown have no line limit; lockfiles and generated files
+  have none at all. When your change takes a file over, split it before you finish — the
+  pre-commit hook will stop the commit otherwise, and `trilha precommit` prints how.
+- **Splitting**: find the seams (a type with its methods, a group of functions that call each
+  other); move each to a file of the same package named after it; in `app/`, `page.go` keeps
+  `Page`, components go to `components.go`, data access to `internal/<domain>`. Never split by
+  line count or shorten names to fit.
+
 - Reread the whole diff as its reviewer. For every line ask: can it go? Can it be shorter and
   still clear?
 - Remove what the change did not need: helpers used once, options nobody sets, logs left from
@@ -127,7 +136,7 @@ to do and what to grep for; "grep" means `grep -rn` over `app/` and `internal/`.
 
 ## Before you finish
 
-1. `trilha check` passes.
+1. `trilha check` and `trilha precommit` pass.
 2. Every section above that the change touches was checked.
 3. A test proves the change; a fixed bug has a test that failed before the fix.
 4. The diff was reread for size (section 9).

@@ -252,6 +252,11 @@ OWASP ASVS e NIST SSDF por padrão. O checklist delas — o que fazer e o que pr
 lê pelo link. O `CLAUDE.md` é seu: três linhas apontando para o `AGENTS.md` e espaço para o que
 este repositório precisar.
 
+Os limites que as regras dizem também são cobrados: o `trilha agents` instala um hook de
+pre-commit que barra o commit com um arquivo acima de 5.000 tokens, ou um arquivo de código
+acima de 500 linhas, e diz como dividir
+([trilha hooks e trilha precommit](/pt/referencia/cli#trilha-hooks-e-trilha-precommit)).
+
 Nenhum dos dois existe sem que você peça. Suporte a agentes é escolha do time, não convenção do
 framework, então `trilha new` sozinho deixa seu projeto exatamente como deixava antes.
 

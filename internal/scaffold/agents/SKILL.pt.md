@@ -106,6 +106,16 @@ fazer e o que procurar; "procure" é `grep -rn` em `app/` e `internal/`.
 
 ## 9. Revisão pelo tamanho e pela leitura
 
+- **Limites**: arquivo de código em até 500 linhas; todo arquivo que você escreve em até 5.000
+  tokens (bytes/4). Testes, docs, CSS e Markdown não têm limite de linhas; lockfiles e
+  arquivos gerados não têm limite nenhum. Se a sua mudança passa um arquivo do limite, divida
+  antes de terminar — senão o hook de pre-commit barra o commit, e o `trilha precommit` diz
+  como.
+- **Como dividir**: ache as costuras (um tipo com seus métodos, um grupo de funções que se
+  chamam); mova cada uma para um arquivo do mesmo pacote com o nome dela; em `app/`, o
+  `page.go` fica com a `Page`, os componentes vão para `components.go` e o acesso a dados para
+  `internal/<domínio>`. Nunca divida por contagem de linhas nem encurte nomes para caber.
+
 - Releia o diff inteiro como quem vai revisá-lo. Para cada linha: dá para tirar? Dá para
   encurtar e continuar claro?
 - Tire o que a mudança não precisava: auxiliar usado uma vez, opção que ninguém liga, log que
@@ -130,7 +140,7 @@ fazer e o que procurar; "procure" é `grep -rn` em `app/` e `internal/`.
 
 ## Antes de terminar
 
-1. O `trilha check` passa.
+1. O `trilha check` e o `trilha precommit` passam.
 2. Cada seção acima que a mudança toca foi conferida.
 3. Um teste prova a mudança; bug corrigido tem teste que falhava antes da correção.
 4. O diff foi relido pelo tamanho (seção 9).

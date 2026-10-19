@@ -23,7 +23,7 @@ import (
 	"github.com/emersonjoe/trilha/internal/scan"
 )
 
-const version = "0.160.0"
+const version = "0.161.0"
 
 // exeName gives a path the extension the system needs to execute it. `go build -o`
 // writes the literal name it is given, and on Windows exec.LookPath only accepts a
@@ -79,6 +79,10 @@ func main() {
 		err = cmdMCP(os.Args[2:])
 	case "agents":
 		err = cmdAgents(os.Args[2:])
+	case "hooks":
+		err = cmdHooks(os.Args[2:])
+	case "precommit":
+		err = cmdPrecommit(os.Args[2:])
 	case "audit":
 		err = cmdAudit(os.Args[2:])
 	case "secret":
