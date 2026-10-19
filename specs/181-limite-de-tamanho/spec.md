@@ -1,6 +1,6 @@
 # Spec 181 — Limite de tamanho no commit: 5.000 tokens por arquivo, 500 linhas de código
 
-**Feature Branch**: `181-limite-de-tamanho` | **Created**: 2026-10-19 | **Status**: Pronta para release (0.161.0)
+**Feature Branch**: `181-limite-de-tamanho` | **Created**: 2026-10-19 | **Status**: Entregue (0.161.0)
 
 - **Issue**: #314 — a fonte do escopo.
 - **Branch**: `181-limite-de-tamanho`
@@ -72,7 +72,7 @@ mede antes).
   `cmd/trilha/precommit.go` e `i18n_precommit.go`, `trilha agents`/`new --agents`.
 - [x] T003 `AGENTS.md` e skill (en/pt), referência da CLI e capítulo de IA (en/pt).
 - [x] T004 CHANGELOG, ROADMAP, versão.
-- [ ] T005 Release 0.161.0 (#314).
+- [x] T005 Release 0.161.0 (#314).
 
 ## Aceitação
 
@@ -88,3 +88,7 @@ mede antes).
 | Nível | Comando | Passaram | Falharam | Pularam |
 |---|---|---|---|---|
 | Unidade + integração | `make test` (`go test -json ./...`) | 1638 | 0 | 2 |
+| CI (Linux 1.22/1.25, Windows, SQL, fuzz, segurança, navegadores) | `ci.yml` run 39182178105 em `8683ada` | todos os jobs | 0 | — |
+
+A primeira CI (run 39180423534) falhou só no Windows: o teste conferia o bit de execução do
+hook, que o sistema de arquivos de lá não tem. A conferência ficou para onde o bit existe.
