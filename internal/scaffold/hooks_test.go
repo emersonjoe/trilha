@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -25,7 +26,7 @@ func TestWriteHooks(t *testing.T) {
 	if !strings.Contains(string(b), "trilha precommit") {
 		t.Fatalf("the hook does not run the check:\n%s", b)
 	}
-	if st, _ := os.Stat(p); st.Mode()&0o111 == 0 {
+	if st, _ := os.Stat(p); runtime.GOOS != "windows" && st.Mode()&0o111 == 0 { // no exec bit there
 		t.Fatalf("hook not executable: %v", st.Mode())
 	}
 	if res, err := WriteHooks(dir, false); err != nil || res.Action != UIKept {
