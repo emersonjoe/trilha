@@ -3,6 +3,24 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## Unreleased
+
+### Changed
+
+- `DEMANDA-PARTIU.md`, the Partiu adoption report, moved from the repository root to
+  `docs/decisions/`, where adoption reports and decision records now live; the README links
+  follow. The maintainer's unpublished working notes that sat beside it moved to the same
+  folder and stay out of the repository.
+- README: the CLI has been published since 0.1.0, so the "not published yet" tip became what it
+  is for — trying an unreleased build with `--trilha-dir`.
+- The hands-on cloud chapter says up front that trilha-cloud is private and what runs without
+  it, counts the ten `check` gates instead of six, and its MVP table keeps under "Later" only
+  what has not shipped (billing and plans, autoscaling, remote sandboxes, other Git providers,
+  MFA, runner-signed evidence verified by the cloud, Postgres high availability).
+- Spec hygiene: `scripts/spec-status.sh` (`make spec-status`) lists every spec whose status
+  disagrees with the tags — missing, `Draft`/`Rascunho`, or "Pronta para release" for a version
+  already tagged — and the specs it flagged gained `Entregue (X.Y.Z)`.
+
 ## 0.161.0 — 2026-10-19
 
 Size limits a commit has to pass in a project developed with agents (spec 181, #314).
