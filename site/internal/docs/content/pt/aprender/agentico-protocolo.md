@@ -26,6 +26,12 @@ cd agenda
 trilha-spec init --name agenda --description "Agenda de eventos da trilha Aprender"
 ```
 
+Sem um toolchain Go, a [página de Releases](https://github.com/emersonjoe/trilha-spec/releases)
+traz um binário estático por plataforma (Linux e macOS, amd64 e arm64) ao lado de um
+`sha256sums.txt`: baixe o da sua máquina, confira o digest contra esse arquivo (`sha256sum
+--check --ignore-missing sha256sums.txt` no Linux, `shasum -a 256` no macOS) e ponha-o no seu
+`PATH` como `trilha-spec`.
+
 A partir do Trilha 0.124, `trilha spec …` é a mesma chamada que `trilha-spec …`: a CLI do
 framework entrega qualquer comando que não conhece ao `trilha-<nome>` do seu `PATH`, como o
 `git` faz. As duas grafias aparecem abaixo; use a que preferir.
@@ -94,7 +100,8 @@ nasce `draft`; quando o time concorda, `trilha spec move 001-lembretes-de-evento
 substituída por outra mais nova vai para `superseded`, e a nova a cita —
 `trilha spec set 002-… --supersedes 001-lembretes-de-evento` (`--depends` para as specs em que
 se apoia; `doctor` aponta referência que não existe). `trilha spec list --status approved`
-filtra.
+filtra. `doctor` também avisa (`spec-tasks-done`) quando uma spec `approved` tem todas as tasks
+`done` e ela mesma ainda não está `done` — feche-a com `trilha-spec spec move <id> done`.
 
 Uma spec também carrega seu **impacto de segurança**, em front matter que as ferramentas leem:
 `--asset` para o que a mudança toca, `--boundary` para as fronteiras de confiança que cruza,

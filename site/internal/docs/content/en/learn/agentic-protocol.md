@@ -26,6 +26,12 @@ cd agenda
 trilha-spec init --name agenda --description "Events agenda from the Learn trail"
 ```
 
+Without a Go toolchain, the [Releases page](https://github.com/emersonjoe/trilha-spec/releases)
+carries a static binary per platform (Linux and macOS, amd64 and arm64) next to a
+`sha256sums.txt`: download the one for your machine, check its digest against that file
+(`sha256sum --check --ignore-missing sha256sums.txt` on Linux, `shasum -a 256` on macOS) and put
+it on your `PATH` as `trilha-spec`.
+
 From Trilha 0.124 on, `trilha spec …` is the same call as `trilha-spec …`: the framework's CLI
 hands any command it does not know to `trilha-<name>` on your `PATH`, the way `git` does. Both
 spellings appear below; use whichever you like.
@@ -94,7 +100,8 @@ and `done` once every task is delivered. A spec that was judged and refused goes
 `rejected`; one replaced by a newer spec goes to `superseded`, and the newer one names it —
 `trilha spec set 002-… --supersedes 001-event-reminders` (`--depends` for the specs it builds
 on; `doctor` reports a reference that does not exist). `trilha spec list --status approved`
-filters.
+filters. `doctor` also warns (`spec-tasks-done`) when an `approved` spec has every task `done`
+and is still not `done` itself — close it with `trilha-spec spec move <id> done`.
 
 A spec also carries its **security impact**, in front matter the tools read: `--asset` for what
 the change touches, `--boundary` for the trust boundaries it crosses, `--control` for the

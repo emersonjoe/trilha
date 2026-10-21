@@ -27,6 +27,12 @@ trilha runner drivers
 # exec
 ```
 
+Sem um toolchain Go, a [página de Releases](https://github.com/emersonjoe/trilha-runner/releases)
+traz um binário estático por plataforma (Linux e macOS, amd64 e arm64) ao lado de um
+`sha256sums.txt`: baixe o da sua máquina, confira o digest contra esse arquivo (`sha256sum
+--check --ignore-missing sha256sums.txt` no Linux, `shasum -a 256` no macOS) e ponha-o no seu
+`PATH` como `trilha-runner`.
+
 Antes de gastar um token, veja o pipeline com o driver que não tem modelo. O `echo` só escreve
 a primeira linha do prompt em `TRILHA_RUN.md`; todo o resto — branch, commit, checks,
 evidência, status — é de verdade:
