@@ -67,6 +67,14 @@ não é repositório git, driver desconhecido, sem comando, agente saiu com erro
 tipo de registro, com o estágio que falhou, e a task vai para `failed`. Não existe execução sem
 rastro. Só a task que não está `ready`, ou ainda espera uma dependência, fica como estava.
 
+Antes da primeira tentativa o runner também faz um **preflight**: para cada comando dos
+`checks:` da task e do `project.verify` ele resolve o primeiro token — `LookPath` no host,
+`command -v` dentro do sandbox Docker. Ferramenta que não existe reprova a task em uma só
+tentativa, sem chamar o agente, com `failure_class: environment` e
+`error_code: environment_missing_tool`; código de saída 127 ou "command not found" durante a
+execução ou a verificação é classificado do mesmo jeito e nunca é repetido. A regra existe
+porque uma execução real gastou três tentativas de IA numa máquina sem `python`.
+
 ```bash
 trilha spec task move TASK-004 done      # ou: ready, para rodar de novo no mesmo branch
 trilha runner worktree clean TASK-004    # remove o checkout, mantém o branch

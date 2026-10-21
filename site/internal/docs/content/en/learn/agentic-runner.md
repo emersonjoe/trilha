@@ -67,6 +67,14 @@ leaves the same kind of record, with the stage that failed, and the task goes to
 There is no execution without a trace. Only a task that is not `ready`, or is still waiting on
 a dependency, is left as it was.
 
+Before the first attempt the runner also runs a **preflight**: for every command in the task's
+`checks:` and in `project.verify` it resolves the first token — `LookPath` on the host,
+`command -v` inside the Docker sandbox. A tool that is not there fails the task in one attempt,
+without calling the agent, with `failure_class: environment` and
+`error_code: environment_missing_tool`; an exit code 127 or a "command not found" during
+execution or verification is classified the same way and is never retried. The rule exists
+because a real run burned three AI attempts on a machine that had no `python`.
+
 ```bash
 trilha spec task move TASK-004 done      # or: ready, to run it again on the same branch
 trilha runner worktree clean TASK-004    # drops the checkout, keeps the branch
