@@ -1,10 +1,14 @@
-.PHONY: test test-otel test-ui test-ui-install test-ui-a test-sql vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release
+.PHONY: test test-otel test-ui test-ui-install test-ui-a test-sql vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release spec-status
 
 GOVULNCHECK_VERSION ?= v1.1.4
 SECURITY_GO_VERSION ?= go1.26.9
 
 test: vet
 	go test ./...
+
+# Spec hygiene: every specs/*/spec.md whose status disagrees with the tags.
+spec-status:
+	sh scripts/spec-status.sh
 
 vet:
 	test -z "$$(gofmt -l *.go h internal cmd examples tmpl ui)"

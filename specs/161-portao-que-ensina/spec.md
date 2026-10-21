@@ -1,6 +1,6 @@
 # Feature Specification: O portão que ensina
 
-**Feature Branch**: `161-portao-que-ensina` | **Created**: 2026-09-24 | **Status**: Draft
+**Feature Branch**: `161-portao-que-ensina` | **Created**: 2026-09-24 | **Status**: Entregue (0.142.0)
 **Input**: Plano Tokens 70, spec 161 — um comando agrega todos os portões e cada falha diz
 arquivo, linha, causa, conserto e link da doc — para o agente consertar em uma rodada.
 

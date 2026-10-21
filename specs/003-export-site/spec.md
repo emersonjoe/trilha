@@ -1,6 +1,6 @@
 # Feature Specification: Exportação estática e site de documentação
 
-**Feature Branch**: `003-export-site` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `003-export-site` | **Created**: 2026-09-05 | **Status**: Entregue (0.2.0)
 **Input**: "Exportação estática (trilha export) e site de documentação construído com o próprio Trilha, publicado no GitHub Pages"
 
 ## User Scenarios & Testing

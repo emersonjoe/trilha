@@ -1,5 +1,7 @@
 # Spec 064 — `trilha migrate next`: o esqueleto e o mapa
 
+- **Status**: Entregue (0.46.0)
+
 Issue: [#59](https://github.com/emersonjoe/trilha/issues/59). A issue é a fonte do escopo;
 aqui fica só a decisão. A receita "Do Next.js para a Trilha" (spec 063) ensina a traduzir uma
 tela; esta spec entrega a parte que não exige inteligência nenhuma — a árvore de pastas e o

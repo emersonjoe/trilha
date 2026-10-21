@@ -40,6 +40,7 @@ make api           # rewrites api/current.txt after an intentional API change
 make race          # go test -race ./... (TestConcorrencia is what gives it concurrency)
 make fuzz          # 20s on each fuzz target, same as CI; FUZZTIME=2m make fuzz for longer
 make fuzz-long     # 5 minutes per target, before a release
+make spec-status   # specs whose status disagrees with the tags (missing, Draft, "ready" but tagged)
 ```
 
 `make test` fails when the exported surface differs from `api/current.txt`. If the change is

@@ -1,5 +1,7 @@
 # Spec 057 — A lista e o fragmento que se mexe sozinho
 
+- **Status**: Entregue (0.40.0)
+
 Issues: [#63](https://github.com/emersonjoe/trilha/issues/63) (`trilha.ListParams` +
 `ui.DataTable`) e [#64](https://github.com/emersonjoe/trilha/issues/64) (`ui.Poll`,
 `ui.Live`, `ui.On`). A issue é a fonte do escopo; aqui fica só a decisão.

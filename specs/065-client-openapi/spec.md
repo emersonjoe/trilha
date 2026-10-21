@@ -1,5 +1,7 @@
 # Spec 065 — O cliente Go de uma API que já existe
 
+- **Status**: Entregue (0.47.0)
+
 Issue: [#61](https://github.com/emersonjoe/trilha/issues/61) (`trilha client`). A issue é a
 fonte do escopo; aqui fica só a decisão.
 

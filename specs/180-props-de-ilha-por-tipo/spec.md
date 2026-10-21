@@ -1,6 +1,6 @@
 # Spec 180 — Props de ilha pelo tipo da expressão
 
-**Feature Branch**: `180-props-de-ilha-por-tipo` | **Created**: 2026-10-18 | **Status**: Pronta para release (0.160.0)
+**Feature Branch**: `180-props-de-ilha-por-tipo` | **Created**: 2026-10-18 | **Status**: Entregue (0.160.0)
 
 - **Issue**: #303 — a fonte do escopo.
 - **Branch**: `180-props-de-ilha-por-tipo`

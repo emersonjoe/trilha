@@ -5,6 +5,7 @@
   não publica endereço de métrica nenhum.
 - **Branch**: `050-metricas-na-auditoria`
 - **Versão**: correção; entra na próxima release.
+- **Status**: Entregue (0.39.1)
 
 ## Por quê
 

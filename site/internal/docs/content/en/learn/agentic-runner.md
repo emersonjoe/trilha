@@ -26,6 +26,12 @@ trilha runner drivers
 # exec
 ```
 
+Without a Go toolchain, the [Releases page](https://github.com/emersonjoe/trilha-runner/releases)
+carries a static binary per platform (Linux and macOS, amd64 and arm64) next to a
+`sha256sums.txt`: download the one for your machine, check its digest against that file
+(`sha256sum --check --ignore-missing sha256sums.txt` on Linux, `shasum -a 256` on macOS) and put
+it on your `PATH` as `trilha-runner`.
+
 Before spending a token, watch the pipeline with the driver that has no model. `echo` only
 writes the first line of the prompt to `TRILHA_RUN.md`; everything else — branch, commit,
 checks, evidence, status — is the real thing:
@@ -60,6 +66,14 @@ even start — not a git repository, an unknown driver, no command, agent exited
 leaves the same kind of record, with the stage that failed, and the task goes to `failed`.
 There is no execution without a trace. Only a task that is not `ready`, or is still waiting on
 a dependency, is left as it was.
+
+Before the first attempt the runner also runs a **preflight**: for every command in the task's
+`checks:` and in `project.verify` it resolves the first token — `LookPath` on the host,
+`command -v` inside the Docker sandbox. A tool that is not there fails the task in one attempt,
+without calling the agent, with `failure_class: environment` and
+`error_code: environment_missing_tool`; an exit code 127 or a "command not found" during
+execution or verification is classified the same way and is never retried. The rule exists
+because a real run burned three AI attempts on a machine that had no `python`.
 
 ```bash
 trilha spec task move TASK-004 done      # or: ready, to run it again on the same branch

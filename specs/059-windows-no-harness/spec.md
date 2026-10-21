@@ -3,6 +3,7 @@
 - **Issue**: #88 — a issue é a fonte do escopo; aponte para ela, não a reescreva aqui.
 - **Branch**: `059-windows-no-harness`
 - **Versão**: nenhuma — vai no `CHANGELOG` sob *Unreleased*.
+- **Status**: Entregue (0.42.0)
 
 ## Por quê
 

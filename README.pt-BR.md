@@ -50,7 +50,9 @@ trilha dev              # → http://localhost:3000, recarrega ao salvar
 trilha build            # → bin/meu-app, com public/ embutido
 ```
 
-Ainda não publicado? Use a cópia local: `trilha new meu-app --trilha-dir ../trilha`.
+Toda release é uma tag, então `@latest` é sempre uma versão publicada; para experimentar uma
+build não lançada a partir de um checkout, `trilha new meu-app --trilha-dir ../trilha` aponta o
+projeto novo para essa cópia.
 
 ## Convenções
 
@@ -187,7 +189,7 @@ Apps feitos na Trilha e rodando de verdade — os exemplos mostram os idiomas, e
 
 | App | O que é | O que exercita |
 |---|---|---|
-| [Partiu](https://partiu.eoslab.com.br) | PWA de viagem em grupo (gastos com recibo, acerto, roteiro, listas com IA, servidor MCP). Portado do Next.js para Go em 2026; o porte é medido tela a tela contra o original (texto visível, árvore de acessibilidade, cabeçalhos, pixels, em WebKit e Chromium). | 102 rotas geradas pelo `trilha gen` a partir da árvore `servidor/app/**` (`middleware.go`, `layout.go`, `error.go`, `not_found.go` por pasta), ilhas `KindPage`, `NoTimeout` para upload de foto, `ErrNotFound` como o 404 que o não-membro recebe, cabeçalhos CSP com nonce próprios ao lado dos do framework, e um servidor MCP sobre a mesma sessão. O relatório de adoção, com os dez atritos que achou e o que cada um mudou aqui, é o [DEMANDA-PARTIU.md](DEMANDA-PARTIU.md). |
+| [Partiu](https://partiu.eoslab.com.br) | PWA de viagem em grupo (gastos com recibo, acerto, roteiro, listas com IA, servidor MCP). Portado do Next.js para Go em 2026; o porte é medido tela a tela contra o original (texto visível, árvore de acessibilidade, cabeçalhos, pixels, em WebKit e Chromium). | 102 rotas geradas pelo `trilha gen` a partir da árvore `servidor/app/**` (`middleware.go`, `layout.go`, `error.go`, `not_found.go` por pasta), ilhas `KindPage`, `NoTimeout` para upload de foto, `ErrNotFound` como o 404 que o não-membro recebe, cabeçalhos CSP com nonce próprios ao lado dos do framework, e um servidor MCP sobre a mesma sessão. O relatório de adoção, com os dez atritos que achou e o que cada um mudou aqui, é o [DEMANDA-PARTIU.md](docs/decisions/DEMANDA-PARTIU.md). |
 | Farol | Retaguarda compartilhada dos apps acima (CRM, funil, pixel, políticas, alertas). | `LayoutFunc`, `CSRFInput`, `Off` para as peças que não quer, o pixel servido a outras origens. |
 
 Os dois são repositórios privados; o relatório é público porque é sobre a Trilha.

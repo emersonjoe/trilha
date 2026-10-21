@@ -1,6 +1,6 @@
 # Feature Specification: Contexto sob orçamento
 
-**Feature Branch**: `160-contexto-por-orcamento` | **Created**: 2026-09-24 | **Status**: Draft
+**Feature Branch**: `160-contexto-por-orcamento` | **Created**: 2026-09-24 | **Status**: Entregue (0.141.0)
 **Input**: Plano Tokens 70, spec 160 — o agente para de abrir arquivos para descobrir o
 projeto: `trilha ctx` vira um mapa compacto, orçado em tokens, por pacote de trabalho; o
 `AGENTS.md` emagrece; o MCP entrega fatias, não arquivos.

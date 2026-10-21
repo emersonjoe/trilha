@@ -1,5 +1,7 @@
 # Spec 063 — O catálogo do `ui` e o guia de quem vem do Next
 
+- **Status**: Entregue (0.45.0)
+
 Issue: [#73](https://github.com/emersonjoe/trilha/issues/73). A issue é a fonte do escopo;
 aqui fica só a decisão.
 

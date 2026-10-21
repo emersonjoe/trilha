@@ -4,6 +4,7 @@
   projeto da Trilha já existente, de uma versão anterior?".
 - **Branch**: `049-agentes-em-projeto-existente`
 - **Versão**: documentação; entra na próxima release.
+- **Status**: Entregue (0.39.0)
 
 ## Por quê
 

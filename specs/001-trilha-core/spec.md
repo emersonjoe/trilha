@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-trilha-core`
 **Created**: 2026-09-04
-**Status**: Draft
+**Status**: Entregue (0.1.0)
 **Input**: User description: "Framework web para Go estilo Next.js: roteamento por arquivos em app/, layouts aninhados, rotas de API, middleware, dev server com recarga, build em binário único"
 
 ## User Scenarios & Testing *(mandatory)*

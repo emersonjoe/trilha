@@ -1,5 +1,7 @@
 # Spec 058 — O shell e o painel
 
+- **Status**: Entregue (0.41.0)
+
 Issues: [#65](https://github.com/emersonjoe/trilha/issues/65) (`ui.Shell` e
 `trilha new --template app`) e [#68](https://github.com/emersonjoe/trilha/issues/68)
 (`ui.Stat`, `ui.Bars`, `ui.Sparkline`, `ui.Donut`). A issue é a fonte do escopo; aqui

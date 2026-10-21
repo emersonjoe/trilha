@@ -41,6 +41,7 @@ make api           # regrava api/current.txt depois de uma mudança intencional 
 make race          # go test -race ./... (o TestConcorrencia é quem lhe dá concorrência)
 make fuzz          # 20s em cada alvo de fuzzing, igual ao CI; FUZZTIME=2m make fuzz para mais
 make fuzz-long     # 5 minutos por alvo, antes de uma release
+make spec-status   # specs cujo status não bate com as tags (sem status, Draft, "pronta" já com tag)
 ```
 
 O `make test` falha quando a superfície exportada difere do `api/current.txt`. Se a mudança é

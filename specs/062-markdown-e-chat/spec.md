@@ -1,5 +1,7 @@
 # Spec 062 — Markdown de modelo e a ponte de chat
 
+- **Status**: Entregue (0.44.0)
+
 Issue: [#72](https://github.com/emersonjoe/trilha/issues/72) (`ui.Markdown`, `ai.Serve`,
 `ui.Chat`). A issue é a fonte do escopo; aqui fica só a decisão.
 

@@ -27,6 +27,12 @@ trilha runner drivers
 # exec
 ```
 
+Sem um toolchain Go, a [página de Releases](https://github.com/emersonjoe/trilha-runner/releases)
+traz um binário estático por plataforma (Linux e macOS, amd64 e arm64) ao lado de um
+`sha256sums.txt`: baixe o da sua máquina, confira o digest contra esse arquivo (`sha256sum
+--check --ignore-missing sha256sums.txt` no Linux, `shasum -a 256` no macOS) e ponha-o no seu
+`PATH` como `trilha-runner`.
+
 Antes de gastar um token, veja o pipeline com o driver que não tem modelo. O `echo` só escreve
 a primeira linha do prompt em `TRILHA_RUN.md`; todo o resto — branch, commit, checks,
 evidência, status — é de verdade:
@@ -60,6 +66,14 @@ com um ponteiro para `.trilha/runs/TASK-004/agent.log`. Uma execução que nem c
 não é repositório git, driver desconhecido, sem comando, agente saiu com erro — deixa o mesmo
 tipo de registro, com o estágio que falhou, e a task vai para `failed`. Não existe execução sem
 rastro. Só a task que não está `ready`, ou ainda espera uma dependência, fica como estava.
+
+Antes da primeira tentativa o runner também faz um **preflight**: para cada comando dos
+`checks:` da task e do `project.verify` ele resolve o primeiro token — `LookPath` no host,
+`command -v` dentro do sandbox Docker. Ferramenta que não existe reprova a task em uma só
+tentativa, sem chamar o agente, com `failure_class: environment` e
+`error_code: environment_missing_tool`; código de saída 127 ou "command not found" durante a
+execução ou a verificação é classificado do mesmo jeito e nunca é repetido. A regra existe
+porque uma execução real gastou três tentativas de IA numa máquina sem `python`.
 
 ```bash
 trilha spec task move TASK-004 done      # ou: ready, para rodar de novo no mesmo branch

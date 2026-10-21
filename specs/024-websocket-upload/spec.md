@@ -1,6 +1,6 @@
 # Feature Specification: WebSocket (adaptador, não núcleo) e upload com progresso
 
-**Feature Branch**: `024-websocket-upload` | **Created**: 2026-09-05 | **Status**: Rascunho
+**Feature Branch**: `024-websocket-upload` | **Created**: 2026-09-05 | **Status**: Entregue (0.15.0)
 **Input**: issue [#24](https://github.com/emersonjoe/trilha/issues/24) (ROADMAP, Fase 1,
 item 5). A issue pede duas coisas e uma decisão: WebSocket no núcleo ou adaptador, e upload
 com progresso. As duas viram uma spec só porque esbarram no mesmo lugar — o que o Trilha faz

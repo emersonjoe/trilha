@@ -1,6 +1,6 @@
 # Feature Specification: Exemplos de dificuldade média e complexa
 
-**Feature Branch**: `009-exemplos` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `009-exemplos` | **Created**: 2026-09-05 | **Status**: Entregue (0.5.0)
 **Input**: "acrescente um exemplo com regras de formulário mais complexas explorando a
 responsividade dos formulários — mostrando e escondendo campos, mostrando mensagens de
 feedback para o usuário e depois fazendo fading do componente da mensagem. Acrescente

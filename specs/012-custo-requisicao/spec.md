@@ -1,6 +1,6 @@
 # Feature Specification: Reduzir o custo fixo por requisição
 
-**Feature Branch**: `012-custo-requisicao` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `012-custo-requisicao` | **Created**: 2026-09-05 | **Status**: Entregue (0.5.3)
 **Input**: achado dos benchmarks da spec 011, registrado a pedido do usuário.
 
 ## Achado que originou esta spec

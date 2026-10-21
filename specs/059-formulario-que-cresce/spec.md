@@ -1,5 +1,7 @@
 # Spec 059 — O formulário que cresce
 
+- **Status**: Entregue (0.41.0)
+
 Issue: [#69](https://github.com/emersonjoe/trilha/issues/69) (`Bind` de listas de structs
 e mapas, e `ui.SchemaForm` a partir de esquema em dados). A issue é a fonte do escopo;
 aqui fica só a decisão.

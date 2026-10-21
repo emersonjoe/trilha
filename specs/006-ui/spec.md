@@ -1,6 +1,6 @@
 # Feature Specification: Kit de UI padrão, customizável, inspirado no shadcn/ui
 
-**Feature Branch**: `006-ui` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `006-ui` | **Created**: 2026-09-05 | **Status**: Entregue (0.4.0)
 **Input**: "adicione no spec kit que o padrão inicial, mas customizável, é utilizar
 https://ui.shadcn.com/ — faça tudo dentro das licenças possíveis e edite os exemplos para
 ficar assim"

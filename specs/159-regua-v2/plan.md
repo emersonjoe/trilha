@@ -1,7 +1,7 @@
 # Implementation Plan: A régua v2 — medir tokens, rodadas e arquivos antes de cortar
 
 **Branch**: `159-regua-v2` | **Date**: 2026-09-23 | **Spec**: [spec.md](spec.md)
-**Input**: Spec 159 do PLANO-TOKENS-70.md (M0 — a régua mede antes de cortar).
+**Input**: Spec 159 do docs/decisions/PLANO-TOKENS-70.md (M0 — a régua mede antes de cortar).
 
 ## Summary
 

@@ -1,7 +1,7 @@
 # Implementation Plan: Contexto sob orçamento
 
 **Branch**: `160-contexto-por-orcamento` | **Date**: 2026-09-24 | **Spec**: [spec.md](spec.md)
-**Input**: Spec 160 do PLANO-TOKENS-70.md (M1 — menos leitura).
+**Input**: Spec 160 do docs/decisions/PLANO-TOKENS-70.md (M1 — menos leitura).
 
 ## Summary
 

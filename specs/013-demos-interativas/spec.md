@@ -1,6 +1,6 @@
 # Feature Specification: Demos de formulário interativas
 
-**Feature Branch**: `013-demos-interativas` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `013-demos-interativas` | **Created**: 2026-09-05 | **Status**: Entregue (0.5.3)
 **Input**: "os formulários de teste em https://emersonjoe.github.io/trilha/ não são interativos"
 
 ## O defeito

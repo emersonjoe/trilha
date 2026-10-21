@@ -1,6 +1,6 @@
 # Spec 178 — Desempenho: renders, bundle, cache, consultas, imagens
 
-**Feature Branch**: `178-desempenho` | **Created**: 2026-10-18 | **Status**: Pronta para release (0.158.0)
+**Feature Branch**: `178-desempenho` | **Created**: 2026-10-18 | **Status**: Entregue (0.158.0)
 
 - **Issue**: #309 — a fonte do escopo, da fronteira de aceitação e dos itens que ficaram para depois.
 - **Versão**: 0.158.0
