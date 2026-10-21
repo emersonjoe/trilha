@@ -29,6 +29,14 @@ maior exemplo do framework em uso.
 
 ## O fluxo
 
+:::nota
+O trilha-cloud é um repositório privado. Sem ele você ainda tem toda a metade local desta
+trilha: os capítulos do [protocolo](/pt/aprender/agentico-protocolo) e do
+[runner](/pt/aprender/agentico-runner) são completos e rodam na sua máquina, e o contrato no
+fim deste capítulo basta para escrever um control plane seu. Os comandos daqui em diante
+pressupõem acesso a uma instância do cloud — o repositório, ou uma que alguém opere para você.
+:::
+
 Se você tem acesso ao repositório, um processo é o control plane inteiro:
 
 ```bash
@@ -90,7 +98,7 @@ um fixture pronto. Cada execução cria uma aplicação e um protocolo novos:
 
 | Componente | O que o aceite exercita |
 |---|---|
-| `trilha` | `new`, `openapi`, os seis gates de `check`, `ctx`, `build`, a página e a API gerada |
+| `trilha` | `new`, `openapi`, os dez gates de `check` (de `gen` a `surface`), `ctx`, `build`, a página e a API gerada |
 | `trilha-spec` | `init`, `spec new`, `task add`, `task move`, `doctor`, `context` e `evidence` |
 | `trilha-runner` | worker do Cloud, worktree isolado, driver `echo`, checks, branch e commit |
 | `trilha-cloud` | projeto, chave, fila, claim, resultado, revisão, aprovação, auditoria, portal e persistência |
@@ -1122,11 +1130,11 @@ Todas com `Authorization: Bearer <chave>`. O corpo do resultado é o `queue.Resu
 
 | | Entregue | Depois |
 |---|---|---|
-| Control plane | projetos, specs, rodadas, kanban, execução e revisão | organizações e times, billing |
-| Frota | workers persistentes por projeto, checkout Git isolado, sincronização `.trilha` e push opcional | paralelismo configurável e sandboxes remotos |
-| Entrega | ambientes, segredos cifrados, perfis locais, deploy, health check e rollback | estratégias progressivas e aprovações múltiplas |
-| Governança | login, CSRF, chaves persistentes com escopo/projeto/expiração/revogação, auditoria, gate de eval, atestações assinadas com quórum, exportação de evidência e métricas Prometheus | SSO e evidência assinada pelo runner |
-| Armazenamento | snapshot JSON atômico a cada escrita | SQL e alta disponibilidade |
+| Control plane | projetos, specs, rodadas, kanban, execução e revisão; organizações com papéis e escopos; programas que põem vários repositórios num quadro só | billing e planos |
+| Frota | workers persistentes por projeto com labels e capacidade, checkout Git isolado, sincronização `.trilha` e push opcional, agendamento por prazo e prioridade | autoscaling e sandboxes remotos |
+| Entrega | ambientes com região, residência e janela de deploy, segredos cifrados, perfis locais, promoção de tag imutável, aprovação a quatro olhos antes de produção, relatório de deploy, health check e rollback ciente das migrações; GitHub App e webhooks assinados nos dois sentidos | outros provedores Git |
+| Governança | login com senha local ou OpenID Connect, CSRF, chaves por projeto com expiração e revogação, auditoria, provedor por projeto, política (provedores, residência de dados, teto de custo, labels exigidas) e livro de custo, gate de eval, atestações assinadas com quórum, exportação de evidência e métricas Prometheus | MFA, e evidência assinada pelo runner verificada pelo cloud |
+| Armazenamento | snapshot JSON ou Postgres atrás do mesmo store, migrações versionadas, `pg_dump` diário e restauração ensaiada | alta disponibilidade do Postgres |
 
 ## Desafio
 

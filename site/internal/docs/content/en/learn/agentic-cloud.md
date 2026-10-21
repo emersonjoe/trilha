@@ -29,6 +29,14 @@ example of the framework in use.
 
 ## The flow
 
+:::note
+trilha-cloud is a private repository. Without it you still have the whole local half of this
+track: the [protocol](/learn/agentic-protocol) and [runner](/learn/agentic-runner) chapters are
+complete and run on your machine, and the contract at the end of this chapter is enough to
+write a control plane of your own. The commands from here on assume access to a cloud
+instance — the repository, or one that someone operates for you.
+:::
+
 If you have access to the repository, one process is the whole control plane:
 
 ```bash
@@ -90,7 +98,7 @@ not a prebuilt fixture. Every run creates a fresh application and protocol:
 
 | Component | What the acceptance exercises |
 |---|---|
-| `trilha` | `new`, `openapi`, all six `check` gates, `ctx`, `build`, the page and generated API |
+| `trilha` | `new`, `openapi`, the ten `check` gates (from `gen` to `surface`), `ctx`, `build`, the page and generated API |
 | `trilha-spec` | `init`, `spec new`, `task add`, `task move`, `doctor`, `context` and `evidence` |
 | `trilha-runner` | Cloud worker, isolated worktree, `echo` driver, checks, branch and commit |
 | `trilha-cloud` | project, key, queue, claim, result, review, approval, audit, portal and persistence |
@@ -1114,11 +1122,11 @@ All with `Authorization: Bearer <key>`. The body of the result is `trilha-runner
 
 | | Delivered | Later |
 |---|---|---|
-| Control plane | projects, specifications, rounds, Kanban, execution and review | organisations and teams, billing |
-| Fleet | persistent project workers, isolated Git checkout, `.trilha` synchronization and optional push | configurable parallelism and remote sandboxes |
-| Delivery | environments, encrypted secrets, local profiles, deploy, health check and rollback | progressive delivery and multiple approvals |
-| Governance | login, CSRF, persistent project-scoped expiring/revocable keys, audit, eval gate, signed attestations with quorum, evidence export and Prometheus metrics | SSO and runner-signed evidence |
-| Storage | atomic JSON snapshot on every write | SQL and high availability |
+| Control plane | projects, specifications, rounds, Kanban, execution and review; organizations with roles and scopes; programs that put several repositories on one board | billing and plans |
+| Fleet | persistent project workers with labels and capacity, isolated Git checkout, `.trilha` synchronization and optional push, scheduling by deadline and priority | autoscaling and remote sandboxes |
+| Delivery | environments with region, residency and deploy window, encrypted secrets, local profiles, promotion of an immutable tag, four-eyes approval before production, deployment report, health check and migration-aware rollback; GitHub App and signed webhooks both ways | other Git providers |
+| Governance | login with a local password or OpenID Connect, CSRF, project-scoped expiring/revocable keys, audit, per-project provider, policy (providers, data residency, cost ceiling, required labels) and cost ledger, eval gate, signed attestations with quorum, evidence export and Prometheus metrics | MFA, and runner-signed evidence verified by the cloud |
+| Storage | JSON snapshot or Postgres behind the same store, versioned migrations, daily `pg_dump` and a rehearsed restore | Postgres high availability |
 
 ## Challenge
 
