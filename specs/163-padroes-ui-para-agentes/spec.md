@@ -1,7 +1,7 @@
 # Feature Specification: Padrões de UI para agentes
 
 **Feature Branch**: `163-padroes-ui-para-agentes` | **Created**: 2026-09-24 | **Status**: Implemented
-**Input**: Plano Tokens 70, spec 163 (`PLANO-TOKENS-70.md` §2) — o agente monta tela sabendo
+**Input**: Plano Tokens 70, spec 163 (`docs/decisions/PLANO-TOKENS-70.md` §2) — o agente monta tela sabendo
 qual padrão usar e com o snippet mínimo compilável: os padrões que o site já demonstra viram
 dados. Marco M3 (com a 164).
 

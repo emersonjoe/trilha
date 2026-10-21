@@ -1,6 +1,6 @@
 # Feature Specification: Inglês por padrão, português como tradução (i18n)
 
-**Feature Branch**: `015-i18n` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `015-i18n` | **Created**: 2026-09-05 | **Status**: Entregue (0.9.0)
 **Input**: decisão do usuário ("implemente") sobre a recomendação de publicar a documentação
 em inglês por padrão, mantendo a tradução em português do Brasil, com emenda da constituição.
 

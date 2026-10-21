@@ -1,6 +1,6 @@
 # Feature Specification: Atrito de adoção (issues #5–#9)
 
-**Feature Branch**: `007-adocao` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `007-adocao` | **Created**: 2026-09-05 | **Status**: Entregue (0.2.0)
 **Input**: "dê prioridade para resolver essas issues" — #5, #6, #7, #8, #9, relatadas ao
 adotar o Trilha num app Go existente (~76 rotas, PWA com upload e estáticos versionados).
 

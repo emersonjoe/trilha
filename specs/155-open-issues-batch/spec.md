@@ -1,5 +1,7 @@
 # Spec 155 — lote das issues abertas
 
+- **Status**: Entregue (0.134.0)
+
 ## Problema
 
 O repositório chegou à `v0.133.0` com vinte e uma issues abertas, incluindo épicos antigos já

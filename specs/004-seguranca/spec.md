@@ -1,6 +1,6 @@
 # Feature Specification: Segurança por padrão (NIST CSF 2.0 · OWASP ASVS L2)
 
-**Feature Branch**: `004-seguranca` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `004-seguranca` | **Created**: 2026-09-05 | **Status**: Entregue (0.2.0)
 **Input**: "adicionar segurança NIST e OWASP e configurações nesse sentido"
 
 ## Referências normativas

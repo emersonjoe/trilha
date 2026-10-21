@@ -1,5 +1,7 @@
 # Spec 060 — O campo que busca e a área que recebe arquivos
 
+- **Status**: Entregue (0.42.0)
+
 Issue: [#67](https://github.com/emersonjoe/trilha/issues/67) (`ui.Combobox` servido por
 fragmento e `ui.Dropzone` multi-arquivo sobre o upload existente). A issue é a fonte do
 escopo; aqui fica só a decisão.

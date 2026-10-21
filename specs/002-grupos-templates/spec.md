@@ -2,7 +2,7 @@
 
 **Feature Branch**: `002-grupos-templates`
 **Created**: 2026-09-05
-**Status**: Draft
+**Status**: Entregue (0.1.0)
 **Input**: User description: "Grupos de rota, adaptador html/template e recarga de public/ sem recompilar"
 
 ## User Scenarios & Testing *(mandatory)*

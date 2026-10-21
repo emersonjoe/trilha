@@ -1,6 +1,6 @@
 # Spec 179 — As regras de qualidade no projeto que um agente edita
 
-**Feature Branch**: `179-agentes-qualidade` | **Created**: 2026-10-18 | **Status**: Pronta para release (0.159.0)
+**Feature Branch**: `179-agentes-qualidade` | **Created**: 2026-10-18 | **Status**: Entregue (0.159.0)
 
 - **Issue**: #310 — a fonte do escopo.
 - **Branch**: `179-agentes-qualidade`

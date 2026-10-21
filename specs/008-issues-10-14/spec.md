@@ -1,6 +1,6 @@
 # Feature Specification: Issues #10–#14 (dev reload, páginas de erro, kind de rota, main/shutdown, pastas com ponto)
 
-**Feature Branch**: `008-issues-10-14` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `008-issues-10-14` | **Created**: 2026-09-05 | **Status**: Entregue (0.3.0)
 **Input**: "resolva essas issues" — https://github.com/emersonjoe/trilha/issues (#10 a #14),
 relatadas na migração incremental de um app Next.js para o Trilha.
 

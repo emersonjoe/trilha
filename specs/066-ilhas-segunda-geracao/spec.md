@@ -1,5 +1,7 @@
 # Spec 066 — Ilhas, segunda geração
 
+- **Status**: Entregue (0.48.0)
+
 Issue: [#70](https://github.com/emersonjoe/trilha/issues/70). A issue é a fonte do escopo;
 aqui fica só a decisão.
 

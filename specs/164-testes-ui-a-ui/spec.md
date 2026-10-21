@@ -1,7 +1,7 @@
 # Feature Specification: Testes UI a UI
 
 **Feature Branch**: `164-testes-ui-a-ui` | **Created**: 2026-09-24 | **Status**: Entregue (0.145.0)
-**Input**: Plano Tokens 70, spec 164 (`PLANO-TOKENS-70.md` §2) — duas camadas de teste de ponta a
+**Input**: Plano Tokens 70, spec 164 (`docs/decisions/PLANO-TOKENS-70.md` §2) — duas camadas de teste de ponta a
 ponta de UI: DOM servido (stdlib, no módulo, golden) e navegador (módulo próprio `uitest/`),
 cobrindo as receitas e os padrões, para o agente provar que a tela funciona sem abrir um
 navegador humano. Fecha o M3 junto com a 163.

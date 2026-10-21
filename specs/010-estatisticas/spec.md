@@ -1,6 +1,6 @@
 # Feature Specification: Estatísticas de acesso (site e repositório)
 
-**Feature Branch**: `010-estatisticas` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `010-estatisticas` | **Created**: 2026-09-05 | **Status**: Entregue (0.5.1)
 **Input**: "adicionar estatísticas de acesso a https://emersonjoe.github.io/trilha/ e ao
 repositório, se possível, da melhor forma e mais segura"
 

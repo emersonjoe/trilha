@@ -1,5 +1,7 @@
 # Spec 061 — Mandar um arquivo de volta
 
+- **Status**: Entregue (0.43.0)
+
 Issue: [#71](https://github.com/emersonjoe/trilha/issues/71) (`Ctx.Attachment`, `Ctx.Inline`,
 `Ctx.Pipe`). A issue é a fonte do escopo; aqui fica só a decisão.
 

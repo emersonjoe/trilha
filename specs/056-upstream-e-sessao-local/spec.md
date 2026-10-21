@@ -1,5 +1,7 @@
 # Spec 056 — A porta para a API que já existe
 
+- **Status**: Entregue (0.41.0)
+
 Issues: [#60](https://github.com/emersonjoe/trilha/issues/60) (`Config.Upstreams`) e
 [#62](https://github.com/emersonjoe/trilha/issues/62) (`auth.Sessions` sem OIDC).
 A issue é a fonte do escopo; aqui fica só a decisão.

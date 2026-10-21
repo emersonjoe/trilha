@@ -1,6 +1,6 @@
 # Feature Specification: Benchmarks e comparação
 
-**Feature Branch**: `011-benchmarks` | **Created**: 2026-09-05 | **Status**: Draft
+**Feature Branch**: `011-benchmarks` | **Created**: 2026-09-05 | **Status**: Entregue (0.5.2)
 **Input**: "acrescente benchmark e comparação com outros frameworks se isso fizer sentido e
 não gere problemas"
 

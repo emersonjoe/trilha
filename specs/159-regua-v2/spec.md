@@ -1,7 +1,7 @@
 # Feature Specification: A régua v2 — medir tokens, rodadas e arquivos antes de cortar
 
-**Feature Branch**: `159-regua-v2` | **Created**: 2026-09-23 | **Status**: Draft
-**Input**: Plano Tokens 70 (PLANO-TOKENS-70.md), spec 159 — primeira dos seis marcos do
+**Feature Branch**: `159-regua-v2` | **Created**: 2026-09-23 | **Status**: Entregue (0.140.0)
+**Input**: Plano Tokens 70 (docs/decisions/PLANO-TOKENS-70.md), spec 159 — primeira dos seis marcos do
 programa "um agente gasta 70% menos tokens para criar um app com o trilha". O plano é a
 fonte do escopo; este documento fixa o contrato e as decisões que o plano deixou em aberto.
 

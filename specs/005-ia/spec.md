@@ -1,6 +1,6 @@
 # Feature Specification: IA — cliente OpenAI-compatível, agentes, multiagentes e MCP
 
-**Branch**: `005-ia` | **Created**: 2026-09-05 | **Status**: Draft
+**Branch**: `005-ia` | **Created**: 2026-09-05 | **Status**: Entregue (0.2.0)
 **Input**: "implemente integração com IA, padrão OpenAI api, multi agentes, MCP"
 
 ## Princípio de desenho

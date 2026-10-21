@@ -1,6 +1,6 @@
 # Feature Specification: Quórum no `approval` e ação por linha no `ui.Inbox`
 
-**Feature Branch**: `156-approval-quorum-inbox` | **Created**: 2026-09-17 | **Status**: Draft
+**Feature Branch**: `156-approval-quorum-inbox` | **Created**: 2026-09-17 | **Status**: Entregue (0.135.0)
 **Input**: Issue [#250](https://github.com/emersonjoe/trilha/issues/250) — a issue é a fonte
 do escopo; este documento não recopia a lista de implementação dela, só o contrato.
 
