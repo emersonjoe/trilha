@@ -178,6 +178,10 @@ export TRILHA_RUNNER_BIN="$(command -v trilha-runner)"
 make dev
 ```
 
+Sem `TRILHA_CLOUD_WORKSPACE_ROOT` o Studio fica desligado, o estado normal de um Cloud que só
+roda Projetos: o dashboard diz *Product Studio desligado nesta instância* e como habilitar, e o
+botão **Novo produto** não aparece.
+
 Abra `http://localhost:3000/?lang=pt-BR`, selecione **Configurar acesso** e
 informe o token administrativo. Depois selecione **Novo produto** e preencha:
 
