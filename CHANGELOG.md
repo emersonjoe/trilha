@@ -3,6 +3,19 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.162.1 — 2026-10-26
+
+The upstream gets the scheme the app sees (spec 183, #316).
+
+### Fixed
+
+- **`Config.Upstreams` forwards `X-Forwarded-Proto: https` behind a proxy that ended the TLS.**
+  `SetXForwarded` reads only the direct TLS state, so behind Traefik, Caddy or nginx the
+  upstream always got `http` while the app itself (`TrustedProxies` + `X-Forwarded-Proto`) knew
+  it was `https` — an upstream deciding `Secure` cookies, absolute URLs or redirects from that
+  header treated the request as plain HTTP. The header is still heard only from a trusted
+  proxy.
+
 ## 0.162.0 — 2026-10-25
 
 Security review against the October 2026 PHP and Node.js incidents (spec 182), and `c.Asset`

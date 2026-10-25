@@ -1,6 +1,7 @@
 package trilha
 
 import (
+	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
@@ -343,5 +344,41 @@ func TestUpstreamHonoursTheGlobalRateLimit(t *testing.T) {
 	}
 	if codes[2] != 429 || codes[3] != 429 || hits.Load() != 2 {
 		t.Fatalf("codes %v, upstream got %d requests", codes, hits.Load())
+	}
+}
+
+// #316 — atrás de um proxy que termina o TLS, in.TLS é nil e o SetXForwarded
+// escrevia X-Forwarded-Proto: http para o upstream, enquanto o próprio app
+// (isSecure) sabia que era https. As duas pontas discordavam do esquema da
+// mesma requisição. O cabeçalho só é ouvido de um proxy confiável.
+func TestUpstreamForwardsTheSchemeTheAppSees(t *testing.T) {
+	var proto string
+	s := echoUpstream(t, func(w http.ResponseWriter, r *http.Request) { proto = r.Header.Get("X-Forwarded-Proto") })
+	a := New(Config{Env: Prod, Logger: quiet(), TrustedProxies: []string{"10.0.0.0/8"},
+		Upstreams: map[string]Upstream{"/api/": {Target: s.URL, CSRF: Off}}})
+	cases := []struct {
+		name, remote, sent string
+		tls                bool
+		want               string
+	}{
+		{"proxy confiável que terminou o TLS", "10.0.0.2:1", "https", false, "https"},
+		{"cliente direto dizendo https", "198.51.100.7:1", "https", false, "http"},
+		{"TLS direto", "198.51.100.7:1", "", true, "https"},
+		{"proxy confiável em http", "10.0.0.2:1", "http", false, "http"},
+	}
+	for _, tc := range cases {
+		proto = ""
+		req := httptest.NewRequest("GET", "/api/x", nil)
+		req.RemoteAddr = tc.remote
+		if tc.sent != "" {
+			req.Header.Set("X-Forwarded-Proto", tc.sent)
+		}
+		if tc.tls {
+			req.TLS = &tls.ConnectionState{}
+		}
+		a.Handler().ServeHTTP(httptest.NewRecorder(), req)
+		if proto != tc.want {
+			t.Errorf("%s: upstream recebeu %q, quer %q", tc.name, proto, tc.want)
+		}
 	}
 }

@@ -71,7 +71,8 @@ is the session's, not the client's: whoever sends a `Bearer` of their own does n
 talk to the API with it. Hop-by-hop headers (`Connection`, `Upgrade`, `Proxy-*`) are
 removed, as any proxy must. `X-Request-ID` and `traceparent` do cross, so the app's log
 and the API's log are about the same request; `X-Forwarded-For`, `-Proto` and `-Host` say
-who asked.
+who asked. `-Proto` is the scheme the app itself sees: `https` behind a trusted proxy that
+ended the TLS and sent `X-Forwarded-Proto: https` (0.162.1).
 
 The `Cookie` header **is** forwarded — an API that has a session of its own still needs it.
 If that is not your case, clear it in `Headers`:

@@ -123,12 +123,17 @@ func (a *App) newProxy(up *upstream) *httputil.ReverseProxy {
 			out.Header.Del("Authorization")
 			pr.SetXForwarded()
 			out.Header.Set("X-Forwarded-Host", in.Host)
+			c, _ := in.Context().Value(ctxKeyUpstream).(*Ctx)
+			if c != nil && c.isSecure() {
+				// SetXForwarded reads only in.TLS, which is nil behind a proxy
+				// that ended the TLS; the scheme is the one the app itself
+				// sees, from a trusted proxy's X-Forwarded-Proto (#316).
+				out.Header.Set("X-Forwarded-Proto", "https")
+			}
 			// Headers runs here, on the outbound copy and after the Del, so
 			// the credential it sets is the one that leaves.
-			if up.cfg.Headers != nil {
-				if c, ok := in.Context().Value(ctxKeyUpstream).(*Ctx); ok {
-					up.cfg.Headers(c, out.Header)
-				}
+			if up.cfg.Headers != nil && c != nil {
+				up.cfg.Headers(c, out.Header)
 			}
 		},
 		ModifyResponse: func(res *http.Response) error {

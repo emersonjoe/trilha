@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.162.0)
+## Onde o Trilha está (outubro de 2026, v0.162.1)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -403,7 +403,8 @@ ignorando lockfiles e gerados, e dizem como dividir; o `trilha agents` instala o
 incidentes de PHP e Node.js de outubro de 2026 conferida no runtime — temporários de upload
 apagados, SSRF por DNS rebinding e por IPv4 fora da forma canônica, redirect com caractere de
 controle, `X-Forwarded-For` em várias linhas, upstream dentro do `RateLimit`, injeção de
-fórmula no CSV — e o `c.Asset` versionando arquivo de `Mounts` (#313).
+fórmula no CSV — e o `c.Asset` versionando arquivo de `Mounts` (#313). Na 0.162.1, o upstream
+recebe o `X-Forwarded-Proto` que o app vê atrás de proxy que termina o TLS (spec 183, #316).
 
 ## O que não vamos fazer, e por quê
 

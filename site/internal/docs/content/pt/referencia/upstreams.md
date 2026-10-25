@@ -72,7 +72,9 @@ O `Authorization` que o navegador mandou é **descartado** antes de o `Headers` 
 credencial é a da sessão, não a do cliente: quem manda um `Bearer` próprio não fala com a
 API por tabela. Cabeçalhos hop-by-hop (`Connection`, `Upgrade`, `Proxy-*`) são removidos,
 como em qualquer proxy. `X-Request-ID` e `traceparent` atravessam, para o log do app e o da
-API serem sobre a mesma requisição; `X-Forwarded-For`, `-Proto` e `-Host` dizem quem pediu.
+API serem sobre a mesma requisição; `X-Forwarded-For`, `-Proto` e `-Host` dizem quem pediu. O `-Proto` é o esquema que o próprio
+app vê: `https` atrás de um proxy confiável que terminou o TLS e mandou
+`X-Forwarded-Proto: https` (0.162.1).
 
 O `Cookie` **é** repassado — uma API com sessão própria ainda precisa dele. Se não é o seu
 caso, apague no `Headers`:
