@@ -1,7 +1,7 @@
 .PHONY: test test-otel test-ui test-ui-install test-ui-a test-sql vet fmt security example dev-example golden api reload race fuzz fuzz-long bench bench-results bench-agent bench-agent-agents bench-agent-dry bench-agent-measure bench-agent-verify release spec-status
 
 GOVULNCHECK_VERSION ?= v1.1.4
-SECURITY_GO_VERSION ?= go1.26.9
+SECURITY_GO_VERSION ?= go1.26.10
 
 test: vet
 	go test ./...

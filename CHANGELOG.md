@@ -5,6 +5,13 @@ versioning. This file is written in English only.
 
 ## Unreleased
 
+### Security
+
+- The security gate (`make security`) runs on Go 1.26.10 instead of 1.26.9: `govulncheck` reports
+  GO-2026-6809 (compromised intermediate certificates distrusted in `crypto/x509`), reached through
+  `dev.Run` → `http.Server.Serve`, fixed in 1.26.10. An explicit toolchain upgrade, as
+  `SECURITY-BASELINE.md` asks; the runtime keeps its zero dependencies.
+
 ### Changed
 
 - `DEMANDA-PARTIU.md`, the Partiu adoption report, moved from the repository root to
