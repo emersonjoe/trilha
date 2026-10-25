@@ -27,6 +27,12 @@ func TestRedirectRecusaSairDoSite(t *testing.T) {
 		// checagem que alguém achou suficiente.
 		"/\\evil.example",
 		"https:/\\evil.example",
+		// O navegador apaga tab, CR e LF de qualquer lugar da URL antes de
+		// lê-la: "/<tab>/evil.example" chega como "//evil.example".
+		"/\t/evil.example",
+		"/\n/evil.example",
+		"/\r\n/evil.example",
+		"/x\x00",
 		"javascript:alert(1)",
 		"mailto:alguem@exemplo.com",
 		"evil.example/x",

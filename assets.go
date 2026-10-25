@@ -14,7 +14,7 @@ import (
 // when the content changes, so the browser never needs to ask again.
 const immutableCache = "public, max-age=31536000, immutable"
 
-// assetVersion is the fingerprint of one file in Config.Public, with what is
+// assetVersion is the fingerprint of one static file (Mounts or Public), with what is
 // needed to notice a change in dev without reading the file again.
 type assetVersion struct {
 	v    string
@@ -22,7 +22,7 @@ type assetVersion struct {
 	size int64
 }
 
-// Asset returns the URL of a file in Config.Public carrying a version derived
+// Asset returns the URL of a file in Config.Mounts or Config.Public carrying a version derived
 // from its content:
 //
 //	h.Link(h.Rel("stylesheet"), h.Href(c.Asset("/site.css")))
@@ -41,8 +41,8 @@ func (a *App) Asset(p string) string { return a.cfg.BasePath + a.assetPath(p) }
 func (c *Ctx) Asset(p string) string { return c.app.Asset(p) }
 
 func (a *App) assetPath(p string) string {
-	if a.cfg.Public == nil {
-		return p
+	if a.cfg.Public == nil && len(a.mounts) == 0 {
+		return p // no static files at all: nothing to version, nothing to warn
 	}
 	name := strings.TrimPrefix(path.Clean("/"+p), "/")
 	if name == "" || !fs.ValidPath(name) {
@@ -150,6 +150,6 @@ func (a *App) warnAsset(p string) {
 	a.assetWarned[p] = true
 	a.assetMu.Unlock()
 	if !seen {
-		a.log.Warn("trilha: Asset sem arquivo correspondente em Public", "path", p)
+		a.log.Warn("trilha: Asset found no such file in Mounts or Public", "path", p)
 	}
 }

@@ -291,9 +291,26 @@ func csvCell(v reflect.Value, lang string, loc *time.Location) string {
 		}
 		return s
 	case reflect.String:
-		return v.String()
+		return csvText(v.String())
 	}
 	return fmt.Sprint(v.Interface())
+}
+
+// csvText keeps a text cell from being read as a formula. Excel and LibreOffice
+// run a cell that starts with = + - @ (tab and CR too), and =HYPERLINK with the
+// row's other cells in the URL is how a value somebody typed into the app
+// sends the spreadsheet out. A leading apostrophe makes the cell text; BindCSV
+// takes it off again, so the file goes and comes back the same (OWASP CSV
+// injection).
+func csvText(s string) string {
+	if s != "" && formulaStart(s[0]) {
+		return "'" + s
+	}
+	return s
+}
+
+func formulaStart(b byte) bool {
+	return b == '=' || b == '+' || b == '-' || b == '@' || b == '\t' || b == '\r'
 }
 
 func csvBool(lang string, b bool) string {
@@ -585,11 +602,15 @@ func blankRow(rec []string) bool {
 	return true
 }
 
-// csvIn is the one conversion the form path cannot do for us: a date the way a
+// csvIn is the one conversion the form path cannot do for us (besides the
+// apostrophe of csvText): a date the way a
 // Brazilian spreadsheet writes it. An HTML date input always sends ISO, so
 // bind never had to know 08/09/2026 — a file exported from Excel does.
 func csvIn(cell string) string {
 	s := strings.TrimSpace(cell)
+	if len(s) > 1 && s[0] == '\'' && formulaStart(s[1]) {
+		return strings.TrimSpace(s[1:]) // the apostrophe csvText put there
+	}
 	if len(s) < 10 || s[2] != '/' || s[5] != '/' {
 		return s
 	}

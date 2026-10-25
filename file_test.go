@@ -280,3 +280,40 @@ func TestFilesIgnoresTheEmptyInput(t *testing.T) {
 		t.Fatalf("%+v", ups)
 	}
 }
+
+// An upload over MaxFormMemory goes to a temporary file. net/http removes those
+// only for the request it handed out, and the Ctx parses a copy of it, so the
+// file stayed on disk after every such request until the disk filled (the
+// class of the PHP multipart flaws of October 2026: upload parsing turned
+// into resource exhaustion). The runtime removes them when the request ends.
+func TestMultipartTempFilesRemovedAfterRequest(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	a := New(Config{Logger: quiet(), MaxBodyBytes: 4 << 20, MaxFormMemory: 1 << 10})
+	var spilled bool
+	a.Register(Route{Pattern: "/api/up", Methods: map[string]HandlerFunc{"POST": func(c *Ctx) error {
+		up, err := c.File("arquivo", FileRules{})
+		if err != nil {
+			return err
+		}
+		defer up.Close()
+		_, spilled = up.File.(*os.File)
+		return nil
+	}}})
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	fw, _ := w.CreateFormFile("arquivo", "grande.pdf")
+	fw.Write([]byte(pdfBytes + strings.Repeat("x", 2<<20)))
+	w.Close()
+	req := httptest.NewRequest("POST", "/api/up", &body)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, req)
+	if rec.Code != 204 || !spilled {
+		t.Fatalf("status %d, spilled to disk %v", rec.Code, spilled)
+	}
+	left, _ := os.ReadDir(tmp)
+	if len(left) != 0 {
+		t.Fatalf("temporary upload files left on disk: %v", left)
+	}
+}

@@ -22,7 +22,7 @@ usado por outra goroutine depois que o handler devolve.
 | `BindJSON(&v) error` | decodifica o corpo JSON; campos desconhecidos são erro (400); 413 acima do limite |
 | `Cookie(nome) (*http.Cookie, error)` | cookie da requisição |
 | `Accepts(ofertas...) string` | a oferta que o cliente prefere (`Accept`, ranqueado por `q`), ou `""`; cabeçalho ausente ou `*/*` fica com a primeira oferta |
-| `RequestID() string` | `X-Request-ID` recebido ou um id gerado |
+| `RequestID() string` | `X-Request-ID` recebido (até 128 de `A-Za-z0-9._:-`) ou um id gerado |
 | `Env() trilha.Env` | `trilha.Dev` ou `trilha.Prod` |
 | `Base() string` | prefixo de URL (`TRILHA_BASE_PATH`), sem barra final |
 | `App() *trilha.App` | a aplicação |
@@ -335,6 +335,10 @@ contra `02/01/2006 15:04`), a marca decimal e a palavra do booleano (`yes`/`no`,
 o `Config.TimeZone` decide em que dia um horário cai. O BOM não é opcional nem configurável:
 sem ele o Excel lê todo acento como caractere estranho, e é a primeira coisa que qualquer um
 percebe.
+
+Célula de texto que começa com `=`, `+`, `-`, `@`, tab ou CR sai com um apóstrofo na frente
+(`'=HYPERLINK(…)`), para a planilha ler texto em vez de rodar uma fórmula que alguém digitou
+no app (injeção de CSV); o `BindCSV` tira o apóstrofo na volta.
 
 Um canal é o que uma exportação de duzentas mil linhas quer — as linhas são escritas conforme
 chegam e o prazo de escrita é retirado —, mas encerrar o produtor é com você: faça `select` no

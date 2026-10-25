@@ -61,6 +61,8 @@ api := &http.Client{Transport: trilha.UpstreamTransport(), Timeout: 15 * time.Se
   upstream não disse nada.
 - **CSRF ligado por padrão** em `POST`/`PUT`/`PATCH`/`DELETE`, como em qualquer escrita do
   app — o `ui.js` já manda o cabeçalho. `CSRF: trilha.Off` é para API autenticada por chave.
+- **O `Config.RateLimit` vale** como nas rotas do próprio app: um login atrás do upstream é
+  limitado por cliente como qualquer outro (0.162.0).
 - **Upstream fora do ar é 502 e lento é 504**, os dois em `problem+json` diga o `Accept` o
   que disser: o cliente de `/api/` é um script, nunca um navegador na barra de endereço.
 

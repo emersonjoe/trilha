@@ -161,6 +161,7 @@ func (a *App) wrap(r *Route, kind routeKind, mws []MiddlewareFunc, final Handler
 		c := newCtx(a, rw, req, kind)
 		c.rawBody = raw
 		c.route = r
+		defer c.removeUploads()
 		if kind == kindAPI && r.Kind == KindAuto && prefersHTML(req) {
 			c.kind = kindPage // browser navigation to a route.go: HTML error pages
 		}

@@ -62,7 +62,8 @@ func clientIPOf(a *App, r *http.Request) string {
 	if !a.trusted(peer) {
 		return peer.String()
 	}
-	parts := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	// Every line: a proxy may append its own instead of extending the first.
+	parts := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
 	for i := len(parts) - 1; i >= 0; i-- {
 		ip, err := netip.ParseAddr(strings.TrimSpace(parts[i]))
 		if err != nil {

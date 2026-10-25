@@ -328,3 +328,20 @@ func TestUpstreamTransportIsShared(t *testing.T) {
 		t.Fatalf("%+v", a)
 	}
 }
+
+// Config.RateLimit é o limite global por cliente: um login que mora atrás do
+// upstream não pode virar um oráculo de senha sem limite só porque quem
+// responde é outro serviço.
+func TestUpstreamHonoursTheGlobalRateLimit(t *testing.T) {
+	var hits atomic.Int32
+	s := echoUpstream(t, func(w http.ResponseWriter, r *http.Request) { hits.Add(1) })
+	a := New(Config{Env: Prod, Logger: quiet(), RateLimit: RateLimit{RPS: 1, Burst: 2},
+		Upstreams: map[string]Upstream{"/api/": {Target: s.URL, CSRF: Off}}})
+	var codes []int
+	for i := 0; i < 4; i++ {
+		codes = append(codes, get(t, a, "POST", "/api/login", "senha", nil).Code)
+	}
+	if codes[2] != 429 || codes[3] != 429 || hits.Load() != 2 {
+		t.Fatalf("codes %v, upstream got %d requests", codes, hits.Load())
+	}
+}

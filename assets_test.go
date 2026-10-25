@@ -1,6 +1,7 @@
 package trilha
 
 import (
+	"io/fs"
 	"log/slog"
 	"net/http/httptest"
 	"strings"
@@ -174,5 +175,27 @@ func TestStaticETagAnswers304(t *testing.T) {
 	other.Handler().ServeHTTP(rec2, httptest.NewRequest("GET", "/site.css", nil))
 	if rec2.Header().Get("ETag") == tag {
 		t.Fatal("dois conteúdos, uma etiqueta")
+	}
+}
+
+// Issue #313: um app que serve tudo por Mounts, sem Public, recebia o caminho
+// sem versão — e o serveStatic já dava immutable ao ?v= certo de um Mount.
+func TestAssetVersionsFileFromMount(t *testing.T) {
+	a := New(Config{Env: Prod, Logger: quiet(), StaticCacheControl: "public, max-age=600",
+		Mounts: map[string]fs.FS{"/js/": fstest.MapFS{"a.js": &fstest.MapFile{Data: []byte("x")}}}})
+	got := a.Asset("/js/a.js")
+	if !strings.HasPrefix(got, "/js/a.js?v=") {
+		t.Fatalf("sem versão: %q", got)
+	}
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, httptest.NewRequest("GET", got, nil))
+	if rec.Code != 200 || rec.Header().Get("Cache-Control") != immutableCache {
+		t.Fatalf("%s → %d %q", got, rec.Code, rec.Header().Get("Cache-Control"))
+	}
+	if et := strings.Trim(rec.Header().Get("ETag"), `"W/`); !strings.HasSuffix(got, "?v="+et) {
+		t.Fatalf("?v= de %q diferente do ETag %q", got, rec.Header().Get("ETag"))
+	}
+	if miss := a.Asset("/js/nada.js"); miss != "/js/nada.js" {
+		t.Fatalf("arquivo inexistente: %q", miss)
 	}
 }

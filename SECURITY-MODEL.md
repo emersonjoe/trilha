@@ -91,6 +91,9 @@ the [security reference](https://emersonjoe.github.io/trilha/reference/security)
 | A secret stored in the clear | `trilha.Seal` encrypts with AES-256-GCM under a key derived from the app's secret (HKDF-SHA256, a different key from the one that signs), with a random nonce and the format version as additional data. `trilha.Secret` is that plus every accidental exit closed: JSON, `String` and `slog` answer a mask, `Reveal()` is the only way to read it, and `driver.Valuer` means what reaches a column is the sealed bytes and never the string underneath. **The key is the app's secret**: this protects a database dump and a backup, not the operator and not anybody holding the environment. |
 | A document framed by a page of another origin | Every response carries `X-Frame-Options: DENY` and `frame-ancestors 'none'`. `Inline` — and only `Inline` — relaxes the pair to same-origin on that one response, because a document nobody may frame cannot be shown in place, which is what `Inline` exists for. The relaxation never applies to a page, to a download, or to an app that wrote its own `Security.CSP`. |
 | A filename that writes a header of its own | The name of a download goes through the same sanitiser as an upload's, then out as a percent-encoded `filename*` plus a quoted ASCII `filename`: a quote, a separator or a newline in the name cannot add a parameter or a line. |
+| A spreadsheet export that runs what a visitor typed | A text cell starting with `=`, `+`, `-`, `@`, tab or CR goes out behind an apostrophe, so Excel and LibreOffice read text and not a formula (`=HYPERLINK` carrying the row elsewhere); `BindCSV` removes it on the way in. |
+| A redirect that leaves the site | `Redirect` takes only a path: no scheme, no `//` or `/\`, and no control character anywhere — browsers drop tab, CR and LF before parsing, so `/<tab>/evil.example` would be `//evil.example`. |
+| A server-side request aimed at the inside | Webhooks check every address a name resolves to, at registration and at delivery, and again on the IP actually dialed, so a name that resolves elsewhere the second time (DNS rebinding) is refused. `ValidateExternalURL` reads an IPv4 in any spelling the system resolver accepts (`127.1`, `0x7f.0.0.1`, `0177.0.0.1`), IPv4-mapped IPv6 and CGNAT (`100.64.0.0/10`) as private. |
 | Another service's headers landing on this app's session | `Pipe` copies a closed list of response headers and never `Set-Cookie`; the same is true of `Config.Upstreams`. |
 
 ### Repudiation
@@ -118,7 +121,8 @@ the [security reference](https://emersonjoe.github.io/trilha/reference/security)
 |---|---|
 | Slow client holding connections | `Timeouts` (read header 10s, read 30s, write 60s, idle 120s). |
 | Huge body | `Config.MaxBodyBytes` (1 MiB by default) answers 413; `MaxHeaderBytes` 64 KiB. |
-| Request flood | Token bucket per client IP (`Config.RateLimit`) and `trilha.Limit` for one subtree; 429 with `Retry-After`. |
+| Request flood | Token bucket per client IP (`Config.RateLimit`, which covers `Config.Upstreams` too) and `trilha.Limit` for one subtree; 429 with `Retry-After`. The client IP behind a trusted proxy is the right-most untrusted entry across every `X-Forwarded-For` line. |
+| Uploads filling the disk | A multipart file over `MaxFormMemory` spills to a temporary file, and the runtime removes it when the request ends (net/http removes only those of the request it handed out). |
 | A handler that panics takes the process down | Recovered at the edge, counted in `trilha_panics_total`, answered as 500. |
 | **Volumetric attack, or one that costs the app more than it costs the attacker** | **Open, and out of scope.** A single process cannot absorb it: that belongs to the network in front (CDN, WAF, provider limits). |
 

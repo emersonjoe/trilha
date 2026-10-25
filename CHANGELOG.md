@@ -3,14 +3,52 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
-## Unreleased
+## 0.162.0 — 2026-10-25
+
+Security review against the October 2026 PHP and Node.js incidents (spec 182), and `c.Asset`
+for apps served by `Mounts` (#313).
 
 ### Security
+
+- **Multipart temporary files are removed when the request ends.** An upload over
+  `MaxFormMemory` spills to a temporary file; net/http removes those only for the request it
+  handed out, and the `Ctx` parses its own copy, so each one stayed on disk for good — a disk
+  filled by uploads (the resource-exhaustion class of PHP's CVE-2026-109618).
+- **Webhooks check the address again as they dial**, against the IP actually connected: a name
+  that resolved to the partner when checked and to `169.254.169.254` when the client resolved
+  it again (DNS rebinding) got through. The class of Node.js' CVE-2026-105482/106069, where the
+  guard and the dial saw different addresses. Behind `HTTPS_PROXY` the proxy is the egress
+  control and only the check by name runs; a client passed in `Options.HTTP` gets no dial check.
+- **`ValidateExternalURL` (Connections) reads every IPv4 spelling as an address**: `127.1`,
+  `0x7f.0.0.1` and `0177.0.0.1` passed in production and the system resolver dials them as
+  loopback (Node.js CVE-2026-106072); IPv4-mapped IPv6 and CGNAT `100.64.0.0/10` (Alibaba
+  Cloud's metadata at `100.100.100.200`) are private too, as the webhook check already had it.
+- **`Redirect` refuses a control character anywhere in the path**: browsers drop tab, CR and
+  LF before parsing, so `c.Redirect(c.Query("next"))` with `/%09/evil.example` went to
+  `//evil.example` — an open redirect, confirmed in Chromium.
+- **`ClientIP` reads every `X-Forwarded-For` line**: a proxy that appends its own line instead
+  of extending the first (HAProxy `option forwardfor`) left the client-chosen address in front,
+  and with it the rate limit, the link brute-force guard and the audit trail.
+- **`Config.RateLimit` covers `Config.Upstreams`**: a login behind the upstream was the one
+  door with no per-client limit.
+- **CSV export neutralises formulas**: a text cell starting with `=`, `+`, `-`, `@`, tab or CR
+  goes out behind an apostrophe, and `BindCSV` removes it on the way in.
+- **The caller's `X-Request-ID` is kept only when it looks like one** (up to 128 of
+  `A-Za-z0-9._:-`); anything else is replaced by a fresh id instead of reaching every log line,
+  the problem+json and the upstream.
 
 - The security gate (`make security`) runs on Go 1.26.10 instead of 1.26.9: `govulncheck` reports
   GO-2026-6809 (compromised intermediate certificates distrusted in `crypto/x509`), reached through
   `dev.Run` → `http.Server.Serve`, fixed in 1.26.10. An explicit toolchain upgrade, as
   `SECURITY-BASELINE.md` asks; the runtime keeps its zero dependencies.
+
+### Fixed
+
+- **`c.Asset` versions a file served by `Mounts`** (#313): with `Config.Public` nil it returned
+  the path unversioned, so an app serving everything by `Mounts` could not get
+  `?v=<hash>` and the `immutable` cache `serveStatic` already gives it. An app with neither
+  `Mounts` nor `Public` still gets the path back silently; the warning for a missing file is in
+  English now and names both.
 
 ### Changed
 

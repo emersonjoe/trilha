@@ -150,3 +150,25 @@ func TestPatternIsReadableFromMiddleware(t *testing.T) {
 		t.Fatalf("middleware saw %q", seen)
 	}
 }
+
+// O X-Request-ID de quem chama é aceito para correlacionar com o proxy, mas
+// vai para o log, para o problem+json e para o upstream: tamanho e alfabeto
+// limitados, senão o cliente escreve um texto de 1 MiB em cada linha de log.
+func TestRequestIDFromClientIsBounded(t *testing.T) {
+	a := New(Config{Env: Prod, Logger: quiet()})
+	a.Register(Route{Pattern: "/x", Methods: map[string]HandlerFunc{"GET": func(c *Ctx) error {
+		return c.Text(200, "ok")
+	}}})
+	for in, kept := range map[string]bool{
+		"req-1":                                true,
+		"0f8c2d1e-6b7a-4c3d-9e8f-123456789abc": true,
+		strings.Repeat("a", 129):               false,
+		"a b":                                  false,
+		"x\"><script>":                         false,
+	} {
+		got := get(t, a, "GET", "/x", "", map[string]string{"X-Request-ID": in}).Header().Get("X-Request-ID")
+		if (got == in) != kept || got == "" {
+			t.Errorf("%.20q → %.20q, kept=%v", in, got, kept)
+		}
+	}
+}

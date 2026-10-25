@@ -66,6 +66,17 @@ func TestValidateExternalURL(t *testing.T) {
 		"http://[::1]:80":           "private",
 		"http://169.254.169.254":    "private",
 		"http://metadata.internal.": "private",
+		// IPv4 fora da forma canônica: netip não lê como endereço, mas o
+		// resolvedor do sistema (inet_aton) lê, e liga no loopback — a classe
+		// dos CVE-2026-106069/106072 do Node.js.
+		"http://127.1":              "private",
+		"http://0x7f.0.0.1":         "private",
+		"http://0177.0.0.1":         "private",
+		"http://10.1":               "private",
+		"http://[::ffff:127.0.0.1]": "private",
+		// 100.64/10: CGNAT, onde fica o metadata da Alibaba Cloud; o webhook
+		// já recusava.
+		"http://100.100.100.200": "private",
 	}
 	for u, want := range bad {
 		err := ValidateExternalURL(u, Prod)

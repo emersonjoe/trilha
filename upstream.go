@@ -189,6 +189,15 @@ func (a *App) serveUpstream(c *Ctx, up *upstream) bool {
 		a.handleError(c, &HTTPError{Code: http.StatusBadRequest, Message: "invalid path"})
 		return true
 	}
+	// Config.RateLimit is per client and global: the routes get it in wrap,
+	// and a login behind the upstream must not be the one door without it.
+	if a.limiter != nil {
+		if err := a.limiter.check(c); err != nil {
+			c.kind = kindAPI
+			a.handleError(c, err)
+			return true
+		}
+	}
 	if bodyMethods[c.r.Method] && up.cfg.CSRF != Off {
 		if err := a.checkCSRF(c); err != nil {
 			c.kind = kindAPI

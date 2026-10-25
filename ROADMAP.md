@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (outubro de 2026, v0.161.0)
+## Onde o Trilha está (outubro de 2026, v0.162.0)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -399,6 +399,11 @@ e não só do literal na chamada (#303).
 149. **Limite de tamanho no commit** (spec 181, **entregue na 0.161.0**): `trilha precommit` e
 `trilha hooks` barram o commit com arquivo acima de 5.000 tokens ou código acima de 500 linhas,
 ignorando lockfiles e gerados, e dizem como dividir; o `trilha agents` instala o hook (#314).
+150. **Revisão de segurança de outubro** (spec 182, **entregue na 0.162.0**): a classe dos
+incidentes de PHP e Node.js de outubro de 2026 conferida no runtime — temporários de upload
+apagados, SSRF por DNS rebinding e por IPv4 fora da forma canônica, redirect com caractere de
+controle, `X-Forwarded-For` em várias linhas, upstream dentro do `RateLimit`, injeção de
+fórmula no CSV — e o `c.Asset` versionando arquivo de `Mounts` (#313).
 
 ## O que não vamos fazer, e por quê
 

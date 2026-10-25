@@ -377,3 +377,18 @@ func TestCSPRemoveKeepsTheDefaultAndItsFraming(t *testing.T) {
 		t.Fatalf("Inline lost its framing: %v", rec.Header())
 	}
 }
+
+// Um proxy que acrescenta a própria linha de X-Forwarded-For (HAProxy com
+// option forwardfor, alguns ingresses) deixa a linha do cliente em cima. Ler só
+// a primeira linha devolvia o IP que o cliente escolheu — e com ele o limite de
+// taxa e a trilha de auditoria por IP.
+func TestClientIPReadsEveryForwardedForLine(t *testing.T) {
+	a := New(Config{Logger: quiet(), TrustedProxies: []string{"10.0.0.0/8"}})
+	req := httptest.NewRequest("GET", "/", nil)
+	req.RemoteAddr = "10.1.2.3:5555"
+	req.Header.Add("X-Forwarded-For", "6.6.6.6")
+	req.Header.Add("X-Forwarded-For", "203.0.113.9")
+	if got := clientIPOf(a, req); got != "203.0.113.9" {
+		t.Fatalf("ClientIP = %q, want the address the proxy appended", got)
+	}
+}

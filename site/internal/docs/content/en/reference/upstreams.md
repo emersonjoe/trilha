@@ -59,6 +59,8 @@ api := &http.Client{Transport: trilha.UpstreamTransport(), Timeout: 15 * time.Se
   nothing.
 - **CSRF is on by default** for `POST`/`PUT`/`PATCH`/`DELETE`, as on any write of the app —
   `ui.js` already sends the header. `CSRF: trilha.Off` is for an API authenticated by key.
+- **`Config.RateLimit` applies** as on the app's own routes: a login behind the upstream is
+  throttled per client like any other (0.162.0).
 - **A dead upstream is 502 and a slow one is 504**, both `problem+json` whatever `Accept`
   says: the client of `/api/` is a script, never a browser in the address bar.
 

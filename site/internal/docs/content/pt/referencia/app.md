@@ -275,7 +275,7 @@ func (c *Ctx) Asset(path string) string // idem, é o que o layout usa
 ```
 
 `c.Asset("/site.css")` devolve `/site.css?v=8f3a1c92`, onde `v` é o hash FNV-1a do conteúdo
-do arquivo em `Config.Public` (com o prefixo de `BasePath`, como `c.Base()`). Como o
+do arquivo em `Config.Mounts` ou `Config.Public` (com o prefixo de `BasePath`, como `c.Base()`). Como o
 endereço muda quando o arquivo muda, um deploy nunca deixa alguém com HTML novo e CSS
 antigo — o navegador pede uma URL que ele nunca viu.
 
@@ -284,7 +284,7 @@ Um pedido cujo `v` confere recebe `public, max-age=31536000, immutable`, seja qu
 imutável. O arquivo é lido uma vez em produção; em `dev` um `Stat` decide se relê, então
 editar o CSS e atualizar a página basta.
 
-Caminho que não existe em `Public` volta sem versão, com um aviso no log: um erro de
+Caminho que não existe em `Mounts` nem em `Public` volta sem versão, com um aviso no log: um erro de
 digitação no layout não derruba a página. `ui.Head` e os exemplos já usam `Asset`.
 
 ## App

@@ -437,7 +437,15 @@ func privateURL(raw string) bool {
 	}
 	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
 	if ip, err := netip.ParseAddr(host); err == nil {
-		return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+		ip = ip.Unmap()
+		return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+			ip.IsUnspecified() || cgnat.Contains(ip)
+	}
+	if numericHost(host) {
+		// 127.1, 0x7f.0.0.1, 0177.0.0.1: netip refuses them as addresses, the
+		// system resolver (inet_aton) reads them as one and dials it. No public
+		// name ends in a number, so none of these is anybody's API.
+		return true
 	}
 	if host == "localhost" || !strings.Contains(host, ".") {
 		return true
@@ -448,6 +456,21 @@ func privateURL(raw string) bool {
 		}
 	}
 	return false
+}
+
+// cgnat is 100.64.0.0/10, which netip has no method for: shared address space
+// where cloud internals live (Alibaba's metadata service is 100.100.100.200).
+var cgnat = netip.MustParsePrefix("100.64.0.0/10")
+
+// numericHost reports whether the last label of host is a number (decimal,
+// octal or 0x hex), which makes the whole host an IPv4 address to inet_aton.
+func numericHost(host string) bool {
+	last := host[strings.LastIndex(host, ".")+1:]
+	if l := strings.ToLower(last); strings.HasPrefix(l, "0x") {
+		last = l[2:]
+		return last == "" || strings.Trim(last, "0123456789abcdef") == ""
+	}
+	return last != "" && strings.Trim(last, "0123456789") == ""
 }
 
 func tenantOf(c *Ctx) string {

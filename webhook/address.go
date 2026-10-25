@@ -3,8 +3,11 @@ package webhook
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/emersonjoe/trilha"
 )
@@ -114,4 +117,43 @@ func (h *Hooks) lookup(host string) ([]net.IP, error) {
 		return h.resolve(host)
 	}
 	return net.LookupIP(host)
+}
+
+// transport is the default client's: the address is checked once more as the
+// connection is made, against the IP actually being dialed. check resolves the
+// name and the client resolves it again to connect; a DNS server that answers
+// the partner the first time and 169.254.169.254 the second (DNS rebinding)
+// slips between the two, and only the dial sees the address that counts.
+//
+// Behind HTTPS_PROXY the dial is to the proxy, which is the operator's egress
+// control and usually on a private address, so the dial check stays off and
+// the check by name is what runs.
+func (h *Hooks) transport() http.RoundTripper {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	probe := &http.Request{URL: &url.URL{Scheme: "https", Host: "webhook.invalid"}}
+	if p, _ := t.Proxy(probe); p != nil {
+		return t
+	}
+	d := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: h.dialCheck}
+	t.DialContext = d.DialContext
+	return t
+}
+
+// dialCheck refuses a connection to an address check would have refused.
+func (h *Hooks) dialCheck(_, address string, _ syscall.RawConn) error {
+	if h.allow {
+		return nil
+	}
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return fmt.Errorf("webhook: dialing %s, which is not an address", address)
+	}
+	if reason, local := private(ip); reason != "" && !(local && h.env == trilha.Dev) {
+		return fmt.Errorf("webhook: the connection went to %s, which is %s — a webhook may only reach the public internet", ip, reason)
+	}
+	return nil
 }

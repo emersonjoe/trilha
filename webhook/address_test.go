@@ -185,3 +185,34 @@ func TestNemEmDevOsMetadadosPassam(t *testing.T) {
 		}
 	}
 }
+
+// A checagem resolve o nome, e o cliente resolve de novo para ligar: entre uma
+// e outra, um DNS com TTL zero troca o parceiro por 127.0.0.1 (DNS rebinding,
+// a mesma distância entre o que a guarda leu e o que foi discado dos
+// CVE-2026-105482 e 106069 do Node.js). Por isso o endereço é conferido também
+// na discagem, contra o IP que de fato vai ser ligado.
+func TestADiscagemConfereOEnderecoDeVerdade(t *testing.T) {
+	r := &relogio{now: time.Now()}
+	var chegou bool
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		chegou = true
+	}))
+	defer srv.Close()
+
+	h := motor(t, r, Options{})
+	if _, err := h.Subscribe(nil, Subscription{URL: srv.URL}); err != nil {
+		t.Fatal(err)
+	}
+	// A checagem por nome vê um endereço público; a discagem vai ao loopback.
+	h.allow = false
+	h.env = trilha.Prod
+	h.resolve = func(string) ([]net.IP, error) { return []net.IP{net.ParseIP("93.184.216.34")}, nil }
+
+	h.Emit(nil, "fluxo.concluido", map[string]string{"id": "1"})
+	d := primeira(t, h)
+	espera(t, "a tentativa registrar a recusa", func() bool { return entrega(t, h, d.ID).Attempt == 1 })
+	got := entrega(t, h, d.ID)
+	if chegou || !strings.Contains(got.Err, "public internet") {
+		t.Fatalf("a discagem não barrou o loopback: chegou=%v %+v", chegou, got)
+	}
+}

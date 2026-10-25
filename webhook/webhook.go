@@ -139,7 +139,9 @@ type Options struct {
 	Tick time.Duration
 	// HTTP is the client. The default has no redirect following: a webhook
 	// that follows a 302 is a webhook whose destination was never the one
-	// that got checked.
+	// that got checked. It also checks the address again as it dials, so a
+	// name that resolves somewhere else the second time is still refused. A
+	// client passed here gets neither; the check by name still runs.
 	HTTP   *http.Client
 	Logger *slog.Logger
 	// AllowPrivateURL turns off the address check. It exists for the test
@@ -208,6 +210,7 @@ func New(o Options) *Hooks {
 	}
 	if h.client == nil {
 		h.client = &http.Client{
+			Transport: h.transport(),
 			// No redirects. A 302 from the partner's host to somewhere else is
 			// a destination nobody checked, which is the whole SSRF story
 			// wearing a different hat.

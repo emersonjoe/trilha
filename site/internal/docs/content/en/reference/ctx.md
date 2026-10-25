@@ -22,7 +22,7 @@ used by another goroutine after the handler returns.
 | `BindJSON(&v) error` | decodes the JSON body; unknown fields are an error (400); 413 above the limit |
 | `Cookie(name) (*http.Cookie, error)` | request cookie |
 | `Accepts(offers...) string` | the offer the client prefers (`Accept`, ranked by `q`), or `""`; an absent or `*/*` header picks the first offer |
-| `RequestID() string` | received `X-Request-ID` or a generated id |
+| `RequestID() string` | received `X-Request-ID` (up to 128 of `A-Za-z0-9._:-`) or a generated id |
 | `Env() trilha.Env` | `trilha.Dev` or `trilha.Prod` |
 | `Base() string` | URL prefix (`TRILHA_BASE_PATH`), without trailing slash |
 | `App() *trilha.App` | the application |
@@ -332,6 +332,10 @@ against `02/01/2006 15:04`), the decimal mark and the word for a boolean (`yes`/
 `sim`/`não`); `Config.TimeZone` decides which day a timestamp falls on. The BOM is not
 optional and not configurable: without it Excel reads every accent as mojibake, and that is
 the first thing anybody notices.
+
+A text cell that starts with `=`, `+`, `-`, `@`, a tab or a CR goes out with an apostrophe in
+front (`'=HYPERLINK(…)`), so the spreadsheet reads text instead of running a formula someone
+typed into the app (CSV injection); `BindCSV` takes the apostrophe off on the way back in.
 
 A channel is what a two-hundred-thousand-row export wants — rows are written as they arrive
 and the write deadline is cleared — but the producer is yours to end: select on

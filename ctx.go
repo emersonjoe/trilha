@@ -59,7 +59,7 @@ type Ctx struct {
 
 func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
 	id := r.Header.Get("X-Request-ID")
-	if id == "" {
+	if !validRequestID(id) {
 		var b [8]byte
 		_, _ = rand.Read(b[:])
 		id = hex.EncodeToString(b[:])
@@ -77,6 +77,24 @@ func newCtx(a *App, w *responseWriter, r *http.Request, kind routeKind) *Ctx {
 }
 
 type reqCtxKey struct{}
+
+// validRequestID accepts the caller's X-Request-ID — a proxy's, so the two logs
+// line up — only when it looks like one: up to 128 letters, digits and ._:-.
+// It is written to every log line, the problem+json and the upstream; anything
+// else is replaced by a fresh id rather than carried there.
+func validRequestID(id string) bool {
+	if id == "" || len(id) > 128 {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		b := id[i]
+		if !('a' <= b && b <= 'z' || 'A' <= b && b <= 'Z' || '0' <= b && b <= '9' ||
+			b == '-' || b == '_' || b == '.' || b == ':') {
+			return false
+		}
+	}
+	return true
+}
 
 // ctxOf returns the Ctx of a request served by Trilha, or nil.
 func ctxOf(r *http.Request) *Ctx {
@@ -190,6 +208,16 @@ func (c *Ctx) parseForm() error {
 		}
 	}
 	return c.formErr
+}
+
+// removeUploads deletes the temporary files of a multipart form when the
+// request ends. net/http does that only for the request it handed out; the
+// Ctx parses its own copy (newCtx, SetContext), so without this every upload
+// over MaxFormMemory stayed on disk for good.
+func (c *Ctx) removeUploads() {
+	if f := c.r.MultipartForm; f != nil {
+		_ = f.RemoveAll()
+	}
 }
 
 // Form returns a form field (POST body or query string). Returns "" if the

@@ -81,10 +81,17 @@ func RedirectExternal(url string) error {
 // The rules are short because every extra rule is a place for a bypass to
 // live. A path starts with a single "/" and its second character is not
 // another slash or a backslash: "//evil.com" is a protocol-relative URL, and
-// browsers read "/\evil.com" as one too.
+// browsers read "/\evil.com" as one too. No control character anywhere:
+// browsers drop tab, CR and LF before parsing, so "/\t/evil.com" arrives as
+// "//evil.com".
 func localPath(url string) bool {
 	if url == "" || url[0] != '/' {
 		return false
+	}
+	for i := 0; i < len(url); i++ {
+		if url[i] < 0x20 || url[i] == 0x7f {
+			return false
+		}
 	}
 	if len(url) > 1 && (url[1] == '/' || url[1] == '\\') {
 		return false
