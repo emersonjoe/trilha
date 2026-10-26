@@ -393,6 +393,16 @@ trilha-runner finding --severity low --path internal/events/due.go --lines 18 --
 Without a `verdict`, a review answers `changes` when it has findings and `pass` when it has
 none. Findings are also secret-redacted, and at most 100 leave a run.
 
+**Small changes, checked twice.** Every implement prompt says to make the smallest change that
+meets the acceptance criteria and the checks — no refactor, rename, reformat or file the task does
+not need, no new abstraction or dependency unless asked; a larger change is explained with
+`trilha-runner note`, and one that changes the task's scope is asked first. The review then
+compares the whole diff with what the task asks: every change the task does not need becomes a
+`medium` finding titled `Unneeded change: …` with its path and lines, and a diff much larger than
+the task needs gets the verdict `changes`, even when every line is correct. The run's
+`diff_stats` count only what the task branch changed, so a control plane can hold a change to a
+size budget.
+
 **Read-only is checked, not asked.** When a hunt or a report-mode review ends, the worktree must
 be clean, `HEAD` must be the commit it started at and the reviewed branch must not have moved.
 Anything else fails the run with `failure_class: policy` (`error_code: read_only_violated`) and

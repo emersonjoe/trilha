@@ -165,6 +165,47 @@ opera o portal real pelo Chrome DevTools: configura acesso, registra projeto,
 emite uma chave, enfileira execução, abre evidências protegidas e aprova a
 revisão.
 
+## Experimente na sua máquina: `make demo`
+
+A homologação acima prova o encanamento com um driver determinístico. Para *ver* o produto com
+um agente de verdade, um comando monta um ambiente descartável em `127.0.0.1` (Docker, Go e uma
+chave do Claude guardada com `make claude-key` no checkout do runner, ou o Ollama):
+
+```bash
+make demo          # sempre do zero — é também o reset
+make demo-status   # o que está rodando e onde
+make demo-down     # remove os containers, os processos e o diretório da demo
+```
+
+| Peça | Onde | O que é |
+|---|---|---|
+| Cloud | `http://127.0.0.1:3000` | este repositório, com um login de operador de uso único impresso no fim |
+| Gitea | `http://127.0.0.1:3300` | o servidor Git do time; o projeto `ana/loja-api` mora aqui |
+| Mailpit | `http://127.0.0.1:8025` | recebe os e-mails que o Cloud envia (SMTP em `:1025`) |
+| Worker | o diretório da demo | `trilha-runner worker --push` num clone de `ana/loja-api` |
+
+`loja-api` é um serviço pequeno de cotação de pedidos em Go 1.22 (só biblioteca padrão) para uma
+loja online, com um backlog de verdade em `.trilha/tasks`: a **TASK-001** quer frete grátis acima
+de um valor mínimo de pedido — uma decisão de negócio escrita em lugar nenhum, então o agente
+precisa perguntar; a **TASK-002** é um erro de uma linha no laço do subtotal, com um teste
+falhando. Nenhum código é enviado: o Cloud guarda só a URL do repositório. O worker clona do
+Gitea com um token que fica do lado dele e envia `trilha/task-001` e `trilha/task-002` de volta
+ao Gitea, onde quem revisa abre o diff. O operador está inscrito por e-mail em "precisa de você",
+"pronta para revisão", "acima do orçamento" e "falhou", então a primeira mensagem aparece no
+Mailpit.
+
+Depois: **Visão geral → Precisa de você** → responda `R$ 199,00` → espere a continuação chegar
+a revisão → **Execuções → Detalhes** → **Abrir diff no Git** → aprove. `make demo-check` faz
+esse caminho sozinho e confere os e-mails, as branches enviadas, o tamanho do diff e que nenhuma
+chave ou token chegou ao Cloud, aos logs, às branches ou aos e-mails.
+
+Um modelo de verdade nem sempre fica pequeno. Numa execução desta demo, o Claude Haiku resolveu a
+TASK-001 com as seis linhas certas *e* um `pedido.go.bak` de 119 linhas mais um `pedido_new.go`
+vazio: 126 linhas para um orçamento de 40. A execução caiu em **Precisa de você** como **acima do
+orçamento**, e a revisão por IA respondeu `changes` com dois achados, `Unneeded change: backup
+file should not be committed` e `Unneeded change: empty placeholder file…` — quem revisa fica
+sabendo antes de abrir o diff.
+
 ## Product Studio: crie o produto sem usar CLI
 
 No Trilha Cloud 0.2.0, o operador pode habilitar um workspace gerenciado e o
@@ -1231,6 +1272,7 @@ vez só.
 | `run.review` | `… is ready for review` |
 | `deployment.pending_approval` | `… waits for a deployment approval` |
 | `project.paused` | `cadastro-usuarios was paused` |
+| `run.over_budget` | `… is over the project's change budget` |
 
 Os canais são e-mail, pelo `TRILHA_MAIL_URL` do capítulo 18, e Web Push: **Ativar push neste
 navegador** inscreve o navegador em que você está. O diálogo grava a escolha com
@@ -1241,6 +1283,16 @@ Defina `TRILHA_CLOUD_PUBLIC_URL=https://cloud.example.com` para os links saírem
 `TRILHA_CLOUD_VAPID_SUBJECT` (um endereço `mailto:` ou `https:`) para o contato que os serviços
 de push veem; o padrão é a URL pública ou o e-mail do admin. O par de chaves do Web Push é gerado
 no primeiro uso e selado com `TRILHA_SECRET`.
+
+**Cada canal diz se chega até você.** Acima da grade o diálogo escreve uma linha por canal, a
+partir do `availability` que `GET /api/notifications` responde: "E-mail: enviando por SMTP para
+ana@example.com.", "E-mail em modo dev: … gravadas numa pasta do servidor, não enviadas."
+(`TRILHA_ENV=dev` sem `TRILHA_MAIL_URL`) ou "E-mail não configurado nesta instância: o
+administrador precisa definir TRILHA_MAIL_URL."; e "Push: ativo neste navegador", "Push: ative
+neste navegador primeiro, no botão abaixo" ou que o navegador não oferece Web Push. As caixas de
+um canal que não chega até você ficam desabilitadas, com o motivo como descrição. O e-mail diz o
+evento em palavras simples, o projeto, a task e a execução, e leva a `/?section=runs&run=<id>`,
+que abre os detalhes daquela execução.
 
 Um canal do time não é uma pessoa, então webhooks da instância inteira vêm só de um arquivo que
 quem administra o host escreve, apontado por `TRILHA_CLOUD_NOTIFY_FILE`. Nenhuma rota escreve
@@ -1305,6 +1357,39 @@ com os achados, a severidade, **Por quê** e **Como reproduzir**. Um veredito `c
 atenção "AI review asked for changes" na execução revisada, que então cai em **Precisa de você**.
 Não há laço: o resultado de uma revisão nunca enfileira outra revisão. Uma revisão `fix` que faz
 commit volta para `review` para uma pessoa, e a execução revisada vira `superseded`.
+
+**Segure as mudanças num tamanho.** Quem revisa 400 linhas para algo que 5 resolveriam não
+consegue revisar bem. Acrescente `change_budget` — linhas inseridas mais removidas, `0` (o
+padrão) desliga, no máximo `100000` — à mesma política:
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/cadastro-usuarios/agents" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"ai_review":"on_review","review_mode":"report","artifacts":false,"change_budget":50}'
+```
+
+Uma execução de implementação que chega a `review` com mais linhas que isso (pelo `diff_stats`
+do runner, que conta só o que o branch da task mudou) recebe `over_budget {lines, budget,
+files}`, a atenção "A mudança tem 412 linhas; o orçamento do projeto é 50. Peça uma versão
+menor ou rode variantes.", cai em **Precisa de você**, é auditada como `run.over_budget` só com
+contagens e envia o evento `run.over_budget`. A tabela de execuções ganha a coluna **Mudança**
+(`+N −M · K arquivos`) com o selo **acima do orçamento**, e o cartão de produtividade conta
+quantas foram. A aprovação não é bloqueada: uma pessoa pode decidir que o tamanho se justifica.
+O runner faz a parte dele também — o prompt de implementação pede a menor mudança, e a revisão
+por IA aponta cada `Unneeded change:` como achado.
+
+**Toda execução diz o próximo passo.** `GET /api/runs/{id}` responde `next_step`, e os detalhes
+da execução e cada item de **Precisa de você** abrem com uma frase para ele — "Responda a
+pergunta do agente abaixo; a resposta continua o trabalho na mesma branch.", "Abra o diff,
+confira as evidências e os achados; se estiver certo, clique em Aprovar.", "Aguarde a revisão
+por IA terminar; …", "A mudança é maior que o orçamento do projeto: …", "Leia o erro e as
+evidências; …" — para quem estiver de plantão, júnior ou não, saber o próximo clique.
+
+**Abra o diff onde o código mora.** Quando o repositório do projeto é uma URL `http(s)`,
+`GET /api/runs/{id}` responde `diff_url`, `<repositório>/compare/<branch padrão>...<branch da
+execução>` — a forma que GitHub, Gitea e GitLab compartilham — e os detalhes mostram **Abrir
+diff no Git**. Credenciais, query e `.git` são descartados; caminhos locais, `ssh` e o resto
+ficam sem link. O diff nunca passa pelo Cloud.
 
 **Cace bugs.** Numa execução de implementação, os detalhes oferecem **Caçar bugs** com um número
 de caçadores. Cada caçador só lê e recebe a próxima semente da task — uma área e um estilo
