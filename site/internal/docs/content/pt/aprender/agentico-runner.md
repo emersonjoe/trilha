@@ -395,6 +395,16 @@ trilha-runner finding --severity low --path internal/events/due.go --lines 18 --
 Sem `verdict`, uma revisão responde `changes` quando tem achados e `pass` quando não tem. Os
 achados também têm segredos censurados, e no máximo 100 saem de uma execução.
 
+**Mudanças pequenas, conferidas duas vezes.** Todo prompt de implementação pede a menor mudança
+que atende aos critérios de aceite e aos checks — sem refatorar, renomear, reformatar ou mexer em
+arquivo de que a task não precisa, sem abstração ou dependência nova que ela não peça; uma mudança
+maior é explicada com `trilha-runner note`, e uma que muda o escopo da task é perguntada antes. A
+revisão então compara o diff inteiro com o que a task pede: cada mudança de que a task não precisa
+vira um achado `medium` com título `Unneeded change: …`, caminho e linhas, e um diff muito maior
+que o necessário recebe o veredito `changes`, mesmo com todas as linhas corretas. O `diff_stats`
+da execução conta só o que o branch da task mudou, então um control plane pode segurar uma
+mudança num orçamento de tamanho.
+
 **Só-leitura é verificado, não pedido.** Quando uma caçada ou uma revisão `report` termina, o
 worktree tem de estar limpo, o `HEAD` tem de ser o commit do início e o branch revisado não pode
 ter se movido. Qualquer outra coisa reprova a execução com `failure_class: policy`
