@@ -185,6 +185,10 @@ export TRILHA_RUNNER_BIN="$(command -v trilha-runner)"
 make dev
 ```
 
+Without `TRILHA_CLOUD_WORKSPACE_ROOT` the Studio stays off, the normal state of a Cloud that
+only runs Projects: the dashboard says *Product Studio is disabled on this instance* and how to
+enable it, and the **New product** button does not appear.
+
 Open `http://localhost:3000`, select **Configure access** and enter the admin
 token. Then select **New product** and enter:
 
