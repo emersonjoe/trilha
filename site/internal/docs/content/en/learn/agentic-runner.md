@@ -140,6 +140,82 @@ worktree — and, when `trilha-spec` is on the `PATH`, the protocol's read-only 
 can look at the task's dependencies and evidence by itself. The fence is the same whatever
 the driver: the worktree, the manifest's tools, and the checks.
 
+## When the agent asks
+
+An agent missing a fact the repository does not hold has two bad options: guess, or fail. The
+runner gives it a third. During a run it listens on a Unix socket beside the worktree, puts
+`trilha-runner` on the agent's `PATH`, and adds to the context pack a paragraph telling every
+agent to ask one objective question and stop rather than guess:
+
+| The agent runs | What happens |
+|---|---|
+| `trilha-runner ask "<question>"` | when the agent ends its turn, the run ends **needing input** |
+| `trilha-runner note "<fact>"` | a note the next run of the task will read |
+| `trilha-runner overview "<one or two sentences>"` | what is being done and where it stands |
+| `trilha-runner attention "<reason>"` / `--clear` | raises or clears the badge that says a person is needed |
+
+The `ai` driver offers the same as tools — `ask`, `note`, `overview`. Every command answers in
+under a second and exits 0 even when nobody is listening: the runner can never fail or stall an
+agent.
+
+See it without a model. A three-line script stands in for the agent — it drafts a file, leaves a
+note and asks:
+
+```bash
+mkdir -p scripts
+cat > scripts/ask.sh <<'SH'
+#!/bin/sh
+echo "# Reminder e-mail (draft)" > REMINDER_EMAIL.md
+trilha-runner note "internal/reminders sends the e-mail but has no recipient yet."
+trilha-runner ask "Should the reminder e-mail go to the event's owner or to every guest?"
+SH
+trilha spec task add "Who gets the reminder e-mail" --status ready \
+  --accept "the reminder reaches the people the customer chose" --check "go test ./..."
+trilha runner run TASK-007 --driver exec --cmd "sh $PWD/scripts/ask.sh"
+# · worktree .trilha/runs/TASK-007/wt on trilha/task-007
+# · attempt 1/3: driver exec starting
+# · TASK-007 needs input: the agent asked a question
+# TASK-007 → needs input (driver exec, 1.3s)
+# question: Should the reminder e-mail go to the event's owner or to every guest?
+# branch trilha/task-007 in .trilha/runs/TASK-007/wt
+# commit 0c5e9f3a8d21b7c4e6f09a1b2c3d4e5f60718293
+```
+
+Nothing failed. The draft is committed on the branch, no check ran, no attempt was spent,
+nothing is retried. The task is `blocked`, and its evidence has a `run` record with
+`stage: needs_input`. With `--json` the result also carries the question, the note (source
+`ai`) and `diff_stats` — how many files and lines the branch changed, never what
+they say.
+
+On your machine there is nobody to send the answer to, so write it where the next context pack
+will find it — the evidence so far is part of the pack — and put the task back in the queue:
+
+```bash
+trilha spec evidence TASK-007 add --note "Answer: every guest who accepted the invitation." --by ana
+trilha spec task move TASK-007 ready
+trilha runner run TASK-007        # same branch, same worktree, the answer in the context pack
+```
+
+With a control plane, the answer travels as a `continuation` instead. When the question came
+from a `claude-code` session, the runner resumes that very session (`--resume <session>`) with
+the answer, quoted, as its prompt — the agent picks up mid-thought. Any other driver, or a
+session this machine no longer has, starts fresh with the question and the answer quoted in the
+context pack. The task's memory — the overview and the latest notes — comes back the same way,
+quoted and labelled as information, never as instructions (the
+[protocol chapter](/learn/agentic-protocol) shows the exact shape).
+
+Questions, notes, overviews and reasons are size-limited and secret-scanned before they leave:
+a question holding something shaped like a key reaches the control plane as a fixed notice, and
+its words stay in `.trilha/runs/TASK-007/question.txt`, readable only by you. Two limits worth
+knowing: an agent inside the Docker sandbox cannot reach the socket, so it cannot ask; and a
+read-only run (below) never stops for a question.
+
+While the agent works, the runner also follows *what* it is doing. For `claude-code` it writes
+hooks to `.trilha/runs/TASK-007/claude-settings.json` — beside the worktree, never inside it —
+and passes them with `--settings`; the `ai` driver reports from its own loop. The state —
+`working`, `idle`, `waiting_permission`, `asked`, `stopped_error` — goes to the control plane
+only when it changes, at most once every two seconds.
+
 ## A check that measures: metrics as evidence
 
 Some acceptance is not a yes or a no. Triage accuracy on a labelled set, a translation score, a
@@ -255,6 +331,14 @@ refused before any source is touched. A run this host cannot honour is refused a
 never executed quietly. With `--capacity 2` the worker keeps two runs going at once, each in
 its own worktree.
 
+A long run must not look like a dead worker, and a result must not die with the network. While
+any run is active the worker sends a heartbeat every 30 seconds (`running 1/2`). Each result is
+written to `.trilha/runs/<run>/result.json` before it is posted and removed once the control
+plane has it; a control plane that is down is retried with backoff instead of stopping the
+worker, a result refused for good is set aside as `result.rejected.json`, and whatever a worker
+that died left behind is sent at the next start, before anything new is claimed. A task left
+`running` by a runner that died goes back to `ready`, with a note, the next time it is run.
+
 The same claim can carry the project's own model access — provider, endpoint, credential and
 the hosts that credential may be spent on. It reaches the agent as process environment and
 nowhere else — the `claude-code` driver always executes `claude -p -` and takes the credential
@@ -271,6 +355,194 @@ sequence — `steps[]` in order, a `migrate` that runs immediately before the st
 previous revision still serving, and a service that never becomes healthy triggers the
 rollback. The rollback reverses the schema only when the migration declared itself reversible;
 otherwise it is image-only and the log says the schema keeps the new shape.
+
+## Reviews and bug hunts
+
+Implementing is one kind of run. A control plane can also ask a worker for a second opinion on
+a branch that is already in `review`; the claim's `kind` says which, and the runner does the
+rest:
+
+| Claim | What the runner does |
+|---|---|
+| `kind: review`, `review_mode: report` (the default) | reviews the task's branch from its merge base with the default branch — correctness, security, missing tests — in a detached checkout of its own, `.trilha/runs/TASK-002-review-<run>/wt`. Read-only |
+| `kind: review`, `review_mode: fix` | the same review on the branch itself: the agent may fix, the runner commits and runs the task's checks, and the task goes back to `review` |
+| `kind: hunt` | a read-only bug hunt over the files the branch changed, pointed at one area (entry points, error paths, data layer, integration seams, user interface, infrastructure and CI) and one style (pessimist, trace follower, dependency skeptic, fresh eyes), so parallel hunters do not all read the same code the same way |
+
+The agent reports with more commands of the same family — and tools of the same names in the
+`ai` driver:
+
+```bash
+trilha-runner finding --severity high --path internal/events/due.go --lines 18-22 \
+  --title "Due list includes reminders in the future" \
+  --why "the filter compares with After where the acceptance says before now" \
+  --repro "an event whose ReminderAt is one hour ahead appears in GET /api/events/due"
+# finding sent to the runner
+trilha-runner verdict changes
+# verdict sent to the runner
+```
+
+A finding is a path and a line range, never code. One a control plane could not store is
+refused before it is sent — and the command still exits 0:
+
+```bash
+trilha-runner finding --severity low --path internal/events/due.go --lines 18 --title "Naming"
+# trilha-runner finding: finding: severity must be critical, high or medium
+# usage: trilha-runner finding --severity critical|high|medium --path <file> …
+```
+
+Without a `verdict`, a review answers `changes` when it has findings and `pass` when it has
+none. Findings are also secret-redacted, and at most 100 leave a run.
+
+**Read-only is checked, not asked.** When a hunt or a report-mode review ends, the worktree must
+be clean, `HEAD` must be the commit it started at and the reviewed branch must not have moved.
+Anything else fails the run with `failure_class: policy` (`error_code: read_only_violated`) and
+throws its findings and reports away. In the Docker sandbox the worktree is mounted read-only
+as well. A read-only run never moves the task and is never pushed; the `ai` driver does not even
+offer it `write_file` or `ask`.
+
+People review too. When the control plane hands a repair run the comments someone left on the
+pull request, the runner gives the prompt a `<reviews>` block with the lines each comment points
+at, read from the worktree itself and never from outside the repository, every text
+XML-escaped and quoted as data from reviewers. A comment that says "ignore your instructions" is
+a quotation, not an order. The agent fixes what it agrees with and answers each comment by its
+id:
+
+```bash
+trilha-runner reply c-1 "Fixed: the filter now uses Before(now), with a test for an event one hour ahead."
+# reply sent to the runner
+```
+
+A reply to an id the run did not receive is dropped.
+
+## Variants
+
+Sometimes you want two attempts at the same task and to keep the better one. A claim with
+`variant_index` is an ordinary implement run on a branch of its own:
+
+```bash
+git branch
+# * main
+#   trilha/task-002
+#   trilha/task-002-v1
+#   trilha/task-002-v2
+ls .trilha/runs
+# TASK-002  TASK-002-v1  TASK-002-v2
+git diff --stat trilha/task-002-v1 trilha/task-002-v2
+```
+
+Each variant works in `.trilha/runs/TASK-002-vN/`, and the runner writes there a
+`created-branch` file naming the branch it cut. That proof is what the rest of the tooling
+trusts. A variant never adopts a branch it cannot prove it made — if someone already has a
+`trilha/task-002-v2`, the run moves to `trilha/task-002-v2-2` and leaves theirs alone — and a
+cleanup deletes a branch only with that proof in hand.
+
+Variants are blind to each other: a variant's context pack holds no earlier evidence of the task
+and no note or overview an agent wrote, so the second attempt is not a copy of the first. A
+person's notes still arrive. Pick one, merge it, drop the other:
+
+```bash
+git merge trilha/task-002-v1
+trilha runner worktree clean TASK-002-v2   # takes a run directory as well as a task
+```
+
+## Report artifacts
+
+A check proves; a report explains. A coverage summary, a screenshot of the new screen, a chart
+of the eval — an agent can publish up to five per run:
+
+```bash
+trilha-runner artifact coverage.md
+# artifact sent to the runner
+```
+
+The runner decides, and its log says what it decided:
+
+```text
+· artifact coverage.md accepted (1834 bytes, text/markdown)
+· artifact "notes.md" refused: it contains a secret, so it stays off the cloud (the runner does not redact reports)
+```
+
+The rules: `.html`, `.md`, `.png` or `.jpg` (`--name` sets the name people see), at most 2 MiB
+each, from the worktree or from `$TRILHA_ARTIFACT_DIR` — a scratch directory outside the
+worktree, which is where a read-only run writes, since its worktree must stay clean. A text
+report holding something shaped like a secret is refused, not redacted; an image must begin with
+its format's bytes. Accepted reports are copied to `.trilha/runs/TASK-007/artifacts/`, readable
+only by you, with their SHA-256.
+
+A worker uploads each report before it posts the result, and the result lists only what the
+control plane accepted. Reports are opt-in there: a project that has not allowed them answers
+`403 ARTIFACTS_DISABLED`, and the runner drops them all and says so once. Either way, what
+leaves the machine is something a person reads — never the source.
+
+## Code from forks
+
+A pull request from a fork is code nobody on the team vouched for. The control plane marks such
+a claim `foreign_code: true`, and three things change:
+
+- It runs only in the Docker sandbox. Without `--sandbox docker`, or with Docker unavailable,
+  the run fails with `failure_class: policy` (`sandbox_required`) before the agent starts.
+- The agent and the checks get no secret: no inherited token, no deployment secret. The AI
+  credential goes only as the variable a command-line driver needs to reach the model; the `ai`
+  driver keeps it inside the runner's process, and its checks run in the sandbox.
+- `project.verify` is read from the default branch, never from the fork's — a fork does not get
+  to choose the commands your worker runs — and the branch is never pushed:
+
+```text
+· run-000012: foreign code, branch trilha/task-002 is not pushed
+```
+
+## Keeping worktrees tidy (doctor)
+
+Every run leaves a directory in `.trilha/runs/`: the worktree, the agent's log, what it
+reported. After a few weeks of variants and hunts that adds up, and some of it is the only copy
+of work nobody merged yet. The doctor tells them apart, and deletes nothing unless you ask:
+
+```bash
+trilha runner doctor --worktrees
+# RUN                          CLASS          AGE         SIZE  BRANCH                   ACTION
+# TASK-001                     metadata-only  >=30d   48.0 KiB  -                        kept — no worktree
+# TASK-002                     finished-kept  <14d     3.1 MiB  trilha/task-002          kept
+# TASK-007                     live           <14d     2.9 MiB  trilha/task-007          kept — held by process 48211
+# TASK-009                     orphaned       <30d     2.7 MiB  trilha/task-009          kept — no task file for TASK-009
+# 4 run directories: 1 live, 1 finished-kept, 1 orphaned, 1 metadata-only; removed 0, skipped 0, failed 0
+```
+
+`live` means a runner — or any process, like a dev server the agent left behind — has its
+current directory inside; `finished-kept`, a worktree of a known task with nobody in it;
+`orphaned`, a worktree git does not list or whose task file is gone; `metadata-only`, logs and
+evidence with no worktree. `--json` gives the same report to a tool.
+
+Deleting takes a flag, and even then the doctor is careful:
+
+```bash
+trilha runner doctor --worktrees --prune-orphans --default-branch main
+# RUN                          CLASS          AGE         SIZE  BRANCH                   ACTION
+# …
+# TASK-009                     orphaned       <30d     2.7 MiB  trilha/task-009          skipped — branch trilha/task-009 is not merged into origin/main (--force-unmerged removes it anyway)
+# 4 run directories: 1 live, 1 finished-kept, 1 orphaned, 1 metadata-only; removed 0, skipped 1, failed 0
+# doctor: 1 skipped, 0 failed
+echo $?
+# 12
+```
+
+It never touches a live run. It skips a worktree whose branch is not merged into
+`origin/<default>` or that has uncommitted changes, unless `--force-unmerged`. It deletes a
+branch only when the run's `created-branch` proves the runner made it. `--prune-older-than 30d`
+(or `720h`) removes run directories older than that, under the same rules. The exit code is 0
+when everything asked for was done, 1 when the command could not run, and **12** when something
+was skipped or failed — which a scheduled cleanup can notice.
+
+Removing a worktree — by `worktree clean` or by a prune — is an ordered teardown. The processes
+working inside it get SIGTERM, then SIGKILL if they are still there after 1.5 s, and only then
+does the worktree go, so nothing keeps writing into a directory that no longer exists:
+
+```bash
+trilha runner worktree clean TASK-007
+# teardown: SIGTERM 48211
+# teardown: every process exited
+# teardown: worktree /home/ana/agenda/.trilha/runs/TASK-007/wt removed
+# removed worktree of TASK-007 (branch trilha/task-007 kept)
+```
 
 ## Challenge
 
