@@ -1113,6 +1113,395 @@ marco não concluído mais próximo, marcado `overdue` depois da data. Ver um pr
 `view` em `programs` em pelo menos um dos projetos dele: Vic vê o quadro do `cpsi` por
 causa do `acervo`, e recebe 403 ao importar um.
 
+### 19. Quando o agente pergunta: a raia Precisa de você, a resposta e a memória da task
+
+O [capítulo do runner](/pt/aprender/agentico-runner) mostrou um agente que para e pergunta em
+vez de chutar. Na sua máquina a resposta foi para a evidência à mão. Com o Cloud, a pergunta
+chega a uma pessoa, a pessoa responde no portal e o trabalho continua no mesmo branch.
+
+**O que cada agente está fazendo.** Durante uma execução, o runner informa o estado do agente
+junto com o progresso. A tabela de execuções e os detalhes da execução mostram um selo:
+**Trabalhando**, **Parado**, **Precisa de permissão**, **Fez uma pergunta** ou **Erro do
+provedor**. Drivers sem hooks não mostram nenhum.
+
+**Uma execução que precisa de você.** Um agente que perguntou encerra a execução com status
+`needs_input` e a pergunta no resultado. Não é falha: nenhuma tentativa falha é contada, a task
+continua `running` e o quórum de revisão não consegue fechá-la. Ela espera na raia **Precisa de
+você** do painel, com um contador, ao lado de toda execução cujo agente levantou um motivo de
+atenção; a tabela de execuções também tem um filtro **Precisa de você**. A API responde a mesma
+raia:
+
+```bash
+curl -sS "$CLOUD/api/runs/needs-you?project=cadastro-usuarios" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY"
+```
+
+```json
+[{"id":"run-000007","project":"cadastro-usuarios","task_id":"TASK-002","status":"needs_input",
+  "phase":"awaiting_input","agent_state":"asked","branch":"trilha/task-002",
+  "result":{"passed":false,"status":"needs_input","branch":"trilha/task-002",
+    "question":{"text":"O e-mail de boas-vindas vai só para a pessoa convidada ou também para o administrador que a convidou?","asked_at":"2026-10-26T13:58:02Z"},
+    "session":{"driver":"claude-code","session_id":"3f2a9c1e-0000-4000-8000-000000000001"},
+    "overview":"E-mail de boas-vindas rascunhado; falta saber quem o recebe.",
+    "diff_stats":{"files":3,"insertions":42,"deletions":5}}}]
+```
+
+`diff_stats` é o tamanho da mudança — arquivos, linhas que entraram, linhas que saíram — nunca o
+diff.
+
+**Responda.** Na raia, ou em **Detalhes** da execução, a caixa **Sua resposta ao agente** aceita
+até 8000 caracteres; **Enviar resposta** continua o trabalho. Pela API:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs/run-000007/answer" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"text":"Só para a pessoa convidada. O administrador já vê o convite em /admin/usuarios."}'
+```
+
+```json
+{"answered":{"id":"run-000007","status":"superseded","answer":{"by":"…","at":"2026-10-26T14:05:11Z","continuation":"run-000008"},…},
+ "continuation":{"id":"run-000008","task_id":"TASK-002","status":"queued","branch":"trilha/task-002",
+   "retry_of":"run-000007","repair_reason":"answer to the agent's question",
+   "continuation":{"session":{"driver":"claude-code","session_id":"3f2a9c1e-0000-4000-8000-000000000001"},
+     "question":"O e-mail de boas-vindas vai só para a pessoa convidada ou também para o administrador que a convidou?",
+     "answer":"Só para a pessoa convidada. O administrador já vê o convite em /admin/usuarios.","by":"…"}}}
+```
+
+A resposta é `202`. A execução respondida vira `superseded` (o portal diz **Respondida**), e uma
+nova execução da mesma task, na fila, leva a sessão, a pergunta e a resposta ao próximo worker,
+que retoma a mesma sessão do agente quando consegue. `by` é quem respondeu: o e-mail do operador
+pelo portal, `key:<nome>` por uma chave. Uma execução que não está esperando resposta recebe
+`409 control: only a needs_input run can be answered`. A auditoria registra `run.answered` com o
+tamanho e o SHA-256 da resposta, nunca o texto.
+
+**Quem pode responder.** Uma resposta orienta um agente e gasta o orçamento do projeto, então
+exige `approve` em `runs` na matriz de permissões do capítulo 18 — ou uma chave com `runs:write`
+no projeto. Ana, reviewer, responde. Vic, viewer, vê a pergunta e a linha **Responder exige o
+nível aprovar em execuções.** no lugar da caixa; o mesmo pedido pela sessão dele recebe
+`403 needs approve on runs`.
+
+**Atenção.** Um agente pode levantar até cinco motivos curtos de que uma pessoa é necessária
+agora; eles aparecem na raia em **Atenção**. **Marcar como visto** limpa todos, qualquer que seja
+o status da execução:
+
+```bash
+curl -sS -X DELETE "$CLOUD/api/runs/run-000009/attention" -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY"
+```
+
+A auditoria ganha `run.attention_cleared`; seus assinantes de webhook do capítulo 14 podem ouvir
+`run.needs_input` e `run.attention`.
+
+**A memória da task.** O que uma execução aprende, a próxima lê. O overview e as notas que um
+agente relata vão para a task — o cartão no quadro **Specs** mostra o overview e as notas mais
+novas em **Notas (n)**. Um operador com `approve` em `specs` acrescenta notas (até 1200
+caracteres) e escreve um overview seu (até 500), que sempre vence o do agente:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/specs/$SPEC/rounds/$ROUND/tasks/TASK-002/notes" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"content":"Convites expiram em 72 horas; o e-mail de boas-vindas precisa dizer isso."}'
+curl -sS -X PUT "$CLOUD/api/admin/specs/$SPEC/rounds/$ROUND/tasks/TASK-002/overview" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"overview":"E-mail de boas-vindas só para a pessoa convidada, com a validade do link."}'
+```
+
+Uma task guarda 50 notas, e a mais antiga sai primeiro. A próxima claim leva `context` com o
+overview e as cinco notas mais novas, que o runner cita como histórico, nunca como instrução.
+Toda resposta também vira uma nota de operador — `Question: …` e depois `Answer: …` —, então um
+driver que não consegue retomar uma sessão ainda vê as rodadas anteriores.
+
+### 20. Workers perdidos, avisos e backups de hora em hora
+
+**Um worker que morre não leva a execução junto.** Uma claim agora toma um lease (`claimed_at`,
+`lease_until` na execução), renovado a cada progresso e a cada heartbeat do worker. A cada 30
+segundos o Cloud procura execuções cujo lease venceu com o worker offline: cada uma ganha uma
+tentativa com `failure_class: worker_lost` e volta para a fila, ou falha com `RUN_WORKER_LOST`
+depois da última tentativa. A auditoria registra `run.reclaimed` e o Prometheus conta
+`trilha_cloud_runs_reclaimed_total`. Um worker que volta e manda o mesmo resultado duas vezes —
+o runner guarda uma caixa de saída exatamente para isso — recebe `200`, e o resultado entra uma
+vez só.
+
+**Fique sabendo sem olhar o portal.** Avisos não mandam nada até alguém pedir. Cada operador abre
+**Avisos** no painel e escolhe eventos × canais:
+
+| Evento | Mensagem |
+|---|---|
+| `run.needs_input` | `cadastro-usuarios · TASK-002 (run-000007) needs you` |
+| `run.failed` | `… failed` |
+| `run.review` | `… is ready for review` |
+| `deployment.pending_approval` | `… waits for a deployment approval` |
+| `project.paused` | `cadastro-usuarios was paused` |
+
+Os canais são e-mail, pelo `TRILHA_MAIL_URL` do capítulo 18, e Web Push: **Ativar push neste
+navegador** inscreve o navegador em que você está. O diálogo grava a escolha com
+`PUT /api/notifications` (`{"events":{"run.needs_input":["email","push"]}}`), que só um operador
+com sessão pode chamar — uma chave não pode. Cada pessoa só fica sabendo dos projetos que pode
+ver, e uma mensagem nomeia o projeto, a task e o evento com um link — nunca o texto do agente.
+Defina `TRILHA_CLOUD_PUBLIC_URL=https://cloud.example.com` para os links saírem absolutos, e
+`TRILHA_CLOUD_VAPID_SUBJECT` (um endereço `mailto:` ou `https:`) para o contato que os serviços
+de push veem; o padrão é a URL pública ou o e-mail do admin. O par de chaves do Web Push é gerado
+no primeiro uso e selado com `TRILHA_SECRET`.
+
+Um canal do time não é uma pessoa, então webhooks da instância inteira vêm só de um arquivo que
+quem administra o host escreve, apontado por `TRILHA_CLOUD_NOTIFY_FILE`. Nenhuma rota escreve
+nele, e não existe transporte por comando:
+
+```json
+{"webhooks":[{"name":"chat-do-time","url":"https://hooks.example.com/trilha",
+  "headers":{"Authorization":"Bearer …"},"timeout_seconds":10,
+  "events":["run.needs_input","run.failed"],"include_content":false}]}
+```
+
+Sem o arquivo, ou com um arquivo inválido, não existe webhook de instância. Só
+`include_content: true` recebe a pergunta do agente; `timeout_seconds` vai até 30.
+
+**Backups de hora em hora do snapshot JSON.** Uma instância em `TRILHA_CLOUD_DATA` (o capítulo 15
+levou produção para o Postgres; uma estação de trabalho pode ficar no arquivo) agora grava, ao
+lado do arquivo, `cloud-backups/AAAA-MM-DDTHHZ.json` na primeira escrita de cada hora UTC,
+guardados por 72 horas, e `cloud-last-known-good.json`, que só avança quando o estado não perdeu
+mais da metade dos projetos, execuções ou tasks. Quando ele recusa, o log diz que o estado perdeu
+mais da metade — essa linha é o sinal para olhar antes de as cópias de hora em hora vencerem. Os
+backups guardam os segredos selados exatamente como o snapshot e nenhuma sessão de navegador.
+Restaurar é decisão de uma pessoa, com o Cloud parado e o mesmo `TRILHA_SECRET`:
+
+```bash
+cp cloud.json "cloud.json.broken-$(date -u +%Y%m%dT%H%M%SZ)"
+ls -1 cloud-backups/ | tail -n 5
+cp cloud-last-known-good.json cloud.json     # ou uma hora: cp cloud-backups/2026-10-25T13Z.json cloud.json
+chmod 600 cloud.json
+```
+
+Depois de restaurar, todo operador entra de novo; resultados de execuções tomadas depois da hora
+restaurada respondem `409`, e a varredura de leases devolve à fila o que ficou `running` sem
+worker vivo.
+
+### 21. Uma segunda opinião: revisão por IA, caçadas de bugs e variantes
+
+O [capítulo do runner](/pt/aprender/agentico-runner) mostrou execuções de revisão e de caçada do
+lado do worker. Aqui está quem as pede e onde os achados chegam. Tudo o que volta é âncora e
+palavra — um caminho, um intervalo de linhas, um título —, nunca código.
+
+**Escreva a política de agentes do projeto.** Quem pode editar a política do projeto (`manage`
+em `projects`) decide o que os agentes fazem ali sem uma pessoa pedir toda vez. Por enquanto é só
+pela API; o portal ainda não tem tela para isso:
+
+```bash
+curl -sS -X PUT "$CLOUD/api/admin/projects/cadastro-usuarios/agents" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"ai_review":"on_review","review_mode":"report","artifacts":false}'
+# {"ai_review":"on_review","review_mode":"report","artifacts":false}
+```
+
+Os padrões — e o que o `GET` responde para um projeto que ninguém configurou — são `off`,
+`report` e nenhum artefato. `review_mode` é escolha sua: `report` deixa o revisor só ler, `fix`
+deixa ele fazer commit no branch. Qualquer outro valor é `422`; a auditoria registra
+`project.agents_updated`.
+
+**O que uma revisão por IA faz.** Com `on_review`, uma execução de implementação que chega a
+`review` com os checks passando ganha uma execução `kind: review` no mesmo branch (`review_of`,
+`review_mode`), auditada como `run.review_enqueued`. A aprovação da pessoa espera por ela. O
+veredito aparece nos detalhes da execução — **Aprovada pela IA** ou **A IA pediu mudanças** —,
+com os achados, a severidade, **Por quê** e **Como reproduzir**. Um veredito `changes` levanta a
+atenção "AI review asked for changes" na execução revisada, que então cai em **Precisa de você**.
+Não há laço: o resultado de uma revisão nunca enfileira outra revisão. Uma revisão `fix` que faz
+commit volta para `review` para uma pessoa, e a execução revisada vira `superseded`.
+
+**Cace bugs.** Numa execução de implementação, os detalhes oferecem **Caçar bugs** com um número
+de caçadores. Cada caçador só lê e recebe a próxima semente da task — uma área e um estilo
+diferentes, para não lerem todos o mesmo código do mesmo jeito:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs/hunt" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"project":"cadastro-usuarios","task_id":"TASK-002","count":3}'
+```
+
+```json
+[{"id":"run-000011","task_id":"TASK-002","status":"queued","kind":"hunt","review_of":"run-000008",
+  "hunt_seed":{"seed":0,"area":"entry points","style":"pessimist"},…},
+ {"id":"run-000012","kind":"hunt","hunt_seed":{"seed":1,"area":"error paths","style":"pessimist"},…},
+ {"id":"run-000013","kind":"hunt","hunt_seed":{"seed":2,"area":"data layer","style":"pessimist"},…}]
+```
+
+`count` vai de 1 a 6, e nunca mais de seis caçadas de uma task na fila ou rodando ao mesmo tempo.
+Quando elas relatam, peça os achados a qualquer uma: o Cloud junta o que todos os caçadores da
+task acharam — mesmo caminho, linhas que se sobrepõem, mesmo título ignorando maiúsculas e
+pontuação —, fica com a severidade mais alta e diz quem viu:
+
+```bash
+curl -sS "$CLOUD/api/runs/run-000011/findings" -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY"
+```
+
+```json
+{"run":"run-000011","kind":"hunt","task_id":"TASK-002",
+ "findings":[{"severity":"high","path":"app/convite/token_/page.go","line_start":31,"line_end":38,
+   "title":"Convite expirado ainda é aceito",
+   "why":"o handler compara a validade com a hora da criação, não com agora",
+   "repro":"um convite criado há 73 horas ainda abre o formulário de senha",
+   "area":"entry points","style":"pessimist",
+   "found_by":["run-000011","run-000013"],"runs":2}]}
+```
+
+Para uma execução de revisão, a mesma rota responde os achados dela.
+
+**Duas tentativas, fique com a melhor.** **Rodar em variantes** — ou a API — enfileira de duas a
+quatro tentativas da mesma task lado a lado. O runner trabalha cada uma no seu branch,
+`trilha/task-002-v1`, `trilha/task-002-v2`:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs/variants" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"project":"cadastro-usuarios","task_id":"TASK-003","count":2}'
+# {"group":"vg-000014","runs":[{"id":"run-000014","variant_group":"vg-000014","variant_index":1,…},{"id":"run-000015",…,"variant_index":2,…}]}
+curl -sS "$CLOUD/api/runs/variants/vg-000014" -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY"
+```
+
+```json
+{"group":"vg-000014","project":"cadastro-usuarios","task_id":"TASK-003","variants":[
+  {"id":"run-000014","variant_index":1,"status":"review","branch":"trilha/task-003-v1","passed":true,
+   "checks_passed":2,"checks_failed":0,"diff_stats":{"files":4,"insertions":96,"deletions":12},
+   "estimated_cost":0.31,"total_tokens":18200,"duration_ms":212000},
+  {"id":"run-000015","variant_index":2,"status":"review","branch":"trilha/task-003-v2","passed":true,
+   "checks_passed":2,"checks_failed":0,"diff_stats":{"files":7,"insertions":240,"deletions":30},
+   "estimated_cost":0.44,"total_tokens":25900,"duration_ms":305000}]}
+```
+
+A comparação é só por evidência: status, checks, tamanho da mudança, custo. Um grupo de
+variantes é recusado com `409` enquanto a task tem uma execução de implementação ativa. Escolha
+uma na tabela com **Ficar com esta**, ou:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs/variants/vg-000014/pick" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"run_id":"run-000014"}'
+# {"group":"vg-000014","winner":{"id":"run-000014","variant_outcome":"won",…},"discarded":["run-000015"]}
+```
+
+A vencedora continua em `review` — e ganha a revisão por IA, se o projeto pediu uma. As outras
+viram `discarded`, um desfecho próprio, nunca contado como falha ou cancelamento. Num projeto com
+GitHub App ou token, o Cloud apaga os branches delas no GitHub, e só nomes no formato
+`trilha/task-nnn-v<N>`; sem credencial, só as marca. A auditoria registra `variant.picked` e uma
+entrada por branch apagado.
+
+Caçadas, variantes e respostas exigem `approve` em `runs` de um operador, ou `runs:write` no
+projeto de uma chave.
+
+### 22. Feche o laço no pull request: comentários de revisão, CI e forks
+
+**Entregue os comentários das pessoas ao agente.** Um revisor deixou comentários no pull
+request; uma execução de reparo pode tratá-los. O Cloud ainda não lê comentários do GitHub,
+então você os entrega — âncoras e palavras, nunca código:
+
+```bash
+curl -sS -X POST "$CLOUD/api/runs/run-000014/address-comments" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"comments":[{"id":"c-1","path":"app/convite/token_/page.go","line_start":31,"line_end":38,
+       "side":"RIGHT","body":"Compare a validade com time.Now() e acrescente um teste para um convite de 73 horas.",
+       "author":"ana"}]}'
+```
+
+A resposta é `201` com uma nova execução da mesma task e branch (`retry_of: run-000014`) cuja
+claim leva `review_comments`. No máximo 50 comentários, cada corpo com até 4000 bytes. Qualquer
+outro campo é recusado com `400` — o `diff_hunk` do GitHub acima de tudo, porque é código. O
+runner cita cada comentário como dado de um revisor, e as respostas do agente aparecem ao lado de
+cada comentário em **Comentários de revisão**, nos detalhes da execução. A auditoria conta os
+comentários, nunca as palavras.
+
+**Acompanhe o CI do pull request.** Para uma execução com pull request ligado (capítulo 14) e um
+projeto com GitHub App ou token, o Cloud lê o pull request e os checks a cada dois minutos e os
+resume numa palavra: falha acima de pendente acima de sucesso. Ele só age depois de duas leituras
+iguais seguidas, então um check que pisca não faz nada. Os detalhes da execução mostram o selo —
+**CI verde**, **CI em andamento**, **CI vermelho** — e uma falha levanta a atenção "Pull request
+CI failed", que não nomeia check nenhum: o nome de um check é escrito por quem controla o branch.
+Um merge com o head que o worker relatou oferece **PR mesclado — concluir a task?** com
+**Concluir task**, que é a mesma aprovação de `DELETE /api/runs/{id}`; o Cloud nunca conclui uma
+task sozinho. Sem credencial, nada é consultado. Assinantes podem ouvir `pull_request.ci` e
+`pull_request.merged`.
+
+**Código de forks.** Um pull request cujo head vive em outro repositório é ligado com
+`from_fork: true`, e toda claim seguinte daquela task leva `foreign_code: true`. O worker então
+só a roda no sandbox Docker, não dá segredo nenhum ao agente nem aos checks, lê os checks do
+branch padrão e nunca publica — o [capítulo do runner](/pt/aprender/agentico-runner) mostra como
+isso aparece no worker.
+
+### 23. Agendas, números e os relatórios do agente
+
+**Automações.** Uma task que deve rodar toda segunda, ou uma caçada toda noite, é uma automação:
+uma RRULE num fuso horário. Como a política de agentes, por enquanto é só pela API:
+
+```bash
+curl -sS -X POST "$CLOUD/api/admin/projects/cadastro-usuarios/automations" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"kind":"hunt","task_id":"TASK-002","hunt_count":2,"rrule":"FREQ=WEEKLY;BYDAY=MO;BYHOUR=9;BYMINUTE=0",
+       "timezone":"America/Sao_Paulo","catch_up":"skip","enabled":true}'
+```
+
+```json
+{"id":"auto-3f9a1c2b7d4e","kind":"hunt","task_id":"TASK-002","hunt_count":2,
+ "rrule":"FREQ=WEEKLY;BYDAY=MO;BYHOUR=9;BYMINUTE=0","timezone":"America/Sao_Paulo",
+ "catch_up":"skip","enabled":true,"anchor":"2026-10-26T15:00:00Z",
+ "next_run_at":"2026-11-02T12:00:00Z","created_by":"admin","created":"2026-10-26T15:00:00Z"}
+```
+
+A regra fala um subconjunto da RFC 5545: `FREQ=HOURLY|DAILY|WEEKLY`, `INTERVAL`, `BYDAY`,
+`BYHOUR`, `BYMINUTE`; o resto é recusado, nunca adivinhado. O fuso é um nome IANA (UTC por
+padrão). Uma regra que dispararia mais de uma vez a cada 15 minutos é `422`, um projeto tem no
+máximo 20 automações, e uma automação nunca tem mais de uma execução na fila — uma ocorrência que
+encontra a última execução ainda na fila fica registrada como `busy`. `catch_up` decide o que
+acontece com as ocorrências que o Cloud perdeu dormindo: `skip` as registra como perdidas, `once`
+enfileira uma única execução por todas elas. Pausa, disjuntor e política valem para execuções
+automáticas como para qualquer outra. O `GET` lista as automações com os últimos disparos;
+`PUT …/automations/{id}` substitui uma (âncora e histórico ficam); `DELETE` a remove e mantém as
+execuções dela. Criar, mudar e remover exige `approve` em `runs` e é auditado como
+`automation.*`.
+
+**Produtividade.** A seção de projetos do painel tem um cartão **Produtividade (7 dias)** por
+projeto: concluídas ou em revisão, falhas, variantes descartadas, perguntas do agente, mediana
+até a resposta, revisões por IA (aprovadas/mudanças), achados por severidade e a mediana da fila
+até a revisão. Os mesmos números, para um dia, uma semana, um mês ou tudo:
+
+```bash
+curl -sS "$CLOUD/api/admin/projects/cadastro-usuarios/productivity?window=week" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_ADMIN_TOKEN"
+```
+
+```json
+{"project":"cadastro-usuarios","window":"week","since":"2026-10-19T15:00:00Z",
+ "runs":{"done":4,"review":1,"failed":1,"discarded":1,"superseded":2},
+ "needs_input":2,"answered":2,"answer_latency_median_seconds":240,
+ "review_verdicts":{"pass":3,"changes":1},"findings":{"critical":0,"high":1,"medium":2},
+ "queue_to_review_median_seconds":610,"reached_review":5}
+```
+
+Só contagens e durações — nenhum nome de arquivo, nenhuma linha. O Prometheus recebe os últimos
+sete dias como `trilha_cloud_productivity_runs`, `trilha_cloud_needs_input_runs`,
+`trilha_cloud_answer_latency_seconds`, `trilha_cloud_review_verdicts`, `trilha_cloud_findings` e
+`trilha_cloud_queue_to_review_seconds`.
+
+**Os relatórios do agente.** Um resumo de cobertura ou um screenshot da tela nova ajuda quem
+aprova. Um projeto só os recebe depois de optar, com `"artifacts": true` na política de agentes;
+até lá, um envio recebe `403` com `code: ARTIFACTS_DISABLED`. O worker envia cada relatório antes
+do resultado — HTML, Markdown, PNG ou JPEG, até 2 MiB e cinco por execução, com o SHA-256:
+
+```bash
+# o que o worker envia; você não digita isto
+curl -sS -X PUT "$CLOUD/api/runs/run-000016/artifacts/coverage.md" \
+  -H "Authorization: Bearer $TRILHA_CLOUD_API_KEY" -H 'Content-Type: text/markdown' \
+  -H "X-Artifact-SHA256: $(shasum -a 256 coverage.md | cut -d' ' -f1)" --data-binary @coverage.md
+# {"name":"coverage.md","content_type":"text/markdown","size":1834,"sha256":"…","uploaded_at":"…"}
+```
+
+e o resultado só pode listar relatórios enviados com o mesmo nome e o mesmo digest (`422` caso
+contrário). Os detalhes da execução os mostram em **Relatórios do agente**: imagens direto na
+página, HTML e Markdown dentro de um `<iframe sandbox>` sem permissão nenhuma. O Cloud só os
+serve a uma sessão de operador — uma chave recebe
+`403 artifacts are read in the portal, with an operator session` — com
+`Content-Security-Policy: sandbox; default-src 'none'`, uma origem opaca que não roda script, não
+lê cookie e não alcança a rede; Markdown é renderizado sem HTML cru. Os bytes ficam em
+`TRILHA_CLOUD_ARTIFACTS` (por padrão `cloud-artifacts/` ao lado de `TRILHA_CLOUD_DATA`) e vão
+embora com a retenção. Um relatório é algo que uma pessoa lê; o código-fonte continua nunca
+chegando ao Cloud.
+
 ## O contrato
 
 O worker só precisa de três rotas, então outro control plane — o seu — pode implementá-las:
@@ -1125,16 +1514,20 @@ O worker só precisa de três rotas, então outro control plane — o seu — po
 
 Todas com `Authorization: Bearer <chave>`. O corpo do resultado é o `queue.Result` do
 `trilha-runner`; `evidence[]` é o registro do protocolo, sem mudar. O código não viaja.
+O que os capítulos 19 a 23 acrescentaram no fio — `kind`, `continuation` e `context` na claim;
+o status `needs_input`, a pergunta, os achados e os artefatos de relatório no resultado; um
+lease que o heartbeat renova — é protocolo 0.4 opcional, então essas três rotas continuam
+bastando.
 
 ## O que está no MVP e o que não está
 
 | | Entregue | Depois |
 |---|---|---|
-| Control plane | projetos, specs, rodadas, kanban, execução e revisão; organizações com papéis e escopos; programas que põem vários repositórios num quadro só | billing e planos |
-| Frota | workers persistentes por projeto com labels e capacidade, checkout Git isolado, sincronização `.trilha` e push opcional, agendamento por prazo e prioridade | autoscaling e sandboxes remotos |
-| Entrega | ambientes com região, residência e janela de deploy, segredos cifrados, perfis locais, promoção de tag imutável, aprovação a quatro olhos antes de produção, relatório de deploy, health check e rollback ciente das migrações; GitHub App e webhooks assinados nos dois sentidos | outros provedores Git |
-| Governança | login com senha local ou OpenID Connect, CSRF, chaves por projeto com expiração e revogação, auditoria, provedor por projeto, política (provedores, residência de dados, teto de custo, labels exigidas) e livro de custo, gate de eval, atestações assinadas com quórum, exportação de evidência e métricas Prometheus | MFA, e evidência assinada pelo runner verificada pelo cloud |
-| Armazenamento | snapshot JSON ou Postgres atrás do mesmo store, migrações versionadas, `pg_dump` diário e restauração ensaiada | alta disponibilidade do Postgres |
+| Control plane | projetos, specs, rodadas, kanban, execução e revisão; organizações com papéis e escopos; programas que põem vários repositórios num quadro só; agentes que perguntam e operadores que respondem, memória da task, revisão por IA, caçadas de bugs, variantes e automações | billing e planos; telas no portal para a política de agentes e as automações |
+| Frota | workers persistentes por projeto com labels e capacidade, checkout Git isolado, sincronização `.trilha` e push opcional, agendamento por prazo e prioridade, leases que tomam de volta a execução de um worker perdido | autoscaling e sandboxes remotos |
+| Entrega | ambientes com região, residência e janela de deploy, segredos cifrados, perfis locais, promoção de tag imutável, aprovação a quatro olhos antes de produção, relatório de deploy, health check e rollback ciente das migrações; GitHub App e webhooks assinados nos dois sentidos; acompanhamento do CI do pull request | outros provedores Git; ler comentários de revisão do GitHub |
+| Governança | login com senha local ou OpenID Connect, CSRF, chaves por projeto com expiração e revogação, auditoria, provedor por projeto, política (provedores, residência de dados, teto de custo, labels exigidas) e livro de custo, gate de eval, atestações assinadas com quórum, exportação de evidência e métricas Prometheus; avisos por e-mail e Web Push; artefatos de relatório servidos de um sandbox de origem opaca | MFA, e evidência assinada pelo runner verificada pelo cloud |
+| Armazenamento | snapshot JSON ou Postgres atrás do mesmo store, migrações versionadas, `pg_dump` diário e restauração ensaiada; backups JSON de hora em hora com uma cópia last-known-good | alta disponibilidade do Postgres |
 
 ## Desafio
 

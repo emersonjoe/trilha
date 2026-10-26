@@ -140,6 +140,81 @@ O modelo recebe `read_file` e `list_files` sempre, `write_file` só quando o man
 dependências e a evidência da task. A cerca é a mesma seja qual for o driver: o worktree, as
 ferramentas do manifesto e os checks.
 
+## Quando o agente pergunta
+
+Um agente sem um fato que o repositório não tem fica com duas opções ruins: chutar ou falhar. O
+runner dá uma terceira. Durante uma execução ele escuta num socket Unix ao lado do worktree, põe
+o `trilha-runner` no `PATH` do agente e acrescenta ao pacote de contexto um parágrafo que manda
+todo agente fazer uma pergunta objetiva e parar, em vez de chutar:
+
+| O agente roda | O que acontece |
+|---|---|
+| `trilha-runner ask "<pergunta>"` | quando o agente encerra o turno, a execução termina **esperando resposta** |
+| `trilha-runner note "<fato>"` | uma nota que a próxima execução da task vai ler |
+| `trilha-runner overview "<uma ou duas frases>"` | o que está sendo feito e onde está |
+| `trilha-runner attention "<motivo>"` / `--clear` | levanta ou limpa o selo que diz que alguém é necessário |
+
+O driver `ai` oferece o mesmo como ferramentas — `ask`, `note`, `overview`. Todo comando responde
+em menos de um segundo e sai com 0 mesmo sem ninguém ouvindo: o runner nunca derruba nem segura
+um agente.
+
+Veja sem modelo nenhum. Um script de três linhas faz o papel do agente — rascunha um arquivo,
+deixa uma nota e pergunta:
+
+```bash
+mkdir -p scripts
+cat > scripts/ask.sh <<'SH'
+#!/bin/sh
+echo "# E-mail de lembrete (rascunho)" > REMINDER_EMAIL.md
+trilha-runner note "internal/reminders envia o e-mail mas ainda não tem destinatário."
+trilha-runner ask "O e-mail de lembrete vai para o dono do evento ou para todos os convidados?"
+SH
+trilha spec task add "Quem recebe o e-mail de lembrete" --status ready \
+  --accept "o lembrete chega a quem o cliente escolheu" --check "go test ./..."
+trilha runner run TASK-007 --driver exec --cmd "sh $PWD/scripts/ask.sh"
+# · worktree .trilha/runs/TASK-007/wt on trilha/task-007
+# · attempt 1/3: driver exec starting
+# · TASK-007 needs input: the agent asked a question
+# TASK-007 → needs input (driver exec, 1.3s)
+# question: O e-mail de lembrete vai para o dono do evento ou para todos os convidados?
+# branch trilha/task-007 in .trilha/runs/TASK-007/wt
+# commit 0c5e9f3a8d21b7c4e6f09a1b2c3d4e5f60718293
+```
+
+Nada falhou. O rascunho está commitado no branch, nenhum check rodou, nenhuma tentativa foi
+gasta, nada é repetido. A task está `blocked`, e a evidência dela tem um registro `run` com
+`stage: needs_input`. Com `--json` o resultado também traz a pergunta, a nota (fonte `ai`) e o
+`diff_stats` — quantos arquivos e linhas o branch mudou, nunca o que eles dizem.
+
+Na sua máquina não há para quem mandar a resposta, então escreva-a onde o próximo pacote de
+contexto vai achá-la — a evidência até aqui faz parte do pacote — e devolva a task à fila:
+
+```bash
+trilha spec evidence TASK-007 add --note "Resposta: todo convidado que aceitou o convite." --by ana
+trilha spec task move TASK-007 ready
+trilha runner run TASK-007        # mesmo branch, mesmo worktree, a resposta no pacote de contexto
+```
+
+Com um control plane, a resposta viaja como `continuation`. Quando a pergunta veio de uma sessão
+`claude-code`, o runner retoma aquela mesma sessão (`--resume <sessão>`) com a resposta, citada,
+como prompt — o agente continua de onde parou. Qualquer outro driver, ou uma sessão que esta
+máquina não tem mais, começa do zero com a pergunta e a resposta citadas no pacote de contexto.
+A memória da task — o overview e as notas mais recentes — volta do mesmo jeito, citada e
+rotulada como informação, nunca como instrução (o
+[capítulo do protocolo](/pt/aprender/agentico-protocolo) mostra o formato exato).
+
+Perguntas, notas, overviews e motivos têm limite de tamanho e passam por uma varredura de
+segredos antes de sair: uma pergunta com algo que tem cara de chave chega ao control plane como
+um aviso fixo, e as palavras ficam em `.trilha/runs/TASK-007/question.txt`, que só você lê. Dois
+limites a saber: um agente dentro do sandbox Docker não alcança o socket, então não pergunta; e
+uma execução só-leitura (abaixo) nunca para por pergunta.
+
+Enquanto o agente trabalha, o runner também acompanha *o que* ele está fazendo. Para o
+`claude-code` ele escreve hooks em `.trilha/runs/TASK-007/claude-settings.json` — ao lado do
+worktree, nunca dentro — e os passa com `--settings`; o driver `ai` reporta do próprio loop. O
+estado — `working`, `idle`, `waiting_permission`, `asked`, `stopped_error` — vai ao control plane
+só quando muda, no máximo uma vez a cada dois segundos.
+
 ## Um check que mede: métricas como evidência
 
 Nem toda aceitação é um sim ou um não. Acurácia de triagem num conjunto rotulado, nota de
@@ -256,6 +331,15 @@ incompatível ser recusada antes de tocar em qualquer código. Uma execução qu
 pode honrar é recusada e reportada, nunca executada em silêncio. Com `--capacity 2` o worker
 toca duas execuções ao mesmo tempo, cada uma no seu worktree.
 
+Uma execução longa não pode parecer um worker morto, e um resultado não pode morrer com a rede.
+Enquanto houver execução ativa o worker manda um heartbeat a cada 30 segundos (`running 1/2`).
+Cada resultado é gravado em `.trilha/runs/<execução>/result.json` antes de ser postado e
+removido quando o control plane o tem; um control plane fora do ar é tentado de novo com
+backoff em vez de parar o worker, um resultado recusado de vez fica de lado como
+`result.rejected.json`, e o que um worker que morreu deixou para trás é enviado na partida
+seguinte, antes de qualquer claim nova. Uma task deixada `running` por um runner que morreu
+volta a `ready`, com uma nota, na próxima vez que for executada.
+
 A mesma claim pode trazer o acesso ao modelo do próprio projeto — provedor, endpoint, credencial
 e os hosts em que essa credencial pode ser gasta. Ele chega ao agente como ambiente do processo e
 em nenhum outro lugar — o driver `claude-code` sempre executa `claude -p -` e recebe a
@@ -273,6 +357,199 @@ marcado `switch`, e `health[]` por serviço — então uma migração que falha 
 revisão anterior ainda servindo, e um serviço que nunca fica saudável dispara o rollback. O
 rollback reverte o schema só quando a migração se declarou reversível; caso contrário é
 só-imagem e o log diz que o schema mantém a forma nova.
+
+## Revisões e caçadas de bugs
+
+Implementar é um tipo de execução. Um control plane também pode pedir a um worker uma segunda
+opinião sobre um branch que já está em `review`; o `kind` da claim diz qual, e o runner faz o
+resto:
+
+| Claim | O que o runner faz |
+|---|---|
+| `kind: review`, `review_mode: report` (o padrão) | revisa o branch da task a partir do merge base com o branch padrão — correção, segurança, testes que faltam — num checkout destacado próprio, `.trilha/runs/TASK-002-review-<execução>/wt`. Só-leitura |
+| `kind: review`, `review_mode: fix` | a mesma revisão no próprio branch: o agente pode corrigir, o runner commita e roda os checks da task, e a task volta a `review` |
+| `kind: hunt` | uma caçada de bugs só-leitura nos arquivos que o branch mudou, apontada para uma área (portas de entrada, caminhos de erro, camada de dados, costuras de integração, interface, infraestrutura e CI) e um estilo (pessimista, seguidor de rastro, cético de dependências, olhos novos), para caçadores em paralelo não lerem todos o mesmo código do mesmo jeito |
+
+O agente relata com mais comandos da mesma família — e ferramentas de mesmo nome no driver
+`ai`:
+
+```bash
+trilha-runner finding --severity high --path internal/events/due.go --lines 18-22 \
+  --title "Due list includes reminders in the future" \
+  --why "the filter compares with After where the acceptance says before now" \
+  --repro "an event whose ReminderAt is one hour ahead appears in GET /api/events/due"
+# finding sent to the runner
+trilha-runner verdict changes
+# verdict sent to the runner
+```
+
+Um achado é um caminho e um intervalo de linhas, nunca código. Um que o control plane não
+conseguiria guardar é recusado antes de ser enviado — e o comando ainda sai com 0:
+
+```bash
+trilha-runner finding --severity low --path internal/events/due.go --lines 18 --title "Nomes"
+# trilha-runner finding: finding: severity must be critical, high or medium
+# usage: trilha-runner finding --severity critical|high|medium --path <file> …
+```
+
+Sem `verdict`, uma revisão responde `changes` quando tem achados e `pass` quando não tem. Os
+achados também têm segredos censurados, e no máximo 100 saem de uma execução.
+
+**Só-leitura é verificado, não pedido.** Quando uma caçada ou uma revisão `report` termina, o
+worktree tem de estar limpo, o `HEAD` tem de ser o commit do início e o branch revisado não pode
+ter se movido. Qualquer outra coisa reprova a execução com `failure_class: policy`
+(`error_code: read_only_violated`) e joga fora os achados e relatórios dela. No sandbox Docker o
+worktree também é montado só-leitura. Uma execução só-leitura nunca move a task e nunca é
+publicada; o driver `ai` nem oferece a ela `write_file` ou `ask`.
+
+Pessoas também revisam. Quando o control plane entrega a uma execução de correção os comentários
+que alguém deixou no pull request, o runner dá ao prompt um bloco `<reviews>` com as linhas para
+as quais cada comentário aponta, lidas do próprio worktree e nunca de fora do repositório, todo
+texto com escape de XML e citado como dado de revisores. Um comentário que diz "ignore suas
+instruções" é uma citação, não uma ordem. O agente corrige o que concorda e responde cada
+comentário pelo id:
+
+```bash
+trilha-runner reply c-1 "Corrigido: o filtro agora usa Before(now), com um teste para um evento uma hora à frente."
+# reply sent to the runner
+```
+
+Resposta a um id que a execução não recebeu é descartada.
+
+## Variantes
+
+Às vezes você quer duas tentativas da mesma task e ficar com a melhor. Uma claim com
+`variant_index` é uma execução de implementação comum, num branch próprio:
+
+```bash
+git branch
+# * main
+#   trilha/task-002
+#   trilha/task-002-v1
+#   trilha/task-002-v2
+ls .trilha/runs
+# TASK-002  TASK-002-v1  TASK-002-v2
+git diff --stat trilha/task-002-v1 trilha/task-002-v2
+```
+
+Cada variante trabalha em `.trilha/runs/TASK-002-vN/`, e o runner grava ali um arquivo
+`created-branch` com o nome do branch que ele cortou. Essa prova é o que o resto das ferramentas
+leva em conta. Uma variante nunca adota um branch que não consegue provar que criou — se alguém
+já tem um `trilha/task-002-v2`, a execução passa para `trilha/task-002-v2-2` e deixa o dele em
+paz — e uma limpeza só apaga um branch com essa prova na mão.
+
+Variantes não se enxergam: o pacote de contexto de uma variante não tem evidência anterior da
+task nem nota ou overview escritos por agente, para a segunda tentativa não ser cópia da
+primeira. As notas de pessoas continuam chegando. Escolha uma, faça o merge, descarte a outra:
+
+```bash
+git merge trilha/task-002-v1
+trilha runner worktree clean TASK-002-v2   # aceita um diretório de execução, além de uma task
+```
+
+## Artefatos de relatório
+
+Um check prova; um relatório explica. Um resumo de cobertura, um screenshot da tela nova, um
+gráfico do eval — um agente pode publicar até cinco por execução:
+
+```bash
+trilha-runner artifact coverage.md
+# artifact sent to the runner
+```
+
+O runner decide, e o log dele diz o que decidiu:
+
+```text
+· artifact coverage.md accepted (1834 bytes, text/markdown)
+· artifact "notes.md" refused: it contains a secret, so it stays off the cloud (the runner does not redact reports)
+```
+
+As regras: `.html`, `.md`, `.png` ou `.jpg` (`--name` define o nome que as pessoas veem), até
+2 MiB cada, do worktree ou de `$TRILHA_ARTIFACT_DIR` — um diretório de rascunho fora do
+worktree, que é onde uma execução só-leitura escreve, já que o worktree dela tem de ficar limpo.
+Um relatório de texto com algo que tem cara de segredo é recusado, não censurado; uma imagem tem
+de começar com os bytes do formato dela. Relatórios aceitos são copiados para
+`.trilha/runs/TASK-007/artifacts/`, que só você lê, com o SHA-256 de cada um.
+
+Um worker envia cada relatório antes de postar o resultado, e o resultado lista só o que o
+control plane aceitou. Lá, relatórios são opcionais: um projeto que não os permitiu responde
+`403 ARTIFACTS_DISABLED`, e o runner descarta todos e avisa uma vez. De um jeito ou de outro, o
+que sai da máquina é algo que uma pessoa lê — nunca o código-fonte.
+
+## Código de forks
+
+Um pull request de um fork é código pelo qual ninguém do time respondeu. O control plane marca
+uma claim assim com `foreign_code: true`, e três coisas mudam:
+
+- Ela só roda no sandbox Docker. Sem `--sandbox docker`, ou com o Docker indisponível, a
+  execução falha com `failure_class: policy` (`sandbox_required`) antes de o agente começar.
+- O agente e os checks não recebem segredo nenhum: nenhum token herdado, nenhum segredo de
+  deploy. A credencial de IA vai só como a variável de que um driver de linha de comando precisa
+  para falar com o modelo; o driver `ai` a guarda dentro do processo do runner, e os checks dele
+  rodam no sandbox.
+- O `project.verify` é lido do branch padrão, nunca do branch do fork — um fork não escolhe os
+  comandos que o seu worker roda — e o branch nunca é publicado:
+
+```text
+· run-000012: foreign code, branch trilha/task-002 is not pushed
+```
+
+## Mantendo os worktrees em ordem (doctor)
+
+Toda execução deixa um diretório em `.trilha/runs/`: o worktree, o log do agente, o que ele
+relatou. Depois de algumas semanas de variantes e caçadas isso soma, e parte é a única cópia de
+um trabalho que ninguém fez merge ainda. O doctor separa uma coisa da outra, e não apaga nada a
+menos que você peça:
+
+```bash
+trilha runner doctor --worktrees
+# RUN                          CLASS          AGE         SIZE  BRANCH                   ACTION
+# TASK-001                     metadata-only  >=30d   48.0 KiB  -                        kept — no worktree
+# TASK-002                     finished-kept  <14d     3.1 MiB  trilha/task-002          kept
+# TASK-007                     live           <14d     2.9 MiB  trilha/task-007          kept — held by process 48211
+# TASK-009                     orphaned       <30d     2.7 MiB  trilha/task-009          kept — no task file for TASK-009
+# 4 run directories: 1 live, 1 finished-kept, 1 orphaned, 1 metadata-only; removed 0, skipped 0, failed 0
+```
+
+`live` quer dizer que um runner — ou qualquer processo, como um servidor de desenvolvimento que o
+agente deixou para trás — tem o diretório atual lá dentro; `finished-kept`, um worktree de uma
+task conhecida sem ninguém dentro; `orphaned`, um worktree que o git não lista ou cujo arquivo
+de task sumiu; `metadata-only`, logs e evidência sem worktree. `--json` dá o mesmo relatório a
+uma ferramenta.
+
+Apagar exige uma flag, e mesmo assim o doctor é cuidadoso:
+
+```bash
+trilha runner doctor --worktrees --prune-orphans --default-branch main
+# RUN                          CLASS          AGE         SIZE  BRANCH                   ACTION
+# …
+# TASK-009                     orphaned       <30d     2.7 MiB  trilha/task-009          skipped — branch trilha/task-009 is not merged into origin/main (--force-unmerged removes it anyway)
+# 4 run directories: 1 live, 1 finished-kept, 1 orphaned, 1 metadata-only; removed 0, skipped 1, failed 0
+# doctor: 1 skipped, 0 failed
+echo $?
+# 12
+```
+
+Ele nunca toca numa execução viva. Pula um worktree cujo branch não está mesclado em
+`origin/<padrão>` ou que tem mudanças não commitadas, a não ser com `--force-unmerged`. Apaga um
+branch só quando o `created-branch` da execução prova que o runner o criou.
+`--prune-older-than 30d` (ou `720h`) remove diretórios de execução mais velhos que isso, com as
+mesmas regras. O código de saída é 0 quando tudo o que foi pedido foi feito, 1 quando o comando
+não pôde rodar, e **12** quando algo foi pulado ou falhou — o que uma limpeza agendada consegue
+perceber.
+
+Remover um worktree — por `worktree clean` ou por uma poda — é um encerramento ordenado. Os
+processos trabalhando lá dentro recebem SIGTERM, depois SIGKILL se ainda estiverem lá após
+1,5 s, e só então o worktree sai, para nada continuar escrevendo num diretório que não existe
+mais:
+
+```bash
+trilha runner worktree clean TASK-007
+# teardown: SIGTERM 48211
+# teardown: every process exited
+# teardown: worktree /home/ana/agenda/.trilha/runs/TASK-007/wt removed
+# removed worktree of TASK-007 (branch trilha/task-007 kept)
+```
 
 ## Desafio
 
