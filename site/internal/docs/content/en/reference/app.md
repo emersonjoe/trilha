@@ -139,13 +139,22 @@ The token travels under three names, and every one of them is a default, not a r
 
 | Field | Default |
 |---|---|
-| `CSRF.Cookie` | `trilha_csrf` |
+| `CSRF.Cookie` | `trilha_csrf`; `__Host-trilha_csrf` over HTTPS |
 | `CSRF.Field` | `_csrf` |
 | `CSRF.Header` | `X-CSRF-Token` |
 
 The three defaults are the constants `trilha.CSRFCookie`, `trilha.CSRFField` and
 `trilha.CSRFHeader`, so a test or a `fetch` that has to send the token reads the name from the
 framework instead of retyping the string.
+
+Over HTTPS — TLS on the app, or `X-Forwarded-Proto: https` from a trusted proxy — the default
+cookie is `trilha.CSRFHostCookie` (`__Host-trilha_csrf`), sent `Secure`, with `Path=/` and no
+`Domain`. The prefix is what keeps a sibling subdomain from planting a value it knows: the
+browser refuses that name from anywhere but this host over HTTPS. A bare `trilha_csrf` never
+becomes the secret of a page served over HTTPS. In 0.164 only, a request with no `__Host-`
+cookie yet is still checked against the bare one, so a form opened before the deploy does not
+answer 403; from 0.165.0 the bare name is not read over HTTPS. A name you set yourself is
+kept as written: put `__Host-` in it to get the same protection.
 
 ```go
 cfg.CSRF = trilha.CSRF{Cookie: "billing_csrf", Field: "_billing_csrf", Header: "X-Billing-CSRF"}

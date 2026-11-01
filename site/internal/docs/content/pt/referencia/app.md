@@ -138,13 +138,22 @@ O token anda com três nomes, e cada um deles é um padrão, não uma regra:
 
 | Campo | Padrão |
 |---|---|
-| `CSRF.Cookie` | `trilha_csrf` |
+| `CSRF.Cookie` | `trilha_csrf`; `__Host-trilha_csrf` em HTTPS |
 | `CSRF.Field` | `_csrf` |
 | `CSRF.Header` | `X-CSRF-Token` |
 
 Os três padrões são as constantes `trilha.CSRFCookie`, `trilha.CSRFField` e
 `trilha.CSRFHeader`, então um teste ou um `fetch` que precisa mandar o token lê o nome do
 framework em vez de redigitar a string.
+
+Em HTTPS (TLS no próprio app, ou `X-Forwarded-Proto: https` de um proxy confiável), o cookie
+padrão é `trilha.CSRFHostCookie` (`__Host-trilha_csrf`), enviado com `Secure`, `Path=/` e sem
+`Domain`. O prefixo é o que impede um subdomínio irmão de plantar um valor que ele conhece:
+o navegador só aceita esse nome vindo deste host, em HTTPS. Um `trilha_csrf` sem prefixo
+nunca vira o segredo de uma página servida em HTTPS. Só na 0.164, uma requisição que ainda
+não tem o cookie `__Host-` é conferida contra o antigo, para que um formulário aberto antes do
+deploy não responda 403; a partir da 0.165.0 o nome sem prefixo não é lido em HTTPS. Um nome
+que você definiu fica como está escrito: coloque `__Host-` nele para ter a mesma proteção.
 
 ```go
 cfg.CSRF = trilha.CSRF{Cookie: "billing_csrf", Field: "_billing_csrf", Header: "X-Billing-CSRF"}

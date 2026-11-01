@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -194,4 +195,93 @@ func formToken(body, name string) string {
 	}
 	rest := body[i+len(`name="`+name+`" value="`):]
 	return rest[:strings.Index(rest, `"`)]
+}
+
+// Over HTTPS the cookie is __Host-: the browser refuses that name from a
+// sibling subdomain or from plain HTTP, which is how a planted value would
+// otherwise become a token the attacker knows (#317).
+func TestCSRFCookieHostPrefixOverHTTPS(t *testing.T) {
+	a := csrfApp(false)
+	rec := get(t, a, "GET", "https://example.com/form", "", nil)
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != CSRFHostCookie || !cookies[0].Secure || cookies[0].Path != "/" || cookies[0].Domain != "" || !cookies[0].HttpOnly {
+		t.Fatalf("%+v", cookies)
+	}
+	if unmaskCSRF(formToken(rec.Body.String(), "_csrf")) != cookies[0].Value {
+		t.Fatal(rec.Body.String())
+	}
+	// Behind a trusted proxy that ended the TLS it is the same cookie.
+	b := New(Config{Logger: quiet(), TrustedProxies: []string{"10.0.0.0/8"}})
+	b.Register(Route{Pattern: "/form", Page: func(c *Ctx) (h.Node, error) { return CSRFInput(c), nil }})
+	req := httptest.NewRequest("GET", "/form", nil)
+	req.RemoteAddr = "10.0.0.7:4000"
+	req.Header.Set("X-Forwarded-Proto", "https")
+	rr := httptest.NewRecorder()
+	b.Handler().ServeHTTP(rr, req)
+	if ck := rr.Result().Cookies(); len(ck) != 1 || ck[0].Name != CSRFHostCookie || !ck[0].Secure {
+		t.Fatalf("behind a proxy: %+v", ck)
+	}
+	// Plain HTTP keeps the old name: a __Host- cookie needs Secure, and the
+	// browser would drop it in development.
+	if ck := get(t, a, "GET", "/form", "", nil).Result().Cookies(); len(ck) != 1 || ck[0].Name != CSRFCookie || ck[0].Secure {
+		t.Fatalf("http: %+v", ck)
+	}
+}
+
+// A trilha_csrf planted by a subdomain is never adopted over HTTPS: the page
+// mints its own __Host- secret, and once that cookie exists the planted value
+// does not pass the check.
+func TestCSRFPlantedCookieIsNotAdoptedOverHTTPS(t *testing.T) {
+	a := csrfApp(false)
+	planted := "attacker-knows-this-value-0123456789"
+	rec := get(t, a, "GET", "https://example.com/form", "", map[string]string{"Cookie": CSRFCookie + "=" + planted})
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != CSRFHostCookie || cookies[0].Value == planted {
+		t.Fatalf("the planted value became the secret: %+v", cookies)
+	}
+	if unmaskCSRF(formToken(rec.Body.String(), "_csrf")) == planted {
+		t.Fatal("the page carries the planted value")
+	}
+	form := map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+		"Cookie":       CSRFCookie + "=" + planted + "; " + CSRFHostCookie + "=" + cookies[0].Value,
+	}
+	if rec := get(t, a, "POST", "https://example.com/form", "q=1&_csrf="+planted, form); rec.Code != http.StatusForbidden {
+		t.Fatalf("planted token accepted: %d", rec.Code)
+	}
+	if rec := get(t, a, "POST", "https://example.com/form", "q=1&_csrf="+cookies[0].Value, form); rec.Code != 200 {
+		t.Fatalf("own token refused: %d", rec.Code)
+	}
+}
+
+// The transition: a form opened before the deploy carries a token for the
+// old cookie, and the browser has no __Host- cookie yet. It still passes in
+// this minor version, so a deploy does not turn open forms into 403s.
+func TestCSRFFormOpenedBeforeTheDeployStillPasses(t *testing.T) {
+	a := csrfApp(false)
+	tok := "abcdefghijklmnopqrstuvwxyz0123456789ABCDEF"
+	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Cookie": CSRFCookie + "=" + tok}
+	if rec := get(t, a, "POST", "https://example.com/form", "q=1&_csrf="+tok, form); rec.Code != 200 {
+		t.Fatalf("transition: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// A name the app chose is the app's: no prefix is added behind its back.
+func TestCSRFOwnCookieNameKeptOverHTTPS(t *testing.T) {
+	a := New(Config{Logger: quiet(), CSRF: CSRF{Cookie: "farol_csrf"}})
+	a.Register(Route{Pattern: "/form", Page: func(c *Ctx) (h.Node, error) { return CSRFInput(c), nil }})
+	if ck := get(t, a, "GET", "https://example.com/form", "", nil).Result().Cookies(); len(ck) != 1 || ck[0].Name != "farol_csrf" || !ck[0].Secure {
+		t.Fatalf("%+v", ck)
+	}
+}
+
+// The TestClient follows the scheme of the target: over https:// it sends
+// the token for the __Host- cookie the app set.
+func TestTestClientCSRFOverHTTPS(t *testing.T) {
+	a := csrfApp(false)
+	c := NewTestClient(t, a)
+	c.Request("GET", "https://example.com/form").WantStatus(200)
+	if rec := c.Request("POST", "https://example.com/form", WithForm(url.Values{"q": {"1"}})); rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
 }

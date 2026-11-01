@@ -13,6 +13,11 @@ import (
 // CSRFCookie is the name of the double-submit cookie.
 const CSRFCookie = "trilha_csrf"
 
+// CSRFHostCookie is the name of the same cookie over HTTPS. The __Host-
+// prefix makes the browser refuse it from a sibling subdomain or from plain
+// HTTP, so nobody else can plant the value a form is checked against.
+const CSRFHostCookie = "__Host-" + CSRFCookie
+
 // CSRFField is the hidden form field name.
 const CSRFField = "_csrf"
 
@@ -49,6 +54,17 @@ func (c CSRF) names() CSRF {
 	return c
 }
 
+// cookieFor is the cookie name for a request: the default name gains the
+// __Host- prefix over HTTPS (a browser drops a __Host- cookie that is not
+// Secure, so plain HTTP keeps the bare name). A name the app chose is the
+// app's; it can write the prefix itself.
+func (c CSRF) cookieFor(secure bool) string {
+	if secure && c.Cookie == CSRFCookie {
+		return CSRFHostCookie
+	}
+	return c.Cookie
+}
+
 // CSRFToken returns the request's CSRF token, creating the cookie on first
 // use. Put it in forms with CSRFInput or send it in the X-CSRF-Token header.
 //
@@ -72,8 +88,11 @@ func (c *Ctx) csrfSecret() string {
 	if v := c.Get("_trilha_csrf"); v != nil {
 		return v.(string)
 	}
-	names := c.app.cfg.CSRF.names()
-	if ck, err := c.r.Cookie(names.Cookie); err == nil && len(ck.Value) >= 32 {
+	secure := c.isSecure()
+	name := c.app.cfg.CSRF.names().cookieFor(secure)
+	// Only the cookie under this request's name is adopted: over HTTPS a bare
+	// trilha_csrf may have come from a subdomain, so the page mints its own.
+	if ck, err := c.r.Cookie(name); err == nil && len(ck.Value) >= 32 {
 		c.Set("_trilha_csrf", ck.Value)
 		return ck.Value
 	}
@@ -81,11 +100,11 @@ func (c *Ctx) csrfSecret() string {
 	_, _ = rand.Read(b[:])
 	tok := base64.RawURLEncoding.EncodeToString(b[:])
 	http.SetCookie(c.w, &http.Cookie{
-		Name:     names.Cookie,
+		Name:     name,
 		Value:    tok,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   c.isSecure(),
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	})
 	c.Set("_trilha_csrf", tok)
@@ -152,7 +171,15 @@ func CSRFTokenFrom(r *http.Request) string {
 // checkCSRF validates the double-submit token on state-changing requests.
 func (a *App) checkCSRF(c *Ctx) error {
 	names := a.cfg.CSRF.names()
-	ck, err := c.r.Cookie(names.Cookie)
+	name := names.cookieFor(c.isSecure())
+	ck, err := c.r.Cookie(name)
+	if err == http.ErrNoCookie && name != names.Cookie {
+		// Transition for 0.164 only: a form opened before the deploy has a
+		// token for the bare cookie and no __Host- one yet. Any page served
+		// since mints the __Host- cookie, and from then on this is not read.
+		// Removed in 0.165.0.
+		ck, err = c.r.Cookie(names.Cookie)
+	}
 	if err != nil || ck.Value == "" {
 		a.securityEvent(c, "csrf", http.StatusForbidden)
 		return &HTTPError{Code: http.StatusForbidden, Message: "missing CSRF cookie"}

@@ -1,6 +1,7 @@
 pkg trilha, const CSRFCookie
 pkg trilha, const CSRFField
 pkg trilha, const CSRFHeader
+pkg trilha, const CSRFHostCookie
 pkg trilha, const DefaultPerPage
 pkg trilha, const Dev Env
 pkg trilha, const ErrFrozen

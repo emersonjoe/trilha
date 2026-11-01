@@ -3,6 +3,32 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.164.0 — 2026-11-01
+
+The CSRF cookie a subdomain cannot plant (spec 185, #317).
+
+### Security
+
+- **Over HTTPS the CSRF cookie is `__Host-trilha_csrf`** (new constant `CSRFHostCookie`),
+  sent `Secure`, `Path=/` and without `Domain`. Without the prefix a sibling subdomain (a
+  third-party `blog.example.com`, a deploy preview) or a plain-HTTP response before HSTS could
+  plant `trilha_csrf=<a value it knows>`, and the double-submit check would accept a forged
+  form built on it; `SameSite=Lax` does not help, a subdomain is same-site. Plain HTTP in
+  development keeps `trilha_csrf`, and a name set in `Config.CSRF.Cookie` is kept as written.
+- **A bare `trilha_csrf` is never adopted as the secret of an HTTPS page.** The first page
+  after the deploy mints a `__Host-` cookie of its own.
+
+### Deprecated
+
+- **Reading the bare `trilha_csrf` over HTTPS.** In 0.164 a request with no `__Host-` cookie
+  yet is still checked against it, so a form opened before the deploy does not answer 403.
+  It is removed in 0.165.0.
+
+### Changed
+
+- `TestClient` and `PageSnapshot` follow the target's scheme: over `https://` the CSRF cookie
+  is the `__Host-` one.
+
 ## 0.163.0 — 2026-11-01
 
 The optional `otel` module drops its known vulnerabilities (spec 184, #321).
