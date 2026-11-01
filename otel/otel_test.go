@@ -236,16 +236,27 @@ func TestTransportPropagatesTheServerSpan(t *testing.T) {
 }
 
 // The default exporter really is OTLP/HTTP: a collector at the Endpoint
-// receives the span over the wire, protobuf and all.
+// receives the span over the wire, protobuf and all. An Endpoint without a
+// path posts to the standard /v1/traces; one with a path keeps it.
 func TestOTLPExportReachesTheCollector(t *testing.T) {
+	for _, tc := range []struct{ name, suffix, path string }{
+		{"no path", "", "/v1/traces"},
+		{"root path", "/", "/v1/traces"},
+		{"own path", "/otlp/v1/traces", "/otlp/v1/traces"},
+	} {
+		t.Run(tc.name, func(t *testing.T) { exportTo(t, tc.suffix, tc.path) })
+	}
+}
+
+func exportTo(t *testing.T, suffix, wantPath string) {
 	type received struct {
 		name  string
 		attrs map[string]string
 	}
 	spans := make(chan received, 4)
 	collector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/traces" {
-			t.Errorf("OTLP/HTTP posts to /v1/traces, got %s", r.URL.Path)
+		if r.URL.Path != wantPath {
+			t.Errorf("OTLP/HTTP posts to %s, got %s", wantPath, r.URL.Path)
 		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -278,7 +289,7 @@ func TestOTLPExportReachesTheCollector(t *testing.T) {
 	a.Register(trilha.Route{Pattern: "/ping", Methods: map[string]trilha.HandlerFunc{
 		"GET": func(c *trilha.Ctx) error { return c.Text(200, "ok") },
 	}})
-	shutdown, err := Install(a, Options{Endpoint: collector.URL, Service: "blog", Insecure: true})
+	shutdown, err := Install(a, Options{Endpoint: collector.URL + suffix, Service: "blog", Insecure: true})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,6 +3,32 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.163.0 — 2026-11-01
+
+The optional `otel` module drops its known vulnerabilities (spec 184, #321).
+
+### Security
+
+- **`otel/` dependencies updated past their advisories**: OpenTelemetry 1.28.0 → 1.45.0,
+  gRPC 1.64.0 → 1.83.2 (CVE-2026-33186, critical), `golang.org/x/net` 0.26.0 → 0.62.0 (four
+  reachable HTTP/2 advisories), `x/text` and `x/sys`. `sqltest/` moves `x/sys` to 0.44.0.
+- **`make security` scans `otel/` too.** `govulncheck ./...` at the root never entered the
+  nested module, which is how these went unnoticed.
+
+### Changed
+
+- **The `otel` module needs Go 1.26.** The `x/net` fixes exist only there; the framework
+  itself still builds with Go 1.22. CI runs `otel/` in its own Go 1.26 job.
+
+### Fixed
+
+- **An `Endpoint` without a path posts to `/v1/traces`.** The new SDK takes the URL path as
+  written, so `http://collector:4318` would have posted to `/` and lost every span; a path
+  you write is still used as is.
+- **`service.name` survives the SDK's semconv schema.** The service resource is now
+  schemaless, so merging it with the SDK default no longer fails and falls back to
+  `unknown_service`.
+
 ## 0.162.1 — 2026-10-26
 
 The upstream gets the scheme the app sees (spec 183, #316).

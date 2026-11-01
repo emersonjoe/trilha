@@ -27,11 +27,31 @@ jobs:
           cache: false
       - run: test -z "$(gofmt -l *.go h internal cmd examples tmpl ui)"
       - run: cd bench && go test ./... && go test -run XXX -bench . -benchtime=50ms
-      # O módulo opcional do OpenTelemetry tem go.mod próprio: roda aqui, ao
-      # lado do bench, e não entra no `go test ./...` do núcleo.
-      - run: cd otel && go vet ./... && go test ./...
       - run: go vet ./...
       - run: go test ./...
+      - name: Remove job caches
+        if: always() && runner.environment == 'self-hosted'
+        run: |
+          go clean -cache -modcache
+          rm -rf "$GOCACHE" "$GOMODCACHE"
+  # O módulo opcional do OpenTelemetry tem go.mod próprio e piso próprio: o SDK
+  # com as correções de segurança pede Go 1.26, o núcleo continua no 1.22.
+  otel:
+    runs-on: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.RUNNER_CI || 'ubuntu-latest' }}
+    steps:
+      - name: Configure ephemeral Go caches
+        run: |
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          clean: true
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26"
+          cache: false
+      - run: make test-otel
       - name: Remove job caches
         if: always() && runner.environment == 'self-hosted'
         run: |
