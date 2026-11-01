@@ -3,6 +3,21 @@
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semantic
 versioning. This file is written in English only.
 
+## 0.164.1 — 2026-11-01
+
+`trilha dev` stays on this machine by default (spec 186, #318).
+
+### Security
+
+- **`trilha dev` listens on `127.0.0.1:3000` by default.** It used `:3000`, every
+  interface, and its port serves what production hides — error pages with source, the
+  compile error with code, the route inspector, `/_trilha/report` and the app with its
+  development data — to anyone on the same café or coworking network. `--addr :3000` still
+  opens it on purpose (a phone on the same Wi-Fi, a VM) and now prints what that exposes.
+  Inside a container (`/.dockerenv`, `/run/.containerenv`, `KUBERNETES_SERVICE_HOST`), with
+  no `--addr`, the default stays `:3000` so the published port reaches it, and the CLI says
+  so.
+
 ## 0.164.0 — 2026-11-01
 
 The CSRF cookie a subdomain cannot plant (spec 185, #317).

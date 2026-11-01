@@ -228,7 +228,7 @@ não grava nada. Esta documentação também é publicada em texto puro, em
 verificados pelo compilador. Nada de `reflect`, nada de mágica em runtime; `go build .`
 funciona sem a CLI. O roteador é o `http.ServeMux` do Go 1.22+.
 
-`trilha dev` escuta em `:3000`, compila o app numa porta interna, faz proxy e injeta um
+`trilha dev` escuta em `127.0.0.1:3000` (só nesta máquina; `--addr :3000` abre para a rede), compila o app numa porta interna, faz proxy e injeta um
 script de live-reload (SSE). Ao salvar: regenera, recompila, troca o processo e avisa o
 navegador — cerca de 1 s no exemplo. Mudanças só em `public/` não recompilam: o navegador
 recarrega em dezenas de milissegundos. Erro de compilação vira uma página com a saída do

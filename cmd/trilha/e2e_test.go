@@ -45,6 +45,10 @@ func TestE2E(t *testing.T) {
 	if !strings.Contains(out, "/api/hello") || !strings.Contains(out, "app/page.go") {
 		t.Fatal(out)
 	}
+	// trilha dev stays on this machine unless told otherwise (#318).
+	if out, _ := runErr(t, proj, cli, "dev", "-h"); !strings.Contains(out, `"127.0.0.1:3000"`) {
+		t.Fatal(out)
+	}
 	// trilha ui: no-op on a fresh project; keeps the theme; refuses edited kit files without --force.
 	if out := run(t, proj, cli, "ui"); !regexp.MustCompile(`ui\.css\s+kept`).MatchString(out) {
 		t.Fatal(out)

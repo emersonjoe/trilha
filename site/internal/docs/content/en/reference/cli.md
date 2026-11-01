@@ -9,7 +9,7 @@ trilha new <dir> [--module path] [--template blog|app] [--with recipes] [--lang 
 trilha gen [--check] [--package name]
 trilha generate page|route|test <url> | component <Name>
     [--methods GET,POST] [--bind Type] [--form Type] [--layout file] [--force] [--dir path] [--lang en|pt]
-trilha dev [--addr :3000]
+trilha dev [--addr 127.0.0.1:3000]
 trilha build [-o bin/<name>]
 trilha export [-o out] [--base /prefix]
 trilha openapi [-o file] [--title T] [--version V] [--server URL] [--check]
@@ -33,7 +33,7 @@ trilha version
 | `generate` | writes one skeleton — a page, an API route or a component — in the folder the convention asks for |
 | `generate crud` | reads a struct and writes the whole thing: listing, create, edit, delete, a store — in memory or in SQL — and a test |
 | `add` | writes a framework recipe into the project: the audit trail, API keys, a settings section |
-| `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE + route inspector on `/_trilha/routes` |
+| `dev` | `gen` + `go build` + runs the app on an internal port + proxy on `--addr` + reload over SSE + route inspector on `/_trilha/routes`. `--addr` defaults to `127.0.0.1:3000`, this machine only: the port serves error pages with source, the route inspector and `/_trilha/report`. `--addr :3000` opens it to the network (a phone on the same Wi-Fi, a VM) and prints a warning; inside a container (`/.dockerenv`, `/run/.containerenv`, `KUBERNETES_SERVICE_HOST`) the default is `:3000`, so the published port reaches it |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + runs with `TRILHA_EXPORT` to produce static HTML |
 | `openapi` | writes the OpenAPI 3.1 document of the API routes (`-o -` to stdout) |

@@ -232,7 +232,7 @@ on its own writes nothing. This documentation is also published as plain text, a
 checked by the compiler. No `reflect`, no runtime magic; `go build .` works without the CLI.
 The router is Go 1.22+'s `http.ServeMux`.
 
-`trilha dev` listens on `:3000`, compiles the app on an internal port, proxies to it and
+`trilha dev` listens on `127.0.0.1:3000` (this machine only; `--addr :3000` opens it to the network), compiles the app on an internal port, proxies to it and
 injects a live-reload script (SSE). On save: regenerate, recompile, swap the process and
 notify the browser — about 1 s in the example. Changes only in `public/` do not recompile:
 the browser reloads in tens of milliseconds. A compile error becomes a page with the output

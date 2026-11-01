@@ -9,7 +9,7 @@ trilha new <dir> [--module caminho] [--template blog|app] [--with receitas] [--l
 trilha gen [--check] [--package nome]
 trilha generate page|route|test <url> | component <Nome>
     [--methods GET,POST] [--bind Tipo] [--form Tipo] [--layout arquivo] [--force] [--dir caminho] [--lang en|pt]
-trilha dev [--addr :3000]
+trilha dev [--addr 127.0.0.1:3000]
 trilha build [-o bin/<nome>]
 trilha export [-o out] [--base /prefixo]
 trilha openapi [-o arquivo] [--title T] [--version V] [--server URL] [--check]
@@ -33,7 +33,7 @@ trilha version
 | `generate` | grava um esqueleto — página, rota de API ou componente — na pasta que a convenção pede |
 | `generate crud` | lê um struct e escreve tudo: lista, criar, editar, excluir, um store — em memória ou em SQL — e um teste |
 | `add` | escreve uma receita do framework no projeto: a trilha de auditoria, chaves de API, uma seção de configurações |
-| `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE + inspetor de rotas em `/_trilha/routes` |
+| `dev` | `gen` + `go build` + executa o app em uma porta interna + proxy em `--addr` + recarga por SSE + inspetor de rotas em `/_trilha/routes`. O `--addr` padrão é `127.0.0.1:3000`, só nesta máquina: a porta serve páginas de erro com código-fonte, o inspetor de rotas e o `/_trilha/report`. `--addr :3000` abre para a rede (o celular no mesmo Wi-Fi, uma VM) e mostra um aviso; dentro de um container (`/.dockerenv`, `/run/.containerenv`, `KUBERNETES_SERVICE_HOST`) o padrão é `:3000`, para a porta publicada chegar nele |
 | `build` | `gen` + `go build -trimpath -ldflags="-s -w"` com `CGO_ENABLED=0` |
 | `export` | `gen` + `go build` + executa com `TRILHA_EXPORT` para gerar HTML estático |
 | `openapi` | escreve o documento OpenAPI 3.1 das rotas de API (`-o -` na saída padrão) |
