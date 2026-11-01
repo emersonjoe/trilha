@@ -47,7 +47,7 @@ Usage:
   trilha gen [--check]                              generate trilha_gen.go from app/ (--check: fail if stale)
   trilha generate page|route|test <url> | component <Name>   write a skeleton in the right place
     [--methods GET,POST] [--bind Type] [--form Type] [--layout file] [--lang en|pt]
-  trilha dev [--addr :3000]                         dev server with live reload
+  trilha dev [--addr 127.0.0.1:3000]                dev server with live reload
   trilha build [-o bin/<name>]                      generate + compile a single binary
   trilha check [--json] [--fix]                     the single gate: gen, gofmt, vet, test, audit, openapi
   trilha ctx [--json] [--routes|--types|--all]      the map of the project: routes, API, types, setup
@@ -83,7 +83,7 @@ Uso:
   trilha gen [--check]                                gera trilha_gen.go a partir de app/ (--check: falha se desatualizado)
   trilha generate page|route|test <url> | component <Nome>  grava um esqueleto no lugar certo
     [--methods GET,POST] [--bind Tipo] [--form Tipo] [--layout arquivo] [--lang en|pt]
-  trilha dev [--addr :3000]                           dev server com recarga automática
+  trilha dev [--addr 127.0.0.1:3000]                  dev server com recarga automática
   trilha build [-o bin/<nome>]                        gera + compila um binário único
   trilha check [--json] [--fix]                       o portão único: gen, gofmt, vet, test, audit, openapi
   trilha ctx [--json] [--routes|--types|--all]        o mapa do projeto: rotas, API, tipos, setup
@@ -229,7 +229,11 @@ Idioma: TRILHA_LANG=en|pt (senão LC_ALL, LC_MESSAGES, LANG).
 	"generated route":     {"\n✓ %s answers now; trilha_gen.go is up to date\n", "\n✓ %s já responde; trilha_gen.go está atualizado\n"},
 
 	// dev / build / export
-	"flag addr":     {"public address of the dev server", "endereço público do dev server"},
+	"flag addr": {"address of the dev server (:3000 opens it to the network)", "endereço do dev server (:3000 abre para a rede)"},
+	"dev exposed": {"⚠ the dev server listens on %s, beyond this machine: anyone on this network can open\n  its error pages with source, the route inspector and /_trilha/report.\n  Keep it local with -addr %s.\n",
+		"⚠ o dev server escuta em %s, além desta máquina: qualquer um nesta rede abre as\n  páginas de erro com código-fonte, o inspetor de rotas e o /_trilha/report.\n  Para ficar só aqui, use -addr %s.\n"},
+	"dev container": {"  Container detected: every interface, so the published port reaches it.\n",
+		"  Container detectado: todas as interfaces, para a porta publicada chegar nele.\n"},
 	"flag build -o": {"output file (default bin/<folder-name>)", "arquivo de saída (padrão bin/<nome-da-pasta>)"},
 	"build failed":  {"go build failed: %w", "go build falhou: %w"},
 	"flag out":      {"output folder", "pasta de saída"},

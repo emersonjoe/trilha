@@ -109,8 +109,20 @@ follows whatever the folder declares. See
 ## Port 3000 is busy
 
 ```bash
-trilha dev --addr :3001
+trilha dev --addr 127.0.0.1:3001
 ```
+
+## The phone (or the VM) cannot open the dev server
+
+`trilha dev` listens on `127.0.0.1` by default, so only this machine reaches it. To open it to
+the network on purpose:
+
+```bash
+trilha dev --addr :3000
+```
+
+The CLI warns that the error pages, the route inspector and `/_trilha/report` are now visible
+to anyone on that network. Inside a container this is already the default.
 
 ## The browser does not reload
 

@@ -11,7 +11,7 @@ progressivo, seguro por padrão, um binário no fim*. O risco de qualquer roadma
 lista de features do Next.js; o critério de aceitação de cada item abaixo é **resolver um
 problema real de quem escreve o app**, não empatar uma tabela comparativa.
 
-## Onde o Trilha está (novembro de 2026, v0.164.0)
+## Onde o Trilha está (novembro de 2026, v0.164.1)
 
 > Esta linha é conferida pelo `scripts/release.sh`: uma release cuja versão não aparece no
 > título acima é recusada antes de escrever qualquer coisa. Foi assim que a seção parou de
@@ -411,7 +411,9 @@ opcional em Go 1.26 (o núcleo segue no 1.22), e o `make security` varrendo o `o
 152. **Cookie de CSRF com prefixo `__Host-`** (spec 185, **entregue na 0.164.0**): em HTTPS o
 cookie é `__Host-trilha_csrf`, que um subdomínio não consegue plantar, e um `trilha_csrf`
 antigo nunca vira o segredo da página; a leitura do nome antigo, mantida para formulários
-abertos antes do deploy, sai na 0.165.0 (#317).
+abertos antes do deploy, sai na 0.165.0 (#317). Na 0.164.1, o `trilha dev` passa a escutar
+em `127.0.0.1` por padrão, com `--addr :3000` para abrir para a rede e aviso do que fica
+exposto (spec 186, #318).
 
 ## O que não vamos fazer, e por quê
 

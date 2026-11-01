@@ -108,8 +108,20 @@ o que a pasta declara. Veja
 ## A porta 3000 está ocupada
 
 ```bash
-trilha dev --addr :3001
+trilha dev --addr 127.0.0.1:3001
 ```
+
+## O celular (ou a VM) não abre o dev server
+
+O `trilha dev` escuta em `127.0.0.1` por padrão, então só esta máquina chega nele. Para abrir
+para a rede de propósito:
+
+```bash
+trilha dev --addr :3000
+```
+
+A CLI avisa que as páginas de erro, o inspetor de rotas e o `/_trilha/report` ficam visíveis
+para qualquer um nessa rede. Dentro de um container, esse já é o padrão.
 
 ## O navegador não recarrega
 
