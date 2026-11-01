@@ -170,6 +170,11 @@ func Setup(a *trilha.App) error {
 }
 ```
 
+Um `Endpoint` sem caminho envia para o `/v1/traces` padrão; um com caminho
+(`tempo:4318/otlp/v1/traces`) é usado como está escrito. O módulo pede Go 1.26 ou mais novo,
+porque o SDK do OpenTelemetry acompanha as versões suportadas do Go e as correções de
+segurança dele só saem nelas; o framework continua compilando com Go 1.22.
+
 O `trilhaotel.Install` lê o `traceparent` que já chegou, abre um span de servidor por
 requisição e exporta por OTLP/HTTP. O que o span carrega é o formato agregável da requisição,
 e nada além disso:

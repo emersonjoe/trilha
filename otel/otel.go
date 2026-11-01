@@ -125,8 +125,10 @@ func Install(a *trilha.App, o Options) (shutdown func(context.Context) error, er
 	if sample > 1 {
 		sample = 1
 	}
-	res, err := resource.Merge(resource.Default(), resource.NewWithAttributes(
-		semconv.SchemaURL,
+	// Schemaless: the default resource carries the SDK's own semconv schema,
+	// and two different schemas refuse to merge, which would drop the
+	// service name on every SDK upgrade.
+	res, err := resource.Merge(resource.Default(), resource.NewSchemaless(
 		semconv.ServiceName(o.Service),
 		semconv.ServiceVersion(o.Version),
 	))
@@ -168,7 +170,13 @@ func newExporter(o Options) (sdktrace.SpanExporter, error) {
 		if err != nil || u.Host == "" {
 			return nil, fmt.Errorf("otel: invalid endpoint %q", o.Endpoint)
 		}
-		opts = append(opts, otlptracehttp.WithEndpointURL(ep))
+		// The SDK takes the URL's path as is, so "http://tempo:4318" would
+		// post to "/" and every span would be lost: no path means the
+		// standard one.
+		if u.Path == "" || u.Path == "/" {
+			u.Path = "/v1/traces"
+		}
+		opts = append(opts, otlptracehttp.WithEndpointURL(u.String()))
 		if u.Scheme == "http" || o.Insecure {
 			opts = append(opts, otlptracehttp.WithInsecure())
 		}
