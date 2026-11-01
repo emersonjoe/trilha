@@ -45,11 +45,11 @@ func CapturePage(t TestingT, a *App, method, target string, opts ...TestOption) 
 
 // Snapshot is this response with its volatile values replaced.
 func (r *TestResponse) Snapshot() PageSnapshot {
-	field, cookie := CSRFField, CSRFCookie
+	names := CSRF{}.names()
 	if r.app != nil {
-		names := r.app.cfg.CSRF.names()
-		field, cookie = names.Field, names.Cookie
+		names = r.app.cfg.CSRF.names()
 	}
+	field, cookie, hostCookie := names.Field, names.Cookie, names.cookieFor(true)
 	var swaps []swap
 	if m := nonceInCSP().FindStringSubmatch(r.Header().Get("Content-Security-Policy")); m != nil {
 		swaps = append(swaps, swap{m[1], "{{NONCE}}"})
@@ -64,7 +64,7 @@ func (r *TestResponse) Snapshot() PageSnapshot {
 	secrets := map[string]bool{}
 	for _, ck := range cookies {
 		with := "{{COOKIE}}"
-		if ck.Name == cookie {
+		if ck.Name == cookie || ck.Name == hostCookie {
 			with = "{{CSRF}}"
 			secrets[unmaskCSRF(ck.Value)] = true
 		}

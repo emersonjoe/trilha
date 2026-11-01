@@ -56,8 +56,9 @@ func POST(c *trilha.Ctx) error {
 ## O que acontece no envio
 
 1. O navegador manda `POST /eventos/novo` com os campos e o `_csrf`.
-2. O Trilha compara o `_csrf` com o cookie `trilha_csrf` (tempo constante). Diferente ou
-   ausente: **403**, e `POST` nem roda.
+2. O Trilha compara o `_csrf` com o cookie `trilha_csrf` (tempo constante); em HTTPS o
+   cookie é `__Host-trilha_csrf`, um nome que o navegador recusa vindo de subdomínio ou de
+   HTTP em claro. Diferente ou ausente: **403**, e `POST` nem roda.
 3. `POST` roda e devolve `c.Redirect(...)`: resposta **303 See Other**. O navegador faz um
    `GET` na URL nova. Recarregar a página não reenvia o formulário.
 

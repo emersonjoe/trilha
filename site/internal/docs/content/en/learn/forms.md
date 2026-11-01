@@ -56,8 +56,9 @@ func POST(c *trilha.Ctx) error {
 ## What happens on submit
 
 1. The browser sends `POST /events/new` with the fields and the `_csrf`.
-2. Trilha compares `_csrf` with the `trilha_csrf` cookie (constant time). Different or
-   missing: **403**, and `POST` does not even run.
+2. Trilha compares `_csrf` with the `trilha_csrf` cookie (constant time); over HTTPS the
+   cookie is `__Host-trilha_csrf`, a name the browser refuses from a subdomain or from plain
+   HTTP. Different or missing: **403**, and `POST` does not even run.
 3. `POST` runs and returns `c.Redirect(...)`: a **303 See Other** response. The browser does
    a `GET` on the new URL. Reloading the page does not resubmit the form.
 
